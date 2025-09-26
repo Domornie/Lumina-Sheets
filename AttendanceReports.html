@@ -1,0 +1,2879 @@
+<?!= include("header", { 
+  baseUrl: baseUrl, 
+  user: user, 
+  currentPage: currentPage,
+  userList: userList || [],
+  granularity: granularity || 'Week',
+  periodValue: periodValue || '',
+  selectedAgent: selectedAgent || ''
+}) ?>
+
+  
+  <style>
+    :root {
+      --navy-primary: #003177;
+      --cyan-accent: #00BFFF;
+      --gold-highlight: #FFB800;
+      --fire-red: #FF4000;
+      --success: #10b981;
+      --warning: #FFB800;
+      --danger: #FF4000;
+      --light: #f8fafc;
+      --dark: #1e293b;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-300: #cbd5e1;
+      --gray-500: #64748b;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1e293b;
+
+      --gradient-primary: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+      --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      --gradient-warning: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+      --gradient-danger: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+      --gradient-info: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+
+      --ai-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --insight-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --prediction-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+      --border-radius: 16px;
+      --border-radius-lg: 24px;
+      --border-radius-full: 9999px;
+    }
+
+    /* INTELLIGENT LOADER */
+    #loaderOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(248, 250, 252, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 9999;
+    }
+
+    .spinner-border {
+      width: 4rem;
+      height: 4rem;
+      border-width: 0.3rem;
+      border-color: var(--cyan-accent);
+      border-right-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ENHANCED CARD STYLES */
+    .card {
+      border-radius: var(--border-radius);
+      border: 1px solid var(--gray-200);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card.ai-enhanced::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--ai-gradient);
+      animation: ai-pulse 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes ai-pulse {
+      0% { opacity: .6 }
+      100% { opacity: 1 }
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border-bottom: 1px solid var(--gray-200);
+      padding: 1.5rem;
+      border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .card-header h5 {
+      margin: 0;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      color: var(--gray-800);
+    }
+
+    .card-header h5 i {
+      margin-right: .75rem;
+      width: 1.5rem;
+      height: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gradient-primary);
+      color: #fff;
+      border-radius: 8px;
+      font-size: .875rem;
+    }
+
+    /* INTELLIGENT INSIGHTS PANEL */
+    .intelligent-insights-panel {
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: var(--border-radius-lg);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border: 1px solid var(--gray-200);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .intelligent-insights-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--ai-gradient);
+    }
+
+    .insight-card {
+      background: #fff;
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid;
+      transition: all .3s ease;
+    }
+
+    .insight-card:hover {
+      transform: translateX(4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .insight-card.critical {
+      border-left-color: var(--danger);
+      background: linear-gradient(135deg, rgba(255, 64, 0, .05) 0%, rgba(255, 255, 255, .05) 100%);
+    }
+
+    .insight-card.high {
+      border-left-color: var(--warning);
+      background: linear-gradient(135deg, rgba(255, 184, 0, .05) 0%, rgba(255, 255, 255, .05) 100%);
+    }
+
+    .insight-card.medium {
+      border-left-color: var(--cyan-accent);
+      background: linear-gradient(135deg, rgba(0, 191, 255, .05) 0%, rgba(255, 255, 255, .05) 100%);
+    }
+
+    .insight-card.low {
+      border-left-color: var(--success);
+      background: linear-gradient(135deg, rgba(16, 185, 129, .05) 0%, rgba(255, 255, 255, .05) 100%);
+    }
+
+    /* MODERN PAGE HEADER */
+    .modern-page-header {
+      background: var(--gradient-primary);
+      border-radius: var(--border-radius-lg);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .modern-page-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 200px;
+      height: 200px;
+      background: rgba(255, 255, 255, .1);
+      border-radius: 50%;
+      transform: translate(50%, -50%);
+    }
+
+    .modern-page-header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .modern-page-header p {
+      font-size: 1.1rem;
+      opacity: .9;
+      margin: .5rem 0 0 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* KPI CARDS */
+    .kpi-card {
+      text-align: center;
+      color: var(--gray-700);
+      border-radius: var(--border-radius);
+      background: linear-gradient(145deg, #fff 0%, #f8fafc 100%);
+      border: 1px solid var(--gray-200);
+      padding: 2rem 1.5rem;
+      transition: all .3s cubic-bezier(.4, 0, .2, 1);
+      position: relative;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    .kpi-card.ai-enhanced::after {
+      content: 'AI';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--ai-gradient);
+      color: #fff;
+      padding: .2rem .5rem;
+      border-radius: var(--border-radius-full);
+      font-size: .6rem;
+      font-weight: 700;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .kpi-card .fas {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block;
+    }
+
+    .kpi-card .value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin: 1rem 0 .5rem;
+      background: linear-gradient(135deg, var(--gray-800) 0%, var(--gray-600) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+
+    .kpi-card .label {
+      font-size: .875rem;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: .05em;
+      margin-bottom: .5rem;
+    }
+
+    .kpi-card.success .fas {
+      background: var(--gradient-success);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .kpi-card.danger .fas {
+      background: var(--gradient-danger);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .kpi-card.warning .fas {
+      background: var(--gradient-warning);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .kpi-card.info .fas {
+      background: var(--gradient-info);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* BUTTONS */
+    .btn {
+      border-radius: 12px;
+      font-weight: 600;
+      transition: all .3s ease;
+      border: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: var(--gradient-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-ai {
+      background: var(--ai-gradient);
+      color: #fff;
+      position: relative;
+    }
+
+    .btn-ai::after {
+      content: '✨';
+      margin-left: .5rem;
+    }
+
+    .btn-ai:hover {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, .3);
+    }
+
+    /* CHART CONTAINERS */
+    .chart-container {
+      position: relative;
+      height: 350px;
+      width: 100%;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    /* FORMS */
+    .form-select,
+    .form-control {
+      border-radius: 10px;
+      border: 1px solid var(--gray-300);
+      padding: .5rem 1rem;
+    }
+
+    /* TABLES */
+    .table {
+      background: #fff;
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .table th {
+      background: var(--navy-primary);
+      color: #fff;
+      padding: 1rem;
+      font-weight: 600;
+    }
+
+    .table td {
+      padding: .75rem 1rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    /* PERFORMANCE MONITOR */
+    .performance-monitor {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, .8);
+      backdrop-filter: blur(10px);
+      border-radius: var(--border-radius);
+      padding: 1rem;
+      z-index: 1000;
+      min-width: 250px;
+      color: #fff;
+      opacity: .9;
+    }
+
+    /* JAMAICA TIME ZONE INDICATOR */
+    .timezone-indicator {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 49, 119, 0.9);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: var(--border-radius);
+      font-size: 0.8rem;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .modern-page-header {
+        padding: 1rem;
+        text-align: center;
+      }
+
+      .modern-page-header h1 {
+        font-size: 1.75rem;
+      }
+
+      .kpi-card {
+        padding: 1rem;
+      }
+
+      .performance-monitor {
+        position: relative;
+        top: auto;
+        right: auto;
+        margin-bottom: 1rem;
+      }
+
+      .timezone-indicator {
+        position: relative;
+        bottom: auto;
+        left: auto;
+        margin-top: 1rem;
+        justify-content: center;
+      }
+    }
+
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      color: var(--gray-500);
+    }
+
+    .loading-state i {
+      margin-right: .5rem;
+    }
+
+    .toast-container {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 9999;
+    }
+
+    .toast {
+      backdrop-filter: blur(10px);
+    }
+
+    .trend-up {
+      color: var(--success);
+    }
+
+    .trend-down {
+      color: var(--fire-red);
+    }
+
+    .trend-stable {
+      color: var(--gray-500);
+    }
+
+    /* Export Modal Specific Styles */
+    .export-format-badge {
+      display: inline-block;
+      background: var(--gradient-primary);
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 15px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+    }
+
+    .data-type-checkbox {
+      margin-bottom: 0.75rem;
+    }
+
+    .data-type-checkbox .form-check-label {
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .data-type-checkbox .form-check-label i {
+      width: 20px;
+    }
+
+    .pivot-preview-card {
+      background: linear-gradient(135deg, #e3f2fd 0%, #f8fafc 100%);
+      border: 1px solid #bbdefb;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+  </style>
+
+<!-- INTELLIGENT LOADER OVERLAY -->
+<div id="loaderOverlay">
+  <div class="d-flex align-items-center justify-content-center" style="height: 100%; width: 100%;">
+    <div class="text-center">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <div class="mt-3">
+        <h5>Processing Attendance Data</h5>
+        <p id="loader-status">Converting seconds to hours...</p>
+        <div class="progress mb-2" style="height: 4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+        </div>
+        <small class="text-muted" id="loader-tip">Analyzing database structure...</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PERFORMANCE MONITOR -->
+<div id="performanceMonitor" class="performance-monitor" style="display: none;">
+  <h6><i class="fas fa-tachometer-alt me-2"></i>System Health</h6>
+  <div class="d-flex justify-content-between"><span>Response:</span><span id="responseTime">--</span></div>
+  <div class="d-flex justify-content-between"><span>Data Format:</span><span>Seconds→Hours</span></div>
+  <div class="d-flex justify-content-between"><span>Timezone:</span><span>Jamaica</span></div>
+  <div class="d-flex justify-content-between"><span>Quality:</span><span id="dataQuality">--</span></div>
+</div>
+
+<!-- JAMAICA TIME ZONE INDICATOR -->
+<div class="timezone-indicator">
+  <i class="fas fa-clock"></i>
+  <span>Jamaica Time (UTC-5)</span>
+  <span id="jamaicanTime">--:--:--</span>
+</div>
+
+<!-- MAIN CONTAINER -->
+<div class="container-fluid px-4 py-3">
+
+<div class="modern-page-header">
+  <h1><i class="fas fa-users-clock me-3"></i>Attendance Management</h1>
+  <p>Real-time workforce analytics with corrected time calculations (Jamaica Time Zone)</p>
+  <div class="d-flex gap-3 mb-4 flex-wrap">
+    <button class="btn btn-light" onclick="window.location='?page=importattendance'" title="Import CSV">
+      <i class="fas fa-file-import me-2"></i>Import Data
+    </button>
+    <button id="exportBtn" class="btn btn-light" onclick="showEnhancedExportModal()">
+      <i class="fas fa-table me-2"></i>Export Matrix
+    </button>
+    <button id="aiInsightsBtn" class="btn btn-ai" onclick="refreshAIInsights()">
+      <i class="fas fa-magic me-2"></i>Analytics
+    </button>
+    <button id="refreshBtn" class="btn btn-light" onclick="refreshData()">
+      <i class="fas fa-sync me-2"></i>Refresh
+    </button>
+  </div>
+</div>
+
+<!-- FILTERS CARD -->
+<div class="card">
+  <div class="card-body">
+    <div class="row align-items-center">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">Time Period</label>
+        <select class="form-select" id="granularitySelect">
+          <option value="Week" selected>📅 Weekly</option>
+          <option value="BiWeekly">📅 Bi-Weekly</option>
+          <option value="Month">📆 Monthly</option>
+          <option value="Quarter">📋 Quarterly</option>
+          <option value="Year">📊 Yearly</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold">Agent Filter</label>
+        <select class="form-select" id="agentSelect">
+          <option value="">👥 All Agents</option>
+        </select>
+      </div>
+      <div class="col-md-3" id="periodSelector">
+        <label class="form-label fw-bold">Period</label>
+        <input type="week" class="form-control" id="weekInput" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold">View Mode</label>
+        <select class="form-select" id="viewMode">
+          <option value="standard">Standard View</option>
+          <option value="executive">Executive Summary</option>
+          <option value="detailed">Detailed Analysis</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INTELLIGENT INSIGHTS PANEL -->
+<div id="intelligentInsightsPanel" class="intelligent-insights-panel" style="display: none;">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3><i class="fas fa-lightbulb me-2"></i>Analytics Insights</h3>
+    <small class="text-muted">Powered by corrected time calculations</small>
+  </div>
+  <div id="insightsContainer"></div>
+</div>
+
+<!-- EXECUTIVE PANEL -->
+<div id="executivePanel" class="card ai-enhanced">
+  <div class="card-header">
+    <h5><i class="fas fa-tachometer-alt"></i>Executive Summary</h5>
+  </div>
+  <div class="card-body">
+    <div class="row" id="executiveMetrics">
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="text-center">
+          <div class="h2 mb-1 text-success" id="efficiencyRate">--</div>
+          <div class="text-muted">Efficiency Rate</div>
+          <div class="small" id="efficiencyTrend"><i class="fas fa-chart-line text-success"></i> Calculating...</div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="text-center">
+          <div class="h2 mb-1 text-primary" id="complianceRate">--</div>
+          <div class="text-muted">Compliance Rate</div>
+          <div class="small" id="complianceTrend"><i class="fas fa-shield-alt text-primary"></i> Processing...</div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="text-center">
+          <div class="h2 mb-1 text-info" id="totalEmployees">--</div>
+          <div class="text-muted">Active Employees</div>
+          <div class="small" id="employeesTrend"><i class="fas fa-users text-info"></i> Loading...</div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="text-center">
+          <div class="h2 mb-1 text-warning" id="violationsCount">--</div>
+          <div class="text-muted">Policy Violations</div>
+          <div class="small" id="violationsTrend"><i class="fas fa-exclamation-triangle text-warning"></i> Analyzing...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATE SUMMARY CARDS -->
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4" id="stateSummaryRow"></div>
+
+<!-- KPI CARDS ROW -->
+<div class="row gx-4 mb-4">
+  <div class="col-lg-6">
+    <div class="kpi-card success h-100 ai-enhanced">
+      <i class="fas fa-chart-line"></i>
+      <div class="label">Productive Hours</div>
+      <div class="value text-success" id="kpi-productive">Loading...</div>
+      <small class="text-muted">Converted from seconds to hours</small>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="kpi-card danger h-100 ai-enhanced">
+      <i class="fas fa-coffee"></i>
+      <div class="label">Non-Productive Hours</div>
+      <div class="value text-danger" id="kpi-nonproductive">Loading...</div>
+      <small class="text-muted">Break + Lunch time</small>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY BREAKDOWN CARD -->
+<div class="card mb-4 ai-enhanced">
+  <div class="card-header">
+    <h5><i class="fas fa-calendar-week"></i>Daily Break & Lunch Analysis</h5>
+  </div>
+  <div class="card-body">
+    <div id="dailyBreakdownBars">
+      <!-- Daily progress bars will be rendered here -->
+    </div>
+  </div>
+</div>
+
+<!-- CHARTS ROW -->
+<div class="row gx-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card h-100 ai-enhanced">
+      <div class="card-header">
+        <h5><i class="fas fa-trophy"></i>Top Performers</h5>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="topPerformersChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100 ai-enhanced">
+      <div class="card-header">
+        <h5><i class="fas fa-chart-bar"></i>Attendance Statistics</h5>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="attendanceStatsChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY ATTENDANCE CHART -->
+<div class="card mb-4 ai-enhanced">
+  <div class="card-header">
+    <h5><i class="fas fa-chart-line"></i>Daily Attendance Overview</h5>
+  </div>
+  <div class="card-body">
+    <div class="chart-container">
+      <canvas id="dailyAttendanceChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ATTENDANCE TABLE -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5><i class="fas fa-users"></i>Employee Attendance Summary</h5>
+    <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
+      <i class="fas fa-download me-1"></i>Export
+    </button>
+  </div>
+  <div id="attendanceTableContainer" class="card-body">
+    <div class="loading-state">
+      <i class="fas fa-spinner fa-spin"></i> Loading attendance data...
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- Enhanced Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="exportModalLabel">
+          <i class="fas fa-table me-2"></i>Enhanced Daily Matrix Export
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          <strong>Daily Pivot Matrix:</strong> Export users as rows × days as columns showing productive hours. Data converted from seconds to decimal hours.
+        </div>
+
+        <form id="exportForm">
+          <!-- Export Format Selection -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary mb-3"><i class="fas fa-table me-2"></i>Export Format</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-check mb-3 p-3 border rounded" style="background: linear-gradient(135deg, #e3f2fd 0%, #f8fafc 100%);">
+                    <input class="form-check-input" type="radio" name="exportFormat" id="dailyPivot" value="daily_pivot" checked>
+                    <label class="form-check-label fw-bold" for="dailyPivot">
+                      <i class="fas fa-table text-primary me-2"></i>Daily Pivot Matrix
+                      <span class="export-format-badge">RECOMMENDED</span>
+                    </label>
+                    <small class="text-muted d-block mt-1">Users × Days matrix with productive hours</small>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check mb-3 p-3 border rounded">
+                    <input class="form-check-input" type="radio" name="exportFormat" id="standardCsv" value="csv">
+                    <label class="form-check-label fw-bold" for="standardCsv">
+                      <i class="fas fa-file-csv text-success me-2"></i>Standard CSV
+                    </label>
+                    <small class="text-muted d-block mt-1">Traditional row format</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Matrix Options -->
+          <div id="pivotMatrixOptions" class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary mb-3"><i class="fas fa-cogs me-2"></i>Matrix Options</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-check data-type-checkbox">
+                    <input class="form-check-input" type="checkbox" id="highlightLowHours" checked>
+                    <label class="form-check-label" for="highlightLowHours">
+                      <i class="fas fa-exclamation-triangle text-warning me-1"></i>Mark Hours Under 8.00*
+                    </label>
+                    <small class="text-muted d-block">Adds asterisk to hours below 8.00 on weekdays</small>
+                  </div>
+                  
+                  <div class="form-check data-type-checkbox">
+                    <input class="form-check-input" type="checkbox" id="includeWeekends" checked>
+                    <label class="form-check-label" for="includeWeekends">
+                      <i class="fas fa-calendar-weekend text-secondary me-1"></i>Show Weekend Columns
+                    </label>
+                    <small class="text-muted d-block">Include Saturday and Sunday columns</small>
+                  </div>
+                  
+                  <div class="form-check data-type-checkbox">
+                    <input class="form-check-input" type="checkbox" id="includeTotalHours" checked>
+                    <label class="form-check-label" for="includeTotalHours">
+                      <i class="fas fa-clock text-success me-1"></i>Total Hours Column
+                    </label>
+                    <small class="text-muted d-block">Sum of all productive hours</small>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <div class="form-check data-type-checkbox">
+                    <input class="form-check-input" type="checkbox" id="includeDiscrepancy" checked>
+                    <label class="form-check-label" for="includeDiscrepancy">
+                      <i class="fas fa-chart-line text-warning me-1"></i>Discrepancy Count
+                    </label>
+                    <small class="text-muted d-block">Days with less than 8 hours</small>
+                  </div>
+                  
+                  <div class="form-check data-type-checkbox">
+                    <input class="form-check-input" type="checkbox" id="includeOvertime" checked>
+                    <label class="form-check-label" for="includeOvertime">
+                      <i class="fas fa-plus-circle text-info me-1"></i>Overtime Hours
+                    </label>
+                    <small class="text-muted d-block">Hours over 8.00 per day</small>
+                  </div>
+                  
+                  <div class="form-check data-type-checkbox">
+                    <input class="form-check-input" type="checkbox" id="includeTotalsRow" checked>
+                    <label class="form-check-label" for="includeTotalsRow">
+                      <i class="fas fa-calculator text-primary me-1"></i>Daily Totals Row
+                    </label>
+                    <small class="text-muted d-block">Sum totals for each day column</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Time Period Selection -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary mb-3"><i class="fas fa-calendar-alt me-2"></i>Time Period</h6>
+              <div class="btn-group w-100" role="group" aria-label="Export type">
+                <input type="radio" class="btn-check" name="exportType" id="weekly" value="Week" checked>
+                <label class="btn btn-outline-primary" for="weekly">Weekly</label>
+
+                <input type="radio" class="btn-check" name="exportType" id="monthly" value="Month">
+                <label class="btn btn-outline-primary" for="monthly">Monthly</label>
+
+                <input type="radio" class="btn-check" name="exportType" id="quarterly" value="Quarter">
+                <label class="btn btn-outline-primary" for="quarterly">Quarterly</label>
+
+                <input type="radio" class="btn-check" name="exportType" id="custom" value="Custom">
+                <label class="btn btn-outline-primary" for="custom">Custom Range</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Period Selection -->
+          <div class="row mb-4" id="periodSelection">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Select Period</label>
+              <select class="form-select" id="periodSelect">
+                <option value="">Select a period...</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Year</label>
+              <select class="form-select" id="yearSelect">
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2023">2023</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Custom Date Range -->
+          <div class="row mb-4" id="customDateRange" style="display: none;">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Start Date</label>
+              <input type="date" class="form-control" id="startDate">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">End Date</label>
+              <input type="date" class="form-control" id="endDate">
+            </div>
+          </div>
+
+          <!-- User Selection -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary mb-3"><i class="fas fa-users me-2"></i>User Selection</h6>
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="userSelection" id="allUsers" value="all" checked>
+                    <label class="form-check-label fw-bold" for="allUsers">All Users</label>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="userSelection" id="singleUser" value="single">
+                    <label class="form-check-label fw-bold" for="singleUser">Single User</label>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="userSelection" id="multipleUsers" value="multiple">
+                    <label class="form-check-label fw-bold" for="multipleUsers">Multiple Users</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Single User Selection -->
+          <div class="row mb-4" id="singleUserSelection" style="display: none;">
+            <div class="col-12">
+              <label class="form-label fw-bold">Select User</label>
+              <select class="form-select" id="singleUserSelect">
+                <option value="">Choose a user...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Multiple Users Selection -->
+          <div class="row mb-4" id="multipleUsersSelection" style="display: none;">
+            <div class="col-12">
+              <label class="form-label fw-bold">Select Users</label>
+              <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                <div id="userCheckboxes">
+                  <!-- Checkboxes will be populated dynamically -->
+                </div>
+              </div>
+              <small class="text-muted">Select multiple users by checking the boxes above</small>
+            </div>
+          </div>
+
+          <!-- Preview Section -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <div class="alert alert-success">
+                <h6 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Export Preview (Jamaica Time Zone)</h6>
+                <div class="row">
+                  <div class="col-md-6">
+                    <p class="mb-1"><strong>Format:</strong> <span id="previewFormat">Daily Pivot Matrix</span></p>
+                    <p class="mb-1"><strong>Layout:</strong> <span id="previewLayout">Users × Days Matrix</span></p>
+                    <p class="mb-1"><strong>Period:</strong> <span id="previewPeriod">Weekly</span></p>
+                  </div>
+                  <div class="col-md-6">
+                    <p class="mb-1"><strong>Users:</strong> <span id="previewUsers">All Users</span></p>
+                    <p class="mb-1"><strong>Data Format:</strong> <span>Seconds → Decimal Hours</span></p>
+                    <p class="mb-0"><strong>Timezone:</strong> <span>Jamaica (UTC-5)</span></p>
+                  </div>
+                </div>
+                <hr>
+                <small class="text-success">
+                  <i class="fas fa-info-circle me-1"></i>
+                  <strong>Data Accuracy:</strong> All duration values converted from seconds to decimal hours for accurate reporting.
+                </small>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times me-2"></i>Cancel
+        </button>
+        <button type="button" class="btn btn-success" id="executeExport">
+          <i class="fas fa-download me-2"></i>Export Matrix
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Progress Modal -->
+<div class="modal fade" id="exportProgressModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center p-4">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <h5>Preparing Matrix Export</h5>
+        <p class="text-muted mb-3">Converting seconds to hours and generating matrix...</p>
+        <div class="progress">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+        <p class="mt-2 mb-0"><small id="exportStatus">Initializing export...</small></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container"></div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<script>
+  // Jamaica Time Zone Configuration
+  const JAMAICA_TIMEZONE = 'America/Jamaica';
+  const JAMAICA_UTC_OFFSET = -5; // UTC-5 (no daylight saving time)
+
+  // Update Jamaican time display
+  function updateJamaicanTime() {
+    try {
+      const now = new Date();
+      const jamaicanTime = now.toLocaleTimeString('en-US', {
+        timeZone: JAMAICA_TIMEZONE,
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      const timeElement = document.getElementById('jamaicanTime');
+      if (timeElement) {
+        timeElement.textContent = jamaicanTime;
+      }
+    } catch (error) {
+      console.warn('Error updating Jamaican time:', error);
+      const timeElement = document.getElementById('jamaicanTime');
+      if (timeElement) {
+        timeElement.textContent = '--:--:--';
+      }
+    }
+  }
+
+  // Update Jamaican time every second
+  setInterval(updateJamaicanTime, 1000);
+  updateJamaicanTime(); // Initial call
+
+  // Global variables
+  window.CURRENT_USER = {};
+  window.MANAGER_USER_ID = '';
+  window.INITIAL_USER_LIST = [];
+
+  // Client hardening helpers
+  const ChannelClosedRegex = /message channel closed/i;
+
+  function debounce(fn, wait = 250) {
+    let t; 
+    return function debounced(...args) { 
+      clearTimeout(t); 
+      t = setTimeout(() => fn.apply(this, args), wait); 
+    };
+  }
+
+  function safeServerCall(fnName, args = [], { timeoutMs = 30000, ignoreChannelClosed = true } = {}) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(`${fnName} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      const onSuccess = (res) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve(res);
+      };
+
+      const onFailure = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        const msg = (err && err.message) ? String(err.message) : String(err);
+        if (ignoreChannelClosed && ChannelClosedRegex.test(msg)) {
+          resolve(null);
+          return;
+        }
+        reject(err);
+      };
+
+      try {
+        console.log(`Calling server function: ${fnName} with args:`, args);
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure)[fnName](...(args || []));
+        } else {
+          // Fallback for testing environment
+          setTimeout(() => onSuccess({ success: true, message: 'Test mode' }), 1000);
+        }
+      } catch (e) {
+        onFailure(e);
+      }
+    });
+  }
+
+  // DURATION CONVERSION FUNCTIONS
+  function convertSecondsToDecimalHours(seconds) {
+    return Math.round(seconds / 3600 * 100) / 100;
+  }
+
+  function convertSecondsToHHMMSS(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  function formatDurationDisplay(seconds, format = 'decimal') {
+    if (format === 'decimal') {
+      return convertSecondsToDecimalHours(seconds).toFixed(2) + 'h';
+    } else if (format === 'hms') {
+      return convertSecondsToHHMMSS(seconds);
+    } else if (format === 'minutes') {
+      return Math.round(seconds / 60) + 'm';
+    }
+    return seconds + 's';
+  }
+
+  // MAIN ATTENDANCE DASHBOARD CLASS
+  class AttendanceDashboard {
+    constructor() {
+      this.currentData = null;
+      this.currentGranularity = 'Week';
+      this.currentPeriod = '';
+      this.currentAgent = '';
+      this.viewMode = 'standard';
+      this.charts = {};
+      this.performanceMetrics = { loadStartTime: Date.now(), apiCalls: 0, errors: 0 };
+
+      // Add auto-refresh properties
+      this.autoRefreshInterval = null;
+
+      this.pagination = {
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalItems: 0,
+        totalPages: 0
+      };
+
+      this.loadDataDebounced = debounce(() => this.loadData(), 250);
+      this._reqSeq = 0;
+
+      this.initialize();
+    }
+
+    initialize() {
+      console.log('🚀 Initializing Attendance Dashboard (Corrected Database Structure - Jamaica Time Zone)...');
+      this.setupEventListeners();
+      this.initializeControls();
+      this.startPerformanceMonitoring();
+      this.startAutoRefresh(); // Initialize auto-refresh
+      this.loadData();
+    }
+
+    // Add auto-refresh methods inside the class
+    startAutoRefresh() {
+      // Clear any existing interval
+      if (this.autoRefreshInterval) {
+        clearInterval(this.autoRefreshInterval);
+      }
+      
+      // Auto-refresh every 5 minutes
+      this.autoRefreshInterval = setInterval(() => {
+        console.log('Auto-refreshing attendance data...');
+        this.loadDataDebounced();
+      }, 300000); // 5 minutes
+    }
+
+    stopAutoRefresh() {
+      if (this.autoRefreshInterval) {
+        clearInterval(this.autoRefreshInterval);
+        this.autoRefreshInterval = null;
+      }
+    }    
+
+    setupEventListeners() {
+      document.getElementById('granularitySelect').addEventListener('change', (e) => {
+        this.currentGranularity = e.target.value;
+        this.updatePeriodSelector();
+        this.loadDataDebounced();
+      });
+
+      document.getElementById('agentSelect').addEventListener('change', (e) => {
+        this.currentAgent = e.target.value;
+        this.loadDataDebounced();
+      });
+
+      document.getElementById('viewMode').addEventListener('change', (e) => {
+        this.viewMode = e.target.value;
+        this.updateViewMode();
+      });
+
+      document.getElementById('weekInput').addEventListener('change', (e) => {
+        this.currentPeriod = e.target.value;
+        this.loadDataDebounced();
+      });
+    }
+
+    initializeControls() {
+      this.currentGranularity = 'Week';
+      this.currentAgent = '';
+
+      const granularitySelect = document.getElementById('granularitySelect');
+      if (granularitySelect) {
+        granularitySelect.value = this.currentGranularity;
+      }
+
+      const today = new Date();
+      this.currentPeriod = this.getISOWeek(today);
+
+      const weekEl = document.getElementById('weekInput');
+      if (weekEl) weekEl.value = this.currentPeriod;
+
+      this.loadUserList();
+
+      showToast(message, type) {
+        const toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>`;
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+      }      
+    }
+
+    async loadUserList() {
+      try {
+        let users = [];
+
+        try {
+          console.log('Loading user list from server...');
+          users = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 10000 });
+
+          if (!Array.isArray(users) || users.length === 0) {
+            console.log('No users from clientGetAssignedAgentNames, trying fallback...');
+            try {
+              const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 8000 });
+              if (Array.isArray(userData)) {
+                users = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
+              }
+            } catch (fallbackError) {
+              console.log('Fallback getUsers also failed:', fallbackError.message);
+              users = [];
+            }
+          }
+        } catch (error) {
+          console.error('Error calling server for users:', error.message);
+          users = [];
+        }
+
+        const select = document.getElementById('agentSelect');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">👥 All Agents</option>';
+
+        if (Array.isArray(users) && users.length > 0) {
+          users.forEach(name => {
+            if (!name || typeof name !== 'string') return;
+            const opt = document.createElement('option');
+            opt.value = name.trim();
+            opt.textContent = name.trim();
+            select.appendChild(opt);
+          });
+          console.log('Loaded', users.length, 'users successfully');
+        } else {
+          console.warn('No users available');
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No users available';
+          opt.disabled = true;
+          select.appendChild(opt);
+        }
+
+        if (this.currentAgent && select.querySelector(`option[value="${this.currentAgent}"]`)) {
+          select.value = this.currentAgent;
+        }
+      } catch (error) {
+        console.error('Error loading user list:', error);
+        this.showToast('Could not load user list - some features may be limited', 'warning');
+
+        const select = document.getElementById('agentSelect');
+        if (select) {
+          select.innerHTML = '<option value="">👥 All Agents</option><option value="" disabled>Error loading users</option>';
+        }
+      }
+    }
+
+    updatePeriodSelector() {
+      const selector = document.getElementById('periodSelector');
+      const granularity = this.currentGranularity;
+
+      let html = '<label class="form-label fw-bold">Period</label>';
+
+      switch (granularity) {
+        case 'Week':
+          html += '<input type="week" class="form-control" id="weekInput" />';
+          selector.innerHTML = html;
+          setTimeout(() => {
+            document.getElementById('weekInput').value = this.currentPeriod;
+            document.getElementById('weekInput').addEventListener('change', (e) => {
+              this.currentPeriod = e.target.value; this.loadDataDebounced();
+            });
+          }, 0);
+          break;
+        case 'BiWeekly':
+          html += '<select class="form-select" id="biweeklySelect"></select>';
+          selector.innerHTML = html;
+          setTimeout(() => this.populateBiWeeklySelect(), 0);
+          break;
+        case 'Month':
+          html += '<input type="month" class="form-control" id="monthInput" />';
+          selector.innerHTML = html;
+          setTimeout(() => {
+            const monthInput = document.getElementById('monthInput');
+            const today = new Date();
+            this.currentPeriod = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+            monthInput.value = this.currentPeriod;
+            monthInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+          }, 0);
+          break;
+        case 'Quarter':
+          html += '<select class="form-select" id="quarterSelect"><option value="Q1-2024">Q1 2024</option><option value="Q2-2024">Q2 2024</option><option value="Q3-2024">Q3 2024</option><option value="Q4-2024">Q4 2024</option></select>';
+          selector.innerHTML = html;
+          setTimeout(() => {
+            const quarterSelect = document.getElementById('quarterSelect');
+            this.currentPeriod = quarterSelect.value;
+            quarterSelect.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+          }, 0);
+          break;
+        case 'Year':
+          html += '<input type="number" class="form-control" id="yearInput" min="2020" max="2030" value="2024" />';
+          selector.innerHTML = html;
+          setTimeout(() => {
+            const yearInput = document.getElementById('yearInput');
+            this.currentPeriod = yearInput.value;
+            yearInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+          }, 0);
+          break;
+      }
+    }
+
+    populateBiWeeklySelect() {
+      const select = document.getElementById('biweeklySelect');
+      const currentYear = new Date().getFullYear();
+      select.innerHTML = '';
+      for (let i = 1; i <= 26; i++) {
+        const option = document.createElement('option');
+        option.value = `${currentYear}-BW${i.toString().padStart(2, '0')}`;
+        option.textContent = `Bi-Week ${i} - ${currentYear}`;
+        select.appendChild(option);
+      }
+      this.currentPeriod = select.value;
+      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+    }
+
+    async loadData() {
+      if (!this.currentPeriod) return;
+      const hideLoader = this.showIntelligentLoader();
+      this.performanceMetrics.apiCalls++;
+
+      const mySeq = ++this._reqSeq;
+      try {
+        console.log(`Loading data: ${this.currentGranularity}, ${this.currentPeriod}, ${this.currentAgent}`);
+
+        let data = null;
+
+        try {
+          console.log('Attempting to call getAttendanceAnalyticsByPeriod...');
+          data = await this.callServerFunction('getAttendanceAnalyticsByPeriod',
+            [this.currentGranularity, this.currentPeriod, this.currentAgent],
+            { timeoutMs: 15000 }
+          );
+
+          if (data) {
+            console.log('Attendance analytics loaded successfully');
+            this.showToast('Attendance data loaded successfully (Jamaica Time)', 'success');
+          }
+        } catch (basicError) {
+          console.error('Attendance analytics failed:', basicError.message);
+          
+          console.log('Creating fallback empty data structure...');
+          data = this.createEmptyAttendanceData();
+          this.showToast('No attendance data available for selected period', 'warning');
+        }
+
+        if (mySeq !== this._reqSeq) {
+          console.log('Request sequence mismatch, ignoring stale response');
+          return;
+        }
+
+        if (!data) {
+          throw new Error('No data received from server');
+        }
+        
+        // Reset auto-refresh timer on successful load
+        this.startAutoRefresh();
+        this.currentData = data;
+        this.renderDashboard();
+
+      } catch (error) {
+        const msg = (error && error.message) ? String(error.message) : String(error);
+        if (!ChannelClosedRegex.test(msg)) {
+          console.error('Error loading data:', error);
+          this.performanceMetrics.errors++;
+          this.showToast('Failed to load attendance data: ' + msg, 'danger');
+          this.showEmptyState();
+        }
+      } finally {
+        hideLoader();
+      }
+    }
+
+    createEmptyAttendanceData() {
+      return {
+        summary: {
+          'Available': 0,
+          'Administrative Work': 0,
+          'Training': 0,
+          'Meeting': 0,
+          'Break': 0,
+          'Lunch': 0,
+          'End of Shift': 0
+        },
+        stateDuration: {},
+        totalProductiveHours: 0,
+        totalNonProductiveHours: 0,
+        top5Attendance: [],
+        attendanceStats: [],
+        attendanceFeed: [],
+        filteredRows: [],
+        userCompliance: [],
+        shiftMetrics: {},
+        dailyMetrics: [],
+        periodInfo: {
+          granularity: this.currentGranularity,
+          periodId: this.currentPeriod,
+          startDateIso: new Date().toISOString(),
+          endDateIso: new Date().toISOString(),
+          workingDays: 5
+        }
+      };
+    }
+
+    renderDashboard() {
+      if (!this.currentData) return;
+      try {
+        this.renderExecutiveMetrics();
+        this.renderKPICards();
+        this.renderProductivityGauges();
+        this.renderCharts();
+        this.renderAttendanceTable();
+        this.renderDailyBreakdownBars();
+
+        if (this.currentData.enhanced) {
+          this.renderIntelligentInsights();
+        }
+        this.showToast('Dashboard updated with corrected time calculations (Jamaica Time)', 'success');
+      } catch (error) {
+        console.error('Error rendering dashboard:', error);
+        this.showToast('Error rendering dashboard components', 'danger');
+      }
+    }
+
+    renderExecutiveMetrics() {
+      try {
+        const exec = this.currentData.executiveMetrics;
+        if (exec) {
+          document.getElementById('efficiencyRate').textContent = (exec.overview?.efficiencyRate || 0).toFixed(1) + '%';
+          document.getElementById('complianceRate').textContent = (exec.overview?.complianceRate || 0).toFixed(1) + '%';
+          document.getElementById('totalEmployees').textContent = exec.overview?.totalEmployees || 0;
+          document.getElementById('violationsCount').textContent = exec.violations?.totalViolations || 0;
+        } else {
+          const totalHours = (this.currentData.totalProductiveHours || 0) + (this.currentData.totalNonProductiveHours || 0);
+          const efficiency = totalHours > 0 ? ((this.currentData.totalProductiveHours || 0) / totalHours * 100) : 0;
+          document.getElementById('efficiencyRate').textContent = efficiency.toFixed(1) + '%';
+          document.getElementById('complianceRate').textContent = '85.0%';
+          document.getElementById('totalEmployees').textContent = new Set((this.currentData.filteredRows || []).map(r => r.user)).size;
+          document.getElementById('violationsCount').textContent = '0';
+        }
+      } catch (error) { console.error('Error rendering executive metrics:', error); }
+    }
+
+    renderKPICards() {
+      try {
+        const container = document.getElementById('stateSummaryRow');
+        const summary = this.currentData.summary || {};
+        const states = [
+          { name: 'Available', icon: 'fa-check-circle', type: 'success' },
+          { name: 'Administrative Work', icon: 'fa-tasks', type: 'info' },
+          { name: 'Training', icon: 'fa-chalkboard-teacher', type: 'warning' },
+          { name: 'Meeting', icon: 'fa-users', type: 'info' },
+          { name: 'Break', icon: 'fa-coffee', type: 'danger' },
+          { name: 'Lunch', icon: 'fa-utensils', type: 'danger' }
+        ];
+        container.innerHTML = states.map(state => {
+          const count = summary[state.name] || 0;
+          return `<div class="col"><div class="kpi-card ${state.type} h-100 ai-enhanced"><i class="fas ${state.icon}"></i><div class="label">${state.name}</div><div class="value">${count}</div><small class="text-muted">${count > 0 ? 'Active' : 'Idle'}</small></div></div>`;
+        }).join('');
+      } catch (error) { console.error('Error rendering KPI cards:', error); }
+    }
+
+    renderProductivityGauges() {
+      try {
+        const prodHrs = (this.currentData.totalProductiveHours || 0).toFixed(2);
+        const nonProdHrs = (this.currentData.totalNonProductiveHours || 0).toFixed(2);
+        document.getElementById('kpi-productive').textContent = prodHrs + 'h';
+        document.getElementById('kpi-nonproductive').textContent = nonProdHrs + 'h';
+      } catch (error) { console.error('Error rendering productivity gauges:', error); }
+    }
+
+    renderCharts() {
+      try {
+        this.renderTopPerformersChart();
+        this.renderAttendanceStatsChart();
+        this.renderDailyAttendanceChart();
+      } catch (e) {
+        console.error('Error rendering charts:', e);
+      }
+    }
+
+    renderTopPerformersChart() {
+      try {
+        const ctx = document.getElementById('topPerformersChart'); 
+        if (!ctx) return;
+        if (this.charts.topPerformers) this.charts.topPerformers.destroy();
+        const topPerformers = this.currentData.top5Attendance || [];
+        this.charts.topPerformers = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: topPerformers.map(p => p.user || 'User'),
+            datasets: [{
+              label: 'Attendance %',
+              data: topPerformers.map(p => p.percentage || 0),
+              backgroundColor: topPerformers.map(p => (p.percentage || 0) >= 95 ? '#10b981' : (p.percentage || 0) >= 85 ? '#00BFFF' : (p.percentage || 0) >= 75 ? '#FFB800' : '#FF4000'),
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              title: {
+                display: true,
+                text: 'Top Performers (Corrected Hours Calculation)'
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                  callback: v => v + '%'
+                }
+              }
+            }
+          }
+        });
+      } catch (error) { console.error('Error rendering top performers chart:', error); }
+    }
+
+    renderAttendanceStatsChart() {
+      try {
+        const ctx = document.getElementById('attendanceStatsChart'); 
+        if (!ctx) return;
+        if (this.charts.attendanceStats) this.charts.attendanceStats.destroy();
+        const stats = this.currentData.attendanceStats || [];
+        this.charts.attendanceStats = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: stats.map(s => s.periodLabel || 'Period'),
+            datasets: [{
+              label: 'Work Hours',
+              data: stats.map(s => s.OnWork || 0),
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16,185,129,0.1)',
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              title: {
+                display: true,
+                text: 'Attendance Statistics (Decimal Hours)'
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Hours'
+                }
+              }
+            }
+          }
+        });
+      } catch (error) { console.error('Error rendering attendance stats chart:', error); }
+    }
+
+    renderDailyAttendanceChart() {
+      try {
+        const ctx = document.getElementById('dailyAttendanceChart'); 
+        if (!ctx) return;
+        if (this.charts.dailyAttendance) this.charts.dailyAttendance.destroy();
+        
+        const daily = this.currentData.dailyMetrics || [];
+        
+        this.charts.dailyAttendance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: daily.map(d => {
+              const date = new Date(d.date + 'T12:00:00');
+              return date.toLocaleDateString('en-US', { 
+                timeZone: JAMAICA_TIMEZONE,
+                month: 'short',
+                day: 'numeric'
+              });
+            }),
+            datasets: [{
+              label: 'Work Hours (Corrected from Seconds)',
+              data: daily.map(d => d.OnWorkHrs || 0),
+              borderColor: '#00BFFF',
+              backgroundColor: 'rgba(0,191,255,0.1)',
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              title: {
+                display: true,
+                text: `Daily Attendance (Jamaica Time) - Corrected Calculations`
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Decimal Hours'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              }
+            }
+          }
+        });
+      } catch (error) { 
+        console.error('Error rendering daily attendance chart:', error); 
+      }
+    }
+
+    renderAttendanceTable() {
+      try {
+        const container = document.getElementById('attendanceTableContainer'); 
+        if (!container) return;
+        
+        const userCompliance = this.currentData.userCompliance || [];
+        
+        if (userCompliance.length === 0) { 
+          container.innerHTML = '<p class="text-muted text-center">No attendance data available for the selected period.</p>'; 
+          return; 
+        }
+
+        this.pagination.totalItems = userCompliance.length;
+        this.pagination.totalPages = Math.ceil(this.pagination.totalItems / this.pagination.itemsPerPage);
+        
+        if (this.pagination.currentPage > this.pagination.totalPages) {
+          this.pagination.currentPage = Math.max(1, this.pagination.totalPages);
+        }
+
+        const startIndex = (this.pagination.currentPage - 1) * this.pagination.itemsPerPage;
+        const endIndex = Math.min(startIndex + this.pagination.itemsPerPage, userCompliance.length);
+        const currentPageData = userCompliance.slice(startIndex, endIndex);
+
+        let tableHtml = `
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="text-muted">
+              Showing ${startIndex + 1}-${endIndex} of ${this.pagination.totalItems} employees (Corrected Hours - Jamaica Time)
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small">Items per page:</label>
+              <select class="form-select form-select-sm" style="width: auto;" id="itemsPerPageSelect">
+                <option value="5" ${this.pagination.itemsPerPage === 5 ? 'selected' : ''}>5</option>
+                <option value="10" ${this.pagination.itemsPerPage === 10 ? 'selected' : ''}>10</option>
+                <option value="25" ${this.pagination.itemsPerPage === 25 ? 'selected' : ''}>25</option>
+                <option value="50" ${this.pagination.itemsPerPage === 50 ? 'selected' : ''}>50</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th><i class="fas fa-user me-2"></i>Employee</th>
+                  <th><i class="fas fa-clock me-2"></i>Work Hours</th>
+                  <th><i class="fas fa-coffee me-2"></i>Break Hours</th>
+                  <th><i class="fas fa-utensils me-2"></i>Lunch Hours</th>
+                  <th><i class="fas fa-calendar-weekend me-2"></i>Weekend Hours</th>
+                  <th><i class="fas fa-star me-2"></i>Compliance</th>
+                  <th><i class="fas fa-flag me-2"></i>Status</th>
+                </tr>
+              </thead>
+              <tbody>`;
+
+        currentPageData.forEach((user) => {
+          const complianceScore = this.calculateComplianceScore(user);
+          const statusBadge = this.getComplianceStatusBadge(complianceScore);
+          
+          const workHours = convertSecondsToDecimalHours(user.availableSecsWeekday || 0);
+          const breakHours = convertSecondsToDecimalHours(user.breakSecs || 0);
+          const lunchHours = convertSecondsToDecimalHours(user.lunchSecs || 0);
+          const weekendHours = convertSecondsToDecimalHours(user.weekendSecs || 0);
+          
+          tableHtml += `
+            <tr>
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:32px;height:32px;font-size:.8rem;">
+                    ${(user.user || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <strong>${user.user || 'Unknown'}</strong>
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-success">${workHours.toFixed(2)}h</span>
+                <small class="text-muted d-block">from ${(user.availableSecsWeekday || 0)}s</small>
+              </td>
+              <td>
+                <span class="badge bg-warning">${breakHours.toFixed(2)}h</span>
+                ${(user.exceededBreakDays || 0) > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1"></i>` : ''}
+                <small class="text-muted d-block">from ${(user.breakSecs || 0)}s</small>
+              </td>
+              <td>
+                <span class="badge bg-info">${lunchHours.toFixed(2)}h</span>
+                ${(user.exceededLunchDays || 0) > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1"></i>` : ''}
+                <small class="text-muted d-block">from ${(user.lunchSecs || 0)}s</small>
+              </td>
+              <td>
+                <span class="badge bg-secondary">${weekendHours.toFixed(2)}h</span>
+                <small class="text-muted d-block">from ${(user.weekendSecs || 0)}s</small>
+              </td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="progress" style="width:60px;height:8px;">
+                    <div class="progress-bar bg-${complianceScore >= 80 ? 'success' : complianceScore >= 60 ? 'warning' : 'danger'}" style="width:${complianceScore}%"></div>
+                  </div>
+                  <small class="ms-2">${complianceScore}%</small>
+                </div>
+              </td>
+              <td>${statusBadge}</td>
+            </tr>`;
+        });
+
+        tableHtml += `
+              </tbody>
+            </table>
+          </div>`;
+
+        if (this.pagination.totalPages > 1) {
+          tableHtml += this.renderPaginationControls();
+        }
+
+        tableHtml += `
+          <div class="mt-3">
+            <small class="text-muted">
+              <i class="fas fa-info-circle me-1"></i>
+              <strong>Data Format:</strong> All duration values converted from seconds to decimal hours. All times in Jamaica Time Zone.
+            </small>
+          </div>`;
+
+        container.innerHTML = tableHtml;
+        this.setupPaginationEventListeners();
+
+      } catch (error) { 
+        console.error('Error rendering attendance table:', error); 
+      }
+    }
+
+    renderPaginationControls() {
+      const totalPages = this.pagination.totalPages;
+      const currentPage = this.pagination.currentPage;
+      
+      let paginationHtml = `
+        <nav aria-label="Employee table navigation" class="mt-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted small">
+              Page ${currentPage} of ${totalPages}
+            </div>
+            <ul class="pagination pagination-sm mb-0">`;
+
+      paginationHtml += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+          <a class="page-link" href="#" data-page="${currentPage - 1}" ${currentPage === 1 ? 'tabindex="-1"' : ''}>
+            <i class="fas fa-chevron-left"></i>
+          </a>
+        </li>`;
+
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      if (startPage > 1) {
+        paginationHtml += `
+          <li class="page-item">
+            <a class="page-link" href="#" data-page="1">1</a>
+          </li>`;
+        if (startPage > 2) {
+          paginationHtml += `
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>`;
+        }
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        paginationHtml += `
+          <li class="page-item ${i === currentPage ? 'active' : ''}">
+            <a class="page-link" href="#" data-page="${i}">${i}</a>
+          </li>`;
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          paginationHtml += `
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>`;
+        }
+        paginationHtml += `
+          <li class="page-item">
+            <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
+          </li>`;
+      }
+
+      paginationHtml += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+          <a class="page-link" href="#" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'tabindex="-1"' : ''}>
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>`;
+
+      return paginationHtml;
+    }
+
+    setupPaginationEventListeners() {
+      const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+      if (itemsPerPageSelect) {
+        itemsPerPageSelect.addEventListener('change', (e) => {
+          this.pagination.itemsPerPage = parseInt(e.target.value);
+          this.pagination.currentPage = 1;
+          this.renderAttendanceTable();
+        });
+      }
+
+      const paginationLinks = document.querySelectorAll('#attendanceTableContainer .page-link[data-page]');
+      paginationLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const page = parseInt(e.target.closest('[data-page]').dataset.page);
+          if (page && page !== this.pagination.currentPage && page >= 1 && page <= this.pagination.totalPages) {
+            this.pagination.currentPage = page;
+            this.renderAttendanceTable();
+          }
+        });
+      });
+    }
+
+    renderDailyBreakdownBars() {
+      try {
+        const container = document.getElementById('dailyBreakdownBars');
+        if (!container) return;
+
+        const dailyData = this.generateDailyBreakdownData();
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+        const uniqueAgents = this.getUniqueAgentsCount();
+        const isAllAgents = !this.currentAgent || this.currentAgent === '';
+
+        let html = '<div class="row g-3">';
+
+        days.forEach(day => {
+          const dayData = dailyData[day] || { 
+            lunch: { total: 0, violations: 0, users: [] }, 
+            break: { total: 0, violations: 0, users: [] } 
+          };
+
+          const lunchMinutes = Math.round(dayData.lunch.total / 60);
+          const breakMinutes = Math.round(dayData.break.total / 60);
+
+          let lunchAllowed, breakAllowed, displayUnit;
+          
+          if (isAllAgents && uniqueAgents > 1) {
+            // For all agents, calculate based on actual users who had lunch/break that day
+            const lunchUserCount = dayData.lunch.users.length || uniqueAgents;
+            const breakUserCount = dayData.break.users.length || uniqueAgents;
+            
+            lunchAllowed = 30 * lunchUserCount;
+            breakAllowed = 30 * breakUserCount;
+            displayUnit = 'total min';
+          } else {
+            lunchAllowed = 30;
+            breakAllowed = 30;
+            displayUnit = 'min';
+          }
+
+          const lunchPercent = Math.min((lunchMinutes / lunchAllowed) * 100, 150);
+          const breakPercent = Math.min((breakMinutes / breakAllowed) * 100, 150);
+
+          const lunchColor = lunchMinutes <= lunchAllowed ? '#10b981' : '#dc2626';
+          const breakColor = breakMinutes <= breakAllowed ? '#10b981' : '#dc2626';
+
+          html += `
+            <div class="col-lg col-md-6 col-sm-12">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h6 class="card-title text-center fw-bold">${day}</h6>
+                  
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                      <div class="d-flex align-items-center">
+                        <i class="fas fa-utensils text-warning me-2"></i>
+                        <span class="small fw-medium">Lunch</span>
+                        ${dayData.lunch.violations > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1" title="${dayData.lunch.violations} agents exceeded 30min limit"></i>` : ''}
+                      </div>
+                      <span class="small fw-bold" style="color: ${lunchColor};">
+                        ${lunchMinutes}/${lunchAllowed} ${displayUnit}
+                      </span>
+                    </div>
+                    <div class="progress" style="height: 16px; background-color: #e9ecef;">
+                      <div class="progress-bar rounded"
+                          style="width: ${lunchPercent}%; background-color: ${lunchColor}; transition: width 0.6s ease;">
+                      </div>
+                    </div>
+                    <small class="text-muted">
+                      ${isAllAgents ? `${dayData.lunch.users.length} users had lunch` : `30 minutes maximum per agent`}
+                    </small>
+                  </div>
+
+                  <div class="mb-2">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                      <div class="d-flex align-items-center">
+                        <i class="fas fa-coffee text-info me-2"></i>
+                        <span class="small fw-medium">Break</span>
+                        ${dayData.break.violations > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1" title="${dayData.break.violations} agents exceeded 30min limit"></i>` : ''}
+                      </div>
+                      <span class="small fw-bold" style="color: ${breakColor};">
+                        ${breakMinutes}/${breakAllowed} ${displayUnit}
+                      </span>
+                    </div>
+                    <div class="progress" style="height: 16px; background-color: #e9ecef;">
+                      <div class="progress-bar rounded"
+                          style="width: ${breakPercent}%; background-color: ${breakColor}; transition: width 0.6s ease;">
+                      </div>
+                    </div>
+                    <small class="text-muted">
+                      ${isAllAgents ? `${dayData.break.users.length} users had breaks` : `30 minutes maximum per agent`}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        });
+
+        html += '</div>';
+        html += `<div class="mt-2 text-center">
+          <small class="text-info">
+            <i class="fas fa-info-circle me-1"></i>
+            All durations calculated from seconds data with Jamaica timezone (UTC-5)
+          </small>
+        </div>`;
+        
+        container.innerHTML = html;
+      } catch (error) {
+        console.error('Error rendering daily breakdown bars:', error);
+      }
+    }
+
+    getUniqueAgentsCount() {
+      try {
+        if (!this.currentData || !this.currentData.filteredRows) {
+          console.warn('No current data available for agent count');
+          return 1;
+        }
+        
+        if (this.currentAgent && this.currentAgent !== '') {
+          // Single agent selected
+          console.log('Single agent selected:', this.currentAgent);
+          return 1;
+        } else {
+          // All agents - count unique users in filtered data
+          const uniqueUsers = new Set();
+          
+          this.currentData.filteredRows.forEach(r => {
+            if (r.user && r.user.trim()) {
+              uniqueUsers.add(r.user.trim());
+            }
+          });
+          
+          const count = Math.max(1, uniqueUsers.size);
+          console.log('Unique agents found:', Array.from(uniqueUsers), 'Total count:', count);
+          return count;
+        }
+      } catch (error) {
+        console.error('Error getting unique agent count:', error);
+        return 1;
+      }
+    }
+
+    generateDailyBreakdownData() {
+      try {
+        const dailyData = {};
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+        // Initialize data structure
+        days.forEach(day => {
+          dailyData[day] = {
+            lunch: { total: 0, count: 0, violations: 0, userViolations: {} },
+            break: { total: 0, count: 0, violations: 0, userViolations: {} }
+          };
+        });
+
+        if (!this.currentData?.filteredRows || !Array.isArray(this.currentData.filteredRows)) {
+          console.warn('No filtered rows available for daily breakdown');
+          return dailyData;
+        }
+
+        console.log('Processing', this.currentData.filteredRows.length, 'filtered rows for agent:', this.currentAgent || 'all');
+
+        const userDailyTotals = {};
+
+        // Process each record with enhanced filtering
+        this.currentData.filteredRows.forEach(r => {
+          try {
+            // Skip if single agent selected and this record doesn't match
+            if (this.currentAgent && this.currentAgent !== '' && r.user !== this.currentAgent) {
+              return;
+            }
+
+            const timestamp = new Date(r.timestampMs || r.timestamp);
+            
+            if (isNaN(timestamp.getTime())) {
+              console.warn('Invalid timestamp in record:', r);
+              return;
+            }
+
+            // Get Jamaica date and day of week
+            const jamaicaDateString = timestamp.toLocaleDateString('en-CA', { 
+              timeZone: JAMAICA_TIMEZONE 
+            });
+            const jamaicaDate = new Date(jamaicaDateString + 'T12:00:00');
+            const dayOfWeek = jamaicaDate.getDay();
+            
+            // Skip weekends
+            if (dayOfWeek === 0 || dayOfWeek === 6) return;
+
+            const dayName = days[dayOfWeek - 1];
+            if (!dayName) return;
+
+            const duration = r.durationSec || 0;
+            const user = r.user;
+
+            if (!user) return;
+
+            // Initialize user daily totals
+            if (!userDailyTotals[user]) {
+              userDailyTotals[user] = {};
+            }
+            if (!userDailyTotals[user][dayName]) {
+              userDailyTotals[user][dayName] = { lunch: 0, break: 0 };
+            }
+
+            // Process lunch and break with violation tracking
+            if (r.state === 'Lunch') {
+              dailyData[dayName].lunch.total += duration;
+              dailyData[dayName].lunch.count++;
+              userDailyTotals[user][dayName].lunch += duration;
+
+              // Check for violations (over 30 minutes = 1800 seconds)
+              if (userDailyTotals[user][dayName].lunch > 1800) {
+                if (!dailyData[dayName].lunch.userViolations[user]) {
+                  dailyData[dayName].lunch.userViolations[user] = true;
+                  dailyData[dayName].lunch.violations++;
+                }
+              }
+            } else if (r.state === 'Break') {
+              dailyData[dayName].break.total += duration;
+              dailyData[dayName].break.count++;
+              userDailyTotals[user][dayName].break += duration;
+
+              // Check for violations (over 30 minutes = 1800 seconds)
+              if (userDailyTotals[user][dayName].break > 1800) {
+                if (!dailyData[dayName].break.userViolations[user]) {
+                  dailyData[dayName].break.userViolations[user] = true;
+                  dailyData[dayName].break.violations++;
+                }
+              }
+            }
+
+          } catch (recordError) {
+            console.error('Error processing record:', recordError, r);
+          }
+        });
+
+        // Log summary for debugging
+        console.log('Daily breakdown summary:');
+        days.forEach(day => {
+          const lunchMin = Math.round(dailyData[day].lunch.total / 60);
+          const breakMin = Math.round(dailyData[day].break.total / 60);
+          console.log(`${day}: Lunch ${lunchMin}m (${dailyData[day].lunch.violations} violations), Break ${breakMin}m (${dailyData[day].break.violations} violations)`);
+        });
+
+        return dailyData;
+
+      } catch (error) {
+        console.error('Error generating daily breakdown data:', error);
+        
+        // Return empty structure to prevent crashes
+        const emptyData = {};
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        days.forEach(day => {
+          emptyData[day] = {
+            lunch: { total: 0, count: 0, violations: 0, userViolations: {} },
+            break: { total: 0, count: 0, violations: 0, userViolations: {} }
+          };
+        });
+        return emptyData;
+      }
+    }
+    renderIntelligentInsights() {
+      try {
+        const panel = document.getElementById('intelligentInsightsPanel');
+        const container = document.getElementById('insightsContainer');
+
+        if (!this.currentData.intelligence?.insights?.length) {
+          if (panel) panel.style.display = 'none';
+          return;
+        }
+
+        if (panel) panel.style.display = 'block';
+
+        if (container) {
+          container.innerHTML = this.currentData.intelligence.insights.map(insight => `
+            <div class="insight-card ${insight.priority || 'medium'}">
+              <div class="d-flex">
+                <div class="me-3"><i class="fas fa-lightbulb text-primary"></i></div>
+                <div class="flex-grow-1">
+                  <h6 class="mb-2">${insight.title || 'Insight'}</h6>
+                  <p class="mb-2">${insight.description || 'Analysis in progress...'}</p>
+                  ${insight.recommendation ? `<small class="text-muted"><strong>Recommendation:</strong> ${insight.recommendation}</small>` : ''}
+                  <div class="mt-2"><small class="badge bg-info">Based on corrected time calculations</small></div>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) { console.error('Error rendering intelligent insights:', error); }
+    }
+
+    calculateComplianceScore(user) {
+      let score = 100;
+      score -= (user.exceededBreakDays || 0) * 5;
+      score -= (user.exceededLunchDays || 0) * 5;
+      score -= (user.exceededWeeklyCount || 0) * 10;
+      return Math.max(0, score);
+    }
+
+    getComplianceStatusBadge(score) {
+      if (score >= 90) return '<span class="badge bg-success">Excellent</span>';
+      if (score >= 80) return '<span class="badge bg-info">Good</span>';
+      if (score >= 60) return '<span class="badge bg-warning">Needs Attention</span>';
+      return '<span class="badge bg-danger">Critical</span>';
+    }
+
+    showIntelligentLoader() {
+      const loader = document.getElementById('loaderOverlay');
+      const progressBar = loader.querySelector('.progress-bar');
+      const statusEl = document.getElementById('loader-status');
+      const tipEl = document.getElementById('loader-tip');
+      loader.style.display = 'flex';
+      const statuses = ['Loading attendance data...', 'Converting seconds to hours...', 'Processing analytics...', 'Finalizing dashboard...'];
+      const tips = ['Analyzing database structure...', 'Processing corrected calculations...', 'Generating insights...', 'Optimizing performance...'];
+      let statusIndex = 0; let tipIndex = 0; let progress = 0;
+      const statusInterval = setInterval(() => {
+        if (statusIndex < statuses.length) {
+          statusEl.textContent = statuses[statusIndex++];
+          progress += 25;
+          progressBar.style.width = progress + '%';
+        }
+      }, 800);
+      const tipInterval = setInterval(() => {
+        tipIndex = (tipIndex + 1) % tips.length;
+        tipEl.textContent = tips[tipIndex];
+      }, 1200);
+      return () => {
+        clearInterval(statusInterval);
+        clearInterval(tipInterval);
+        progressBar.style.width = '100%';
+        setTimeout(() => {
+          loader.style.display = 'none';
+        }, 300);
+      };
+    }
+
+    startPerformanceMonitoring() {
+      const monitor = document.getElementById('performanceMonitor');
+      monitor.style.display = 'block';
+      setInterval(() => {
+        const responseTime = ((Date.now() - this.performanceMetrics.loadStartTime) / 1000).toFixed(1);
+        const dataQuality = this.currentData ? 'Good' : 'Loading';
+        document.getElementById('responseTime').textContent = `${responseTime}s`;
+        document.getElementById('dataQuality').textContent = dataQuality;
+      }, 5000);
+    }
+
+    updateViewMode() {
+      const executivePanel = document.getElementById('executivePanel');
+      switch (this.viewMode) {
+        case 'executive':
+          executivePanel.style.display = 'block';
+          break;
+        case 'detailed':
+          executivePanel.style.display = 'block';
+          break;
+        default:
+          executivePanel.style.display = 'block';
+      }
+    }
+
+    async callServerFunction(functionName, parameters, options = {}) {
+      return safeServerCall(functionName, parameters, options);
+    }
+
+    showEmptyState() {
+      document.getElementById('efficiencyRate').textContent = '--';
+      document.getElementById('complianceRate').textContent = '--';
+      document.getElementById('totalEmployees').textContent = '--';
+      document.getElementById('violationsCount').textContent = '--';
+
+      document.getElementById('kpi-productive').textContent = 'No Data';
+      document.getElementById('kpi-nonproductive').textContent = 'No Data';
+
+      document.getElementById('stateSummaryRow').innerHTML = '<div class="col-12"><div class="alert alert-info text-center"><i class="fas fa-info-circle me-2"></i>No attendance data available for the selected period.</div></div>';
+
+      const tableContainer = document.getElementById('attendanceTableContainer');
+      if (tableContainer) {
+        tableContainer.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-database me-2"></i>No attendance records found.</div>';
+      }
+
+      Object.values(this.charts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+          chart.destroy();
+        }
+      });
+      this.charts = {};
+
+      const insightsPanel = document.getElementById('intelligentInsightsPanel');
+      if (insightsPanel) {
+        insightsPanel.style.display = 'none';
+      }
+    }
+
+    getISOWeek(date) {
+      const d = new Date(date);
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+      return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    }
+
+    showToast(message, type) {
+      const toastContainer = document.querySelector('.toast-container');
+      if (!toastContainer) return;
+
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-white bg-${type} border-0`;
+      toast.setAttribute('role', 'alert');
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${message}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>`;
+      toastContainer.appendChild(toast);
+      const bsToast = new bootstrap.Toast(toast);
+      bsToast.show();
+      toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+  }
+
+  // Enhanced Export Manager CLASS
+  class EnhancedExportManager {
+    constructor() {
+      this.userList = [];
+      this.availablePeriods = {};
+      this.init();
+    }
+
+    init() {
+      this.loadUserList();
+      this.setupEventListeners();
+      this.updatePeriodOptions();
+      this.updatePreview();
+    }
+
+    async loadUserList() {
+      try {
+        if (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.userCompliance) {
+          this.userList = window.dashboard.currentData.userCompliance.map(u => u.user).filter(Boolean);
+          console.log('Export manager loaded users from dashboard data:', this.userList.length);
+        } else {
+          console.log('Export manager calling server for user list...');
+          try {
+            this.userList = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 8000 });
+
+            if (!Array.isArray(this.userList) || this.userList.length === 0) {
+              console.log('No users from clientGetAssignedAgentNames, trying getUsers fallback...');
+              const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 6000 });
+              if (Array.isArray(userData)) {
+                this.userList = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
+              } else {
+                this.userList = [];
+              }
+            }
+          } catch (error) {
+            console.error('Export manager error loading users:', error.message);
+            this.userList = [];
+          }
+        }
+
+        this.populateUserSelections();
+        console.log('Export manager final user list:', this.userList.length, 'users');
+      } catch (error) {
+        console.error('Export manager error in loadUserList:', error);
+        this.userList = [];
+        this.populateUserSelections();
+      }
+    }
+
+    async callServerFunction(functionName, parameters, options = {}) {
+      return safeServerCall(functionName, parameters, options);
+    }
+
+    populateUserSelections() {
+      const singleSelect = document.getElementById('singleUserSelect');
+      if (singleSelect) {
+        singleSelect.innerHTML = '<option value="">Choose a user...</option>';
+
+        this.userList.forEach(user => {
+          const option = document.createElement('option');
+          option.value = user;
+          option.textContent = user;
+          singleSelect.appendChild(option);
+        });
+      }
+
+      const checkboxContainer = document.getElementById('userCheckboxes');
+      if (checkboxContainer) {
+        checkboxContainer.innerHTML = '';
+
+        this.userList.forEach((user, index) => {
+          const div = document.createElement('div');
+          div.className = 'form-check';
+          div.innerHTML = `
+            <input class="form-check-input" type="checkbox" value="${user}" id="user_${index}">
+            <label class="form-check-label" for="user_${index}">${user}</label>
+          `;
+          checkboxContainer.appendChild(div);
+        });
+      }
+    }
+
+    setupEventListeners() {
+      document.querySelectorAll('input[name="exportFormat"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          this.updateMatrixOptions();
+          this.updatePreview();
+        });
+      });
+
+      document.querySelectorAll('input[name="exportType"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          this.updatePeriodOptions();
+          this.updatePreview();
+        });
+      });
+
+      document.querySelectorAll('input[name="userSelection"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          this.updateUserSelectionVisibility();
+          this.updatePreview();
+        });
+      });
+
+      const matrixCheckboxes = [
+        'highlightLowHours', 'includeWeekends', 'includeTotalHours', 
+        'includeDiscrepancy', 'includeOvertime', 'includeTotalsRow'
+      ];
+
+      matrixCheckboxes.forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) {
+          checkbox.addEventListener('change', () => this.updatePreview());
+        }
+      });
+
+      ['periodSelect', 'yearSelect', 'startDate', 'endDate', 'singleUserSelect'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.addEventListener('change', () => this.updatePreview());
+        }
+      });
+
+      const userCheckboxes = document.getElementById('userCheckboxes');
+      if (userCheckboxes) {
+        userCheckboxes.addEventListener('change', () => {
+          this.updatePreview();
+        });
+      }
+
+      const executeButton = document.getElementById('executeExport');
+      if (executeButton) {
+        executeButton.addEventListener('click', () => {
+          this.executeExport();
+        });
+      }
+    }
+
+    updateMatrixOptions() {
+      const format = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
+      const matrixOptions = document.getElementById('pivotMatrixOptions');
+
+      if (format === 'daily_pivot') {
+        if (matrixOptions) matrixOptions.style.display = 'block';
+      } else {
+        if (matrixOptions) matrixOptions.style.display = 'none';
+      }
+    }
+
+    updatePeriodOptions() {
+      const exportType = document.querySelector('input[name="exportType"]:checked')?.value || 'Week';
+      const periodSection = document.getElementById('periodSelection');
+      const customSection = document.getElementById('customDateRange');
+
+      if (exportType === 'Custom') {
+        if (periodSection) periodSection.style.display = 'none';
+        if (customSection) customSection.style.display = 'block';
+      } else {
+        if (periodSection) periodSection.style.display = 'block';
+        if (customSection) customSection.style.display = 'none';
+        this.populatePeriodOptions(exportType);
+      }
+    }
+
+    populatePeriodOptions(type) {
+      const select = document.getElementById('periodSelect');
+      if (!select) return;
+
+      const year = document.getElementById('yearSelect')?.value || new Date().getFullYear();
+
+      select.innerHTML = '<option value="">Select a period...</option>';
+
+      switch (type) {
+        case 'Week':
+          for (let week = 1; week <= 52; week++) {
+            const option = document.createElement('option');
+            option.value = `${year}-W${week.toString().padStart(2, '0')}`;
+            option.textContent = `Week ${week}, ${year}`;
+            select.appendChild(option);
+          }
+          break;
+
+        case 'Month':
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          for (let month = 1; month <= 12; month++) {
+            const option = document.createElement('option');
+            option.value = `${year}-${month.toString().padStart(2, '0')}`;
+            option.textContent = `${months[month - 1]} ${year}`;
+            select.appendChild(option);
+          }
+          break;
+
+        case 'Quarter':
+          for (let quarter = 1; quarter <= 4; quarter++) {
+            const option = document.createElement('option');
+            option.value = `Q${quarter}-${year}`;
+            option.textContent = `Q${quarter} ${year}`;
+            select.appendChild(option);
+          }
+          break;
+      }
+    }
+
+    updateUserSelectionVisibility() {
+      const userSelection = document.querySelector('input[name="userSelection"]:checked')?.value || 'all';
+
+      const singleUserSelection = document.getElementById('singleUserSelection');
+      const multipleUsersSelection = document.getElementById('multipleUsersSelection');
+
+      if (singleUserSelection) {
+        singleUserSelection.style.display = userSelection === 'single' ? 'block' : 'none';
+      }
+      if (multipleUsersSelection) {
+        multipleUsersSelection.style.display = userSelection === 'multiple' ? 'block' : 'none';
+      }
+    }
+
+    updatePreview() {
+      const format = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
+      const exportType = document.querySelector('input[name="exportType"]:checked')?.value || 'Week';
+      const userSelection = document.querySelector('input[name="userSelection"]:checked')?.value || 'all';
+
+      let formatText = 'Daily Pivot Matrix';
+      if (format === 'csv') formatText = 'Standard CSV';
+
+      const previewFormat = document.getElementById('previewFormat');
+      if (previewFormat) previewFormat.textContent = formatText;
+
+      let layoutText = 'Users × Days Matrix';
+      if (format === 'csv') layoutText = 'Standard Rows';
+
+      const previewLayout = document.getElementById('previewLayout');
+      if (previewLayout) previewLayout.textContent = layoutText;
+
+      let periodText = exportType;
+      if (exportType === 'Custom') {
+        const start = document.getElementById('startDate')?.value;
+        const end = document.getElementById('endDate')?.value;
+        periodText = start && end ? `${start} to ${end}` : 'Custom Range';
+      } else {
+        const period = document.getElementById('periodSelect')?.value;
+        if (period) {
+          periodText += ` (${period})`;
+        }
+      }
+      const previewPeriod = document.getElementById('previewPeriod');
+      if (previewPeriod) previewPeriod.textContent = periodText;
+
+      let usersText = 'All Users';
+      if (userSelection === 'single') {
+        const selected = document.getElementById('singleUserSelect')?.value;
+        usersText = selected || 'No user selected';
+      } else if (userSelection === 'multiple') {
+        const checked = document.querySelectorAll('#userCheckboxes input[type="checkbox"]:checked');
+        usersText = checked.length > 0 ? `${checked.length} users selected` : 'No users selected';
+      }
+      const previewUsers = document.getElementById('previewUsers');
+      if (previewUsers) previewUsers.textContent = usersText;
+    }
+
+    collectExportParameters() {
+      const format = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
+      const exportType = document.querySelector('input[name="exportType"]:checked')?.value || 'Week';
+      const userSelection = document.querySelector('input[name="userSelection"]:checked')?.value || 'all';
+
+      let period = null;
+      if (exportType === 'Custom') {
+        period = {
+          type: 'custom',
+          start: document.getElementById('startDate')?.value,
+          end: document.getElementById('endDate')?.value
+        };
+      } else {
+        period = {
+          type: exportType,
+          value: document.getElementById('periodSelect')?.value
+        };
+      }
+
+      let users = [];
+      if (userSelection === 'single') {
+        const selected = document.getElementById('singleUserSelect')?.value;
+        if (selected) users = [selected];
+      } else if (userSelection === 'multiple') {
+        const checked = document.querySelectorAll('#userCheckboxes input[type="checkbox"]:checked');
+        users = Array.from(checked).map(cb => cb.value);
+      }
+
+      const dailyPivotOptions = {
+        highlightLowHours: document.getElementById('highlightLowHours')?.checked || false,
+        includeWeekends: document.getElementById('includeWeekends')?.checked || false,
+        includeTotalHours: document.getElementById('includeTotalHours')?.checked || false,
+        includeDiscrepancy: document.getElementById('includeDiscrepancy')?.checked || false,
+        includeOvertime: document.getElementById('includeOvertime')?.checked || false,
+        includeTotalsRow: document.getElementById('includeTotalsRow')?.checked || false
+      };
+
+      return {
+        period,
+        users,
+        userSelection,
+        format: format,
+        dailyPivotOptions: dailyPivotOptions,
+        options: {
+          ...dailyPivotOptions,
+          timeZone: JAMAICA_TIMEZONE,
+          correctedFormat: true
+        }
+      };
+    }
+
+    async executeExport() {
+      try {
+        const params = this.collectExportParameters();
+
+        if (!this.validateExportParameters(params)) {
+          return;
+        }
+
+        const exportModal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+        const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+
+        if (exportModal) exportModal.hide();
+        if (progressModal) progressModal.show();
+
+        this.updateExportProgress(25, 'Preparing matrix export (Jamaica Time)...');
+
+        let result;
+
+        try {
+          if (params.format === 'daily_pivot') {
+            this.updateExportProgress(50, 'Generating daily pivot matrix...');
+            result = await safeServerCall('clientExecuteDailyPivotExport', [params], { timeoutMs: 45000 });
+          } else {
+            this.updateExportProgress(50, 'Generating standard export...');
+            result = await safeServerCall('exportAttendanceCsv', [
+              params.period.type || 'Week', 
+              params.period.value || this.getCurrentWeek(), 
+              params.users.length === 1 ? params.users[0] : ''
+            ], { timeoutMs: 30000 });
+            
+            if (result && typeof result === 'string') {
+              result = {
+                success: true,
+                csvData: result,
+                filename: `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
+                type: 'fallback'
+              };
+            }
+          }
+        } catch (serverError) {
+          console.error('Server call failed:', serverError);
+          this.updateExportProgress(50, 'Falling back to basic export...');
+          result = await safeServerCall('exportAttendanceCsv', [
+            params.period.type || 'Week', 
+            params.period.value || this.getCurrentWeek(), 
+            params.users.length === 1 ? params.users[0] : ''
+          ], { timeoutMs: 30000 });
+          
+          if (result && typeof result === 'string') {
+            result = {
+              success: true,
+              csvData: result,
+              filename: `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
+              type: 'fallback'
+            };
+          }
+        }
+
+        this.updateExportProgress(75, 'Finalizing export...');
+
+        if (result && result.success !== false) {
+          this.updateExportProgress(100, 'Export completed successfully!');
+
+          if (result.csvData) {
+            this.downloadCSV(result.csvData, result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`);
+          } else if (typeof result === 'string') {
+            this.downloadCSV(result, `attendance_export_${new Date().toISOString().split('T')[0]}.csv`);
+          }
+
+          setTimeout(() => {
+            if (progressModal) progressModal.hide();
+            this.showSuccessMessage('Export completed successfully!');
+          }, 1000);
+
+        } else {
+          throw new Error(result?.error || 'Export failed - no data received');
+        }
+
+      } catch (error) {
+        console.error('Export error:', error);
+        const progressModal = bootstrap.Modal.getInstance(document.getElementById('exportProgressModal'));
+        if (progressModal) progressModal.hide();
+        this.showErrorMessage('Export failed: ' + error.message);
+      }
+    }
+
+    getCurrentWeek() {
+      const today = new Date();
+      const dayNum = today.getUTCDay() || 7;
+      today.setUTCDate(today.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((today - yearStart) / 86400000 + 1) / 7);
+      return `${today.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    }
+
+    validateExportParameters(params) {
+      if (params.period.type === 'custom') {
+        if (!params.period.start || !params.period.end) {
+          alert('Please select both start and end dates for custom range.');
+          return false;
+        }
+        if (new Date(params.period.start) >= new Date(params.period.end)) {
+          alert('Start date must be before end date.');
+          return false;
+        }
+      } else {
+        if (!params.period.value) {
+          alert('Please select a period for the export.');
+          return false;
+        }
+      }
+
+      if (params.userSelection === 'single' && params.users.length === 0) {
+        alert('Please select a user for the export.');
+        return false;
+      }
+
+      if (params.userSelection === 'multiple' && params.users.length === 0) {
+        alert('Please select at least one user for the export.');
+        return false;
+      }
+
+      return true;
+    }
+
+    updateExportProgress(percentage, status) {
+      const progressBar = document.querySelector('#exportProgressModal .progress-bar');
+      const statusText = document.getElementById('exportStatus');
+
+      if (progressBar) progressBar.style.width = percentage + '%';
+      if (statusText) statusText.textContent = status;
+    }
+
+    downloadCSV(csvData, filename) {
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+
+    showSuccessMessage(message) {
+      if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast(message, 'success');
+      } else {
+        console.log('Success:', message);
+      }
+    }
+
+    showErrorMessage(message) {
+      if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast(message, 'danger');
+      } else {
+        console.error('Error:', message);
+      }
+    }
+  }
+
+  // GLOBAL FUNCTIONS
+  let dashboard;
+
+  function showEnhancedExportModal() {
+    const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+    modal.show();
+  }
+
+  function exportData() {
+    showEnhancedExportModal();
+  }
+
+  function refreshAIInsights() {
+    if (dashboard) {
+      dashboard.showToast('Refreshing analytics (Jamaica Time)...', 'info');
+      dashboard.loadDataDebounced();
+    }
+  }
+
+  function refreshData() {
+    if (dashboard) {
+      dashboard.showToast('Refreshing data (Jamaica Time)...', 'info');
+      dashboard.loadDataDebounced();
+    }
+  }
+
+  // Avoid channel-close callbacks on unload
+  window.addEventListener('beforeunload', () => {
+    if (window.dashboard) {
+      window.dashboard._reqSeq++;
+      window.dashboard.stopAutoRefresh(); // Clean up auto-refresh on unload
+    }
+  });
+
+  // INITIALIZATION
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Initializing Attendance Management System (Corrected Database Structure - Jamaica Time Zone)...');
+    dashboard = new AttendanceDashboard();
+    window.dashboard = dashboard;
+
+    // Initialize export manager when modal is shown
+    document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
+      if (!window.exportManager) {
+        window.exportManager = new EnhancedExportManager();
+      }
+    });
+
+    // Initialize matrix options visibility
+    setTimeout(() => {
+      const initialFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
+      if (initialFormat === 'daily_pivot') {
+        const matrixOptions = document.getElementById('pivotMatrixOptions');
+        if (matrixOptions) matrixOptions.style.display = 'block';
+      }
+    }, 100);
+
+    console.log('📊 Data Format: DurationMin column contains seconds (despite name)');
+    console.log('📋 All calculations convert seconds to decimal hours for display');
+  });
+</script>
+
+</body>
+</html>

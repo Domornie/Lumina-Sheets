@@ -1,0 +1,2276 @@
+<!-- ====================================== -->
+<!-- ChatWindow.html - Enhanced Main Chat Interface -->
+<!-- ====================================== -->
+<?!= include('header',{ baseUrl, user, currentPage }) ?>
+<? 
+  const adminRoles = ['CEO','CTO','COO','CFO','Director','Account Manager'];
+  const isAdmin = (user.roleNames||[]).some(r => adminRoles.includes(r));
+?>
+
+
+<style>
+  /* Hide badge when zero */
+  #notifCount { display: none; font-size: .65rem; }
+  
+  /* Message styles */
+  .message-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f1f1;
+  }
+  .message-item:hover {
+    background-color: #f8f9fa;
+  }
+  .message-content {
+    margin-left: 40px;
+  }
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #6c757d;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+  }
+  .message-time {
+    font-size: 0.8em;
+    color: #6c757d;
+  }
+  .typing-indicator {
+    font-style: italic;
+    color: #6c757d;
+    padding: 5px 0;
+  }
+  .unread-badge {
+    background: #dc3545;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 0.7em;
+    margin-left: auto;
+  }
+  .channel-item, .group-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .channel-item:hover, .group-item:hover {
+    background-color: #e9ecef;
+  }
+  .channel-item.active, .group-item.active {
+    background-color: #007bff;
+    color: white;
+  }
+  .online-indicator {
+    width: 8px;
+    height: 8px;
+    background: #28a745;
+    border-radius: 50%;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    border: 2px solid white;
+  }
+  .member-item {
+    position: relative;
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  .search-highlight {
+    background-color: yellow;
+    padding: 1px 2px;
+  }
+  .message-actions {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .message-item:hover .message-actions {
+    opacity: 1;
+  }
+  .emoji-picker {
+    display: none;
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+  }
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+  }
+</style>
+
+<div class="d-flex flex-column" style="height: calc((100vh - 56px) * 0.95);">
+  <div class="d-flex flex-fill">
+
+    <!-- Left Pane -->
+    <aside class="border-end bg-white p-3" style="width: 280px; overflow-y: auto;">
+      <? if(isAdmin){ ?>
+        <button class="btn btn-sm btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#newGroupModal">
+          <i class="fas fa-layer-group me-1"></i>New Group
+        </button>
+        <button class="btn btn-sm btn-secondary w-100 mb-3" data-bs-toggle="modal" data-bs-target="#newChannelModal">
+          <i class="fas fa-hashtag me-1"></i>New Channel
+        </button>
+      <? } ?>
+
+      <!-- Search Box -->
+      <div class="mb-3">
+        <input type="text" id="channelSearch" class="form-control form-control-sm" 
+               placeholder="Search channels..." />
+      </div>
+
+      <h6 class="text-uppercase text-muted mb-2">
+        Channels
+        <button class="btn btn-sm btn-link p-0 ms-2" id="refreshChannels">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </h6>
+      <ul id="channelsList" class="list-group mb-4"></ul>
+
+      <h6 class="text-uppercase text-muted mb-2">
+        Groups
+        <button class="btn btn-sm btn-link p-0 ms-2" id="refreshGroups">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </h6>
+      <ul id="groupsList" class="list-group"></ul>
+    </aside>
+
+    <!-- Center Pane -->
+    <section class="flex-fill d-flex flex-column bg-light">
+      <!-- Header -->
+      <div class="d-flex align-items-center justify-content-between border-bottom bg-white px-4 py-3">
+        <div class="d-flex align-items-center">
+          <h5 id="chatHeader" class="mb-0 me-3"></h5>
+          <span id="memberCount" class="badge bg-secondary"></span>
+          <span id="typingIndicator" class="typing-indicator ms-3"></span>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-secondary" id="loadMoreBtn" style="display: none;">
+            <i class="fas fa-chevron-up me-1"></i>Load More
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" id="scrollToBottomBtn" style="display: none;">
+            <i class="fas fa-chevron-down me-1"></i>Latest
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="messagePane" class="flex-fill p-4 position-relative overflow-auto"></div>
+
+      <!-- Typing Indicator Area -->
+      <div id="typingArea" class="px-4 py-1" style="min-height: 20px;"></div>
+
+      <!-- Message Input -->
+      <form id="msgForm" class="d-flex border-top bg-white px-4 py-3 align-items-end">
+        <div class="flex-fill me-2">
+          <textarea id="msgInput" 
+                    class="form-control" 
+                    placeholder="Type a message… (Press Enter to send, Shift+Enter for new line)" 
+                    rows="1"
+                    style="resize: none; max-height: 120px;"
+                    autocomplete="off"></textarea>
+          
+          <!-- Formatting toolbar -->
+          <div class="d-flex gap-2 mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="boldBtn" title="Bold">
+              <i class="fas fa-bold"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="italicBtn" title="Italic">
+              <i class="fas fa-italic"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="linkBtn" title="Link">
+              <i class="fas fa-link"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="emojiBtn" title="Emoji">
+              <i class="fas fa-smile"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="fileBtn" title="Attach File">
+              <i class="fas fa-paperclip"></i>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary ms-2">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </form>
+    </section>
+
+    <!-- Right Pane -->
+    <aside class="border-start bg-white p-3" style="width: 280px; overflow-y: auto;">
+      <? if(isAdmin){ ?>
+        <button class="btn btn-sm btn-success w-100 mb-3" data-bs-toggle="modal" data-bs-target="#addUserModal">
+          <i class="fas fa-user-plus me-1"></i>Add User
+        </button>
+      <? } ?>
+
+      <!-- Channel Info -->
+      <div id="channelInfo" class="mb-4" style="display: none;">
+        <h6 class="text-uppercase text-muted mb-2">Channel Info</h6>
+        <div class="card">
+          <div class="card-body">
+            <p class="card-text" id="channelDescription">No description available.</p>
+            <small class="text-muted">Created: <span id="channelCreated"></span></small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Members -->
+      <h6 class="text-uppercase text-muted mb-2">
+        Members
+        <span class="badge bg-secondary ms-1" id="membersCount">0</span>
+      </h6>
+      <ul id="membersList" class="list-unstyled mb-4"></ul>
+
+      <!-- Files -->
+      <h6 class="text-uppercase text-muted mb-2">Recent Files</h6>
+      <ul id="filesList" class="list-group list-group-flush"></ul>
+    </aside>
+
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container"></div>
+
+<!-- Emoji Picker -->
+<div id="emojiPicker" class="emoji-picker">
+  <div class="d-flex flex-wrap gap-1">
+    <span class="emoji-option" data-emoji="😀">😀</span>
+    <span class="emoji-option" data-emoji="😃">😃</span>
+    <span class="emoji-option" data-emoji="😄">😄</span>
+    <span class="emoji-option" data-emoji="😊">😊</span>
+    <span class="emoji-option" data-emoji="😍">😍</span>
+    <span class="emoji-option" data-emoji="🤔">🤔</span>
+    <span class="emoji-option" data-emoji="👍">👍</span>
+    <span class="emoji-option" data-emoji="👎">👎</span>
+    <span class="emoji-option" data-emoji="❤️">❤️</span>
+    <span class="emoji-option" data-emoji="🎉">🎉</span>
+  </div>
+</div>
+
+<!-- Modals -->
+<!-- New Group Modal -->
+<div class="modal fade" id="newGroupModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="newGroupForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Create New Group</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="groupNameInput" class="form-label">Group Name</label>
+            <input type="text" class="form-control" id="groupNameInput" required>
+          </div>
+          <div class="mb-3">
+            <label for="groupDescInput" class="form-label">Description</label>
+            <textarea class="form-control" id="groupDescInput" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- New Channel Modal -->
+<div class="modal fade" id="newChannelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="newChannelForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Create New Channel</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="channelNameInput" class="form-label">Channel Name</label>
+            <input type="text" class="form-control" id="channelNameInput" required>
+          </div>
+          <div class="mb-3">
+            <label for="channelDescInput" class="form-label">Description</label>
+            <textarea class="form-control" id="channelDescInput" rows="3"></textarea>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="channelPrivate">
+            <label class="form-check-label" for="channelPrivate">
+              Private Channel
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="addUserForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Add User to Group</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label for="userSelect" class="form-label">Select User</label>
+          <select id="userSelect" class="form-select" required>
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Search Modal -->
+<div class="modal fade" id="searchModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Search Messages</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <input type="text" class="form-control" id="searchInput" placeholder="Search messages...">
+        </div>
+        <div id="searchResults" class="list-group"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const userGroups = JSON.parse('<?= userGroups ?>');
+const groupChannels = JSON.parse('<?= groupChannels ?>');
+const messages = JSON.parse('<?= messages ?>');  
+
+// Enhanced Chat Application
+class ChatApp {
+  constructor() {
+    this.groups = [];
+    this.channels = [];
+    this.currentGroup = null;
+    this.currentChannel = null;
+    this.messages = new Map();
+    this.lastMessageTimestamp = new Map();
+    this.unreadCounts = new Map();
+    this.typingUsers = new Set();
+    this.isTyping = false;
+    this.typingTimeout = null;
+    this.messageCache = new Map();
+    this.userCache = new Map();
+    this.pollInterval = null;
+    this.isOnline = navigator.onLine;
+    
+    this.init();
+  }
+
+  init() {
+    this.setupEventListeners();
+    this.setupNotifications();
+    this.loadUserPreferences();
+    this.loadGroups();
+    this.startPolling();
+    this.setupNetworkStatusListener();
+  }
+
+  setupEventListeners() {
+    // Navigation
+    document.getElementById('refreshGroups').addEventListener('click', () => this.loadGroups());
+    document.getElementById('refreshChannels').addEventListener('click', () => this.loadChannels());
+    
+    // Message form
+    document.getElementById('msgForm').addEventListener('submit', (e) => this.handleSendMessage(e));
+    document.getElementById('msgInput').addEventListener('keydown', (e) => this.handleKeyDown(e));
+    document.getElementById('msgInput').addEventListener('input', () => this.handleTyping());
+
+    // Scroll detection
+    document.getElementById('messagePane').addEventListener('scroll', (e) => this.handleScroll(e));
+    document.getElementById('loadMoreBtn').addEventListener('click', () => this.loadOlderMessages());
+    document.getElementById('scrollToBottomBtn').addEventListener('click', () => this.scrollToBottom());
+
+    // Search
+    document.getElementById('searchBtn').addEventListener('click', () => this.openSearchModal());
+    document.getElementById('channelSearch').addEventListener('input', (e) => this.filterChannels(e.target.value));
+
+    // Formatting buttons
+    document.getElementById('boldBtn').addEventListener('click', () => this.insertFormatting('**', '**'));
+    document.getElementById('italicBtn').addEventListener('click', () => this.insertFormatting('*', '*'));
+    document.getElementById('linkBtn').addEventListener('click', () => this.insertLink());
+    document.getElementById('emojiBtn').addEventListener('click', (e) => this.toggleEmojiPicker(e));
+    document.getElementById('fileBtn').addEventListener('click', () => this.openFileDialog());
+
+    // Emoji picker
+    document.querySelectorAll('.emoji-option').forEach(emoji => {
+      emoji.addEventListener('click', (e) => this.insertEmoji(e.target.dataset.emoji));
+    });
+
+    // Close emoji picker when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#emojiBtn') && !e.target.closest('#emojiPicker')) {
+        document.getElementById('emojiPicker').style.display = 'none';
+      }
+    });
+
+    // Modal handlers
+    this.setupModalHandlers();
+  }
+
+  setupModalHandlers() {
+    // Add User Modal
+    const addUserModal = document.getElementById('addUserModal');
+    addUserModal.addEventListener('show.bs.modal', () => this.loadUsersForModal());
+
+    // New Group Form
+    document.getElementById('newGroupForm').addEventListener('submit', (e) => this.handleCreateGroup(e));
+    
+    // New Channel Form
+    document.getElementById('newChannelForm').addEventListener('submit', (e) => this.handleCreateChannel(e));
+    
+    // Add User Form
+    document.getElementById('addUserForm').addEventListener('submit', (e) => this.handleAddUser(e));
+
+    // Search
+    document.getElementById('searchInput').addEventListener('input', (e) => this.performSearch(e.target.value));
+  }
+
+  setupNetworkStatusListener() {
+    window.addEventListener('online', () => {
+      this.isOnline = true;
+      this.showToast('Connection restored', 'success');
+      this.startPolling();
+    });
+
+    window.addEventListener('offline', () => {
+      this.isOnline = false;
+      this.showToast('Connection lost - working offline', 'warning');
+      if (this.pollInterval) {
+        clearInterval(this.pollInterval);
+        this.pollInterval = null;
+      }
+    });
+  }
+
+  setupNotifications() {
+    // Poll every 10 minutes (and on load) to refresh the badge count
+    const refreshNotifBadge = () => {
+      if (!this.isOnline) return;
+      
+      google.script.run
+        .withSuccessHandler(count => {
+          const el = document.getElementById('notifCount');
+          el.textContent = count;
+          el.style.display = count > 0 ? 'inline-block' : 'none';
+        })
+        .withFailureHandler(error => console.error('Failed to refresh notifications:', error))
+        .getTaskNotifications();
+    };
+
+    refreshNotifBadge();
+    setInterval(refreshNotifBadge, 10 * 60 * 1000);
+  }
+
+  loadUserPreferences() {
+    // Load user preferences from localStorage fallback to in-memory
+    const prefs = this.getStoredData('chatPreferences') || {
+      theme: 'light',
+      notificationsEnabled: true,
+      soundEnabled: true
+    };
+    this.userPreferences = prefs;
+  }
+
+  // Storage utilities (memory-based since localStorage not available)
+  getStoredData(key) {
+    return window.chatStorage?.[key] || null;
+  }
+
+  setStoredData(key, data) {
+    if (!window.chatStorage) window.chatStorage = {};
+    window.chatStorage[key] = data;
+  }
+
+  // Safe execution wrapper
+  safeExecute(operation, fallback = null, errorMessage = 'Operation failed') {
+    try {
+      return operation();
+    } catch (error) {
+      console.error(errorMessage, error);
+      this.showToast(errorMessage, 'error');
+      return fallback;
+    }
+  }
+
+  // Enhanced error handling for Google Script calls
+  executeWithRetry(scriptFunction, params = [], maxRetries = 3) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      
+      const attempt = () => {
+        attempts++;
+        const runner = google.script.run
+          .withSuccessHandler(result => resolve(result))
+          .withFailureHandler(error => {
+            console.error(`Attempt ${attempts} failed:`, error);
+            if (attempts < maxRetries) {
+              setTimeout(attempt, 1000 * attempts); // Exponential backoff
+            } else {
+              reject(error);
+            }
+          });
+        
+        runner[scriptFunction](...params);
+      };
+      
+      attempt();
+    });
+  }
+
+  async loadGroups() {
+    try {
+      const groups = await this.executeWithRetry('listMyGroups');
+      this.groups = groups;
+      this.renderGroups();
+      if (groups.length > 0) {
+        this.selectGroup(groups[0].ID, groups[0].Name);
+      }
+    } catch (error) {
+      this.showToast('Failed to load groups', 'error');
+    }
+  }
+
+  async loadChannels() {
+    if (!this.currentGroup) return;
+    
+    try {
+      const channels = await this.executeWithRetry('getChatChannels', [this.currentGroup]);
+      this.channels = channels;
+      this.renderChannels();
+      if (channels.length > 0) {
+        this.selectChannel(channels[0].ID, channels[0].Name);
+      }
+    } catch (error) {
+      this.showToast('Failed to load channels', 'error');
+    }
+  }
+
+  renderGroups() {
+    const container = document.getElementById('groupsList');
+    container.innerHTML = '';
+    
+    this.groups.forEach(group => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item list-group-item-action group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `
+        <span>${this.escapeHtml(group.Name)}</span>
+        ${this.getUnreadCount(group.ID) > 0 ? `<span class="unread-badge">${this.getUnreadCount(group.ID)}</span>` : ''}
+      `;
+      li.onclick = () => this.selectGroup(group.ID, group.Name);
+      if (group.ID === this.currentGroup) {
+        li.classList.add('active');
+      }
+      container.appendChild(li);
+    });
+  }
+
+  renderChannels() {
+    const container = document.getElementById('channelsList');
+    container.innerHTML = '';
+    
+    this.channels.forEach(channel => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item list-group-item-action channel-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `
+        <span># ${this.escapeHtml(channel.Name)}</span>
+        ${this.getUnreadCount(channel.ID) > 0 ? `<span class="unread-badge">${this.getUnreadCount(channel.ID)}</span>` : ''}
+      `;
+      li.onclick = () => this.selectChannel(channel.ID, channel.Name);
+      if (channel.ID === this.currentChannel) {
+        li.classList.add('active');
+      }
+      container.appendChild(li);
+    });
+  }
+
+  getUnreadCount(id) {
+    return this.unreadCounts.get(id) || 0;
+  }
+
+  async selectGroup(id, name) {
+    this.currentGroup = id;
+    document.getElementById('chatHeader').textContent = name || '';
+    
+    // Update active state
+    document.querySelectorAll('.group-item').forEach(item => item.classList.remove('active'));
+    event?.target?.closest('.group-item')?.classList.add('active');
+    
+    await this.loadChannels();
+    this.loadGroupMembers();
+  }
+
+  async selectChannel(id, name) {
+    this.currentChannel = id;
+    document.getElementById('chatHeader').textContent = `# ${name || ''}`;
+    
+    // Update active state
+    document.querySelectorAll('.channel-item').forEach(item => item.classList.remove('active'));
+    event?.target?.closest('.channel-item')?.classList.add('active');
+    
+    // Mark as read
+    this.markChannelAsRead(id);
+    
+    await this.fetchMessages();
+    this.loadChannelMembers();
+    this.updateChannelInfo();
+  }
+
+  markChannelAsRead(channelId) {
+    this.unreadCounts.set(channelId, 0);
+    this.renderChannels();
+  }
+
+  async fetchMessages() {
+    if (!this.currentChannel || !this.isOnline) return;
+    
+    try {
+      const lastTimestamp = this.lastMessageTimestamp.get(this.currentChannel);
+      const messages = await this.executeWithRetry('getChatMessagesIncremental', [this.currentChannel, lastTimestamp]);
+      
+      if (messages.length > 0) {
+        if (!this.messages.has(this.currentChannel)) {
+          this.messages.set(this.currentChannel, []);
+        }
+        
+        const existingMessages = this.messages.get(this.currentChannel);
+        const newMessages = messages.filter(m => !existingMessages.some(em => em.ID === m.ID));
+        
+        existingMessages.push(...newMessages);
+        this.messages.set(this.currentChannel, existingMessages);
+        
+        if (newMessages.length > 0) {
+          this.lastMessageTimestamp.set(this.currentChannel, newMessages[newMessages.length - 1].Timestamp);
+        }
+        
+        this.renderMessages();
+      }
+    } catch (error) {
+      this.showToast('Failed to load messages', 'error');
+    }
+  }
+
+  renderMessages() {
+    const container = document.getElementById('messagePane');
+    const messages = this.messages.get(this.currentChannel) || [];
+    const shouldScrollToBottom = this.isScrolledToBottom();
+    
+    container.innerHTML = '';
+    
+    messages.forEach((message, index) => {
+      const messageEl = this.createMessageElement(message);
+      container.appendChild(messageEl);
+    });
+
+    if (shouldScrollToBottom) {
+      this.scrollToBottom();
+    }
+
+    this.updateScrollButtons();
+  }
+
+  createMessageElement(message) {
+    const div = document.createElement('div');
+    div.className = 'message-item d-flex';
+    div.dataset.messageId = message.ID;
+    
+    const avatar = this.createUserAvatar(message.UserId);
+    const time = this.formatMessageTime(message.Timestamp);
+    const content = this.formatMessageContent(message.Message);
+    
+    div.innerHTML = `
+      ${avatar}
+      <div class="message-content flex-fill">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <strong class="me-2">${this.escapeHtml(this.getUserDisplayName(message.UserId))}</strong>
+          <small class="message-time">${time}</small>
+          <div class="message-actions ms-2">
+            <button class="btn btn-sm btn-link p-0 me-1" onclick="chatApp.reactToMessage('${message.ID}', '👍')" title="React">
+              <i class="far fa-thumbs-up"></i>
+            </button>
+            <button class="btn btn-sm btn-link p-0 me-1" onclick="chatApp.replyToMessage('${message.ID}')" title="Reply">
+              <i class="fas fa-reply"></i>
+            </button>
+            <button class="btn btn-sm btn-link p-0" onclick="chatApp.showMessageActions('${message.ID}')" title="More">
+              <i class="fas fa-ellipsis-h"></i>
+            </button>
+          </div>
+        </div>
+        <div class="message-text">${content}</div>
+        <div class="message-reactions mt-1" id="reactions-${message.ID}"></div>
+      </div>
+    `;
+    
+    return div;
+  }
+
+  createUserAvatar(userId) {
+    const displayName = this.getUserDisplayName(userId);
+    const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    
+    return `
+      <div class="message-avatar me-2">
+        ${initials}
+      </div>
+    `;
+  }
+
+  getUserDisplayName(userId) {
+    // Try to get from user cache, otherwise use email
+    const user = this.userCache.get(userId);
+    return user?.Name || userId.split('@')[0] || userId;
+  }
+
+  formatMessageTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString();
+  }
+
+  formatMessageContent(message) {
+    // Handle basic markdown formatting
+    let formatted = this.escapeHtml(message);
+    
+    // Bold text
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Italic text
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Links
+    formatted = formatted.replace(
+      /(https?:\/\/[^\s]+)/g, 
+      '<a href="$1" target="_blank" rel="noopener">$1</a>'
+    );
+    
+    // Mentions
+    formatted = formatted.replace(
+      /@([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<span class="mention">@$1</span>'
+    );
+    
+    return formatted;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async handleSendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    
+    if (!text || !this.currentChannel || !this.isOnline) return;
+    
+    try {
+      await this.executeWithRetry('postChatMessage', [
+        this.currentChannel,
+        Session.getActiveUser().getEmail(),
+        text
+      ]);
+      
+      input.value = '';
+      this.autoResizeTextarea(input);
+      this.stopTyping();
+      await this.fetchMessages();
+    } catch (error) {
+      this.showToast('Failed to send message', 'error');
+    }
+  }
+
+  handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      this.handleSendMessage(e);
+    }
+  }
+
+  handleTyping() {
+    if (!this.isTyping) {
+      this.isTyping = true;
+      // Send typing indicator to server
+      this.sendTypingIndicator(true);
+    }
+    
+    // Reset typing timeout
+    clearTimeout(this.typingTimeout);
+    this.typingTimeout = setTimeout(() => {
+      this.stopTyping();
+    }, 2000);
+    
+    // Auto-resize textarea
+    this.autoResizeTextarea(document.getElementById('msgInput'));
+  }
+
+  stopTyping() {
+    if (this.isTyping) {
+      this.isTyping = false;
+      this.sendTypingIndicator(false);
+    }
+    clearTimeout(this.typingTimeout);
+  }
+
+  sendTypingIndicator(isTyping) {
+    // This would send typing status to server
+    // For now, just update local UI
+    this.updateTypingIndicator();
+  }
+
+  updateTypingIndicator() {
+    const indicator = document.getElementById('typingIndicator');
+    if (this.typingUsers.size > 0) {
+      const users = Array.from(this.typingUsers);
+      indicator.textContent = `${users.join(', ')} ${users.length === 1 ? 'is' : 'are'} typing...`;
+    } else {
+      indicator.textContent = '';
+    }
+  }
+
+  autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  }
+
+  handleScroll(e) {
+    const container = e.target;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    
+    // Show/hide scroll to bottom button
+    const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
+    scrollToBottomBtn.style.display = 
+      (scrollHeight - scrollTop - clientHeight > 100) ? 'block' : 'none';
+    
+    // Show load more button when near top
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    loadMoreBtn.style.display = (scrollTop < 100) ? 'block' : 'none';
+  }
+
+  isScrolledToBottom() {
+    const container = document.getElementById('messagePane');
+    return container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+  }
+
+  scrollToBottom() {
+    const container = document.getElementById('messagePane');
+    container.scrollTop = container.scrollHeight;
+  }
+
+  updateScrollButtons() {
+    const container = document.getElementById('messagePane');
+    const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    
+    scrollToBottomBtn.style.display = 
+      (container.scrollHeight > container.clientHeight && !this.isScrolledToBottom()) ? 'block' : 'none';
+    
+    loadMoreBtn.style.display = 'none'; // Hide for now - implement pagination later
+  }
+
+  async loadOlderMessages() {
+    // Implement pagination for older messages
+    this.showToast('Loading older messages...', 'info');
+  }
+
+  // Formatting functions
+  insertFormatting(prefix, suffix) {
+    const input = document.getElementById('msgInput');
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const selectedText = input.value.substring(start, end);
+    const replacement = prefix + selectedText + suffix;
+    
+    input.value = input.value.substring(0, start) + replacement + input.value.substring(end);
+    input.focus();
+    input.setSelectionRange(start + prefix.length, start + prefix.length + selectedText.length);
+  }
+
+  insertLink() {
+    const url = prompt('Enter URL:');
+    if (url) {
+      const input = document.getElementById('msgInput');
+      const start = input.selectionStart;
+      const selectedText = input.value.substring(input.selectionStart, input.selectionEnd) || url;
+      const linkText = `[${selectedText}](${url})`;
+      
+      input.value = input.value.substring(0, start) + linkText + input.value.substring(input.selectionEnd);
+      input.focus();
+    }
+  }
+
+  toggleEmojiPicker(e) {
+    const picker = document.getElementById('emojiPicker');
+    const rect = e.target.getBoundingClientRect();
+    
+    if (picker.style.display === 'block') {
+      picker.style.display = 'none';
+    } else {
+      picker.style.display = 'block';
+      picker.style.top = (rect.top - picker.offsetHeight - 10) + 'px';
+      picker.style.left = rect.left + 'px';
+    }
+  }
+
+  insertEmoji(emoji) {
+    const input = document.getElementById('msgInput');
+    const start = input.selectionStart;
+    input.value = input.value.substring(0, start) + emoji + input.value.substring(input.selectionEnd);
+    input.focus();
+    input.setSelectionRange(start + emoji.length, start + emoji.length);
+    document.getElementById('emojiPicker').style.display = 'none';
+  }
+
+  openFileDialog() {
+    // Create file input dynamically
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.onchange = (e) => this.handleFileUpload(e.target.files);
+    fileInput.click();
+  }
+
+  handleFileUpload(files) {
+    Array.from(files).forEach(file => {
+      this.showToast(`Uploading ${file.name}...`, 'info');
+      // Implement file upload logic here
+    });
+  }
+
+  // Modal handlers
+  async loadUsersForModal() {
+    try {
+      const users = await this.executeWithRetry('getAllUsers');
+      const select = document.getElementById('userSelect');
+      select.innerHTML = '<option value="">Choose a user…</option>';
+      
+      users.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.Email;
+        option.textContent = user.Name || user.Email;
+        select.appendChild(option);
+      });
+    } catch (error) {
+      this.showToast('Failed to load users', 'error');
+    }
+  }
+
+  async handleCreateGroup(e) {
+    e.preventDefault();
+    const name = document.getElementById('groupNameInput').value.trim();
+    const description = document.getElementById('groupDescInput').value.trim();
+    
+    if (!name) return;
+    
+    try {
+      await this.executeWithRetry('createChatGroup', [name, description]);
+      bootstrap.Modal.getInstance(document.getElementById('newGroupModal')).hide();
+      document.getElementById('newGroupForm').reset();
+      await this.loadGroups();
+      this.showToast('Group created successfully', 'success');
+    } catch (error) {
+      this.showToast('Failed to create group', 'error');
+    }
+  }
+
+  async handleCreateChannel(e) {
+    e.preventDefault();
+    if (!this.currentGroup) return;
+    
+    const name = document.getElementById('channelNameInput').value.trim();
+    const description = document.getElementById('channelDescInput').value.trim();
+    const isPrivate = document.getElementById('channelPrivate').checked;
+    
+    if (!name) return;
+    
+    try {
+      await this.executeWithRetry('createChatChannel', [this.currentGroup, name, description, isPrivate]);
+      bootstrap.Modal.getInstance(document.getElementById('newChannelModal')).hide();
+      document.getElementById('newChannelForm').reset();
+      await this.loadChannels();
+      this.showToast('Channel created successfully', 'success');
+    } catch (error) {
+      this.showToast('Failed to create channel', 'error');
+    }
+  }
+
+  async handleAddUser(e) {
+    e.preventDefault();
+    if (!this.currentGroup) return;
+    
+    const email = document.getElementById('userSelect').value;
+    if (!email) return;
+    
+    try {
+      await this.executeWithRetry('addUserToChatGroup', [this.currentGroup, email]);
+      bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+      await this.loadGroupMembers();
+      this.showToast('User added successfully', 'success');
+    } catch (error) {
+      this.showToast('Failed to add user', 'error');
+    }
+  }
+
+  // Search functionality
+  openSearchModal() {
+    const modal = new bootstrap.Modal(document.getElementById('searchModal'));
+    modal.show();
+    setTimeout(() => document.getElementById('searchInput').focus(), 300);
+  }
+
+  async performSearch(query) {
+    if (query.length < 3) {
+      document.getElementById('searchResults').innerHTML = '';
+      return;
+    }
+    
+    try {
+      const results = await this.executeWithRetry('searchChatMessages', [query, this.currentGroup]);
+      this.renderSearchResults(results, query);
+    } catch (error) {
+      this.showToast('Search failed', 'error');
+    }
+  }
+
+  renderSearchResults(results, query) {
+    const container = document.getElementById('searchResults');
+    container.innerHTML = '';
+    
+    if (results.length === 0) {
+      container.innerHTML = '<div class="list-group-item">No results found</div>';
+      return;
+    }
+    
+    results.forEach(result => {
+      const item = document.createElement('div');
+      item.className = 'list-group-item list-group-item-action';
+      
+      const highlightedText = result.Message.replace(
+        new RegExp(query, 'gi'),
+        '<span class="search-highlight">            <button class="btn btn-sm btn-link p-0 me-1" onclick="chatApp.reactToMessage('${message.ID}', '👍')" title="React">
+              <i class="far fa-thumbs-up"></i>
+            </span>'
+      );
+      
+      item.innerHTML = `
+        <div class="d-flex justify-content-between">
+          <h6 class="mb-1">${result.ChannelName}</h6>
+          <small>${this.formatMessageTime(result.Timestamp)}</small>
+        </div>
+        <p class="mb-1">${highlightedText}</p>
+        <small>by ${this.getUserDisplayName(result.UserId)}</small>
+      `;
+      
+      item.onclick = () => this.jumpToMessage(result);
+      container.appendChild(item);
+    });
+  }
+
+  async jumpToMessage(messageResult) {
+    // Close search modal
+    bootstrap.Modal.getInstance(document.getElementById('searchModal')).hide();
+    
+    // Navigate to the correct channel
+    const channel = this.channels.find(c => c.ID === messageResult.ChannelId);
+    if (channel) {
+      await this.selectChannel(channel.ID, channel.Name);
+      
+      // Highlight the message
+      setTimeout(() => {
+        const messageEl = document.querySelector(`[data-message-id="${messageResult.ID}"]`);
+        if (messageEl) {
+          messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          messageEl.style.backgroundColor = '#fff3cd';
+          setTimeout(() => {
+            messageEl.style.backgroundColor = '';
+          }, 3000);
+        }
+      }, 500);
+    }
+  }
+
+  filterChannels(searchTerm) {
+    const items = document.querySelectorAll('#channelsList .channel-item');
+    items.forEach(item => {
+      const text = item.textContent.toLowerCase();
+      item.style.display = text.includes(searchTerm.toLowerCase()) ? 'block' : 'none';
+    });
+  }
+
+  // Member management
+  async loadGroupMembers() {
+    if (!this.currentGroup) return;
+    
+    try {
+      const members = await this.executeWithRetry('getGroupMembers', [this.currentGroup]);
+      this.renderMembers(members);
+      document.getElementById('membersCount').textContent = members.length;
+    } catch (error) {
+      console.error('Failed to load members:', error);
+    }
+  }
+
+  async loadChannelMembers() {
+    // For now, use group members
+    await this.loadGroupMembers();
+  }
+
+  renderMembers(members) {
+    const container = document.getElementById('membersList');
+    container.innerHTML = '';
+    
+    members.forEach(member => {
+      const li = document.createElement('li');
+      li.className = 'member-item d-flex align-items-center';
+      
+      const avatar = this.createUserAvatar(member.UserId);
+      const isOnline = Math.random() > 0.5; // Mock online status
+      
+      li.innerHTML = `
+        <div class="position-relative me-2">
+          ${avatar}
+          ${isOnline ? '<div class="online-indicator"></div>' : ''}
+        </div>
+        <div>
+          <div class="fw-bold">${this.getUserDisplayName(member.UserId)}</div>
+          <small class="text-muted">${isOnline ? 'Online' : 'Offline'}</small>
+        </div>
+      `;
+      
+      container.appendChild(li);
+    });
+  }
+
+  updateChannelInfo() {
+    const channel = this.channels.find(c => c.ID === this.currentChannel);
+    if (channel) {
+      document.getElementById('channelDescription').textContent = 
+        channel.Description || 'No description available.';
+      document.getElementById('channelCreated').textContent = 
+        new Date(channel.CreatedAt).toLocaleDateString();
+      document.getElementById('channelInfo').style.display = 'block';
+    }
+  }
+
+  // Message actions
+  async reactToMessage(messageId, reaction) {
+    try {
+      await this.executeWithRetry('addMessageReaction', [messageId, reaction]);
+      this.showToast('Reaction added', 'success');
+      // Update reactions in UI
+      this.updateMessageReactions(messageId);
+    } catch (error) {
+      this.showToast('Failed to add reaction', 'error');
+    }
+  }
+
+  replyToMessage(messageId) {
+    const input = document.getElementById('msgInput');
+    input.value = `@reply:${messageId} `;
+    input.focus();
+  }
+
+  showMessageActions(messageId) {
+    // Show context menu for message actions
+    this.showToast('Message actions coming soon', 'info');
+  }
+
+  updateMessageReactions(messageId) {
+    // Update reaction display for a specific message
+    const container = document.getElementById(`reactions-${messageId}`);
+    if (container) {
+      // Implementation for displaying reactions
+    }
+  }
+
+  // Polling and real-time updates
+  startPolling() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+    }
+    
+    this.pollInterval = setInterval(() => {
+      if (this.isOnline && this.currentChannel) {
+        this.fetchMessages();
+      }
+    }, 3000);
+  }
+
+  // Utility functions
+  showToast(message, type = 'info', duration = 5000) {
+    const container = document.querySelector('.toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    
+    toast.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    `;
+    
+    container.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast, { delay: duration });
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+      toast.remove();
+    });
+  }
+}
+
+// Initialize the chat application
+let chatApp;
+document.addEventListener('DOMContentLoaded', () => {
+  chatApp = new ChatApp();
+});
+</script>
+
+<!-- ====================================== -->
+<!-- ChatBubble.html - Enhanced Chat Widget -->
+<!-- ====================================== -->
+<? 
+  var allowed = (user.pages||[]).map(p => p.toLowerCase());
+  if (!allowed.includes('chat')) return '';
+?>
+
+<style>
+  /* Enhanced bubble styles */
+  #chatBubble.hidden {
+    display: none !important;
+  }
+  #chatBubble.shown {
+    display: flex !important;
+    flex-direction: column;
+  }
+  #chatToggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #4e73df, #5a67d8);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 2000;
+    box-shadow: 0 4px 12px rgba(78, 115, 223, 0.4);
+    transition: all 0.3s ease;
+    border: none;
+  }
+  #chatToggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(78, 115, 223, 0.6);
+  }
+  #chatToggle.has-notification {
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 4px 12px rgba(78, 115, 223, 0.4); }
+    50% { box-shadow: 0 4px 12px rgba(78, 115, 223, 0.8), 0 0 0 10px rgba(78, 115, 223, 0.1); }
+    100% { box-shadow: 0 4px 12px rgba(78, 115, 223, 0.4); }
+  }
+  #chatBubble {
+    position: fixed;
+    bottom: 90px; right: 20px;
+    width: 350px; max-height: 500px;
+    border: 1px solid #e3e6f0;
+    border-radius: 15px;
+    background: #fff;
+    z-index: 2000;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+  }
+  #chatBubble.minimized {
+    height: 60px;
+    overflow: hidden;
+  }
+  .bubble-header {
+    background: linear-gradient(45deg, #4e73df, #5a67d8);
+    color: white;
+    border-radius: 15px 15px 0 0;
+    padding: 15px;
+  }
+  .bubble-messages {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 15px;
+  }
+  .bubble-message {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 18px;
+    max-width: 80%;
+    word-wrap: break-word;
+  }
+  .bubble-message.own {
+    background: #4e73df;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+  }
+  .bubble-message.other {
+    background: #f1f3f4;
+    color: #333;
+  }
+  .bubble-input-area {
+    border-top: 1px solid #e3e6f0;
+    padding: 15px;
+    border-radius: 0 0 15px 15px;
+  }
+  .bubble-notification {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+  }
+</style>
+
+<button id="chatToggle">
+  <i class="fas fa-comments"></i>
+  <div id="bubbleNotification" class="bubble-notification" style="display: none;">0</div>
+</button>
+
+<div id="chatBubble" class="shadow hidden">
+  <!-- Header -->
+  <div class="bubble-header d-flex align-items-center justify-content-between">
+    <div>
+      <div id="bubbleChannelName" class="fw-bold">Chat</div>
+      <small id="bubbleStatus" class="opacity-75">Select a channel</small>
+    </div>
+    <div class="d-flex gap-2">
+      <button id="bubbleMinimize" class="btn btn-sm btn-link text-white p-1">
+        <i class="fas fa-minus"></i>
+      </button>
+      <button id="bubbleExpand" class="btn btn-sm btn-link text-white p-1">
+        <i class="fas fa-external-link-alt"></i>
+      </button>
+      <button id="bubbleClose" class="btn btn-sm btn-link text-white p-1">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Channel Selector -->
+  <div id="bubbleChannelSelector" class="p-3 border-bottom">
+    <select id="bubbleChannelSelect" class="form-select form-select-sm">
+      <option value="">Loading channels...</option>
+    </select>
+  </div>
+
+  <!-- Messages -->
+  <div id="bubbleMessages" class="bubble-messages"></div>
+
+  <!-- Typing Indicator -->
+  <div id="bubbleTyping" class="px-3 py-1 text-muted" style="min-height: 20px; font-style: italic; font-size: 0.9em;"></div>
+
+  <!-- Input -->
+  <div class="bubble-input-area">
+    <form id="bubbleForm" class="d-flex gap-2">
+      <input id="bubbleInput" 
+             class="form-control form-control-sm" 
+             placeholder="Type a message…" 
+             autocomplete="off">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+// Enhanced Chat Bubble Widget
+class ChatBubble {
+  constructor() {
+    this.isVisible = false;
+    this.isMinimized = false;
+    this.currentChannelId = null;
+    this.messages = [];
+    this.unreadCount = 0;
+    this.pollInterval = null;
+    this.typingTimeout = null;
+    this.isTyping = false;
+    
+    this.init();
+  }
+
+  init() {
+    this.setupEventListeners();
+    this.loadChannels();
+    this.startPolling();
+  }
+
+  setupEventListeners() {
+    // Toggle bubble
+    document.getElementById('chatToggle').addEventListener('click', () => {
+      this.toggleBubble();
+    });
+
+    // Header buttons
+    document.getElementById('bubbleClose').addEventListener('click', () => {
+      this.hideBubble();
+    });
+
+    document.getElementById('bubbleMinimize').addEventListener('click', () => {
+      this.toggleMinimize();
+    });
+
+    document.getElementById('bubbleExpand').addEventListener('click', () => {
+      this.expandToFullChat();
+    });
+
+    // Channel selection
+    document.getElementById('bubbleChannelSelect').addEventListener('change', (e) => {
+      this.selectChannel(e.target.value);
+    });
+
+    // Message form
+    document.getElementById('bubbleForm').addEventListener('submit', (e) => {
+      this.handleSendMessage(e);
+    });
+
+    // Typing detection
+    document.getElementById('bubbleInput').addEventListener('input', () => {
+      this.handleTyping();
+    });
+
+    // Auto-focus input when bubble opens
+    document.getElementById('chatBubble').addEventListener('transitionend', () => {
+      if (this.isVisible && !this.isMinimized) {
+        document.getElementById('bubbleInput').focus();
+      }
+    });
+  }
+
+  toggleBubble() {
+    if (this.isVisible) {
+      this.hideBubble();
+    } else {
+      this.showBubble();
+    }
+  }
+
+  showBubble() {
+    const bubble = document.getElementById('chatBubble');
+    bubble.classList.remove('hidden');
+    bubble.classList.add('shown');
+    this.isVisible = true;
+    this.clearUnreadCount();
+    
+    if (this.currentChannelId) {
+      this.fetchMessages();
+    }
+  }
+
+  hideBubble() {
+    const bubble = document.getElementById('chatBubble');
+    bubble.classList.remove('shown');
+    bubble.classList.add('hidden');
+    this.isVisible = false;
+  }
+
+  toggleMinimize() {
+    const bubble = document.getElementById('chatBubble');
+    const icon = document.getElementById('bubbleMinimize').querySelector('i');
+    
+    if (this.isMinimized) {
+      bubble.classList.remove('minimized');
+      icon.className = 'fas fa-minus';
+      this.isMinimized = false;
+    } else {
+      bubble.classList.add('minimized');
+      icon.className = 'fas fa-window-maximize';
+      this.isMinimized = true;
+    }
+  }
+
+  expandToFullChat() {
+    // Open full chat window
+    window.open(`${baseUrl}&page=chat`, '_blank');
+  }
+
+  async loadChannels() {
+    try {
+      const groups = await this.executeWithRetry('listMyGroups');
+      if (groups.length > 0) {
+        const channels = await this.executeWithRetry('getChatChannels', [groups[0].ID]);
+        this.populateChannelSelector(channels);
+        
+        if (channels.length > 0) {
+          this.selectChannel(channels[0].ID);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load channels:', error);
+      this.updateStatus('Failed to load channels');
+    }
+  }
+
+  populateChannelSelector(channels) {
+    const select = document.getElementById('bubbleChannelSelect');
+    select.innerHTML = '<option value="">Select a channel...</option>';
+    
+    channels.forEach(channel => {
+      const option = document.createElement('option');
+      option.value = channel.ID;
+      option.textContent = `# ${channel.Name}`;
+      select.appendChild(option);
+    });
+  }
+
+  selectChannel(channelId) {
+    if (!channelId) return;
+    
+    this.currentChannelId = channelId;
+    document.getElementById('bubbleChannelSelect').value = channelId;
+    
+    // Update header
+    const channelName = document.getElementById('bubbleChannelSelect').selectedOptions[0]?.textContent || 'Chat';
+    document.getElementById('bubbleChannelName').textContent = channelName;
+    this.updateStatus('Connected');
+    
+    this.fetchMessages();
+  }
+
+  async fetchMessages() {
+    if (!this.currentChannelId) return;
+    
+    try {
+      const messages = await this.executeWithRetry('getChatMessages', [this.currentChannelId]);
+      this.messages = messages;
+      this.renderMessages();
+      
+      if (this.isVisible) {
+        this.scrollToBottom();
+      } else {
+        this.updateUnreadCount();
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+      this.updateStatus('Failed to load messages');
+    }
+  }
+
+  renderMessages() {
+    const container = document.getElementById('bubbleMessages');
+    const currentUser = Session.getActiveUser().getEmail();
+    
+    container.innerHTML = '';
+    
+    this.messages.slice(-10).forEach(message => { // Show last 10 messages
+      const messageEl = document.createElement('div');
+      const isOwn = message.UserId === currentUser;
+      
+      messageEl.className = `bubble-message ${isOwn ? 'own' : 'other'}`;
+      
+      if (isOwn) {
+        messageEl.innerHTML = `
+          <div>${this.formatMessageContent(message.Message)}</div>
+          <small class="opacity-75">${this.formatTime(message.Timestamp)}</small>
+        `;
+      } else {
+        messageEl.innerHTML = `
+          <small class="fw-bold">${this.getUserDisplayName(message.UserId)}</small>
+          <div>${this.formatMessageContent(message.Message)}</div>
+          <small class="opacity-75">${this.formatTime(message.Timestamp)}</small>
+        `;
+      }
+      
+      container.appendChild(messageEl);
+    });
+  }
+
+  scrollToBottom() {
+    const container = document.getElementById('bubbleMessages');
+    container.scrollTop = container.scrollHeight;
+  }
+
+  async handleSendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('bubbleInput');
+    const text = input.value.trim();
+    
+    if (!text || !this.currentChannelId) return;
+    
+    try {
+      await this.executeWithRetry('postChatMessage', [
+        this.currentChannelId,
+        Session.getActiveUser().getEmail(),
+        text
+      ]);
+      
+      input.value = '';
+      this.stopTyping();
+      await this.fetchMessages();
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      this.updateStatus('Failed to send message');
+    }
+  }
+
+  handleTyping() {
+    if (!this.isTyping) {
+      this.isTyping = true;
+      // Send typing indicator
+    }
+    
+    clearTimeout(this.typingTimeout);
+    this.typingTimeout = setTimeout(() => {
+      this.stopTyping();
+    }, 2000);
+  }
+
+  stopTyping() {
+    this.isTyping = false;
+    clearTimeout(this.typingTimeout);
+  }
+
+  updateUnreadCount() {
+    // Calculate unread messages (simplified)
+    this.unreadCount = Math.min(this.messages.length, 5);
+    
+    const notification = document.getElementById('bubbleNotification');
+    const toggle = document.getElementById('chatToggle');
+    
+    if (this.unreadCount > 0) {
+      notification.textContent = this.unreadCount;
+      notification.style.display = 'flex';
+      toggle.classList.add('has-notification');
+    } else {
+      notification.style.display = 'none';
+      toggle.classList.remove('has-notification');
+    }
+  }
+
+  clearUnreadCount() {
+    this.unreadCount = 0;
+    document.getElementById('bubbleNotification').style.display = 'none';
+    document.getElementById('chatToggle').classList.remove('has-notification');
+  }
+
+  updateStatus(status) {
+    document.getElementById('bubbleStatus').textContent = status;
+  }
+
+  startPolling() {
+    this.pollInterval = setInterval(() => {
+      if (this.currentChannelId) {
+        this.fetchMessages();
+      }
+    }, 5000); // Poll every 5 seconds for bubble
+  }
+
+  formatTime(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  formatMessageContent(message) {
+    // Basic formatting
+    return message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                 .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  }
+
+  getUserDisplayName(userId) {
+    return userId.split('@')[0] || userId;
+  }
+
+  async executeWithRetry(scriptFunction, params = [], maxRetries = 2) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      
+      const attempt = () => {
+        attempts++;
+        const runner = google.script.run
+          .withSuccessHandler(result => resolve(result))
+          .withFailureHandler(error => {
+            if (attempts < maxRetries) {
+              setTimeout(attempt, 1000 * attempts);
+            } else {
+              reject(error);
+            }
+          });
+        
+        runner[scriptFunction](...params);
+      };
+      
+      attempt();
+    });
+  }
+}
+
+// Initialize chat bubble
+let chatBubble;
+document.addEventListener('DOMContentLoaded', () => {
+  chatBubble = new ChatBubble();
+});
+</script>
+
+<!-- ====================================== -->
+<!-- Enhanced ChatService.gs - Backend Functions -->
+<!-- ====================================== -->
+<script>
+/**
+ * Enhanced ChatService.gs
+ * 
+ * Backend Google Apps Script functions for the chat system
+ * Add this code to your ChatService.gs file
+ */
+
+// Sheet names constants
+const CHAT_GROUPS_SHEET = 'ChatGroups';
+const CHAT_CHANNELS_SHEET = 'ChatChannels';
+const CHAT_MESSAGES_SHEET = 'ChatMessages';
+const CHAT_GROUP_MEMBERS_SHEET = 'ChatGroupMembers';
+const CHAT_MESSAGE_REACTIONS_SHEET = 'ChatMessageReactions';
+const CHAT_USER_PREFERENCES_SHEET = 'ChatUserPreferences';
+const USERS_SHEET = 'Users';
+
+/** 
+ * Setup required sheets with proper headers
+ */
+function setupSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Chat Groups: ID, Name, Description, CreatedBy, CreatedAt, UpdatedAt
+  setupSheet(ss, CHAT_GROUPS_SHEET, ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt']);
+  
+  // Chat Channels: ID, GroupId, Name, Description, IsPrivate, CreatedAt, UpdatedAt
+  setupSheet(ss, CHAT_CHANNELS_SHEET, ['ID', 'GroupId', 'Name', 'Description', 'IsPrivate', 'CreatedAt', 'UpdatedAt']);
+  
+  // Chat Messages: ID, ChannelId, UserId, Message, Timestamp, EditedAt, ParentMessageId
+  setupSheet(ss, CHAT_MESSAGES_SHEET, ['ID', 'ChannelId', 'UserId', 'Message', 'Timestamp', 'EditedAt', 'ParentMessageId']);
+  
+  // Chat Group Members: ID, GroupId, UserId, JoinedAt, Role
+  setupSheet(ss, CHAT_GROUP_MEMBERS_SHEET, ['ID', 'GroupId', 'UserId', 'JoinedAt', 'Role']);
+  
+  // Chat Message Reactions: ID, MessageId, UserId, Reaction, Timestamp
+  setupSheet(ss, CHAT_MESSAGE_REACTIONS_SHEET, ['ID', 'MessageId', 'UserId', 'Reaction', 'Timestamp']);
+  
+  // Chat User Preferences: UserId, NotificationSettings, Theme, LastSeen
+  setupSheet(ss, CHAT_USER_PREFERENCES_SHEET, ['UserId', 'NotificationSettings', 'Theme', 'LastSeen']);
+  
+  // Users: Email, Name, Role, CreatedAt
+  setupSheet(ss, USERS_SHEET, ['Email', 'Name', 'Role', 'CreatedAt']);
+}
+
+function setupSheet(ss, sheetName, headers) {
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  }
+}
+
+/** 
+ * Read an entire sheet into objects (header→key) 
+ */
+function readSheet(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(name);
+  if (!sh) return [];
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 2) return [];
+  const hdr = vals.shift();
+  return vals.map(r => {
+    const o = {};
+    hdr.forEach((h,i)=> o[h] = r[i]);
+    return o;
+  });
+}
+
+/**
+ * Enhanced user management
+ */
+function getAllUsers() {
+  setupSheets();
+  return readSheet(USERS_SHEET);
+}
+
+function getUserById(userId) {
+  setupSheets();
+  return readSheet(USERS_SHEET).find(u => u.Email === userId);
+}
+
+/**
+ * Enhanced group management
+ */
+function listMyGroups() {
+  setupSheets();
+  const me = Session.getActiveUser().getEmail();
+  const allGroups = readSheet(CHAT_GROUPS_SHEET);
+  const isAdmin = /@yourdomain\.com$/.test(me);
+  
+  if (isAdmin) return allGroups;
+
+  const memberRows = readSheet(CHAT_GROUP_MEMBERS_SHEET)
+    .filter(m => m.UserId === me);
+  const myIds = [...new Set(memberRows.map(m => m.GroupId))];
+  return allGroups.filter(g => myIds.includes(g.ID));
+}
+
+function getUserChatGroups(userId) {
+  setupSheets();
+  const members = readSheet(CHAT_GROUP_MEMBERS_SHEET)
+    .filter(m => String(m.UserId) === String(userId));
+  if (!members.length) return [];
+  const groupIds = [...new Set(members.map(m => m.GroupId))];
+  return readSheet(CHAT_GROUPS_SHEET)
+    .filter(g => groupIds.indexOf(g.ID) >= 0);
+}
+
+function createChatGroup(name, description = '') {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_GROUPS_SHEET);
+  const now = new Date();
+  const id = Utilities.getUuid();
+  const createdBy = Session.getActiveUser().getEmail();
+  
+  sh.appendRow([id, name, description, createdBy, now, now]);
+  
+  // Add creator as admin member
+  addUserToChatGroup(id, createdBy, 'admin');
+  
+  return { success: true, groupId: id };
+}
+
+/**
+ * Enhanced channel management
+ */
+function getChatChannels(groupId) {
+  setupSheets();
+  return readSheet(CHAT_CHANNELS_SHEET)
+    .filter(c => String(c.GroupId) === String(groupId));
+}
+
+function createChatChannel(groupId, name, description = '', isPrivate = false) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_CHANNELS_SHEET);
+  const now = new Date();
+  const id = Utilities.getUuid();
+  
+  sh.appendRow([id, groupId, name, description, isPrivate, now, now]);
+  return { success: true, channelId: id };
+}
+
+/**
+ * Enhanced message management
+ */
+function getChatMessages(channelId) {
+  setupSheets();
+  return readSheet(CHAT_MESSAGES_SHEET)
+    .filter(m => String(m.ChannelId) === String(channelId))
+    .sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
+}
+
+function getChatMessagesIncremental(channelId, lastTimestamp = null) {
+  setupSheets();
+  let messages = readSheet(CHAT_MESSAGES_SHEET)
+    .filter(m => String(m.ChannelId) === String(channelId));
+  
+  if (lastTimestamp) {
+    messages = messages.filter(m => new Date(m.Timestamp) > new Date(lastTimestamp));
+  }
+  
+  return messages.sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
+}
+
+function postChatMessage(channelId, userId, message, parentMessageId = null) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_MESSAGES_SHEET);
+  const now = new Date();
+  const id = Utilities.getUuid();
+  
+  sh.appendRow([id, channelId, userId, message, now, null, parentMessageId]);
+  
+  // Update user's last seen
+  updateUserLastSeen(userId);
+  
+  return { success: true, messageId: id };
+}
+
+function editChatMessage(messageId, newMessage) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_MESSAGES_SHEET);
+  const data = sh.getDataRange().getValues();
+  const headers = data.shift();
+  
+  const messageIndex = data.findIndex(row => row[0] === messageId);
+  if (messageIndex === -1) {
+    return { success: false, error: 'Message not found' };
+  }
+  
+  // Update message and edited timestamp
+  data[messageIndex][3] = newMessage; // Message column
+  data[messageIndex][5] = new Date(); // EditedAt column
+  
+  sh.clear();
+  sh.appendRow(headers);
+  if (data.length) {
+    sh.getRange(2, 1, data.length, data[0].length).setValues(data);
+  }
+  
+  return { success: true };
+}
+
+function deleteChatMessage(messageId) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_MESSAGES_SHEET);
+  const data = sh.getDataRange().getValues();
+  const headers = data.shift();
+  
+  const filteredData = data.filter(row => row[0] !== messageId);
+  
+  sh.clear();
+  sh.appendRow(headers);
+  if (filteredData.length) {
+    sh.getRange(2, 1, filteredData.length, filteredData[0].length).setValues(filteredData);
+  }
+  
+  return { success: true };
+}
+
+/**
+ * Group member management
+ */
+function addUserToChatGroup(groupId, userId, role = 'member') {
+  setupSheets();
+  const already = readSheet(CHAT_GROUP_MEMBERS_SHEET)
+    .some(m => m.GroupId === groupId && m.UserId === userId);
+  
+  if (already) {
+    return { success: false, error: 'Already a member' };
+  }
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_GROUP_MEMBERS_SHEET);
+  const now = new Date();
+  const id = Utilities.getUuid();
+  
+  sh.appendRow([id, groupId, userId, now, role]);
+  return { success: true };
+}
+
+function removeUserFromChatGroup(groupId, userId) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_GROUP_MEMBERS_SHEET);
+  const data = sh.getDataRange().getValues();
+  const headers = data.shift();
+  const keep = data.filter(r => !(r[1] == groupId && r[2] == userId));
+  
+  sh.clear();
+  sh.appendRow(headers);
+  if (keep.length) {
+    sh.getRange(2, 1, keep.length, keep[0].length).setValues(keep);
+  }
+  
+  return { success: true };
+}
+
+function getGroupMembers(groupId) {
+  setupSheets();
+  return readSheet(CHAT_GROUP_MEMBERS_SHEET)
+    .filter(m => String(m.GroupId) === String(groupId));
+}
+
+/**
+ * Message reactions
+ */
+function addMessageReaction(messageId, reaction) {
+  setupSheets();
+  const userId = Session.getActiveUser().getEmail();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_MESSAGE_REACTIONS_SHEET);
+  
+  // Check if user already reacted with this reaction
+  const existing = readSheet(CHAT_MESSAGE_REACTIONS_SHEET)
+    .find(r => r.MessageId === messageId && r.UserId === userId && r.Reaction === reaction);
+  
+  if (existing) {
+    return { success: false, error: 'Already reacted' };
+  }
+  
+  const now = new Date();
+  const id = Utilities.getUuid();
+  
+  sh.appendRow([id, messageId, userId, reaction, now]);
+  return { success: true };
+}
+
+function removeMessageReaction(messageId, reaction) {
+  setupSheets();
+  const userId = Session.getActiveUser().getEmail();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_MESSAGE_REACTIONS_SHEET);
+  const data = sh.getDataRange().getValues();
+  const headers = data.shift();
+  
+  const filteredData = data.filter(row => 
+    !(row[1] === messageId && row[2] === userId && row[3] === reaction)
+  );
+  
+  sh.clear();
+  sh.appendRow(headers);
+  if (filteredData.length) {
+    sh.getRange(2, 1, filteredData.length, filteredData[0].length).setValues(filteredData);
+  }
+  
+  return { success: true };
+}
+
+function getMessageReactions(messageId) {
+  setupSheets();
+  return readSheet(CHAT_MESSAGE_REACTIONS_SHEET)
+    .filter(r => r.MessageId === messageId);
+}
+
+/**
+ * Search functionality
+ */
+function searchChatMessages(query, groupId = null) {
+  setupSheets();
+  let messages = readSheet(CHAT_MESSAGES_SHEET);
+  
+  // Filter by group if specified
+  if (groupId) {
+    const channels = getChatChannels(groupId);
+    const channelIds = channels.map(c => c.ID);
+    messages = messages.filter(m => channelIds.includes(m.ChannelId));
+  }
+  
+  // Search in message content
+  const searchTerm = query.toLowerCase();
+  const results = messages.filter(m => 
+    m.Message.toLowerCase().includes(searchTerm)
+  );
+  
+  // Add channel names to results
+  const channels = readSheet(CHAT_CHANNELS_SHEET);
+  return results.map(msg => {
+    const channel = channels.find(c => c.ID === msg.ChannelId);
+    return {
+      ...msg,
+      ChannelName: channel ? channel.Name : 'Unknown'
+    };
+  }).sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+}
+
+/**
+ * User preferences
+ */
+function getUserPreferences(userId) {
+  setupSheets();
+  const prefs = readSheet(CHAT_USER_PREFERENCES_SHEET)
+    .find(p => p.UserId === userId);
+  
+  return prefs || {
+    UserId: userId,
+    NotificationSettings: JSON.stringify({ email: true, push: true }),
+    Theme: 'light',
+    LastSeen: new Date()
+  };
+}
+
+function updateUserPreferences(userId, preferences) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_USER_PREFERENCES_SHEET);
+  const data = sh.getDataRange().getValues();
+  const headers = data.shift();
+  
+  const existingIndex = data.findIndex(row => row[0] === userId);
+  
+  if (existingIndex >= 0) {
+    // Update existing preferences
+    data[existingIndex] = [
+      userId,
+      preferences.NotificationSettings || data[existingIndex][1],
+      preferences.Theme || data[existingIndex][2],
+      preferences.LastSeen || new Date()
+    ];
+  } else {
+    // Add new preferences
+    data.push([
+      userId,
+      preferences.NotificationSettings || JSON.stringify({ email: true, push: true }),
+      preferences.Theme || 'light',
+      preferences.LastSeen || new Date()
+    ]);
+  }
+  
+  sh.clear();
+  sh.appendRow(headers);
+  if (data.length) {
+    sh.getRange(2, 1, data.length, data[0].length).setValues(data);
+  }
+  
+  return { success: true };
+}
+
+function updateUserLastSeen(userId) {
+  const prefs = getUserPreferences(userId);
+  return updateUserPreferences(userId, { ...prefs, LastSeen: new Date() });
+}
+
+/**
+ * Enhanced notifications
+ */
+function getTaskNotifications() {
+  const userId = Session.getActiveUser().getEmail();
+  const mentions = getChatMentions(userId);
+  const directMessages = getUnreadDirectMessages(userId);
+  return mentions.length + directMessages.length;
+}
+
+function getChatMentions(userId) {
+  setupSheets();
+  const userGroups = getUserChatGroups(userId);
+  let mentions = [];
+  
+  userGroups.forEach(group => {
+    const channels = getChatChannels(group.ID);
+    channels.forEach(channel => {
+      const messages = getChatMessages(channel.ID);
+      const userMentions = messages.filter(m => 
+        m.Message.includes(`@${userId}`) || 
+        m.Message.includes(`@everyone`)
+      );
+      mentions = mentions.concat(userMentions);
+    });
+  });
+  
+  return mentions;
+}
+
+function getUnreadDirectMessages(userId) {
+  // Implementation for direct messages
+  // This would require additional schema for DM channels
+  return [];
+}
+
+/**
+ * Analytics and monitoring
+ */
+function logChatActivity(action, details) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('ChatAnalytics');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('ChatAnalytics');
+    sheet.appendRow(['Timestamp', 'UserId', 'Action', 'Details']);
+  }
+  
+  sheet.appendRow([
+    new Date(),
+    Session.getActiveUser().getEmail(),
+    action,
+    JSON.stringify(details)
+  ]);
+}
+
+/**
+ * Utility functions
+ */
+function cleanupOldMessages(daysOld = 90) {
+  setupSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(CHAT_MESSAGES_SHEET);
+  const data = sh.getDataRange().getValues();
+  const headers = data.shift();
+  
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+  
+  const recentMessages = data.filter(row => new Date(row[4]) > cutoffDate);
+  
+  sh.clear();
+  sh.appendRow(headers);
+  if (recentMessages.length) {
+    sh.getRange(2, 1, recentMessages.length, recentMessages[0].length).setValues(recentMessages);
+  }
+  
+  return { success: true, removedCount: data.length - recentMessages.length };
+}
+
+function getChatStatistics() {
+  setupSheets();
+  
+  const groups = readSheet(CHAT_GROUPS_SHEET);
+  const channels = readSheet(CHAT_CHANNELS_SHEET);
+  const messages = readSheet(CHAT_MESSAGES_SHEET);
+  const members = readSheet(CHAT_GROUP_MEMBERS_SHEET);
+  
+  return {
+    totalGroups: groups.length,
+    totalChannels: channels.length,
+    totalMessages: messages.length,
+    totalMembers: members.length,
+    activeUsers: [...new Set(messages.map(m => m.UserId))].length
+  };
+}
+</script>
+</body>
+</html>
+

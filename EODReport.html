@@ -1,0 +1,824 @@
+<?!= include('header', {
+  baseUrl: baseUrl,
+  user: user,
+  currentPage: currentPage
+}) ?>
+
+<style>
+  .eod-container {
+    max-width: 1000px;
+    margin: 2rem auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  
+  .eod-header {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+  }
+  
+  .eod-header h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  
+  .eod-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1.1rem;
+  }
+  
+  .eod-controls {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .form-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .form-group label {
+    font-weight: 600;
+    color: #374151;
+    white-space: nowrap;
+  }
+  
+  .form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    outline: none;
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    color: white;
+    text-decoration: none;
+  }
+  
+  .btn-secondary {
+    background: #6b7280;
+    color: white;
+  }
+  
+  .btn-secondary:hover {
+    background: #556275;
+    color: white;
+    text-decoration: none;
+  }
+  
+  .eod-content {
+    padding: 2rem;
+  }
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .stat-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  }
+  
+  .stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #6366f1;
+    margin-bottom: 0.5rem;
+  }
+  
+  .stat-label {
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    font-size: 0.875rem;
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .task-list {
+    background: #f8fafc;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  
+  .task-item {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+  }
+  
+  .task-item:hover {
+    background: #f1f5f9;
+  }
+  
+  .task-item:last-child {
+    border-bottom: none;
+  }
+  
+  .task-info {
+    flex: 1;
+  }
+  
+  .task-title {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.25rem;
+  }
+  
+  .task-meta {
+    font-size: 0.875rem;
+    color: #6b7280;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  
+  .task-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  .status-completed {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  .status-in-progress {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  
+  .status-needs-action {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  
+  .priority-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #6b7280;
+  }
+  
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #d1d5db;
+  }
+  
+  .user-summary {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .user-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1.25rem;
+  }
+  
+  .user-info h3 {
+    margin: 0;
+    color: #374151;
+    font-size: 1.125rem;
+  }
+  
+  .user-info p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+  
+  .export-section {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: center;
+  }
+  
+  .loading-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+  }
+  
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f4f6;
+    border-top: 4px solid #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @media (max-width: 768px) {
+    .eod-container {
+      margin: 1rem;
+    }
+    
+    .eod-header {
+      padding: 1.5rem;
+    }
+    
+    .eod-header h1 {
+      font-size: 1.5rem;
+    }
+    
+    .eod-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .stats-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .task-meta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+  }
+</style>
+
+<div class="container-fluid py-4">
+  <div class="eod-container">
+    <div class="eod-header">
+      <h1>End of Day Report</h1>
+      <p>Daily task completion summary and team performance overview</p>
+    </div>
+    
+    <div class="eod-controls">
+      <div class="form-group">
+        <label for="reportDate">Report Date:</label>
+        <input type="date" id="reportDate" class="form-control" />
+      </div>
+      
+      <div class="form-group">
+        <label for="teamMember">Team Member:</label>
+        <select id="teamMember" class="form-select">
+          <option value="">All Team Members</option>
+        </select>
+      </div>
+      
+      <button class="btn btn-primary" onclick="generateReport()">
+        <i class="bi bi-arrow-clockwise"></i>
+        Generate Report
+      </button>
+      
+      <button class="btn btn-secondary" onclick="exportReport()">
+        <i class="bi bi-download"></i>
+        Export PDF
+      </button>
+    </div>
+    
+    <div class="eod-content">
+      <div id="loadingState" class="loading-state" style="display: none;">
+        <div class="spinner"></div>
+        <p>Generating report...</p>
+      </div>
+      
+      <div id="reportContent" style="display: none;">
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="totalTasks">0</div>
+            <div class="stat-label">Total Tasks</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="completedTasks">0</div>
+            <div class="stat-label">Completed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="inProgressTasks">0</div>
+            <div class="stat-label">In Progress</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="overdueTasks">0</div>
+            <div class="stat-label">Overdue</div>
+          </div>
+        </div>
+        
+        <!-- Team Member Summaries -->
+        <div id="teamSummaries">
+          <!-- Team member summaries will be populated here -->
+        </div>
+        
+        <!-- Completed Tasks -->
+        <div class="section-title">
+          <i class="bi bi-check-circle"></i>
+          Completed Tasks
+        </div>
+        <div class="task-list" id="completedTasksList">
+          <!-- Completed tasks will be populated here -->
+        </div>
+        
+        <!-- In Progress Tasks -->
+        <div class="section-title">
+          <i class="bi bi-clock"></i>
+          In Progress Tasks
+        </div>
+        <div class="task-list" id="inProgressTasksList">
+          <!-- In progress tasks will be populated here -->
+        </div>
+        
+        <!-- Overdue Tasks -->
+        <div class="section-title">
+          <i class="bi bi-exclamation-triangle"></i>
+          Overdue Tasks
+        </div>
+        <div class="task-list" id="overdueTasksList">
+          <!-- Overdue tasks will be populated here -->
+        </div>
+        
+        <!-- Export Options -->
+        <div class="export-section">
+          <h4>Export Options</h4>
+          <p class="text-muted mb-3">Save this report for your records or share with your team</p>
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <button class="btn btn-primary" onclick="exportToPDF()">
+              <i class="bi bi-file-pdf"></i>
+              Export as PDF
+            </button>
+            <button class="btn btn-secondary" onclick="exportToCSV()">
+              <i class="bi bi-file-spreadsheet"></i>
+              Export as CSV
+            </button>
+            <button class="btn btn-secondary" onclick="emailReport()">
+              <i class="bi bi-envelope"></i>
+              Email Report
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <i class="bi bi-inbox"></i>
+        <h4>No Data Available</h4>
+        <p>No tasks found for the selected date and filters.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+let reportData = {};
+const baseUrl = '<?= baseUrl ?>';
+
+$(document).ready(function() {
+  initializeReport();
+});
+
+function initializeReport() {
+  // Set default date to today
+  const today = new Date().toISOString().split('T')[0];
+  $('#reportDate').val(today);
+  
+  // Load team members
+  loadTeamMembers();
+  
+  // Generate initial report
+  generateReport();
+}
+
+function loadTeamMembers() {
+  google.script.run
+    .withSuccessHandler(function(users) {
+      const select = $('#teamMember');
+      select.html('<option value="">All Team Members</option>');
+      
+      if (users && users.length > 0) {
+        users.forEach(user => {
+          const name = user.FullName || user.UserName || user.Email;
+          select.append(`<option value="${user.Email}">${name}</option>`);
+        });
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error loading team members:', error);
+    })
+    .getAllUsers();
+}
+
+function generateReport() {
+  const date = $('#reportDate').val();
+  const teamMember = $('#teamMember').val();
+  
+  if (!date) {
+    alert('Please select a report date.');
+    return;
+  }
+  
+  showLoading(true);
+  
+  google.script.run
+    .withSuccessHandler(function(data) {
+      reportData = data;
+      displayReport(data);
+      showLoading(false);
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error generating report:', error);
+      showError('Failed to generate report. Please try again.');
+      showLoading(false);
+    })
+    .generateEODReport(date, teamMember);
+}
+
+function generateEODReport(date, teamMember) {
+  try {
+    // This would typically be implemented in the backend
+    // For now, we'll use the existing task functions
+    
+    const allTasks = getAllTasks();
+    const filteredTasks = allTasks.filter(task => {
+      const matchesDate = !date || task.CompletedDate === date || 
+                         task.StartDate === date || task.DueDate === date;
+      const matchesMember = !teamMember || task.Owner === teamMember;
+      return matchesDate && matchesMember;
+    });
+    
+    // Group tasks by status
+    const completedTasks = filteredTasks.filter(t => t.Status === 'Completed' || t.Status === 'Done');
+    const inProgressTasks = filteredTasks.filter(t => t.Status === 'In Progress');
+    const overdueTasks = filteredTasks.filter(t => {
+      if (t.Status === 'Completed' || t.Status === 'Done') return false;
+      return t.DueDate && new Date(t.DueDate) < new Date(date);
+    });
+    
+    // Group by team member
+    const teamSummaries = {};
+    filteredTasks.forEach(task => {
+      if (!teamSummaries[task.Owner]) {
+        teamSummaries[task.Owner] = {
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          overdue: 0
+        };
+      }
+      
+      teamSummaries[task.Owner].total++;
+      
+      if (task.Status === 'Completed' || task.Status === 'Done') {
+        teamSummaries[task.Owner].completed++;
+      } else if (task.Status === 'In Progress') {
+        teamSummaries[task.Owner].inProgress++;
+      } else if (task.DueDate && new Date(task.DueDate) < new Date(date)) {
+        teamSummaries[task.Owner].overdue++;
+      }
+    });
+    
+    return {
+      date: date,
+      teamMember: teamMember,
+      totalTasks: filteredTasks.length,
+      completedTasks: completedTasks,
+      inProgressTasks: inProgressTasks,
+      overdueTasks: overdueTasks,
+      teamSummaries: teamSummaries
+    };
+    
+  } catch (error) {
+    console.error('Error in generateEODReport:', error);
+    throw error;
+  }
+}
+
+function displayReport(data) {
+  if (!data || data.totalTasks === 0) {
+    showEmptyState();
+    return;
+  }
+  
+  // Update stats
+  $('#totalTasks').text(data.totalTasks);
+  $('#completedTasks').text(data.completedTasks.length);
+  $('#inProgressTasks').text(data.inProgressTasks.length);
+  $('#overdueTasks').text(data.overdueTasks.length);
+  
+  // Display team summaries
+  displayTeamSummaries(data.teamSummaries);
+  
+  // Display task lists
+  displayTaskList('#completedTasksList', data.completedTasks, 'No tasks completed today');
+  displayTaskList('#inProgressTasksList', data.inProgressTasks, 'No tasks in progress');
+  displayTaskList('#overdueTasksList', data.overdueTasks, 'No overdue tasks');
+  
+  showReportContent();
+}
+
+function displayTeamSummaries(summaries) {
+  const container = $('#teamSummaries');
+  container.empty();
+  
+  if (Object.keys(summaries).length === 0) {
+    return;
+  }
+  
+  container.append('<div class="section-title"><i class="bi bi-people"></i>Team Performance</div>');
+  
+  Object.entries(summaries).forEach(([owner, stats]) => {
+    const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+    const initials = getInitials(owner);
+    
+    const summaryHtml = `
+      <div class="user-summary">
+        <div class="user-header">
+          <div class="user-avatar">${initials}</div>
+          <div class="user-info">
+            <h3>${escapeHtml(owner.split('@')[0])}</h3>
+            <p>${completionRate}% completion rate</p>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">${stats.total}</div>
+            <div class="stat-label">Total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.completed}</div>
+            <div class="stat-label">Completed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.inProgress}</div>
+            <div class="stat-label">In Progress</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.overdue}</div>
+            <div class="stat-label">Overdue</div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    container.append(summaryHtml);
+  });
+}
+
+function displayTaskList(containerId, tasks, emptyMessage) {
+  const container = $(containerId);
+  container.empty();
+  
+  if (tasks.length === 0) {
+    container.html(`
+      <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>${emptyMessage}</p>
+      </div>
+    `);
+    return;
+  }
+  
+  tasks.forEach(task => {
+    const priorityEmoji = getPriorityEmoji(task.Priority);
+    const statusClass = getStatusClass(task.Status);
+    const dueDate = task.DueDate || task.EndDate;
+    
+    const taskHtml = `
+      <div class="task-item">
+        <div class="task-info">
+          <div class="task-title">${escapeHtml(task.Task)}</div>
+          <div class="task-meta">
+            <span><i class="bi bi-person"></i> ${escapeHtml(task.Owner)}</span>
+            ${dueDate ? `<span><i class="bi bi-calendar"></i> ${formatDate(dueDate)}</span>` : ''}
+            ${task.Priority ? `<span class="priority-badge">${priorityEmoji} ${task.Priority}</span>` : ''}
+          </div>
+        </div>
+        <div class="task-status status-${statusClass}">
+          ${task.Status}
+        </div>
+      </div>
+    `;
+    
+    container.append(taskHtml);
+  });
+}
+
+function showLoading(show) {
+  if (show) {
+    $('#loadingState').show();
+    $('#reportContent').hide();
+    $('#emptyState').hide();
+  } else {
+    $('#loadingState').hide();
+  }
+}
+
+function showReportContent() {
+  $('#reportContent').show();
+  $('#emptyState').hide();
+  $('#loadingState').hide();
+}
+
+function showEmptyState() {
+  $('#emptyState').show();
+  $('#reportContent').hide();
+  $('#loadingState').hide();
+}
+
+function showError(message) {
+  alert('Error: ' + message);
+}
+
+// Export functions
+function exportReport() {
+  exportToPDF();
+}
+
+function exportToPDF() {
+  // This would typically generate a PDF on the server
+  alert('PDF export functionality would be implemented here.');
+}
+
+function exportToCSV() {
+  if (!reportData || !reportData.completedTasks) {
+    alert('No data to export');
+    return;
+  }
+  
+  const csvData = [];
+  csvData.push(['Task', 'Owner', 'Status', 'Priority', 'Due Date', 'Completed Date']);
+  
+  [...reportData.completedTasks, ...reportData.inProgressTasks, ...reportData.overdueTasks]
+    .forEach(task => {
+      csvData.push([
+        task.Task,
+        task.Owner,
+        task.Status,
+        task.Priority || 'None',
+        task.DueDate || '',
+        task.CompletedDate || ''
+      ]);
+    });
+  
+  const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `eod_report_${$('#reportDate').val()}.csv`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function emailReport() {
+  const subject = `EOD Report - ${formatDate($('#reportDate').val())}`;
+  const body = `Please find the End of Day report for ${formatDate($('#reportDate').val())} attached.`;
+  
+  // This would typically send an email via the backend
+  alert('Email functionality would be implemented here.');
+}
+
+// Utility functions
+function getInitials(name) {
+  if (!name) return '??';
+  const parts = name.split('@')[0].split(/[\s.]+/);
+  return parts.slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('');
+}
+
+function getPriorityEmoji(priority) {
+  const emojis = {
+    'High': '🔴',
+    'Medium': '🟡',
+    'Low': '🟢',
+    'None': '⚪'
+  };
+  return emojis[priority] || '⚪';
+}
+
+function getStatusClass(status) {
+  const statusMap = {
+    'Completed': 'completed',
+    'Done': 'completed',
+    'In Progress': 'in-progress',
+    'Needs Action': 'needs-action'
+  };
+  return statusMap[status] || 'needs-action';
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (e) {
+    return dateString;
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>

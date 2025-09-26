@@ -1,0 +1,2149 @@
+<!-- UnifiedQADashboard.html - Updated for Independence QA with Campaign Filtering -->
+<?!= include("header", { rawToken: rawToken, baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+
+<style>
+    :root {
+        /* Brand Color Palette */
+        --navy-primary: #003177;
+        --cyan-accent: #00BFFF;
+        --gold-highlight: #FFB800;
+        --fire-red: #FF4000;
+        
+        /* Modern UI Colors */
+        --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+        --info-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+        --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+        --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+        --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        
+        --card-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        --card-shadow-hover: 0 20px 60px rgba(0,0,0,0.15);
+        --glass-bg: rgba(255,255,255,0.25);
+        --glass-border: rgba(255,255,255,0.18);
+        --backdrop-blur: blur(10px);
+        --border-radius-lg: 16px;
+        --border-radius-xl: 24px;
+        --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background: var(--surface-gradient);
+        font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--navy-primary);
+        line-height: 1.6;
+    }
+
+    /* Modern Page Header */
+    .modern-page-header {
+        background: var(--primary-gradient);
+        border-radius: var(--border-radius-xl);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .modern-page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 200px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        transform: translate(50%, -50%);
+    }
+
+    .modern-page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    .modern-page-header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0.5rem 0 0 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    /* Campaign Switcher */
+    .campaign-switcher {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .switcher-container {
+        display: flex;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 0.5rem;
+        position: relative;
+    }
+
+    .switcher-option {
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: var(--transition-smooth);
+        font-weight: 600;
+        position: relative;
+        z-index: 2;
+        color: var(--navy-primary);
+    }
+
+    .switcher-option.active {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .switcher-option:not(.active):hover {
+        background: rgba(0, 49, 119, 0.1);
+    }
+
+    /* Modern Controls */
+    .modern-controls {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    /* Make native inputs match your selects */
+    input.form-select {
+      border: 2px solid var(--navy-primary);
+      border-radius: 12px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.9rem;
+      color: var(--navy-primary);
+    }
+    input.form-select:focus {
+      border-color: var(--cyan-accent);
+      box-shadow: 0 0 0 3px rgba(0,191,255,.1);
+      outline: none;
+    }
+
+    .control-section {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .control-group label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--navy-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .control-group select {
+        border: 2px solid var(--navy-primary);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+        transition: var(--transition-smooth);
+        background: white;
+        min-width: 140px;
+        color: var(--navy-primary);
+    }
+
+    .control-group select:focus {
+        border-color: var(--cyan-accent);
+        box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+        outline: none;
+    }
+
+    /* Action Buttons */
+    .modern-actions {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+
+    .modern-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.875rem 1.5rem;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        transition: var(--transition-smooth);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    .modern-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .modern-btn:hover::before {
+        left: 100%;
+    }
+
+    .modern-btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 49, 119, 0.3);
+    }
+
+    .modern-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 49, 119, 0.4);
+        color: white;
+    }
+
+    .modern-btn-info {
+        background: var(--info-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3);
+    }
+
+    .modern-btn-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 191, 255, 0.4);
+        color: white;
+    }
+
+    .modern-btn-warning {
+        background: var(--warning-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
+    }
+
+    .modern-btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 184, 0, 0.4);
+        color: white;
+    }
+
+    /* KPI Cards */
+    .modern-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .modern-kpi-card {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(255,255,255,0.2);
+        transition: var(--transition-smooth);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .modern-kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-gradient);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .modern-kpi-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .modern-kpi-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .kpi-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        color: white;
+        font-size: 1.5rem;
+    }
+
+    .kpi-icon.independence {
+        background: var(--info-gradient);
+    }
+
+    .kpi-icon.credit-suite {
+        background: var(--warning-gradient);
+    }
+
+    .kpi-icon.unified {
+        background: var(--primary-gradient);
+    }
+
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        line-height: 1;
+    }
+
+    .kpi-label {
+        font-size: 0.9rem;
+        color: var(--navy-primary);
+        font-weight: 600;
+        margin-top: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .kpi-trend {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .kpi-trend.positive {
+        color: #10b981;
+    }
+
+    .kpi-trend.negative {
+        color: var(--fire-red);
+    }
+
+    /* Chart Cards */
+    .modern-chart-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .modern-chart-card {
+        background: white;
+        border-radius: var(--border-radius-lg);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(255,255,255,0.2);
+        transition: var(--transition-smooth);
+    }
+
+    .modern-chart-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .modern-chart-card h6 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--navy-primary);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .modern-chart-card h6::before {
+        content: '';
+        width: 4px;
+        height: 20px;
+        background: var(--primary-gradient);
+        border-radius: 2px;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    .chart-container canvas {
+        max-height: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Campaign Indicator */
+    .campaign-indicator {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .campaign-indicator.independence {
+        background: rgba(0, 191, 255, 0.1);
+        color: var(--cyan-accent);
+        border: 1px solid rgba(0, 191, 255, 0.2);
+    }
+
+    .campaign-indicator.credit-suite {
+        background: rgba(255, 184, 0, 0.1);
+        color: var(--gold-highlight);
+        border: 1px solid rgba(255, 184, 0, 0.2);
+    }
+
+    /* Loading States */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .modern-page-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .modern-page-header h1 {
+            font-size: 2rem;
+        }
+
+        .campaign-switcher {
+            flex-direction: column;
+        }
+
+        .control-section {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .modern-chart-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .modern-kpi-grid {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+    }
+
+    /* Animation Enhancements */
+    .fade-in {
+        animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .stagger-animation > * {
+        opacity: 0;
+        animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+    .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+    .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
+    .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
+    .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
+    .stagger-animation > *:nth-child(6) { animation-delay: 0.6s; }
+</style>
+
+<!-- Modern Page Header -->
+<div class="modern-page-header fade-in">
+    <h1><i class="fas fa-chart-line me-3"></i>Unified Quality Dashboard</h1>
+    <p>Business-focused quality assurance metrics for Independence Insurance and Credit Suite</p>
+</div>
+
+<!-- Campaign Switcher -->
+<div class="campaign-switcher fade-in">
+
+</div>
+
+<!-- Modern Control Panel (REPLACED) -->
+<div class="modern-controls fade-in" id="controls">
+  <div class="row">
+    <div class="col-md-12">
+      <div class="control-section">
+        <!-- Granularity -->
+        <div class="control-group">
+          <label>Time Period</label>
+          <select class="form-select" id="granularitySelect">
+            <option value="Week" selected>Week</option>
+            <option value="Month">Month</option>
+            <option value="Quarter">Quarter</option>
+            <option value="Year">Year</option>
+          </select>
+        </div>
+
+        <!-- Agent -->
+        <div class="control-group">
+          <label>Agent Filter</label>
+          <select class="form-select" id="agentSelect">
+            <option value="">All Agents</option>
+          </select>
+        </div>
+
+        <!-- Call Type -->
+        <div class="control-group">
+          <label>Call Type</label>
+          <select class="form-select" id="callTypeSelect">
+            <option value="">All Call Types</option>
+          </select>
+        </div>
+
+        <!-- NEW: Period pickers (shown/hidden by granularity) -->
+        <div class="control-group" id="weekPickerGroup">
+          <label>Week</label>
+          <input class="form-select" type="week" id="weekInput">
+        </div>
+
+        <div class="control-group" id="monthPickerGroup" style="display:none">
+          <label>Month</label>
+          <input class="form-select" type="month" id="monthInput">
+        </div>
+
+        <div class="control-group" id="quarterPickerGroup" style="display:none">
+          <label>Quarter</label>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <select class="form-select" id="quarterInput">
+              <option value="1">Q1</option>
+              <option value="2">Q2</option>
+              <option value="3">Q3</option>
+              <option value="4">Q4</option>
+            </select>
+            <input class="form-select" type="number" id="quarterYearInput" min="2000" max="2100" step="1" placeholder="Year">
+          </div>
+        </div>
+
+        <div class="control-group" id="yearPickerGroup" style="display:none">
+          <label>Year</label>
+          <input class="form-select" type="number" id="yearInput" min="2000" max="2100" step="1">
+        </div>
+        <div class="switcher-container">
+            <div class="switcher-option active" data-campaign="independence">
+                <i class="fas fa-phone-alt me-2"></i>Independence Insurance
+            </div>
+            <div class="switcher-option" data-campaign="credit-suite">
+                <i class="fas fa-credit-card me-2"></i>Credit Suite
+            </div>
+        </div>        
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modern Action Buttons -->
+<div class="modern-actions fade-in">
+    <a href="#" class="modern-btn modern-btn-primary" id="newQABtn">
+        <i class="fas fa-clipboard-check"></i> New Quality Assessment
+    </a>
+    <a href="#" class="modern-btn modern-btn-info" id="qaListBtn">
+        <i class="fas fa-list"></i> View All Assessments
+    </a>
+    <button id="exportBtn" class="modern-btn modern-btn-warning">
+        <i class="fas fa-file-csv"></i> Export Data
+    </button>
+    <button id="refreshBtn" class="modern-btn modern-btn-info">
+        <i class="fas fa-sync-alt"></i> Refresh
+    </button>
+</div>
+
+<!-- Modern KPI Cards -->
+<div class="modern-kpi-grid stagger-animation">
+    <div class="modern-kpi-card">
+        <div class="campaign-indicator" id="avgScoreIndicator">Independence</div>
+        <div class="kpi-icon unified">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="kpi-value" id="kpiAvgScore">0%</div>
+        <div class="kpi-label">Average Score</div>
+        <div class="kpi-trend positive" id="kpiAvgScoreTrend">
+            <i class="fas fa-arrow-up"></i>
+            <span>0% vs last period</span>
+        </div>
+    </div>
+
+    <div class="modern-kpi-card">
+        <div class="campaign-indicator" id="passRateIndicator">Independence</div>
+        <div class="kpi-icon unified">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="kpi-value" id="kpiPassRate">0%</div>
+        <div class="kpi-label">Pass Rate</div>
+        <div class="kpi-trend positive" id="kpiPassRateTrend">
+            <i class="fas fa-arrow-up"></i>
+            <span>0% vs last period</span>
+        </div>
+    </div>
+
+    <div class="modern-kpi-card">
+        <div class="campaign-indicator" id="evaluationsIndicator">Independence</div>
+        <div class="kpi-icon unified">
+            <i class="fas fa-clipboard-list"></i>
+        </div>
+        <div class="kpi-value" id="kpiEvaluations">0</div>
+        <div class="kpi-label">Total Evaluations</div>
+        <div class="kpi-trend positive" id="kpiEvaluationsTrend">
+            <i class="fas fa-arrow-up"></i>
+            <span>+0 this period</span>
+        </div>
+    </div>
+
+    <div class="modern-kpi-card">
+        <div class="campaign-indicator" id="agentsIndicator">Independence</div>
+        <div class="kpi-icon unified">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="kpi-value" id="kpiAgents">0</div>
+        <div class="kpi-label">Agents Evaluated</div>
+        <div class="kpi-trend positive" id="kpiAgentsTrend">
+            <i class="fas fa-arrow-up"></i>
+            <span>0% coverage</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modern Charts -->
+<div class="modern-chart-grid stagger-animation">
+    <div class="modern-chart-card">
+        <div class="campaign-indicator" id="trendsIndicator">Independence</div>
+        <h6><i class="fas fa-calendar-day me-2"></i>Score Trends</h6>
+        <div class="chart-container">
+            <canvas id="trendsChart"></canvas>
+        </div>
+    </div>
+
+    <div class="modern-chart-card">
+        <div class="campaign-indicator" id="categoryIndicator">Independence</div>
+        <h6><i class="fas fa-chart-pie me-2"></i>Category Performance</h6>
+        <div class="chart-container">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="modern-chart-card fade-in">
+    <div class="campaign-indicator" id="comparisonIndicator">Independence</div>
+    <h6><i class="fas fa-balance-scale me-2"></i>Agent Performance Comparison</h6>
+    <div class="chart-container" style="height: 400px;">
+        <canvas id="comparisonChart"></canvas>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let currentCampaign = 'independence';
+    let currentGranularity = 'Week';
+    let currentAgent = '';
+    let currentCallType = '';
+    let currentPeriodKey = ''; 
+       
+    // Campaign-specific agents storage
+    let independenceAgents = [];
+    let creditSuiteAgents = [];
+    
+    // Chart instances
+    let trendsChart, categoryChart, comparisonChart;
+    
+    // Fixed baseUrl construction - get it from the template variables
+    const scriptUrl = '<?= scriptUrl ?>';
+    const rawToken = '<?= rawToken ?>';
+    const campaignId = '<?= campaignId || "" ?>';
+    
+    // Construct proper baseUrl
+    function getBaseUrl() {
+        return `${scriptUrl}?token=${encodeURIComponent(rawToken)}`;
+    }
+
+    // Helpers
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function quarterOf(d){ return Math.floor(d.getMonth()/3)+1; }
+
+    // Set defaults for all pickers
+    function setDefaultPickerValues(){
+      const now = new Date();
+
+      // Use your existing getISOWeek helper if present
+      let weekString;
+      try { weekString = getISOWeek(now); } catch(e) {
+        // fallback compute ISO week: 2025-W34
+        const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        weekString = `${d.getUTCFullYear()}-W${pad(week)}`;
+      }
+
+      const weekInput = document.getElementById('weekInput');
+      const monthInput = document.getElementById('monthInput');
+      const quarterInput = document.getElementById('quarterInput');
+      const quarterYearInput = document.getElementById('quarterYearInput');
+      const yearInput = document.getElementById('yearInput');
+
+      if (weekInput && !weekInput.value) weekInput.value = weekString;                                   // "YYYY-W##"
+      if (monthInput && !monthInput.value) monthInput.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}`;
+      if (quarterInput && !quarterInput.value) quarterInput.value = String(quarterOf(now));
+      if (quarterYearInput && !quarterYearInput.value) quarterYearInput.value = String(now.getFullYear());
+      if (yearInput && !yearInput.value) yearInput.value = String(now.getFullYear());
+    }
+
+    // Show only the picker that matches the current granularity
+    function togglePickers(){
+      const g = currentGranularity;
+      const show = id => { const el = document.getElementById(id); if (el) el.style.display='block'; };
+      const hide = id => { const el = document.getElementById(id); if (el) el.style.display='none'; };
+      hide('weekPickerGroup'); hide('monthPickerGroup'); hide('quarterPickerGroup'); hide('yearPickerGroup');
+
+      if (g==='Week') show('weekPickerGroup');
+      else if (g==='Month') show('monthPickerGroup');
+      else if (g==='Quarter') show('quarterPickerGroup');
+      else show('yearPickerGroup');
+    }
+
+    // REPLACE your existing getCurrentPeriod with this version
+    function getCurrentPeriod(){
+      if (currentGranularity==='Week'){
+        const v = document.getElementById('weekInput')?.value;      // "YYYY-W##"
+        if (v) return v;
+      }
+      if (currentGranularity==='Month'){
+        const v = document.getElementById('monthInput')?.value;     // "YYYY-MM"
+        if (v) return v;
+      }
+      if (currentGranularity==='Quarter'){
+        const q = document.getElementById('quarterInput')?.value;
+        const y = document.getElementById('quarterYearInput')?.value;
+        if (q && y) return `Q${q}-${y}`;
+      }
+      // Year
+      const y = document.getElementById('yearInput')?.value;
+      if (y) return String(y);
+
+      // Fallback to now if inputs missing
+      const now = new Date();
+      if (currentGranularity==='Week'){
+        try { return getISOWeek(now); } catch(e){ return 'W' + now.getFullYear(); }
+      } else if (currentGranularity==='Month'){
+        return `${now.getFullYear()}-${pad(now.getMonth()+1)}`;
+      } else if (currentGranularity==='Quarter'){
+        return `Q${quarterOf(now)}-${now.getFullYear()}`;
+      } else {
+        return String(now.getFullYear());
+      }
+    }
+
+    // Chart configuration
+    const chartConfig = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: {
+                    usePointStyle: true,
+                    padding: 20,
+                    font: {
+                        family: "'Google Sans', sans-serif",
+                        size: 12,
+                        weight: '500'
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0,0,0,.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                borderColor: '#003177',
+                borderWidth: 1,
+                cornerRadius: 8,
+                padding: 12
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0,0,0,.05)'
+                },
+                ticks: {
+                    font: {
+                        family: "'Google Sans', sans-serif"
+                    }
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        family: "'Google Sans', sans-serif"
+                    }
+                }
+            }
+        },
+        layout: {
+            padding: {
+                top: 10,
+                bottom: 10
+            }
+        }
+    };
+
+    // Campaign colors
+    const campaignColors = {
+        independence: {
+            primary: '#00BFFF',
+            gradient: 'rgba(0, 191, 255, 0.1)',
+            border: '#00BFFF'
+        },
+        'credit-suite': {
+            primary: '#FFB800',
+            gradient: 'rgba(255, 184, 0, 0.1)', 
+            border: '#FFB800'
+        }
+    };
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        const isDashboard = document.querySelector('.modern-kpi-grid') || document.getElementById('trendsChart');
+        if (!isDashboard) return; // prevents errors when this script is loaded on other pages
+        
+        // Check if Google Apps Script environment is available
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+            console.warn('Google Apps Script environment not detected');
+            showMessage('Dashboard is running in offline mode. Some features may be limited.', 'warning');
+        }        
+
+        initializeCampaignSwitcher();
+        initializeControls();
+        initializeCharts();
+        loadCampaignUsers();
+        loadDashboardData();
+            
+        // Initialize animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        });
+
+        document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => {
+            observer.observe(el);
+        });
+    });
+
+    function initializeCampaignSwitcher() {
+        const switchers = document.querySelectorAll('.switcher-option');
+        switchers.forEach(switcher => {
+            switcher.addEventListener('click', function() {
+                // Remove active class from all
+                switchers.forEach(s => s.classList.remove('active'));
+                // Add active class to clicked
+                this.classList.add('active');
+                
+                // Update current campaign
+                currentCampaign = this.dataset.campaign;
+                
+                // Update campaign indicators
+                updateCampaignIndicators();
+                
+                // Update action buttons
+                updateActionButtons();
+                
+                // Update agent filters for the new campaign
+                updateAgentFilter();
+                
+                // Update call type filter
+                updateCallTypeFilter();
+                
+                // Reload data
+                loadDashboardData();
+            });
+        });
+    }
+
+    const GRANULARITY_OPTIONS = ['Week','Month','Quarter','Year'];
+
+    function pick(...ids){ return ids.map(id=>document.getElementById(id)).find(Boolean); }
+
+    function ensureGranularityOptions(selectEl){
+      if(!selectEl) return;
+      const existing = Array.from(selectEl.options).map(o=>o.value);
+      const missing = GRANULARITY_OPTIONS.filter(v=>!existing.includes(v));
+      if (existing.length !== GRANULARITY_OPTIONS.length || missing.length){
+        selectEl.innerHTML = GRANULARITY_OPTIONS
+          .map(v => `<option value="${v}" ${v===currentGranularity?'selected':''}>${v}</option>`)
+          .join('');
+      }
+    }
+
+    function initializeControls(){
+      const granSel = document.getElementById('granularitySelect');
+      const agentSel = document.getElementById('agentSelect');
+      const callTypeSel = document.getElementById('callTypeSelect');
+
+      const missing = [];
+      if (!granSel) missing.push('granularitySelect');
+      if (!agentSel) missing.push('agentSelect');
+      if (!callTypeSel) missing.push('callTypeSelect');
+      if (missing.length){
+        console.warn('Dashboard controls missing, skipping init for:\n', missing);
+      }
+
+      // Granularity
+      if (granSel){
+        granSel.addEventListener('change', () => {
+          currentGranularity = granSel.value;
+          togglePickers();
+          setDefaultPickerValues();
+          loadDashboardData();
+        });
+      }
+
+      // Agent & call type
+      if (agentSel) agentSel.addEventListener('change', () => { currentAgent = agentSel.value; loadDashboardData(); });
+      if (callTypeSel) callTypeSel.addEventListener('change', () => { currentCallType = callTypeSel.value; loadDashboardData(); });
+
+      // Period pickers -> refresh on change
+      ['weekInput','monthInput','quarterInput','quarterYearInput','yearInput'].forEach(id=>{
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => loadDashboardData());
+      });
+
+      // First paint
+      togglePickers();
+      setDefaultPickerValues();
+    }
+
+    function loadCampaignUsers() {
+        // Load Independence Insurance users
+        google.script.run
+            .withSuccessHandler(function(users) {
+                console.log('Independence users loaded:', users);
+                independenceAgents = users;
+                if (currentCampaign === 'independence') {
+                    updateAgentFilter();
+                }
+            })
+            .withFailureHandler(function(error) {
+                console.error('Error loading Independence users:', error);
+                independenceAgents = [];
+            })
+            .clientGetIndependenceUsers();
+            
+        // Load Credit Suite users (when implemented)
+        try {
+            google.script.run
+                .withSuccessHandler(function(users) {
+                    console.log('Credit Suite users loaded:', users);
+                    creditSuiteAgents = users;
+                    if (currentCampaign === 'credit-suite') {
+                        updateAgentFilter();
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    console.error('Error loading Credit Suite users:', error);
+                    creditSuiteAgents = [];
+                })
+                .clientGetCreditSuiteUsers();
+        } catch (error) {
+            console.log('Credit Suite user loading not available yet');
+            creditSuiteAgents = [];
+        }
+    }
+
+    function updateAgentFilter() {
+        const agentSelect = document.getElementById('agentSelect');
+        const currentAgents = currentCampaign === 'independence' ? independenceAgents : creditSuiteAgents;
+        
+        // Clear existing options except the first one
+        while (agentSelect.children.length > 1) {
+            agentSelect.removeChild(agentSelect.lastChild);
+        }
+
+        // Add campaign-specific agents
+        currentAgents.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.name;
+            option.textContent = user.name;
+            agentSelect.appendChild(option);
+        });
+        
+        // Reset selection
+        agentSelect.value = '';
+        currentAgent = '';
+    }
+
+    function updateCallTypeFilter() {
+        const callTypeSelect = document.getElementById('callTypeSelect');
+        
+        // Clear existing options except the first one
+        while (callTypeSelect.children.length > 1) {
+            callTypeSelect.removeChild(callTypeSelect.lastChild);
+        }
+
+        // Add call types based on campaign
+        if (currentCampaign === 'independence') {
+            const independenceCallTypes = ['New Venture', 'Renewal'];
+            independenceCallTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                callTypeSelect.appendChild(option);
+            });
+        } else {
+            // Credit Suite call types (when implemented)
+            const creditSuiteCallTypes = ['Inbound', 'Outbound', 'Follow-up'];
+            creditSuiteCallTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                callTypeSelect.appendChild(option);
+            });
+        }
+        
+        // Reset selection
+        callTypeSelect.value = '';
+        currentCallType = '';
+    }
+
+    function updateCampaignIndicators() {
+        const campaignName = currentCampaign === 'independence' ? 'Independence' : 'Credit Suite';
+        const campaignClass = currentCampaign;
+        
+        const indicators = [
+            'avgScoreIndicator', 'passRateIndicator', 'evaluationsIndicator', 
+            'agentsIndicator', 'trendsIndicator', 'categoryIndicator', 'comparisonIndicator'
+        ];
+        
+        indicators.forEach(id => {
+            const indicator = document.getElementById(id);
+            if (indicator) {
+                indicator.textContent = campaignName;
+                indicator.className = `campaign-indicator ${campaignClass}`;
+            }
+        });
+    }
+
+    function updateActionButtons() {
+        const newQABtn = document.getElementById('newQABtn');
+        const qaListBtn = document.getElementById('qaListBtn');
+        const baseUrl = getBaseUrl();
+        
+        if (currentCampaign === 'independence') {
+            // Use the correct page names for Independence Insurance
+            newQABtn.href = `${baseUrl}&page=independencequality${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
+            qaListBtn.href = `${baseUrl}&page=qalist${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
+        } else {
+            // Use the correct page names for Credit Suite
+            newQABtn.href = `${baseUrl}&creditsuiteqa${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
+            qaListBtn.href = `${baseUrl}&page=qalist${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
+        }
+        
+        console.log('Updated button URLs:', {
+            newQAUrl: newQABtn.href,
+            qaListUrl: qaListBtn.href
+        });
+    }
+
+    function initializeCharts() {
+        const colors = campaignColors[currentCampaign];
+        
+        // Trends Chart
+        const trendsCtx = document.getElementById('trendsChart');
+        if (trendsCtx) {
+            trendsChart = new Chart(trendsCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Score',
+                        data: [],
+                        borderColor: colors.primary,
+                        backgroundColor: colors.gradient,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: chartConfig
+            });
+        }
+
+        // Category Chart
+        const categoryCtx = document.getElementById('categoryChart');
+        if (categoryCtx) {
+            categoryChart = new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#003177',   // Navy - Call Opening
+                            '#00BFFF',   // Cyan - Needs Discovery
+                            '#10b981',   // Green - Appointment Setting
+                            '#9333ea',   // Purple - End of Call
+                            '#FF4000'    // Red - Soft Skills & Compliance
+                        ]
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    plugins: {
+                        ...chartConfig.plugins,
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Comparison Chart
+        const comparisonCtx = document.getElementById('comparisonChart');
+        if (comparisonCtx) {
+            comparisonChart = new Chart(comparisonCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Score',
+                        data: [],
+                        backgroundColor: colors.gradient,
+                        borderColor: colors.border,
+                        borderWidth: 2
+                    }]
+                },
+                options: chartConfig
+            });
+        }
+    }
+
+    /**
+     * MAIN ANALYTICS ENDPOINT for Independence Insurance
+     * @param {'Week'|'Month'|'Quarter'|'Year'} granularity
+     * @param {string} period - e.g. '2025-W03', '2025-01', 'Q1-2025', '2025'
+     * @param {string} agentFilter - exact AgentName or ''
+     * @param {string} callTypeFilter - exact CallType or ''
+     */
+    function clientGetIndependenceQAAnalytics(granularity, period, agentFilter, callTypeFilter) {
+      try {
+        const sh = SpreadsheetApp.openById(INDEPENDENCE_SHEET_ID).getSheetByName(INDEPENDENCE_QA_SHEET);
+        if (!sh || sh.getLastRow() < 2) return getEmptyAnalyticsPayload();
+
+        // Pull all data
+        const headers = INDEPENDENCE_QA_HEADERS;
+        const data = sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getValues();
+
+        // Index helpers
+        const idx = (name) => headers.indexOf(name);
+        const iAudit = idx('AuditDate');
+        const iScore = idx('PercentageScore');
+        const iStatus = idx('PassStatus');
+        const iAgent = idx('AgentName');
+        const iCall  = idx('CallType');
+        const iTs    = idx('Timestamp');
+
+        // Map question -> category using config
+        const questionToCategory = {};
+        if (INDEPENDENCE_QA_CONFIG?.categories) {
+          Object.entries(INDEPENDENCE_QA_CONFIG.categories).forEach(([catName, cat]) => {
+            (cat.questions || []).forEach(q => { questionToCategory[q.id] = catName; });
+          });
+        }
+
+        // Build records (lightweight)
+        const records = [];
+        for (const row of data) {
+          // Parse date (AuditDate preferred, then Timestamp)
+          const d = parseDateCell(row[iAudit]) || parseDateCell(row[iTs]);
+          if (!d) continue;
+
+          const rec = {
+            date: d,
+            periodKey: getPeriodKey(d, granularity),
+            score: toNumber(row[iScore]),
+            status: String(row[iStatus] || ''),
+            agent: String(row[iAgent] || ''),
+            callType: String(row[iCall] || ''),
+            row // keep the raw row for category math
+          };
+          records.push(rec);
+        }
+
+        // Current + previous periods
+        const currentPeriod = period || getPeriodKey(new Date(), granularity);
+        const previousPeriod = getPreviousPeriodKey(currentPeriod, granularity);
+
+        // Apply static filters builder
+        const rowMatchesFilters = (rec, periodKey) =>
+          rec.periodKey === periodKey &&
+          (!agentFilter || rec.agent === agentFilter) &&
+          (!callTypeFilter || rec.callType === callTypeFilter);
+
+        // Current subset
+        const currentSet = records.filter(r => rowMatchesFilters(r, currentPeriod));
+        // Previous subset
+        const prevSet = records.filter(r => rowMatchesFilters(r, previousPeriod));
+
+        // KPIs
+        const avgScore = average(currentSet.map(r => r.score));
+        const passRate = calcPassRate(currentSet);
+        const totalEvaluations = currentSet.length;
+        const agentsEvaluated = unique(currentSet.map(r => r.agent)).length;
+
+        const prevAvgScore = average(prevSet.map(r => r.score));
+        const prevPassRate = calcPassRate(prevSet);
+        const prevTotalEvaluations = prevSet.length;
+        const prevAgentsEvaluated = unique(prevSet.map(r => r.agent)).length;
+
+        // Changes vs last period (percentage points for rates/averages; absolute for counts)
+        const avgScoreChange = prevAvgScore === 0 ? (avgScore ? 100 : 0) : ((avgScore - prevAvgScore));
+        const passRateChange = prevPassRate === 0 ? (passRate ? 100 : 0) : ((passRate - prevPassRate));
+        const evaluationsChange = totalEvaluations - prevTotalEvaluations;
+        const agentsChange = agentsEvaluated - prevAgentsEvaluated;
+
+        // Trends (last N periods up to current)
+        const trendPeriods = getLastNPeriods(8, currentPeriod, granularity); // array oldest -> newest
+        const trendLabels = trendPeriods;
+        const trendValues = trendPeriods.map(p => {
+          const subset = records.filter(r =>
+            r.periodKey === p &&
+            (!agentFilter || r.agent === agentFilter) &&
+            (!callTypeFilter || r.callType === callTypeFilter)
+          );
+          return subset.length ? round2(average(subset.map(s => s.score))) : 0;
+        });
+
+        // Category performance (for current period)
+        const categorySummary = computeCategoryPerformance(currentSet, headers, questionToCategory);
+
+        // Agent comparison (for current period)
+        const byAgentMap = new Map();
+        currentSet.forEach(r => {
+          if (!byAgentMap.has(r.agent)) byAgentMap.set(r.agent, []);
+          byAgentMap.get(r.agent).push(r.score);
+        });
+        const agentAverages = Array.from(byAgentMap.entries())
+          .map(([agent, scores]) => ({ agent, score: round2(average(scores)) }))
+          .sort((a,b) => b.score - a.score)
+          .slice(0, 20); // cap for cleanliness
+
+        return {
+          avgScore: round2(avgScore),
+          passRate: round2(passRate),
+          totalEvaluations,
+          agentsEvaluated,
+          avgScoreChange: round2(avgScoreChange),
+          passRateChange: round2(passRateChange),
+          evaluationsChange,
+          agentsChange,
+          trends: {
+            labels: trendLabels,
+            values: trendValues
+          },
+          categories: {
+            labels: categorySummary.labels,
+            values: categorySummary.values
+          },
+          agents: {
+            labels: agentAverages.map(a => a.agent || 'Unknown'),
+            values: agentAverages.map(a => a.score)
+          }
+        };
+      } catch (err) {
+        safeWriteError('clientGetIndependenceQAAnalytics', err);
+        return getEmptyAnalyticsPayload();
+      }
+    }
+
+    function loadDashboardData(){
+      const functionName = (currentCampaign === 'independence')
+        ? 'clientGetIndependenceQAAnalytics'
+        : 'clientGetCreditSuiteQAAnalytics';
+
+      setLoadingState(true);
+      const period = getCurrentPeriod(); // <-- key part
+
+      google.script.run
+        .withSuccessHandler(data => { setLoadingState(false); updateDashboard(data); })
+        .withFailureHandler(error => { setLoadingState(false); handleError(error); updateDashboard(getEmptyAnalytics()); })
+        [functionName](currentGranularity, period, currentAgent, currentCallType);
+    }
+
+    /************************************************************
+     * UnifiedQADashboard Server Endpoints (Independence + stubs)
+     ************************************************************/
+
+    /**
+     * MAIN ANALYTICS ENDPOINT for Independence Insurance
+     * @param {'Week'|'Month'|'Quarter'|'Year'} granularity
+     * @param {string} period - e.g. '2025-W03', '2025-01', 'Q1-2025', '2025'
+     * @param {string} agentFilter - exact AgentName or ''
+     * @param {string} callTypeFilter - exact CallType or ''
+     */
+    function clientGetIndependenceQAAnalytics(granularity, period, agentFilter, callTypeFilter) {
+      try {
+        const sh = SpreadsheetApp.openById(INDEPENDENCE_SHEET_ID).getSheetByName(INDEPENDENCE_QA_SHEET);
+        if (!sh || sh.getLastRow() < 2) return getEmptyAnalyticsPayload();
+
+        // Pull all data
+        const headers = INDEPENDENCE_QA_HEADERS;
+        const data = sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getValues();
+
+        // Index helpers
+        const idx = (name) => headers.indexOf(name);
+        const iAudit = idx('AuditDate');
+        const iScore = idx('PercentageScore');
+        const iStatus = idx('PassStatus');
+        const iAgent = idx('AgentName');
+        const iCall  = idx('CallType');
+        const iTs    = idx('Timestamp');
+
+        // Map question -> category using config
+        const questionToCategory = {};
+        if (INDEPENDENCE_QA_CONFIG?.categories) {
+          Object.entries(INDEPENDENCE_QA_CONFIG.categories).forEach(([catName, cat]) => {
+            (cat.questions || []).forEach(q => { questionToCategory[q.id] = catName; });
+          });
+        }
+
+        // Build records (lightweight)
+        const records = [];
+        for (const row of data) {
+          // Parse date (AuditDate preferred, then Timestamp)
+          const d = parseDateCell(row[iAudit]) || parseDateCell(row[iTs]);
+          if (!d) continue;
+
+          const rec = {
+            date: d,
+            periodKey: getPeriodKey(d, granularity),
+            score: toNumber(row[iScore]),
+            status: String(row[iStatus] || ''),
+            agent: String(row[iAgent] || ''),
+            callType: String(row[iCall] || ''),
+            row // keep the raw row for category math
+          };
+          records.push(rec);
+        }
+
+        // Current + previous periods
+        const currentPeriod = period || getPeriodKey(new Date(), granularity);
+        const previousPeriod = getPreviousPeriodKey(currentPeriod, granularity);
+
+        // Apply static filters builder
+        const rowMatchesFilters = (rec, periodKey) =>
+          rec.periodKey === periodKey &&
+          (!agentFilter || rec.agent === agentFilter) &&
+          (!callTypeFilter || rec.callType === callTypeFilter);
+
+        // Current subset
+        const currentSet = records.filter(r => rowMatchesFilters(r, currentPeriod));
+        // Previous subset
+        const prevSet = records.filter(r => rowMatchesFilters(r, previousPeriod));
+
+        // KPIs
+        const avgScore = average(currentSet.map(r => r.score));
+        const passRate = calcPassRate(currentSet);
+        const totalEvaluations = currentSet.length;
+        const agentsEvaluated = unique(currentSet.map(r => r.agent)).length;
+
+        const prevAvgScore = average(prevSet.map(r => r.score));
+        const prevPassRate = calcPassRate(prevSet);
+        const prevTotalEvaluations = prevSet.length;
+        const prevAgentsEvaluated = unique(prevSet.map(r => r.agent)).length;
+
+        // Changes vs last period (percentage points for rates/averages; absolute for counts)
+        const avgScoreChange = prevAvgScore === 0 ? (avgScore ? 100 : 0) : ((avgScore - prevAvgScore));
+        const passRateChange = prevPassRate === 0 ? (passRate ? 100 : 0) : ((passRate - prevPassRate));
+        const evaluationsChange = totalEvaluations - prevTotalEvaluations;
+        const agentsChange = agentsEvaluated - prevAgentsEvaluated;
+
+        // Trends (last N periods up to current)
+        const trendPeriods = getLastNPeriods(8, currentPeriod, granularity); // array oldest -> newest
+        const trendLabels = trendPeriods;
+        const trendValues = trendPeriods.map(p => {
+          const subset = records.filter(r =>
+            r.periodKey === p &&
+            (!agentFilter || r.agent === agentFilter) &&
+            (!callTypeFilter || r.callType === callTypeFilter)
+          );
+          return subset.length ? round2(average(subset.map(s => s.score))) : 0;
+        });
+
+        // Category performance (for current period)
+        const categorySummary = computeCategoryPerformance(currentSet, headers, questionToCategory);
+
+        // Agent comparison (for current period)
+        const byAgentMap = new Map();
+        currentSet.forEach(r => {
+          if (!byAgentMap.has(r.agent)) byAgentMap.set(r.agent, []);
+          byAgentMap.get(r.agent).push(r.score);
+        });
+        const agentAverages = Array.from(byAgentMap.entries())
+          .map(([agent, scores]) => ({ agent, score: round2(average(scores)) }))
+          .sort((a,b) => b.score - a.score)
+          .slice(0, 20); // cap for cleanliness
+
+        return {
+          avgScore: round2(avgScore),
+          passRate: round2(passRate),
+          totalEvaluations,
+          agentsEvaluated,
+          avgScoreChange: round2(avgScoreChange),
+          passRateChange: round2(passRateChange),
+          evaluationsChange,
+          agentsChange,
+          trends: {
+            labels: trendLabels,
+            values: trendValues
+          },
+          categories: {
+            labels: categorySummary.labels,
+            values: categorySummary.values
+          },
+          agents: {
+            labels: agentAverages.map(a => a.agent || 'Unknown'),
+            values: agentAverages.map(a => a.score)
+          }
+        };
+      } catch (err) {
+        safeWriteError('clientGetIndependenceQAAnalytics', err);
+        return getEmptyAnalyticsPayload();
+      }
+    }
+
+    /**
+     * EXPORT endpoint for Independence Insurance
+     * Returns row objects ready to csv on client
+     */
+    function exportIndependenceQAData(granularity, period, agentFilter, callTypeFilter) {
+      try {
+        const sh = SpreadsheetApp.openById(INDEPENDENCE_SHEET_ID).getSheetByName(INDEPENDENCE_QA_SHEET);
+        if (!sh || sh.getLastRow() < 2) return [];
+
+        const headers = INDEPENDENCE_QA_HEADERS;
+        const data = sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getValues();
+
+        const idx = (name) => headers.indexOf(name);
+        const iAudit = idx('AuditDate');
+        const iScore = idx('PercentageScore');
+        const iStatus = idx('PassStatus');
+        const iAgent = idx('AgentName');
+        const iEmail = idx('AgentEmail');
+        const iCall  = idx('CallType');
+        const iId    = idx('ID');
+        const iCaller= idx('CallerName');
+        const iCallDate = idx('CallDate');
+        const iTs    = idx('Timestamp');
+
+        const currentPeriod = period || getPeriodKey(new Date(), granularity);
+
+        const out = [];
+        for (const row of data) {
+          const d = parseDateCell(row[iAudit]) || parseDateCell(row[iTs]);
+          if (!d) continue;
+
+          const periodKey = getPeriodKey(d, granularity);
+          const agent = String(row[iAgent] || '');
+          const callType = String(row[iCall] || '');
+
+          if (periodKey !== currentPeriod) continue;
+          if (agentFilter && agent !== agentFilter) continue;
+          if (callTypeFilter && callType !== callTypeFilter) continue;
+
+          out.push({
+            ID: row[iId],
+            AuditDate: formatYMD(d),
+            CallDate: String(row[iCallDate] || ''),
+            AgentName: agent,
+            AgentEmail: String(row[iEmail] || ''),
+            CallerName: String(row[iCaller] || ''),
+            CallType: callType,
+            PercentageScore: toNumber(row[iScore]),
+            PassStatus: String(row[iStatus] || '')
+          });
+        }
+        return out;
+      } catch (err) {
+        safeWriteError('exportIndependenceQAData', err);
+        return [];
+      }
+    }
+
+    /* ---------- Optional Credit Suite stubs so UI never errors ---------- */
+
+    function clientGetCreditSuiteQAAnalytics(granularity, period, agentFilter, callTypeFilter) {
+      // Replace with real implementation when Credit Suite is wired
+      return getEmptyAnalyticsPayload();
+    }
+
+    function exportCreditSuiteQAData(granularity, period, agentFilter, callTypeFilter) {
+      // Replace with real implementation when Credit Suite is wired
+      return [];
+    }
+
+    function clientGetCreditSuiteUsers() {
+      // Replace with real user retrieval for Credit Suite
+      return [];
+    }
+
+    /* =========================
+      Analytics Helpers
+      ========================= */
+
+    function getEmptyAnalyticsPayload() {
+      return {
+        avgScore: 0,
+        passRate: 0,
+        totalEvaluations: 0,
+        agentsEvaluated: 0,
+        avgScoreChange: 0,
+        passRateChange: 0,
+        evaluationsChange: 0,
+        agentsChange: 0,
+        trends: { labels: ['No Data'], values: [0] },
+        categories: { labels: ['No Data'], values: [0] },
+        agents: { labels: ['No Data'], values: [0] }
+      };
+    }
+
+    function parseDateCell(val) {
+      if (!val) return null;
+      if (val instanceof Date && !isNaN(val)) return val;
+      const s = String(val).trim();
+      if (!s) return null;
+      // Try yyyy-MM-dd first
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      const d = new Date(s);
+      return isNaN(d) ? null : d;
+    }
+
+    function formatYMD(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function toNumber(v) {
+      const n = Number(v);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function average(arr) {
+      const nums = arr.filter(x => typeof x === 'number' && !isNaN(x));
+      if (!nums.length) return 0;
+      return nums.reduce((a,b)=>a+b,0)/nums.length;
+    }
+
+    function round2(n) {
+      return Math.round((n + Number.EPSILON) * 100) / 100;
+    }
+
+    function unique(arr) {
+      return Array.from(new Set(arr.filter(Boolean)));
+    }
+
+    function calcPassRate(recs) {
+      if (!recs.length) return 0;
+      const passTh = INDEPENDENCE_QA_CONFIG?.scoring?.passThreshold ?? 85;
+      const passed = recs.filter(r => (r.score >= passTh) && !/Critical Failure/i.test(r.status)).length;
+      return (passed / recs.length) * 100;
+    }
+
+    /* Period handling */
+    function getPeriodKey(date, granularity) {
+      const y = date.getFullYear();
+      const m = date.getMonth(); // 0-11
+      if (granularity === 'Year') return String(y);
+      if (granularity === 'Month') return `${y}-${String(m+1).padStart(2,'0')}`;
+      if (granularity === 'Quarter') {
+        const q = Math.floor(m/3)+1;
+        return `Q${q}-${y}`;
+      }
+      return getISOWeekKey(date); // Week
+    }
+
+    function getISOWeekKey(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+    }
+
+    function getPreviousPeriodKey(currentKey, granularity) {
+      if (granularity === 'Year') return String(Number(currentKey) - 1);
+
+      if (granularity === 'Month') {
+        const [y, m] = currentKey.split('-').map(Number);
+        const d = new Date(y, m - 1, 1);
+        d.setMonth(d.getMonth() - 1);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      }
+
+      if (granularity === 'Quarter') {
+        const m = currentKey.match(/^Q([1-4])-(\d{4})$/);
+        if (!m) return currentKey;
+        let q = Number(m[1]), y = Number(m[2]);
+        q -= 1; if (q < 1) { q = 4; y -= 1; }
+        return `Q${q}-${y}`;
+      }
+
+      const wm = currentKey.match(/^(\d{4})-W(\d{2})$/);
+      if (!wm) return currentKey;
+      const y = Number(wm[1]), w = Number(wm[2]);
+      const monday = isoWeekToDate(y, w);
+      monday.setDate(monday.getDate() - 7);
+      return getISOWeekKey(monday);
+    }
+
+    function getLastNPeriods(n, endKey, granularity) {
+      const arr = [];
+      let key = endKey;
+      for (let i = 0; i < n; i++) {
+        arr.unshift(key);
+        key = getPreviousPeriodKey(key, granularity);
+      }
+      return arr;
+    }
+
+    function isoWeekToDate(isoYear, isoWeek, isoWeekday = 1) {
+      const simple = new Date(Date.UTC(isoYear, 0, 1 + (isoWeek - 1) * 7));
+      const dow = simple.getUTCDay();
+      const ISOweekStart = new Date(simple);
+      if (dow <= 4) ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+      else ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+      ISOweekStart.setUTCDate(ISOweekStart.getUTCDate() + (isoWeekday - 1));
+      return new Date(ISOweekStart);
+    }
+
+    function getLastNPeriods(n, endKey, granularity) {
+      const arr = [];
+      let key = endKey;
+      for (let i = 0; i < n; i++) {
+        arr.unshift(key);
+        key = getPreviousPeriodKey(key, granularity);
+      }
+      return arr;
+    }
+
+    /* Category performance over current set */
+    function computeCategoryPerformance(currentSet, headers, questionToCategory) {
+      if (!currentSet.length) return { labels: getCategoryLabels(), values: getCategoryLabels().map(() => 0) };
+
+      // Prepare per-category totals
+      const catTotals = {};
+      getCategoryLabels().forEach(c => catTotals[c] = { earned: 0, possible: 0 });
+
+      // Precompute indices for question and max columns we need
+      const qCols = {};
+      Object.keys(questionToCategory).forEach(qid => {
+        const ansIdx = headers.indexOf(qid);
+        const maxIdx = headers.indexOf(qid + '_MaxPoints');
+        if (ansIdx >= 0 && maxIdx >= 0) qCols[qid] = { ansIdx, maxIdx };
+      });
+
+      for (const rec of currentSet) {
+        const row = rec.row;
+        for (const [qid, cat] of Object.entries(questionToCategory)) {
+          const cols = qCols[qid];
+          if (!cols) continue;
+          const ans = String(row[cols.ansIdx] || 'NA');
+          const max = toNumber(row[cols.maxIdx] || 0);
+
+          if (ans === 'NA' || ans === '') continue; // does not count toward possible
+          const earned = (ans === 'Yes') ? max : 0;
+
+          catTotals[cat] = catTotals[cat] || { earned: 0, possible: 0 };
+          catTotals[cat].earned += earned;
+          catTotals[cat].possible += max;
+        }
+      }
+
+      const labels = getCategoryLabels();
+      const values = labels.map(cat => {
+        const t = catTotals[cat] || { earned: 0, possible: 0 };
+        return t.possible > 0 ? round2((t.earned / t.possible) * 100) : 0;
+      });
+
+      return { labels, values };
+    }
+
+    function getCategoryLabels() {
+      return INDEPENDENCE_QA_CONFIG && INDEPENDENCE_QA_CONFIG.categories
+        ? Object.keys(INDEPENDENCE_QA_CONFIG.categories)
+        : ['Call Opening','Needs Discovery & Qualification','Appointment Setting','End of Call Procedure','Soft Skills & Compliance'];
+    }
+
+    function getCurrentPeriod() {
+        // Implementation to get current period based on granularity
+        const now = new Date();
+        switch(currentGranularity) {
+            case 'Week':
+                return getISOWeek(now);
+            case 'Month':
+                return now.toISOString().slice(0, 7);
+            case 'Quarter':
+                return `Q${Math.ceil((now.getMonth() + 1) / 3)}-${now.getFullYear()}`;
+            case 'Year':
+                return now.getFullYear().toString();
+            default:
+                return getISOWeek(now);
+        }
+    }
+
+    function getISOWeek(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return `${d.getUTCFullYear()}-W${Math.ceil((((d - yearStart) / 86400000) + 1) / 7).toString().padStart(2, '0')}`;
+    }
+
+    function buildPeriodSelect() {
+      const periodSelect = document.getElementById('periodSelect');
+      if (!periodSelect) return;
+
+      // Determine how many periods to show for each granularity
+      const now = new Date();
+      const currentKey = getPeriodKey(now, currentGranularity);
+      currentPeriodKey = currentKey;
+
+      const count = (currentGranularity === 'Year') ? 5
+                  : (currentGranularity === 'Quarter') ? 8
+                  : (currentGranularity === 'Month') ? 12
+                  : 8; // Week
+
+      // Build the period list (oldest -> newest)
+      const keys = getLastNPeriods(count, currentKey, currentGranularity);
+
+      // Clear and rebuild options
+      while (periodSelect.firstChild) periodSelect.removeChild(periodSelect.firstChild);
+      keys.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = k;
+        if (k === currentKey) opt.selected = true;
+        periodSelect.appendChild(opt);
+      });
+
+      // Ensure change handler is wired (idempotent)
+      periodSelect.onchange = function() {
+        currentPeriodKey = this.value;
+        loadDashboardData();
+      };
+    }
+
+    function getEmptyAnalytics() {
+        // Return empty analytics structure when no data is available
+        return {
+            avgScore: 0,
+            passRate: 0,
+            totalEvaluations: 0,
+            agentsEvaluated: 0,
+            avgScoreChange: 0,
+            passRateChange: 0,
+            evaluationsChange: 0,
+            agentsChange: 0,
+            trends: {
+                labels: ['No Data'],
+                values: [0]
+            },
+            categories: {
+                labels: ['No Data'],
+                values: [0]
+            },
+            agents: {
+                labels: ['No Data'],
+                values: [0]
+            }
+        };
+    }
+
+    function setLoadingState(isLoading) {
+        const elements = ['kpiAvgScore', 'kpiPassRate', 'kpiEvaluations', 'kpiAgents'];
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                if (isLoading) {
+                    element.textContent = '...';
+                    element.style.opacity = '0.6';
+                }
+            }
+        });
+
+        // Show loading on charts
+        const chartCards = document.querySelectorAll('.modern-chart-card');
+        chartCards.forEach(card => {
+            if (isLoading) {
+                card.classList.add('loading');
+            } else {
+                card.classList.remove('loading');
+                // Restore opacity for KPIs
+                elements.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.style.opacity = '1';
+                    }
+                });
+            }
+        });
+    }
+
+    function showMessage(message, type = 'info') {
+        const alertClass = type === 'error' ? 'alert-danger' : 
+                          type === 'warning' ? 'alert-warning' : 
+                          type === 'success' ? 'alert-success' : 'alert-info';
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `alert ${alertClass}`;
+        messageDiv.style.cssText = `
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 9999; 
+            padding: 1rem; 
+            border-radius: 8px;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        messageDiv.textContent = message;
+        
+        document.body.appendChild(messageDiv);
+        
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 5000);
+    }
+
+    function updateDashboard(data) {
+        // Validate data structure
+        if (!data || typeof data !== 'object') {
+            console.warn('Invalid data received:', data);
+            data = getEmptyAnalytics();
+        }
+        
+        // Ensure all required properties exist
+        const validatedData = {
+            avgScore: data.avgScore || 0,
+            passRate: data.passRate || 0,
+            totalEvaluations: data.totalEvaluations || 0,
+            agentsEvaluated: data.agentsEvaluated || 0,
+            avgScoreChange: data.avgScoreChange || 0,
+            passRateChange: data.passRateChange || 0,
+            evaluationsChange: data.evaluationsChange || 0,
+            agentsChange: data.agentsChange || 0,
+            trends: data.trends || { labels: [], values: [] },
+            categories: data.categories || { labels: [], values: [] },
+            agents: data.agents || { labels: [], values: [] }
+        };
+        
+        updateKPIs(validatedData);
+        updateCharts(validatedData);
+    }
+
+    function updateKPIs(data) {
+        // Update KPI values with animation
+        const kpis = [
+            { id: 'kpiAvgScore', value: data.avgScore || 0, suffix: '%' },
+            { id: 'kpiPassRate', value: data.passRate || 0, suffix: '%' },
+            { id: 'kpiEvaluations', value: data.totalEvaluations || 0, suffix: '' },
+            { id: 'kpiAgents', value: data.agentsEvaluated || 0, suffix: '' }
+        ];
+
+        kpis.forEach(kpi => {
+            const element = document.getElementById(kpi.id);
+            if (element) {
+                element.style.transform = 'scale(1.1)';
+                element.textContent = kpi.value + kpi.suffix;
+                setTimeout(() => {
+                    element.style.transform = 'scale(1)';
+                }, 200);
+            }
+        });
+
+        // Update trends
+        updateTrends(data);
+    }
+
+    function updateTrends(data) {
+        const trends = [
+            { id: 'kpiAvgScoreTrend', change: data.avgScoreChange || 0 },
+            { id: 'kpiPassRateTrend', change: data.passRateChange || 0 },
+            { id: 'kpiEvaluationsTrend', change: data.evaluationsChange || 0 },
+            { id: 'kpiAgentsTrend', change: data.agentsChange || 0 }
+        ];
+
+        trends.forEach(trend => {
+            const element = document.getElementById(trend.id);
+            if (element) {
+                const isPositive = trend.change >= 0;
+                const icon = isPositive ? 'fa-arrow-up' : 'fa-arrow-down';
+                const className = isPositive ? 'kpi-trend positive' : 'kpi-trend negative';
+                const text = Math.abs(trend.change).toFixed(1) + '% vs last period';
+                
+                element.className = className;
+                element.innerHTML = `<i class="fas ${icon}"></i><span>${text}</span>`;
+            }
+        });
+    }
+
+    function updateCharts(data) {
+        const colors = campaignColors[currentCampaign];
+        
+        try {
+            // Update trends chart
+            if (trendsChart && data.trends) {
+                const labels = Array.isArray(data.trends.labels) ? data.trends.labels : [];
+                const values = Array.isArray(data.trends.values) ? data.trends.values : [];
+                
+                trendsChart.data.labels = labels;
+                trendsChart.data.datasets[0].data = values;
+                trendsChart.data.datasets[0].borderColor = colors.primary;
+                trendsChart.data.datasets[0].backgroundColor = colors.gradient;
+                trendsChart.update('none'); // Disable animation for better performance
+            }
+
+            // Update category chart
+            if (categoryChart && data.categories) {
+                const labels = Array.isArray(data.categories.labels) ? data.categories.labels : [];
+                const values = Array.isArray(data.categories.values) ? data.categories.values : [];
+                
+                categoryChart.data.labels = labels;
+                categoryChart.data.datasets[0].data = values;
+                categoryChart.update('none');
+            }
+
+            // Update comparison chart
+            if (comparisonChart && data.agents) {
+                const labels = Array.isArray(data.agents.labels) ? data.agents.labels : [];
+                const values = Array.isArray(data.agents.values) ? data.agents.values : [];
+                
+                comparisonChart.data.labels = labels;
+                comparisonChart.data.datasets[0].data = values;
+                comparisonChart.data.datasets[0].backgroundColor = colors.gradient;
+                comparisonChart.data.datasets[0].borderColor = colors.border;
+                comparisonChart.update('none');
+            }
+        } catch (error) {
+            console.error('Error updating charts:', error);
+            showMessage('Charts could not be updated', 'warning');
+        }
+    }
+
+    /**
+     * EXPORT endpoint for Independence Insurance
+     * Returns row objects ready to csv on client
+     */
+    function exportIndependenceQAData(granularity, period, agentFilter, callTypeFilter) {
+      try {
+        const sh = SpreadsheetApp.openById(INDEPENDENCE_SHEET_ID).getSheetByName(INDEPENDENCE_QA_SHEET);
+        if (!sh || sh.getLastRow() < 2) return [];
+
+        const headers = INDEPENDENCE_QA_HEADERS;
+        const data = sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getValues();
+
+        const idx = (name) => headers.indexOf(name);
+        const iAudit = idx('AuditDate');
+        const iScore = idx('PercentageScore');
+        const iStatus = idx('PassStatus');
+        const iAgent = idx('AgentName');
+        const iEmail = idx('AgentEmail');
+        const iCall  = idx('CallType');
+        const iId    = idx('ID');
+        const iCaller= idx('CallerName');
+        const iCallDate = idx('CallDate');
+        const iTs    = idx('Timestamp');
+
+        const currentPeriod = period || getPeriodKey(new Date(), granularity);
+
+        const out = [];
+        for (const row of data) {
+          const d = parseDateCell(row[iAudit]) || parseDateCell(row[iTs]);
+          if (!d) continue;
+
+          const periodKey = getPeriodKey(d, granularity);
+          const agent = String(row[iAgent] || '');
+          const callType = String(row[iCall] || '');
+
+          if (periodKey !== currentPeriod) continue;
+          if (agentFilter && agent !== agentFilter) continue;
+          if (callTypeFilter && callType !== callTypeFilter) continue;
+
+          out.push({
+            ID: row[iId],
+            AuditDate: formatYMD(d),
+            CallDate: String(row[iCallDate] || ''),
+            AgentName: agent,
+            AgentEmail: String(row[iEmail] || ''),
+            CallerName: String(row[iCaller] || ''),
+            CallType: callType,
+            PercentageScore: toNumber(row[iScore]),
+            PassStatus: String(row[iStatus] || '')
+          });
+        }
+        return out;
+      } catch (err) {
+        safeWriteError('exportIndependenceQAData', err);
+        return [];
+      }
+    }
+
+    function exportData() {
+        const functionName = currentCampaign === 'independence' 
+            ? 'exportIndependenceQAData' 
+            : 'exportCreditSuiteQAData';
+            
+        // Show loading state on export button
+        const exportBtn = document.getElementById('exportBtn');
+        const originalContent = exportBtn.innerHTML;
+        exportBtn.innerHTML = '<div class="spinner"></div> Exporting...';
+        exportBtn.disabled = true;
+        
+        google.script.run
+            .withSuccessHandler(function(data) {
+                exportBtn.innerHTML = originalContent;
+                exportBtn.disabled = false;
+                if (data && data.length > 0) {
+                    handleExport(data);
+                } else {
+                    showMessage('No data available for export', 'warning');
+                }
+            })
+            .withFailureHandler(function(error) {
+                exportBtn.innerHTML = originalContent;
+                exportBtn.disabled = false;
+                console.error('Export error:', error);
+                showMessage('Export failed. Please try again.', 'error');
+            })
+            [functionName](currentGranularity, getCurrentPeriod(), currentAgent, currentCallType);
+    }
+
+    function handleExport(data) {
+        // Create and download CSV
+        const csv = convertToCSV(data);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentCampaign}-qa-data-${getCurrentPeriod()}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    function convertToCSV(data) {
+        if (!data || !Array.isArray(data) || data.length === 0) return '';
+        
+        const headers = Object.keys(data[0]);
+        const rows = data.map(row => 
+            headers.map(header => {
+                const value = row[header];
+                return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+            }).join(',')
+        );
+        
+        return [headers.join(','), ...rows].join('\n');
+    }
+
+    function handleError(error) {
+        console.error('Dashboard error:', error);
+        
+        // Determine error message based on error type
+        let message = 'Error loading dashboard data. Please try again.';
+        
+        if (error && typeof error === 'string') {
+            if (error.includes('not found') || error.includes('404')) {
+                message = 'QA data service not found. Please contact administrator.';
+            } else if (error.includes('permission') || error.includes('403')) {
+                message = 'You do not have permission to access this data.';
+            } else if (error.includes('timeout')) {
+                message = 'Request timed out. Please try again.';
+            }
+        }
+        
+        showMessage(message, 'error');
+        
+        // Update dashboard with empty state to show user that something went wrong
+        updateDashboard(getEmptyAnalytics());
+    }
+
+    // Initialize with current campaign
+    updateCampaignIndicators();
+    updateActionButtons();
+</script>
+
+</body>
+</html>

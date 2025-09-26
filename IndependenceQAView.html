@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Quill CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Brand Color Palette */
+            --navy-primary: #003177;
+            --cyan-accent: #00BFFF;
+            --gold-highlight: #FFB800;
+            --fire-red: #FF4000;
+            
+            /* Modern UI Colors */
+            --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+            --info-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+            --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+            --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+            --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            --card-shadow-hover: 0 20px 60px rgba(0,0,0,0.15);
+            --glass-bg: rgba(255,255,255,0.25);
+            --glass-border: rgba(255,255,255,0.18);
+            --backdrop-blur: blur(10px);
+            --border-radius-lg: 16px;
+            --border-radius-xl: 24px;
+            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --text-primary: var(--cyan-accent);
+            --text-secondary: var(--navy-primary);
+            --border-color: var(--navy-primary);
+        }
+
+        body {
+            background: var(--surface-gradient);
+            font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* Modern Page Header */
+        .modern-page-header {
+            background: var(--primary-gradient);
+            border-radius: var(--border-radius-xl);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modern-page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            transform: translate(50%, -50%);
+        }
+
+        .modern-page-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .modern-page-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0.5rem 0 0 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Modern Section Cards */
+        .section {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+            padding: 2rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-shadow-hover);
+        }
+
+        .section:hover::before {
+            transform: scaleX(1);
+        }
+
+        .section-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section-header::before {
+            content: '';
+            width: 6px;
+            height: 30px;
+            background: var(--primary-gradient);
+            border-radius: 3px;
+        }
+
+        /* Modern Form Layout */
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            transition: var(--transition-smooth);
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+            transform: translateY(-2px);
+        }
+
+        .form-group input[readonly] {
+            background: #f8fafc;
+            color: var(--text-secondary);
+        }
+
+        /* Modern File Upload */
+        .form-group input[type="file"] {
+            padding: 1rem;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            background: #f8fafc;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+        }
+
+        .form-group input[type="file"]:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        #uploadStatus {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+        }
+
+        #uploadStatus a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        #uploadStatus a:hover {
+            text-decoration: underline;
+        }
+
+        /* Modern Summary Section */
+        .summary-wrapper {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 3rem;
+            align-items: flex-start;
+        }
+
+        .summary-table {
+            overflow-x: auto;
+        }
+
+        .quality-gauge {
+            text-align: center;
+            min-width: 200px;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: var(--border-radius-lg);
+            padding: 2rem;
+            border: 2px solid var(--border-color);
+        }
+
+        .quality-gauge .percent {
+            font-size: 4rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .quality-gauge .label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.5);
+        }
+
+        .legend .dot {
+            font-size: 1.2rem;
+        }
+
+        /* Modern Tables */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        table thead {
+          background: var(--primary-gradient);
+          color: #ffffff;
+        }
+
+        th, td {
+            padding: 1rem 1.5rem;
+            border: none;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.8rem;
+        }
+
+        tbody tr {
+            transition: background-color 0.2s ease;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .category-row td {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1rem;
+            padding: 1.5rem;
+            border-top: 2px solid var(--border-color);
+        }
+
+        /* Modern Radio Buttons */
+        .radio-cell {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .radio-cell label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: var(--transition-smooth);
+            position: relative;
+        }
+
+        .radio-cell label:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .radio-cell input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+            cursor: pointer;
+        }
+
+        /* Modern Comment Inputs */
+        .radio-cell + td input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: var(--transition-smooth);
+        }
+
+        .radio-cell + td input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+
+        /* Modern Quill Editor */
+        .ql-toolbar {
+            border-radius: 12px 12px 0 0 !important;
+            border: 2px solid var(--border-color) !important;
+            background: #f8fafc !important;
+        }
+
+        .ql-container {
+            border-radius: 0 0 12px 12px !important;
+            border: 2px solid var(--border-color) !important;
+            border-top: none !important;
+            font-size: 0.95rem !important;
+            min-height: 150px;
+        }
+
+        .ql-editor {
+            padding: 1.5rem !important;
+        }
+
+        /* Modern Buttons */
+        .modern-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modern-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .modern-btn:hover::before {
+            left: 100%;
+        }
+
+        .modern-btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .modern-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .modern-btn-danger {
+            background: var(--warning-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+        }
+
+        .modern-btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+        }
+
+        .modern-btn:disabled {
+            background: #e2e8f0;
+            color: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .modern-btn:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Modern Action Bar */
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Modern Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            min-width: 320px;
+            max-width: 480px;
+            background: white;
+            color: var(--text-primary);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border-left: 4px solid #10b981;
+            display: none;
+            z-index: 9999;
+            backdrop-filter: var(--backdrop-blur);
+        }
+
+        .toast.error {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .toast.show {
+            display: block;
+            animation: toastIn 0.5s cubic-bezier(0.4, 0, 0.2, 1), toastOut 0.5s cubic-bezier(0.4, 0, 0.2, 1) 2.5s;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+
+        /* Enhanced Loader */
+        #loaderOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: var(--backdrop-blur);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #loaderOverlay.show {
+            opacity: 1;
+        }
+
+        .modern-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid transparent;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: modernSpin 1s linear infinite;
+            position: relative;
+        }
+
+        .modern-spinner::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border: 4px solid transparent;
+            border-top: 4px solid #764ba2;
+            border-radius: 50%;
+            animation: modernSpin 1.5s linear infinite reverse;
+        }
+
+        @keyframes modernSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .modern-page-header {
+                padding: 1.5rem;
+                text-align: center;
+            }
+
+            .modern-page-header h1 {
+                font-size: 2rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .summary-wrapper {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .quality-gauge {
+                min-width: auto;
+            }
+
+            .radio-cell {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .action-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .modern-btn {
+                justify-content: center;
+            }
+
+            .toast {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem;
+                min-width: auto;
+            }
+
+            table {
+                font-size: 0.8rem;
+            }
+
+            th, td {
+                padding: 0.75rem;
+            }
+        }
+
+        /* Animation Enhancements */
+        .fade-in {
+            animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stagger-animation > * {
+            opacity: 0;
+            animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+        .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+        .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
+        .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
+        .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
+    </style>
+
+    <!-- Modern Page Header -->
+    <div class="modern-page-header fade-in">
+        <h1><i class="fas fa-shield-alt me-3"></i>Independence Insurance QA Form</h1>
+        <p>Comprehensive insurance call quality evaluation and feedback system</p>
+    </div>
+
+    <!-- Enhanced Loader Overlay -->
+    <div id="loaderOverlay">
+        <div class="modern-spinner"></div>
+    </div>
+
+    <form id="auditForm" class="stagger-animation">
+        <!-- Employee & Other Details -->
+        <div class="section">
+            <div class="section-header">
+                <i class="fas fa-user-tie"></i>
+                Employee & Contact Details
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="callerName">Caller Name</label>
+                    <input type="text" id="callerName" name="callerName" placeholder="Enter caller's full name">
+                </div>
+                <div class="form-group">
+                    <label for="agentName">Agent Name</label>
+                    <select id="agentName" name="agentName">
+                        <option value="" disabled selected>-- Select Agent --</option>
+                        <?if (typeof users !== 'undefined' && users) { users.forEach(u => { ?>
+                            <option value="<?= u.name ?>"><?= u.name ?></option>
+                        <? }); } ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="agentEmail">Agent Email</label>
+                    <input type="email" id="agentEmail" name="agentEmail" readonly placeholder="Auto-filled based on agent selection">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="callDate">Call Date</label>
+                    <input type="date" id="callDate" name="callDate">
+                </div>
+                <div class="form-group">
+                    <label for="audioFile">Upload Call Recording</label>
+                    <input type="file" id="audioFile" name="audioFile" accept="audio/*">
+                    <div id="uploadStatus"></div>
+                    <input type="hidden" id="callLink" name="callLink">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="auditorName">Auditor's Name</label>
+                    <input type="text" id="auditorName" name="auditorName" placeholder="Enter auditor's full name">
+                </div>
+                <div class="form-group">
+                    <label for="auditDate">Audit Date</label>
+                    <input type="date" id="auditDate" name="auditDate">
+                </div>
+                <div class="form-group">
+                    <label for="feedbackShared">Feedback Shared</label>
+                    <input type="date" id="feedbackShared" name="feedbackShared">
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Score Summary -->
+        <div class="section">
+            <div class="section-header">
+                <i class="fas fa-chart-pie"></i>
+                Audit Score Summary
+            </div>
+            <div class="summary-wrapper">
+                <div class="summary-table">
+                    <div class="table-container">
+                        <table id="summaryTable">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Max Points</th>
+                                    <th>Earned Points</th>
+                                    <th>Score (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-category="professionalism">
+                                    <td><strong>Professionalism & Communication</strong></td>
+                                    <td class="max-points">30</td>
+                                    <td class="earned">0</td>
+                                    <td class="percent">0%</td>
+                                </tr>
+                                <tr data-category="technical">
+                                    <td><strong>Technical Knowledge & Resolution</strong></td>
+                                    <td class="max-points">40</td>
+                                    <td class="earned">0</td>
+                                    <td class="percent">0%</td>
+                                </tr>
+                                <tr data-category="process">
+                                    <td><strong>Process Compliance</strong></td>
+                                    <td class="max-points">20</td>
+                                    <td class="earned">0</td>
+                                    <td class="percent">0%</td>
+                                </tr>
+                                <tr data-category="satisfaction">
+                                    <td><strong>Customer Satisfaction</strong></td>
+                                    <td class="max-points">10</td>
+                                    <td class="earned">0</td>
+                                    <td class="percent">0%</td>
+                                </tr>
+                                <tr data-category="overall" style="font-weight:600; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
+                                    <td><strong>Overall Score</strong></td>
+                                    <td class="max-points">100</td>
+                                    <td class="earned">0</td>
+                                    <td class="percent">0%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="quality-gauge">
+                    <div class="percent" id="overallQuality">0%</div>
+                    <div class="label">Quality Score</div>
+                    <div class="legend">
+                        <span><span class="dot" style="color:#ef4444;">●</span> ≤ 85% Needs Improvement</span>
+                        <span><span class="dot" style="color:#f59e0b;">●</span> 85-94% Good</span>
+                        <span><span class="dot" style="color:#10b981;">●</span> ≥ 95% Excellent</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Details -->
+        <div class="section">
+            <div class="section-header">
+                <i class="fas fa-list-check"></i>
+                Independence Insurance Assessment Criteria
+            </div>
+            <div class="table-container">
+                <table id="detailsTable">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Points</th>
+                            <th>Assessment Parameter</th>
+                            <th>Result</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Professionalism & Communication (30 points) -->
+                        <tr class="category-row">
+                            <td colspan="5">
+                                <i class="fas fa-handshake me-2"></i>
+                                Professionalism & Communication (30 points)
+                            </td>
+                        </tr>
+                        <tr data-category="professionalism" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent provide a professional greeting with company name and personal introduction?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q1_Greeting" value="yes">Yes</label>
+                                <label><input type="radio" name="Q1_Greeting" value="no">No</label>
+                                <label><input type="radio" name="Q1_Greeting" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C1" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="professionalism" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent properly introduce themselves and their role?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q2_Introduction" value="yes">Yes</label>
+                                <label><input type="radio" name="Q2_Introduction" value="no">No</label>
+                                <label><input type="radio" name="Q2_Introduction" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C2" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="professionalism" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent maintain courtesy and professionalism throughout the call?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q3_Courtesy" value="yes">Yes</label>
+                                <label><input type="radio" name="Q3_Courtesy" value="no">No</label>
+                                <label><input type="radio" name="Q3_Courtesy" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C3" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="professionalism" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent show empathy and understanding for the customer's situation?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q4_Empathy" value="yes">Yes</label>
+                                <label><input type="radio" name="Q4_Empathy" value="no">No</label>
+                                <label><input type="radio" name="Q4_Empathy" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C4" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="professionalism" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent communicate clearly and avoid jargon?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q5_ClearCommunication" value="yes">Yes</label>
+                                <label><input type="radio" name="Q5_ClearCommunication" value="no">No</label>
+                                <label><input type="radio" name="Q5_ClearCommunication" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C5" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="professionalism" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent practice active listening and ask clarifying questions?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q6_ActiveListening" value="yes">Yes</label>
+                                <label><input type="radio" name="Q6_ActiveListening" value="no">No</label>
+                                <label><input type="radio" name="Q6_ActiveListening" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C6" placeholder="Add your comments here..."></td>
+                        </tr>
+
+                        <!-- Technical Knowledge & Resolution (40 points) -->
+                        <tr class="category-row">
+                            <td colspan="5">
+                                <i class="fas fa-cogs me-2"></i>
+                                Technical Knowledge & Resolution (40 points)
+                            </td>
+                        </tr>
+                        <tr data-category="technical" data-weight="8">
+                            <td></td><td>8</td>
+                            <td>Did the agent demonstrate proper knowledge of insurance policies and coverage?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q7_PolicyKnowledge" value="yes">Yes</label>
+                                <label><input type="radio" name="Q7_PolicyKnowledge" value="no">No</label>
+                                <label><input type="radio" name="Q7_PolicyKnowledge" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C7" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="technical" data-weight="7">
+                            <td></td><td>7</td>
+                            <td>Did the agent correctly identify the customer's problem or need?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q8_ProblemIdentification" value="yes">Yes</label>
+                                <label><input type="radio" name="Q8_ProblemIdentification" value="no">No</label>
+                                <label><input type="radio" name="Q8_ProblemIdentification" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C8" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="technical" data-weight="8">
+                            <td></td><td>8</td>
+                            <td>Did the agent provide accurate and complete solutions?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q9_SolutionProvided" value="yes">Yes</label>
+                                <label><input type="radio" name="Q9_SolutionProvided" value="no">No</label>
+                                <label><input type="radio" name="Q9_SolutionProvided" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C9" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="technical" data-weight="6">
+                            <td></td><td>6</td>
+                            <td>Did the agent effectively use available resources and systems?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q10_ResourcesUsed" value="yes">Yes</label>
+                                <label><input type="radio" name="Q10_ResourcesUsed" value="no">No</label>
+                                <label><input type="radio" name="Q10_ResourcesUsed" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C10" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="technical" data-weight="6">
+                            <td></td><td>6</td>
+                            <td>Did the agent follow proper escalation protocol when needed?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q11_EscalationProtocol" value="yes">Yes</label>
+                                <label><input type="radio" name="Q11_EscalationProtocol" value="no">No</label>
+                                <label><input type="radio" name="Q11_EscalationProtocol" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C11" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="technical" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent schedule appropriate follow-up actions?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q12_FollowUp" value="yes">Yes</label>
+                                <label><input type="radio" name="Q12_FollowUp" value="no">No</label>
+                                <label><input type="radio" name="Q12_FollowUp" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C12" placeholder="Add your comments here..."></td>
+                        </tr>
+
+                        <!-- Process Compliance (20 points) -->
+                        <tr class="category-row">
+                            <td colspan="5">
+                                <i class="fas fa-clipboard-check me-2"></i>
+                                Process Compliance (20 points)
+                            </td>
+                        </tr>
+                        <tr data-category="process" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent collect all required customer data and verification?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q13_DataCollection" value="yes">Yes</label>
+                                <label><input type="radio" name="Q13_DataCollection" value="no">No</label>
+                                <label><input type="radio" name="Q13_DataCollection" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C13" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="process" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent properly document the interaction and outcomes?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q14_Documentation" value="yes">Yes</label>
+                                <label><input type="radio" name="Q14_Documentation" value="no">No</label>
+                                <label><input type="radio" name="Q14_Documentation" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C14" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="process" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent perform all necessary compliance checks?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q15_ComplianceChecks" value="yes">Yes</label>
+                                <label><input type="radio" name="Q15_ComplianceChecks" value="no">No</label>
+                                <label><input type="radio" name="Q15_ComplianceChecks" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C15" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="process" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent meet all quality standards and procedures?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q16_QualityStandards" value="yes">Yes</label>
+                                <label><input type="radio" name="Q16_QualityStandards" value="no">No</label>
+                                <label><input type="radio" name="Q16_QualityStandards" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C16" placeholder="Add your comments here..."></td>
+                        </tr>
+
+                        <!-- Customer Satisfaction (10 points) -->
+                        <tr class="category-row">
+                            <td colspan="5">
+                                <i class="fas fa-smile me-2"></i>
+                                Customer Satisfaction (10 points)
+                            </td>
+                        </tr>
+                        <tr data-category="satisfaction" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Was the customer satisfied with the service provided?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q17_CustomerSatisfaction" value="yes">Yes</label>
+                                <label><input type="radio" name="Q17_CustomerSatisfaction" value="no">No</label>
+                                <label><input type="radio" name="Q17_CustomerSatisfaction" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C17" placeholder="Add your comments here..."></td>
+                        </tr>
+                        <tr data-category="satisfaction" data-weight="5">
+                            <td></td><td>5</td>
+                            <td>Did the agent properly close the call with next steps and summary?</td>
+                            <td class="radio-cell">
+                                <label><input type="radio" name="Q18_CallClosure" value="yes">Yes</label>
+                                <label><input type="radio" name="Q18_CallClosure" value="no">No</label>
+                                <label><input type="radio" name="Q18_CallClosure" value="na" checked>N/A</label>
+                            </td>
+                            <td><input name="C18" placeholder="Add your comments here..."></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Overall Feedback -->
+        <div class="section">
+            <div class="section-header">
+                <i class="fas fa-comment-dots"></i>
+                Overall Feedback & Recommendations
+            </div>
+            <div id="quillEditor"></div>
+            <input type="hidden" id="hOverallFeedback" name="overallFeedback">
+            <input type="hidden" id="hOverallFeedbackPlain" name="overallFeedbackPlain">
+        </div>
+    </form>
+
+    <!-- Modern Action Bar -->
+    <div class="action-bar fade-in">
+        <button type="submit" form="auditForm" class="modern-btn modern-btn-primary">
+            <i class="fas fa-save"></i>
+            Submit Assessment
+        </button>
+        <button type="button" id="resetBtn" class="modern-btn modern-btn-danger">
+            <i class="fas fa-redo"></i>
+            Reset Form
+        </button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- Quill JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+        // Quill setup
+        const quill = new Quill('#quillEditor', {
+            theme: 'snow', 
+            placeholder: 'Provide detailed feedback, suggestions for improvement, and positive observations...',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['clean']
+                ]
+            }
+        });
+
+        // agent→email map
+        const userMap = {};
+        <?if (typeof users !== 'undefined' && users) { users.forEach(u => {?>userMap["<?= u.name ?>"] = "<?= u.email ?>"; <?}); }?>
+
+        // Independence Insurance scoring map
+        const scoringMap = {
+            Q1_Greeting: 5,
+            Q2_Introduction: 5,
+            Q3_Courtesy: 5,
+            Q4_Empathy: 5,
+            Q5_ClearCommunication: 5,
+            Q6_ActiveListening: 5,
+            Q7_PolicyKnowledge: 8,
+            Q8_ProblemIdentification: 7,
+            Q9_SolutionProvided: 8,
+            Q10_ResourcesUsed: 6,
+            Q11_EscalationProtocol: 6,
+            Q12_FollowUp: 5,
+            Q13_DataCollection: 5,
+            Q14_Documentation: 5,
+            Q15_ComplianceChecks: 5,
+            Q16_QualityStandards: 5,
+            Q17_CustomerSatisfaction: 5,
+            Q18_CallClosure: 5
+        };
+
+        const categoryMap = {
+            professionalism: ['Q1_Greeting','Q2_Introduction','Q3_Courtesy','Q4_Empathy','Q5_ClearCommunication','Q6_ActiveListening'],
+            technical: ['Q7_PolicyKnowledge','Q8_ProblemIdentification','Q9_SolutionProvided','Q10_ResourcesUsed','Q11_EscalationProtocol','Q12_FollowUp'],
+            process: ['Q13_DataCollection','Q14_Documentation','Q15_ComplianceChecks','Q16_QualityStandards'],
+            satisfaction: ['Q17_CustomerSatisfaction','Q18_CallClosure']
+        };
+
+        function recalcSummary() {
+            let totalEarned = 0;
+            let totalPossible = 0;
+
+            // Calculate category scores
+            Object.entries(categoryMap).forEach(([category, questions]) => {
+                let categoryEarned = 0;
+                let categoryPossible = 0;
+
+                questions.forEach(questionKey => {
+                    const points = scoringMap[questionKey];
+                    const radioElement = document.querySelector(`input[name="${questionKey}"]:checked`);
+                    
+                    if (radioElement && radioElement.value !== 'na') {
+                        categoryPossible += points;
+                        totalPossible += points;
+                        
+                        if (radioElement.value === 'yes') {
+                            categoryEarned += points;
+                            totalEarned += points;
+                        }
+                    }
+                });
+
+                const categoryPercent = categoryPossible > 0 ? Math.round((categoryEarned / categoryPossible) * 100) : 0;
+                
+                const row = document.querySelector(`tr[data-category="${category}"]`);
+                if (row) {
+                    row.querySelector('.earned').textContent = categoryEarned;
+                    row.querySelector('.percent').textContent = categoryPercent + '%';
+                }
+            });
+
+            // Update overall score
+            const overallPercent = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+            const overallRow = document.querySelector('tr[data-category="overall"]');
+            if (overallRow) {
+                overallRow.querySelector('.earned').textContent = totalEarned;
+                overallRow.querySelector('.percent').textContent = overallPercent + '%';
+            }
+
+            // Update gauge with animation
+            const gaugeElement = document.getElementById('overallQuality');
+            gaugeElement.style.transform = 'scale(1.1)';
+            gaugeElement.textContent = overallPercent + '%';
+            setTimeout(() => {
+                gaugeElement.style.transform = 'scale(1)';
+            }, 200);
+        }
+
+        function showToast(msg, isErr = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (isErr ? ' error' : '');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function htmlToPlainText(html) {
+          return html
+            .replace(/<blockquote[^>]*>/gi, '\n> ')
+            .replace(/<\/blockquote>/gi, '\n')
+            .replace(/<li[^>]*>/gi, '\n• ')
+            .replace(/<\/li>/gi, '')
+            .replace(/<p[^>]*>/gi, '\n')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/\n{2,}/g, '\n\n')
+            .trim();
+        }
+
+        // Enhanced loader functions
+        function showLoader() {
+            const loader = document.getElementById('loaderOverlay');
+            loader.style.display = 'flex';
+            setTimeout(() => loader.classList.add('show'), 10);
+        }
+
+        function hideLoader() {
+            const loader = document.getElementById('loaderOverlay');
+            loader.classList.remove('show');
+            setTimeout(() => loader.style.display = 'none', 300);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize animations
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => {
+                observer.observe(el);
+            });
+
+            // Set default audit date
+            document.getElementById('auditDate').value = new Date().toISOString().slice(0,10);
+
+            // Agent selection handler
+            document.getElementById('agentName').addEventListener('change', e => {
+                document.getElementById('agentEmail').value = userMap[e.target.value] || '';
+            });
+
+            // Radio button change handlers
+            document.querySelectorAll('input[type="radio"]').forEach(r => 
+                r.addEventListener('change', recalcSummary)
+            );
+            
+            // Initial calculation
+            recalcSummary();
+
+            // Form submission
+            const form = document.getElementById('auditForm');
+            const status = document.getElementById('uploadStatus');
+            
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                showLoader();
+                status.innerHTML = '<i class="fas fa-upload"></i> Uploading and processing...';
+
+                const html = quill.root.innerHTML;
+                document.getElementById('hOverallFeedback').value = html;
+                document.getElementById('hOverallFeedbackPlain').value = htmlToPlainText(html);
+
+                // Collect form data
+                const formData = new FormData(form);
+                const qaData = {};
+                
+                // Basic fields
+                for (let [key, value] of formData.entries()) {
+                    qaData[key] = value;
+                }
+
+                // Add calculated scores
+                let totalScore = 0;
+                Object.entries(scoringMap).forEach(([questionKey, points]) => {
+                    const radioElement = document.querySelector(`input[name="${questionKey}"]:checked`);
+                    if (radioElement && radioElement.value === 'yes') {
+                        totalScore += points;
+                    }
+                });
+
+                qaData.TotalScore = totalScore;
+                qaData.Percentage = totalScore / 100; // Convert to decimal
+
+                google.script.run
+                    .withSuccessHandler(res => {
+                        hideLoader();
+                        if (res.success) {
+                            status.innerHTML = `
+                                <div style="padding: 1rem; background: #f0f9f4; border-radius: 8px; border-left: 4px solid #10b981;">
+                                    <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                                    <strong>Assessment Saved Successfully!</strong><br>
+                                    Independence Insurance QA ID: ${res.id}
+                                </div>
+                            `;
+                            showToast('Independence Insurance QA assessment saved successfully! 🎉');
+                        } else {
+                            throw new Error(res.error);
+                        }
+                    })
+                    .withFailureHandler(err => {
+                        hideLoader();
+                        status.innerHTML = `
+                            <div style="padding: 1rem; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                                <strong>Save Failed:</strong> ${err.message}
+                            </div>
+                        `;
+                        showToast(err.message, true);
+                    })
+                    .clientSaveIndependenceQA(qaData, false);
+            });
+
+            // Reset button handler
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset the entire form? All entered data will be lost.')) {
+                    form.reset(); 
+                    quill.setContents([{insert:'\n'}]); 
+                    recalcSummary(); 
+                    document.getElementById('uploadStatus').innerHTML = '';
+                    showToast('Form has been reset.');
+                }
+            });
+
+            console.log('🏢 Independence Insurance QA Form initialized successfully');
+        });
+    </script>
+</head>
+</html>

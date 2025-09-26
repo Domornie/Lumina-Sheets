@@ -1,0 +1,1623 @@
+<?!= include('header', { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+
+<style>
+    /* Enhanced Design System */
+    :root {
+        /* Modern Brand Colors */
+        --primary: #2563eb;
+        --primary-light: #3b82f6;
+        --primary-dark: #1d4ed8;
+        --secondary: #64748b;
+        --accent: #06b6d4;
+        --accent-light: #22d3ee;
+        
+        /* Semantic Colors */
+        --success: #059669;
+        --success-light: #10b981;
+        --warning: #d97706;
+        --warning-light: #f59e0b;
+        --danger: #dc2626;
+        --danger-light: #ef4444;
+        --info: #0891b2;
+        --info-light: #06b6d4;
+        
+        /* Neutral Palette */
+        --gray-50: #f8fafc;
+        --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0;
+        --gray-300: #cbd5e1;
+        --gray-400: #94a3b8;
+        --gray-500: #64748b;
+        --gray-600: #475569;
+        --gray-700: #334155;
+        --gray-800: #1e293b;
+        --gray-900: #0f172a;
+        
+        /* Enhanced Gradients */
+        --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 50%, var(--accent) 100%);
+        --gradient-success: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+        --gradient-warning: linear-gradient(135deg, var(--warning) 0%, var(--warning-light) 100%);
+        --gradient-danger: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
+        --gradient-info: linear-gradient(135deg, var(--info) 0%, var(--info-light) 100%);
+        --gradient-surface: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 100%);
+        
+        /* Enhanced Shadows */
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        
+        /* Glass Effects */
+        --glass-bg: rgba(255, 255, 255, 0.2);
+        --glass-border: rgba(255, 255, 255, 0.3);
+        --backdrop-blur: blur(20px);
+        
+        /* Border Radius */
+        --radius-sm: 6px;
+        --radius: 12px;
+        --radius-md: 16px;
+        --radius-lg: 20px;
+        --radius-xl: 24px;
+        --radius-2xl: 32px;
+        --radius-full: 9999px;
+        
+        /* Transitions */
+        --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        
+        /* Typography */
+        --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    /* Reset and Base Styles */
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: var(--font-primary);
+        background: linear-gradient(135deg, var(--gray-50) 0%, #ffffff 100%);
+        color: var(--gray-800);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Enhanced Typography */
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+        margin-bottom: 1rem;
+    }
+
+    h1 { font-size: clamp(2rem, 4vw, 3rem); }
+    h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); }
+    h3 { font-size: clamp(1.25rem, 2.5vw, 1.875rem); }
+    h4 { font-size: clamp(1.125rem, 2vw, 1.5rem); }
+    h5 { font-size: clamp(1rem, 1.5vw, 1.25rem); }
+
+    /* Enhanced Page Header */
+    .modern-page-header {
+        background: var(--gradient-primary);
+        border-radius: var(--radius-2xl);
+        padding: 3rem 2rem;
+        margin-bottom: 3rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-2xl);
+    }
+
+    .modern-page-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        animation: float 6s ease-in-out infinite;
+    }
+
+    .modern-page-header::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -5%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 50%;
+        animation: float 8s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        33% { transform: translate(30px, -30px) rotate(120deg); }
+        66% { transform: translate(-20px, 20px) rotate(240deg); }
+    }
+
+    .modern-page-header h1 {
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .modern-page-header h1 i {
+        font-size: 0.8em;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: var(--radius);
+        backdrop-filter: var(--backdrop-blur);
+    }
+
+    .modern-page-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+        font-weight: 400;
+        position: relative;
+        z-index: 2;
+    }
+
+    .modern-page-header .d-flex {
+        position: relative;
+        z-index: 2;
+    }
+
+    /* Enhanced Controls Bar */
+    .align-items-center.px-4.py-3 {
+        background: var(--glass-bg);
+        backdrop-filter: var(--backdrop-blur);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem 2rem !important;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+        position: sticky;
+        top: 1rem;
+        z-index: 100;
+    }
+
+    .form-select,
+    .form-control {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: var(--backdrop-blur);
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: var(--transition-normal);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        outline: none;
+        background: white;
+    }
+
+    /* Enhanced KPI Cards */
+    .kpi-card {
+        background: var(--gradient-surface);
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition-normal);
+        box-shadow: var(--shadow-md);
+        cursor: pointer;
+        margin-bottom: 2rem;
+    }
+
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--gradient-primary);
+        transform: scaleX(0);
+        transition: var(--transition-normal);
+        transform-origin: left;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: var(--shadow-2xl);
+        border-color: var(--primary-light);
+    }
+
+    .kpi-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .kpi-card .value {
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--gray-800), var(--primary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 1rem 0 0.5rem;
+        line-height: 1;
+    }
+
+    .kpi-card .label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Enhanced Card Styles */
+    .card {
+        background: var(--gradient-surface);
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        transition: var(--transition-normal);
+        box-shadow: var(--shadow-md);
+        position: relative;
+        margin-bottom: 3rem;
+    }
+
+    .card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--gradient-info);
+        transform: scaleX(0);
+        transition: var(--transition-normal);
+        transform-origin: left;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-xl);
+        border-color: var(--gray-300);
+    }
+
+    .card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .card-header {
+        padding: 1.5rem 2rem 1rem;
+        border-bottom: 1px solid var(--gray-200);
+        background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(248,250,252,0.8) 100%);
+    }
+
+    .card-header h5 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        letter-spacing: -0.025em;
+        line-height: 1.4;
+    }
+
+    .card-header h5 i {
+        width: 2rem;
+        height: 2rem;
+        background: var(--gradient-primary);
+        color: white;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        flex-shrink: 0;
+    }
+
+    .card-header h5 small {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        font-weight: 500;
+        margin-top: 0.25rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Enhanced Chart Containers */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        background: var(--gradient-surface);
+        border-radius: var(--radius);
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+
+    /* Enhanced Buttons */
+    .btn {
+        border-radius: var(--radius);
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        transition: var(--transition-normal);
+        border: none;
+        position: relative;
+        overflow: hidden;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.6s;
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--gradient-primary);
+        box-shadow: var(--shadow-md);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        color: white;
+        background: var(--gradient-primary);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
+        box-shadow: var(--shadow-md);
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        color: white;
+        background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
+    }
+
+    /* Enhanced Loading States */
+    #loaderOverlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(248, 250, 252, 0.9);
+        backdrop-filter: var(--backdrop-blur);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        border: 3px solid rgba(37, 99, 235, 0.2);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Enhanced Table Styles */
+    .table-responsive {
+        background: white;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--gray-200);
+        scrollbar-width: thin;
+        scrollbar-color: var(--gray-300) transparent;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--gray-400);
+    }
+
+    .table {
+        margin-bottom: 0;
+        font-size: 0.875rem;
+    }
+
+    .table th {
+        background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+        border-bottom: 2px solid var(--gray-200);
+        font-weight: 700;
+        color: var(--gray-800);
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 1rem 1.5rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .table td {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--gray-100);
+        vertical-align: middle;
+        color: var(--gray-700);
+        transition: var(--transition-fast);
+    }
+
+    .table-hover tbody tr:hover {
+        background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+        transform: scale(1.01);
+    }
+
+    .table-hover tbody tr:hover td {
+        color: var(--gray-900);
+    }
+
+    /* Enhanced Badges */
+    .badge {
+        font-weight: 600;
+        letter-spacing: 0.025em;
+        border-radius: var(--radius-full);
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .badge.bg-primary {
+        background: var(--gradient-primary) !important;
+    }
+
+    .badge.bg-success {
+        background: var(--gradient-success) !important;
+    }
+
+    .badge.bg-info {
+        background: var(--gradient-info) !important;
+    }
+
+    /* Enhanced Status Colors */
+    .text-success { color: var(--success) !important; }
+    .text-danger { color: var(--danger) !important; }
+    .text-warning { color: var(--warning) !important; }
+    .text-primary { color: var(--primary) !important; }
+    .text-info { color: var(--info) !important; }
+
+    /* Enhanced Empty States */
+    .text-center.py-3.text-muted {
+        color: var(--gray-500) !important;
+        font-style: italic;
+        padding: 3rem 1rem !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .text-center.py-3.text-muted::before {
+        content: '📋';
+        font-size: 3rem;
+        opacity: 0.5;
+    }
+
+    /* Enhanced Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .animate-fade-in-up {
+        animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-slide-in-right {
+        animation: slideInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-slide-in-left {
+        animation: slideInLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-scale-in {
+        animation: scaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    /* Staggered animations */
+    .kpi-card:nth-child(1) { animation-delay: 0.1s; }
+    .kpi-card:nth-child(2) { animation-delay: 0.2s; }
+    .kpi-card:nth-child(3) { animation-delay: 0.3s; }
+    .card:nth-child(1) { animation-delay: 0.2s; }
+    .card:nth-child(2) { animation-delay: 0.3s; }
+    .card:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Enhanced Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .modern-page-header {
+            padding: 2rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .modern-page-header h1 {
+            font-size: 2rem;
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+
+        .align-items-center.px-4.py-3 {
+            padding: 1rem 1.5rem !important;
+            margin-bottom: 1.5rem;
+        }
+
+        .align-items-center.px-4.py-3 .d-flex {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .align-items-center.px-4.py-3 .ms-3,
+        .align-items-center.px-4.py-3 .ms-4 {
+            margin-left: 0 !important;
+        }
+
+        .kpi-card {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem 0.75rem;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .chart-container {
+            height: 250px;
+            padding: 0.5rem;
+        }
+
+        .table-responsive {
+            max-height: 300px;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .modern-page-header {
+            padding: 1.5rem 1rem;
+        }
+
+        .align-items-center.px-4.py-3 {
+            padding: 1rem !important;
+        }
+
+        .kpi-card {
+            padding: 1.25rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .chart-container {
+            height: 200px;
+        }
+    }
+
+    /* Enhanced Focus Styles for Accessibility */
+    .btn:focus,
+    .form-select:focus,
+    .form-control:focus,
+    .kpi-card:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+        .card,
+        .kpi-card {
+            border-width: 2px;
+        }
+    }
+
+    /* Toast Notifications Enhancement */
+    .toast {
+        background: var(--gradient-surface);
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-xl);
+        backdrop-filter: var(--backdrop-blur);
+    }
+
+    .toast.bg-success {
+        background: var(--gradient-success);
+        border-color: var(--success);
+        color: white;
+    }
+
+    .toast.bg-danger {
+        background: var(--gradient-danger);
+        border-color: var(--danger);
+        color: white;
+    }
+</style>
+
+<div class="modern-page-header animate-scale-in">
+    <h1><i class="fas fa-clipboard-check me-3"></i>Call Report Dashboard</h1>
+    <p>Monitor and analyze your call center performance with real-time insights</p>
+    
+    <!-- Modern Action Buttons -->
+    <div class="d-flex gap-3 mt-4">
+        <button class="btn btn-primary" onclick="window.location='<?= baseUrl ?>&page=import'" title="Import CSV">
+            <i class="fas fa-file-import me-2"></i>Import Call Reports
+        </button>
+        <button id="exportCallCsvBtn" class="btn btn-secondary" title="Download analytics as CSV">
+            <i class="fas fa-file-export me-2"></i>Export Analytics
+        </button>
+    </div>
+</div>
+
+<!-- Enhanced Loader Overlay -->
+<div id="loaderOverlay">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <div style="color: var(--gray-700); font-weight: 500; font-size: 0.875rem; margin-top: 1rem;">
+        Loading dashboard data...
+    </div>
+</div>
+
+<div class="align-items-center px-4 py-3 pb-3 mb-3">
+    <div class="d-flex align-items-center">
+        <!-- Report-Type Switcher -->
+        <div class="ms-4" hidden>
+            <select id="reportTypeSelect" class="form-select form-select-sm ms-4">
+                <option value="Dashboard" <?= currentPage==="Dashboard" ? "selected":"" ?>>📊 Dashboard</option>
+                <option value="CallReports" <?= currentPage==="CallReports" ? "selected":"" ?>>📞 Call Reports</option>
+                <option value="AttendanceReports" <?= currentPage==="AttendanceReports" ? "selected":"" ?>>⏰ Attendance Reports</option>
+                <option value="QualityReports" <?= currentPage==="QualityReports" ? "selected":"" ?>>⭐ Quality Report</option>
+                <option value="Incentives" <?= currentPage==="Incentives" ? "selected":"" ?>>🎯 Incentives</option>
+            </select>
+        </div>
+    </div>
+    <div class="d-flex align-items-center ms-auto">
+        <div>
+            <select class="form-select form-select-sm" id="granularitySelect">
+                <option value="Week" selected>📅 Week</option>
+                <option value="Month">📆 Month</option>
+                <option value="Quarter">📋 Quarter</option>
+                <option value="Year">📊 Year</option>
+            </select>
+        </div>
+
+        <!-- AGENT FILTER -->
+        <div class="ms-3">
+            <select class="form-select form-select-sm" id="agentSelect">
+                <option value="">👥 All Agents</option>
+                <? userList.forEach(function(u) { ?>
+                    <option value="<?= u ?>" <?= u === selectedAgent ? "selected" : "" ?>>
+                        <?= u ?>
+                    </option>
+                <? }); ?>
+            </select>
+        </div>
+
+        <!-- PERIOD PICKERS -->
+        <div class="ms-3" id="weekPicker" style="display: none;">
+            <input type="week" class="form-control form-control-sm" id="weekInput" />
+        </div>
+        <div class="ms-3" id="monthPicker" style="display: none;">
+            <input type="month" class="form-control form-control-sm" id="monthInput" />
+        </div>
+        <div class="ms-3" id="quarterPicker" style="display: none;">
+            <div class="d-flex">
+                <select class="form-select form-select-sm" id="quarterSelect">
+                    <option value="Q1">Q1</option>
+                    <option value="Q2">Q2</option>
+                    <option value="Q3">Q3</option>
+                    <option value="Q4">Q4</option>
+                </select>
+                <input
+                    type="number"
+                    class="form-control form-control-sm ms-2"
+                    id="quarterYearInput"
+                    placeholder="YYYY"
+                    min="2000"
+                    max="2100"
+                    style="width: 80px;"
+                />
+            </div>
+        </div>
+        <div class="ms-3" id="yearPicker" style="display: none;">
+            <input type="number"
+                class="form-control form-control-sm"
+                id="yearInput"
+                placeholder="YYYY"
+                min="2000"
+                max="2100"/>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced KPI Cards -->
+<div class="row gx-4 mb-4 animate-fade-in-up">
+    <div class="col-lg-4">
+        <div class="kpi-card" tabindex="0" role="button" aria-label="Total calls metric">
+            <div class="label">Total Calls</div>
+            <div class="value" id="kpiTotalCalls">0</div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="kpi-card" tabindex="0" role="button" aria-label="Customer satisfaction metric">
+            <div class="label">Average CSAT (% Yes)</div>
+            <div class="value" id="kpiAvgCsat">0%</div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="kpi-card" tabindex="0" role="button" aria-label="Average talk time metric">
+            <div class="label">Average Talk Time</div>
+            <div class="value" id="kpiAvgTalkTime">0 min</div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Distribution Charts Row -->
+<div class="row gx-4 mb-5 animate-fade-in-up" style="animation-delay: 0.1s;">
+    <!-- Call Distribution (Policy) -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>
+                    <i class="fas fa-stream"></i>
+                    Call Distribution<br/>
+                    <small>By Policy</small>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="policyDistChart" role="img" aria-label="Policy distribution chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Distribution (Wrapup) -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>
+                    <i class="fas fa-tags"></i>
+                    Call Distribution<br/>
+                    <small>By Wrapup</small>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="wrapupDistChart" role="img" aria-label="Wrapup distribution chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSAT Distribution -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>
+                    <i class="fas fa-smile"></i>
+                    CSAT Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="csatDistChart" role="img" aria-label="CSAT distribution chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Trend Charts Row -->
+<div class="row gx-4 mb-5 animate-slide-in-right" style="animation-delay: 0.3s;">
+    <!-- Call Trend -->
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i>Call Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="callTrendChart" role="img" aria-label="Call volume trend chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Talk Time Trend -->
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-hourglass-half"></i>Talk Time Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="talkTrendChart" role="img" aria-label="Talk time trend chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Rep Metrics Table -->
+<div class="row gx-4 animate-fade-in-left" style="animation-delay: 0.5s;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i>Rep Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle" id="repMetricsTable" role="table" aria-label="Agent performance metrics">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Agent</th>
+                                <th scope="col">Total Calls</th>
+                                <th scope="col">Total Talk</th>
+                                <th scope="col">Avg Talk</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Keep all existing server-side variables exactly as they were
+  const baseUrl = '<?= baseUrl ?>';
+  const callVolumeLast7 = <?= callVolumeLast7 ?>;
+  const hourlyHeatmapLast7 = <?= hourlyHeatmapLast7 ?>;
+  const avgIntervalByAgentLast7= <?= avgIntervalByAgentLast7 ?>;
+  const talkTimeByAgentLast7 = <?= talkTimeByAgentLast7 ?>;
+  const wrapupCountsLast7 = <?= wrapupCountsLast7 ?>;
+  const csatDistLast7 = <?= csatDistLast7 ?>;
+  const policyCountsLast7 = <?= policyCountsLast7 ?>;
+  const agentLeaderboardLast7 = <?= agentLeaderboardLast7 ?>;
+
+  // Chart.js instances
+  let policyDistChart = null;
+  let wrapupDistChart = null;
+  let callTrendChart = null;
+  let talkTrendChart = null;
+  let csatChart = null;
+
+  // Current filters - keep exactly as before
+  let currentGran = "Week";
+  let currentPeriod = "<?= selectedPeriod ?>"; // initial ISO week, e.g. "2025-W23"
+  let currentAgent = "<?= selectedAgent ?>";  // initial agent filter (probably "")
+
+  // Enhanced Chart.js defaults
+  function setupChartDefaults() {
+    Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.borderColor = '#e2e8f0';
+    Chart.defaults.backgroundColor = 'rgba(37, 99, 235, 0.1)';
+    
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.pointStyle = 'rect';
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.plugins.legend.labels.boxHeight = 12;
+    Chart.defaults.plugins.legend.labels.padding = 15;
+    
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+    Chart.defaults.plugins.tooltip.titleColor = '#ffffff';
+    Chart.defaults.plugins.tooltip.bodyColor = '#ffffff';
+    Chart.defaults.plugins.tooltip.borderColor = '#334155';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.cornerRadius = 12;
+    Chart.defaults.plugins.tooltip.padding = 16;
+    Chart.defaults.plugins.tooltip.displayColors = true;
+    Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
+    Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    // Setup enhanced chart defaults
+    setupChartDefaults();
+
+    // Keep all existing event listeners exactly as they were
+    document.getElementById("reportTypeSelect")
+      .addEventListener("change", e => {
+        const rpt = e.target.value;
+        window.location.href = "<?= baseUrl ?>&page=" + rpt;
+      });
+
+    document.getElementById("granularitySelect")
+      .addEventListener("change", onGranChange);
+
+    document.getElementById("agentSelect")
+      .addEventListener("change", e => {
+        currentAgent = e.target.value;
+        triggerLoadAnalytics();
+      });
+
+    // Keep all existing period picker event listeners
+    const wk = document.getElementById("weekInput");
+    wk.addEventListener("change", () => {
+      currentPeriod = wk.value;
+      triggerLoadAnalytics();
+    });
+
+    const m = document.getElementById("monthInput");
+    m.addEventListener("change", () => {
+      currentPeriod = m.value;
+      triggerLoadAnalytics();
+    });
+
+    const qs = document.getElementById("quarterSelect");
+    const qy = document.getElementById("quarterYearInput");
+    qs.addEventListener("change", () => {
+      if (qy.value) {
+        currentPeriod = `${qs.value}-${qy.value}`;
+        triggerLoadAnalytics();
+      }
+    });
+    qy.addEventListener("change", () => {
+      if (qs.value) {
+        currentPeriod = `${qs.value}-${qy.value}`;
+        triggerLoadAnalytics();
+      }
+    });
+
+    const yr = document.getElementById("yearInput");
+    yr.addEventListener("change", () => {
+      currentPeriod = yr.value;
+      triggerLoadAnalytics();
+    });
+
+    // Keep existing picker initialization
+    document.getElementById("weekPicker").style.display = "none";
+    document.getElementById("monthPicker").style.display = "none";
+    document.getElementById("quarterPicker").style.display = "none";
+    document.getElementById("yearPicker").style.display = "none";
+
+    const today = new Date();
+    const isoWeek = weekStringFromDate(today);
+    wk.value = isoWeek;
+    currentPeriod = isoWeek;
+    document.getElementById("weekPicker").style.display = "block";
+
+    document
+      .getElementById("exportCallCsvBtn")
+      .addEventListener("click", () => {
+        const url = baseUrl
+          + "&page=CallReports"
+          + "&action=exportCallCsv"
+          + "&granularity=" + encodeURIComponent(currentGran)
+          + "&period=" + encodeURIComponent(currentPeriod)
+          + "&agent=" + encodeURIComponent(currentAgent);
+        window.open(url, "_blank");
+      });
+
+    // Add enhanced keyboard navigation
+    document.querySelectorAll('.kpi-card').forEach(card => {
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          // Add visual feedback
+          card.style.transform = 'scale(0.98)';
+          setTimeout(() => {
+            card.style.transform = '';
+          }, 150);
+          showToast('KPI details view would open here', 'info');
+        }
+      });
+    });
+
+    // Load initial analytics - keep existing function call
+    loadAnalytics(currentGran, currentPeriod, currentAgent);
+  });
+
+  // Keep all existing functions exactly as they were, just enhance the rendering
+  function onGranChange() {
+    ["weekPicker", "monthPicker", "quarterPicker", "yearPicker"].forEach(id => {
+      document.getElementById(id).style.display = "none";
+    });
+
+    currentGran = document.getElementById("granularitySelect").value;
+
+    if (currentGran === "Week") {
+      document.getElementById("weekPicker").style.display = "block";
+      const wk = document.getElementById("weekInput");
+      currentPeriod = wk.value;
+    } else if (currentGran === "Month") {
+      document.getElementById("monthPicker").style.display = "block";
+      const m = document.getElementById("monthInput");
+      currentPeriod = m.value;
+    } else if (currentGran === "Quarter") {
+      document.getElementById("quarterPicker").style.display = "block";
+      const qs = document.getElementById("quarterSelect");
+      const qy = document.getElementById("quarterYearInput");
+      if (qs.value && qy.value) {
+        currentPeriod = `${qs.value}-${qy.value}`;
+      } else {
+        currentPeriod = "";
+      }
+    } else if (currentGran === "Year") {
+      document.getElementById("yearPicker").style.display = "block";
+      const yr = document.getElementById("yearInput");
+      currentPeriod = yr.value;
+    }
+
+    triggerLoadAnalytics();
+  }
+
+  function triggerLoadAnalytics() {
+    loadAnalytics(currentGran, currentPeriod, currentAgent);
+  }
+
+  function renderEverything(analytics) {
+    renderKpiCards(analytics);
+    renderPolicyDistChart(analytics.policyDist);
+    renderWrapupDistChart(analytics.wrapDist);
+    renderCsatChart(analytics.csatDist);
+    renderCallTrendChart(analytics.callTrend);
+    renderTalkTrendChart(analytics.talkTrend);
+    renderRepMetricsTable(analytics.repMetrics);
+  }
+
+  function renderKpiCards(analytics) {
+    const totalCalls = analytics.repMetrics.reduce((sum, r) => sum + r.totalCalls, 0);
+    document.getElementById("kpiTotalCalls").textContent = totalCalls.toLocaleString();
+
+    const csatYes = analytics.csatDist.find(o => o.csat === "Yes")?.count || 0;
+    const csatTotal = analytics.csatDist.reduce((sum, o) => sum + o.count, 0);
+    const avgCsat = csatTotal > 0 ? ((csatYes / csatTotal) * 100).toFixed(1) : 0;
+    document.getElementById("kpiAvgCsat").textContent = `${avgCsat}%`;
+
+    const totalTalk = analytics.talkTrend.reduce((sum, o) => sum + o.totalTalk, 0);
+    const totalCallCount = analytics.callTrend.reduce((sum, o) => sum + o.callCount, 0);
+    const avgTalkTime = totalCallCount > 0 ? (totalTalk / totalCallCount).toFixed(2) : 0;
+    document.getElementById("kpiAvgTalkTime").textContent = `${avgTalkTime} min`;
+
+    // Add enhanced animation to value changes
+    [document.getElementById('kpiTotalCalls'), 
+     document.getElementById('kpiAvgCsat'), 
+     document.getElementById('kpiAvgTalkTime')].forEach(el => {
+      el.style.transform = 'scale(1.05)';
+      setTimeout(() => {
+        el.style.transform = 'scale(1)';
+      }, 200);
+    });
+  }
+
+  // Enhanced chart options function
+  function getEnhancedChartOptions(type, title) {
+    const baseOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: type === 'doughnut' ? 'bottom' : 'top',
+          labels: {
+            padding: 20,
+            font: { size: 12, weight: '500' },
+            generateLabels: (chart) => {
+              const data = chart.data;
+              if (data.labels.length && data.datasets.length) {
+                return data.labels.map((label, i) => {
+                  const dataset = data.datasets[0];
+                  const value = dataset.data[i];
+                  const total = dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  
+                  const truncatedLabel = label.length > 25 
+                    ? label.substring(0, 22) + '...' 
+                    : label;
+                  
+                  return {
+                    text: `${truncatedLabel} (${percentage}%)`,
+                    fillStyle: dataset.backgroundColor[i],
+                    strokeStyle: dataset.backgroundColor[i],
+                    lineWidth: 0,
+                    pointStyle: 'rect',
+                    index: i,
+                    fullLabel: label
+                  };
+                });
+              }
+              return [];
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            title: (context) => {
+              return context[0].label || title;
+            },
+            label: (context) => {
+              const label = context.label || '';
+              const value = context.parsed || context.parsed.y || context.raw;
+              if (type === 'doughnut') {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${label}: ${value.toLocaleString()} (${percentage}%)`;
+              }
+              return `${label}: ${value.toLocaleString()}`;
+            }
+          }
+        }
+      },
+      animation: {
+        animateRotate: type === 'doughnut',
+        animateScale: true,
+        duration: 1000,
+        easing: 'easeOutQuart'
+      }
+    };
+
+    if (type === 'line') {
+      baseOptions.scales = {
+        x: {
+          grid: { display: false },
+          ticks: { maxTicksLimit: 7, font: { size: 11 } }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(226, 232, 240, 0.5)' },
+          ticks: { font: { size: 11 } }
+        }
+      };
+      baseOptions.elements = {
+        point: { hoverRadius: 8, radius: 4 },
+        line: { tension: 0.4 }
+      };
+    }
+
+    return baseOptions;
+  }
+
+  // Enhanced chart rendering functions with improved styling
+  function renderPolicyDistChart(policyDist) {
+    const ctx = document.getElementById("policyDistChart").getContext("2d");
+    const labels = policyDist.map(o => o.policy);
+    const dataPts = policyDist.map(o => o.count);
+    const bgColors = labels.map((_, i) => {
+      const palette = [
+        "#2563eb", "#059669", "#d97706", "#dc2626", "#7c3aed", "#0891b2",
+        "#be123c", "#9333ea", "#c2410c", "#166534", "#1e40af", "#7c2d12"
+      ];
+      return palette[i % palette.length];
+    });
+
+    if (policyDistChart) policyDistChart.destroy();
+    policyDistChart = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: labels,
+        datasets: [{ 
+          data: dataPts, 
+          backgroundColor: bgColors, 
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverBorderWidth: 3
+        }]
+      },
+      options: getEnhancedChartOptions('doughnut', 'Policy Distribution')
+    });
+  }
+
+  function renderWrapupDistChart(wrapDist) {
+    const ctx = document.getElementById("wrapupDistChart").getContext("2d");
+    const labels = wrapDist.map(o => o.wrapupLabel);
+    const dataPts = wrapDist.map(o => o.count);
+    const bgColors = labels.map((_, i) => {
+      const palette = ["#059669", "#d97706", "#dc2626", "#2563eb", "#7c3aed", "#0891b2"];
+      return palette[i % palette.length];
+    });
+
+    if (wrapupDistChart) wrapupDistChart.destroy();
+    wrapupDistChart = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: labels,
+        datasets: [{ 
+          data: dataPts, 
+          backgroundColor: bgColors, 
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverBorderWidth: 3
+        }]
+      },
+      options: getEnhancedChartOptions('doughnut', 'Wrapup Distribution')
+    });
+  }
+
+  function renderCsatChart(csatDist) {
+    const ctx = document.getElementById("csatDistChart").getContext("2d");
+    const labels = csatDist.map(o => o.csat);
+    const dataPts = csatDist.map(o => o.count);
+    const bgColors = ["#059669", "#dc2626"]; // Yes=green, No=red
+
+    if (csatChart) csatChart.destroy();
+    csatChart = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: labels,
+        datasets: [{ 
+          data: dataPts, 
+          backgroundColor: bgColors, 
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverBorderWidth: 3
+        }]
+      },
+      options: getEnhancedChartOptions('doughnut', 'CSAT Distribution')
+    });
+  }
+
+  function renderCallTrendChart(callTrend) {
+    const ctx = document.getElementById("callTrendChart").getContext("2d");
+    const filtered = callTrend.filter(o => {
+      const day = o.periodLabel.toLowerCase();
+      return day !== "saturday" && day !== "sunday";
+    });
+
+    const labels = filtered.map(o => o.periodLabel);
+    const dataPts = filtered.map(o => o.callCount);
+
+    if (callTrendChart) callTrendChart.destroy();
+    callTrendChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Total Calls",
+          data: dataPts,
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37, 99, 235, 0.1)",
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: "#2563eb",
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: getEnhancedChartOptions('line', 'Call Trend')
+    });
+  }
+
+  function renderTalkTrendChart(talkTrend) {
+    const ctx = document.getElementById("talkTrendChart").getContext("2d");
+    const filtered = talkTrend.filter(o => {
+      const day = o.periodLabel.toLowerCase();
+      return day !== "saturday" && day !== "sunday";
+    });
+
+    const labels = filtered.map(o => o.periodLabel);
+    const dataPts = filtered.map(o => o.totalTalk);
+
+    if (talkTrendChart) talkTrendChart.destroy();
+    talkTrendChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Total Talk Time (min)",
+          data: dataPts,
+          backgroundColor: "rgba(5, 150, 105, 0.8)",
+          borderColor: "#059669",
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        ...getEnhancedChartOptions('bar', 'Talk Time Trend'),
+        scales: {
+          y: { 
+            beginAtZero: true, 
+            title: { display: true, text: "Talk Time (minutes)" },
+            grid: { color: 'rgba(226, 232, 240, 0.5)' }
+          },
+          x: { 
+            title: { display: true, text: "Period" },
+            grid: { display: false }
+          }
+        },
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                const hours = Math.floor(value / 60);
+                const mins = Math.round(value % 60);
+                return `Talk Time: ${hours}h ${mins}m (${value.toFixed(1)} min)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Keep existing table rendering function but enhance styling
+  function formatDuration(totalSeconds) {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = Math.floor(totalSeconds % 60);
+    return [hrs, mins, secs]
+      .map(unit => unit < 10 ? "0" + unit : unit)
+      .join(":");
+  }
+
+  function renderRepMetricsTable(repMetrics) {
+    const tbody = document.querySelector("#repMetricsTable tbody");
+    tbody.innerHTML = "";
+
+    if (!repMetrics.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-center py-3 text-muted">No data available for the selected period</td>
+        </tr>`;
+      return;
+    }
+
+    repMetrics.forEach(item => {
+      const totalSeconds = Math.round((item.totalTalk || 0) * 60);
+      const avgSeconds = item.totalCalls > 0 ? totalSeconds / item.totalCalls : 0;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${item.agent}</strong></td>
+        <td><span class="badge bg-primary rounded-pill">${item.totalCalls.toLocaleString()}</span></td>
+        <td><span class="text-success fw-semibold">${formatDuration(totalSeconds)}</span></td>
+        <td><span class="text-info fw-semibold">${formatDuration(avgSeconds)}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Enhanced showToast function
+  function showToast(message, type) {
+    const toastEl = document.createElement("div");
+    toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+    toastEl.setAttribute("role", "alert");
+    toastEl.setAttribute("aria-live", "assertive");
+    toastEl.setAttribute("aria-atomic", "true");
+    toastEl.style.borderRadius = 'var(--radius-lg)';
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'danger' ? 'fa-exclamation-circle' : 'fa-info-circle'} me-2"></i>
+          ${message}
+        </div>
+        <button
+          type="button"
+          class="btn-close btn-close-white me-2 m-auto"
+          data-bs-dismiss="toast"
+        ></button>
+      </div>`;
+    
+    const container = document.createElement("div");
+    container.className = "position-fixed top-0 end-0 p-3";
+    container.style.zIndex = "9999";
+    container.appendChild(toastEl);
+    document.body.appendChild(container);
+    
+    const bsToast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    bsToast.show();
+    toastEl.addEventListener("hidden.bs.toast", () => container.remove());
+  }
+
+  // Keep all existing utility functions exactly as they were
+  function weekStringFromDate(d) {
+    const target = new Date(d.valueOf());
+    const dayNr = (d.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = new Date(target.getFullYear(), 0, 4);
+    const diff = target - firstThursday;
+    const weekNum = 1 + Math.round(diff / (7 * 86400000));
+    const year = target.getFullYear();
+    const w = weekNum < 10 ? `0${weekNum}` : `${weekNum}`;
+    return `${year}-W${w}`;
+  }
+  
+  // Keep the existing loadAnalytics function EXACTLY as it was - this is the server integration
+  function loadAnalytics(gran, periodIdentifier, agent) {
+    document.getElementById("loaderOverlay").style.display = "flex";
+
+    google.script
+      .run
+      .withFailureHandler(err => {
+        document.getElementById("loaderOverlay").style.display = "none";
+        console.error("Error fetching analytics:", err);
+        showToast("Error loading analytics: " + err.message, "danger");
+      })
+      .withSuccessHandler(result => {
+        document.getElementById("loaderOverlay").style.display = "none";
+        const agentSelect = document.getElementById("agentSelect");
+        agentSelect.innerHTML = `<option value="">👥 All Agents</option>`;
+        const liveAgents = result.activeAgents;
+
+        liveAgents.forEach(agent => {
+          const opt = document.createElement("option");
+          opt.value = agent;
+          opt.textContent = agent;
+          if (agent === currentAgent) opt.selected = true;
+          agentSelect.appendChild(opt);
+        });    
+            
+        renderEverything(result);
+        showToast("Dashboard updated successfully", "success");
+      })
+      .getAnalyticsByPeriod(gran, periodIdentifier, agent);
+  }
+
+  // Add window resize handler for responsive charts
+  window.addEventListener('resize', debounce(() => {
+    Object.values({
+      policyDistChart,
+      wrapupDistChart,
+      callTrendChart,
+      talkTrendChart,
+      csatChart
+    }).forEach(chart => {
+      if (chart && typeof chart.resize === 'function') {
+        chart.resize();
+      }
+    });
+  }, 250));
+
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  // Add accessibility enhancements
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const overlay = document.getElementById('loaderOverlay');
+      if (overlay.style.display === 'flex') {
+        // Allow escape to cancel loading if needed
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

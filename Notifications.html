@@ -1,0 +1,29 @@
+<?!= include('header', {
+  baseUrl: baseUrl,
+  user: user,
+  currentPage: 'Notifications'
+}) ?>
+
+<div class="container py-4">
+  <h2 class="mb-4">Tasks Due Today</h2>
+
+  <? var tasks = JSON.parse(tasksJson); ?>
+  <? if (tasks.length === 0) { ?>
+    <div class="alert alert-success">
+      🎉 You have no tasks due today!
+    </div>
+  <? } else { ?>
+    <ul class="list-group">
+      <? tasks.forEach(function(t) { ?>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong><?= t.Task ?></strong><br/>
+            <small>ID: <?= t.ID ?> &mdash; Owner: <?= t.Owner ?></small>
+          </div>
+          <span class="badge bg-danger rounded-pill"><?= t.DueDate ?></span>
+        </li>
+      <? }); ?>
+    </ul>
+  <? } ?>
+</div>
+</div>

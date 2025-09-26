@@ -1,0 +1,979 @@
+    <!-- CoachingList.html -->
+    <?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        :root {
+            --primary: #4285f4;
+            --primary-dark: #1a73e8;
+            --accent: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --surface: #ffffff;
+            --surface-variant: #f8f9fa;
+            --surface-elevated: #ffffff;
+            --outline: #e8eaed;
+            --outline-variant: #dadce0;
+            --shadow: rgba(0, 0, 0, .1);
+            --shadow-elevated: 0 4px 24px rgba(0, 0, 0, .12);
+            --text: #202124;
+            --muted: #5f6368;
+            --muted-2: #80868b;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: all .3s cubic-bezier(.4, 0, .2, 1)
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        /* Navigation */
+        .coaching-nav {
+            background: var(--surface-elevated);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-elevated);
+            margin-bottom: 1.25rem;
+            overflow: hidden;
+            border: 1px solid var(--outline)
+        }
+
+        .coaching-nav .nav {
+            padding: .5rem;
+            gap: .25rem;
+            justify-content: center
+        }
+
+        .coaching-nav .nav-link {
+            color: var(--muted);
+            text-decoration: none;
+            font-weight: 600;
+            padding: .8rem 1.25rem;
+            border-radius: 10px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .9rem
+        }
+
+        .coaching-nav .nav-link:hover {
+            background: rgba(66, 133, 244, .08);
+            color: var(--primary);
+            transform: translateY(-1px)
+        }
+
+        .coaching-nav .nav-link.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(66, 133, 244, .3)
+        }
+
+        /* Container + Header */
+        .coaching-container {
+            background: var(--surface-elevated);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-elevated);
+            border: 1px solid var(--outline);
+            overflow: hidden;
+            animation: slideInUp .6s cubic-bezier(.4, 0, .2, 1) forwards
+        }
+
+        .coaching-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            padding: 1.2rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .coaching-header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 800;
+            display: flex;
+            gap: .6rem;
+            align-items: center
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            font-size: .9rem;
+            opacity: .95
+        }
+
+        .header-stat {
+            display: flex;
+            gap: .4rem;
+            align-items: center
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: grid;
+            grid-template-columns:1fr auto;
+            gap: .75rem;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--outline)
+        }
+
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem
+        }
+
+        .filter {
+            display: flex;
+            gap: .4rem;
+            align-items: center;
+            background: var(--surface-variant);
+            border: 1px solid var(--outline-variant);
+            padding: .45rem .6rem;
+            border-radius: 10px
+        }
+
+        .filter label {
+            font-size: .8rem;
+            color: var(--muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .03em
+        }
+
+        .filter input[type="date"], .filter select, .filter input[type="search"] {
+            border: none;
+            background: transparent;
+            padding: .2rem .25rem;
+            outline: none;
+            font-size: .9rem
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: .5rem;
+            align-items: center
+        }
+
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: .65rem 1rem;
+            font-weight: 800;
+            letter-spacing: .02em;
+            font-size: .85rem;
+            display: inline-flex;
+            gap: .5rem;
+            align-items: center;
+            cursor: pointer;
+            transition: var(--transition)
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff
+        }
+
+        .btn-secondary {
+            background: #fff;
+            border: 2px solid var(--outline);
+            color: var(--text)
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, .08)
+        }
+
+        .btn-ghost {
+            background: #fff;
+            border: 2px dashed var(--outline);
+            color: var(--muted)
+        }
+
+        /* Density & page size */
+        .density {
+            display: flex;
+            gap: .25rem;
+            margin-left: .25rem
+        }
+
+        .chip {
+            border: 1px solid var(--outline);
+            background: #fff;
+            color: var(--muted);
+            padding: .3rem .6rem;
+            border-radius: 999px;
+            font-size: .8rem;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .chip.active {
+            background: rgba(66, 133, 244, .1);
+            border-color: var(--primary);
+            color: var(--primary)
+        }
+
+        /* Table */
+        .table-container {
+            position: relative
+        }
+
+        .table-wrapper {
+            max-height: 65vh;
+            overflow: auto
+        }
+
+        .modern-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: .9rem
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 5
+        }
+
+        thead th {
+            background: var(--primary) 0%;
+            color: #fff;
+            padding: .85rem 1rem;
+            text-align: left;
+            font-size: .8rem;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            position: relative
+        }
+
+        thead th.sortable {
+            cursor: pointer
+        }
+
+        thead th.sortable:after {
+            content: '\f0dc';
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            margin-left: .5rem;
+            opacity: .7
+        }
+
+        thead th.sortable.asc:after {
+            content: '\f160'
+        }
+
+        thead th.sortable.desc:after {
+            content: '\f161'
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--outline);
+            transition: var(--transition)
+        }
+
+        tbody tr:hover {
+            background: rgba(66, 133, 244, .03)
+        }
+
+        td {
+            padding: 1rem;
+            border: none;
+            vertical-align: middle;
+            color: var(--text)
+        }
+
+        .truncated {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        /* Topic badge */
+        .topic-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+            padding: .2rem .55rem;
+            border-radius: 12px;
+            font-size: .75rem;
+            font-weight: 700;
+            margin: .08rem;
+            border: 1px solid rgba(21, 101, 192, .12)
+        }
+
+        /* Status pill */
+        .status {
+            display: inline-flex;
+            gap: .35rem;
+            align-items: center;
+            padding: .35rem .65rem;
+            border-radius: 999px;
+            font-size: .75rem;
+            font-weight: 800
+        }
+
+        .status.due {
+            background: rgba(251, 188, 4, .12);
+            color: var(--warning);
+            border: 1px solid rgba(251, 188, 4, .2)
+        }
+
+        .status.over {
+            background: rgba(234, 67, 53, .12);
+            color: var(--danger);
+            border: 1px solid rgba(234, 67, 53, .2)
+        }
+
+        .status.scheduled {
+            background: rgba(52, 168, 83, .12);
+            color: var(--accent);
+            border: 1px solid rgba(52, 168, 83, .2)
+        }
+
+        /* Footer + Pagination */
+        .coaching-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--outline);
+            background: var(--surface-variant)
+        }
+
+        .session-count {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            font-weight: 700;
+            color: var(--muted)
+        }
+
+        .modern-pagination {
+            display: flex;
+            gap: .25rem;
+            list-style: none;
+            margin: 0;
+            padding: 0
+        }
+
+        .page-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.2rem;
+            height: 2.2rem;
+            border: 1px solid var(--outline);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--muted);
+            text-decoration: none;
+            font-weight: 800
+        }
+
+        .page-link:hover {
+            border-color: var(--primary);
+            color: var(--primary)
+        }
+
+        .page-item.active .page-link {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            border-color: var(--primary)
+        }
+
+        .page-item.disabled .page-link {
+            opacity: .5;
+            cursor: not-allowed
+        }
+
+        /* Empty state */
+        .empty {
+            padding: 3rem 1.5rem;
+            text-align: center;
+            color: var(--muted)
+        }
+
+        .empty i {
+            font-size: 3rem;
+            color: #cfd8dc;
+            margin-bottom: .75rem;
+            display: block
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .toolbar {
+                grid-template-columns:1fr
+            }
+
+            .truncated {
+                max-width: 140px
+            }
+        }
+
+        @media (max-width: 600px) {
+            thead th, td {
+                padding: .75rem
+            }
+
+            .toolbar-actions {
+                flex-wrap: wrap
+            }
+
+            .coaching-header {
+                flex-direction: column;
+                gap: .6rem;
+                text-align: center
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px)
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+    </style>
+
+    <!-- Navigation -->
+    <nav class="coaching-nav">
+        <div class="nav d-flex">
+            <a href="<?= baseUrl ?>&page=coachinglist"
+               class="nav-link <?= currentPage==='Coaching Sessions'?'active':'' ?>">
+                <i class="fas fa-list"></i><span>List Sessions</span>
+            </a>
+            <a href="<?= baseUrl ?>&page=coachingsheet"
+               class="nav-link <?= currentPage==='Coaching Sheet'?'active':'' ?>">
+                <i class="fas fa-plus-circle"></i><span>New Session</span>
+            </a>
+            <a href="<?= baseUrl ?>&page=coachingdashboard"
+               class="nav-link <?= currentPage==='Coaching Dashboard'?'active':'' ?>">
+                <i class="fas fa-chart-line"></i><span>Dashboard</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Container -->
+    <div class="coaching-container">
+        <!-- Header -->
+        <div class="coaching-header">
+            <h1><i class="fas fa-users"></i> All Coaching Sessions</h1>
+            <div class="header-stats">
+                <div class="header-stat"><i class="fas fa-calendar-day"></i><span id="hdr-total">0 sessions</span></div>
+                <div class="header-stat"><i class="fas fa-clock"></i><span id="hdr-updated">—</span></div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="filters">
+                <div class="filter" title="Search across coachee, coach, topics and notes">
+                    <i class="fas fa-search"></i>
+                    <input type="search" id="fSearch" placeholder="Search sessions…">
+                </div>
+                <div class="filter">
+                    <label for="fCoach">Coach</label>
+                    <select id="fCoach">
+                        <option value="">All</option>
+                    </select>
+                </div>
+                <div class="filter">
+                    <label for="fFrom">From</label>
+                    <input type="date" id="fFrom">
+                </div>
+                <div class="filter">
+                    <label for="fTo">To</label>
+                    <input type="date" id="fTo">
+                </div>
+                <div class="filter">
+                    <label for="fFollow">Has Follow-up</label>
+                    <select id="fFollow">
+                        <option value="">Any</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+                <div class="filter">
+                    <label for="fPageSize">Rows</label>
+                    <select id="fPageSize">
+                        <option>10</option>
+                        <option>20</option>
+                        <option>50</option>
+                        <option>100</option>
+                    </select>
+                </div>
+                <div class="density" role="group" aria-label="Density">
+                    <button class="chip active" id="dComfort">Comfort</button>
+                    <button class="chip" id="dCompact">Compact</button>
+                </div>
+            </div>
+            <div class="toolbar-actions">
+                <button class="btn btn-secondary" id="copyLink"><i class="fas fa-link"></i>Copy Link</button>
+                <button class="btn btn-secondary" id="exportCsv"><i class="fas fa-file-export"></i>Export CSV</button>
+                <button class="btn btn-ghost" id="resetFilters"><i class="fas fa-rotate"></i>Reset</button>
+                <a class="btn btn-primary" href="<?= baseUrl ?>&page=coachingsheet"><i class="fas fa-plus"></i>New
+                    Session</a>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table class="modern-table" id="coaching-table" aria-describedby="tableHelp">
+                    <thead>
+                    <tr>
+                        <th class="sortable" data-key="SessionDate"><i class="fas fa-calendar me-2"></i>Date</th>
+                        <th class="sortable" data-key="AgentName"><i class="fas fa-user-tie me-2"></i>Coach</th>
+                        <th class="sortable" data-key="CoacheeName"><i class="fas fa-user me-2"></i>Coachee</th>
+                        <th><i class="fas fa-tags me-2"></i>Covered Topics</th>
+                        <th class="sortable" data-key="ActionPlan"><i class="fas fa-tasks me-2"></i>Action Plan</th>
+                        <th class="sortable" data-key="FollowUpDate"><i class="fas fa-clock me-2"></i>Follow-Up</th>
+                        <th><i class="fas fa-sticky-note me-2"></i>Notes</th>
+                        <th><i class="fas fa-eye me-2"></i>View</th>
+                    </tr>
+                    </thead>
+                    <tbody id="coaching-tbody">
+                    <tr>
+                        <td colspan="8" class="empty">
+                            <i class="fas fa-spinner loading-spinner"></i>
+                            Loading sessions…
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div id="tableHelp" class="sr-only" style="position:absolute;left:-9999px">Click headers to sort. Use
+                    toolbar to filter.
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="coaching-footer">
+            <div class="session-count"><i class="fas fa-list-ol"></i><span id="session-count">—</span></div>
+            <ul id="pagination" class="modern-pagination"></ul>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const baseUrl = '<?= baseUrl ?>';
+            const recs = <?!=
+            coachingRecords ?
+        > ||
+            [];
+            const tbody = document.getElementById('coaching-tbody');
+            const pagEl = document.getElementById('pagination');
+            const hdrTotal = document.getElementById('hdr-total');
+            const hdrUpdated = document.getElementById('hdr-updated');
+            const sessionCount = document.getElementById('session-count');
+
+            // Filters
+            const fSearch = document.getElementById('fSearch');
+            const fCoach = document.getElementById('fCoach');
+            const fFrom = document.getElementById('fFrom');
+            const fTo = document.getElementById('fTo');
+            const fFollow = document.getElementById('fFollow');
+            const fPageSize = document.getElementById('fPageSize');
+
+            // Density
+            const dComfort = document.getElementById('dComfort');
+            const dCompact = document.getElementById('dCompact');
+
+            // Actions
+            const copyLinkBtn = document.getElementById('copyLink');
+            const exportCsvBtn = document.getElementById('exportCsv');
+            const resetBtn = document.getElementById('resetFilters');
+
+            // State
+            let currentPage = 1;
+            let pageSize = parseInt(fPageSize.value, 10) || 10;
+            let sortKey = 'SessionDate';
+            let sortDir = 'desc';
+            let densityCompact = false;
+
+            // Utils
+            const $ = (s, root = document) => root.querySelector(s);
+            const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
+            const safeJSON = (v) => {
+                try {
+                    return JSON.parse(v || '[]')
+                } catch {
+                    return []
+                }
+            };
+            const strip = (html) => String(html || '').replace(/<[^>]+>/g, '').trim();
+            const fmt = (d) => {
+                try {
+                    const dt = new Date(d);
+                    if (!isFinite(dt)) return d || '';
+                    return dt.toLocaleDateString([], {year: 'numeric', month: 'short', day: 'numeric'});
+                } catch {
+                    return d || ''
+                }
+            };
+            const compare = (a, b, key) => {
+                const av = (a[key] ?? '').toString().toLowerCase();
+                const bv = (b[key] ?? '').toString().toLowerCase();
+                if (key === 'SessionDate' || key === 'FollowUpDate') return new Date(a[key] || 0) - new Date(b[key] || 0);
+                return av.localeCompare(bv);
+            };
+            const debounce = (fn, ms = 250) => {
+                let t;
+                return (...a) => {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn(...a), ms)
+                }
+            };
+
+            // Build Coach dropdown
+            [...new Set(recs.map(r => r.AgentName).filter(Boolean))].sort().forEach(name => {
+                const o = document.createElement('option');
+                o.value = name;
+                o.textContent = name;
+                fCoach.appendChild(o);
+            });
+
+            // Header totals & updated
+            hdrTotal.textContent = `${recs.length} ${recs.length === 1 ? 'session' : 'sessions'}`;
+            const lastUpd = recs.map(r => r.UpdatedAt || r.CreatedAt).filter(Boolean).sort().pop();
+            hdrUpdated.textContent = lastUpd ? `Updated ${fmt(lastUpd)}` : 'No updates';
+
+            // URL params -> filters
+            const params = new URLSearchParams(location.search);
+            if (params.get('q')) fSearch.value = params.get('q');
+            if (params.get('coach')) fCoach.value = params.get('coach');
+            if (params.get('from')) fFrom.value = params.get('from');
+            if (params.get('to')) fTo.value = params.get('to');
+            if (params.get('fu')) fFollow.value = params.get('fu');
+            if (params.get('ps')) {
+                fPageSize.value = params.get('ps');
+                pageSize = parseInt(params.get('ps'), 10) || 10;
+            }
+            if (params.get('sort')) sortKey = params.get('sort');
+            if (params.get('dir')) sortDir = params.get('dir');
+            if (params.get('dense') === '1') {
+                densityCompact = true;
+                dCompact.classList.add('active');
+                dComfort.classList.remove('active');
+                document.documentElement.style.setProperty('--row-pad', '.55rem .8rem');
+            }
+
+            // Sorting header state
+            const th = $$('thead th.sortable');
+            th.forEach(h => {
+                if (h.dataset.key === sortKey) h.classList.add(sortDir);
+                h.addEventListener('click', () => {
+                    const key = h.dataset.key;
+                    if (sortKey === key) {
+                        sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+                    } else {
+                        sortKey = key;
+                        sortDir = 'asc';
+                    }
+                    th.forEach(t => t.classList.remove('asc', 'desc'));
+                    h.classList.add(sortDir);
+                    currentPage = 1;
+                    render();
+                });
+            });
+
+            // Compute follow-up status
+            function followStatus(dateStr) {
+                if (!dateStr) return {cls: '', pill: ''};
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const d = new Date(dateStr);
+                d.setHours(0, 0, 0, 0);
+                const diff = Math.ceil((d - today) / 86400000);
+                if (diff < 0) return {
+                    cls: 'over',
+                    pill: `<span class="status over"><i class="fas fa-exclamation-triangle"></i>Overdue</span>`
+                };
+                if (diff <= 7) return {
+                    cls: 'due',
+                    pill: `<span class="status due"><i class="fas fa-clock"></i>Due Soon</span>`
+                };
+                return {
+                    cls: 'scheduled',
+                    pill: `<span class="status scheduled"><i class="fas fa-check-circle"></i>Scheduled</span>`
+                };
+            }
+
+            // Filtering
+            function applyFilters() {
+                const q = fSearch.value.trim().toLowerCase();
+                const coach = fCoach.value;
+                const from = fFrom.value ? new Date(fFrom.value + 'T00:00:00') : null;
+                const to = fTo.value ? new Date(fTo.value + 'T23:59:59') : null;
+                const fu = fFollow.value;
+
+                return recs.filter(r => {
+                    // Date range
+                    const sDate = r.SessionDate ? new Date(r.SessionDate + 'T12:00:00') : null;
+                    if (from && (!sDate || sDate < from)) return false;
+                    if (to && (!sDate || sDate > to)) return false;
+
+                    // Coach
+                    if (coach && r.AgentName !== coach) return false;
+
+                    // Has follow-up
+                    if (fu === 'yes' && !r.FollowUpDate) return false;
+                    if (fu === 'no' && !!r.FollowUpDate) return false;
+
+                    // Search across fields
+                    if (q) {
+                        const fields = [
+                            r.AgentName, r.CoacheeName, r.SessionDate, r.FollowUpDate,
+                            strip(r.ActionPlan), strip(r.Notes),
+                            safeJSON(r.CoveredTopics).join(', ')
+                        ].join(' ').toLowerCase();
+                        if (!fields.includes(q)) return false;
+                    }
+                    return true;
+                });
+            }
+
+            // Render
+            function render() {
+                const data = applyFilters()
+                    .sort((a, b) => sortDir === 'asc' ? compare(a, b, sortKey) : compare(b, a, sortKey));
+
+                // Pagination
+                const total = data.length;
+                const pages = Math.max(1, Math.ceil(total / pageSize));
+                if (currentPage > pages) currentPage = pages;
+                const start = (currentPage - 1) * pageSize;
+                const page = data.slice(start, start + pageSize);
+
+                // Body
+                if (!total) {
+                    tbody.innerHTML = `
+        <tr><td colspan="8" class="empty">
+          <i class="fas fa-clipboard-list"></i>
+          <div>No Coaching Sessions Found</div>
+          <div style="margin-top:.5rem">
+            <a class="btn btn-primary" href="${baseUrl}&page=coachingsheet"><i class="fas fa-plus"></i> Create New Session</a>
+          </div>
+        </td></tr>`;
+                } else {
+                    tbody.innerHTML = '';
+                    page.forEach((r, i) => {
+                        const topics = safeJSON(r.CoveredTopics).map(t => `<span class="topic-badge">${t}</span>`).join('') ||
+                            '<span class="muted">—</span>';
+                        const apShort = strip(r.ActionPlan);
+                        const notesShort = strip(r.Notes);
+                        const st = followStatus(r.FollowUpDate);
+
+                        const tr = document.createElement('tr');
+                        tr.style.animationDelay = (i * 0.02) + 's';
+                        tr.innerHTML = `
+          <td><strong>${fmt(r.SessionDate)}</strong></td>
+          <td>${r.AgentName || '—'}</td>
+          <td>${r.CoacheeName || '—'}</td>
+          <td>${topics}</td>
+          <td><span class="truncated" title="${apShort}">${apShort || '<em style="color:#909090">No action plan</em>'}</span></td>
+          <td>
+            ${fmt(r.FollowUpDate) || '—'}
+            <div style="margin-top:.25rem">${st.pill}</div>
+          </td>
+          <td><span class="truncated" title="${notesShort}">${notesShort || '—'}</span></td>
+          <td>
+            <button class="btn btn-secondary" data-href="${baseUrl}&page=coachingview&id=${encodeURIComponent(r.ID)}" style="padding:.45rem .7rem">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>`;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                // Counts
+                sessionCount.textContent = `${total} ${total === 1 ? 'session' : 'sessions'}`;
+                hdrTotal.textContent = `${applyFilters().length} ${applyFilters().length === 1 ? 'session' : 'sessions'}`;
+
+                // Pagination
+                renderPagination(pages);
+            }
+
+            function renderPagination(pages) {
+                pagEl.innerHTML = '';
+                if (pages <= 1) return;
+
+                const add = (label, p, disabled = false, active = false) => {
+                    const li = document.createElement('li');
+                    li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.innerHTML = label;
+                    if (!disabled) {
+                        a.onclick = (e) => {
+                            e.preventDefault();
+                            currentPage = p;
+                            render();
+                            document.querySelector('.table-container').scrollIntoView({behavior: 'smooth'});
+                        };
+                    }
+                    li.appendChild(a);
+                    pagEl.appendChild(li);
+                };
+
+                add('<i class="fas fa-chevron-left"></i>', Math.max(1, currentPage - 1), currentPage === 1);
+
+                const range = 2;
+                let start = Math.max(1, currentPage - range);
+                let end = Math.min(pages, currentPage + range);
+
+                if (start > 1) {
+                    add('1', 1);
+                    if (start > 2) add('…', currentPage, true);
+                }
+                for (let i = start; i <= end; i++) add(String(i), i, false, i === currentPage);
+                if (end < pages) {
+                    if (end < pages - 1) add('…', currentPage, true);
+                    add(String(pages), pages);
+                }
+
+                add('<i class="fas fa-chevron-right"></i>', Math.min(pages, currentPage + 1), currentPage === pages);
+            }
+
+            // Events
+            [fSearch, fCoach, fFrom, fTo, fFollow].forEach(el => {
+                el.addEventListener('input', debounce(() => {
+                    currentPage = 1;
+                    render();
+                }, 150));
+                el.addEventListener('change', () => {
+                    currentPage = 1;
+                    render();
+                });
+            });
+            fPageSize.addEventListener('change', () => {
+                pageSize = parseInt(fPageSize.value, 10) || 10;
+                currentPage = 1;
+                render();
+            });
+
+            dComfort.onclick = (e) => {
+                e.preventDefault();
+                densityCompact = false;
+                dComfort.classList.add('active');
+                dCompact.classList.remove('active');
+                document.querySelector('#coaching-table').style.fontSize = '';
+                $$('td').forEach(td => td.style.padding = '');
+                render();
+            };
+            dCompact.onclick = (e) => {
+                e.preventDefault();
+                densityCompact = true;
+                dCompact.classList.add('active');
+                dComfort.classList.remove('active');
+                document.querySelector('#coaching-table').style.fontSize = '.85rem';
+                $$('td').forEach(td => td.style.padding = '.6rem .8rem');
+                render();
+            };
+
+            // View buttons
+            tbody.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-href]');
+                if (!btn) return;
+                btn.disabled = true;
+                const ic = btn.querySelector('i');
+                const old = ic.className;
+                ic.className = 'fas fa-spinner loading-spinner';
+                setTimeout(() => {
+                    window.location.href = btn.dataset.href;
+                    ic.className = old;
+                }, 150);
+            });
+
+            // Export CSV
+            function toCsv(rows) {
+                const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+                const header = ['ID', 'SessionDate', 'Coach', 'Coachee', 'CoveredTopics', 'ActionPlan', 'FollowUpDate', 'Notes', 'CreatedAt', 'UpdatedAt'];
+                const lines = [header.join(',')];
+                rows.forEach(r => {
+                    lines.push([
+                        esc(r.ID),
+                        esc(r.SessionDate),
+                        esc(r.AgentName),
+                        esc(r.CoacheeName),
+                        esc(safeJSON(r.CoveredTopics).join(' | ')),
+                        esc(strip(r.ActionPlan)),
+                        esc(r.FollowUpDate || ''),
+                        esc(strip(r.Notes)),
+                        esc(r.CreatedAt || ''),
+                        esc(r.UpdatedAt || '')
+                    ].join(','));
+                });
+                return lines.join('\n');
+            }
+
+            exportCsvBtn.onclick = () => {
+                const filteredSorted = applyFilters().sort((a, b) => sortDir === 'asc' ? compare(a, b, sortKey) : compare(b, a, sortKey));
+                const csv = toCsv(filteredSorted);
+                const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'coaching_sessions.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            // Copy link with filters
+            copyLinkBtn.onclick = async () => {
+                const url = new URL(location.href);
+                url.searchParams.set('page', 'coachinglist');
+                if (fSearch.value) url.searchParams.set('q', fSearch.value); else url.searchParams.delete('q');
+                if (fCoach.value) url.searchParams.set('coach', fCoach.value); else url.searchParams.delete('coach');
+                if (fFrom.value) url.searchParams.set('from', fFrom.value); else url.searchParams.delete('from');
+                if (fTo.value) url.searchParams.set('to', fTo.value); else url.searchParams.delete('to');
+                if (fFollow.value) url.searchParams.set('fu', fFollow.value); else url.searchParams.delete('fu');
+                url.searchParams.set('ps', fPageSize.value);
+                url.searchParams.set('sort', sortKey);
+                url.searchParams.set('dir', sortDir);
+                url.searchParams.set('dense', densityCompact ? '1' : '0');
+                try {
+                    await navigator.clipboard.writeText(url.toString());
+                } catch {
+                }
+                copyLinkBtn.innerHTML = '<i class="fas fa-check"></i>Copied';
+                setTimeout(() => copyLinkBtn.innerHTML = '<i class="fas fa-link"></i>Copy Link', 1200);
+            };
+
+            // Reset
+            resetBtn.onclick = () => {
+                fSearch.value = '';
+                fCoach.value = '';
+                fFrom.value = '';
+                fTo.value = '';
+                fFollow.value = '';
+                fPageSize.value = '10';
+                pageSize = 10;
+                sortKey = 'SessionDate';
+                sortDir = 'desc';
+                currentPage = 1;
+                dComfort.click();
+                render();
+            };
+
+            // Kickoff
+            setTimeout(render, 250);
+            console.log('🎯 Coaching List loaded');
+        })();
+    </script>
+
+</body>
+</html>

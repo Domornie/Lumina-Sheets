@@ -1,0 +1,754 @@
+<?!= include('header',{ 
+  rawToken: rawToken, 
+  baseUrl: baseUrl, 
+  user: user, 
+  recordId: recordId, 
+  currentPage: currentPage 
+}) ?>
+
+<style>
+  .task-container {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  .task-header {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .task-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  .task-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .search-box {
+    position: relative;
+    min-width: 250px;
+  }
+  .search-box input {
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 0.875rem;
+  }
+  .search-box input::placeholder {
+    color: rgba(255,255,255,0.7);
+  }
+  .search-box i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.7);
+  }
+  .btn-task {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-primary-task {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .btn-primary-task:hover {
+    background: rgba(255,255,255,0.3);
+    color: white;
+    transform: translateY(-1px);
+  }
+  .btn-secondary-task {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .btn-secondary-task:hover {
+    background: rgba(255,255,255,0.2);
+    color: white;
+  }
+  .table-container {
+    overflow-x: auto;
+  }
+  .task-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .task-table th {
+    background: #f8fafc;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  .task-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .task-table tbody tr:hover {
+    background: #f8fafc;
+  }
+  .task-title {
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.25rem;
+  }
+  .task-notes {
+    color: #6b7280;
+    font-size: 0.8125rem;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+  .status-needs-action {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .status-in-progress {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  .status-completed {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  .status-overdue {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+  .priority-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .priority-high {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+  .priority-medium {
+    background: #fef3c7;
+    color: #d97706;
+  }
+  .priority-low {
+    background: #ecfdf5;
+    color: #059669;
+  }
+  .priority-none {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.875rem;
+  }
+  .action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .btn-view {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  .btn-view:hover {
+    background: #e5e7eb;
+    color: #374151;
+  }
+  .btn-edit {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .btn-edit:hover {
+    background: #bfdbfe;
+  }
+  .btn-snooze {
+    background: #fef3c7;
+    color: #d97706;
+  }
+  .btn-snooze:hover {
+    background: #fde68a;
+  }
+  .btn-delete {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+  .btn-delete:hover {
+    background: #fecaca;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6b7280;
+  }
+  .empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #d1d5db;
+  }
+  .attachment-indicator {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .pagination-container {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .pagination-info {
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+  .pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .pagination-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #374151;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  .pagination-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+  .pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pagination-btn.active {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+  }
+  @media (max-width: 768px) {
+    .task-header {
+      padding: 1rem;
+    }
+    .task-controls {
+      width: 100%;
+      justify-content: center;
+    }
+    .search-box {
+      min-width: auto;
+      flex: 1;
+    }
+    .task-table th,
+    .task-table td {
+      padding: 0.75rem 0.5rem;
+    }
+    .task-notes {
+      max-width: 150px;
+    }
+  }
+</style>
+
+<div class="container-fluid py-4">
+  <div class="task-container">
+    <div class="task-header">
+      <h2>Task Management</h2>
+      <div class="task-controls">
+        <div class="search-box">
+          <i class="bi bi-search"></i>
+          <input type="text" id="taskFilter" placeholder="Search tasks..." />
+        </div>
+        <a href="<?= baseUrl ?>&page=taskform" class="btn-task btn-primary-task">
+          <i class="bi bi-plus-lg"></i>
+          New Task
+        </a>
+        <a href="<?= baseUrl ?>&page=taskboard" class="btn-task btn-secondary-task">
+          <i class="bi bi-kanban"></i>
+          Board View
+        </a>
+        <a href="<?= baseUrl ?>&page=eodreport" class="btn-task btn-secondary-task">
+          <i class="bi bi-file-text"></i>
+          EOD Report
+        </a>
+      </div>
+    </div>
+    
+    <div class="table-container">
+      <table class="task-table">
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Owner</th>
+            <th>Priority</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th>Attachments</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="taskTableBody">
+          <!-- Tasks will be populated here -->
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="pagination-container">
+      <div class="pagination-info" id="paginationInfo">
+        Showing 0 - 0 of 0 tasks
+      </div>
+      <div class="pagination-controls" id="paginationControls">
+        <!-- Pagination buttons will be added here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal fade" id="attachmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Task Attachments</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="attachmentModalBody">
+        <!-- Attachments will be loaded here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="snoozeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Snooze Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="snoozeDate">New Due Date:</label>
+          <input type="date" class="form-control" id="snoozeDate" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="confirmSnooze()">Snooze Task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  let allTasks = [];
+  let filteredTasks = [];
+  let currentPage = 1;
+  let tasksPerPage = 10;
+  let currentSnoozeTaskId = null;
+  
+  const baseUrl = '<?= baseUrl ?>';
+  const currentUser = '<?= user?.Email || "" ?>';
+
+  // Initialize page
+  $(document).ready(function() {
+    loadTasks();
+    setupEventListeners();
+  });
+
+  function setupEventListeners() {
+    // Search filter
+    $('#taskFilter').on('input', function() {
+      currentPage = 1;
+      filterAndRenderTasks();
+    });
+    
+    // Tasks per page selector (if you want to add it)
+    $(document).on('change', '#tasksPerPage', function() {
+      tasksPerPage = parseInt($(this).val());
+      currentPage = 1;
+      filterAndRenderTasks();
+    });
+  }
+
+  function loadTasks() {
+    google.script.run
+      .withSuccessHandler(function(tasks) {
+        allTasks = tasks || [];
+        filterAndRenderTasks();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Error loading tasks:', error);
+        showError('Failed to load tasks. Please refresh the page.');
+      })
+      .clientGetAllTasks();
+  }
+
+  function filterAndRenderTasks() {
+    const searchTerm = $('#taskFilter').val().toLowerCase();
+    
+    filteredTasks = allTasks.filter(task => {
+      const matchesSearch = !searchTerm || 
+        task.Task.toLowerCase().includes(searchTerm) ||
+        task.Owner.toLowerCase().includes(searchTerm) ||
+        task.Notes.toLowerCase().includes(searchTerm) ||
+        task.Status.toLowerCase().includes(searchTerm);
+      
+      return matchesSearch;
+    });
+    
+    renderTasks();
+    renderPagination();
+  }
+
+  function renderTasks() {
+    const tbody = document.getElementById('taskTableBody');
+    
+    if (filteredTasks.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <h4>No tasks found</h4>
+            <p>Try adjusting your search or create a new task.</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+    
+    const startIndex = (currentPage - 1) * tasksPerPage;
+    const endIndex = startIndex + tasksPerPage;
+    const tasksToShow = filteredTasks.slice(startIndex, endIndex);
+    
+    tbody.innerHTML = tasksToShow.map(task => createTaskRow(task)).join('');
+  }
+
+  function createTaskRow(task) {
+    const statusClass = getStatusClass(task.Status);
+    const priorityClass = getPriorityClass(task.Priority);
+    const dueDate = task.DueDate || task.EndDate;
+    const isOverdue = dueDate && new Date(dueDate) < new Date() && 
+                     task.Status !== 'Completed' && task.Status !== 'Done';
+    
+    const attachmentCount = Array.isArray(task.Attachments) ? task.Attachments.length : 
+                           (task.Attachments ? 1 : 0);
+
+    return `
+      <tr data-task-id="${task.ID}">
+        <td>
+          <div class="task-title">${escapeHtml(task.Task)}</div>
+          ${task.Notes ? `<div class="task-notes" title="${escapeHtml(task.Notes)}">${escapeHtml(task.Notes)}</div>` : ''}
+        </td>
+        <td>${escapeHtml(task.Owner)}</td>
+        <td>
+          <span class="priority-badge priority-${task.Priority?.toLowerCase() || 'none'}">
+            ${task.Priority || 'None'}
+          </span>
+        </td>
+        <td>
+          ${dueDate ? formatDate(dueDate) : '—'}
+          ${isOverdue ? '<br><small class="text-danger">Overdue</small>' : ''}
+        </td>
+        <td>
+          <span class="status-badge status-${statusClass}">
+            ${task.Status}
+          </span>
+        </td>
+        <td>
+          ${attachmentCount > 0 ? 
+            `<span class="attachment-indicator" onclick="viewAttachments('${task.ID}')" style="cursor: pointer;">
+              <i class="bi bi-paperclip"></i> ${attachmentCount}
+             </span>` : '—'}
+        </td>
+        <td>
+          <div class="action-buttons">
+            <button class="action-btn btn-edit" onclick="editTask('${task.ID}')" title="Edit">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="action-btn btn-snooze" onclick="snoozeTask('${task.ID}')" title="Snooze">
+              <i class="bi bi-alarm"></i>
+            </button>
+            <button class="action-btn btn-delete" onclick="deleteTask('${task.ID}')" title="Delete">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function renderPagination() {
+    const totalTasks = filteredTasks.length;
+    const totalPages = Math.ceil(totalTasks / tasksPerPage);
+    const startIndex = (currentPage - 1) * tasksPerPage + 1;
+    const endIndex = Math.min(currentPage * tasksPerPage, totalTasks);
+    
+    // Update pagination info
+    document.getElementById('paginationInfo').textContent = 
+      totalTasks > 0 ? `Showing ${startIndex} - ${endIndex} of ${totalTasks} tasks` : 'No tasks found';
+    
+    // Render pagination controls
+    const controls = document.getElementById('paginationControls');
+    
+    if (totalPages <= 1) {
+      controls.innerHTML = '';
+      return;
+    }
+    
+    let paginationHtml = '';
+    
+    // Previous button
+    paginationHtml += `
+      <button class="pagination-btn" onclick="changePage(${currentPage - 1})" 
+              ${currentPage === 1 ? 'disabled' : ''}>
+        <i class="bi bi-chevron-left"></i> Previous
+      </button>
+    `;
+    
+    // Page numbers
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      paginationHtml += `
+        <button class="pagination-btn ${i === currentPage ? 'active' : ''}" 
+                onclick="changePage(${i})">
+          ${i}
+        </button>
+      `;
+    }
+    
+    // Next button
+    paginationHtml += `
+      <button class="pagination-btn" onclick="changePage(${currentPage + 1})"
+              ${currentPage === totalPages ? 'disabled' : ''}>
+        Next <i class="bi bi-chevron-right"></i>
+      </button>
+    `;
+    
+    controls.innerHTML = paginationHtml;
+  }
+
+  function changePage(page) {
+    if (page >= 1 && page <= Math.ceil(filteredTasks.length / tasksPerPage)) {
+      currentPage = page;
+      renderTasks();
+      renderPagination();
+    }
+  }
+
+  function editTask(taskId) {
+    window.location.href = `${baseUrl}&page=taskform&id=${taskId}`;
+  }
+
+  function snoozeTask(taskId) {
+    currentSnoozeTaskId = taskId;
+    
+    // Set default snooze date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateString = tomorrow.toISOString().split('T')[0];
+    
+    $('#snoozeDate').val(dateString);
+    
+    const modal = new bootstrap.Modal(document.getElementById('snoozeModal'));
+    modal.show();
+  }
+
+  function confirmSnooze() {
+    const newDate = $('#snoozeDate').val();
+    
+    if (!newDate) {
+      alert('Please select a new due date.');
+      return;
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result && result.success) {
+          showSuccess('Task snoozed successfully!');
+          loadTasks();
+        } else {
+          showError('Failed to snooze task.');
+        }
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('snoozeModal'));
+        modal.hide();
+      })
+      .withFailureHandler(function(error) {
+        console.error('Error snoozing task:', error);
+        showError('Failed to snooze task.');
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('snoozeModal'));
+        modal.hide();
+      })
+      .clientSnoozeTask(currentSnoozeTaskId, newDate);
+  }
+
+  function deleteTask(taskId) {
+    const task = allTasks.find(t => t.ID === taskId);
+    
+    if (!confirm(`Are you sure you want to delete the task "${task ? task.Task : 'this task'}"?`)) {
+      return;
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result && result.success) {
+          showSuccess('Task deleted successfully!');
+          loadTasks();
+        } else {
+          showError('Failed to delete task.');
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('Error deleting task:', error);
+        showError('Failed to delete task.');
+      })
+      .clientDeleteTask(taskId);
+  }
+
+  function viewAttachments(taskId) {
+    const task = allTasks.find(t => t.ID === taskId);
+    
+    if (!task || !task.Attachments || task.Attachments.length === 0) {
+      showError('No attachments found for this task.');
+      return;
+    }
+    
+    const modalBody = document.getElementById('attachmentModalBody');
+    
+    if (Array.isArray(task.Attachments)) {
+      modalBody.innerHTML = task.Attachments.map((url, index) => `
+        <div class="mb-2">
+          <a href="${url}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download"></i> Attachment ${index + 1}
+          </a>
+        </div>
+      `).join('');
+    } else {
+      modalBody.innerHTML = `
+        <div class="mb-2">
+          <a href="${task.Attachments}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download"></i> Download Attachment
+          </a>
+        </div>
+      `;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('attachmentModal'));
+    modal.show();
+  }
+
+  // Utility functions
+  function getStatusClass(status) {
+    const statusMap = {
+      'Needs Action': 'needs-action',
+      'In Progress': 'in-progress',
+      'Completed': 'completed',
+      'Done': 'completed',
+      'Overdue': 'overdue'
+    };
+    return statusMap[status] || 'needs-action';
+  }
+
+  function getPriorityClass(priority) {
+    return (priority || 'none').toLowerCase();
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function showSuccess(message) {
+    // You can implement a toast notification here
+    alert(message);
+  }
+
+  function showError(message) {
+    // You can implement a toast notification here
+    alert(message);
+  }
+</script>

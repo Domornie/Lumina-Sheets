@@ -1,0 +1,1050 @@
+<? 
+  var allowed = (user.pages||[]).map(p => p.toLowerCase());
+if (!allowed.includes('chat')) return '';
+?>
+
+<style>
+    /* Dock positioning variables */
+    :root{
+        --dock-gap: 16px;                 /* base spacing from edges */
+        --dock-right-gap: 16px;
+        --dock-bottom-extra: 0px;         /* auto-updated by JS when something is in the way */
+        --toggle-size: 56px;              /* chatToggle width/height */
+        --bubble-clearance: 14px;         /* space between toggle and bubble */
+        --dock-offset: 0px; /* auto-updated by JS */
+    }
+
+    /* Force fixed + safe-area support */
+    #chatToggle{
+        position: fixed !important;
+        bottom: calc(20px + var(--dock-offset) + env(safe-area-inset-bottom));
+        right:  max(20px, env(safe-area-inset-right));
+        z-index: 4000; /* above most UI */
+    }
+
+    #bubble{
+        position: fixed !important;
+        /* your bubble sat ~90px above bottom; keep that but make it content-aware */
+        bottom: calc(90px + var(--dock-offset) + env(safe-area-inset-bottom));
+        right:  max(20px, env(safe-area-inset-right));
+        z-index: 4000;
+    }
+
+    /* keep toasts above content; the dock will lift itself out of their way */
+    .notifyjs-corner{ z-index: 5000 !important; }
+
+    #bubble.hidden {
+        display: none !important;
+        transform: scale(0.8) translateY(20px);
+        opacity: 0;
+    }
+    #bubble.shown {
+        display: flex !important;
+        flex-direction: column;
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+
+    #chatToggle {
+        position: fixed;
+        /* content-aware bottom/right using CSS variables + safe areas */
+        bottom: calc(var(--dock-gap) + var(--dock-bottom-extra) + env(safe-area-inset-bottom));
+        right:  max(var(--dock-right-gap), env(safe-area-inset-right));
+        width: 56px; height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 2000;
+        box-shadow: 0 4px 12px rgba(78, 115, 223, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        font-size: 20px;
+    }
+
+    #chatToggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(78, 115, 223, 0.4);
+    }
+
+    #chatToggle.has-notification {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 4px 12px rgba(78, 115, 223, 0.3);
+        }
+        50% {
+            box-shadow: 0 4px 12px rgba(78, 115, 223, 0.6), 0 0 0 10px rgba(78, 115, 223, 0.1);
+        }
+        100% {
+            box-shadow: 0 4px 12px rgba(78, 115, 223, 0.3);
+        }
+    }
+
+    #bubble {
+        position: fixed;
+        /* bubble stays above toggle and any obstacles */
+        bottom: calc(
+                var(--dock-gap)
+                + var(--dock-bottom-extra)
+                + env(safe-area-inset-bottom)
+                + var(--toggle-size)
+                + var(--bubble-clearance)
+        );
+        right:  max(var(--dock-right-gap), env(safe-area-inset-right));
+        width: 320px;
+        max-height: 480px;
+        border: 1px solid #e3e6f0;
+        border-radius: 16px;
+        background: #fff;
+        z-index: 2000;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+
+    .bubble-header {
+        background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+        color: white;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .bubble-header .channel-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .bubble-header .channel-name {
+        font-weight: 600;
+        font-size: 16px;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .bubble-header .status {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-top: 2px;
+    }
+
+    .bubble-header .controls {
+        display: flex;
+        gap: 8px;
+        margin-left: 12px;
+    }
+
+    .bubble-header .btn-header {
+        background: none;
+        border: none;
+        color: white;
+        padding: 4px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bubble-header .btn-header:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    #msgs {
+        padding: 12px;
+        overflow-y: auto;
+        flex: 1;
+        max-height: 300px;
+        background: #fafbfc;
+    }
+
+    .message-item {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        max-width: 80%;
+        word-wrap: break-word;
+        position: relative;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message-item.own {
+        background: #4e73df;
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 4px;
+    }
+
+    .message-item.other {
+        background: white;
+        color: #333;
+        border: 1px solid #e3e6f0;
+        border-bottom-left-radius: 4px;
+    }
+
+    .message-user {
+        font-weight: 600;
+        font-size: 12px;
+        margin-bottom: 2px;
+        opacity: 0.8;
+    }
+
+    .message-text {
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    .message-time {
+        font-size: 10px;
+        opacity: 0.6;
+        margin-top: 4px;
+        text-align: right;
+    }
+
+    .typing-indicator {
+        padding: 8px 12px;
+        font-style: italic;
+        color: #6c757d;
+        font-size: 12px;
+        min-height: 20px;
+        background: #fafbfc;
+    }
+
+    .typing-dots {
+        display: inline-block;
+    }
+
+    .typing-dots::after {
+        content: '';
+        animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
+    }
+
+    .bubble-input {
+        border-top: 1px solid #e3e6f0;
+        padding: 12px;
+        background: white;
+        border-radius: 0 0 16px 16px;
+    }
+
+    .bubble-input form {
+        display: flex;
+        gap: 8px;
+        align-items: end;
+    }
+
+    .bubble-input input {
+        flex: 1;
+        border: 1px solid #e3e6f0;
+        border-radius: 20px;
+        padding: 8px 16px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .bubble-input input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1); /* #4285f4 */
+    }
+
+    .bubble-input button {
+        background: var(--primary);
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .bubble-input button:hover {
+        background: #3d5ab7;
+        transform: scale(1.05);
+    }
+
+    .bubble-input button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .notification-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+        border: 2px solid white;
+    }
+
+    .connection-status {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #28a745;
+    }
+
+    .connection-status.offline {
+        background: #dc3545;
+    }
+
+    .connection-status.connecting {
+        background: #ffc107;
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.3; }
+    }
+
+    /* Keep Notify.js above content; we’ll still lift the dock out of its way */
+    .notifyjs-corner { z-index: 3000 !important; }
+
+    @media (max-width: 480px) {
+        #bubble {
+            width: calc(100vw - 40px);
+            right: 20px;
+            left: 20px;
+            bottom: calc(
+                    var(--dock-gap)
+                    + var(--dock-bottom-extra)
+                    + env(safe-area-inset-bottom)
+                    + var(--toggle-size)
+                    + var(--bubble-clearance)
+            );
+        }
+
+        #chatToggle {
+            bottom: calc(12px + var(--dock-bottom-extra) + env(safe-area-inset-bottom));
+            right: max(12px, env(safe-area-inset-right));
+        }
+
+        :root{
+            --dock-gap: 12px;
+            --dock-right-gap: 12px;
+        }
+    }
+</style>
+
+<button id="chatToggle">
+    <i class="fas fa-comments"></i>
+    <div id="notificationBadge" class="notification-badge" style="display: none;">0</div>
+</button>
+
+<div id="bubble" class="shadow hidden">
+    <div id="connectionStatus" class="connection-status"></div>
+
+    <div class="bubble-header">
+        <div class="channel-info">
+            <div id="channelHeader" class="channel-name">Loading...</div>
+            <div id="statusText" class="status">Connecting...</div>
+        </div>
+        <div class="controls">
+            <button id="refreshBtn" class="btn-header" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button id="expandBtn" class="btn-header" title="Open Full Chat">
+                <i class="fas fa-external-link-alt"></i>
+            </button>
+            <button id="closeBtn" class="btn-header" title="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="msgs"></div>
+
+    <div id="typingIndicator" class="typing-indicator"></div>
+
+    <div class="bubble-input">
+        <form id="frm">
+            <input id="inp" placeholder="Type a message..." autocomplete="off" maxlength="500">
+            <button type="submit" id="sendBtn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    /* ──────────────────────────────────────────────────────────────
+       Dock Awareness: auto-adjust bottom offset for obstacles
+       ────────────────────────────────────────────────────────────── */
+    (function () {
+        const root = document.documentElement;
+
+        const selectors = [
+            '.notifyjs-corner',          // jQuery Notify.js container
+            '.toast-container',          // Bootstrap toasts
+            '.fixed-bottom',             // Bootstrap footers/bars
+            '.cookie-banner', '.bottom-bar',
+            '[data-obstacle="bottom"]',
+            '[data-obstacle="bottom-right"]'
+        ];
+
+        const isVisible = el => {
+            const cs = getComputedStyle(el);
+            return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getClientRects().length > 0;
+        };
+
+        function computeDockOffset(){
+            const vh = window.innerHeight, vw = window.innerWidth;
+            let extra = 0;
+
+            const obstacles = selectors.flatMap(sel => Array.from(document.querySelectorAll(sel)));
+            for (const el of obstacles){
+                if (!isVisible(el)) continue;
+                const r = el.getBoundingClientRect();
+
+                // Heuristic: only consider obstacles touching the bottom and near the right side,
+                // OR full-width bars that sit on the bottom.
+                const touchesBottom = r.bottom >= vh - 1;
+                const nearRight = r.right > vw - 320 || r.width >= vw * 0.5;
+
+                if (touchesBottom && nearRight){
+                    // Space from obstacle top to bottom, plus a small gap
+                    const offset = Math.max(0, vh - r.top) + 12;
+                    if (offset > extra) extra = offset;
+                }
+            }
+
+            root.style.setProperty('--dock-bottom-extra', Math.ceil(extra) + 'px');
+        }
+
+        // Initial + delayed run (for late-mounted UI)
+        requestAnimationFrame(computeDockOffset);
+        setTimeout(computeDockOffset, 200);
+
+        // Recompute on DOM mutations and viewport changes
+        const mo = new MutationObserver(() => requestAnimationFrame(computeDockOffset));
+        mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
+        window.addEventListener('resize', computeDockOffset, { passive: true });
+        window.addEventListener('orientationchange', computeDockOffset, { passive: true });
+
+        // Manual hook if you need it
+        window.reflowDock = computeDockOffset;
+
+        // If a Notify.js helper exists, ask it to place toasts bottom-right and reflow.
+        if (typeof window.notify === 'function'){
+            const wrap = window.notify;
+            window.notify = function(message, type='info', opts={}){
+                const res = wrap(message, type, Object.assign({ globalPosition: 'bottom right' }, opts));
+                setTimeout(computeDockOffset, 0);
+                return res;
+            };
+        }
+    })();
+</script>
+
+<script>
+    (() => {
+        class ChatBubble {
+            constructor() {
+                try {
+                    this.toggle = document.getElementById('chatToggle');
+                    this.bubble = document.getElementById('bubble');
+                    this.closeBtn = document.getElementById('closeBtn');
+                    this.expandBtn = document.getElementById('expandBtn');
+                    this.refreshBtn = document.getElementById('refreshBtn');
+                    this.header = document.getElementById('channelHeader');
+                    this.statusText = document.getElementById('statusText');
+                    this.connectionStatus = document.getElementById('connectionStatus');
+                    this.notificationBadge = document.getElementById('notificationBadge');
+                    this.msgsContainer = document.getElementById('msgs');
+                    this.typingIndicator = document.getElementById('typingIndicator');
+                    this.input = document.getElementById('inp');
+                    this.form = document.getElementById('frm');
+                    this.sendBtn = document.getElementById('sendBtn');
+
+                    this.chanId = null;
+                    this.isVisible = false;
+                    this.unreadCount = 0;
+                    this.lastMessageCount = 0;
+                    this.pollInterval = null;
+                    this.retryCount = 0;
+                    this.maxRetries = 3;
+                    this.currentUser = null;
+                    this.isOnline = navigator.onLine;
+                    this.messages = [];
+
+                    this.init();
+                } catch (error) {
+                    console.error('[ChatBubble] Constructor error:', error);
+                }
+            }
+
+            init() {
+                try {
+                    this.setupEventListeners();
+                    this.getCurrentUser();
+                    this.setupNetworkMonitoring();
+                } catch (error) {
+                    console.error('[ChatBubble] Initialization error:', error);
+                }
+            }
+
+            setupEventListeners() {
+                try {
+                    this.toggle.addEventListener('click', () => this.toggleBubble());
+                    this.closeBtn.addEventListener('click', () => this.hideBubble());
+                    this.expandBtn.addEventListener('click', () => this.expandToFullChat());
+                    this.refreshBtn.addEventListener('click', () => this.forceRefresh());
+                    this.form.addEventListener('submit', (e) => this.handleSendMessage(e));
+                    this.input.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                    this.input.addEventListener('input', () => this.handleTyping());
+                    document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
+                } catch (error) {
+                    console.error('[ChatBubble] Event listener setup error:', error);
+                }
+            }
+
+            getCurrentUser() {
+                try {
+                    google.script.run
+                        .withSuccessHandler(email => {
+                            this.currentUser = email ? String(email).replace(/[<>"]/g, '') : 'Unknown';
+                            console.log('[ChatBubble] Current user:', this.currentUser);
+                            this.loadInitialChannel();
+                            this.startPolling();
+                        })
+                        .withFailureHandler(error => {
+                            console.error('[ChatBubble] Failed to get current user:', error);
+                            this.updateStatus('Authentication error', 'error');
+                        })
+                        .getCurrentUser();
+                } catch (error) {
+                    console.error('[ChatBubble] Get current user error:', error);
+                }
+            }
+
+            setupNetworkMonitoring() {
+                try {
+                    window.addEventListener('online', () => {
+                        this.isOnline = true;
+                        this.updateConnectionStatus('online');
+                        this.updateStatus('Connected', 'success');
+                        this.startPolling();
+                    });
+                    window.addEventListener('offline', () => {
+                        this.isOnline = false;
+                        this.updateConnectionStatus('offline');
+                        this.updateStatus('Offline', 'error');
+                        this.stopPolling();
+                    });
+                } catch (error) {
+                    console.error('[ChatBubble] Network monitoring error:', error);
+                }
+            }
+
+            updateConnectionStatus(status) {
+                try {
+                    this.connectionStatus.className = `connection-status ${status}`;
+                } catch (error) {
+                    console.error('[ChatBubble] Update connection status error:', error);
+                }
+            }
+
+            updateStatus(message, type = 'info') {
+                try {
+                    this.statusText.textContent = String(message).replace(/[<>"]/g, '');
+                    this.statusText.className = `status ${type}`;
+                } catch (error) {
+                    console.error('[ChatBubble] Update status error:', error);
+                }
+            }
+
+            toggleBubble() {
+                try {
+                    if (this.isVisible) {
+                        this.hideBubble();
+                    } else {
+                        this.showBubble();
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Toggle bubble error:', error);
+                }
+            }
+
+            showBubble() {
+                try {
+                    this.bubble.classList.remove('hidden');
+                    this.bubble.classList.add('shown');
+                    this.isVisible = true;
+                    this.clearUnreadCount();
+                    setTimeout(() => this.input.focus(), 300);
+                    this.scrollToBottom();
+                    // Recompute dock in case the bubble changed layout
+                    window.reflowDock && window.reflowDock();
+                } catch (error) {
+                    console.error('[ChatBubble] Show bubble error:', error);
+                }
+            }
+
+            hideBubble() {
+                try {
+                    this.bubble.classList.remove('shown');
+                    this.bubble.classList.add('hidden');
+                    this.isVisible = false;
+                    window.reflowDock && window.reflowDock();
+                } catch (error) {
+                    console.error('[ChatBubble] Hide bubble error:', error);
+                }
+            }
+
+            expandToFullChat() {
+                try {
+                    const baseUrl = window.baseUrl || '<?- String(baseUrl || '') ?>';
+                    window.open(`${baseUrl}&page=chat&token=<?- String(rawToken || '').replace(/[<>"]/g, '') ?>`, '_blank');
+                } catch (error) {
+                    console.error('[ChatBubble] Expand to full chat error:', error);
+                }
+            }
+
+            forceRefresh() {
+                try {
+                    this.refreshBtn.querySelector('i').style.animation = 'spin 1s linear infinite';
+                    this.poll().finally(() => {
+                        this.refreshBtn.querySelector('i').style.animation = '';
+                    });
+                } catch (error) {
+                    console.error('[ChatBubble] Force refresh error:', error);
+                }
+            }
+
+            loadInitialChannel() {
+                try {
+                    this.updateStatus('Loading channels...', 'info');
+                    this.updateConnectionStatus('connecting');
+                    google.script.run
+                        .withSuccessHandler(groups => this.handleGroupsLoaded(groups))
+                        .withFailureHandler(error => this.handleError(error, 'Failed to load groups'))
+                        .listMyGroups();
+                } catch (error) {
+                    console.error('[ChatBubble] Load initial channel error:', error);
+                }
+            }
+
+            handleGroupsLoaded(groups) {
+                try {
+                    if (!groups || groups.length === 0) {
+                        this.updateStatus('No groups available', 'warning');
+                        this.updateConnectionStatus('offline');
+                        return;
+                    }
+                    google.script.run
+                        .withSuccessHandler(channels => this.handleChannelsLoaded(channels))
+                        .withFailureHandler(error => this.handleError(error, 'Failed to load channels'))
+                        .getChatChannels(groups[0].ID);
+                } catch (error) {
+                    console.error('[ChatBubble] Handle groups loaded error:', error);
+                }
+            }
+
+            handleChannelsLoaded(channels) {
+                try {
+                    if (!channels || channels.length === 0) {
+                        this.updateStatus('No channels available', 'warning');
+                        this.updateConnectionStatus('offline');
+                        return;
+                    }
+                    this.chanId = channels[0].ID;
+                    this.header.textContent = `# ${String(channels[0].Name || '').replace(/[<>"]/g, '')}`;
+                    this.updateStatus('Connected', 'success');
+                    this.updateConnectionStatus('online');
+                    this.retryCount = 0;
+                    this.poll();
+                } catch (error) {
+                    console.error('[ChatBubble] Handle channels loaded error:', error);
+                }
+            }
+
+            startPolling() {
+                try {
+                    this.stopPolling();
+                    if (this.isOnline && this.chanId) {
+                        this.pollInterval = setInterval(() => this.poll(), 3000);
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Start polling error:', error);
+                }
+            }
+
+            stopPolling() {
+                try {
+                    if (this.pollInterval) {
+                        clearInterval(this.pollInterval);
+                        this.pollInterval = null;
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Stop polling error:', error);
+                }
+            }
+
+            poll() {
+                try {
+                    if (!this.chanId || !this.isOnline) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        google.script.run
+                            .withSuccessHandler(msgs => {
+                                this.handleMessagesLoaded(msgs);
+                                this.retryCount = 0;
+                                resolve(msgs);
+                            })
+                            .withFailureHandler(error => {
+                                this.handleError(error, 'Failed to load messages');
+                                reject(error);
+                            })
+                            .getChatMessages(this.chanId);
+                    });
+                } catch (error) {
+                    console.error('[ChatBubble] Poll error:', error);
+                    return Promise.resolve();
+                }
+            }
+
+            handleMessagesLoaded(msgs) {
+                try {
+                    this.messages = Array.isArray(msgs) ? msgs : [];
+                    const hasNewMessages = this.messages.length > this.lastMessageCount;
+                    this.lastMessageCount = this.messages.length;
+                    this.renderMessages();
+                    if (!this.isVisible && hasNewMessages) {
+                        this.updateUnreadCount();
+                    }
+                    if (this.isVisible) {
+                        this.scrollToBottom();
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Handle messages loaded error:', error);
+                }
+            }
+
+            renderMessages() {
+                try {
+                    this.msgsContainer.innerHTML = '';
+                    const recentMessages = this.messages.slice(-20);
+                    recentMessages.forEach((msg, index) => {
+                        const messageEl = this.createMessageElement(msg);
+                        this.msgsContainer.appendChild(messageEl);
+                    });
+                } catch (error) {
+                    console.error('[ChatBubble] Render messages error:', error);
+                }
+            }
+
+            createMessageElement(msg) {
+                try {
+                    const div = document.createElement('div');
+                    const isOwn = String(msg.UserId || '').replace(/[<>"]/g, '') === this.currentUser;
+                    const time = this.formatTime(msg.Timestamp);
+                    const user = this.formatUserName(msg.UserId);
+                    div.className = `message-item ${isOwn ? 'own' : 'other'}`;
+                    let content = '';
+                    if (!isOwn) {
+                        content += `<div class="message-user">${user}</div>`;
+                    }
+                    content += `<div class="message-text">${this.formatMessage(msg.Message)}</div>`;
+                    content += `<div class="message-time">${time}</div>`;
+                    div.innerHTML = content;
+                    return div;
+                } catch (error) {
+                    console.error('[ChatBubble] Create message element error:', error);
+                    return document.createElement('div');
+                }
+            }
+
+            formatTime(timestamp) {
+                try {
+                    const date = new Date(timestamp);
+                    if (isNaN(date.getTime())) return 'Invalid time';
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins < 1) return 'now';
+                    if (diffMins < 60) return `${diffMins}m`;
+                    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h`;
+                    return date.toLocaleDateString();
+                } catch (error) {
+                    console.error('[ChatBubble] Format time error:', error);
+                    return 'Unknown time';
+                }
+            }
+
+            formatUserName(userId) {
+                try {
+                    return String(userId || '').split('@')[0].replace(/[<>"]/g, '') || 'Unknown';
+                } catch (error) {
+                    console.error('[ChatBubble] Format username error:', error);
+                    return 'Unknown';
+                }
+            }
+
+            formatMessage(message) {
+                try {
+                    return String(message || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#x27;')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+                } catch (error) {
+                    console.error('[ChatBubble] Format message error:', error);
+                    return '';
+                }
+            }
+
+            handleSendMessage(e) {
+                try {
+                    e.preventDefault();
+                    const text = this.input.value.trim();
+                    if (!text || !this.chanId || !this.isOnline) return;
+                    this.sendBtn.disabled = true;
+                    this.sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    google.script.run
+                        .withSuccessHandler(() => {
+                            this.input.value = '';
+                            this.sendBtn.disabled = false;
+                            this.sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                            this.poll();
+                        })
+                        .withFailureHandler(error => {
+                            this.handleError(error, 'Failed to send message');
+                            this.sendBtn.disabled = false;
+                            this.sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                        })
+                        .postChatMessage(this.chanId, this.currentUser, text);
+                } catch (error) {
+                    console.error('[ChatBubble] Send message error:', error);
+                }
+            }
+
+            handleKeyDown(e) {
+                try {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.handleSendMessage(e);
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Key down error:', error);
+                }
+            }
+
+            handleTyping() {
+                try {
+                    if (this.input.value.trim()) {
+                        this.typingIndicator.innerHTML = '<span class="typing-dots">You are typing</span>';
+                    } else {
+                        this.typingIndicator.innerHTML = '';
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Handle typing error:', error);
+                }
+            }
+
+            updateUnreadCount() {
+                try {
+                    this.unreadCount++;
+                    if (this.unreadCount > 0) {
+                        this.notificationBadge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+                        this.notificationBadge.style.display = 'flex';
+                        this.toggle.classList.add('has-notification');
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Update unread count error:', error);
+                }
+            }
+
+            clearUnreadCount() {
+                try {
+                    this.unreadCount = 0;
+                    this.notificationBadge.style.display = 'none';
+                    this.toggle.classList.remove('has-notification');
+                } catch (error) {
+                    console.error('[ChatBubble] Clear unread count error:', error);
+                }
+            }
+
+            scrollToBottom() {
+                try {
+                    setTimeout(() => {
+                        this.msgsContainer.scrollTop = this.msgsContainer.scrollHeight;
+                    }, 100);
+                } catch (error) {
+                    console.error('[ChatBubble] Scroll to bottom error:', error);
+                }
+            }
+
+            handleVisibilityChange() {
+                try {
+                    if (document.hidden) {
+                        this.stopPolling();
+                        if (this.isOnline && this.chanId) {
+                            this.pollInterval = setInterval(() => this.poll(), 10000);
+                        }
+                    } else {
+                        this.startPolling();
+                    }
+                } catch (error) {
+                    console.error('[ChatBubble] Visibility change error:', error);
+                }
+            }
+
+            handleError(error, message) {
+                try {
+                    console.error('[ChatBubble] Error:', message, error);
+                    this.retryCount++;
+                    if (this.retryCount <= this.maxRetries) {
+                        this.updateStatus(`${message} (retry ${this.retryCount}/${this.maxRetries})`, 'warning');
+                        this.updateConnectionStatus('connecting');
+                        setTimeout(() => {
+                            if (this.retryCount <= this.maxRetries) {
+                                this.loadInitialChannel();
+                            }
+                        }, Math.pow(2, this.retryCount) * 1000);
+                    } else {
+                        this.updateStatus(message, 'error');
+                        this.updateConnectionStatus('offline');
+                    }
+                } catch (err) {
+                    console.error('[ChatBubble] Handle error error:', err);
+                }
+            }
+        }
+
+        const style = document.createElement('style');
+        style.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+        document.head.appendChild(style);
+
+        try {
+            new ChatBubble();
+            console.log('[ChatBubble] Initialized successfully');
+        } catch (error) {
+            console.error('[ChatBubble] Initialization error:', error);
+        }
+    })();
+    (function () {
+        const root = document.documentElement;
+
+        // If ChatBubble was rendered inside a transformed container, move it to <body>
+        function hoistToBody(id){
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.parentElement !== document.body){
+                document.body.appendChild(el);
+            }
+        }
+        hoistToBody('chatToggle');
+        hoistToBody('bubble');
+
+        const selectors = [
+            '.notifyjs-corner',        // jQuery Notify.js
+            '.toast-container',        // Bootstrap toasts
+            '.fixed-bottom',           // Bootstrap bars
+            '.cookie-banner', '.bottom-bar',
+            '[data-obstacle="bottom"]',
+            '[data-obstacle="bottom-right"]'
+        ];
+
+        const isVisible = el => {
+            const cs = getComputedStyle(el);
+            return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getClientRects().length > 0;
+        };
+
+        function computeDockOffset(){
+            const vh = window.innerHeight, vw = window.innerWidth;
+            let extra = 0;
+
+            // Gather all potential blockers near bottom-right or full-width footers
+            const obstacles = selectors.flatMap(sel => Array.from(document.querySelectorAll(sel)));
+            for (const el of obstacles){
+                if (!isVisible(el)) continue;
+                const r = el.getBoundingClientRect();
+                const touchesBottom = r.bottom >= vh - 1;
+                const nearRight     = r.right > vw - 320 || r.width >= vw * 0.5; // right corner or full footer
+                if (touchesBottom && nearRight){
+                    const offset = Math.max(0, vh - r.top) + 12; // 12px breathing room
+                    if (offset > extra) extra = offset;
+                }
+            }
+            root.style.setProperty('--dock-offset', Math.ceil(extra) + 'px');
+        }
+
+        // Initial and delayed run (to catch late-mounted UI)
+        requestAnimationFrame(computeDockOffset);
+        setTimeout(computeDockOffset, 200);
+
+        // Recompute on DOM & viewport changes
+        const mo = new MutationObserver(() => requestAnimationFrame(computeDockOffset));
+        mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
+        window.addEventListener('resize', computeDockOffset, { passive: true });
+        window.addEventListener('orientationchange', computeDockOffset, { passive: true });
+
+        // Manual hook if you need it: window.reflowDock()
+        window.reflowDock = computeDockOffset;
+
+        // If you’re using a notify() helper, force bottom-right and reflow
+        if (typeof window.notify === 'function'){
+            const orig = window.notify;
+            window.notify = function(message, type='info', opts={}){
+                const res = orig(message, type, Object.assign({ globalPosition: 'bottom right' }, opts));
+                setTimeout(computeDockOffset, 0);
+                return res;
+            };
+        }
+    })();
+</script>
+

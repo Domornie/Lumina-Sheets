@@ -1,0 +1,759 @@
+<?!= include("header",{ baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+
+<!-- Quill Snow theme CSS -->
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+
+<style>
+  :root {
+    /* Brand Color Palette */
+    --navy-primary: #003177;
+    --cyan-accent: #00BFFF;
+    --gold-highlight: #FFB800;
+    --fire-red: #FF4000;
+    
+    /* Modern UI Colors */
+    --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+    --accent-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+    --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+    --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    
+    /* UI Properties */
+    --card-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    --card-shadow-hover: 0 20px 60px rgba(0,0,0,0.15);
+    --border-radius-lg: 16px;
+    --border-radius-xl: 24px;
+    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+  }
+
+  body {
+    background: var(--surface-gradient);
+    font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  /* Modern Page Header */
+  .modern-page-header {
+    background: var(--primary-gradient);
+    border-radius: var(--border-radius-xl);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modern-page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: rgba(0, 191, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+  }
+
+  .modern-page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .modern-page-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin: 0.5rem 0 0 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Modern Cards */
+  .modern-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255,255,255,0.2);
+    overflow: hidden;
+    transition: var(--transition-smooth);
+    margin-bottom: 2rem;
+  }
+
+  .modern-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-4px);
+  }
+
+  .modern-card-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    padding: 1.5rem 2rem;
+    border-bottom: 2px solid var(--border-color);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .modern-card-header::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--primary-gradient);
+    border-radius: 2px;
+  }
+
+  .modern-card-body {
+    padding: 2rem;
+    position: relative;
+  }
+
+  /* Enhanced Form Styling */
+  .modern-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .form-floating {
+    position: relative;
+  }
+
+  .form-floating > .form-control,
+  .form-floating > .form-select {
+    padding: 1rem 0.75rem 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: var(--transition-smooth);
+    background: white;
+  }
+
+  .form-floating > .form-control:focus,
+  .form-floating > .form-select:focus {
+    border-color: var(--cyan-accent);
+    box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+    outline: none;
+    transform: translateY(-2px);
+  }
+
+  .form-floating > label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Enhanced Quill Editor */
+  .quill-container {
+    margin-bottom: 2rem;
+  }
+
+  .quill-container label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ql-toolbar {
+    border-radius: 12px 12px 0 0 !important;
+    border: 2px solid var(--border-color) !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  }
+
+  .ql-container {
+    border-radius: 0 0 12px 12px !important;
+    border: 2px solid var(--border-color) !important;
+    border-top: none !important;
+    font-size: 1rem !important;
+    min-height: 150px;
+  }
+
+  .ql-editor {
+    padding: 1.5rem !important;
+  }
+
+  /* Modern Buttons */
+  .modern-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .modern-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .modern-btn:hover::before {
+    left: 100%;
+  }
+
+  .modern-btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 49, 119, 0.3);
+  }
+
+  .modern-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 49, 119, 0.4);
+    color: white;
+  }
+
+  .modern-btn-secondary {
+    background: #f8fafc;
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+  }
+
+  .modern-btn-secondary:hover {
+    background: #f1f5f9;
+    transform: translateY(-2px);
+    border-color: var(--cyan-accent);
+    color: var(--text-primary);
+  }
+
+  .modern-btn-warning {
+    background: var(--warning-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
+  }
+
+  .modern-btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 184, 0, 0.4);
+    color: white;
+  }
+
+  .modern-btn-danger {
+    background: var(--danger-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 64, 0, 0.3);
+  }
+
+  .modern-btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 64, 0, 0.4);
+    color: white;
+  }
+
+  .modern-btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Action Buttons Container */
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    align-items: center;
+  }
+
+  /* Modern Table */
+  .table-container {
+    overflow-x: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+
+  .modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    margin: 0;
+  }
+
+  .modern-table thead {
+    background: var(--primary-gradient);
+    color: white;
+  }
+
+  .modern-table th {
+    padding: 1.25rem 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+    border: none;
+  }
+
+  .modern-table td {
+    padding: 1rem;
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    vertical-align: middle;
+  }
+
+  .modern-table tbody tr {
+    transition: background-color 0.2s ease;
+  }
+
+  .modern-table tbody tr:hover {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  }
+
+  .modern-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* Type Badge */
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .type-client {
+    background: rgba(0, 191, 255, 0.1);
+    color: var(--cyan-accent);
+    border: 1px solid rgba(0, 191, 255, 0.2);
+  }
+
+  .type-supervisor {
+    background: rgba(255, 184, 0, 0.1);
+    color: var(--gold-highlight);
+    border: 1px solid rgba(255, 184, 0, 0.2);
+  }
+
+  .type-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Enhanced Spaz Animation */
+  @keyframes pulse {
+    0%   { transform: scale(1); background-color: rgba(0, 191, 255, 0.1); }
+    50%  { transform: scale(1.02); background-color: rgba(0, 191, 255, 0.2); }
+    100% { transform: scale(1); background-color: transparent; }
+  }
+
+  .spaz {
+    animation: pulse 0.6s ease-in-out;
+  }
+
+  /* Enhanced Loading Overlay */
+  #escOverlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius-lg);
+  }
+
+  #escOverlay.show {
+    display: flex;
+  }
+
+  .modern-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid transparent;
+    border-top: 4px solid var(--cyan-accent);
+    border-radius: 50%;
+    animation: modernSpin 1s linear infinite;
+  }
+
+  @keyframes modernSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: var(--cyan-accent);
+    margin-bottom: 1rem;
+    opacity: 0.6;
+  }
+
+  .empty-state h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .modern-page-header {
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .modern-page-header h1 {
+      font-size: 2rem;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .modern-form {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .modern-card-body {
+      padding: 1.5rem;
+    }
+
+    .modern-card-header {
+      padding: 1rem 1.5rem;
+    }
+
+    .action-buttons {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .modern-table {
+      font-size: 0.8rem;
+    }
+
+    .modern-table th,
+    .modern-table td {
+      padding: 0.75rem 0.5rem;
+    }
+
+    .modern-btn-sm {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.7rem;
+    }
+  }
+
+  /* Animation Enhancements */
+  .fade-in {
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .stagger-animation > * {
+    opacity: 0;
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+  .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+
+  .icon-link {
+    color: #333;
+    font-size: 1.2rem;
+    transition: color 0.2s;
+  }
+  .icon-link:hover {
+    color: #4a90e2;
+  }
+</style>
+
+<!-- Modern Page Header -->
+<div class="modern-page-header fade-in">
+  <h1>
+    <i class="fas fa-exclamation-triangle"></i>
+    Escalation Management
+  </h1>
+  <p>Track and manage client and supervisor escalations effectively</p>
+</div>
+
+<div class="container my-4">
+  <div class="stagger-animation">
+    <!-- Escalation Form Card -->
+    <div class="modern-card">
+      <div class="modern-card-header">
+        <i class="fas fa-plus-circle"></i>
+        Log New Escalation
+      </div>
+      <div class="modern-card-body">
+        <div id="escOverlay">
+          <div class="modern-spinner"></div>
+        </div>
+        
+        <form id="escForm" class="modern-form">
+          <div class="form-floating">
+            <select id="escUser" class="form-select" required>
+              <option value="">Choose user</option>
+            </select>
+            <label for="escUser">User</label>
+          </div>
+
+          <div class="form-floating">
+            <select id="escType" class="form-select" required>
+              <option value="Client">Client</option>
+              <option value="Supervisor">Supervisor</option>
+            </select>
+            <label for="escType">Escalation Type</label>
+          </div>
+
+          <div class="form-floating">
+            <input type="datetime-local" id="escTimestamp" class="form-control">
+            <label for="escTimestamp">Timestamp</label>
+          </div>
+
+          <div class="quill-container" style="grid-column: 1 / -1;">
+            <label class="form-label">
+              <i class="fas fa-edit me-2"></i>
+              Escalation Details
+            </label>
+            <div id="escNotesEditor"></div>
+          </div>
+
+          <div class="action-buttons" style="grid-column: 1 / -1;">
+            <button type="submit" class="modern-btn modern-btn-primary">
+              <i class="fas fa-save"></i>
+              Save Escalation
+            </button>
+            <button type="button" class="modern-btn modern-btn-secondary" id="escCancel">
+              <i class="fas fa-times"></i>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Escalation Log Card -->
+    <div class="modern-card">
+      <div class="modern-card-header">
+        <i class="fas fa-list-ul"></i>
+        Escalation Log
+      </div>
+      <div class="modern-card-body p-0">
+        <div class="table-container">
+          <table class="modern-table" id="escalationsTable">
+            <thead>
+              <tr>
+                <th>
+                  <i class="fas fa-user me-2"></i>
+                  User
+                </th>
+                <th>
+                  <i class="fas fa-tag me-2"></i>
+                  Type
+                </th>
+                <th>
+                  <i class="fas fa-clock me-2"></i>
+                  Timestamp
+                </th>
+                <th>
+                  <i class="fas fa-comment-dots me-2"></i>
+                  Notes
+                </th>
+                <th>
+                  <i class="fas fa-cogs me-2"></i>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="5" class="text-center py-4">Loading…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('escOverlay');
+  const form = document.getElementById('escForm');
+  const tableBody = document.querySelector('#escalationsTable tbody');
+  const quill = new Quill('#escNotesEditor', { theme: 'snow' });
+  let editingId = null;
+
+  const showOverlay = () => overlay.classList.add('show');
+  const hideOverlay = () => overlay.classList.remove('show');
+
+  // Fetch & render
+  function loadEscalations() {
+    showOverlay();
+    google.script.run
+      .withSuccessHandler(renderEscalations)
+      .withFailureHandler(err => { alert(err.message||err); hideOverlay(); })
+      .fetchAllEscalations();
+  }
+
+  function renderEscalations(items) {
+    tableBody.innerHTML = '';
+    if (!items.length) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="empty-state">
+            <i class="fas fa-clipboard-list"></i>
+            <h3>No Escalations Found</h3>
+            <p>No escalation records available. Start by logging a new escalation.</p>
+          </td>
+        </tr>`;
+      hideOverlay();
+      return;
+    }
+    items.forEach(it => {
+      const tr = document.createElement('tr');
+      tr.classList.add('spaz');
+      
+      // Create type badge
+      const typeClass = it.type.toLowerCase() === 'client' ? 'type-client' : 'type-supervisor';
+      const typeBadge = `<span class="type-badge ${typeClass}">
+        <span class="type-dot"></span>
+        ${it.type}
+      </span>`;
+      
+      tr.innerHTML = `
+        <td><strong>${it.user}</strong></td>
+        <td>${typeBadge}</td>
+        <td>${it.timestamp}</td>
+        <td><span class="text-muted">${it.notes.length > 100 ? it.notes.substring(0, 100) + '...' : it.notes}</span></td>
+        <td>
+          <button class="modern-btn modern-btn-warning modern-btn-sm me-2">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="modern-btn modern-btn-danger modern-btn-sm">
+            <i class="fas fa-trash"></i>
+          </button>
+        </td>`;
+      
+      // Edit:
+      tr.querySelector('.modern-btn-warning').addEventListener('click', () => {
+        editingId = it.id;
+        document.getElementById('escUser').value = it.user;
+        document.getElementById('escType').value = it.type;
+        document.getElementById('escTimestamp').value = it.timestamp.replace(' ', 'T').slice(0,16);
+        quill.root.innerHTML = it.notes;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      
+      // Delete:
+      tr.querySelector('.modern-btn-danger').addEventListener('click', () => {
+        if (!confirm('Delete this escalation?')) return;
+        showOverlay();
+        google.script.run
+          .withSuccessHandler(loadEscalations)
+          .withFailureHandler(() => hideOverlay())
+          .removeEscalation(it.id);
+      });
+      
+      tableBody.appendChild(tr);
+      setTimeout(() => tr.classList.remove('spaz'), 500);
+    });
+    hideOverlay();
+  }
+
+  // Form submit
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const rec = {
+      user: document.getElementById('escUser').value,
+      type: document.getElementById('escType').value,
+      timestamp: document.getElementById('escTimestamp').value,
+      notes: quill.root.innerHTML
+    };
+    showOverlay();
+    const runner = editingId
+      ? google.script.run
+          .withSuccessHandler(() => {
+            editingId = null; form.reset(); quill.root.innerHTML = '';
+            loadEscalations();
+          })
+          .withFailureHandler(() => hideOverlay())
+          .updateEscalation(editingId, rec)
+      : google.script.run
+          .withSuccessHandler(() => {
+            form.reset(); quill.root.innerHTML = '';
+            loadEscalations();
+          })
+          .withFailureHandler(() => hideOverlay())
+          .addEscalation(rec);
+  });
+
+  // Cancel edit
+  document.getElementById('escCancel').addEventListener('click', () => {
+    editingId = null;
+    form.reset();
+    quill.root.innerHTML = '';
+  });
+
+  // Populate users
+  google.script.run.withSuccessHandler(users => {
+    const sel = document.getElementById('escUser');
+    sel.innerHTML = '<option value="">Choose user</option>' +
+      users.map(u => `<option>${u}</option>`).join('');
+  }).getAttendanceUserList();
+
+  // Initial load
+  loadEscalations();
+});
+</script>
+</body>
+</html>

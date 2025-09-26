@@ -1,0 +1,143 @@
+<?!= include('header',{ baseUrl, user: user, currentPage: currentPage }) ?>
+
+<!-- FullCalendar CSS -->
+<link
+  href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.5/index.global.min.css"
+  rel="stylesheet"
+/>
+
+<style>
+  /* Container fills viewport minus header */
+  #maincontent {
+    margin-top: 56px;
+    padding: 0;
+    background: #f0f2f5;
+    min-height: calc(100vh - 56px);
+  }
+  /* Card-like calendar wrapper */
+  #calendar {
+    max-width: 1900px;
+    margin: 2rem auto;
+    background: #ffffff;
+    border-radius: .5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    padding: 1rem;
+  }
+  /* Tweak toolbar buttons */
+  .fc-toolbar .fc-button {
+    border: none;
+    border-radius: .25rem;
+    box-shadow: none;
+  }
+  .fc-toolbar .fc-button-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+  }
+  .fc-toolbar .fc-button-primary:not(:disabled):hover {
+    background-color: #2e59d9;
+    border-color: #2e59d9;
+  }
+  .fc-col-header-cell-cushion {
+    font-weight: 600;
+    color: #495057;
+  }
+  .fc-event {
+    border: none;
+    border-radius: .25rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .fc-daygrid-day.fc-day-today {
+    background-color: #e9ecef;
+  }
+</style>
+
+<header id="topbar" class="d-flex align-items-center px-4 py-3 bg-white shadow-sm">
+  <button class="btn" id="sidebarToggle">
+    <i class="fas fa-bars"></i>
+  </button>
+  <a href="<?= baseUrl ?>&page=search" class="icon-link ms-4" title="Search">
+    <i class="fas fa-search"></i>
+  </a>
+
+  <div class="ms-auto d-flex gap-3 text-secondary align-items-center">
+    <i class="fas fa-sliders-h" title="Filters"></i>
+    <i class="fas fa-share-alt" title="Share"></i>
+
+    <!-- Notifications bell with badge -->
+    <a href="<?= baseUrl ?>&page=notifications"
+       class="icon-link position-relative"
+       title="Notifications">
+      <i class="fas fa-bell"></i>
+      <span id="notifCount"
+            class="badge bg-danger position-absolute top-0 start-100 translate-middle p-1">
+        0
+      </span>
+    </a>
+
+    <i class="fas fa-user-circle" title="Profile"></i>
+  </div>
+</header>
+
+<style>
+  /* hide badge when zero */
+  #notifCount { display: none; font-size: .65rem; }
+</style>
+
+<script>
+  // Poll every 10 minutes (and on load) to refresh the badge count
+  function refreshNotifBadge() {
+    google.script.run
+      .withSuccessHandler(count => {
+        const el = document.getElementById('notifCount');
+        el.textContent = count;
+        el.style.display = count > 0 ? 'inline-block' : 'none';
+      })
+      .getTaskNotifications();
+  }
+
+  document.addEventListener('DOMContentLoaded', refreshNotifBadge);
+  setInterval(refreshNotifBadge, 10 * 60 * 1000);
+</script>
+
+
+<div id="maincontent">
+  <div id="calendar"></div>
+</div>
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    google.script.run
+      .withFailureHandler(err => console.error('Server error:', err))
+      .withSuccessHandler(events => {
+        console.log('🎁 server returned:', events);
+        if (!Array.isArray(events)) {
+          console.warn('Not an array – emptying to []');
+          events = [];
+        }
+        
+        new FullCalendar.Calendar(
+          document.getElementById('calendar'), {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: events.map(e => ({
+              id:     e.id,
+              title:  `[${e.calendarName}] ${e.title}`,
+              start:  e.startTime,
+              end:    e.endTime,
+              allDay: e.allDay
+            }))
+          }
+        ).render();
+      })
+      .getTasksAndEvents();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1155 @@
+<?!= include('header', {rawToken: rawToken, baseUrl: baseUrl, user: user, currentPage: 'Shift Slot Management' }) ?>
+    
+    <style>
+        :root {
+            --primary: #0052cc;
+            --primary-dark: #003d99;
+            --accent: #00c7be;
+            --success: #00875a;
+            --warning: #ffab00;
+            --danger: #de350b;
+            --info: #0747a6;
+            --light: #f4f5f7;
+            --dark: #091e42;
+            --surface: #ffffff;
+            --border: #dfe1e6;
+            --text-primary: #172b4d;
+            --text-secondary: #5e6c84;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            --shadow-md: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            --border-radius: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .enhanced-card {
+            background: var(--surface);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            margin-bottom: 2rem;
+        }
+
+        .enhanced-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .enhanced-card-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 1.5rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .enhanced-card-body {
+            padding: 2rem;
+        }
+
+        .btn-enhanced {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border: none;
+            border-radius: var(--border-radius);
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.875rem;
+        }
+
+        .btn-enhanced:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            color: white;
+        }
+
+        .btn-success-enhanced {
+            background: linear-gradient(135deg, var(--success) 0%, #00a063 100%);
+        }
+
+        .btn-warning-enhanced {
+            background: linear-gradient(135deg, var(--warning) 0%, #cc8800 100%);
+        }
+
+        .btn-danger-enhanced {
+            background: linear-gradient(135deg, var(--danger) 0%, #c4320a 100%);
+        }
+
+        .form-control-enhanced {
+            border: 2px solid var(--border);
+            border-radius: var(--border-radius);
+            padding: 0.75rem 1rem;
+            transition: var(--transition);
+        }
+
+        .form-control-enhanced:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.2rem rgba(0, 82, 204, 0.25);
+        }
+
+        .table-enhanced {
+            background: var(--surface);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .table-enhanced thead th {
+            background: linear-gradient(135deg, var(--light) 0%, #e9ecef 100%);
+            border: none;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            padding: 1.25rem 1rem;
+        }
+
+        .table-enhanced tbody td {
+            padding: 1.25rem 1rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .table-enhanced tbody tr:hover {
+            background: linear-gradient(135deg, rgba(0, 82, 204, 0.02) 0%, rgba(0, 199, 190, 0.02) 100%);
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: rgba(0, 135, 90, 0.1);
+            color: var(--success);
+            border: 2px solid var(--success);
+        }
+
+        .status-inactive {
+            background: rgba(222, 53, 11, 0.1);
+            color: var(--danger);
+            border: 2px solid var(--danger);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(248, 250, 252, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(0, 82, 204, 0.2);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .time-display {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            background: var(--light);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            display: inline-block;
+            min-width: 140px;
+            text-align: center;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .time-input-display {
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+        }
+
+        .days-display {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .day-badge {
+            padding: 0.25rem 0.5rem;
+            background: var(--accent);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-enhanced .modal-content {
+            border-radius: var(--border-radius);
+            border: none;
+            box-shadow: var(--shadow-md);
+        }
+
+        .modal-enhanced .modal-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .alert-enhanced {
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success-enhanced {
+            background: rgba(0, 135, 90, 0.1);
+            color: var(--success);
+            border-left: 4px solid var(--success);
+        }
+
+        .alert-danger-enhanced {
+            background: rgba(222, 53, 11, 0.1);
+            color: var(--danger);
+            border-left: 4px solid var(--danger);
+        }
+
+        .alert-info-enhanced {
+            background: rgba(7, 71, 166, 0.1);
+            color: var(--info);
+            border-left: 4px solid var(--info);
+        }
+
+        .capacity-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .capacity-bar {
+            width: 50px;
+            height: 8px;
+            background: var(--light);
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .capacity-fill {
+            height: 100%;
+            background: var(--success);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .slot-name-display {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .slot-description-display {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .department-badge {
+            color: var(--dark);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .location-text {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .debug-card {
+            background: var(--dark);
+            color: #f8f9fa;
+        }
+
+        .debug-card .enhanced-card-header {
+            background: linear-gradient(135deg, #343a40 0%, #495057 100%);
+        }
+
+        .debug-info {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay d-none">
+            <div class="text-center">
+                <div class="loading-spinner"></div>
+                <p class="mt-3 text-muted fw-bold">Processing request...</p>
+            </div>
+        </div>      
+        <!-- Header -->
+        <div class="enhanced-card">
+            <div class="enhanced-card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="mb-0">
+                            <i class="fas fa-clock me-3"></i>
+                            Shift Slot Management
+                        </h1>
+                    </div>
+                    <div>
+                        <button class="btn btn-warning-enhanced me-2" onclick="initializeSampleData()">
+                            <i class="fas fa-plus me-2"></i>Create Sample Data
+                        </button>
+                        <button class="btn btn-success-enhanced" onclick="showCreateSlotModal()">
+                            <i class="fas fa-plus me-2"></i>Create New Slot
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slots Overview -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="enhanced-card">
+                    <div class="enhanced-card-body text-center">
+                        <div class="h2 text-primary mb-2" id="totalSlots">0</div>
+                        <div class="text-muted">Total Slots</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="enhanced-card">
+                    <div class="enhanced-card-body text-center">
+                        <div class="h2 text-success mb-2" id="activeSlots">0</div>
+                        <div class="text-muted">Active Slots</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="enhanced-card">
+                    <div class="enhanced-card-body text-center">
+                        <div class="h2 text-warning mb-2" id="totalCapacity">0</div>
+                        <div class="text-muted">Total Capacity</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="enhanced-card">
+                    <div class="enhanced-card-body text-center">
+                        <div class="h2 text-info mb-2" id="departments">0</div>
+                        <div class="text-muted">Departments</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Info -->
+        <div class="enhanced-card debug-card" id="debugCard" style="display: none;">
+            <div class="enhanced-card-header">
+                <span><i class="fas fa-bug me-2"></i>Debug Information</span>
+            </div>
+            <div class="enhanced-card-body">
+                <div class="debug-info" id="debugInfo"></div>
+            </div>
+        </div>
+
+        <!-- Slots Table -->
+        <div class="enhanced-card">
+            <div class="enhanced-card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-list me-2"></i>Shift Slots</span>
+                    <div>
+                        <button class="btn btn-light btn-sm me-2" onclick="toggleDebug()">
+                            <i class="fas fa-bug me-1"></i>Debug
+                        </button>
+                        <button class="btn btn-light btn-sm" onclick="loadSlots()">
+                            <i class="fas fa-sync me-1"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="enhanced-card-body">
+                <div class="table-responsive">
+                    <table class="table table-enhanced" id="slotsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Time</th>
+                                <th>Days</th>
+                                <th>Department</th>
+                                <th>Location</th>
+                                <th>Capacity</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Slot Modal -->
+    <div class="modal fade modal-enhanced" id="slotModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="slotModalTitle">
+                        <i class="fas fa-clock me-2"></i>Create Shift Slot
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="slotForm">
+                        <input type="hidden" id="slotId" value="">
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Slot Name *</label>
+                                <input type="text" class="form-control form-control-enhanced" id="slotName" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Department</label>
+                                <input type="text" class="form-control form-control-enhanced" id="slotDepartment" placeholder="e.g., Customer Service">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Start Time *</label>
+                                <input type="time" class="form-control form-control-enhanced time-input-display" id="slotStartTime" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">End Time *</label>
+                                <input type="time" class="form-control form-control-enhanced time-input-display" id="slotEndTime" required>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Location</label>
+                                <input type="text" class="form-control form-control-enhanced" id="slotLocation" placeholder="e.g., Office, Remote">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Max Capacity</label>
+                                <input type="number" class="form-control form-control-enhanced" id="slotCapacity" min="1" max="100" value="10">
+                            </div>
+                            
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Days of Week</label>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="0" id="sunday">
+                                        <label class="form-check-label" for="sunday">Sunday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="1" id="monday" checked>
+                                        <label class="form-check-label" for="monday">Monday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="2" id="tuesday" checked>
+                                        <label class="form-check-label" for="tuesday">Tuesday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="3" id="wednesday" checked>
+                                        <label class="form-check-label" for="wednesday">Wednesday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="4" id="thursday" checked>
+                                        <label class="form-check-label" for="thursday">Thursday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="5" id="friday" checked>
+                                        <label class="form-check-label" for="friday">Friday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="6" id="saturday">
+                                        <label class="form-check-label" for="saturday">Saturday</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Break Duration (minutes)</label>
+                                <input type="number" class="form-control form-control-enhanced" id="slotBreakDuration" min="0" max="60" value="15">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Lunch Duration (minutes)</label>
+                                <input type="number" class="form-control form-control-enhanced" id="slotLunchDuration" min="0" max="120" value="60">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Overtime Policy</label>
+                                <select class="form-select form-control-enhanced" id="slotOvertimePolicy">
+                                    <option value="NONE">No Overtime</option>
+                                    <option value="LIMITED_15">Limited (15 min)</option>
+                                    <option value="LIMITED_30">Limited (30 min)</option>
+                                    <option value="LIMITED_60">Limited (60 min)</option>
+                                    <option value="UNLIMITED">Unlimited</option>
+                                    <option value="APPROVAL_REQUIRED">Approval Required</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Description</label>
+                                <textarea class="form-control form-control-enhanced" id="slotDescription" rows="3" placeholder="Optional description of this shift slot..."></textarea>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="slotIsActive" checked>
+                                    <label class="form-check-label fw-bold" for="slotIsActive">
+                                        Active (available for scheduling)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-enhanced" onclick="saveSlot()">
+                        <i class="fas fa-save me-2"></i>Save Slot
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Shift Slot Management System
+        class SlotManager {
+            constructor() {
+                this.slots = [];
+                this.currentSlot = null;
+                this.debugMode = false;
+                this.init();
+            }
+
+            async init() {
+                try {
+                    this.log('Initializing Slot Manager...');
+                    await this.loadSlots();
+                    this.updateStats();
+                    this.log('Slot Manager initialized successfully');
+                } catch (error) {
+                    console.error('Initialization failed:', error);
+                    this.showNotification('Failed to initialize slot manager: ' + error.message, 'error');
+                }
+            }
+
+            log(message, data = null) {
+                console.log(message, data);
+                if (this.debugMode) {
+                    const debugInfo = document.getElementById('debugInfo');
+                    const timestamp = new Date().toLocaleTimeString();
+                    const logEntry = `[${timestamp}] ${message}`;
+                    debugInfo.textContent = logEntry + '\n' + (data ? JSON.stringify(data, null, 2) + '\n' : '') + debugInfo.textContent;
+                }
+            }
+
+            async loadSlots() {
+                try {
+                    this.showLoading(true);
+                    this.log('Loading slots...');
+                    
+                    const result = await this.callServerFunction('clientGetAllShiftSlots');
+                    this.log('Server response:', result);
+                    
+                    if (result && result.success) {
+                        this.slots = result.slots || [];
+                        this.log(`Loaded ${this.slots.length} slots`);
+                    } else {
+                        this.log('Failed to load slots:', result);
+                        this.slots = [];
+                        this.showNotification('Failed to load slots: ' + (result?.error || 'Unknown error'), 'error');
+                    }
+                    
+                    this.renderSlotsTable();
+                    this.updateStats();
+                } catch (error) {
+                    console.error('Error loading slots:', error);
+                    this.log('Error loading slots:', error.message);
+                    this.showNotification('Error loading slots: ' + error.message, 'error');
+                    this.slots = [];
+                    this.renderSlotsTable();
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            renderSlotsTable() {
+                const tbody = document.querySelector('#slotsTable tbody');
+                tbody.innerHTML = '';
+
+                if (this.slots.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                No shift slots found. Create your first slot to get started.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                this.slots.forEach(slot => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <div class="slot-name-display">${slot.Name || 'Unnamed Slot'}</div>
+                            <div class="slot-description-display">${slot.Description || 'No description'}</div>
+                        </td>
+                        <td>
+                            <div class="time-display">
+                                ${this.formatTimeRange(slot.StartTime, slot.EndTime)}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="days-display">
+                                ${this.formatDaysOfWeek(slot.DaysOfWeek)}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="department-badge">${slot.Department || 'General'}</span>
+                        </td>
+                        <td>
+                            <span class="location-text">${slot.Location || 'Not specified'}</span>
+                        </td>
+                        <td>
+                            <div class="capacity-indicator">
+                                <span class="fw-bold">${slot.MaxCapacity || 10}</span>
+                                <div class="capacity-bar">
+                                    <div class="capacity-fill" style="width: ${Math.min(100, ((slot.MaxCapacity || 10) / 20) * 100)}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="status-badge ${(slot.IsActive !== false) ? 'status-active' : 'status-inactive'}">
+                                ${(slot.IsActive !== false) ? 'Active' : 'Inactive'}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="slotManager.editSlot('${slot.ID}')" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="slotManager.deleteSlot('${slot.ID}')" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            formatDaysOfWeek(daysString) {
+                if (!daysString) return '<span class="text-muted">No days set</span>';
+                
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                let days = [];
+                
+                try {
+                    if (typeof daysString === 'string') {
+                        days = daysString.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d));
+                    } else if (Array.isArray(daysString)) {
+                        days = daysString.map(d => parseInt(d)).filter(d => !isNaN(d));
+                    }
+                } catch (e) {
+                    this.log('Error parsing days:', e);
+                }
+                
+                if (days.length === 0) return '<span class="text-muted">No days set</span>';
+                
+                return days.map(day => `<span class="day-badge">${dayNames[day] || 'Unknown'}</span>`).join('');
+            }
+
+            updateStats() {
+                const totalSlots = this.slots.length;
+                const activeSlots = this.slots.filter(s => s.IsActive !== false).length;
+                const totalCapacity = this.slots.reduce((sum, s) => sum + (parseInt(s.MaxCapacity) || 0), 0);
+                const departments = new Set(this.slots.map(s => s.Department).filter(d => d)).size;
+
+                document.getElementById('totalSlots').textContent = totalSlots;
+                document.getElementById('activeSlots').textContent = activeSlots;
+                document.getElementById('totalCapacity').textContent = totalCapacity;
+                document.getElementById('departments').textContent = departments;
+            }
+
+            showCreateSlotModal() {
+                this.currentSlot = null;
+                document.getElementById('slotModalTitle').innerHTML = '<i class="fas fa-plus me-2"></i>Create Shift Slot';
+                document.getElementById('slotForm').reset();
+                document.getElementById('slotId').value = '';
+                
+                // Set default values
+                document.getElementById('slotCapacity').value = 10;
+                document.getElementById('slotBreakDuration').value = 15;
+                document.getElementById('slotLunchDuration').value = 60;
+                document.getElementById('slotOvertimePolicy').value = 'LIMITED_30';
+                document.getElementById('slotIsActive').checked = true;
+                
+                // Check weekdays by default
+                ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
+                    document.getElementById(day).checked = true;
+                });
+                
+                new bootstrap.Modal(document.getElementById('slotModal')).show();
+            }
+
+            async editSlot(slotId) {
+                try {
+                    this.showLoading(true);
+                    this.log('Editing slot:', slotId);
+                    
+                    const result = await this.callServerFunction('clientGetShiftSlotById', slotId);
+                    
+                    if (result && result.success && result.slot) {
+                        this.currentSlot = result.slot;
+                        document.getElementById('slotModalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Shift Slot';
+                        this.populateSlotForm(this.currentSlot);
+                        
+                        new bootstrap.Modal(document.getElementById('slotModal')).show();
+                    } else {
+                        throw new Error(result?.error || 'Slot not found');
+                    }
+                } catch (error) {
+                    console.error('Error editing slot:', error);
+                    this.log('Error editing slot:', error.message);
+                    this.showNotification('Error loading slot: ' + error.message, 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            populateSlotForm(slot) {
+                document.getElementById('slotId').value = slot.ID;
+                document.getElementById('slotName').value = slot.Name || '';
+                document.getElementById('slotDepartment').value = slot.Department || '';
+                document.getElementById('slotStartTime').value = this.normalizeForTimeInput(slot.StartTime);
+                document.getElementById('slotEndTime').value = this.normalizeForTimeInput(slot.EndTime);
+                document.getElementById('slotLocation').value = slot.Location || '';
+                document.getElementById('slotCapacity').value = slot.MaxCapacity || 10;
+                document.getElementById('slotDescription').value = slot.Description || '';
+                document.getElementById('slotBreakDuration').value = slot.BreakDuration || 15;
+                document.getElementById('slotLunchDuration').value = slot.LunchDuration || 60;
+                document.getElementById('slotOvertimePolicy').value = slot.OvertimePolicy || 'LIMITED_30';
+                document.getElementById('slotIsActive').checked = slot.IsActive !== false;
+
+                // Set days of week
+                ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].forEach(day => {
+                    document.getElementById(day).checked = false;
+                });
+
+                if (slot.DaysOfWeek) {
+                    let days = [];
+                    try {
+                        if (typeof slot.DaysOfWeek === 'string') {
+                            days = slot.DaysOfWeek.split(',').map(d => parseInt(d.trim()));
+                        } else if (Array.isArray(slot.DaysOfWeek)) {
+                            days = slot.DaysOfWeek.map(d => parseInt(d));
+                        }
+                    } catch (e) {
+                        this.log('Error parsing days for edit:', e);
+                    }
+                    
+                    const dayElements = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    days.forEach(dayNum => {
+                        if (dayElements[dayNum]) {
+                            document.getElementById(dayElements[dayNum]).checked = true;
+                        }
+                    });
+                }
+            }
+
+            async saveSlot() {
+                try {
+                    const slotData = this.getSlotFormData();
+                    
+                    // Validate form
+                    if (!this.validateSlotForm(slotData)) {
+                        return;
+                    }
+
+                    this.showLoading(true);
+                    this.log('Saving slot:', slotData);
+
+                    let result;
+                    const slotId = document.getElementById('slotId').value;
+                    
+                    if (slotId) {
+                        // Update existing slot
+                        result = await this.callServerFunction('clientUpdateShiftSlot', slotId, slotData);
+                    } else {
+                        // Create new slot
+                        result = await this.callServerFunction('clientCreateShiftSlot', slotData);
+                    }
+
+                    this.log('Save result:', result);
+
+                    if (result && result.success) {
+                        this.showNotification(
+                            slotId ? 'Slot updated successfully!' : 'Slot created successfully!', 
+                            'success'
+                        );
+                        
+                        bootstrap.Modal.getInstance(document.getElementById('slotModal')).hide();
+                        await this.loadSlots();
+                    } else {
+                        throw new Error(result?.error || 'Failed to save slot');
+                    }
+                } catch (error) {
+                    console.error('Error saving slot:', error);
+                    this.log('Error saving slot:', error.message);
+                    this.showNotification('Error saving slot: ' + error.message, 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            getSlotFormData() {
+                const daysOfWeek = [];
+                ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].forEach((day, index) => {
+                    if (document.getElementById(day).checked) {
+                        daysOfWeek.push(index);
+                    }
+                });
+
+                return {
+                    name: document.getElementById('slotName').value.trim(),
+                    department: document.getElementById('slotDepartment').value.trim(),
+                    startTime: document.getElementById('slotStartTime').value,
+                    endTime: document.getElementById('slotEndTime').value,
+                    location: document.getElementById('slotLocation').value.trim(),
+                    maxCapacity: parseInt(document.getElementById('slotCapacity').value) || 10,
+                    description: document.getElementById('slotDescription').value.trim(),
+                    breakDuration: parseInt(document.getElementById('slotBreakDuration').value) || 15,
+                    lunchDuration: parseInt(document.getElementById('slotLunchDuration').value) || 60,
+                    overtimePolicy: document.getElementById('slotOvertimePolicy').value,
+                    isActive: document.getElementById('slotIsActive').checked,
+                    daysOfWeek: daysOfWeek,
+                    createdBy: 'User'
+                };
+            }
+
+            validateSlotForm(slotData) {
+                if (!slotData.name) {
+                    this.showNotification('Slot name is required', 'error');
+                    return false;
+                }
+
+                if (!slotData.startTime || !slotData.endTime) {
+                    this.showNotification('Start time and end time are required', 'error');
+                    return false;
+                }
+
+                // Validate time order
+                const [startHour, startMin] = slotData.startTime.split(':').map(Number);
+                const [endHour, endMin] = slotData.endTime.split(':').map(Number);
+                const startMinutes = startHour * 60 + startMin;
+                const endMinutes = endHour * 60 + endMin;
+
+                if (startMinutes >= endMinutes) {
+                    this.showNotification('Start time must be before end time', 'error');
+                    return false;
+                }
+
+                if (slotData.daysOfWeek.length === 0) {
+                    this.showNotification('Please select at least one day of the week', 'error');
+                    return false;
+                }
+
+                return true;
+            }
+
+            async deleteSlot(slotId) {
+                if (!confirm('Are you sure you want to delete this shift slot? This action cannot be undone.')) {
+                    return;
+                }
+
+                try {
+                    this.showLoading(true);
+                    this.log('Deleting slot:', slotId);
+                    
+                    const result = await this.callServerFunction('clientDeleteShiftSlot', slotId);
+
+                    if (result && result.success) {
+                        this.showNotification('Slot deleted successfully!', 'success');
+                        await this.loadSlots();
+                    } else {
+                        throw new Error(result?.error || 'Failed to delete slot');
+                    }
+                } catch (error) {
+                    console.error('Error deleting slot:', error);
+                    this.log('Error deleting slot:', error.message);
+                    this.showNotification('Error deleting slot: ' + error.message, 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            async initializeSampleData() {
+                try {
+                    this.showLoading(true);
+                    this.log('Initializing sample data...');
+                    
+                    const result = await this.callServerFunction('clientInitializeSampleData');
+                    this.log('Sample data result:', result);
+
+                    if (result && result.success) {
+                        this.showNotification(result.message || 'Sample data created successfully!', 'success');
+                        await this.loadSlots();
+                    } else {
+                        throw new Error(result?.error || 'Failed to create sample data');
+                    }
+                } catch (error) {
+                    console.error('Error creating sample data:', error);
+                    this.log('Error creating sample data:', error.message);
+                    this.showNotification('Error creating sample data: ' + error.message, 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            toggleDebug() {
+                this.debugMode = !this.debugMode;
+                const debugCard = document.getElementById('debugCard');
+                debugCard.style.display = this.debugMode ? 'block' : 'none';
+                
+                if (this.debugMode) {
+                    this.log('Debug mode enabled');
+                } else {
+                    document.getElementById('debugInfo').textContent = '';
+                }
+            }
+
+            async callServerFunction(functionName, ...params) {
+                return new Promise((resolve, reject) => {
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        this.log(`Calling server function: ${functionName}`, params);
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(reject)
+                            [functionName](...params);
+                    } else {
+                        // Fallback for testing - simulate empty response
+                        this.log(`Testing mode - would call ${functionName}`, params);
+                        resolve({ 
+                            success: true, 
+                            slots: [],
+                            message: 'Running in test mode - no real data available'
+                        });
+                    }
+                });
+            }
+
+            showLoading(show) {
+                const overlay = document.getElementById('loadingOverlay');
+                overlay.classList.toggle('d-none', !show);
+            }
+
+            showNotification(message, type = 'info') {
+                const alertClass = type === 'error' ? 'alert-danger-enhanced' : 
+                                 type === 'success' ? 'alert-success-enhanced' : 
+                                 'alert-info-enhanced';
+                
+                const notification = document.createElement('div');
+                notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+                notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 350px; max-width: 500px;';
+                notification.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+                        <div class="flex-grow-1">${message}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        const bsAlert = new bootstrap.Alert(notification);
+                        bsAlert.close();
+                    }
+                }, 5000);
+            }
+
+            // Enhanced Time Formatting Functions
+            formatTime(timeStr) {
+                if (!timeStr) return 'N/A';
+                
+                try {
+                    // Handle various time formats
+                    if (timeStr.includes(':')) {
+                        const [hours, minutes] = timeStr.split(':');
+                        const hour = parseInt(hours);
+                        const min = parseInt(minutes) || 0;
+                        
+                        // Convert to 12-hour format with AM/PM
+                        if (hour === 0) {
+                            return `12:${min.toString().padStart(2, '0')} AM`;
+                        } else if (hour < 12) {
+                            return `${hour}:${min.toString().padStart(2, '0')} AM`;
+                        } else if (hour === 12) {
+                            return `12:${min.toString().padStart(2, '0')} PM`;
+                        } else {
+                            return `${hour - 12}:${min.toString().padStart(2, '0')} PM`;
+                        }
+                    }
+                    
+                    // Handle numeric time (like 800 for 8:00)
+                    if (!isNaN(timeStr)) {
+                        const numTime = parseInt(timeStr);
+                        if (numTime >= 0 && numTime <= 2359) {
+                            const hours = Math.floor(numTime / 100);
+                            const minutes = numTime % 100;
+                            return this.formatTime(`${hours}:${minutes}`);
+                        }
+                    }
+                    
+                    return timeStr;
+                } catch (error) {
+                    console.warn('Error formatting time:', timeStr, error);
+                    return timeStr;
+                }
+            }
+
+            formatTimeRange(startTime, endTime) {
+                if (!startTime && !endTime) return 'Time not set';
+                if (!startTime) return `Until ${this.formatTime(endTime)}`;
+                if (!endTime) return `From ${this.formatTime(startTime)}`;
+                
+                const formattedStart = this.formatTime(startTime);
+                const formattedEnd = this.formatTime(endTime);
+                return `${formattedStart} - ${formattedEnd}`;
+            }
+
+            // Utility function to normalize time for HTML time input
+            normalizeForTimeInput(timeValue) {
+                if (!timeValue) return '';
+                
+                try {
+                    // If it's already in HH:MM format, normalize it
+                    if (typeof timeValue === 'string' && timeValue.includes(':')) {
+                        const [hours, minutes] = timeValue.split(':');
+                        const hour = parseInt(hours);
+                        const min = parseInt(minutes) || 0;
+                        
+                        if (hour >= 0 && hour <= 23 && min >= 0 && min <= 59) {
+                            return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+                        }
+                    }
+                    
+                    // Handle numeric format (e.g., 800 = 8:00, 1330 = 13:30)
+                    if (!isNaN(timeValue)) {
+                        const numTime = parseInt(timeValue);
+                        if (numTime >= 0 && numTime <= 2359) {
+                            const hours = Math.floor(numTime / 100);
+                            const minutes = numTime % 100;
+                            if (hours <= 23 && minutes <= 59) {
+                                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                            }
+                        }
+                    }
+                    
+                    return timeValue;
+                } catch (error) {
+                    console.warn('Error normalizing time for input:', timeValue, error);
+                    return timeValue;
+                }
+            }
+
+            // Calculate duration between two times
+            calculateDuration(startTime, endTime) {
+                if (!startTime || !endTime) return 'N/A';
+                
+                try {
+                    const parseTime = (timeStr) => {
+                        if (timeStr.includes(':')) {
+                            const [hours, minutes] = timeStr.split(':').map(Number);
+                            return hours * 60 + minutes;
+                        }
+                        return 0;
+                    };
+                    
+                    const startMinutes = parseTime(startTime);
+                    const endMinutes = parseTime(endTime);
+                    
+                    if (endMinutes <= startMinutes) return 'Invalid range';
+                    
+                    const durationMinutes = endMinutes - startMinutes;
+                    const hours = Math.floor(durationMinutes / 60);
+                    const minutes = durationMinutes % 60;
+                    
+                    if (hours === 0) {
+                        return `${minutes} min`;
+                    } else if (minutes === 0) {
+                        return `${hours} hr`;
+                    } else {
+                        return `${hours}h ${minutes}m`;
+                    }
+                } catch (error) {
+                    console.warn('Error calculating duration:', error);
+                    return 'N/A';
+                }
+            }
+        }
+
+        // Global functions for button clicks
+        window.showCreateSlotModal = () => slotManager.showCreateSlotModal();
+        window.saveSlot = () => slotManager.saveSlot();
+        window.loadSlots = () => slotManager.loadSlots();
+        window.initializeSampleData = () => slotManager.initializeSampleData();
+        window.toggleDebug = () => slotManager.toggleDebug();
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.slotManager = new SlotManager();
+        });
+    </script>
+</body>
+</html>

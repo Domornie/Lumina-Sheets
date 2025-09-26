@@ -1,0 +1,1280 @@
+    <!-- CoachingForm.html -->
+    <?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Context bootstrap for inline data from server -->
+    <script>
+        // Expose minimal context to the page (safe to print since it's server-rendered)
+        window.APP_CONTEXT = {
+            user: <?!=
+        JSON.stringify(user || null) ?
+        >,
+        baseUrl: <?!=
+        JSON.stringify(baseUrl || "") ?
+        >
+        }
+        ;
+    </script>
+
+    <!-- Quill CSS & FontAwesome -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --primary-dark: #1a73e8;
+            --primary-light: #a5b4fc;
+            --accent: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --success: #22c55e;
+            --surface: #ffffff;
+            --surface-variant: #f8f9fa;
+            --surface-elevated: #ffffff;
+            --outline: #dadce0;
+            --outline-variant: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px rgba(0, 0, 0, .06);
+            --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 4px 6px -4px rgba(0, 0, 0, .1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 /.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 /.1), 0 4px 6px -4px rgb(0 0 0 /.1);
+            --border-radius: 12px;
+            --border-radius-sm: 8px;
+            --spacing: 1.5rem;
+            --transition-fast: .2s
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        /* Page Header */
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            padding: 2.5rem 2rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255, 255, 255, .1) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(50px, -50px)
+        }
+
+        .page-header h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: .5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem
+        }
+
+        .page-header p {
+            font-size: 1.1rem;
+            opacity: .9;
+            margin: 0
+        }
+
+        .page-header i {
+            font-size: 2.5rem;
+            opacity: .9
+        }
+
+        /* Sections */
+        .section {
+            background: var(--surface-elevated);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--spacing);
+            padding: 0;
+            border: 1px solid var(--outline);
+            transition: all .3s cubic-bezier(.4, 0, .2, 1);
+            position: relative;
+            overflow: hidden
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent) 100%);
+            transform: scaleX(0);
+            transition: transform .3s ease
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg)
+        }
+
+        .section:hover::before {
+            transform: scaleX(1)
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--outline);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            position: relative
+        }
+
+        .section-header i {
+            color: var(--primary-color);
+            font-size: 1.5rem
+        }
+
+        .section-content {
+            padding: 2rem
+        }
+
+        /* Form */
+        .form-row {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing);
+            margin-bottom: var(--spacing)
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+            position: relative
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #374151;
+            font-size: .875rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: .5rem
+        }
+
+        .form-group input, .form-group select {
+            padding: .75rem 1rem;
+            border: 2px solid var(--outline);
+            border-radius: var(--border-radius-sm);
+            font-size: .875rem;
+            background: var(--surface);
+            transition: all .2s ease;
+            font-family: inherit
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, .1)
+        }
+
+        .form-group input[readonly] {
+            background: var(--surface-variant);
+            color: #64748b;
+            cursor: not-allowed
+        }
+
+        .help-text {
+            font-size: .75rem;
+            color: #64748b
+        }
+
+        /* QA selection enhanced */
+        .qa-meta {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem
+        }
+
+        .meta-chip {
+            background: #f1f5f9;
+            border: 1px solid var(--outline);
+            border-radius: 999px;
+            padding: .5rem .75rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .8rem
+        }
+
+        .meta-chip i {
+            color: #475569
+        }
+
+        /* Search input */
+        .search-row {
+            display: grid;
+            grid-template-columns:1fr auto;
+            gap: .75rem;
+            margin-top: .5rem
+        }
+
+        .search-row input {
+            width: 100%
+        }
+
+        /* Topics UI */
+        .topics-ui {
+            background: var(--surface-variant);
+            border-radius: var(--border-radius-sm);
+            padding: 1.5rem;
+            margin-top: 1rem
+        }
+
+        .topics-header {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1.5rem
+        }
+
+        .topics-header h4 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 1.125rem;
+            font-weight: 600
+        }
+
+        .topics-header i {
+            color: var(--primary-color);
+            font-size: 1.25rem
+        }
+
+        .topic-input-grid {
+            display: grid;
+            grid-template-columns:1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem
+        }
+
+        .topic-input-row {
+            display: grid;
+            grid-template-columns:1fr auto;
+            gap: 1rem;
+            align-items: end
+        }
+
+        /* Quill */
+        .quill-wrapper {
+            border-radius: var(--border-radius-sm);
+            overflow: hidden;
+            border: 2px solid var(--outline);
+            transition: border-color .2s ease
+        }
+
+        .quill-wrapper:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, .1)
+        }
+
+        .ql-toolbar.ql-snow {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: none;
+            border-bottom: 1px solid var(--outline);
+            padding: .75rem
+        }
+
+        .ql-container.ql-snow {
+            border: none;
+            font-family: inherit
+        }
+
+        .ql-editor {
+            padding: 1rem;
+            min-height: 120px;
+            font-size: .875rem;
+            line-height: 1.6
+        }
+
+        .ql-editor.ql-blank::before {
+            color: #9ca3af;
+            font-style: normal
+        }
+
+        /* Topic pills */
+        .topics-list {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .75rem
+        }
+
+        .topic-pill {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            padding: .75rem 1rem;
+            border-radius: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: .75rem;
+            box-shadow: var(--shadow);
+            transition: all .3s cubic-bezier(.4, 0, .2, 1);
+            max-width: 360px
+        }
+
+        .topic-pill:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg)
+        }
+
+        .topic-content {
+            display: flex;
+            flex-direction: column;
+            gap: .25rem;
+            min-width: 0
+        }
+
+        .topic-name {
+            font-weight: 600;
+            font-size: .875rem;
+            line-height: 1.4
+        }
+
+        .topic-detail {
+            font-size: .75rem;
+            opacity: .9;
+            line-height: 1.3;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical
+        }
+
+        .topic-remove {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            opacity: .8;
+            transition: all .2s;
+            padding: .25rem;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0
+        }
+
+        .topic-remove:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, .2);
+            transform: scale(1.1)
+        }
+
+        /* Buttons */
+        .modern-btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            padding: .75rem 1.5rem;
+            font-weight: 600;
+            font-size: .875rem;
+            cursor: pointer;
+            transition: all .3s cubic-bezier(.4, 0, .2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            box-shadow: var(--shadow);
+            text-decoration: none
+        }
+
+        .modern-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            color: #fff
+        }
+
+        .modern-btn.btn-success {
+            background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%)
+        }
+
+        .modern-btn.btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%)
+        }
+
+        .modern-btn.btn-secondary {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%)
+        }
+
+        .modern-btn i {
+            font-size: 1rem
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--outline)
+        }
+
+        .button-right {
+            display: flex;
+            gap: 1rem
+        }
+
+        /* Inline validation */
+        .error-text {
+            color: #dc2626;
+            font-size: .75rem;
+            display: none
+        }
+
+        .has-error input, .has-error select {
+            border-color: #dc2626
+        }
+
+        .has-error .error-text {
+            display: block
+        }
+
+        /* Loader */
+        #loaderOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, .95);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px)
+        }
+
+        .loading-content {
+            text-align: center;
+            color: #64748b
+        }
+
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border: 3px solid var(--outline);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            font-weight: 500
+        }
+
+        /* Toasts */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+            color: #fff;
+            padding: 1rem 1.5rem;
+            border-radius: var(--border-radius-sm);
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all .3s cubic-bezier(.4, 0, .2, 1);
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            min-width: 300px;
+            z-index: 1050
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0)
+        }
+
+        .toast i {
+            font-size: 1.25rem
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%)
+        }
+
+        /* Empty state */
+        .empty-topics {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b
+        }
+
+        .empty-topics i {
+            font-size: 3rem;
+            color: var(--outline);
+            margin-bottom: 1rem
+        }
+
+        .empty-topics h4 {
+            margin: 0 0 .5rem 0;
+            font-size: 1.125rem;
+            color: #374151
+        }
+
+        .empty-topics p {
+            margin: 0;
+            font-size: .875rem
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #maincontent {
+                padding: 1rem
+            }
+
+            .page-header {
+                padding: 2rem 1.5rem
+            }
+
+            .page-header h1 {
+                font-size: 1.75rem;
+                flex-direction: column;
+                text-align: center;
+                gap: .5rem
+            }
+
+            .section-content {
+                padding: 1.5rem
+            }
+
+            .form-row {
+                grid-template-columns:1fr;
+                gap: 1rem
+            }
+
+            .topic-input-row {
+                grid-template-columns:1fr;
+                gap: 1rem
+            }
+
+            .topics-ui {
+                padding: 1rem
+            }
+
+            .topic-pill {
+                max-width: 100%
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: stretch
+            }
+
+            .modern-btn {
+                justify-content: center
+            }
+
+            .toast {
+                right: 1rem;
+                left: 1rem;
+                bottom: 1rem
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-header {
+                padding: 1.5rem
+            }
+
+            .section-header {
+                padding: 1rem 1.5rem;
+                font-size: 1.125rem
+            }
+
+            .section-content {
+                padding: 1rem
+            }
+
+            .ql-editor {
+                min-height: 100px
+            }
+        }
+
+        /* Animations */
+        .animate-in {
+            animation: slideInUp .6s cubic-bezier(.4, 0, .2, 1) forwards
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px)
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn .4s ease forwards
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0
+            }
+            to {
+                opacity: 1
+            }
+        }
+    </style>
+
+        <!-- Header -->
+        <div class="page-header">
+            <h1><i class="fas fa-users-cog"></i> New Coaching Session</h1>
+            <p>Document coaching conversations, link to QA, track progress, and plan follow-up actions.</p>
+        </div>
+
+        <!-- Loader -->
+        <div id="loaderOverlay" role="alert" aria-live="assertive">
+            <div class="loading-content">
+                <div class="spinner-border" aria-hidden="true"></div>
+                <div class="loading-text">Saving coaching session...</div>
+            </div>
+        </div>
+
+        <form id="coachingForm" novalidate>
+            <!-- Session Details -->
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-info-circle"></i> Session Details
+                </div>
+                <div class="section-content">
+                    <!-- QA Quick Filter -->
+                    <div class="search-row">
+                        <input id="qaSearch" type="search"
+                               placeholder="Filter QA by agent name or date (e.g., 2025-08)…"
+                               aria-label="Filter QA records">
+                        <button type="button" id="qaClearFilter" class="modern-btn btn-secondary" title="Clear filter">
+                            <i class="fas fa-filter-circle-xmark"></i> Clear
+                        </button>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" id="grpQaItem">
+                            <label for="qaItem">QA Record <span class="help-text">Required</span></label>
+                            <select id="qaItem" name="qaItem" aria-describedby="qaItemHelp">
+                                <option>Loading QA records...</option>
+                            </select>
+                            <div class="error-text" id="qaItemError">QA Record is required.</div>
+                            <div class="help-text" id="qaItemHelp">Links this coaching to a QA assessment.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="employeeName">Employee Name</label>
+                            <input id="employeeName" name="employeeName" readonly placeholder="Select QA record first">
+                            <span class="help-text">Auto-filled from QA record.</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="coacheeEmail">Coachee Email</label>
+                            <input type="email" id="coacheeEmail" name="coacheeEmail" readonly
+                                   placeholder="Select QA record first">
+                        </div>
+
+                        <div class="form-group" id="grpCoachName">
+                            <label for="coachName">Coach Name <span class="help-text">Required</span></label>
+                            <input id="coachName" name="coachName" placeholder="Enter your name">
+                            <div class="error-text" id="coachNameError">Coach Name is required.</div>
+                        </div>
+
+                        <div class="form-group" id="grpCoachingDate">
+                            <label for="coachingDate">Session Date <span class="help-text">Required</span></label>
+                            <input type="date" id="coachingDate" name="coachingDate">
+                            <div class="error-text" id="coachingDateError">Session Date is required.</div>
+                        </div>
+                    </div>
+
+                    <!-- QA Meta -->
+                    <div id="qaMeta" class="qa-meta" style="display:none" aria-live="polite">
+                        <div class="meta-chip"><i class="fas fa-calendar-day"></i><span id="qaMetaDate">—</span></div>
+                        <div class="meta-chip"><i class="fas fa-percent"></i><span id="qaMetaPct">—</span></div>
+                        <div class="meta-chip"><i class="fas fa-user"></i><span id="qaMetaAgent">—</span></div>
+                        <div class="meta-chip"><i class="fas fa-envelope"></i><span id="qaMetaEmail">—</span></div>
+                    </div>
+
+                    <!-- Optional post-save notify -->
+                    <div class="form-row" style="margin-top:.25rem">
+                        <div class="form-group">
+                            <label><input type="checkbox" id="chkNotify" style="margin-right:.5rem"> Send
+                                acknowledgement email to coachee after save</label>
+                            <span class="help-text">Sends a styled email with an acknowledgement link.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Topics to Cover -->
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-list-check"></i> Topics to Cover
+                </div>
+                <div class="section-content">
+                    <div class="topics-ui">
+                        <div class="topics-header">
+                            <i class="fas fa-plus-circle"></i>
+                            <h4>Add Discussion Topics</h4>
+                        </div>
+
+                        <!-- Quick picks -->
+                        <div class="form-row" style="margin-top:-.5rem">
+                            <div class="form-group">
+                                <label>Quick Picks</label>
+                                <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+                                    <button type="button" class="modern-btn btn-secondary" data-qp="Greeting & Tone">
+                                        Greeting &amp; Tone
+                                    </button>
+                                    <button type="button" class="modern-btn btn-secondary" data-qp="Needs Discovery">
+                                        Needs Discovery
+                                    </button>
+                                    <button type="button" class="modern-btn btn-secondary"
+                                            data-qp="Appointment Setting">Appointment Setting
+                                    </button>
+                                    <button type="button" class="modern-btn btn-secondary"
+                                            data-qp="Compliance / Accuracy">Compliance / Accuracy
+                                    </button>
+                                    <button type="button" class="modern-btn btn-secondary" data-qp="Objection Handling">
+                                        Objection Handling
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="topic-input-grid">
+                            <div class="form-group" id="grpTopicName">
+                                <label for="topicNameInput">Topic Name</label>
+                                <input type="text" id="topicNameInput" placeholder="Enter topic name…">
+                                <div class="error-text" id="topicNameError">Topic name is required.</div>
+                            </div>
+
+                            <div class="form-group" id="grpTopicDetail">
+                                <label for="quillEditorTopicDetail">Brief Detail</label>
+                                <div class="quill-wrapper">
+                                    <div id="quillEditorTopicDetail"></div>
+                                </div>
+                                <div class="error-text" id="topicDetailError">Please provide topic details.</div>
+                            </div>
+
+                            <div class="topic-input-row">
+                                <div></div>
+                                <button type="button" id="addTopicBtn" class="modern-btn">
+                                    <i class="fas fa-plus"></i> Add Topic
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="topicsContainer">
+                            <ul id="topicsList" class="topics-list"></ul>
+                        </div>
+
+                        <input type="hidden" id="topicsPlanned" name="topicsPlanned">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coaching Summary -->
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-file-alt"></i> Coaching Summary
+                </div>
+                <div class="section-content">
+                    <div class="form-group">
+                        <label for="quillEditorSummary">Session Summary</label>
+                        <div class="quill-wrapper">
+                            <div id="quillEditorSummary"></div>
+                        </div>
+                        <input type="hidden" id="summaryText" name="summaryText">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Plan -->
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-tasks"></i> Action Plan & Objectives
+                </div>
+                <div class="section-content">
+                    <div class="form-group">
+                        <label for="quillEditorPlan">Action Items & Goals</label>
+                        <div class="quill-wrapper">
+                            <div id="quillEditorPlan"></div>
+                        </div>
+                        <input type="hidden" id="planText" name="planText">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Follow-Up Planning -->
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-calendar-check"></i> Follow-Up Planning
+                </div>
+                <div class="section-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="followUpDate">Next Follow-Up Date</label>
+                            <input type="date" id="followUpDate" name="followUpDate">
+                            <span class="help-text">Optional. Cannot be before today.</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="followUpNotes">Follow-Up Notes</label>
+                            <div class="quill-wrapper">
+                                <div id="quillEditorFollowUpNotes"></div>
+                            </div>
+                            <input type="hidden" id="followUpNotesText" name="followUpNotes">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="button-group">
+                <div class="help-text" id="autosaveStatus" aria-live="polite">Draft saves locally every 10 seconds.
+                </div>
+                <div class="button-right">
+                    <button type="button" id="resetBtn" class="modern-btn btn-secondary"><i class="fas fa-undo"></i>
+                        Reset Form
+                    </button>
+                    <button type="submit" id="submitBtn" class="modern-btn btn-success"><i class="fas fa-save"></i> Save
+                        Coaching Session
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Toast -->
+        <div id="toast" class="toast" role="status" aria-live="assertive">
+            <i class="fas fa-check-circle" aria-hidden="true"></i>
+            <span id="toastMessage">Session saved successfully!</span>
+        </div>
+    </div>
+
+    <!-- Quill JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Helpers
+            const $ = id => document.getElementById(id);
+            const todayStr = () => new Date().toISOString().slice(0, 10);
+            const isEmptyHtml = (html) => !html || html === '<p><br></p>';
+            const stripHtml = (html) => (html || '').replace(/<[^>]*>/g, '').trim();
+            const pctFmt = (n) => {
+                const num = Number(n) || 0;
+                const val = num > 1 ? num : (num * 100);
+                return `${Math.round(val)}%`;
+            };
+
+            // Defaults
+            $('coachingDate').value = todayStr();
+            $('followUpDate').setAttribute('min', todayStr());
+            if (window.APP_CONTEXT?.user?.name) $('coachName').value = window.APP_CONTEXT.user.name;
+
+            // Quill toolbars
+            const toolbarOptions = [
+                [{header: [1, 2, 3, false]}],
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{list: 'ordered'}, {list: 'bullet'}],
+                [{indent: '-1'}, {indent: '+1'}],
+                [{color: []}, {background: []}],
+                [{align: []}],
+                ['link'],
+                ['clean']
+            ];
+
+            // Editors
+            const summaryQ = new Quill('#quillEditorSummary', {
+                theme: 'snow',
+                placeholder: 'Summarize the key points discussed…',
+                modules: {toolbar: toolbarOptions}
+            });
+            const planQ = new Quill('#quillEditorPlan', {
+                theme: 'snow',
+                placeholder: 'Outline specific action items, goals, and objectives…',
+                modules: {toolbar: toolbarOptions}
+            });
+            const topicQ = new Quill('#quillEditorTopicDetail', {
+                theme: 'snow',
+                placeholder: 'Provide context or examples for this topic…',
+                modules: {toolbar: toolbarOptions}
+            });
+            const fupQ = new Quill('#quillEditorFollowUpNotes', {
+                theme: 'snow',
+                placeholder: 'Add notes for the follow-up session…',
+                modules: {toolbar: toolbarOptions}
+            });
+
+            // QA items
+            let qaItems = [];
+            const qaSelect = $('qaItem');
+            qaSelect.innerHTML = '<option>Loading QA records...</option>';
+            qaSelect.disabled = true;
+
+            const renderQAOptions = (items) => {
+                qaSelect.disabled = false;
+                qaSelect.innerHTML = '<option value="">— Select QA Record —</option>';
+                if (!items || items.length === 0) {
+                    qaSelect.innerHTML = '<option value="">No QA records available</option>';
+                    qaSelect.disabled = true;
+                    return;
+                }
+                items.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.textContent = `${item.date} • ${pctFmt(item.percentage)} • ${item.agentName}`;
+                    qaSelect.appendChild(opt);
+                });
+            };
+
+            google.script.run
+                .withSuccessHandler(items => {
+                    qaItems = Array.isArray(items) ? items : [];
+                    renderQAOptions(qaItems);
+                })
+                .withFailureHandler(error => {
+                    qaSelect.innerHTML = '<option value="">Error loading QA records</option>';
+                    qaSelect.disabled = true;
+                    console.error('Failed to load QA items:', error);
+                })
+                .getQAItems();
+
+            // QA filter
+            $('qaSearch').addEventListener('input', (e) => {
+                const q = e.target.value.trim().toLowerCase();
+                if (!q) return renderQAOptions(qaItems);
+                const filtered = qaItems.filter(i =>
+                    String(i.agentName || '').toLowerCase().includes(q) ||
+                    String(i.date || '').toLowerCase().includes(q)
+                );
+                renderQAOptions(filtered);
+            });
+            $('qaClearFilter').addEventListener('click', () => {
+                $('qaSearch').value = '';
+                renderQAOptions(qaItems);
+            });
+
+            // QA selection → autofill & meta
+            qaSelect.addEventListener('change', e => {
+                const selected = qaItems.find(i => i.id === e.target.value) || {};
+                $('employeeName').value = selected.agentName || '';
+                $('coacheeEmail').value = selected.agentEmail || '';
+                if (selected.id) {
+                    $('qaMetaDate').textContent = selected.date || '—';
+                    $('qaMetaPct').textContent = pctFmt(selected.percentage);
+                    $('qaMetaAgent').textContent = selected.agentName || '—';
+                    $('qaMetaEmail').textContent = selected.agentEmail || '—';
+                    $('qaMeta').style.display = 'grid';
+                } else {
+                    $('qaMeta').style.display = 'none';
+                }
+            });
+
+            // Topics management
+            const topicNameInput = $('topicNameInput');
+            const topicsHidden = $('topicsPlanned');
+            let topicsArray = [];
+
+            const renderTopics = () => {
+                const container = $('topicsContainer');
+                if (topicsArray.length === 0) {
+                    container.innerHTML = `
+        <div class="empty-topics">
+          <i class="fas fa-comments"></i>
+          <h4>No Topics Added Yet</h4>
+          <p>Add topics you plan to discuss during this coaching session</p>
+        </div>`;
+                } else {
+                    container.innerHTML = '<ul id="topicsList" class="topics-list"></ul>';
+                    const list = $('topicsList');
+                    topicsArray.forEach((topic, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'topic-pill fade-in';
+                        li.innerHTML = `
+          <div class="topic-content">
+            <div class="topic-name">${topic.name}</div>
+            <div class="topic-detail">${stripHtml(topic.detail)}</div>
+          </div>
+          <button class="topic-remove" data-index="${index}" title="Remove topic" aria-label="Remove ${topic.name}">
+            <i class="fas fa-times"></i>
+          </button>`;
+                        list.appendChild(li);
+                    });
+                    list.querySelectorAll('.topic-remove').forEach(btn => {
+                        btn.addEventListener('click', e => {
+                            const idx = parseInt(e.currentTarget.dataset.index, 10);
+                            topicsArray.splice(idx, 1);
+                            renderTopics();
+                            showToast('Topic removed', 'success', 1800);
+                        });
+                    });
+                }
+                topicsHidden.value = JSON.stringify(topicsArray);
+            };
+            renderTopics();
+
+            // Quick pick buttons
+            document.querySelectorAll('[data-qp]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const name = btn.getAttribute('data-qp');
+                    topicNameInput.value = name;
+                    topicQ.focus();
+                });
+            });
+
+            // Add topic
+            $('addTopicBtn').addEventListener('click', () => {
+                const name = topicNameInput.value.trim();
+                const detailHtml = topicQ.root.innerHTML.trim();
+                const hasError = (!name) || isEmptyHtml(detailHtml);
+
+                // inline validation state
+                document.getElementById('grpTopicName').classList.toggle('has-error', !name);
+                document.getElementById('grpTopicDetail').classList.toggle('has-error', isEmptyHtml(detailHtml));
+                $('topicNameError').style.display = name ? 'none' : 'block';
+                $('topicDetailError').style.display = !isEmptyHtml(detailHtml) ? 'none' : 'block';
+
+                if (hasError) {
+                    showToast('Please complete topic name and details', 'error');
+                    return;
+                }
+                topicsArray.push({name, detail: detailHtml});
+                topicNameInput.value = '';
+                topicQ.setContents([{insert: '\n'}]);
+                renderTopics();
+                showToast('Topic added', 'success', 1800);
+            });
+
+            // Toast utility
+            function showToast(message, type = 'success', ms = 4000) {
+                const toast = $('toast'), msg = $('toastMessage'), icon = toast.querySelector('i');
+                msg.textContent = message;
+                toast.className = `toast ${type}`;
+                icon.className = type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), ms);
+            }
+
+            // Validation helper
+            function validateForm() {
+                let ok = true;
+                const require = (id, groupId, errId) => {
+                    const val = $(id).value.trim();
+                    const good = !!val;
+                    $(groupId).classList.toggle('has-error', !good);
+                    $(errId).style.display = good ? 'none' : 'block';
+                    ok = ok && good;
+                };
+                require('qaItem', 'grpQaItem', 'qaItemError');
+                require('coachName', 'grpCoachName', 'coachNameError');
+                require('coachingDate', 'grpCoachingDate', 'coachingDateError');
+
+                // Soft validation: follow-up date not before today
+                const fup = $('followUpDate').value;
+                if (fup && fup < todayStr()) {
+                    $('followUpDate').value = todayStr();
+                    showToast('Follow-up date adjusted to today (cannot be in the past).', 'error', 2500);
+                }
+                return ok;
+            }
+
+            // Autosave (local)
+            const DRAFT_KEY = 'coaching_form_draft_v1';
+            const saveDraft = () => {
+                const draft = {
+                    qaId: $('qaItem').value,
+                    employeeName: $('employeeName').value,
+                    coacheeEmail: $('coacheeEmail').value,
+                    coachName: $('coachName').value,
+                    coachingDate: $('coachingDate').value,
+                    topics: topicsArray,
+                    summary: summaryQ.root.innerHTML,
+                    plan: planQ.root.innerHTML,
+                    followUpDate: $('followUpDate').value,
+                    followUpNotes: fupQ.root.innerHTML,
+                    notify: $('chkNotify').checked,
+                    ts: Date.now()
+                };
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                $('autosaveStatus').textContent = 'Draft saved locally just now.';
+            };
+            const loadDraft = () => {
+                try {
+                    const raw = localStorage.getItem(DRAFT_KEY);
+                    if (!raw) return;
+                    const d = JSON.parse(raw);
+                    if (d.qaId) $('qaItem').value = d.qaId;
+                    $('employeeName').value = d.employeeName || '';
+                    $('coacheeEmail').value = d.coacheeEmail || '';
+                    $('coachName').value = d.coachName || $('coachName').value;
+                    $('coachingDate').value = d.coachingDate || todayStr();
+                    topicsArray = Array.isArray(d.topics) ? d.topics : [];
+                    renderTopics();
+                    if (d.summary) summaryQ.root.innerHTML = d.summary;
+                    if (d.plan) planQ.root.innerHTML = d.plan;
+                    $('followUpDate').value = d.followUpDate || '';
+                    if (d.followUpNotes) fupQ.root.innerHTML = d.followUpNotes;
+                    $('chkNotify').checked = !!d.notify;
+                    $('autosaveStatus').textContent = 'Draft restored from local storage.';
+                } catch (e) {
+                    console.warn('Draft load failed', e);
+                }
+            };
+            loadDraft();
+            setInterval(saveDraft, 10000);
+
+            // Submit
+            let submitting = false;
+            $('coachingForm').addEventListener('submit', e => {
+                e.preventDefault();
+                if (submitting) return;
+                if (!validateForm()) {
+                    showToast('Please fix the highlighted fields.', 'error');
+                    return;
+                }
+                submitting = true;
+                $('submitBtn').disabled = true;
+                $('loaderOverlay').style.display = 'flex';
+
+                // Prepare payload
+                $('summaryText').value = summaryQ.root.innerHTML;
+                $('planText').value = planQ.root.innerHTML;
+                $('followUpNotesText').value = fupQ.root.innerHTML;
+
+                const sessionData = {
+                    qaId: $('qaItem').value,
+                    coachingDate: $('coachingDate').value,
+                    coachName: $('coachName').value,
+                    employeeName: $('employeeName').value,
+                    coacheeEmail: $('coacheeEmail').value,
+                    topicsPlanned: JSON.stringify(topicsArray),
+                    summary: $('summaryText').value,
+                    plan: $('planText').value,
+                    followUpDate: $('followUpDate').value,
+                    followUpNotes: $('followUpNotesText').value
+                };
+
+                // Save → optionally notify
+                google.script.run
+                    .withSuccessHandler(resp => {
+                        $('loaderOverlay').style.display = 'none';
+                        $('submitBtn').disabled = false;
+                        submitting = false;
+
+                        showToast(`Coaching session saved. ID: ${resp.id}`, 'success');
+                        localStorage.removeItem(DRAFT_KEY);
+
+                        const notify = $('chkNotify').checked;
+                        if (notify) {
+                            $('loaderOverlay').style.display = 'flex';
+                            $('.loading-text') ? $('.loading-text').textContent = 'Sending acknowledgement…' : null;
+                            google.script.run
+                                .withSuccessHandler(() => {
+                                    $('loaderOverlay').style.display = 'none';
+                                    showToast('Acknowledgement email sent to coachee.', 'success');
+                                    resetForm(true);
+                                })
+                                .withFailureHandler(err => {
+                                    $('loaderOverlay').style.display = 'none';
+                                    console.error('Notify error:', err);
+                                    showToast('Saved, but failed to send acknowledgement.', 'error');
+                                    resetForm(true);
+                                })
+                                .completeCoachingAndNotify(resp.id);
+                        } else {
+                            resetForm(true);
+                        }
+                    })
+                    .withFailureHandler(error => {
+                        $('loaderOverlay').style.display = 'none';
+                        $('submitBtn').disabled = false;
+                        submitting = false;
+                        console.error('Save error:', error);
+                        showToast(`Error saving session: ${error.message || error}`, 'error');
+                    })
+                    .saveCoachingSession(sessionData);
+            });
+
+            // Reset
+            function resetForm(keepCoach = false) {
+                $('coachingForm').reset();
+                topicsArray = [];
+                renderTopics();
+                summaryQ.setContents([{insert: '\n'}]);
+                planQ.setContents([{insert: '\n'}]);
+                topicQ.setContents([{insert: '\n'}]);
+                fupQ.setContents([{insert: '\n'}]);
+                $('coachingDate').value = todayStr();
+                $('followUpDate').value = '';
+                $('qaMeta').style.display = 'none';
+                if (keepCoach && window.APP_CONTEXT?.user?.name) $('coachName').value = window.APP_CONTEXT.user.name;
+                $('qaSearch').value = '';
+                renderQAOptions(qaItems);
+            }
+
+            $('resetBtn').addEventListener('click', () => {
+                if (confirm('Reset the form? All unsaved data will be lost.')) {
+                    resetForm();
+                    localStorage.removeItem(DRAFT_KEY);
+                    showToast('Form reset', 'success', 1800);
+                }
+            });
+
+            // Shortcuts
+            document.addEventListener('keydown', e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    $('coachingForm').dispatchEvent(new Event('submit'));
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+                    e.preventDefault();
+                    $('resetBtn').click();
+                }
+            });
+
+            console.log('🎯 Independence Coaching Form loaded');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1580 @@
+<!-- RoleManagement.html -->
+<?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+
+<style>
+    :root {
+        /* Enhanced color system */
+        --primary: #4f46e5;
+        --primary-dark: #3730a3;
+        --primary-light: #a5b4fc;
+        --secondary: #64748b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #06b6d4;
+        
+        /* Surface colors */
+        --surface: #ffffff;
+        --surface-variant: #f8fafc;
+        --surface-elevated: #ffffff;
+        --background: #f1f5f9;
+        
+        /* Text colors */
+        --on-surface: #0f172a;
+        --on-surface-variant: #475569;
+        --muted: #64748b;
+        
+        /* Border and outline */
+        --outline: #e2e8f0;
+        --outline-variant: #cbd5e1;
+        
+        /* Shadow system */
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        
+        /* Layout */
+        --card-radius: 16px;
+        --button-radius: 12px;
+        --input-radius: 10px;
+        
+        /* Z-index system */
+        --z-dropdown: 1000;
+        --z-sticky: 1020;
+        --z-fixed: 1030;
+        --z-modal-backdrop: 1040;
+        --z-modal: 1050;
+        --z-popover: 1060;
+        --z-tooltip: 1070;
+        --z-toast: 9999;
+        
+        /* Modal z-index overrides */
+        --bs-backdrop-zindex: var(--z-modal-backdrop);
+        --bs-modal-zindex: var(--z-modal);
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --surface: #1e293b;
+            --surface-variant: #334155;
+            --surface-elevated: #475569;
+            --background: #0f172a;
+            --on-surface: #f8fafc;
+            --on-surface-variant: #cbd5e1;
+            --outline: #475569;
+            --outline-variant: #64748b;
+        }
+    }
+
+    /* Animation system */
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* Utility classes */
+    .animate-in {
+        animation: slideUp 0.6s ease-out;
+    }
+
+    .fade-in {
+        animation: fadeIn 0.4s ease-out;
+    }
+
+    .scale-in {
+        animation: scaleIn 0.3s ease-out;
+    }
+
+    /* Modal stacking */
+    .modal-backdrop {
+        z-index: var(--bs-backdrop-zindex) !important;
+    }
+
+    .modal {
+        z-index: var(--bs-modal-zindex) !important;
+    }
+
+    /* Enhanced hero banner */
+    .feature-banner {
+        position: relative;
+        border-radius: 20px;
+        padding: 32px;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 50%, #312e81 100%);
+        box-shadow: var(--shadow-xl);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .feature-banner::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M 8 0 L 0 0 0 8" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+        opacity: 1;
+    }
+
+    .feature-banner::after {
+        content: "";
+        position: absolute;
+        right: -20%;
+        top: -40%;
+        width: 70%;
+        height: 160%;
+        background: radial-gradient(closest-side, rgba(167, 243, 208, 0.15), transparent 70%);
+        filter: blur(2px);
+    }
+
+    .banner-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 2rem;
+        align-items: center;
+    }
+
+    @media (max-width: 768px) {
+        .banner-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .feature-banner {
+            padding: 24px;
+        }
+    }
+
+    .banner-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        font-size: 2.5rem;
+        line-height: 1.1;
+        margin-bottom: 0.5rem;
+    }
+
+    .banner-title i {
+        font-size: 2.25rem;
+        opacity: 0.9;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    }
+
+    .banner-sub {
+        opacity: 0.9;
+        font-size: 1.125rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        line-height: 1.4;
+    }
+
+    .banner-time {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        opacity: 0.85;
+        font-weight: 600;
+        font-size: 0.9rem;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: fit-content;
+    }
+
+    .kpis {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    @media (max-width: 768px) {
+        .kpis {
+            justify-content: flex-start;
+        }
+    }
+
+    .kpi {
+        min-width: 160px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 1rem 1.25rem;
+        backdrop-filter: blur(20px);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .kpi::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .kpi:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .kpi:hover::before {
+        opacity: 1;
+    }
+
+    .kpi-label {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .kpi-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+    }
+
+    .banner-cta {
+        background: #ffffff;
+        color: var(--primary);
+        border: 0;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .banner-cta::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transform: translateX(-100%);
+        transition: transform 0.6s ease;
+    }
+
+    .banner-cta:hover {
+        background: #f8fafc;
+        color: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .banner-cta:hover::before {
+        transform: translateX(100%);
+    }
+
+    /* Enhanced data card */
+    .data-card {
+        border: 0;
+        border-radius: var(--card-radius);
+        box-shadow: var(--shadow-lg);
+        background: var(--surface-elevated);
+        overflow: hidden;
+        border: 1px solid var(--outline);
+        transition: all 0.3s ease;
+    }
+
+    .data-card:hover {
+        box-shadow: var(--shadow-xl);
+        transform: translateY(-2px);
+    }
+
+    .data-card .card-header {
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface-variant) 100%);
+        border-bottom: 1px solid var(--outline);
+        padding: 1.5rem;
+        position: relative;
+    }
+
+    .data-card .card-header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        opacity: 0.3;
+    }
+
+    .title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .title-accent {
+        width: 4px;
+        height: 40px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        position: relative;
+    }
+
+    .title-accent::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        filter: blur(4px);
+        opacity: 0.4;
+        z-index: -1;
+    }
+
+    /* Enhanced toolbar */
+    .table-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        background: var(--surface-variant);
+        border-bottom: 1px solid var(--outline);
+    }
+
+    .toolbar-left, .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    /* Enhanced search */
+    .search-wrap {
+        position: relative;
+        min-width: 280px;
+    }
+
+    .search-wrap input {
+        padding-left: 2.5rem !important;
+        border-radius: var(--input-radius);
+        border: 2px solid var(--outline);
+        background: var(--surface);
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+        height: 44px;
+    }
+
+    .search-wrap input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        outline: none;
+    }
+
+    .search-wrap i {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        font-size: 1rem;
+        z-index: 2;
+    }
+
+    /* Enhanced buttons */
+    .btn {
+        border-radius: var(--button-radius);
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border: 0;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, var(--primary-dark), #312e81);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+    }
+
+    .btn-outline-secondary {
+        border: 2px solid var(--outline);
+        color: var(--on-surface-variant);
+        background: var(--surface);
+    }
+
+    .btn-outline-secondary:hover,
+    .btn-outline-secondary.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    .btn-light {
+        background: var(--surface);
+        border: 1px solid var(--outline);
+        color: var(--on-surface-variant);
+    }
+
+    .btn-light:hover {
+        background: var(--surface-variant);
+        border-color: var(--outline-variant);
+        transform: translateY(-1px);
+    }
+
+    .btn-icon {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+    }
+
+    .density-toggle .btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+    }
+
+    /* Enhanced table */
+    .table-modern {
+        --row-hover: rgba(79, 70, 229, 0.04);
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-modern thead th {
+        position: sticky;
+        top: 0;
+        z-index: var(--z-sticky);
+        background: var(--surface);
+        border-bottom: 2px solid var(--outline);
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--on-surface-variant);
+        font-weight: 700;
+        padding: 1rem;
+        white-space: nowrap;
+    }
+
+    .table-modern tbody tr {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid var(--outline);
+    }
+
+    .table-modern tbody tr:hover {
+        background: var(--row-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .table-modern tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .table-modern td, .table-modern th {
+        vertical-align: middle;
+        padding: 1.25rem 1rem;
+    }
+
+    /* Enhanced chips */
+    .norm-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary-light), rgba(165, 180, 252, 0.8));
+        color: var(--primary-dark);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1);
+    }
+
+    .norm-chip i {
+        opacity: 0.8;
+    }
+
+    /* Enhanced date/time cells */
+    .dt-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        line-height: 1.3;
+        gap: 0.25rem;
+    }
+
+    .dt-main {
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--on-surface);
+        font-size: 0.9rem;
+    }
+
+    .dt-main i {
+        opacity: 0.6;
+        font-size: 0.8rem;
+    }
+
+    .dt-sub {
+        font-size: 0.75rem;
+        color: var(--muted);
+        font-weight: 500;
+    }
+
+    /* Density variations */
+    .dense .table-modern td {
+        padding: 0.75rem 1rem;
+    }
+
+    .comfy .table-modern td {
+        padding: 1.25rem 1rem;
+    }
+
+    /* Enhanced skeleton loader */
+    .skeleton {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(90deg, var(--surface-variant), var(--outline), var(--surface-variant));
+        border-radius: 8px;
+        height: 16px;
+        animation: pulse 2s infinite;
+    }
+
+    .skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+        animation: shimmer 1.8s infinite;
+    }
+
+    /* Sortable headers */
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    th.sortable:hover {
+        background: var(--surface-variant);
+        color: var(--primary);
+    }
+
+    th.sortable .sort-ind {
+        opacity: 0.4;
+        margin-left: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    th.sortable.active .sort-ind {
+        opacity: 1;
+        color: var(--primary);
+        transform: scale(1.1);
+    }
+
+    /* Enhanced pagination */
+    .table-pager {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        border-top: 1px solid var(--outline);
+        background: var(--surface-variant);
+    }
+
+    .pagination .page-link {
+        border: 2px solid var(--outline);
+        color: var(--on-surface-variant);
+        background: var(--surface);
+        margin: 0 2px;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .pagination .page-link:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        transform: translateY(-1px);
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    .pagination .page-link:focus {
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        outline: none;
+    }
+
+    /* Enhanced modals */
+    .modal-content {
+        border: 0;
+        border-radius: 20px;
+        box-shadow: var(--shadow-xl);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--surface), var(--surface-variant));
+        border-bottom: 1px solid var(--outline);
+        padding: 1.5rem 2rem;
+    }
+
+    .modal-title {
+        font-weight: 700;
+        color: var(--on-surface);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .modal-body {
+        padding: 2rem;
+    }
+
+    .modal-footer {
+        background: var(--surface-variant);
+        border-top: 1px solid var(--outline);
+        padding: 1.5rem 2rem;
+        gap: 0.75rem;
+    }
+
+    /* Enhanced form controls */
+    .form-control {
+        border: 2px solid var(--outline);
+        border-radius: var(--input-radius);
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        background: var(--surface);
+        color: var(--on-surface);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        outline: none;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--on-surface);
+        margin-bottom: 0.5rem;
+    }
+
+    .form-select {
+        border: 2px solid var(--outline);
+        border-radius: var(--input-radius);
+        background: var(--surface);
+        color: var(--on-surface);
+        transition: all 0.3s ease;
+    }
+
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        outline: none;
+    }
+
+    /* Enhanced notification badge */
+    #notifCount {
+        display: none;
+        font-size: 0.7rem;
+        background: linear-gradient(135deg, var(--danger), #dc2626);
+        border-radius: 12px;
+        padding: 0.25rem 0.5rem;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        animation: pulse 2s infinite;
+    }
+
+    /* Enhanced empty state */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: var(--muted);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .empty-state h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--on-surface-variant);
+    }
+
+    .empty-state p {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    /* Toast enhancements */
+    .toast {
+        border-radius: 12px;
+        border: 0;
+        box-shadow: var(--shadow-xl);
+        backdrop-filter: blur(20px);
+    }
+
+    /* Loading spinner enhancements */
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .search-wrap {
+            min-width: 240px;
+        }
+        
+        .toolbar-left, .toolbar-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .kpis {
+            gap: 0.75rem;
+        }
+        
+        .kpi {
+            min-width: 140px;
+            padding: 0.75rem 1rem;
+        }
+        
+        .table-toolbar {
+            padding: 1rem;
+        }
+        
+        .modal-header, .modal-body, .modal-footer {
+            padding: 1.5rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .banner-title {
+            font-size: 2rem;
+        }
+        
+        .table-responsive {
+            font-size: 0.9rem;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+        }
+    }
+
+    /* Accessibility improvements */
+    .btn:focus-visible,
+    .form-control:focus-visible,
+    .form-select:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+
+    /* Reduced motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+</style>
+
+<section class="feature-banner animate-in" id="rolesBanner">
+    <div class="banner-grid">
+        <div>
+            <div class="banner-title"><i class="fas fa-shield-alt"></i><span>Role Manager</span></div>
+            <div class="banner-sub">Define permissions and access across LuminaHQ with precision and control.</div>
+            <div class="banner-time"><i class="fa-regular fa-clock"></i><span id="bannerJamTime">—</span></div>
+        </div>
+        <div class="kpis">
+            <div class="kpi">
+                <div class="kpi-label">Total Roles</div>
+                <div class="kpi-value" id="bannerTotalRoles">—</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Last Sync</div>
+                <div class="kpi-value" id="bannerLastSync">—</div>
+            </div>
+            <button class="btn btn-sm banner-cta" id="bannerAddRole"><i class="fas fa-plus-circle me-1"></i> New Role
+            </button>
+        </div>
+    </div>
+</section>
+
+<div class="card data-card comfy scale-in" id="rolesCard">
+    <div class="card-header">
+        <div class="title-wrap">
+            <div class="title-accent"></div>
+            <div>
+                <div class="fw-bold fs-5">Manage Roles</div>
+                <small class="text-muted">Create, edit, and organize platform roles with granular permissions</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Toolbar -->
+    <div class="table-toolbar">
+        <div class="toolbar-left">
+            <div class="search-wrap">
+                <i class="fas fa-search"></i>
+                <input id="searchBox" type="search" class="form-control" placeholder="Search roles and permissions…"/>
+            </div>
+            <span class="text-muted fw-medium" id="resultCount"></span>
+        </div>
+        <div class="toolbar-right">
+            <div class="btn-group density-toggle" role="group" aria-label="Density">
+                <button class="btn btn-outline-secondary active" id="densityComfy" type="button">
+                    <i class="fas fa-expand-alt me-1"></i>Comfortable
+                </button>
+                <button class="btn btn-outline-secondary" id="densityDense" type="button">
+                    <i class="fas fa-compress-alt me-1"></i>Compact
+                </button>
+            </div>
+
+            <!-- Rows/page selector -->
+            <div class="d-flex align-items-center gap-2">
+                <label for="pageSizeSelect" class="text-muted small d-none d-md-inline fw-medium">Rows</label>
+                <select id="pageSizeSelect" class="form-select form-select-sm" style="width:auto">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+
+            <button class="btn btn-primary" id="btnNewRole">
+                <i class="fas fa-plus-circle me-2"></i> New Role
+            </button>
+        </div>
+    </div>
+
+    <div class="card-body pt-0">
+        <div class="table-responsive">
+            <table class="table table-modern table-hover align-middle" id="rolesTable">
+                <thead>
+                <tr>
+                    <th class="sortable" data-sort="name">Name <i class="fas fa-sort sort-ind"></i></th>
+                    <th>Normalized</th>
+                    <th class="sortable" data-sort="createdAt">Created <i class="fas fa-sort sort-ind"></i></th>
+                    <th class="sortable" data-sort="updatedAt">Updated <i class="fas fa-sort sort-ind"></i></th>
+                    <th class="text-end">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="rolesTableBody">
+                <!-- Enhanced skeleton loader -->
+                <tr>
+                    <td colspan="5">
+                        <div class="row g-3">
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 20px;"></div>
+                            </div>
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 20px;"></div>
+                            </div>
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 20px;"></div>
+                            </div>
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 20px;"></div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="5">
+                        <div class="row g-3">
+                            <div class="col-4">
+                                <div class="skeleton" style="height: 18px;"></div>
+                            </div>
+                            <div class="col-2">
+                                <div class="skeleton" style="height: 18px;"></div>
+                            </div>
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 18px;"></div>
+                            </div>
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 18px;"></div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Enhanced Pager -->
+        <div class="table-pager">
+            <small class="text-muted fw-medium" id="pagerInfo">—</small>
+            <nav aria-label="Roles pages">
+                <ul class="pagination pagination-sm mb-0" id="pager"></ul>
+            </nav>
+        </div>
+    </div>
+
+    <div class="px-3 pb-3 d-flex justify-content-between align-items-center">
+        <small class="text-muted fw-medium" id="footerMeta">—</small>
+        <div id="notifCount" class="badge">0</div>
+    </div>
+</div>
+
+<!-- Enhanced Add Role Modal -->
+<div class="modal fade" id="addRoleModal" tabindex="-1" aria-labelledby="addRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="addRoleForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addRoleModalLabel">
+                    <i class="fas fa-plus-circle"></i>Create New Role
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newRoleName" class="form-label">Role Name</label>
+                    <input type="text" id="newRoleName" class="form-control" placeholder="e.g., Content Manager, System Admin" required>
+                    <div class="form-text">Choose a descriptive name. The normalized identifier will be generated automatically.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-2 d-none" id="addSpin" role="status"
+                          aria-hidden="true"></span>
+                    <i class="fas fa-check me-1"></i>Create Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Enhanced Edit Role Modal -->
+<div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="editRoleForm" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editRoleModalLabel">
+                    <i class="fas fa-pen-to-square"></i>Edit Role
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editRoleId">
+                <div class="mb-3">
+                    <label for="editRoleName" class="form-label">Role Name</label>
+                    <input type="text" id="editRoleName" class="form-control" placeholder="e.g., Content Manager" required>
+                    <div class="form-text">Update the role name. The normalized identifier will be updated automatically.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="submit" id="editRoleSaveBtn" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-2 d-none" id="editRoleSpin" role="status"
+                          aria-hidden="true"></span>
+                    <i class="fas fa-save me-1"></i>Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // NOTE: Bootstrap 5.3.x is loaded by the header include.
+
+    // ---------------- Notif badge ----------------
+    function refreshNotifBadge() {
+        if (!(google && google.script && google.script.run)) return;
+        google.script.run
+            .withSuccessHandler(count => {
+                const el = document.getElementById('notifCount');
+                if (!el) return;
+                el.textContent = count;
+                el.style.display = count > 0 ? 'inline-block' : 'none';
+            })
+            .getTaskNotifications();
+    }
+
+    document.addEventListener('DOMContentLoaded', refreshNotifBadge);
+    setInterval(refreshNotifBadge, 10 * 60 * 1000);
+
+    // ---------------- Modal stacking: move modals to <body> on show ----------------
+    document.addEventListener('DOMContentLoaded', () => {
+        ['addRoleModal', 'editRoleModal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('show.bs.modal', (e) => {
+                if (e.target.parentElement !== document.body) {
+                    document.body.appendChild(e.target);
+                }
+            });
+        });
+    });
+
+    // ---------------- Banner (Jamaica) ----------------
+    const JAM_TZ = 'America/Jamaica';
+    document.addEventListener('DOMContentLoaded', bannerInit);
+
+    function bannerInit() {
+        const tEl = document.getElementById('bannerJamTime');
+        const tick = () => {
+            if (!tEl) return;
+            tEl.textContent = new Date().toLocaleString(undefined, {
+                timeZone: JAM_TZ, weekday: 'short', month: 'short', day: '2-digit', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true
+            });
+        };
+        tick();
+        setInterval(tick, 30_000);
+        const addBtn = document.getElementById('bannerAddRole');
+        if (addBtn) addBtn.addEventListener('click', () => {
+            document.getElementById('newRoleName').value = '';
+            (new bootstrap.Modal('#addRoleModal', {backdrop: 'static'})).show();
+        });
+    }
+
+    function updateBannerStats(total) {
+        const totalEl = document.getElementById('bannerTotalRoles');
+        const syncEl = document.getElementById('bannerLastSync');
+        if (totalEl) totalEl.textContent = String(total ?? '—');
+        if (syncEl) syncEl.textContent = new Date().toLocaleString(undefined, {
+            timeZone: JAM_TZ,
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    }
+
+    // ---------------- Date/time helpers ----------------
+    function toDate(value) {
+        if (!value && value !== 0) return null;
+        try {
+            return (value instanceof Date) ? value : (typeof value === 'number' ? new Date(value) : new Date(value));
+        } catch {
+            return null;
+        }
+    }
+
+    function fmtAbsolute(dt) {
+        return dt.toLocaleString(undefined, {
+            timeZone: JAM_TZ,
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    }
+
+    function fmtAbsoluteLong(dt) {
+        return dt.toLocaleString(undefined, {
+            timeZone: JAM_TZ,
+            weekday: 'short',
+            year: 'numeric',
+            month: 'long',
+            day: '2-digit',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    }
+
+    const rtf = new Intl.RelativeTimeFormat(undefined, {numeric: 'auto'});
+
+    function fmtRelative(dt) {
+        const nowJam = new Date(new Date().toLocaleString('en-US', {timeZone: JAM_TZ}));
+        const ms = dt - nowJam, abs = Math.abs(ms);
+        const units = [['year', 31536000000], ['month', 2592000000], ['week', 604800000], ['day', 86400000], ['hour', 3600000], ['minute', 60000], ['second', 1000]];
+        for (const [u, size] of units) {
+            if (abs >= size || u === 'second') return rtf.format(Math.round(ms / size), u);
+        }
+    }
+
+    function renderDateCell(value) {
+        const d = toDate(value);
+        if (!d || isNaN(d.getTime())) return '<span class="text-muted">—</span>';
+        const abs = fmtAbsolute(d), tip = fmtAbsoluteLong(d), rel = fmtRelative(d);
+        return `<div class="dt-cell" data-bs-toggle="tooltip" title="${escapeHtml(tip)}">
+      <span class="dt-main"><i class="fa-regular fa-clock"></i> ${escapeHtml(abs)}</span>
+      <span class="dt-sub">${escapeHtml(rel)}</span>
+    </div>`;
+    }
+
+    // ---------------- State ----------------
+    let rolesCache = [];
+    let sortState = {key: 'name', dir: 'asc'};
+
+    // Pagination
+    let page = 1;
+    let pageSize = Number(localStorage.getItem('rolesPageSize') || 10);
+
+    // ---------------- Load + render ----------------
+    document.addEventListener('DOMContentLoaded', () => {
+        wireToolbar();
+        wireAddModal();
+        wireEditModal();
+        loadRoles();
+    });
+
+    function loadRoles() {
+        setFooter('Loading roles…');
+        google.script.run
+            .withSuccessHandler(roles => {
+                rolesCache = Array.isArray(roles) ? roles : [];
+                page = 1; // start fresh
+                renderTable();
+                setFooter(`${rolesCache.length} role${rolesCache.length === 1 ? '' : 's'}`);
+                updateBannerStats(rolesCache.length);
+            })
+            .withFailureHandler(err => {
+                rolesCache = [];
+                renderTable();
+                setFooter('Failed to load roles');
+                showToast('Could not load roles.', 'danger');
+                console.error(err);
+            })
+            .getAllRoles();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('rolesTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        // 1) Filter
+        const q = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
+        let list = rolesCache.slice();
+        if (q) {
+            list = list.filter(r =>
+                (r.name || '').toLowerCase().includes(q) ||
+                (r.normalizedName || '').toLowerCase().includes(q)
+            );
+        }
+
+        // 2) Sort
+        list.sort((a, b) => {
+            const k = sortState.key;
+            if (k === 'createdAt' || k === 'updatedAt') {
+                const cmp = (new Date(a?.[k] ?? 0) - new Date(b?.[k] ?? 0));
+                return sortState.dir === 'asc' ? cmp : -cmp;
+            }
+            const cmp = String(a?.[k] ?? '').localeCompare(String(b?.[k] ?? ''), undefined, {sensitivity: 'base'});
+            return sortState.dir === 'asc' ? cmp : -cmp;
+        });
+
+        // 3) Paginate
+        const total = list.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        if (page > totalPages) page = totalPages;
+        if (page < 1) page = 1;
+        const start = (page - 1) * pageSize;
+        const end = Math.min(total, start + pageSize);
+        const pageSlice = list.slice(start, end);
+
+        // 4) Render rows
+        for (const r of pageSlice) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+        <td class="fw-bold">${escapeHtml(r.name || '')}</td>
+        <td><span class="norm-chip"><i class="fa-solid fa-code"></i>${escapeHtml((r.normalizedName || '').toUpperCase())}</span></td>
+        <td>${renderDateCell(r.createdAt)}</td>
+        <td>${renderDateCell(r.updatedAt)}</td>
+        <td class="text-end">
+          <button class="btn btn-light btn-icon me-2"
+                  onclick="openEditRoleModal('${escapeAttr(r.id)}','${escapeAttr(r.name)}')"
+                  data-bs-toggle="tooltip" title="Edit role">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-light btn-icon"
+                  onclick="deleteRole('${escapeAttr(r.id)}')"
+                  data-bs-toggle="tooltip" title="Delete role">
+            <i class="fas fa-trash text-danger"></i>
+          </button>
+        </td>
+      `;
+            tbody.appendChild(tr);
+        }
+
+        // 5) Result counter (range)
+        const rc = document.getElementById('resultCount');
+        rc.textContent = total
+            ? `${start + 1}–${end} of ${total}${q ? ' (filtered)' : ''}`
+            : (q ? '0 results' : '');
+
+        // 6) Build pager UI
+        buildPager(totalPages);
+
+        // 7) Tooltips + sort headers
+        if (window.bootstrap && bootstrap.Tooltip) {
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+        }
+        refreshSortHeaders();
+
+        // 8) Empty state
+        if (!total) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="5" class="empty-state">
+        <i class="fas fa-shield-alt"></i>
+        <h3>No roles found</h3>
+        <p>${q ? 'Try adjusting your search terms' : 'Create your first role to get started'}</p>
+      </td>`;
+            tbody.appendChild(tr);
+        }
+
+        // Pager info
+        const pi = document.getElementById('pagerInfo');
+        if (pi) pi.textContent = total ? `${start + 1}–${end} of ${total}` : '—';
+    }
+
+    // Pager UI
+    function buildPager(totalPages) {
+        const ul = document.getElementById('pager');
+        if (!ul) return;
+        ul.innerHTML = '';
+
+        const makeLi = (label, targetPage, disabled = false, active = false, aria = '') => {
+            const li = document.createElement('li');
+            li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+            li.innerHTML = `<button class="page-link" ${aria ? `aria-label="${aria}"` : ''}>${label}</button>`;
+            if (!disabled && !active) {
+                li.querySelector('.page-link').addEventListener('click', () => {
+                    page = targetPage;
+                    renderTable();
+                });
+            }
+            return li;
+        };
+
+        // Prev
+        ul.appendChild(makeLi('&laquo;', page - 1, page <= 1, false, 'Previous'));
+
+        // numeric range with ellipsis
+        for (const token of pageRange(totalPages, page)) {
+            if (token === '...') {
+                const li = document.createElement('li');
+                li.className = 'page-item disabled';
+                li.innerHTML = `<span class="page-link">…</span>`;
+                ul.appendChild(li);
+            } else {
+                ul.appendChild(makeLi(String(token), token, false, token === page, `Page ${token}`));
+            }
+        }
+
+        // Next
+        ul.appendChild(makeLi('&raquo;', page + 1, page >= totalPages, false, 'Next'));
+    }
+
+    // Returns an array like: [1, '…', 5,6,7, '…', total]
+    function pageRange(total, current) {
+        const delta = 1; // neighbor pages
+        const range = [];
+        const left = Math.max(2, current - delta);
+        const right = Math.min(total - 1, current + delta);
+
+        range.push(1);
+        if (left > 2) range.push('...');
+        for (let i = left; i <= right; i++) range.push(i);
+        if (right < total - 1) range.push('...');
+        if (total > 1) range.push(total);
+
+        const uniq = [];
+        for (const v of range) {
+            if (uniq[uniq.length - 1] !== v) uniq.push(v);
+        }
+        return uniq;
+    }
+
+    // ---------------- Toolbar wiring ----------------
+    function wireToolbar() {
+        const card = document.getElementById('rolesCard');
+
+        // Density
+        document.getElementById('densityComfy').addEventListener('click', () => {
+            card.classList.add('comfy');
+            card.classList.remove('dense');
+            document.getElementById('densityComfy').classList.add('active');
+            document.getElementById('densityDense').classList.remove('active');
+        });
+        document.getElementById('densityDense').addEventListener('click', () => {
+            card.classList.add('dense');
+            card.classList.remove('comfy');
+            document.getElementById('densityDense').classList.add('active');
+            document.getElementById('densityComfy').classList.remove('active');
+        });
+
+        // Search (debounced) — reset to page 1 when searching
+        const sb = document.getElementById('searchBox');
+        let t;
+        sb.addEventListener('input', () => {
+            clearTimeout(t);
+            t = setTimeout(() => {
+                page = 1;
+                renderTable();
+            }, 180);
+        });
+
+        // Sortable headers — reset to page 1 on sort change
+        document.querySelectorAll('#rolesTable thead th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const key = th.getAttribute('data-sort');
+                if (sortState.key === key) {
+                    sortState.dir = (sortState.dir === 'asc') ? 'desc' : 'asc';
+                } else {
+                    sortState.key = key;
+                    sortState.dir = 'asc';
+                }
+                page = 1;
+                renderTable();
+            });
+        });
+
+        // New role
+        document.getElementById('btnNewRole').addEventListener('click', () => {
+            document.getElementById('newRoleName').value = '';
+            (new bootstrap.Modal('#addRoleModal', {backdrop: 'static'})).show();
+        });
+
+        // Page size selector
+        const ps = document.getElementById('pageSizeSelect');
+        if (ps) {
+            ps.value = String(pageSize);
+            ps.addEventListener('change', () => {
+                pageSize = Number(ps.value) || 10;
+                localStorage.setItem('rolesPageSize', String(pageSize));
+                page = 1;
+                renderTable();
+            });
+        }
+    }
+
+    function refreshSortHeaders() {
+        document.querySelectorAll('#rolesTable thead th.sortable').forEach(th => {
+            const key = th.getAttribute('data-sort');
+            th.classList.toggle('active', key === sortState.key);
+            const ind = th.querySelector('.sort-ind');
+            if (ind) {
+                ind.className = `fas ${key === sortState.key ? (sortState.dir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'} sort-ind`;
+            }
+        });
+    }
+
+    // ---------------- Add Role modal ----------------
+    function wireAddModal() {
+        const form = document.getElementById('addRoleForm');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const btnSpin = document.getElementById('addSpin');
+            btnSpin.classList.remove('d-none');
+
+            const name = document.getElementById('newRoleName').value.trim();
+            if (!name) {
+                btnSpin.classList.add('d-none');
+                return;
+            }
+
+            google.script.run
+                .withSuccessHandler(() => {
+                    btnSpin.classList.add('d-none');
+                    bootstrap.Modal.getInstance(document.getElementById('addRoleModal'))?.hide();
+                    showToast('Role created successfully.', 'success');
+                    loadRoles();
+                })
+                .withFailureHandler(err => {
+                    btnSpin.classList.add('d-none');
+                    showToast('Failed to create role. ' + (err?.message || ''), 'danger');
+                })
+                .addRole(name);
+        });
+
+        document.getElementById('addRoleModal').addEventListener('hidden.bs.modal', () => {
+            form.reset();
+            document.getElementById('addSpin').classList.add('d-none');
+        });
+    }
+
+    // ---------------- Edit Role modal ----------------
+    let editRoleModal;
+
+    function openEditRoleModal(id, currentName) {
+        const modalEl = document.getElementById('editRoleModal');
+        if (!editRoleModal) editRoleModal = new bootstrap.Modal(modalEl, {backdrop: 'static'});
+
+        document.getElementById('editRoleId').value = id || '';
+        document.getElementById('editRoleName').value = currentName || '';
+
+        setEditSaving(false);
+        editRoleModal.show();
+        modalEl.addEventListener('shown.bs.modal', () => document.getElementById('editRoleName').focus(), {once: true});
+    }
+
+    function wireEditModal() {
+        const form = document.getElementById('editRoleForm');
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const id = document.getElementById('editRoleId').value.trim();
+            const name = document.getElementById('editRoleName').value.trim();
+            if (!id || !name) return;
+
+            setEditSaving(true);
+            google.script.run
+                .withSuccessHandler(() => {
+                    setEditSaving(false);
+                    editRoleModal?.hide();
+                    showToast('Role updated successfully.', 'success');
+                    loadRoles();
+                })
+                .withFailureHandler(err => {
+                    setEditSaving(false);
+                    showToast('Failed to update role. ' + (err?.message || ''), 'danger');
+                })
+                .updateRole(id, name);
+        });
+
+        document.getElementById('editRoleModal').addEventListener('hidden.bs.modal', () => {
+            form.reset();
+            setEditSaving(false);
+        });
+    }
+
+    function setEditSaving(isSaving) {
+        const btn = document.getElementById('editRoleSaveBtn');
+        const spin = document.getElementById('editRoleSpin');
+        if (btn) btn.disabled = !!isSaving;
+        if (spin) spin.classList.toggle('d-none', !isSaving);
+    }
+
+    // ---------------- Delete ----------------
+    function deleteRole(id) {
+        if (!confirm('Are you sure you want to delete this role? This action cannot be undone.')) return;
+        google.script.run
+            .withSuccessHandler(() => {
+                showToast('Role deleted successfully.', 'warning');
+                loadRoles();
+            })
+            .withFailureHandler(err => {
+                showToast('Failed to delete role. ' + (err?.message || ''), 'danger');
+            })
+            .deleteRole(id);
+    }
+
+    window.deleteRole = deleteRole;
+    window.openEditRoleModal = openEditRoleModal;
+
+    // ---------------- Helpers ----------------
+    function setFooter(text) {
+        const el = document.getElementById('footerMeta');
+        if (el) el.textContent = text;
+    }
+
+    function showToast(msg, type) {
+        const container = document.createElement('div');
+        container.className = 'position-fixed bottom-0 end-0 p-3';
+        container.style.zIndex = 'var(--z-toast)';
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.setAttribute('aria-atomic', 'true');
+        toastEl.innerHTML = `<div class="d-flex"><div class="toast-body fw-medium">${escapeHtml(msg)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        container.appendChild(toastEl);
+        document.body.appendChild(container);
+        new bootstrap.Toast(toastEl, {delay: 3000}).show();
+        toastEl.addEventListener('hidden.bs.toast', () => container.remove());
+    }
+
+    function escapeHtml(s = '') {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(s = '') {
+        return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+</script>
+</body>
+</html>

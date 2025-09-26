@@ -1,0 +1,3631 @@
+<!-- Quality Form -->
+<?!= include('header', {    
+      baseUrl: baseUrl,
+      currentPage: currentPage,
+      userList: userList,
+      granularity: granularity,
+      periodValue: periodValue,
+      selectedAgent: selectedAgent,
+      user: user,
+      campaignId: campaignId,
+      campaignName: campaignName
+    }) ?>
+    
+  <?  
+  // server-side templating:
+  // recordId   is a string ("" or your UUID)
+  // record     is a JSON string ( "{}" or '{"CallerName":"…",…}' )
+  const recObj = recordId ? JSON.parse(record) : {};  
+
+  // NEW: resolve a safe users array for this template
+  var __users = (typeof users !== 'undefined' && users && users.length)
+    ? users
+    : ((typeof userList !== 'undefined' && userList && userList.length)
+        ? userList
+        : []);
+?>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Quill CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<style>
+  :root {
+    /* Independence Insurance Brand Colors */
+    --navy-primary: #003177;
+    --cyan-accent: #00BFFF;
+    --gold-highlight: #FFB800;
+    --fire-red: #FF4000;
+
+    /* Modern UI Colors */
+    --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+    --info-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+    --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+    --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+
+    --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    --card-shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.15);
+    --border-radius-lg: 16px;
+    --border-radius-xl: 24px;
+    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --text-primary: var(--cyan-accent);
+    --text-secondary: var(--navy-primary);
+    --border-color: var(--navy-primary);
+  }
+
+  body {
+    background: var(--surface-gradient);
+    font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  /* Modern Page Header */
+  .modern-page-header {
+    background: var(--info-gradient);
+    border-radius: var(--border-radius-xl);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modern-page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+  }
+
+  .modern-page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .modern-page-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin: 0.5rem 0 0 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .live-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    font-size: 1rem;
+    position: relative;
+    z-index: 2;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+  }
+
+  .live-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+  }
+
+  .live-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse-live 2s infinite;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+    position: relative;
+  }
+
+  .live-indicator::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    animation: ripple 2s infinite;
+  }
+
+  .datetime-display {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .status-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-text i {
+    color: #10b981;
+    font-size: 1.1rem;
+  }
+
+  @keyframes pulse-live {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+    }
+
+    50% {
+      opacity: 0.7;
+      transform: scale(1.3);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.8);
+    }
+  }
+
+  @keyframes ripple {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.8s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .container-fluid {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  .row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+  }
+
+  .col-lg-8 {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .col-lg-4 {
+    width: 350px;
+    flex-shrink: 0;
+  }
+
+  /* Modern Section Cards */
+  .section {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--card-shadow);
+    margin-bottom: 2rem;
+    padding: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--info-gradient);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .section:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .section:hover::before {
+    transform: scaleX(1);
+  }
+
+  .section-header {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+  }
+
+  .section-header::before {
+    content: '';
+    width: 6px;
+    height: 30px;
+    background: var(--info-gradient);
+    border-radius: 3px;
+  }
+
+  /* PDF Configuration Section */
+  .pdf-config-section {
+    background: linear-gradient(135deg, rgba(0, 191, 255, 0.05) 0%, rgba(0, 191, 255, 0.02) 100%);
+    border: 2px solid rgba(0, 191, 255, 0.2);
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .pdf-config-header {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .pdf-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pdf-option-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pdf-option-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pdf-template-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .pdf-template-option {
+    position: relative;
+  }
+
+  .pdf-template-option input[type="radio"] {
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .pdf-template-option label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    background: white;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-height: 80px;
+  }
+
+  .pdf-template-option input[type="radio"]:checked+label {
+    border-color: var(--cyan-accent);
+    background: rgba(0, 191, 255, 0.05);
+    color: var(--cyan-accent);
+    transform: scale(1.02);
+  }
+
+  .pdf-template-option label i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .pdf-feature-toggles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .pdf-feature-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: white;
+    border: 2px solid #f1f5f9;
+    border-radius: 8px;
+    transition: var(--transition-smooth);
+    cursor: pointer;
+  }
+
+  .pdf-feature-toggle:hover {
+    border-color: var(--cyan-accent);
+    background: rgba(0, 191, 255, 0.02);
+  }
+
+  .pdf-feature-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .pdf-feature-toggle label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.9rem;
+  }
+
+  .pdf-theme-selector select {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    color: var(--text-secondary);
+    width: 100%;
+  }
+
+  /* Form Layout */
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 0.875rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    transition: var(--transition-smooth);
+    background: white;
+    color: var(--text-primary);
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--cyan-accent);
+    box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+    outline: none;
+    transform: translateY(-2px);
+  }
+
+  .form-group input[readonly] {
+    background: #f8fafc;
+    color: var(--text-secondary);
+  }
+
+  .campaign-badge-con {
+    display: inline-block;
+    background: var(--warning-gradient);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Audio Upload */
+  .audio-upload-group {
+    grid-column: span 2;
+  }
+
+  .audio-upload-container {
+    position: relative;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    background: #f8fafc;
+    transition: var(--transition-smooth);
+    cursor: pointer;
+  }
+
+  .audio-upload-container:hover {
+    border-color: var(--cyan-accent);
+    background: rgba(0, 191, 255, 0.02);
+  }
+
+  .audio-upload-container.has-file {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.05);
+    border-style: solid;
+  }
+
+  .audio-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    pointer-events: none;
+  }
+
+  .audio-upload-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+  }
+
+  .audio-upload-display i {
+    font-size: 2rem;
+    color: var(--cyan-accent);
+  }
+
+  .audio-text {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 1rem;
+  }
+
+  .audio-info {
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+
+  /* Category Headers */
+  .category-header-con {
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 2rem 0 1rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+  }
+
+  .category-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .category-header-con i {
+    font-size: 1.5rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+  }
+
+  .category-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .category-title {
+    font-size: 1.25rem;
+  }
+
+  .category-description {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .category-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .category-points {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .category-header-con.courtesy {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  }
+
+  .category-header-con.resolution {
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  }
+
+  .category-header-con.documentation {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  }
+
+  .category-header-con.process {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+
+  /* Question rows */
+  .question-row {
+    display: grid;
+    grid-template-columns: 3fr auto 1fr 2fr;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 1.5rem;
+    border: 2px solid #f1f5f9;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    transition: var(--transition-smooth);
+    background: white;
+    position: relative;
+  }
+
+  .question-row:hover {
+    border-color: var(--cyan-accent);
+    box-shadow: 0 4px 20px rgba(0, 191, 255, 0.1);
+  }
+
+  .question-text {
+    font-weight: 500;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .question-row.critical {
+    border-color: var(--fire-red);
+    background: rgba(255, 64, 0, 0.02);
+  }
+
+  .question-row.critical::before {
+    content: '⚠️ AUTO FAIL';
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: var(--fire-red);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: pulse-critical 2s infinite;
+  }
+
+  .question-row.penalty-50 {
+    border-color: var(--gold-highlight);
+    background: rgba(255, 184, 0, 0.02);
+  }
+
+  .question-row.penalty-50::before {
+    content: '⚡ 50% PENALTY';
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: var(--gold-highlight);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: pulse-warning 2s infinite;
+  }
+
+  .question-row.reverse-penalty {
+    border-color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.02);
+  }
+
+  .question-row.reverse-penalty::before {
+    content: '🔄 YES = -50%';
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: #8b5cf6;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: pulse-reverse 2s infinite;
+  }
+
+  .question-text.critical {
+    color: var(--fire-red);
+    font-weight: 600;
+  }
+
+  .question-text.penalty {
+    color: var(--gold-highlight);
+    font-weight: 600;
+  }
+
+  .question-text.reverse-penalty {
+    color: #8b5cf6;
+    font-weight: 600;
+  }
+
+  .max-points {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    background: var(--info-gradient);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .max-points.critical {
+    background: var(--danger-gradient);
+  }
+
+  .max-points.penalty {
+    background: var(--warning-gradient);
+  }
+
+  .max-points.reverse {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  }
+
+  .points-selector {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .points-option {
+    position: relative;
+  }
+
+  .points-option input[type="radio"] {
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .points-option label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.7rem;
+    transition: var(--transition-smooth);
+    cursor: pointer;
+    background: white;
+    color: var(--text-secondary);
+  }
+
+  .points-option input[type="radio"]:checked+label {
+    transform: scale(1.05);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  }
+
+  .points-option.yes label {
+    background: #71e8c4;
+    color: white;
+    border-color: #83eac4;
+  }
+
+  .points-option.yes input[type="radio"]:checked+label {
+    background: #00b67c;
+    border-color: #00ca8a;
+    box-shadow: 0 2px 10px rgba(4, 182, 124, 0.3);
+  }
+
+  .points-option.no label {
+    background: #ff6868;
+    color: white;
+    border-color: #f66969;
+  }
+
+  .points-option.no input[type="radio"]:checked+label {
+    background: #dc2626;
+    border-color: #dc2626;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+  }
+
+  .points-option.na label {
+    background: #64748b;
+    color: white;
+    border-color: #64748b;
+    width: 40px;
+    font-size: 0.65rem;
+  }
+
+  .points-option.na input[type="radio"]:checked+label {
+    background: #475569;
+    border-color: #475569;
+    box-shadow: 0 2px 10px rgba(100, 116, 139, 0.25);
+  }
+
+  .comment-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+    resize: vertical;
+    min-height: 45px;
+  }
+
+  .comment-input:focus {
+    border-color: var(--cyan-accent);
+    box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+    outline: none;
+  }
+
+  /* Score Summary */
+  .score-summary {
+    position: sticky;
+    top: 2rem;
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    box-shadow: var(--card-shadow);
+    border: 2px solid var(--cyan-accent);
+    height: fit-content;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+
+  .score-summary::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .score-summary::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .score-summary::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+
+  .score-display {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .pass-indicator {
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pass-indicator::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .pass-indicator:hover::before {
+    left: 100%;
+  }
+
+  .pass-indicator.pass {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 2px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .pass-indicator.fail {
+    background: rgba(255, 64, 0, 0.1);
+    color: var(--fire-red);
+    border: 2px solid rgba(255, 64, 0, 0.2);
+  }
+
+  .pass-indicator.excellent {
+    background: rgba(0, 191, 255, 0.1);
+    color: var(--cyan-accent);
+    border: 2px solid rgba(0, 191, 255, 0.2);
+  }
+
+  .pass-indicator.calculating {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+    border: 2px solid rgba(107, 114, 128, 0.2);
+  }
+
+  .total-score {
+    font-size: 3rem;
+    font-weight: 800;
+    background: var(--info-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    line-height: 1;
+  }
+
+  .score-label {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .score-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .category-score {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border-left: 4px solid var(--cyan-accent);
+    transition: var(--transition-smooth);
+  }
+
+  .category-score:hover {
+    background: #f1f5f9;
+    transform: translateX(2px);
+  }
+
+  .category-score.courtesy-score {
+    border-left-color: #3b82f6;
+  }
+
+  .category-score.resolution-score {
+    border-left-color: #10b981;
+  }
+
+  .category-score.documentation-score {
+    border-left-color: #8b5cf6;
+  }
+
+  .category-score.process-score {
+    border-left-color: #f59e0b;
+  }
+
+  .category-name {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .category-points-display {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+
+  /* Insights */
+  .performance-insights {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(0, 191, 255, 0.03) 0%, rgba(0, 191, 255, 0.01) 100%);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 191, 255, 0.1);
+  }
+
+  .insights-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .insights-section {
+    margin-bottom: 1rem;
+  }
+
+  .insights-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .insights-section-title {
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .insight-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    transition: var(--transition-smooth);
+  }
+
+  .insight-item:hover {
+    background: rgba(255, 255, 255, 0.8);
+    transform: translateX(2px);
+  }
+
+  .insight-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: white;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .insight-icon.strength {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+
+  .insight-icon.improvement {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+
+  .insight-icon.progress {
+    background: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+  }
+
+  /* Quill */
+  .ql-toolbar {
+    border-radius: 12px 12px 0 0 !important;
+    border: 2px solid var(--border-color) !important;
+    background: #f8fafc !important;
+  }
+
+  .ql-container {
+    border-radius: 0 0 12px 12px !important;
+    border: 2px solid var(--border-color) !important;
+    border-top: none !important;
+    font-size: 0.95rem !important;
+    min-height: 150px;
+  }
+
+  .ql-editor {
+    padding: 1.5rem !important;
+  }
+
+  /* Buttons & Action bar */
+  .modern-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .modern-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .modern-btn:hover::before {
+    left: 100%;
+  }
+
+  .modern-btn-primary {
+    background: var(--info-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3);
+  }
+
+  .modern-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 191, 255, 0.4);
+  }
+
+  .modern-btn-secondary {
+    background: #f8fafc;
+    color: var(--text-secondary);
+    border: 2px solid var(--border-color);
+  }
+
+  .modern-btn-secondary:hover {
+    background: #f1f5f9;
+    transform: translateY(-2px);
+  }
+
+  .modern-btn-warning {
+    background: var(--warning-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
+  }
+
+  .modern-btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 184, 0, 0.4);
+  }
+
+  .modern-btn-danger {
+    background: var(--danger-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+  }
+
+  .modern-btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+  }
+
+  .modern-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 2px solid var(--border-color);
+  }
+
+  .modern-btn-outline:hover {
+    background: var(--info-gradient);
+    color: white;
+    border-color: var(--cyan-accent);
+    transform: translateY(-2px);
+  }
+
+  .action-bar {
+    display: flex;
+    gap: 1rem;
+    justify-content: start;
+    align-items: center;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: sticky;
+    bottom: 2rem;
+    max-width: 75%;
+  }
+
+  /* Upload Status */
+  #uploadStatus {
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border-left: 4px solid #10b981;
+    display: none;
+  }
+
+  #uploadStatus.show {
+    display: block;
+    animation: slideInUp 0.3s ease;
+  }
+
+  #uploadStatus a {
+    color: var(--cyan-accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  #uploadStatus a:hover {
+    text-decoration: underline;
+  }
+
+  /* Loading States */
+  .loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, .3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes pulse-critical {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  @keyframes pulse-warning {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes pulse-reverse {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Progress bar styling */
+  .progress-bar-container {
+    width: 100%;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+    margin-top: 0.25rem;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan-accent), #10b981);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .row {
+      flex-direction: column;
+    }
+
+    .col-lg-4 {
+      width: 100%;
+      order: -1;
+    }
+
+    .score-summary {
+      position: relative;
+      top: auto;
+      max-height: none;
+      margin-bottom: 2rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .modern-page-header {
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .modern-page-header h1 {
+      font-size: 2rem;
+    }
+
+    .form-row,
+    .pdf-options-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .pdf-template-selector {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .pdf-feature-toggles {
+      grid-template-columns: 1fr;
+    }
+
+    .question-row {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      text-align: center;
+    }
+
+    .points-selector {
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .points-option label {
+      width: 35px;
+      height: 28px;
+      font-size: 0.65rem;
+    }
+
+    .points-option.na label {
+      width: 35px;
+      font-size: 0.6rem;
+    }
+
+    .action-bar {
+      flex-direction: column;
+      align-items: start;
+    }
+
+    .modern-btn {
+      justify-content: center;
+    }
+
+    .container-fluid {
+      padding: 0 1rem;
+    }
+
+    .score-summary {
+      padding: 1.5rem;
+    }
+
+    .performance-insights {
+      padding: 1rem;
+    }
+
+    .insight-item {
+      font-size: 0.75rem;
+      padding: 0.4rem;
+    }
+  }
+</style>
+
+<!-- Modern Page Header -->
+<div class="modern-page-header fade-in">
+  <h1>
+    <i class="fas fa-clipboard-check"></i>
+    Quality Assessment Form
+  </h1>
+  <p>Comprehensive call quality evaluation and feedback system - Benefits Resource Center (iBTR)</p>
+
+  <div class="live-header">
+    <div class="live-status">
+      <div class="live-indicator"></div>
+      <div class="status-text">
+        <i class="fas fa-wifi"></i>
+        <span>System Live</span>
+      </div>
+    </div>
+    <div class="datetime-display" id="liveDatetime">
+      Loading...
+    </div>
+  </div>
+</div>
+
+<div class="container-fluid">
+  <div class="row">
+    <!-- Form Section -->
+    <div class="col-lg-8">
+      <form id="auditForm" class="stagger-animation">
+        <!-- Basic Information -->
+        <div class="section">
+          <div class="section-header">
+            <i class="fas fa-user-tie"></i>
+            Employee & Contact Details
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="callerName">Caller Name</label>
+              <input type="text" id="callerName" name="callerName" value="<?= recObj.CallerName||'' ?>"
+                                   placeholder="Enter caller's full name">
+            </div>
+            <div class="form-group">
+              <label for="agentName">Agent Name</label>
+              <select id="agentName" name="agentName" required>
+                <option value="" disabled selected>-- Select Agent --</option>
+                <? for (var i = 0; i < __users.length; i++) {
+                    var u = __users[i];
+                    var name = (typeof u === 'string') ? u : (u && (u.name || u.fullName || u.displayName || ''));
+                    if (!name) continue;
+                ?>
+                  <option value="<?= name ?>" <?= recObj.AgentName===name?'selected':'' ?>><?= name ?></option>
+                <? } ?>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="agentEmail">Agent Email</label>
+              <input type="email" id="agentEmail" name="agentEmail" value="<?= recObj.AgentEmail||'' ?>"
+                                   readonly placeholder="Auto-filled based on agent selection">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="callDate">Call Date</label>
+              <input type="date" id="callDate" name="callDate" value="<?= recObj.CallDate||'' ?>"
+                                   required>
+            </div>
+            <div class="form-group">
+              <label for="caseNumber">Case Number/Call Ref</label>
+              <input type="text" id="caseNumber" name="caseNumber" value="<?= recObj.CaseNumber||'' ?>"
+                                   placeholder="Enter case number or call reference">
+            </div>
+            <div class="form-group">
+              <label for="clientName">Client Name</label>
+              <input type="text" id="clientName" name="clientName" value="<?= recObj.ClientName||'' ?>"
+                                   placeholder="Enter client/company name">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="auditorName">Auditor's Name</label>
+              <input type="text" id="auditorName" name="auditorName" value="<?= recObj.AuditorName||'' ?>"
+                                   placeholder="Enter auditor's full name" required>
+            </div>
+            <div class="form-group">
+              <label for="auditDate">Audit Date</label>
+              <input type="date" id="auditDate" name="auditDate" value="<?= recObj.AuditDate||'' ?>"
+                                   readonly>
+            </div>
+
+            <!-- Feedback Shared: boolean + optional date -->
+            <div class="form-group">
+              <label>Feedback Shared</label>
+              <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:0.5rem;">
+                                    <input type="checkbox" id="feedbackSharedFlag">
+                                    <span>Yes</span>
+                                </label>
+                <input type="date" id="feedbackSharedDate" value="<?= recObj.FeedbackSharedAt||'' ?>"
+                                       aria-label="Date shared (optional)">
+              </div>
+              <!-- Hidden fields posted to server -->
+              <input type="hidden" id="feedbackShared" name="feedbackShared" value="">
+              <input type="hidden" id="feedbackSharedAt" name="feedbackSharedAt"
+                                   value="<?= recObj.FeedbackSharedAt||'' ?>">
+            </div>
+          </div>
+
+          <!-- Audio Upload -->
+          <div class="form-row">
+            <div class="form-group audio-upload-group">
+              <label for="audioFile">Call Recording *</label>
+              <div class="audio-upload-container">
+                <input type="file" id="audioFile" name="audioFile" accept="audio/*"
+                                       class="audio-input" <?= recordId ? '' : 'required' ?>>
+                <div class="audio-upload-display">
+                  <i class="fas fa-microphone"></i>
+                  <span class="audio-text"><?= recObj.CallLink ? 'Replace recording (optional)' : 'Click to upload call recording' ?></span>
+                  <small class="audio-info">Supports MP3, WAV, M4A and others</small>
+                </div>
+              </div>
+              <div id="uploadStatus"></div>
+              <input type="hidden" id="callLink" name="callLink" value="<?= recObj.CallLink||'' ?>">
+            </div>
+          </div>
+        </div>
+
+        <!-- PDF Configuration Section -->
+        <div class="pdf-config-section">
+          <div class="pdf-config-header">
+            <i class="fas fa-file-pdf"></i>
+            PDF Report Configuration
+          </div>
+
+          <!-- Theme Selection -->
+          <div class="pdf-option-group">
+            <label for="pdfTheme">Report Theme</label>
+            <div class="pdf-theme-selector">
+              <select id="pdfTheme" name="pdfTheme">
+                <option value="professional">Professional</option>
+                <option value="coaching">Coaching Focused</option>
+                <option value="executive">Executive Style</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="pdf-options-grid">
+            <!-- Template Selection -->
+            <div class="pdf-option-group">
+              <label>Report Template</label>
+              <div class="pdf-template-selector">
+                <div class="pdf-template-option">
+                  <input type="radio" id="template_standard" name="pdfTemplate" value="standard" checked>
+                  <label for="template_standard">
+                    <i class="fas fa-file-alt"></i>
+                    Standard
+                  </label>
+                </div>
+                <div class="pdf-template-option">
+                  <input type="radio" id="template_executive" name="pdfTemplate" value="executive">
+                  <label for="template_executive">
+                    <i class="fas fa-chart-line"></i>
+                    Executive
+                  </label>
+                </div>
+                <div class="pdf-template-option">
+                  <input type="radio" id="template_detailed" name="pdfTemplate" value="detailed">
+                  <label for="template_detailed">
+                    <i class="fas fa-list-alt"></i>
+                    Detailed
+                  </label>
+                </div>
+                <div class="pdf-template-option">
+                  <input type="radio" id="template_coaching" name="pdfTemplate" value="coaching">
+                  <label for="template_coaching">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    Coaching
+                  </label>
+                </div>
+                <div class="pdf-template-option">
+                  <input type="radio" id="template_simple" name="pdfTemplate" value="simple">
+                  <label for="template_simple">
+                    <i class="fas fa-file"></i>
+                    Simple
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature Toggles -->
+          <div class="pdf-option-group">
+            <label>Report Features</label>
+            <div class="pdf-feature-toggles">
+              <div class="pdf-feature-toggle">
+                <input type="checkbox" id="includeCharts" name="includeCharts" checked>
+                <label for="includeCharts">Include Performance Charts</label>
+              </div>
+              <div class="pdf-feature-toggle">
+                <input type="checkbox" id="includeRecommendations" name="includeRecommendations" checked>
+                <label for="includeRecommendations">Include Recommendations</label>
+              </div>
+              <div class="pdf-feature-toggle">
+                <input type="checkbox" id="includeFullSnapshot" name="includeFullSnapshot">
+                <label for="includeFullSnapshot">Include Complete Data Snapshot</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quality Assessment Questions -->
+        <div id="qaQuestions">
+          <!-- Courtesy & Communication -->
+          <div class="category-header-con courtesy">
+            <div class="category-header-left">
+              <i class="fas fa-comments"></i>
+              <div class="category-info">
+                <div class="category-title">Courtesy & Communication</div>
+                <div class="category-description">Evaluates agent's politeness, empathy, and
+                  professional communication throughout the call
+                </div>
+              </div>
+            </div>
+            <div class="category-meta">
+              <div class="category-points">30 Points</div>
+            </div>
+          </div>
+
+          <!-- Q1 -->
+          <div class="question-row">
+            <div class="question-text">
+              <strong>Did the agent say thank you for calling and brand the call with the client name?</strong>
+            </div>
+            <div class="max-points critical">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>3 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q1" value="yes" id="q1_yes"><label for="q1_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q1" value="no" id="q1_no"><label for="q1_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q1" value="na" id="q1_na"><label for="q1_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c1" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c1||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q2 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent offer further assistance before closing the call?</strong>
+            </div>
+            <div class="max-points penalty">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>5 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q2" value="yes" id="q2_yes"><label for="q2_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q2" value="no" id="q2_no"><label for="q2_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q2" value="na" id="q2_na"><label for="q2_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c2" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c2||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q3 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent sound polite and courteous on the call?</strong></div>
+            <div class="max-points reverse">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>7 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q3" value="yes" id="q3_yes"><label for="q3_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q3" value="no" id="q3_no"><label for="q3_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q3" value="na" id="q3_na"><label for="q3_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c3" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c3||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q4 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent empathize with caller's issue?</strong></div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>10 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q4" value="yes" id="q4_yes"><label for="q4_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q4" value="no" id="q4_no"><label for="q4_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q4" value="na" id="q4_na"><label for="q4_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c4" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c4||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q5 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent modulate pitch and volume according to caller's?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>5 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q5" value="yes" id="q5_yes"><label for="q5_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q5" value="no" id="q5_no"><label for="q5_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q5" value="na" id="q5_na"><label for="q5_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c5" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c5||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Resolution -->
+          <div class="category-header-con resolution">
+            <div class="category-header-left">
+              <i class="fas fa-tools"></i>
+              <div class="category-info">
+                <div class="category-title">Resolution</div>
+                <div class="category-description">Assesses agent's ability to solve problems, follow
+                  protocols, and provide effective solutions
+                </div>
+              </div>
+            </div>
+            <div class="category-meta">
+              <div class="category-points">40 Points</div>
+            </div>
+          </div>
+
+          <!-- Q6 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent follow the call transfer protocol?</strong></div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>8 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q6" value="yes" id="q6_yes"><label for="q6_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q6" value="no" id="q6_no"><label for="q6_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q6" value="na" id="q6_na"><label for="q6_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c6" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c6||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q7 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent follow the correct HOLD procedure?</strong></div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>8 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q7" value="yes" id="q7_yes"><label for="q7_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q7" value="no" id="q7_no"><label for="q7_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q7" value="na" id="q7_na"><label for="q7_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c7" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c7||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q8 (critical) -->
+          <div class="question-row critical">
+            <div class="question-text critical">
+              <strong>Did the agent authenticate caller and confirm the issue?</strong>
+              <div class="question-description critical">⚠️ CRITICAL: Answering "No" results in automatic fail</div>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;">
+                <i class="fas fa-exclamation-triangle"></i><span>15 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q8" value="yes" id="q8_yes"><label for="q8_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q8" value="no" id="q8_no"><label for="q8_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q8" value="na" id="q8_na"><label for="q8_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c8" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c8||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q9 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent do effective probing on the call?</strong></div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>9 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q9" value="yes" id="q9_yes"><label for="q9_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q9" value="no" id="q9_no"><label for="q9_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q9" value="na" id="q9_na"><label for="q9_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c9" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c9||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Documentation -->
+          <div class="category-header-con documentation">
+            <div class="category-header-left">
+              <i class="fas fa-file-alt"></i>
+              <div class="category-info">
+                <div class="category-title">Case Documentation</div>
+                <div class="category-description">Reviews accuracy and completeness of case records,
+                  notes, and information management
+                </div>
+              </div>
+            </div>
+            <div class="category-meta">
+              <div class="category-points">30 Points</div>
+            </div>
+          </div>
+
+          <!-- Q10 -->
+          <div class="question-row">
+            <div class="question-text">
+              <strong>Did the agent provide accurate and complete resolution using tools?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>8 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q10" value="yes" id="q10_yes"><label for="q10_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q10" value="no" id="q10_no"><label for="q10_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q10" value="na" id="q10_na"><label for="q10_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c10" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c10||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q11 -->
+          <div class="question-row">
+            <div class="question-text">
+              <strong>Did the agent provide clear understanding of the issue to the caller?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>6 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q11" value="yes" id="q11_yes"><label for="q11_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q11" value="no" id="q11_no"><label for="q11_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q11" value="na" id="q11_na"><label for="q11_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c11" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c11||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q12 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent process the request as promised to the caller?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>6 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q12" value="yes" id="q12_yes"><label for="q12_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q12" value="no" id="q12_no"><label for="q12_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q12" value="na" id="q12_na"><label for="q12_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c12" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c12||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q13 -->
+          <div class="question-row">
+            <div class="question-text">
+              <strong>Did the agent document the case/Wrapup up with Wrap-Up notes correctly?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>7 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q13" value="yes" id="q13_yes"><label for="q13_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q13" value="no" id="q13_no"><label for="q13_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q13" value="na" id="q13_na"><label for="q13_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c13" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c13||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q14 -->
+          <div class="question-row">
+            <div class="question-text">
+              <strong>Did the agent escalate the case to the right department with all relevant details?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>3 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q14" value="yes" id="q14_yes"><label for="q14_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q14" value="no" id="q14_no"><label for="q14_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q14" value="na" id="q14_na"><label for="q14_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c14" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c14||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Process Compliance -->
+          <div class="category-header-con process">
+            <div class="category-header-left">
+              <i class="fas fa-clipboard-list"></i>
+              <div class="category-info">
+                <div class="category-title">Process Compliance</div>
+                <div class="category-description">Ensures adherence to company procedures, surveys, and
+                  wrap-up protocols
+                </div>
+              </div>
+            </div>
+            <div class="category-meta">
+              <div class="category-points">20 Points</div>
+            </div>
+          </div>
+
+          <!-- Q15 (penalty) -->
+          <div class="question-row penalty-50">
+            <div class="question-text penalty">
+              <strong>Did the agent offer the survey at the end of the call?</strong>
+              <div class="question-description penalty">⚡ WARNING: Answering "No" removes 50% of total score</div>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-bolt"></i><span>10 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q15" value="yes" id="q15_yes"><label for="q15_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q15" value="no" id="q15_no"><label for="q15_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q15" value="na" id="q15_na"><label for="q15_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c15" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c15||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q16 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the agent create the call case correctly/Wrap-Up the call?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>5 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q16" value="yes" id="q16_yes"><label for="q16_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q16" value="no" id="q16_no"><label for="q16_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q16" value="na" id="q16_na"><label for="q16_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c16" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c16||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q17 (reverse penalty) -->
+          <div class="question-row reverse-penalty">
+            <div class="question-text reverse-penalty">
+              <strong>Did the agent modify case fields to avoid survey going to the customer?</strong>
+              <div class="question-description reverse-penalty">🔄 REVERSE SCORING: Answering "Yes" removes 50% of total
+                score</div>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;">
+                <i class="fas fa-exchange-alt"></i><span>4 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q17" value="yes" id="q17_yes"><label for="q17_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q17" value="no" id="q17_no"><label for="q17_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q17" value="na" id="q17_na"><label for="q17_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c17" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c17||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q18 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Did the customer respond positively to the survey?</strong></div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>5 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q18" value="yes" id="q18_yes"><label for="q18_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q18" value="no" id="q18_no"><label for="q18_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q18" value="na" id="q18_na"><label for="q18_na">N/A</label>
+              </div>
+            </div>
+            <div>
+              <textarea class="comment-input" name="c18" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c18||'' ?></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Overall Feedback -->
+        <div class="section">
+          <div class="section-header">
+            <i class="fas fa-comment-dots"></i>
+            Overall Feedback & Recommendations
+          </div>
+          <div id="quillEditor">
+            <?!= recObj.OverallFeedback||'' ?>
+          </div>
+          <input type="hidden" id="hOverallFeedback" name="overallFeedback">
+          <input type="hidden" id="hOverallFeedbackPlain" name="overallFeedbackPlain">
+        </div>
+      </form>
+    </div>
+
+    <!-- Score Summary Sidebar -->
+    <div class="col-lg-4 score-summary">
+      <div class="">
+        <div class="pass-indicator calculating" id="passIndicator">Start Assessment...</div>
+        <div class="score-display">
+          <div class="total-score" id="overallQuality">N/A</div>
+          <div class="score-label">Quality Score</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;" id="scoreDetails">
+            0/0 points
+          </div>
+        </div>
+        <div class="score-breakdown">
+          <div class="category-score courtesy-score">
+            <div class="category-name">Courtesy & Communication</div>
+            <span class="category-points-display" id="category_courtesy_score">0/30</span>
+          </div>
+          <div class="category-score resolution-score">
+            <div class="category-name">Resolution</div>
+            <span class="category-points-display" id="category_resolution_score">0/40</span>
+          </div>
+          <div class="category-score documentation-score">
+            <div class="category-name">Case Documentation</div>
+            <span class="category-points-display" id="category_documentation_score">0/30</span>
+          </div>
+          <div class="category-score process-score">
+            <div class="category-name">Process Compliance</div>
+            <span class="category-points-display" id="category_process_score">0/20</span>
+          </div>
+        </div>
+
+        <div class="performance-insights" id="performanceInsights">
+          <div class="insights-title"><i class="fas fa-chart-line"></i>Performance Insights</div>
+          <div class="insights-section">
+            <div class="insights-section-title">Assessment Progress</div>
+            <div class="insight-item">
+              <div class="insight-icon progress"><i class="fas fa-tasks"></i></div>
+              <div style="flex: 1;">
+                <span id="completionStatus">0/18 Questions Answered</span>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" id="progressBarFill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="insights-section" id="strengthAreas" style="display: none;">
+            <div class="insights-section-title">Strength Areas</div>
+          </div>
+          <div class="insights-section" id="improvementAreas" style="display: none;">
+            <div class="insights-section-title">Areas for Improvement</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Action Bar -->
+<div class="action-bar fade-in" data-obstacle="bottom-right">
+  <button type="button" class="modern-btn modern-btn-outline" onclick="window.history.back()">
+    <i class="fas fa-arrow-left"></i>Back
+  </button>
+  <button type="button" class="modern-btn modern-btn-secondary" onclick="window.location.href='<?= baseUrl ?>&page=quality-list'">
+    <i class="fas fa-list"></i>View List
+  </button>
+  <button type="button" class="modern-btn modern-btn-secondary" onclick="window.location.href='<?= baseUrl ?>'">
+    <i class="fas fa-home"></i>Dashboard
+  </button>
+  <button type="button" id="resetBtn" class="modern-btn modern-btn-danger">
+    <i class="fas fa-redo"></i>Reset Form
+  </button>
+  <button type="submit" form="auditForm" class="modern-btn modern-btn-primary">
+    <i class="fas fa-save"></i>Submit Assessment
+  </button>
+</div>
+
+<!-- Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+  // Global variables
+  let currentQAData = null;
+  const recordId = '<?= recordId ?>';
+  const record = '<?= record ?>';
+  let quill;
+  
+  console.log('Template-injected recordId=', recordId, 'record=', record);
+
+  // Server-injected list (may be [] if nothing was passed in)
+  const USERS = <?!= JSON.stringify(__users || []) ?>;
+
+  // Build a map: name -> email (works with strings or objects)
+  const userMap = (USERS || []).reduce((acc, u) => {
+    const name  = (typeof u === 'string') ? u : (u?.name || u?.fullName || u?.displayName || '');
+    const email = (typeof u === 'object') ? (u?.email || u?.mail || u?.emailAddress || '') : '';
+    if (name) acc[name] = email || '';
+    return acc;
+  }, Object.create(null));
+
+  // Question weights and categories for scoring
+  const questionMap = {
+    q1: {w: 3, c: 'courtesy'},
+    q2: {w: 5, c: 'courtesy'},
+    q3: {w: 7, c: 'courtesy'},
+    q4: {w: 10, c: 'courtesy'},
+    q5: {w: 5, c: 'courtesy'},
+    q6: {w: 8, c: 'resolution'},
+    q7: {w: 8, c: 'resolution'},
+    q8: {w: 15, c: 'resolution'},
+    q9: {w: 9, c: 'resolution'},
+    q10: {w: 8, c: 'documentation'},
+    q11: {w: 6, c: 'documentation'},
+    q12: {w: 6, c: 'documentation'},
+    q13: {w: 7, c: 'documentation'},
+    q14: {w: 3, c: 'documentation'},
+    q15: {w: 10, c: 'process'},
+    q16: {w: 5, c: 'process'},
+    q17: {w: 4, c: 'process'},
+    q18: {w: 5, c: 'process'}
+  };
+
+  // ============================================================================
+  // CORE UTILITY FUNCTIONS
+  // ============================================================================
+
+  function updateLiveDatetime() {
+    const now = new Date();
+    const options = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+      timeZoneName: 'short'
+    };
+
+    const formatted = now.toLocaleDateString('en-US', options);
+    const datetimeDisplay = document.getElementById('liveDatetime');
+
+    if (datetimeDisplay) {
+      datetimeDisplay.textContent = formatted;
+    }
+  }
+
+  function normAns(v) {
+    const s = String(v || '').trim().toLowerCase();
+    if (s === 'n/a') return 'na';
+    if (['yes', 'no', 'na'].includes(s)) return s;
+    return '';
+  }
+
+  function htmlToPlainText(html) {
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim();
+  }
+
+  function showToast(message, isError = false) {
+    try {
+      let toast = document.getElementById('toast-notification');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-notification';
+        toast.style.cssText = `
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          padding: 1rem 1.5rem;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          color: white;
+          font-weight: 600;
+          z-index: 10000;
+          max-width: 350px;
+          transform: translateX(100%);
+          transition: transform 0.3s ease;
+        `;
+        document.body.appendChild(toast);
+      }
+      
+      toast.textContent = message;
+      toast.style.backgroundColor = isError ? '#dc3545' : '#28a745';
+      toast.style.transform = 'translateX(0)';
+      
+      setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+      }, isError ? 5000 : 3000);
+      
+    } catch (error) {
+      console.error('Toast error:', error);
+      alert(message); // Fallback
+    }
+  }
+
+  // ============================================================================
+  // ENHANCED USER LOADING FUNCTIONS
+  // ============================================================================
+
+  function populateAgentSelect(list) {
+    const sel = document.getElementById('agentName');
+    if (!sel) return;
+
+    // Preserve the placeholder option
+    const placeholder = sel.querySelector('option[disabled]');
+    sel.innerHTML = '';
+    if (placeholder) sel.appendChild(placeholder);
+
+    const frag = document.createDocumentFragment();
+    (list || []).forEach(u => {
+      const name = (typeof u === 'string') ? u : (u?.name || u?.fullName || u?.displayName || '');
+      const email = (typeof u === 'object') ? (u?.email || u?.mail || u?.emailAddress || '') : '';
+      if (!name) return;
+
+      // Keep userMap in sync
+      if (!(name in userMap)) userMap[name] = email || '';
+
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      frag.appendChild(opt);
+    });
+    sel.appendChild(frag);
+
+    // If the record had an agent preselected, reapply it
+    if (recordId && record && record !== '{}') {
+      try {
+        const rec = JSON.parse(record);
+        if (rec.AgentName) sel.value = rec.AgentName;
+      } catch (e) {
+        console.warn('Error parsing record for agent selection:', e);
+      }
+    }
+  }
+
+  function hydrateAgentList() {
+    console.log('Starting agent list hydration...');
+    
+    // Check if Google Apps Script is available
+    if (!(window.google && google.script && google.script.run)) {
+      console.warn('google.script.run not available, using fallback');
+      fallbackToStaticUsers();
+      return;
+    }
+
+    // Get campaign ID if available (for campaign-specific agents)
+    const cid = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
+    console.log('Using campaign ID:', cid || 'none');
+
+    // Primary method: Try to get campaign-assigned agents
+    google.script.run
+      .withSuccessHandler(names => {
+        console.log('Received agent names from clientGetAssignedAgentNames:', names);
+        if (!Array.isArray(names) || names.length === 0) { 
+          console.warn('Empty or invalid names payload, falling back to getUsers');
+          fallbackToGetUsers(); 
+          return; 
+        }
+        userList = names;
+        populateAgentSelect(names);
+        console.log('Updated userList from campaign agents:', userList.length, 'agents');
+      })
+      .withFailureHandler(err => {
+        console.warn('clientGetAssignedAgentNames failed:', err);
+        fallbackToGetUsers();
+      })
+      .clientGetAssignedAgentNames(cid);
+
+    function fallbackToGetUsers() {
+      console.log('Falling back to general user list...');
+      google.script.run
+        .withSuccessHandler(users => {
+          console.log('Received users from getUsers:', users);
+          const names = (users || [])
+            .map(u => u.FullName || u.UserName || u.Email || u.name || u.fullName)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b));
+          
+          if (names.length === 0) {
+            console.warn('No users found from getUsers, trying QA data fallback');
+            fallbackToQAData();
+          } else {
+            userList = names;
+            populateAgentSelect(names);
+            console.log('Updated userList from general users:', userList.length, 'agents');
+          }
+        })
+        .withFailureHandler(err => {
+          console.error('getUsers failed:', err);
+          fallbackToQAData();
+        })
+        .getUsers();
+    }
+
+    function fallbackToQAData() {
+      console.log('Falling back to QA data extraction...');
+      try {
+        // Try to get agents from existing QA data if available
+        if (typeof rawQA !== 'undefined' && Array.isArray(rawQA)) {
+          const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
+          if (qaAgents.length > 0) {
+            userList = qaAgents;
+            populateAgentSelect(qaAgents);
+            console.log('Updated userList from QA data:', userList.length, 'agents');
+            return;
+          }
+        }
+        
+        // Try alternative QA data source
+        google.script.run
+          .withSuccessHandler(qaData => {
+            console.log('Received QA data for agent extraction');
+            if (Array.isArray(qaData) && qaData.length > 0) {
+              const qaAgents = Array.from(new Set(qaData.map(r => r.AgentName || r.agentName).filter(Boolean))).sort();
+              if (qaAgents.length > 0) {
+                userList = qaAgents;
+                populateAgentSelect(qaAgents);
+                console.log('Updated userList from server QA data:', userList.length, 'agents');
+                return;
+              }
+            }
+            fallbackToStaticUsers();
+          })
+          .withFailureHandler(err => {
+            console.warn('QA data fallback failed:', err);
+            fallbackToStaticUsers();
+          })
+          .getAllQA();
+          
+      } catch (e) {
+        console.warn('QA data fallback exception:', e);
+        fallbackToStaticUsers();
+      }
+    }
+
+    function fallbackToStaticUsers() {
+      console.log('Using static/template users as final fallback...');
+      // Use the template-injected users as absolute fallback
+      if (Array.isArray(USERS) && USERS.length > 0) {
+        userList = USERS.slice(); // Make a copy
+        populateAgentSelect(USERS);
+        console.log('Updated userList from template users:', userList.length, 'agents');
+      } else {
+        console.error('No users available from any source');
+        userList = [];
+        populateAgentSelect([]);
+        showToast('Unable to load agent list. Please contact support.', true);
+      }
+    }
+  }
+
+  function loadAgentsFromServerIfNeeded() {
+    console.log('=== AGENT LOADING PROCESS STARTED ===');
+    
+    // Check if we already have users from server template
+    if (Array.isArray(USERS) && USERS.length > 0) {
+      console.log('Using pre-loaded template users:', USERS.length, 'agents');
+      populateAgentSelect(USERS);
+      return;
+    }
+    
+    // Otherwise, use the enhanced hydration method
+    hydrateAgentList();
+  }
+
+  // ============================================================================
+  // SCORING AND CALCULATION FUNCTIONS
+  // ============================================================================
+
+  function recalcSummary() {
+    let totalApp = 0, totalEarn = 0;
+    let answeredQuestions = 0;
+
+    const categoryTotals = {
+      courtesy: {app: 0, earn: 0, name: 'Courtesy & Communication'},
+      resolution: {app: 0, earn: 0, name: 'Resolution'},
+      documentation: {app: 0, earn: 0, name: 'Case Documentation'},
+      process: {app: 0, earn: 0, name: 'Process Compliance'}
+    };
+
+    for (const [q, info] of Object.entries(questionMap)) {
+      const radio = document.querySelector(`input[name="${q}"]:checked`);
+      const val = radio ? radio.value : null;
+
+      if (val && val !== '') answeredQuestions++;
+
+      if (val === 'na' || (q === 'q18' && val === 'no')) continue;
+
+      categoryTotals[info.c].app += info.w;
+      totalApp += info.w;
+
+      if (val === 'yes' || (q === 'q17' && val === 'no')) {
+        categoryTotals[info.c].earn += info.w;
+        totalEarn += info.w;
+      }
+    }
+
+    // Update category tiles
+    for (const [category, totals] of Object.entries(categoryTotals)) {
+      const el = document.getElementById(`category_${category}_score`);
+      const wrap = el?.closest('.category-score');
+      if (!el) continue;
+      const pct = totals.app ? Math.floor(totals.earn / totals.app * 100) : 0;
+      el.textContent = `${totals.earn}/${totals.app} (${pct}%)`;
+      if (wrap) {
+        wrap.style.opacity = pct >= 90 ? '1' : (pct >= 75 ? '0.8' : '0.6');
+        wrap.style.borderLeftWidth = pct >= 90 ? '6px' : '4px';
+      }
+    }
+
+    // Apply penalties
+    let overallPct = totalApp ? Math.floor(totalEarn / totalApp * 100) : 0;
+    const q8 = document.querySelector('input[name="q8"]:checked')?.value;
+    const q15 = document.querySelector('input[name="q15"]:checked')?.value;
+    const q17 = document.querySelector('input[name="q17"]:checked')?.value;
+    
+    if (q8 === 'no') {
+      overallPct = 0;
+    } else {
+      if (q15 === 'no') overallPct = Math.max(overallPct - 50, 0);
+      if (q17 === 'yes') overallPct = Math.max(overallPct - 50, 0);
+    }
+
+    // Update UI
+    const gauge = document.getElementById('overallQuality');
+    const indicator = document.getElementById('passIndicator');
+    const scoreDetails = document.getElementById('scoreDetails');
+
+    gauge.style.transform = 'scale(1.1)';
+    gauge.textContent = totalApp ? (overallPct + '%') : 'N/A';
+    if (scoreDetails) scoreDetails.textContent = `${totalEarn}/${totalApp} points`;
+
+    indicator.className = 'pass-indicator';
+    if (totalApp === 0) {
+      indicator.textContent = 'Start Assessment...';
+      indicator.classList.add('calculating');
+    } else if (overallPct >= 95) {
+      indicator.textContent = 'Excellent Performance';
+      indicator.classList.add('excellent');
+    } else if (overallPct >= 85) {
+      indicator.textContent = 'Meets Standards';
+      indicator.classList.add('pass');
+    } else {
+      indicator.textContent = 'Needs Improvement';
+      indicator.classList.add('fail');
+    }
+
+    setTimeout(() => {
+      gauge.style.transform = 'scale(1)';
+    }, 200);
+
+    // Progress
+    const progressPct = (answeredQuestions / 18) * 100;
+    const fill = document.getElementById('progressBarFill');
+    if (fill) fill.style.width = progressPct + '%';
+    document.getElementById('completionStatus').textContent = `${answeredQuestions}/18 Questions Answered`;
+
+    updatePerformanceInsights(categoryTotals, overallPct, answeredQuestions);
+  }
+
+  function updatePerformanceInsights(categoryTotals, overallPct, answeredQuestions) {
+    const strengths = document.getElementById('strengthAreas');
+    const improvements = document.getElementById('improvementAreas');
+    strengths.innerHTML = '<div class="insights-section-title">Strength Areas</div>';
+    improvements.innerHTML = '<div class="insights-section-title">Areas for Improvement</div>';
+    let hasS = false, hasI = false;
+
+    if (answeredQuestions > 0) {
+      for (const [_, totals] of Object.entries(categoryTotals)) {
+        if (totals.app > 0) {
+          const pct = Math.floor(totals.earn / totals.app * 100);
+          if (pct >= 85) {
+            hasS = true;
+            const el = document.createElement('div');
+            el.className = 'insight-item';
+            el.innerHTML = `<div class="insight-icon strength">✓</div><span><strong>${totals.name}:</strong> ${pct}% - Strong performance</span>`;
+            strengths.appendChild(el);
+          } else if (pct < 75) {
+            hasI = true;
+            const el = document.createElement('div');
+            el.className = 'insight-item';
+            el.innerHTML = `<div class="insight-icon improvement">!</div><span><strong>${totals.name}:</strong> ${pct}% - Focus area</span>`;
+            improvements.appendChild(el);
+          }
+        }
+      }
+      
+      // Special cases
+      const q8 = document.querySelector('input[name="q8"]:checked')?.value;
+      const q15 = document.querySelector('input[name="q15"]:checked')?.value;
+      if (q8 === 'no') {
+        hasI = true;
+        const el = document.createElement('div');
+        el.className = 'insight-item';
+        el.innerHTML = `<div class="insight-icon improvement">⚠</div><span><strong>Critical:</strong> Authentication failure - requires immediate attention</span>`;
+        improvements.appendChild(el);
+      }
+      if (q15 === 'no') {
+        hasI = true;
+        const el = document.createElement('div');
+        el.className = 'insight-item';
+        el.innerHTML = `<div class="insight-icon improvement">!</div><span><strong>Process:</strong> Survey offering missed - impacts customer satisfaction</span>`;
+        improvements.appendChild(el);
+      }
+    }
+
+    strengths.style.display = hasS ? 'block' : 'none';
+    improvements.style.display = hasI ? 'block' : 'none';
+  }
+
+  // ============================================================================
+  // FORM DATA COLLECTION AND VALIDATION FUNCTIONS
+  // ============================================================================
+
+  function updateHiddenFields() {
+    if (quill) {
+      const html = quill.root.innerHTML;
+      document.getElementById('hOverallFeedback').value = html;
+      document.getElementById('hOverallFeedbackPlain').value = htmlToPlainText(html);
+    }
+    
+    // Update feedback shared fields
+    const feedbackShared = document.getElementById('feedbackSharedFlag').checked;
+    const feedbackDate = document.getElementById('feedbackSharedDate').value || '';
+    document.getElementById('feedbackShared').value = feedbackShared ? 'true' : 'false';
+    document.getElementById('feedbackSharedAt').value = feedbackDate;
+  }
+
+  function collectFormDataForSubmission() {
+    console.log('📦 COLLECTING FORM DATA FOR SUBMISSION');
+    
+    const formData = {};
+    
+    // Basic information fields
+    formData.callerName = document.getElementById('callerName').value || '';
+    formData.agentName = document.getElementById('agentName').value || '';
+    formData.agentEmail = document.getElementById('agentEmail').value || '';
+    formData.clientName = document.getElementById('clientName').value || '';
+    formData.callDate = document.getElementById('callDate').value || '';
+    formData.caseNumber = document.getElementById('caseNumber').value || '';
+    formData.auditorName = document.getElementById('auditorName').value || '';
+    formData.auditDate = document.getElementById('auditDate').value || '';
+    
+    // Feedback shared fields
+    const feedbackShared = document.getElementById('feedbackSharedFlag').checked;
+    const feedbackDate = document.getElementById('feedbackSharedDate').value || '';
+    formData.feedbackShared = feedbackShared;
+    formData.feedbackSharedAt = feedbackDate;
+    
+    // QA Questions (Q1-Q18)
+    let answeredQuestions = 0;
+    for (let i = 1; i <= 18; i++) {
+      const questionKey = 'q' + i;
+      const radio = document.querySelector(`input[name="${questionKey}"]:checked`);
+      formData[questionKey] = radio ? radio.value : '';
+      if (radio && radio.value) answeredQuestions++;
+    }
+    
+    // Comments (C1-C18)
+    for (let i = 1; i <= 18; i++) {
+      const commentKey = 'c' + i;
+      const textarea = document.querySelector(`textarea[name="${commentKey}"]`);
+      formData[commentKey] = textarea ? textarea.value : '';
+    }
+    
+    // Overall feedback from Quill editor
+    if (quill) {
+      const html = quill.root.innerHTML;
+      formData.overallFeedback = html;
+      formData.overallFeedbackPlain = htmlToPlainText(html);
+    }
+    
+    // PDF options
+    formData.pdfTemplate = document.querySelector('input[name="pdfTemplate"]:checked')?.value || 'standard';
+    formData.pdfTheme = document.getElementById('pdfTheme')?.value || 'professional';
+    formData.includeCharts = document.getElementById('includeCharts')?.checked !== false;
+    formData.includeRecommendations = document.getElementById('includeRecommendations')?.checked !== false;
+    formData.includeFullSnapshot = document.getElementById('includeFullSnapshot')?.checked !== false;
+    
+    // Audio file (if present) - handled separately as File object
+    const audioFileInput = document.getElementById('audioFile');
+    if (audioFileInput && audioFileInput.files && audioFileInput.files.length > 0) {
+      formData.audioFile = audioFileInput.files[0];
+    }
+    
+    // Call link (for external audio)
+    const callLink = document.getElementById('callLink').value;
+    if (callLink) {
+      formData.callLink = callLink;
+    }
+    
+    console.log('📊 COLLECTION SUMMARY:');
+    console.log('  Questions answered:', answeredQuestions + '/18');
+    console.log('  Has audio file:', !!(formData.audioFile));
+    console.log('  Has call link:', !!(formData.callLink));
+    
+    return formData;
+  }
+
+  function validateFormData(formData) {
+    console.log('🔍 VALIDATING FORM DATA');
+    
+    // Required fields validation
+    const requiredFields = [
+      { key: 'agentName', name: 'Agent Name' },
+      { key: 'callDate', name: 'Call Date' },
+      { key: 'auditorName', name: 'Auditor Name' }
+    ];
+    
+    for (const field of requiredFields) {
+      if (!formData[field.key] || String(formData[field.key]).trim() === '') {
+        showToast(`Please fill in ${field.name}`, true);
+        const element = document.getElementById(field.key);
+        if (element) element.focus();
+        return false;
+      }
+    }
+    
+    // Audio requirement validation (only for new records)
+    if (!recordId && !formData.audioFile && !formData.callLink) {
+      showToast('Please provide either an audio file or call link.', true);
+      return false;
+    }
+    
+    // File size validation
+    if (formData.audioFile) {
+      const fileSizeMB = formData.audioFile.size / (1024 * 1024);
+      if (fileSizeMB > 45) {
+        showToast(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 45MB.`, true);
+        return false;
+      }
+    }
+    
+    // At least one QA question validation
+    let questionsAnswered = 0;
+    for (let i = 1; i <= 18; i++) {
+      if (formData['q' + i] && formData['q' + i] !== 'na') {
+        questionsAnswered++;
+      }
+    }
+    
+    if (questionsAnswered === 0) {
+      showToast('Please answer at least one QA question', true);
+      return false;
+    }
+    
+    console.log('✅ VALIDATION PASSED');
+    return true;
+  }
+
+  // ============================================================================
+  // FORM SUBMISSION HANDLING
+  // ============================================================================
+
+  function handleFormSubmission(e) {
+    e.preventDefault();
+    
+    console.log('=== FORM SUBMISSION STARTED ===');
+    console.log('Timestamp:', new Date().toISOString());
+    
+    // Step 1: Validate form before submission
+    if (!validateFormBeforeSubmission()) {
+      console.error('Form validation failed');
+      return;
+    }
+    
+    // Step 2: Collect and prepare form data
+    const formDataPromise = collectFormDataAsObject();
+    if (!formDataPromise) {
+      console.error('Failed to collect form data');
+      return;
+    }
+    
+    // Step 3: Show loading state
+    showLoadingState();
+    
+    // Step 4: Submit to server
+    submitToServer(formDataPromise);
+  }
+
+  function validateFormBeforeSubmission() {
+    console.log('🔍 VALIDATING FORM BEFORE SUBMISSION');
+    
+    // Required fields validation
+    const requiredFields = [
+      { id: 'agentName', name: 'Agent Name' },
+      { id: 'callDate', name: 'Call Date' },
+      { id: 'auditorName', name: 'Auditor Name' }
+    ];
+    
+    for (const field of requiredFields) {
+      const element = document.getElementById(field.id);
+      if (!element || !element.value || element.value.trim() === '') {
+        showToast(`Please fill in ${field.name}`, true);
+        if (element) element.focus();
+        return false;
+      }
+    }
+    
+    // Audio requirement validation (only for new records)
+    const audioFile = document.getElementById('audioFile');
+    const callLink = document.getElementById('callLink');
+    if (!recordId && (!audioFile.files || audioFile.files.length === 0) && !callLink.value) {
+      showToast('Please provide either an audio file or call link.', true);
+      return false;
+    }
+    
+    // File size validation
+    if (audioFile.files && audioFile.files.length > 0) {
+      const fileSizeMB = audioFile.files[0].size / (1024 * 1024);
+      if (fileSizeMB > 45) {
+        showToast(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 45MB.`, true);
+        return false;
+      }
+    }
+    
+    // At least one QA question validation
+    let questionsAnswered = 0;
+    for (let i = 1; i <= 18; i++) {
+      const radio = document.querySelector(`input[name="q${i}"]:checked`);
+      if (radio && radio.value && radio.value !== 'na') {
+        questionsAnswered++;
+      }
+    }
+    
+    if (questionsAnswered === 0) {
+      showToast('Please answer at least one QA question', true);
+      return false;
+    }
+    
+    console.log('✅ VALIDATION PASSED');
+    return true;
+  }
+
+  function collectFormDataAsObject() {
+    console.log('📦 COLLECTING FORM DATA AS OBJECT');
+    
+    try {
+      // Update hidden fields first
+      updateHiddenFields();
+      
+      const formData = {};
+      
+      // Basic information fields
+      formData.callerName = document.getElementById('callerName').value || '';
+      formData.agentName = document.getElementById('agentName').value || '';
+      formData.agentEmail = document.getElementById('agentEmail').value || '';
+      formData.clientName = document.getElementById('clientName').value || '';
+      formData.callDate = document.getElementById('callDate').value || '';
+      formData.caseNumber = document.getElementById('caseNumber').value || '';
+      formData.auditorName = document.getElementById('auditorName').value || '';
+      formData.auditDate = document.getElementById('auditDate').value || '';
+      
+      // Feedback shared fields
+      const feedbackShared = document.getElementById('feedbackSharedFlag').checked;
+      const feedbackDate = document.getElementById('feedbackSharedDate').value || '';
+      formData.feedbackShared = feedbackShared;
+      formData.feedbackSharedAt = feedbackDate;
+      
+      // QA Questions (Q1-Q18)
+      let answeredQuestions = 0;
+      for (let i = 1; i <= 18; i++) {
+        const questionKey = 'q' + i;
+        const radio = document.querySelector(`input[name="${questionKey}"]:checked`);
+        formData[questionKey] = radio ? radio.value : '';
+        if (radio && radio.value) answeredQuestions++;
+      }
+      
+      // Comments (C1-C18)
+      for (let i = 1; i <= 18; i++) {
+        const commentKey = 'c' + i;
+        const textarea = document.querySelector(`textarea[name="${commentKey}"]`);
+        formData[commentKey] = textarea ? textarea.value : '';
+      }
+      
+      // Overall feedback (from hidden fields that were updated)
+      formData.overallFeedback = document.getElementById('hOverallFeedback').value || '';
+      formData.overallFeedbackPlain = document.getElementById('hOverallFeedbackPlain').value || '';
+      
+      // PDF options
+      formData.pdfTemplate = document.querySelector('input[name="pdfTemplate"]:checked')?.value || 'standard';
+      formData.pdfTheme = document.getElementById('pdfTheme')?.value || 'professional';
+      formData.includeCharts = document.getElementById('includeCharts')?.checked !== false;
+      formData.includeRecommendations = document.getElementById('includeRecommendations')?.checked !== false;
+      formData.includeFullSnapshot = document.getElementById('includeFullSnapshot')?.checked !== false;
+      
+      // Handle audio file differently - convert to base64 if present
+      const audioFileInput = document.getElementById('audioFile');
+      if (audioFileInput && audioFileInput.files && audioFileInput.files.length > 0) {
+        const file = audioFileInput.files[0];
+        console.log('Audio file present:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+        
+        // For Google Apps Script, we need to handle this differently
+        // We'll convert to a blob-like object that GAS can handle
+        formData.audioFileName = file.name;
+        formData.audioFileSize = file.size;
+        formData.audioFileType = file.type;
+        
+        // Read file as array buffer and convert to base64
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const arrayBuffer = e.target.result;
+            const base64 = arrayBufferToBase64(arrayBuffer);
+            formData.audioFileData = base64;
+            console.log('📊 COLLECTION COMPLETE - Audio file converted to base64');
+            console.log('  Questions answered:', answeredQuestions + '/18');
+            resolve(formData);
+          };
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+      }
+      
+      // Handle call link (for external audio)
+      const callLink = document.getElementById('callLink').value;
+      if (callLink) {
+        formData.callLink = callLink;
+      }
+      
+      console.log('📊 COLLECTION COMPLETE');
+      console.log('  Questions answered:', answeredQuestions + '/18');
+      console.log('  Has call link:', !!callLink);
+      console.log('  Form data keys:', Object.keys(formData));
+      
+      return Promise.resolve(formData);
+      
+    } catch (error) {
+      console.error('Error collecting form data:', error);
+      showToast('Error preparing form: ' + error.message, true);
+      return Promise.resolve(null);
+    }
+  }
+
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function submitToServer(formDataPromise, attemptNumber = 1) {
+    const MAX_ATTEMPTS = 2;
+    const TIMEOUT_MS = 120000; // 2 minutes
+    
+    console.log(`📤 SUBMISSION ATTEMPT ${attemptNumber}/${MAX_ATTEMPTS}`);
+    
+    // Handle the promise if needed
+    Promise.resolve(formDataPromise)
+      .then(formData => {
+        if (!formData) {
+          throw new Error('No form data to submit');
+        }
+        
+        console.log('Submitting form data with keys:', Object.keys(formData));
+        
+        // Create timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Submission timeout - please check your connection and try again'));
+          }, TIMEOUT_MS);
+        });
+        
+        // Create submission promise
+        const submissionPromise = new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .clientUploadAudioAndSaveQA(formData);
+        });
+        
+        // Race promises
+        return Promise.race([submissionPromise, timeoutPromise]);
+      })
+      .then(result => {
+        console.log('✅ SUBMISSION SUCCESSFUL:', result);
+        hideLoadingState();
+        handleSuccessResponse(result);
+      })
+      .catch(error => {
+        console.error(`❌ SUBMISSION ATTEMPT ${attemptNumber} FAILED:`, error);
+        
+        if (attemptNumber < MAX_ATTEMPTS) {
+          console.log(`🔄 RETRYING... (${attemptNumber + 1}/${MAX_ATTEMPTS})`);
+          updateLoadingStateForRetry(attemptNumber + 1);
+          
+          setTimeout(() => {
+            submitToServer(formDataPromise, attemptNumber + 1);
+          }, 2000);
+        } else {
+          console.error('💥 ALL SUBMISSION ATTEMPTS FAILED');
+          hideLoadingState();
+          handleSubmissionError(error);
+        }
+      });
+  }
+
+  function showLoadingState() {
+    const status = document.getElementById('uploadStatus');
+    if (status) {
+      status.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+          <div class="spinner"></div>
+          <div>
+            <div style="font-weight: 600;">Submitting QA Assessment...</div>
+            <div style="font-size: 0.9rem; opacity: 0.8;">Please wait, this may take a moment for large files</div>
+          </div>
+        </div>
+      `;
+      status.classList.add('show');
+    }
+    
+    // Disable form
+    const form = document.getElementById('auditForm');
+    if (form) {
+      const inputs = form.querySelectorAll('input, select, textarea, button');
+      inputs.forEach(input => input.disabled = true);
+    }
+  }
+
+  function hideLoadingState() {
+    const status = document.getElementById('uploadStatus');
+    if (status) {
+      status.classList.remove('show');
+    }
+    
+    // Re-enable form
+    const form = document.getElementById('auditForm');
+    if (form) {
+      const inputs = form.querySelectorAll('input, select, textarea, button');
+      inputs.forEach(input => input.disabled = false);
+    }
+  }
+
+  function updateLoadingStateForRetry(attemptNumber) {
+    const status = document.getElementById('uploadStatus');
+    if (status) {
+      status.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <div class="spinner"></div>
+          <div>
+            <div style="font-weight: 600;">Retrying submission... (Attempt ${attemptNumber})</div>
+            <div style="font-size: 0.9rem; opacity: 0.8;">Previous attempt failed, trying again</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function handleSuccessResponse(result) {
+    try {
+      console.log('Handling server response:', result);
+      
+      if (!result) {
+        throw new Error('No response from server');
+      }
+      
+      if (result.success) {
+        console.log('✅ QA SUBMISSION SUCCESSFUL');
+        console.log('QA ID:', result.qaId);
+        console.log('Score:', result.scoreResult?.finalScore || 'N/A');
+        
+        const status = document.getElementById('uploadStatus');
+        if (status) {
+          let linksHTML = '';
+          if (result.audioUrl) {
+            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${result.audioUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📞 View Recording</a></div>`;
+          }
+          if (result.qaPdfUrl) {
+            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${result.qaPdfUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📄 Download Report PDF</a></div>`;
+          }
+          
+          status.innerHTML = `
+            <div style="padding: 1rem; background: #d4edda; border-radius: 8px; border-left: 4px solid #28a745;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                <strong>Assessment Submitted Successfully!</strong>
+              </div>
+              <div style="margin-bottom: 0.5rem;"><strong>QA ID:</strong> ${result.qaId || 'Generated'}</div>
+              ${result.scoreResult ? `<div style="margin-bottom: 0.5rem;"><strong>Score:</strong> ${result.scoreResult.finalScore}%</div>` : ''}
+              ${linksHTML}
+            </div>
+          `;
+        }
+        
+        showToast('QA assessment submitted successfully!');
+        
+      } else {
+        // Server returned success: false
+        throw new Error(result.error || result.message || 'Server returned an error');
+      }
+      
+    } catch (error) {
+      console.error('Error in handleSuccessResponse:', error);
+      handleSubmissionError(error);
+    }
+  }
+
+  function handleSubmissionError(error) {
+    try {
+      const errorMessage = error?.message || error || 'Unknown error occurred';
+      console.error('❌ SUBMISSION ERROR:', errorMessage);
+      
+      const status = document.getElementById('uploadStatus');
+      if (status) {
+        status.innerHTML = `
+          <div style="padding: 1rem; background: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i>
+              <strong>Submission Failed</strong>
+            </div>
+            <div style="font-size: 0.9rem; margin-bottom: 0.5rem;">${errorMessage}</div>
+            <div style="font-size: 0.8rem; opacity: 0.7;">
+              <strong>Troubleshooting tips:</strong><br>
+              • Check your internet connection<br>
+              • If uploading a large file, try a smaller one<br>
+              • Wait a moment and try again<br>
+              • Contact support if the problem persists
+            </div>
+          </div>
+        `;
+      }
+      
+      showToast('Submission failed: ' + errorMessage, true);
+      
+    } catch (displayError) {
+      console.error('Error displaying error message:', displayError);
+      showToast('Submission failed with unknown error', true);
+    }
+  }
+
+  // ============================================================================
+  // FILE UPLOAD HANDLING
+  // ============================================================================
+
+  function setupFileUpload() {
+    const fileInput = document.getElementById('audioFile');
+    const uploadArea = document.querySelector('.audio-upload-container');
+    const uploadIcon = uploadArea.querySelector('.audio-upload-display i');
+    const uploadText = uploadArea.querySelector('.audio-text');
+    const uploadSubtext = uploadArea.querySelector('.audio-info');
+
+    if (!fileInput || !uploadArea) return;
+
+    // Simple click handler - no double prevention needed
+    uploadArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = '#FFB800';
+      uploadArea.style.background = 'rgba(255, 184, 0, 0.05)';
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.style.borderColor = 'var(--border-color)';
+      uploadArea.style.background = '#f8fafc';
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = 'var(--border-color)';
+      uploadArea.style.background = '#f8fafc';
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        fileInput.files = dt.files;
+        handleFileSelection(files[0]);
+      }
+    });
+    
+    // File selection change handler
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelection(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelection(file) {
+      if (!file) return;
+      
+      // Check if it's an audio file
+      if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|aac|ogg|flac|wma)$/i)) {
+        uploadIcon.className = 'fas fa-check-circle';
+        uploadIcon.style.color = '#10b981';
+        uploadText.textContent = `Selected: ${file.name}`;
+        uploadSubtext.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB • Ready to upload`;
+        uploadArea.style.borderColor = '#10b981';
+        uploadArea.style.background = 'rgba(16,185,129,0.05)';
+        uploadArea.classList.add('has-file');
+        
+        // File size warning
+        const sizeMB = file.size / (1024 * 1024);
+        if (sizeMB > 10) {
+          showToast(`Large file selected (${sizeMB.toFixed(1)}MB) - upload may take longer.`, false);
+        }
+      } else {
+        showToast('Please select a valid audio file (MP3, WAV, M4A, etc.)', true);
+        resetFileUpload();
+        fileInput.value = ''; // Clear the invalid file
+      }
+    }
+
+    function resetFileUpload() {
+      uploadIcon.className = 'fas fa-microphone';
+      uploadIcon.style.color = 'var(--cyan-accent)';
+      uploadText.textContent = 'Click to upload call recording';
+      uploadSubtext.textContent = 'Supports MP3, WAV, M4A and others';
+      uploadArea.style.borderColor = 'var(--border-color)';
+      uploadArea.style.background = '#f8fafc';
+      uploadArea.classList.remove('has-file');
+    }
+  }
+
+  // ============================================================================
+  // FORM PREFILLING AND INITIALIZATION
+  // ============================================================================
+
+  function prefillFromRecord(r) {
+    if (!r || typeof r !== 'object') return;
+    
+    // Agent email auto-population
+    const agentSel = document.getElementById('agentName');
+    const emailInp = document.getElementById('agentEmail');
+    if (agentSel && emailInp && agentSel.value && !emailInp.value) {
+      emailInp.value = userMap[agentSel.value] || '';
+    }
+
+    // Feedback shared normalization
+    const fsRaw = (r.FeedbackShared || '').toString().trim().toLowerCase();
+    const shared = (fsRaw === 'yes' || fsRaw === 'true' || (!!r.FeedbackSharedAt));
+    const feedbackFlag = document.getElementById('feedbackSharedFlag');
+    const feedbackDate = document.getElementById('feedbackSharedDate');
+    if (feedbackFlag) feedbackFlag.checked = shared;
+    if (feedbackDate && r.FeedbackSharedAt) feedbackDate.value = r.FeedbackSharedAt;
+
+    // Q1..Q18 prefilling
+    for (let i = 1; i <= 18; i++) {
+      const keySheet = 'Q' + i;       // Sheet format
+      const keyForm = 'q' + i;        // Form format
+      const v = normAns(r[keySheet] || r[keyForm]);
+      if (!v) continue;
+      const el = document.querySelector(`input[name="${keyForm}"][value="${v}"]`);
+      if (el) el.checked = true;
+    }
+  }
+
+  // ============================================================================
+  // ENHANCED EMAIL AUTO-FILL WITH DEBUGGING
+  // Replace the setupEventListeners function in your Quality Form script
+  // ============================================================================
+
+  function setupEventListeners() {
+    // Enhanced Agent selection with better email auto-fill
+    const agentSelect = document.getElementById('agentName');
+    const emailInput = document.getElementById('agentEmail');
+    
+    if (agentSelect && emailInput) {
+      agentSelect.addEventListener('change', function() {
+        const selectedAgent = this.value;
+        console.log('=== EMAIL AUTO-FILL ===');
+        console.log('Agent selected:', selectedAgent);
+        
+        if (!selectedAgent) {
+          emailInput.value = '';
+          emailInput.removeAttribute('readonly');
+          return;
+        }
+        
+        // Show loading state
+        emailInput.value = 'Loading...';
+        emailInput.setAttribute('readonly', true);
+        
+        // Method 1: Check local userMap cache first
+        if (userMap[selectedAgent]) {
+          console.log('Email found in cache:', userMap[selectedAgent]);
+          emailInput.value = userMap[selectedAgent];
+          return;
+        }
+        
+        // Method 2: Server lookup with timeout
+        if (google?.script?.run) {
+          const timeoutId = setTimeout(() => {
+            console.warn('Email lookup timeout');
+            emailInput.value = '';
+            emailInput.removeAttribute('readonly');
+            showToast('Email lookup timed out. Please enter manually.', true);
+          }, 5000);
+          
+          google.script.run
+            .withSuccessHandler(email => {
+              clearTimeout(timeoutId);
+              console.log('Server returned email:', email);
+              
+              if (email && email.trim()) {
+                emailInput.value = email.trim();
+                userMap[selectedAgent] = email.trim(); // Cache it
+                emailInput.setAttribute('readonly', true);
+                console.log('✅ Email populated:', email);
+              } else {
+                emailInput.value = '';
+                emailInput.removeAttribute('readonly');
+                console.log('⚠️ No email found - manual entry required');
+              }
+            })
+            .withFailureHandler(err => {
+              clearTimeout(timeoutId);
+              console.error('Email lookup failed:', err);
+              emailInput.value = '';
+              emailInput.removeAttribute('readonly');
+            })
+            .getUserEmail(selectedAgent);
+        } else {
+          console.warn('Google Apps Script not available');
+          emailInput.value = '';
+          emailInput.removeAttribute('readonly');
+        }
+      });
+    }
+
+    // Continue with other event listeners...
+    setupOtherEventListeners();
+  }
+
+  function fallbackToBasicAgentList() {
+    console.log('Using basic agent list fallback');
+    // Your existing fallback logic
+    hydrateAgentList();
+  }
+
+  function loadAgentsWithEmails() {
+    console.log('Loading agents with emails...');
+    
+    if (!google?.script?.run) {
+      console.warn('Google Apps Script not available');
+      return;
+    }
+    
+    // Load users with their emails
+    google.script.run
+      .withSuccessHandler(usersWithEmails => {
+        console.log('Received users with emails:', usersWithEmails);
+        
+        if (!Array.isArray(usersWithEmails) || usersWithEmails.length === 0) {
+          console.warn('No users with emails received');
+          fallbackToBasicAgentList();
+          return;
+        }
+        
+        // Update userMap with all emails
+        usersWithEmails.forEach(u => {
+          if (u.name && u.email) {
+            userMap[u.name] = u.email;
+          }
+        });
+        
+        // Populate the select dropdown
+        const agentSelect = document.getElementById('agentName');
+        if (!agentSelect) return;
+        
+        // Keep placeholder
+        const placeholder = agentSelect.querySelector('option[disabled]');
+        agentSelect.innerHTML = '';
+        if (placeholder) agentSelect.appendChild(placeholder);
+        
+        // Add all agents
+        const frag = document.createDocumentFragment();
+        usersWithEmails.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.name;
+          opt.textContent = u.name;
+          frag.appendChild(opt);
+        });
+        agentSelect.appendChild(frag);
+        
+        // Restore previous selection if editing
+        if (recordId && record && record !== '{}') {
+          try {
+            const rec = JSON.parse(record);
+            if (rec.AgentName) {
+              agentSelect.value = rec.AgentName;
+              // Trigger change to populate email
+              agentSelect.dispatchEvent(new Event('change'));
+            }
+          } catch (e) {
+            console.warn('Error restoring agent selection:', e);
+          }
+        }
+        
+        console.log('✅ Agents loaded with emails cached');
+      })
+      .withFailureHandler(err => {
+        console.error('Failed to load users with emails:', err);
+        fallbackToBasicAgentList();
+      })
+      .getUsersWithEmails();
+  }
+
+  function tryGetAllUsersForEmail(selectedAgent, emailInput) {
+    console.log('Trying fallback: getUsers for email extraction...');
+    
+    google.script.run
+      .withSuccessHandler(users => {
+        console.log('All users received for email extraction:', users);
+        if (Array.isArray(users) && users.length > 0) {
+          const userObj = users.find(u => 
+            u.FullName === selectedAgent || 
+            u.UserName === selectedAgent ||
+            u.name === selectedAgent ||
+            u.fullName === selectedAgent ||
+            u.displayName === selectedAgent
+          );
+          
+          if (userObj) {
+            const email = userObj.Email || userObj.email || userObj.mail || 
+                        userObj.emailAddress || userObj.Mail || userObj.EmailAddress || '';
+            if (email) {
+              emailInput.value = email;
+              userMap[selectedAgent] = email; // Cache it
+              console.log('✅ Email found via getUsers fallback:', email);
+            } else {
+              console.warn('User found but no email field:', userObj);
+              emailInput.value = ''; // Clear if no email
+            }
+          } else {
+            console.warn('User not found in users array:', selectedAgent);
+            emailInput.value = ''; // Clear if user not found
+          }
+        }
+      })
+      .withFailureHandler(err => {
+        console.error('getUsers fallback failed:', err);
+        emailInput.value = ''; // Clear on error
+      })
+      .getUsers();
+  }
+
+  function setupOtherEventListeners() {
+    // Feedback shared checkbox -> hidden field sync
+    const feedbackFlag = document.getElementById('feedbackSharedFlag');
+    const feedbackDate = document.getElementById('feedbackSharedDate');
+    const feedbackHidden = document.getElementById('feedbackShared');
+    const feedbackDateHidden = document.getElementById('feedbackSharedAt');
+    
+    if (feedbackFlag && feedbackHidden) {
+      feedbackFlag.addEventListener('change', function() {
+        feedbackHidden.value = this.checked ? 'true' : 'false';
+      });
+    }
+    
+    if (feedbackDate && feedbackDateHidden) {
+      feedbackDate.addEventListener('change', function() {
+        feedbackDateHidden.value = this.value;
+      });
+    }
+
+    // Auto-set audit date to today
+    const auditDateInput = document.getElementById('auditDate');
+    if (auditDateInput && !auditDateInput.value) {
+      const today = new Date().toISOString().split('T')[0];
+      auditDateInput.value = today;
+    }
+
+    // QA questions -> real-time scoring
+    for (let i = 1; i <= 18; i++) {
+      const radios = document.querySelectorAll(`input[name="q${i}"]`);
+      radios.forEach(radio => {
+        radio.addEventListener('change', recalcSummary);
+      });
+    }
+
+    // Form submission
+    const form = document.getElementById('auditForm');
+    if (form) {
+      form.addEventListener('submit', handleFormSubmission);
+    }
+
+    // Reset button
+    const resetBtn = document.getElementById('resetBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset the form? All data will be lost.')) {
+          form.reset();
+          if (quill) quill.setContents([]);
+          recalcSummary();
+          showToast('Form reset successfully');
+        }
+      });
+    }
+
+    // Live datetime update
+    updateLiveDatetime();
+    setInterval(updateLiveDatetime, 1000);
+
+    // Live indicator interaction
+    const liveStatus = document.querySelector('.live-status');
+    if (liveStatus) {
+      liveStatus.addEventListener('click', () => {
+        const indicator = document.querySelector('.live-indicator');
+        if (indicator) {
+          indicator.style.animation = 'none';
+          setTimeout(() => {
+            indicator.style.animation = 'pulse-live 2s infinite';
+          }, 100);
+        }
+      });
+    }
+  }
+
+  // ============================================================================
+  // ENHANCED INITIALIZATION
+  // ============================================================================
+
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== QA FORM INITIALIZATION (Enhanced) ===');
+    
+    try {
+      // Initialize Quill editor
+      quill = new Quill('#quillEditor', {
+        theme: 'snow',
+        placeholder: 'Provide detailed feedback, suggestions for improvement, and positive observations...',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline'],
+            [{'list': 'ordered'}, {'list': 'bullet'}],
+            ['clean']
+          ]
+        }
+      });
+      
+      // Setup file upload
+      setupFileUpload();
+      
+      // Setup event listeners
+      setupEventListeners();
+      
+      // Load agents with enhanced method
+      loadAgentsFromServerIfNeeded();
+      
+      loadAgentsWithEmails
+      // Prefill form if record exists
+      if (record && record !== '{}') {
+        try {
+          const recObj = JSON.parse(record);
+          prefillFromRecord(recObj);
+        } catch (e) {
+          console.error('Error parsing record:', e);
+        }
+      }
+      
+      // Initial scoring calculation
+      recalcSummary();
+      
+      console.log('✅ QA FORM INITIALIZED SUCCESSFULLY (Enhanced)');
+      
+    } catch (error) {
+      console.error('❌ QA FORM INITIALIZATION FAILED:', error);
+      showToast('Form initialization failed: ' + error.message, true);
+    }
+  });
+
+</script>
+</body>
+
+</html>

@@ -1,0 +1,841 @@
+<?!= include("header", { rawToken: rawToken, baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+
+<!-- Quill -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<style>
+    :root {
+        --navy: #003177;
+        --cyan: #00BFFF;
+        --border: #dfe6ee;
+        --muted: #64748b;
+        --grad: linear-gradient(135deg, var(--cyan) 0%, #0099cc 100%);
+        --surface: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        --shadow: 0 10px 30px rgba(0, 0, 0, .08);
+        --radius: 16px;
+        --radius-lg: 22px;
+    }
+
+    * {
+        box-sizing: border-box
+    }
+
+    body {
+        margin: 0;
+        background: var(--surface);
+        font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #0f172a
+    }
+
+    .wrap {
+        max-width: 1180px;
+        margin: 22px auto;
+        padding: 0 14px
+    }
+
+    .hdr {
+        background: var(--grad);
+        color: #fff;
+        border-radius: var(--radius-lg);
+        padding: 20px 18px;
+        box-shadow: var(--shadow)
+    }
+
+    .hdr h1 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 800
+    }
+
+    .hdr p {
+        margin: 6px 0 0 0;
+        opacity: .95
+    }
+
+    .chip {
+        margin-top: 10px;
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        background: rgba(255, 255, 255, .16);
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: 13px
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns:1fr 340px;
+        gap: 16px;
+        margin-top: 16px;
+        align-items: start
+    }
+
+    .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 16px
+    }
+
+    .card h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: #0b2e5e;
+        display: flex;
+        gap: 10px;
+        align-items: center
+    }
+
+    .row {
+        display: grid;
+        grid-template-columns:repeat(12, 1fr);
+        gap: 12px
+    }
+
+    .mb {
+        margin-bottom: 12px
+    }
+
+    .col-4 {
+        grid-column: span 4
+    }
+
+    .col-6 {
+        grid-column: span 6
+    }
+
+    .col-12 {
+        grid-column: span 12
+    }
+
+    label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: #27456e;
+        font-weight: 800
+    }
+
+    input, select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #cfe3f7;
+        border-radius: 10px;
+        outline: none;
+        font-size: 14px;
+        background: #fff
+    }
+
+    input:focus, select:focus {
+        border-color: var(--cyan);
+        box-shadow: 0 0 0 3px rgba(0, 191, 255, .12)
+    }
+
+    /* question row */
+    .qrow {
+        display: grid;
+        grid-template-columns:1fr auto auto auto;
+        gap: 12px;
+        align-items: center;
+        border: 2px solid #f1f5f9;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 8px;
+        background: #fff
+    }
+
+    .qtxt {
+        font-weight: 700
+    }
+
+    .qmax {
+        font-weight: 800;
+        background: var(--grad);
+        color: #fff;
+        border-radius: 14px;
+        padding: 6px 10px;
+        font-size: 12px
+    }
+
+    .qscore {
+        display: flex;
+        align-items: center;
+        gap: 8px
+    }
+
+    .qscore input[type="number"] {
+        width: 92px
+    }
+
+    .badge {
+        font-weight: 800;
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
+        border: 2px solid transparent
+    }
+
+    .b-yes {
+        background: #00b67c;
+        color: #fff;
+        border-color: #00ca8a
+    }
+
+    .b-no {
+        background: #dc2626;
+        color: #fff;
+        border-color: #ef4444
+    }
+
+    .b-part {
+        background: #475569;
+        color: #fff;
+        border-color: #475569
+    }
+
+    .b-na {
+        background: #e5e7eb;
+        color: #111827;
+        border-color: #cbd5e1
+    }
+
+    .na {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #475569
+    }
+
+    .zt {
+        border: 2px dashed #fecaca;
+        background: #fff7f7
+    }
+
+    .zt label {
+        color: #991b1b
+    }
+
+    /* side sticky column */
+    .side-sticky {
+        position: sticky;
+        top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        max-height: calc(100vh - 32px);
+        overflow: auto; /* scroll with the app */
+    }
+
+    .scorebox {
+        text-align: center;
+        border: 2px solid #bfe7ff;
+        border-radius: 14px;
+        padding: 14px;
+        background: #fff
+    }
+
+    .big {
+        font-size: 40px;
+        font-weight: 900;
+        background: var(--grad);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 4px 0 6px
+    }
+
+    .pass {
+        padding: 10px;
+        border-radius: 12px;
+        font-weight: 900
+    }
+
+    .ok {
+        background: rgba(16, 185, 129, .12);
+        border: 2px solid rgba(16, 185, 129, .3);
+        color: #047857
+    }
+
+    .fail {
+        background: rgba(239, 68, 68, .12);
+        border: 2px solid rgba(239, 68, 68, .3);
+        color: #b91c1c
+    }
+
+    .auto {
+        background: rgba(239, 68, 68, .2);
+        border: 2px solid #ef4444;
+        color: #7f1d1d
+    }
+
+    .cat {
+        display: flex;
+        justify-content: space-between;
+        background: #f8fafc;
+        border-left: 4px solid #cfe3f7;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 13px;
+        margin-top: 8px
+    }
+
+    .actions {
+        position: sticky;
+        bottom: 16px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: #fff;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        padding: 12px;
+        border-radius: 12px;
+        margin-top: 14px
+    }
+
+    .btn {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        border: none;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-weight: 900;
+        cursor: pointer
+    }
+
+    .btn-s {
+        background: #f8fafc;
+        border: 2px solid #cfe3f7
+    }
+
+    .btn-p {
+        background: var(--grad);
+        color: #fff;
+        box-shadow: 0 6px 14px rgba(0, 191, 255, .25)
+    }
+
+    .btn:disabled {
+        opacity: .6;
+        cursor: not-allowed
+    }
+
+    .toast {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        background: #0ea5e9;
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        z-index: 9999;
+        font-weight: 700
+    }
+
+    @media (max-width: 900px) {
+        .grid {
+            grid-template-columns:1fr
+        }
+
+        .side-sticky {
+            position: static;
+            max-height: none;
+            overflow: visible
+        }
+
+        .actions {
+            position: sticky;
+            bottom: 0
+        }
+    }
+</style>
+
+    <div class="hdr">
+        <h1><i class="fa-solid fa-message"></i> TGC Chat Quality Assessment</h1>
+        <p>Numeric scoring from one box • N/A auto-deselects on number change • Sticky score panel</p>
+        <div class="chip" id="sysChip"><i class="fa-solid fa-circle-notch fa-spin"></i> Checking system…</div>
+    </div>
+
+    <div class="grid">
+        <!-- left -->
+        <div>
+            <!-- Assessment info -->
+            <div class="card">
+                <h2><i class="fa-solid fa-user-check"></i> Assessment Info</h2>
+                <div class="row mb">
+                    <div class="col-4">
+                        <label>Customer Name</label>
+                        <input id="customerName" placeholder="(optional)"/>
+                    </div>
+                    <div class="col-4">
+                        <label>Agent</label>
+                        <select id="agentName" required>
+                            <option value="">-- Select Agent --</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label>Agent Email</label>
+                        <input id="agentEmail" type="email" readonly placeholder="Auto-filled from user panel"/>
+                    </div>
+
+                    <div class="col-4">
+                        <label>Conversation ID</label>
+                        <input id="conversationId" placeholder="Zendesk/Intercom/SF Case #"/>
+                    </div>
+                    <div class="col-4">
+                        <label>Chat Date</label>
+                        <input id="chatDate" type="date" required/>
+                    </div>
+                    <div class="col-4">
+                        <label>Auditor Name</label>
+                        <input id="auditorName" placeholder="Your name" required/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zero Tolerance -->
+            <div class="card zt">
+                <h2><i class="fa-solid fa-triangle-exclamation"></i> Zero Tolerance</h2>
+                <div class="row">
+                    <div class="col-6">
+                        <label>Auto-fail this audit?</label>
+                        <div style="display:flex;gap:16px;align-items:center;margin-top:6px">
+                            <label style="display:flex;gap:8px;align-items:center"><input type="radio" name="zt"
+                                                                                          value="No" checked/>
+                                No</label>
+                            <label style="display:flex;gap:8px;align-items:center"><input type="radio" name="zt"
+                                                                                          value="Yes"/> Yes</label>
+                        </div>
+                        <div style="color:#7f1d1d;font-size:13px;margin-top:6px">If <b>Yes</b>, overall score becomes
+                            <b>0%</b> and status is <b>Auto Fail</b>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions -->
+            <div class="card">
+                <h2><i class="fa-solid fa-list-check"></i> Questions</h2>
+                <div id="qWrap"></div>
+            </div>
+
+            <!-- Internal Notes (Quill) -->
+            <div class="card">
+                <h2><i class="fa-solid fa-note-sticky"></i> Internal Notes</h2>
+                <div id="notesEditor" style="height:220px"></div>
+                <input type="hidden" id="notesHtml"/>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions">
+                <button class="btn btn-s" id="btnHealth"><i class="fa-solid fa-heart-pulse"></i> System Health</button>
+                <button class="btn btn-s" id="btnRecalc"><i class="fa-solid fa-calculator"></i> Recalculate</button>
+                <button class="btn btn-s" id="btnReset"><i class="fa-solid fa-rotate"></i> Reset</button>
+                <button class="btn btn-p" id="btnSubmit"><i class="fa-solid fa-floppy-disk"></i> Submit Audit</button>
+            </div>
+        </div>
+
+        <!-- right (sticky, scrolls with app) -->
+        <div>
+            <div class="side-sticky">
+                <div class="card scorebox">
+                    <div id="passBadge" class="pass">Calculating…</div>
+                    <div id="pct" class="big">0%</div>
+                    <div id="detail" style="font-weight:800">0 / 0 pts</div>
+                </div>
+                <div class="card">
+                    <h2><i class="fa-solid fa-chart-simple"></i> Category Breakdown</h2>
+                    <div id="cats"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quill -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+    /********* CONFIG (sync with server) *********/
+    const Q_MAX = {q1: 5, q2: 5, q3: 5, q4: 10, q5: 50, q6: 10, q7: 5, q8: 5, q9: 5};
+    const Q_TEXT = {
+        q1: 'Did the agent thank the customer for reaching out or for their response?',
+        q2: 'Did the agent effectively understand the user’s concern?',
+        q3: 'Did the agent empathize with the customer?',
+        q4: 'Did the agent display complete attention to the user’s situation/concern?',
+        q5: 'Did the agent provide an appropriate answer to the customer’s issue and fill out the correct form(s)?',
+        q6: 'The agent offers further assistance or advises the customer they are awaiting a response.',
+        q7: 'Did the agent customize the email response and modify the macro to address the specific needs of the customer?',
+        q8: 'Did the agent merge the tickets when appropriate?',
+        q9: 'Did the agent place the ticket in the correct status after responding?'
+    };
+    const CATS = {
+        Professionalism: ['q1', 'q3', 'q4'],
+        Comprehension: ['q2'],
+        Resolution: ['q5'],
+        FollowUp: ['q6'],
+        Writing: ['q7'],
+        Process: ['q8', 'q9']
+    };
+
+    /********* STATE *********/
+    const model = {
+        scores: {q1: null, q2: null, q3: null, q4: null, q5: null, q6: null, q7: null, q8: null, q9: null}, // null = N/A
+        zt: 'No'
+    };
+    let quill;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        seedDate();
+        initQuill();
+        renderQuestions();
+        wire();
+        loadAgents();
+        health();
+        recalc();
+    });
+
+    function seedDate() {
+        const t = new Date(), y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, '0'),
+            d = String(t.getDate()).padStart(2, '0');
+        document.getElementById('chatDate').value = `${y}-${m}-${d}`;
+    }
+
+    function initQuill() {
+        try {
+            quill = new Quill('#notesEditor', {
+                theme: 'snow',
+                placeholder: 'Private/internal notes (rich text)',
+                modules: {toolbar: [['bold', 'italic', 'underline'], [{'list': 'ordered'}, {'list': 'bullet'}], [{'header': [1, 2, 3, false]}], ['link'], ['clean']]}
+            });
+            quill.on('text-change', () => document.getElementById('notesHtml').value = quill.root.innerHTML);
+        } catch (e) {
+            const ta = document.createElement('textarea');
+            ta.id = 'notesHtml';
+            ta.placeholder = 'Notes...';
+            ta.style.minHeight = '220px';
+            document.getElementById('notesEditor').replaceWith(ta);
+        }
+    }
+
+    /********* QUESTIONS UI (N/A always editable, auto-uncheck on number change) *********/
+    function renderQuestions() {
+        const host = document.getElementById('qWrap');
+        host.innerHTML = '';
+        Object.keys(Q_TEXT).forEach(k => host.appendChild(makeRow(k)));
+    }
+
+    function makeRow(k) {
+        const max = Q_MAX[k];
+        const div = document.createElement('div');
+        div.className = 'qrow';
+        div.dataset.q = k;
+        div.innerHTML = `
+        <div class="qtxt">${Q_TEXT[k]}</div>
+        <div class="qmax">${max} pts</div>
+        <div class="qscore">
+          <input type="number" class="qnum" min="0" max="${max}" step="1" placeholder="0..${max}" />
+          <span class="badge b-na" data-badge>N/A</span>
+        </div>
+        <div class="na"><input type="checkbox" class="qna" checked/> N/A</div>
+      `;
+        const num = div.querySelector('.qnum');
+        const badge = div.querySelector('[data-badge]');
+        const na = div.querySelector('.qna');
+
+        function clamp(v) {
+            if (!Number.isFinite(v)) v = 0;
+            if (v < 0) v = 0;
+            if (v > max) v = max;
+            return v | 0;
+        }
+
+        function statusFor(v) {
+            if (v === 0) return {t: 'No', cls: 'b-no'};
+            if (v === max) return {t: 'Yes', cls: 'b-yes'};
+            return {t: 'Partial', cls: 'b-part'};
+        }
+
+        function updateBadge() {
+            if (na.checked) {
+                badge.textContent = 'N/A';
+                badge.className = 'badge b-na';
+            } else {
+                const v = clamp(Number(num.value));
+                const s = statusFor(v);
+                badge.textContent = s.t;
+                badge.className = 'badge ' + s.cls;
+            }
+        }
+
+        function syncModel() {
+            if (na.checked) model.scores[k] = null;
+            else model.scores[k] = clamp(Number(num.value));
+            recalc();
+        }
+
+        // Number input: always allowed; if NA was on, turn it off, clamp, update
+        num.addEventListener('input', () => {
+            if (na.checked) {
+                na.checked = false;
+            }
+            num.value = clamp(Number(num.value));
+            updateBadge();
+            syncModel();
+        });
+        num.addEventListener('blur', () => {
+            num.value = clamp(Number(num.value));
+            updateBadge();
+            syncModel();
+        });
+
+        // NA toggle: keep number editable, just flip the meaning
+        na.addEventListener('change', () => {
+            updateBadge();
+            syncModel();
+        });
+
+        // init state
+        model.scores[k] = null;
+        updateBadge();
+
+        return div;
+    }
+
+    /********* EVENTS *********/
+    function wire() {
+        document.getElementsByName('zt').forEach(r => {
+            r.addEventListener('change', () => {
+                model.zt = r.value;
+                recalc();
+            });
+        });
+
+        document.getElementById('btnRecalc').onclick = recalc;
+        document.getElementById('btnReset').onclick = resetForm;
+        document.getElementById('btnSubmit').onclick = submitAudit;
+        document.getElementById('btnHealth').onclick = health;
+
+        document.getElementById('agentName').addEventListener('change', e => {
+            const opt = e.target.selectedOptions[0];
+            document.getElementById('agentEmail').value = opt ? (opt.dataset.email || '') : '';
+        });
+    }
+
+    /********* AGENTS (auto-email) *********/
+    function loadAgents() {
+        const fail = (msg) => setChip('User panel error: ' + msg, 'err');
+        if (!(window.google && google.script && google.script.run)) {
+            fail('Apps Script bridge not available');
+            return;
+        }
+        const tryFns = ['TGC_getUsers', 'TGC_QA_getUsers', 'clientGetUsers'];
+        (function next(i) {
+            if (i >= tryFns.length) {
+                fail('No user list endpoint');
+                return;
+            }
+            const fn = tryFns[i];
+            try {
+                google.script.run
+                    .withSuccessHandler(users => {
+                        if (!Array.isArray(users) || users.length === 0) {
+                            next(i + 1);
+                            return;
+                        }
+                        const sel = document.getElementById('agentName');
+                        while (sel.options.length > 1) sel.remove(1);
+                        users.forEach(u => {
+                            const o = document.createElement('option');
+                            o.value = u.name || '';
+                            o.textContent = u.name || '(unknown)';
+                            o.dataset.email = u.email || '';
+                            sel.appendChild(o);
+                        });
+                        setChip('System OK', 'ok');
+                    })
+                    .withFailureHandler(() => next(i + 1))
+                    [fn]();
+            } catch (e) {
+                next(i + 1);
+            }
+        })(0);
+    }
+
+    /********* HEALTH *********/
+    function health() {
+        setChip('Checking system…', 'spin');
+        if (!(window.google && google.script && google.script.run)) {
+            setChip('Apps Script bridge not available', 'err');
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(() => setChip('System OK', 'ok'))
+            .withFailureHandler(() => setChip('Health failed', 'err'))
+            .TGC_healthCheck();
+    }
+
+    function setChip(text, mode) {
+        const el = document.getElementById('sysChip');
+        const ic = mode === 'ok' ? 'fa-check' : mode === 'err' ? 'fa-triangle-exclamation' : 'fa-circle-notch fa-spin';
+        el.innerHTML = `<i class="fa-solid ${ic}"></i> ${text}`;
+    }
+
+    /********* RECALC *********/
+    function recalc() {
+        const zt = model.zt === 'Yes';
+        let earned = 0, max = 0;
+        Object.keys(model.scores).forEach(k => {
+            const v = model.scores[k];
+            if (v === null) { /* N/A excluded */
+            } else {
+                earned += (Number(v) || 0);
+                max += Q_MAX[k];
+            }
+        });
+        const pct = zt ? 0 : (max ? Math.round((earned / max) * 100) : 0);
+        const pass = zt ? 'Auto Fail (Zero Tolerance)' : (pct >= 85 ? 'Pass' : 'Fail');
+
+        document.getElementById('pct').textContent = pct + '%';
+        document.getElementById('detail').textContent = (zt ? `0 / ${max} pts` : `${earned} / ${max} pts`);
+
+        const badge = document.getElementById('passBadge');
+        badge.textContent = pass;
+        badge.className = 'pass ' + (zt ? 'auto' : (pct >= 85 ? 'ok' : 'fail'));
+
+        renderCats();
+    }
+
+    function renderCats() {
+        const host = document.getElementById('cats');
+        host.innerHTML = '';
+        Object.entries(CATS).forEach(([name, keys]) => {
+            let g = 0, m = 0;
+            keys.forEach(k => {
+                const v = model.scores[k];
+                if (v !== null) {
+                    g += (Number(v) || 0);
+                    m += Q_MAX[k];
+                }
+            });
+            const p = m ? Math.round((g / m) * 100) : 0;
+            const div = document.createElement('div');
+            div.className = 'cat';
+            div.style.borderLeftColor = p >= 90 ? '#10b981' : p >= 80 ? '#f59e0b' : '#ef4444';
+            div.innerHTML = `<span>${name}</span><b>${p}%</b>`;
+            host.appendChild(div);
+        });
+    }
+
+    /********* SUBMIT *********/
+    function submitAudit() {
+        const btn = document.getElementById('btnSubmit');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
+
+        const payload = collect();
+        if (!payload.agentName || !payload.auditorName || !payload.chatDate) {
+            toast('Agent, Auditor and Chat Date are required.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Submit Audit';
+            return;
+        }
+
+        if (!(window.google && google.script && google.script.run)) {
+            toast('Apps Script bridge not available.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Submit Audit';
+            return;
+        }
+
+        google.script.run
+            .withSuccessHandler(res => {
+                toast('Audit submitted ✔');
+                console.log('Submit result:', res);
+                resetForm(true);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Submit Audit';
+            })
+            .withFailureHandler(err => {
+                toast('Submit failed: ' + (err && err.message ? err.message : err));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Submit Audit';
+            })
+            .TGC_QA_submitQA(payload);
+    }
+
+    function collect() {
+        const outScores = {};
+        Object.keys(model.scores).forEach(k => {
+            const v = model.scores[k];
+            outScores[k] = (v === null) ? 'NA' : Number(v);
+        });
+
+        const notesEl = document.getElementById('notesHtml');
+        const notesHtml = notesEl ? notesEl.value : (quill ? quill.root.innerHTML : '');
+
+        return {
+            customerName: v('customerName'),
+            agentName: v('agentName'),
+            agentEmail: v('agentEmail'),
+            channel: 'Chat',
+            conversationId: v('conversationId'),
+            chatDate: v('chatDate'),
+            callDate: v('chatDate'),    // server compatibility
+            auditorName: v('auditorName'),
+
+            zeroTolerance: document.querySelector('input[name="zt"]:checked')?.value || 'No',
+
+            ...outScores,
+
+            notes: notesHtml
+        };
+
+        function v(id) {
+            const el = document.getElementById(id);
+            return el ? el.value : '';
+        }
+    }
+
+    /********* RESET *********/
+    function resetForm(soft = false) {
+        ['customerName', 'conversationId'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        if (!soft) {
+            const au = document.getElementById('auditorName');
+            if (au) au.value = '';
+        }
+        document.getElementById('agentName').selectedIndex = 0;
+        document.getElementById('agentEmail').value = '';
+
+        document.querySelectorAll('input[name="zt"]').forEach(r => r.checked = (r.value === 'No'));
+        model.zt = 'No';
+
+        renderQuestions();
+
+        const nh = document.getElementById('notesHtml');
+        if (nh && !nh.matches('textarea')) nh.value = '';
+        if (quill) quill.setContents([]);
+
+        recalc();
+    }
+
+    /********* UTIL *********/
+    function toast(msg) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => {
+            t.style.opacity = '.0';
+            setTimeout(() => t.remove(), 280);
+        }, 2600);
+    }
+</script>
+</body>
+</html>

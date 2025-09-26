@@ -1,0 +1,1378 @@
+<!-- File: ImportCallReport.html -->
+<?!= include('header', { baseUrl: baseUrl, rawToken: rawToken, user: user, currentPage: "Import Call Report" }) ?>
+
+<style>
+  /* Call Report Import specific styles using the modern design system */
+  .import-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .modern-card {
+    background: linear-gradient(145deg, #ffffff 0%, var(--surface-variant) 100%);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--outline);
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 2rem;
+    transition: var(--transition-smooth);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .modern-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-primary);
+  }
+
+  .modern-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .card-header-modern {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-variant) 100%);
+    border-bottom: 1px solid var(--outline);
+    padding: 2rem;
+    position: relative;
+  }
+
+  .card-header-modern::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 2rem;
+    right: 2rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0.5;
+  }
+
+  .card-header-modern h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    color: var(--dark);
+    background: linear-gradient(135deg, var(--dark) 0%, var(--primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .card-header-modern h2 i {
+    margin-right: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: var(--border-radius-sm);
+    font-size: 1.25rem;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+    -webkit-text-fill-color: initial;
+  }
+
+  .card-body-modern {
+    padding: 2.5rem;
+  }
+
+  .file-input-container {
+    position: relative;
+    margin-bottom: 2rem;
+  }
+
+  .file-input-modern {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-height: 120px;
+    border: 2px dashed var(--outline);
+    border-radius: var(--border-radius);
+    background: linear-gradient(145deg, var(--surface) 0%, var(--surface-variant) 100%);
+    transition: var(--transition-smooth);
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .file-input-modern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(14, 165, 233, 0.05) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .file-input-modern:hover::before {
+    transform: translateX(100%);
+  }
+
+  .file-input-modern:hover {
+    border-color: var(--primary);
+    background: linear-gradient(145deg, var(--surface) 0%, rgba(14, 165, 233, 0.05) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.15);
+  }
+
+  .file-input-modern.dragover {
+    border-color: var(--success);
+    background: linear-gradient(145deg, var(--surface) 0%, rgba(16, 185, 129, 0.05) 100%);
+    transform: scale(1.02);
+  }
+
+  .file-input-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+
+  .file-input-icon {
+    width: 4rem;
+    height: 4rem;
+    margin-bottom: 1rem;
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3);
+    transition: var(--transition-smooth);
+  }
+
+  .file-input-modern:hover .file-input-icon {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+  }
+
+  .file-input-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 0.5rem;
+  }
+
+  .file-input-subtext {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+    margin-bottom: 1.5rem;
+  }
+
+  .file-input-real {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 3;
+  }
+
+  .file-type-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .file-type-badge-modern {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--outline) 100%);
+    color: var(--gray-600);
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--border-radius-full);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid var(--outline);
+    transition: var(--transition-fast);
+  }
+
+  .file-type-badge-modern:hover {
+    background: var(--gradient-primary);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+  }
+
+  .requirements-section {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .requirements-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .requirements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .requirements-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(245, 158, 11, 0.1);
+    transition: var(--transition-fast);
+  }
+
+  .requirements-list li:hover {
+    background: rgba(245, 158, 11, 0.05);
+    border-color: rgba(245, 158, 11, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .requirements-list li i {
+    color: var(--success);
+    margin-top: 0.125rem;
+    flex-shrink: 0;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.25rem;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+
+  .requirements-list code {
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .preview-container {
+    background: linear-gradient(145deg, var(--surface) 0%, var(--surface-variant) 100%);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-top: 2rem;
+    border: 1px solid var(--outline);
+    box-shadow: var(--shadow-md);
+    animation: slideIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--outline);
+  }
+
+  .preview-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .preview-title i {
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.1);
+    padding: 0.5rem;
+    border-radius: var(--border-radius-sm);
+  }
+
+  .preview-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--gray-500);
+  }
+
+  .preview-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: rgba(245, 158, 11, 0.05);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(245, 158, 11, 0.1);
+  }
+
+  .preview-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .preview-table th {
+    background: linear-gradient(135deg, var(--warning) 0%, var(--primary) 100%);
+    color: white;
+    padding: 1rem;
+    font-weight: 600;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+  }
+
+  .preview-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--outline);
+    transition: var(--transition-fast);
+    vertical-align: top;
+  }
+
+  .preview-table tbody tr:hover {
+    background: rgba(245, 158, 11, 0.05);
+  }
+
+  .preview-table tbody tr:nth-child(even) {
+    background: rgba(248, 250, 252, 0.5);
+  }
+
+  .preview-table tbody tr:nth-child(even):hover {
+    background: rgba(245, 158, 11, 0.08);
+  }
+
+  .data-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius-xs);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .data-badge.csat-yes {
+    background: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .data-badge.csat-no {
+    background: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .data-badge.csat-blank {
+    background: rgba(107, 114, 128, 0.1);
+    color: #374151;
+    border: 1px solid rgba(107, 114, 128, 0.3);
+  }
+
+  .data-badge.policy {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .data-badge.wrapup {
+    background: rgba(168, 85, 247, 0.1);
+    color: #581c87;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+  }
+
+  .data-badge.talktime {
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .btn-modern {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 2rem;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn-modern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .btn-modern:hover::before {
+    transform: translateX(100%);
+  }
+
+  .btn-modern:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .btn-modern:active {
+    transform: translateY(0);
+  }
+
+  .btn-modern:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-success-modern {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    color: white;
+  }
+
+  .btn-success-modern:hover {
+    background: linear-gradient(135deg, #059669 0%, var(--success) 100%);
+    color: white;
+  }
+
+  .feedback-container {
+    margin-top: 1.5rem;
+  }
+
+  .alert-modern {
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    border: none;
+    position: relative;
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-md);
+    animation: slideIn 0.4s ease forwards;
+  }
+
+  .alert-modern::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+  }
+
+  .alert-success-modern {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    color: #065f46;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .alert-success-modern::before {
+    background: var(--success);
+  }
+
+  .alert-danger-modern {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+    color: #991b1b;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .alert-danger-modern::before {
+    background: var(--danger);
+  }
+
+  .alert-info-modern {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+    color: #1e40af;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .alert-info-modern::before {
+    background: var(--info);
+  }
+
+  .alert-warning-modern {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .alert-warning-modern::before {
+    background: var(--warning);
+  }
+
+  .alert-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    transition: var(--transition-fast);
+  }
+
+  .alert-close:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: currentColor;
+    animation: spin 1s ease-in-out infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    // Helper method to find headers with flexible matching
+    findHeader(headers, primaryPatterns, fallbackPatterns) {
+      // Try exact matches first (case insensitive)
+      for (const pattern of primaryPatterns) {
+        const exactMatch = headers.find(h => 
+          h.toLowerCase().includes(pattern.toLowerCase())
+        );
+        if (exactMatch) return exactMatch;
+      }
+
+      // Try fallback patterns (more flexible)
+      for (const pattern of fallbackPatterns) {
+        const fallbackMatch = headers.find(h => 
+          h.toLowerCase().includes(pattern.toLowerCase())
+        );
+        if (fallbackMatch) return fallbackMatch;
+      }
+
+      return null;
+    }
+
+    // Generate helpful suggestions for missing headers
+    generateHeaderSuggestions(headers, missingKeys) {
+      const suggestions = {
+        date: 'Try renaming a date column to include "Created Date" or "Call Reporting"',
+        talk: 'Try renaming a time column to "Talk Time Minutes"', 
+        policy: 'Try renaming a routing column to "From Routing Policy"',
+        csat: 'Try renaming a satisfaction column to "Question1" or include "CSAT"',
+        wrapup: 'Try renaming a wrap-up column to "Wrapup Label" or "Wrapup Label 0"',
+        user: 'Try renaming a user column to "To SF User" or include "SF User"'
+      };
+
+      return missingKeys.map(key => `• <strong>${key}:</strong> ${suggestions[key] || 'No suggestion available'}`).join('<br>');
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .page-subtitle {
+    font-size: 1.1rem;
+    color: var(--gray-500);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 968px) {
+    .requirements-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .card-header-modern,
+    .card-body-modern {
+      padding: 1.5rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+    }
+
+    .file-type-badges {
+      justify-content: flex-start;
+    }
+
+    .preview-stats {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .preview-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .file-input-content {
+      padding: 1rem;
+    }
+
+    .btn-modern {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .preview-table-container {
+      font-size: 0.8rem;
+    }
+
+    .preview-table th,
+    .preview-table td {
+      padding: 0.5rem;
+    }
+  }
+</style>
+
+<div class="import-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <h1 class="page-title">Call Report Data Import</h1>
+    <p class="page-subtitle">
+      Import call reporting data with intelligent validation and preview. 
+      Supports multiple file formats with automatic data processing and CSAT analysis.
+    </p>
+  </div>
+
+  <!-- Main Import Card -->
+  <div class="modern-card">
+    <div class="card-header-modern">
+      <h2>
+        <i class="fas fa-phone-alt"></i>
+        Upload & Preview Call Report Data
+      </h2>
+    </div>
+    
+    <div class="card-body-modern">
+      <!-- File Input Section -->
+      <div class="file-input-container">
+        <div class="file-input-modern" id="fileInputContainer">
+          <input
+            type="file"
+            class="file-input-real"
+            id="dataFile"
+            accept=".csv,.xlsx,.xls,.tsv,.txt,.json"
+            required
+          />
+          <div class="file-input-content">
+            <div class="file-input-icon">
+              <i class="fas fa-upload"></i>
+            </div>
+            <div class="file-input-text">
+              Drop your call report file here or click to browse
+            </div>
+            <div class="file-input-subtext">
+              Choose from multiple supported formats below
+            </div>
+            
+            <!-- File Type Badges -->
+            <div class="file-type-badges">
+              <div class="file-type-badge-modern">
+                <i class="fas fa-file-csv"></i>CSV
+              </div>
+              <div class="file-type-badge-modern">
+                <i class="fas fa-file-excel"></i>Excel
+              </div>
+              <div class="file-type-badge-modern">
+                <i class="fas fa-file-alt"></i>TSV
+              </div>
+              <div class="file-type-badge-modern">
+                <i class="fas fa-file-text"></i>Text
+              </div>
+              <div class="file-type-badge-modern">
+                <i class="fas fa-file-code"></i>JSON
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Requirements Section -->
+      <div class="requirements-section">
+        <div class="requirements-title">
+          <i class="fas fa-list-check"></i>
+          Required Data Headers
+        </div>
+        <ul class="requirements-list">
+          <li>
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <code>Call Reporting: Created Date</code> - Report creation date
+            </div>
+          </li>
+          <li>
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <code>Talk Time Minutes</code> - Call duration in minutes
+            </div>
+          </li>
+          <li>
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <code>From Routing Policy</code> - Call routing policy name
+            </div>
+          </li>
+          <li>
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <code>Question1</code> - CSAT response (Yes/No)
+            </div>
+          </li>
+          <li>
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <code>Wrapup Label 0</code> - Call wrap-up category
+            </div>
+          </li>
+          <li>
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <code>To SF User</code> - Salesforce user name
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Container (Hidden by default) -->
+  <div class="preview-container" id="previewContainer" style="display: none;">
+    <div class="preview-header">
+      <div class="preview-title">
+        <i class="fas fa-table"></i>
+        Call Report Preview
+      </div>
+      <div class="preview-stats">
+        <div class="preview-stat">
+          <i class="fas fa-database"></i>
+          <span id="recordCount">0 records</span>
+        </div>
+        <div class="preview-stat">
+          <i class="fas fa-users"></i>
+          <span id="userCount">0 users</span>
+        </div>
+        <div class="preview-stat">
+          <i class="fas fa-eye"></i>
+          <span>Showing first 10</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="preview-table-container" id="previewTableContainer">
+      <table class="preview-table">
+        <thead id="previewHeader"></thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+    
+    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
+      <button id="importBtn" class="btn-modern btn-success-modern">
+        <i class="fas fa-cloud-upload-alt"></i>
+        Import All Records
+      </button>
+    </div>
+  </div>
+
+  <!-- Feedback Container -->
+  <div class="feedback-container" id="feedback"></div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// Suppress SheetJS compression warnings
+(function() {
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  
+  console.warn = function(...args) {
+    const message = args.join(' ');
+    if (!message.includes('Bad uncompressed size') && 
+        !message.includes('Re@xlsx') && 
+        !message.includes('Ne@xlsx') &&
+        !message.includes('Ie@xlsx') &&
+        !message.includes('xlsx.full.min.js')) {
+      originalWarn.apply(console, args);
+    }
+  };
+  
+  console.error = function(...args) {
+    const message = args.join(' ');
+    if (!message.includes('Bad uncompressed size') && 
+        !message.includes('Re@xlsx') && 
+        !message.includes('Ne@xlsx') &&
+        !message.includes('Ie@xlsx') &&
+        !message.includes('xlsx.full.min.js')) {
+      originalError.apply(console, args);
+    }
+  };
+})();
+</script>
+
+<script>
+  class ModernCallReportImporter {
+    constructor() {
+      this.parsedRows = []; // [{ Date, TalkTimeMinutes, Policy, Wrapup, UserName, UserID, CSAT }, …]
+      this.fileInputContainer = document.getElementById('fileInputContainer');
+      this.fileInput = document.getElementById('dataFile');
+      this.previewContainer = document.getElementById('previewContainer');
+      this.importBtn = document.getElementById('importBtn');
+      this.feedback = document.getElementById('feedback');
+      
+      this.init();
+    }
+
+    init() {
+      this.setupEventListeners();
+      this.setupDragAndDrop();
+    }
+
+    setupEventListeners() {
+      // File input change
+      this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+      
+      // Import button click
+      this.importBtn.addEventListener('click', () => this.handleImport());
+    }
+
+    setupDragAndDrop() {
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        this.fileInputContainer.addEventListener(eventName, this.preventDefaults, false);
+        document.body.addEventListener(eventName, this.preventDefaults, false);
+      });
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        this.fileInputContainer.addEventListener(eventName, () => {
+          this.fileInputContainer.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        this.fileInputContainer.addEventListener(eventName, () => {
+          this.fileInputContainer.classList.remove('dragover');
+        });
+      });
+
+      this.fileInputContainer.addEventListener('drop', (e) => this.handleDrop(e));
+    }
+
+    preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    handleDrop(e) {
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        this.fileInput.files = files;
+        this.handleFileSelect({ target: { files } });
+      }
+    }
+
+    handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      this.showFeedback(`Processing ${file.name}...`, 'info');
+      
+      const fileName = file.name.toLowerCase();
+      const fileExtension = fileName.split('.').pop();
+
+      const reader = new FileReader();
+
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'excel');
+        reader.readAsArrayBuffer(file);
+      } else if (fileExtension === 'json') {
+        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'json');
+        reader.readAsText(file);
+      } else if (fileExtension === 'tsv' || fileExtension === 'txt') {
+        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'tsv');
+        reader.readAsText(file);
+      } else {
+        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'csv');
+        reader.readAsText(file);
+      }
+    }
+
+    handleFileContent(content, type) {
+      try {
+        let dataArray;
+        
+        switch (type) {
+          case 'excel':
+            dataArray = this.parseExcelFile(content);
+            break;
+          case 'json':
+            dataArray = this.parseJsonFile(content);
+            break;
+          case 'tsv':
+            dataArray = this.parseTsvFile(content);
+            break;
+          case 'csv':
+          default:
+            dataArray = this.parseCsvFile(content);
+            break;
+        }
+
+        this.processAndPreviewData(dataArray);
+      } catch (error) {
+        this.showFeedback(`Error processing file: ${error.message}`, 'danger');
+      }
+    }
+
+    parseExcelFile(arrayBuffer) {
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (jsonData.length < 2) {
+        throw new Error("Excel file needs at least one header row and one data row.");
+      }
+      
+      return jsonData;
+    }
+
+    parseJsonFile(text) {
+      const data = JSON.parse(text);
+      if (!Array.isArray(data)) {
+        throw new Error("JSON file must contain an array of objects");
+      }
+      if (data.length === 0) {
+        throw new Error("JSON file is empty");
+      }
+      
+      const headers = Object.keys(data[0]);
+      const rows = [headers];
+      data.forEach(obj => {
+        const row = headers.map(header => obj[header] || '');
+        rows.push(row);
+      });
+      
+      return rows;
+    }
+
+    parseTsvFile(text) {
+      const lines = text.trim().split(/\r?\n/);
+      return lines.map(line => line.split('\t'));
+    }
+
+    parseCsvFile(text) {
+      const lines = text.trim().split(/\r?\n/);
+      return lines.map(line => this.parseCsvRow(line));
+    }
+
+    parseCsvRow(row) {
+      const result = [];
+      let cur = "";
+      let inQuotes = false;
+      
+      for (let i = 0; i < row.length; i++) {
+        const ch = row[i];
+        if (ch === '"') {
+          if (inQuotes && i + 1 < row.length && row[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          result.push(cur);
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      result.push(cur);
+      return result;
+    }
+
+    processAndPreviewData(dataArray) {
+      if (dataArray.length < 2) {
+        this.showFeedback("File needs at least one header row and one data row.", "danger");
+        return;
+      }
+
+      // Extract header row with flexible matching
+      const rawHeaders = dataArray[0].map(h => String(h).trim());
+      
+      // Debug: Show what headers we found
+      console.log("Headers found in file:", rawHeaders);
+
+      // Flexible header mapping - find headers by pattern matching
+      const headerMap = {
+        date: this.findHeader(rawHeaders, ['call reporting', 'created date'], ['date', 'created']),
+        talk: this.findHeader(rawHeaders, ['talk time minutes'], ['talk', 'time', 'minutes']),
+        policy: this.findHeader(rawHeaders, ['from routing policy'], ['routing', 'policy']),
+        csat: this.findHeader(rawHeaders, ['question1'], ['question', 'csat', 'satisfaction']),
+        wrapup: this.findHeader(rawHeaders, ['wrapup label'], ['wrapup', 'wrap', 'label']),
+        user: this.findHeader(rawHeaders, ['to sf user'], ['sf user', 'user', 'agent'])
+      };
+
+      const indices = {};
+      const missingHeaders = [];
+
+      // Map found headers to indices
+      for (const [key, header] of Object.entries(headerMap)) {
+        if (header) {
+          indices[key] = rawHeaders.indexOf(header);
+          console.log(`Mapped ${key} to header: "${header}" at index ${indices[key]}`);
+        } else {
+          missingHeaders.push(key);
+        }
+      }
+
+      // Show helpful error if headers are missing
+      if (missingHeaders.length > 0) {
+        const headerSuggestions = this.generateHeaderSuggestions(rawHeaders, missingHeaders);
+        this.showFeedback(
+          `<strong>Could not find headers for:</strong> ${missingHeaders.join(', ')}<br><br>` +
+          `<strong>Available headers in your file:</strong><br>${rawHeaders.map(h => `• <code>${h}</code>`).join('<br>')}<br><br>` +
+          `<strong>Suggestions:</strong><br>${headerSuggestions}`,
+          "danger"
+        );
+        return;
+      }
+
+      // Process data rows - EXACT LOGIC from original
+      this.parsedRows = [];
+      const users = new Set();
+
+      for (let i = 1; i < dataArray.length; i++) {
+        const cols = dataArray[i];
+
+        // 1) Parse Date → store as string (ISO) so that google.script.run can send it
+        const rawDate = String(cols[indices.date] || "");
+        let dateVal;
+        const dtCandidate = new Date(rawDate);
+        if (!isNaN(dtCandidate)) {
+          dateVal = dtCandidate.toISOString();
+        } else {
+          dateVal = rawDate; // keep raw string if parsing fails
+        }
+
+        // 2) Parse TalkTimeMinutes
+        const talkVal = Number(cols[indices.talk]) || 0;
+
+        // 3) Parse Policy & Wrapup
+        const policyVal = String(cols[indices.policy] || "");
+        const wrapVal = String(cols[indices.wrapup] || "");
+
+        // 4) Parse CSAT: leave exactly "Yes", "No", or blank
+        let csatText = String(cols[indices.csat] || "").trim();
+        const lc = csatText.toLowerCase();
+        if (lc === "yes") {
+          csatText = "Yes";
+        } else if (lc === "no") {
+          csatText = "No";
+        } else {
+          csatText = ""; // leave blank otherwise
+        }
+
+        // 5) Parse UserName & strip "VLBPO"
+        let userName = String(cols[indices.user] || "").replace(/\s*VLBPO\s*/gi, " ").trim();
+
+        // 6) UserID not provided by file → empty string
+        const userIDVal = "";
+
+        // Skip empty rows
+        if (!dateVal || !userName) continue;
+
+        users.add(userName);
+
+        // Push a plain‐object with only strings/numbers - EXACT FORMAT for backend
+        this.parsedRows.push({
+          Date: dateVal,
+          TalkTimeMinutes: talkVal,
+          Policy: policyVal,
+          Wrapup: wrapVal,
+          UserName: userName,
+          UserID: userIDVal,
+          CSAT: csatText
+        });
+      }
+
+      this.displayPreview(users.size);
+    }
+
+    // Helper method to find headers with flexible matching
+    findHeader(headers, primaryPatterns, fallbackPatterns) {
+      // Try exact matches first (case insensitive)
+      for (const pattern of primaryPatterns) {
+        const exactMatch = headers.find(h => 
+          h.toLowerCase().includes(pattern.toLowerCase())
+        );
+        if (exactMatch) return exactMatch;
+      }
+
+      // Try fallback patterns (more flexible)
+      for (const pattern of fallbackPatterns) {
+        const fallbackMatch = headers.find(h => 
+          h.toLowerCase().includes(pattern.toLowerCase())
+        );
+        if (fallbackMatch) return fallbackMatch;
+      }
+
+      return null;
+    }
+
+    // Generate helpful suggestions for missing headers
+    generateHeaderSuggestions(headers, missingKeys) {
+      const suggestions = {
+        date: 'Try renaming a date column to include "Created Date" or "Call Reporting"',
+        talk: 'Try renaming a time column to "Talk Time Minutes"', 
+        policy: 'Try renaming a routing column to "From Routing Policy"',
+        csat: 'Try renaming a satisfaction column to "Question1" or include "CSAT"',
+        wrapup: 'Try renaming a wrap-up column to "Wrapup Label" or "Wrapup Label 0"',
+        user: 'Try renaming a user column to "To SF User" or include "SF User"'
+      };
+
+      return missingKeys.map(key => `• <strong>${key}:</strong> ${suggestions[key] || 'No suggestion available'}`).join('<br>');
+    }
+
+    displayPreview(userCount) {
+      // Update stats
+      document.getElementById('recordCount').textContent = `${this.parsedRows.length} records`;
+      document.getElementById('userCount').textContent = `${userCount} users`;
+
+      // Build table header
+      const previewHeader = document.getElementById('previewHeader');
+      previewHeader.innerHTML = `
+        <tr>
+          <th style="width: 60px;">#</th>
+          <th>Created Date</th>
+          <th>Talk Time</th>
+          <th>Policy</th>
+          <th>CSAT</th>
+          <th>Wrapup</th>
+          <th>User Name</th>
+        </tr>`;
+
+      // Build table body
+      const previewBody = document.getElementById('previewBody');
+      previewBody.innerHTML = "";
+
+      this.parsedRows.slice(0, 10).forEach((rowObj, idx) => {
+        const displayDate = 
+          (Date.parse(rowObj.Date) ? new Date(rowObj.Date).toLocaleDateString() : rowObj.Date);
+        
+        // Create styled badges for better visual representation
+        const csatBadge = this.createCSATBadge(rowObj.CSAT);
+        const talktimeBadge = `<span class="data-badge talktime">${rowObj.TalkTimeMinutes}min</span>`;
+        const policyBadge = rowObj.Policy ? `<span class="data-badge policy">${this.escapeHtml(rowObj.Policy)}</span>` : '-';
+        const wrapupBadge = rowObj.Wrapup ? `<span class="data-badge wrapup">${this.escapeHtml(rowObj.Wrapup)}</span>` : '-';
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td>${this.escapeHtml(displayDate)}</td>
+          <td>${talktimeBadge}</td>
+          <td>${policyBadge}</td>
+          <td>${csatBadge}</td>
+          <td>${wrapupBadge}</td>
+          <td><strong>${this.escapeHtml(rowObj.UserName)}</strong></td>
+        `;
+        previewBody.appendChild(tr);
+      });
+
+      // Show preview container
+      this.previewContainer.style.display = "block";
+      this.previewContainer.scrollIntoView({ behavior: 'smooth' });
+
+      this.showFeedback(
+        `Successfully parsed <strong>${this.parsedRows.length}</strong> call reports from <strong>${userCount}</strong> users. Review the preview above and click Import to proceed.`,
+        "success"
+      );
+    }
+
+    createCSATBadge(csat) {
+      if (csat === "Yes") {
+        return '<span class="data-badge csat-yes">👍 Yes</span>';
+      } else if (csat === "No") {
+        return '<span class="data-badge csat-no">👎 No</span>';
+      } else {
+        return '<span class="data-badge csat-blank">- No Response</span>';
+      }
+    }
+
+    async handleImport() {
+      if (!this.parsedRows.length) {
+        this.showFeedback("No data to import.", "danger");
+        return;
+      }
+
+      // Update button state
+      const originalContent = this.importBtn.innerHTML;
+      this.importBtn.disabled = true;
+      this.importBtn.innerHTML = '<span class="loading-spinner"></span> Importing...';
+
+      try {
+        // PRESERVE EXACT BACKEND CALL - importCallReports function
+        const result = await this.callServerFunction('importCallReports', [this.parsedRows]);
+        
+        this.showFeedback(
+          `Successfully imported <strong>${result.imported}</strong> call reports!` + 
+          (result.skipped > 0 ? `<br><small>Skipped ${result.skipped} duplicate records.</small>` : ''),
+          "success"
+        );
+
+        // Reset form
+        this.fileInput.value = "";
+        this.previewContainer.style.display = "none";
+        this.parsedRows = [];
+        
+      } catch (error) {
+        console.error("Import failed:", error);
+        this.showFeedback(
+          `Import failed: ${error.message}<br><small>Please check your data and try again.</small>`,
+          "danger"
+        );
+      } finally {
+        // Restore button state
+        this.importBtn.disabled = false;
+        this.importBtn.innerHTML = originalContent;
+      }
+    }
+
+    callServerFunction(functionName, args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          [functionName](...args);
+      });
+    }
+
+    showFeedback(message, type) {
+      const alertClass = `alert-${type}-modern`;
+      const icons = {
+        success: 'fas fa-check-circle',
+        danger: 'fas fa-exclamation-triangle', 
+        warning: 'fas fa-exclamation-circle',
+        info: 'fas fa-info-circle'
+      };
+
+      this.feedback.innerHTML = `
+        <div class="alert-modern ${alertClass}" role="alert">
+          <div style="display: flex; align-items: flex-start; gap: 1rem;">
+            <i class="${icons[type] || icons.info}" style="margin-top: 0.125rem; flex-shrink: 0;"></i>
+            <div style="flex: 1;">${message}</div>
+          </div>
+          <button type="button" class="alert-close" onclick="this.parentElement.remove()">
+            &times;
+          </button>
+        </div>`;
+
+      // Auto-hide info messages
+      if (type === 'info') {
+        setTimeout(() => {
+          const alertElement = this.feedback.querySelector('.alert-modern');
+          if (alertElement) {
+            alertElement.style.opacity = '0';
+            alertElement.style.transform = 'translateY(-10px)';
+            setTimeout(() => alertElement.remove(), 300);
+          }
+        }, 3000);
+      }
+
+      // Scroll feedback into view
+      this.feedback.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  }
+
+  // Initialize when DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Initializing Modern Call Report Importer...');
+    window.callReportImporter = new ModernCallReportImporter();
+    console.log('✅ Modern Call Report Importer ready');
+  });
+</script>
+
+</body>
+</html>

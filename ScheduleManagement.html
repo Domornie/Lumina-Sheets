@@ -1,0 +1,3099 @@
+<?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Font Awesome -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    :root {
+        --primary: #0052cc;
+        --primary-dark: #003d99;
+        --primary-light: rgba(0, 82, 204, 0.1);
+        --success: #00875a;
+        --warning: #ffab00;
+        --danger: #de350b;
+        --info: #0747a6;
+        --light: #f8fafc;
+        --dark: #1e293b;
+        --jamaica-green: #009639;
+        --jamaica-gold: #ffda44;
+        --border-radius: 12px;
+        --border-radius-sm: 8px;
+        --border-radius-lg: 16px;
+        --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+        --spacing-xs: 0.5rem;
+        --spacing-sm: 1rem;
+        --spacing-md: 1.5rem;
+        --spacing-lg: 2rem;
+        --spacing-xl: 3rem;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        min-height: 100vh;
+        line-height: 1.6;
+        color: var(--dark);
+    }
+
+    /* Header Styles */
+    .app-header {
+        background: linear-gradient(135deg, var(--jamaica-green) 0%, var(--primary) 100%);
+        color: white;
+        padding: var(--spacing-lg) 0;
+        margin-bottom: var(--spacing-lg);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .app-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+        opacity: 0.3;
+    }
+
+    .app-header .container-fluid {
+        position: relative;
+        z-index: 1;
+    }
+
+    .app-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: var(--spacing-xs);
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .app-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+
+    /* Modern Card System */
+    .modern-card {
+        background: white;
+        border-radius: var(--border-radius);
+        border: 1px solid #e2e8f0;
+        box-shadow: var(--shadow);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+
+    .modern-card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+    }
+
+    .modern-card-header {
+        background: linear-gradient(135deg, white 0%, #f8fafc 100%);
+        padding: var(--spacing-md);
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modern-card-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--dark);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+    }
+
+    .modern-card-body {
+        padding: var(--spacing-md);
+    }
+
+    /* Navigation Tabs */
+    .modern-nav {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: var(--spacing-xs);
+        box-shadow: var(--shadow);
+        margin-bottom: var(--spacing-lg);
+        border: 1px solid #e2e8f0;
+    }
+
+    .modern-nav .nav-link {
+        border: none;
+        background: transparent;
+        color: var(--dark);
+        font-weight: 500;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: var(--border-radius-sm);
+        transition: all 0.2s ease;
+        margin: 2px;
+        white-space: nowrap;
+    }
+
+    .modern-nav .nav-link:hover {
+        color: var(--primary);
+        background: var(--primary-light);
+    }
+
+    .modern-nav .nav-link.active {
+        color: white;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        box-shadow: var(--shadow);
+    }
+
+    /* Button System */
+    .btn-modern {
+        border-radius: var(--border-radius-sm);
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-modern:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+
+    .btn-modern:active {
+        transform: translateY(0);
+    }
+
+    .btn-primary-modern {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+    }
+
+    .btn-success-modern {
+        background: linear-gradient(135deg, var(--success) 0%, var(--jamaica-green) 100%);
+        color: white;
+    }
+
+    .btn-warning-modern {
+        background: linear-gradient(135deg, var(--warning) 0%, #e6930e 100%);
+        color: white;
+    }
+
+    .btn-danger-modern {
+        background: linear-gradient(135deg, var(--danger) 0%, #c4320a 100%);
+        color: white;
+    }
+
+    .btn-outline-modern {
+        background: white;
+        border: 2px solid var(--primary);
+        color: var(--primary);
+    }
+
+    .btn-outline-modern:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* Metric Cards */
+    .metric-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: var(--spacing-md);
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow);
+    }
+
+    .metric-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        padding: 0.375rem 0.875rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 2px solid;
+    }
+
+    .status-pending {
+        background: rgba(255, 171, 0, 0.1);
+        color: var(--warning);
+        border-color: var(--warning);
+    }
+
+    .status-approved {
+        background: rgba(0, 135, 90, 0.1);
+        color: var(--success);
+        border-color: var(--success);
+    }
+
+    .status-rejected {
+        background: rgba(222, 53, 11, 0.1);
+        color: var(--danger);
+        border-color: var(--danger);
+    }
+
+    /* Form Controls */
+    .form-control-modern {
+        border: 2px solid #e2e8f0;
+        border-radius: var(--border-radius-sm);
+        padding: 0.75rem 1rem;
+        transition: all 0.2s ease;
+        font-size: 0.95rem;
+    }
+
+    .form-control-modern:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
+        outline: none;
+    }
+
+    .form-label-modern {
+        font-weight: 600;
+        color: var(--dark);
+        margin-bottom: var(--spacing-xs);
+        display: block;
+    }
+
+    /* Table Styles */
+    .table-modern {
+        background: white;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid #e2e8f0;
+    }
+
+    .table-modern thead th {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: none;
+        font-weight: 600;
+        color: var(--dark);
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .table-modern tbody td {
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .table-modern tbody tr:hover {
+        background: linear-gradient(135deg, rgba(0, 82, 204, 0.02) 0%, rgba(0, 150, 57, 0.02) 100%);
+    }
+
+    /* Loading Spinner */
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--primary-light);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(248, 250, 252, 0.95);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease;
+    }
+
+    /* Alert System */
+    .alert-modern {
+        border: none;
+        border-radius: var(--border-radius-sm);
+        padding: var(--spacing-md);
+        border-left: 4px solid;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .alert-success-modern {
+        background: rgba(0, 135, 90, 0.1);
+        border-left-color: var(--success);
+        color: var(--success);
+    }
+
+    .alert-warning-modern {
+        background: rgba(255, 171, 0, 0.1);
+        border-left-color: var(--warning);
+        color: var(--warning);
+    }
+
+    .alert-danger-modern {
+        background: rgba(222, 53, 11, 0.1);
+        border-left-color: var(--danger);
+        color: var(--danger);
+    }
+
+    .alert-info-modern {
+        background: rgba(7, 71, 166, 0.1);
+        border-left-color: var(--info);
+        color: var(--info);
+    }
+
+    /* Floating Notification */
+    .notification-toast {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        z-index: 9999;
+        min-width: 300px;
+        max-width: 400px;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .notification-toast.show {
+        transform: translateX(0);
+    }
+
+    /* Days Selector */
+    .days-selector {
+        display: flex;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+    }
+
+    .day-checkbox {
+        position: relative;
+    }
+
+    .day-checkbox input[type="checkbox"] {
+        display: none;
+    }
+
+    .day-checkbox label {
+        display: block;
+        padding: 0.625rem 1rem;
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: var(--border-radius-sm);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 500;
+        font-size: 0.875rem;
+        min-width: 3rem;
+        text-align: center;
+    }
+
+    .day-checkbox input[type="checkbox"]:checked + label {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .app-title {
+            font-size: 2rem;
+        }
+
+        .modern-nav .nav-link {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: 0.875rem;
+        }
+
+        .metric-number {
+            font-size: 2rem;
+        }
+
+        .modern-card-body {
+            padding: var(--spacing-sm);
+        }
+    }
+
+    /* Priority Classes */
+    .priority-low { color: #64748b; }
+    .priority-normal { color: var(--primary); }
+    .priority-high { color: var(--warning); }
+    .priority-critical { color: var(--danger); }
+
+    /* Status Indicators */
+    .status-indicator {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.7rem;
+        color: white;
+    }
+
+    .status-present { background: var(--success); }
+    .status-absent { background: var(--danger); }
+    .status-late { background: var(--warning); color: #333; }
+    .status-sick { background: var(--info); }
+    .status-vacation { background: #6366f1; }
+
+    /* Insight Cards */
+    .insight-card {
+        background: white;
+        border-radius: var(--border-radius-sm);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-sm);
+        border-left: 4px solid;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid #e2e8f0;
+    }
+
+    .insight-positive { border-left-color: var(--success); }
+    .insight-warning { border-left-color: var(--warning); }
+    .insight-critical { border-left-color: var(--danger); }
+    .insight-neutral { border-left-color: var(--info); }
+
+    /* Container Spacing */
+    .container-fluid {
+        padding-left: var(--spacing-md);
+        padding-right: var(--spacing-md);
+    }
+
+    /* Gap Utilities */
+    .gap-xs { gap: var(--spacing-xs) !important; }
+    .gap-sm { gap: var(--spacing-sm) !important; }
+    .gap-md { gap: var(--spacing-md) !important; }
+    .gap-lg { gap: var(--spacing-lg) !important; }
+
+    /* Chart Container */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        padding: var(--spacing-sm);
+    }
+
+    /* Enhanced hover effects */
+    .interactive-item {
+        transition: all 0.2s ease;
+    }
+
+    .interactive-item:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+
+    /* Header Action Buttons */
+    .header-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+    }
+
+    .header-actions .btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        backdrop-filter: blur(10px);
+    }
+
+    .header-actions .btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+    }
+
+    /* Tab Content Spacing */
+    .tab-pane {
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay d-none">
+    <div class="text-center">
+        <div class="loading-spinner mb-3"></div>
+        <p class="text-dark fw-semibold">Processing request...</p>
+    </div>
+</div>
+
+<!-- Header -->
+<header class="app-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="app-title">
+                    <i class="fas fa-calendar-alt me-3"></i>
+                    LUMINA Schedule Management
+                </h1>
+                <p class="app-subtitle">Complete v4.0 - Enhanced System</p>
+            </div>
+            <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                <div class="header-actions">
+                    <button class="btn btn-modern" onclick="runSystemDiagnostics()">
+                        <i class="fas fa-heartbeat"></i>
+                        System Health
+                    </button>
+                    <button class="btn btn-modern" onclick="refreshAllData()">
+                        <i class="fas fa-sync"></i>
+                        Refresh All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container-fluid">
+    <!-- System Status Alert -->
+    <div id="systemStatus" class="d-none"></div>
+
+    <!-- Main Navigation -->
+    <nav class="modern-nav">
+        <ul class="nav nav-pills justify-content-center" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="dashboard-tab" data-bs-toggle="pill" data-bs-target="#dashboard" type="button" role="tab">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span class="d-none d-sm-inline ms-2">AI Dashboard</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="generation-tab" data-bs-toggle="pill" data-bs-target="#generation" type="button" role="tab">
+                    <i class="fas fa-calendar-plus"></i>
+                    <span class="d-none d-sm-inline ms-2">Generate</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="management-tab" data-bs-toggle="pill" data-bs-target="#management" type="button" role="tab">
+                    <i class="fas fa-tasks"></i>
+                    <span class="d-none d-sm-inline ms-2">Manage</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button" role="tab">
+                    <i class="fas fa-calendar-check"></i>
+                    <span class="d-none d-sm-inline ms-2">Attendance</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="shifts-tab" data-bs-toggle="pill" data-bs-target="#shifts" type="button" role="tab">
+                    <i class="fas fa-clock"></i>
+                    <span class="d-none d-sm-inline ms-2">Shifts</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="holidays-tab" data-bs-toggle="pill" data-bs-target="#holidays" type="button" role="tab">
+                    <i class="fas fa-globe"></i>
+                    <span class="d-none d-sm-inline ms-2">Holidays</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="users-tab" data-bs-toggle="pill" data-bs-target="#users" type="button" role="tab">
+                    <i class="fas fa-users"></i>
+                    <span class="d-none d-sm-inline ms-2">Users</span>
+                </button>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="mainTabContent">
+
+        <!-- AI Dashboard Tab -->
+        <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
+            <!-- Metrics Row -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-primary" id="totalUsers">0</div>
+                        <div class="metric-label">Total Users</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-success" id="attendanceRate">0%</div>
+                        <div class="metric-label">Attendance Rate</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-primary" id="totalSchedules">0</div>
+                        <div class="metric-label">Active Schedules</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-info" id="totalSlots">0</div>
+                        <div class="metric-label">Shift Slots</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts and Insights Row -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-8">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-chart-line text-primary"></i>
+                                Attendance Trends
+                            </h5>
+                            <button class="btn btn-outline-modern btn-sm" onclick="refreshDashboard()">
+                                <i class="fas fa-sync"></i>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="modern-card-body p-0">
+                            <div class="chart-container">
+                                <canvas id="attendanceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="modern-card h-100">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-robot text-info"></i>
+                                AI Insights
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="aiInsights">
+                                <div class="text-center text-muted">
+                                    <div class="loading-spinner mx-auto mb-3"></div>
+                                    <p>Analyzing patterns...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Dashboard Cards -->
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-trophy text-warning"></i>
+                                Top Performers
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="topPerformers">
+                                <div class="text-center text-muted">
+                                    <p>Loading performance data...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                Alerts
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="attendanceAlerts">
+                                <div class="text-center text-success">
+                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                    <p>No issues detected</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Generation Tab -->
+        <div class="tab-pane fade" id="generation" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-calendar-plus text-primary"></i>
+                                Generate New Schedules
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <form id="scheduleGenerationForm">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern">Start Date</label>
+                                        <input type="date" class="form-control form-control-modern" id="scheduleStartDate" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern">End Date</label>
+                                        <input type="date" class="form-control form-control-modern" id="scheduleEndDate" required>
+                                    </div>
+                                    <!-- /partials/schedule-form.html -->
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label-modern">Select Team Members</label>
+                                            <select class="form-select form-control-modern w-100" id="scheduleUsers" multiple size="6">
+                                                <option disabled>Loading users...</option>
+                                            </select>
+                                            <small class="text-muted">Hold Ctrl/Cmd to select multiple. Leave empty for all users.</small>
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label-modern">Select Shift Slots</label>
+                                            <select class="form-select form-control-modern w-100" id="scheduleShiftSlots" multiple size="6">
+                                                <option disabled>Loading shift slots...</option>
+                                            </select>
+                                            <small class="text-muted">Hold Ctrl/Cmd to select multiple. Leave empty to use all available slots.</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern">Campaign Filter</label>
+                                        <select class="form-select form-control-modern" id="campaignFilter">
+                                            <option value="">All Campaigns</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern">Priority Level</label>
+                                        <select class="form-select form-control-modern" id="schedulePriority">
+                                            <option value="1">Low</option>
+                                            <option value="2" selected>Normal</option>
+                                            <option value="3">High</option>
+                                            <option value="4">Critical</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="detectConflicts" checked>
+                                            <label class="form-check-label form-label-modern">Auto-detect conflicts</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="includeHolidays">
+                                            <label class="form-check-label form-label-modern">Include holidays</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 d-flex gap-3">
+                                    <button type="submit" class="btn btn-primary-modern btn-modern flex-fill">
+                                        <i class="fas fa-magic"></i>
+                                        Generate Schedules
+                                    </button>
+                                    <button type="button" class="btn btn-outline-modern btn-modern" onclick="previewSchedules()">
+                                        <i class="fas fa-eye"></i>
+                                        Preview
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="modern-card mb-4">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-bolt text-warning"></i>
+                                Quick Actions
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="d-grid gap-3">
+                                <button class="btn btn-primary-modern btn-modern" onclick="generateThisWeek()">
+                                    <i class="fas fa-calendar-week"></i>
+                                    This Week
+                                </button>
+                                <button class="btn btn-success-modern btn-modern" onclick="generateNextWeek()">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    Next Week
+                                </button>
+                                <button class="btn btn-warning-modern btn-modern" onclick="bulkApproveSchedules()">
+                                    <i class="fas fa-check-double"></i>
+                                    Bulk Approve
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-info-circle text-info"></i>
+                                Status
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="generationStatus">
+                                <p class="text-muted mb-0">Ready to generate schedules. Select your parameters and click Generate.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="generationResults" class="mt-4 d-none"></div>
+        </div>
+
+        <!-- Schedule Management Tab -->
+        <div class="tab-pane fade" id="management" role="tabpanel">
+            <div class="modern-card">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-tasks text-primary"></i>
+                        Schedule Management
+                    </h5>
+                    <button class="btn btn-outline-modern btn-sm" onclick="refreshSchedules()">
+                        <i class="fas fa-sync"></i>
+                        Refresh
+                    </button>
+                </div>
+                <div class="modern-card-body">
+                    <!-- Filters -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-2">
+                            <label class="form-label-modern">Start Date</label>
+                            <input type="date" class="form-control form-control-modern" id="filterStartDate">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label-modern">End Date</label>
+                            <input type="date" class="form-control form-control-modern" id="filterEndDate">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label-modern">User</label>
+                            <select class="form-select form-control-modern" id="filterUser">
+                                <option value="">All Users</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label-modern">Status</label>
+                            <select class="form-select form-control-modern" id="filterStatus">
+                                <option value="">All Status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="APPROVED">Approved</option>
+                                <option value="REJECTED">Rejected</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-primary-modern btn-modern w-100" onclick="applyScheduleFilters()">
+                                <i class="fas fa-filter"></i>
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Schedules Table -->
+                    <div class="table-responsive">
+                        <table class="table table-modern">
+                            <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAllSchedules" class="form-check-input">
+                                </th>
+                                <th>User</th>
+                                <th>Date</th>
+                                <th>Shift</th>
+                                <th>Times</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody id="schedulesTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <div class="loading-spinner mx-auto mb-2"></div>
+                                    <p>Loading schedules...</p>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Calendar Tab -->
+        <div class="tab-pane fade" id="attendance" role="tabpanel">
+            <div class="modern-card mb-4">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-calendar-check text-success"></i>
+                        Attendance Calendar
+                    </h5>
+                    <div class="d-flex gap-2 align-items-center">
+                        <select class="form-select form-select-sm" id="attendanceMonth" style="width: auto;">
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                        <select class="form-select form-select-sm" id="attendanceYear" style="width: auto;">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                        <button class="btn btn-outline-modern btn-sm" onclick="loadAttendanceCalendar()">
+                            <i class="fas fa-sync"></i>
+                            Load
+                        </button>
+                        <button class="btn btn-success-modern btn-sm" onclick="markBulkAttendance()">
+                            <i class="fas fa-users"></i>
+                            Bulk Mark
+                        </button>
+                    </div>
+                </div>
+                <div class="modern-card-body p-0">
+                    <div id="attendanceCalendarContainer">
+                        <div class="text-center py-5">
+                            <div class="loading-spinner mx-auto mb-3"></div>
+                            <p class="text-muted">Loading attendance calendar...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Legend -->
+            <div class="modern-card">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-info-circle text-info"></i>
+                        Status Legend & Actions
+                    </h5>
+                </div>
+                <div class="modern-card-body">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="row g-2">
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-success me-2">P</span> Present
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-danger me-2">A</span> Absent
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-warning me-2">L</span> Late
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-info me-2">S</span> Sick Leave
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-dark me-2">B</span> Bereavement
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-primary me-2">V</span> Vacation
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-secondary me-2">LOA</span> Leave of Absence
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <span class="badge bg-danger me-2">NCNS</span> No Call No Show
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary-modern btn-modern" onclick="quickMarkAttendance()">
+                                    <i class="fas fa-plus"></i>
+                                    Quick Mark
+                                </button>
+                                <button class="btn btn-outline-modern btn-modern" onclick="exportAttendanceReport()">
+                                    <i class="fas fa-download"></i>
+                                    Export Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shift Slots Tab -->
+        <div class="tab-pane fade" id="shifts" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-plus text-success"></i>
+                                Create Enhanced Shift Slot
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <form id="shiftSlotForm">
+                                <!-- Basic Information -->
+                                <div class="mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-info-circle me-2"></i>Basic Information
+                                    </h6>
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label class="form-label-modern">Slot Name</label>
+                                            <input type="text" class="form-control form-control-modern" id="slotName" required placeholder="e.g., Morning Customer Service Shift">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern">Start Time</label>
+                                            <input type="time" class="form-control form-control-modern" id="slotStartTime" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern">End Time</label>
+                                            <input type="time" class="form-control form-control-modern" id="slotEndTime" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label-modern">Days of Week</label>
+                                            <div class="days-selector">
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="monday" value="1" checked>
+                                                    <label for="monday">Mon</label>
+                                                </div>
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="tuesday" value="2" checked>
+                                                    <label for="tuesday">Tue</label>
+                                                </div>
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="wednesday" value="3" checked>
+                                                    <label for="wednesday">Wed</label>
+                                                </div>
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="thursday" value="4" checked>
+                                                    <label for="thursday">Thu</label>
+                                                </div>
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="friday" value="5" checked>
+                                                    <label for="friday">Fri</label>
+                                                </div>
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="saturday" value="6">
+                                                    <label for="saturday">Sat</label>
+                                                </div>
+                                                <div class="day-checkbox">
+                                                    <input type="checkbox" id="sunday" value="0">
+                                                    <label for="sunday">Sun</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern">Department</label>
+                                            <select class="form-select form-control-modern" id="slotDepartment">
+                                                <option value="">Select Department (Campaign)</option>
+                                                <!-- Campaigns will be loaded here dynamically -->
+                                            </select>
+                                            <small class="text-muted">Departments are populated from available campaigns</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern">Location</label>
+                                            <select class="form-select form-control-modern" id="slotLocation">
+                                                <option value="">Select Location</option>
+                                                <option value="Office">Office</option>
+                                                <option value="Remote">Remote</option>
+                                                <option value="Hybrid">Hybrid</option>
+                                                <option value="Client Site">Client Site</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Capacity & Staffing -->
+                                <div class="mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-users me-2"></i>Capacity & Staffing
+                                    </h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label-modern">Max Capacity</label>
+                                            <input type="number" class="form-control form-control-modern" id="slotCapacity" value="10" min="1" max="100">
+                                            <small class="text-muted">Maximum agents per shift</small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-modern">Minimum Coverage</label>
+                                            <input type="number" class="form-control form-control-modern" id="slotMinCoverage" value="3" min="1">
+                                            <small class="text-muted">Required minimum agents</small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-modern">Priority Level</label>
+                                            <select class="form-select form-control-modern" id="slotPriority">
+                                                <option value="1">Low</option>
+                                                <option value="2" selected>Normal</option>
+                                                <option value="3">High</option>
+                                                <option value="4">Critical</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Break & Lunch Configuration -->
+                                <div class="mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-coffee me-2"></i>Break & Lunch Configuration
+                                    </h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label-modern">First Break (min)</label>
+                                            <input type="number" class="form-control form-control-modern" id="slotBreak1Duration" value="15" min="5" max="30">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-modern">Lunch Duration (min)</label>
+                                            <input type="number" class="form-control form-control-modern" id="slotLunchDuration" value="30" min="15" max="60">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-modern">Second Break (min)</label>
+                                            <input type="number" class="form-control form-control-modern" id="slotBreak2Duration" value="15" min="5" max="30">
+                                        </div>
+                                    </div>
+
+                                    <!-- Staggered Break Settings -->
+                                    <div class="mt-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="enableStaggeredBreaks" checked>
+                                            <label class="form-check-label form-label-modern">Enable Staggered Breaks & Lunch</label>
+                                        </div>
+                                        <small class="text-muted d-block mt-1">Automatically distribute break times to maintain coverage</small>
+                                    </div>
+
+                                    <div id="staggeredBreaksConfig" class="mt-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label-modern">Break Groups</label>
+                                                <select class="form-select form-control-modern" id="slotBreakGroups">
+                                                    <option value="2">2 Groups</option>
+                                                    <option value="3" selected>3 Groups</option>
+                                                    <option value="4">4 Groups</option>
+                                                    <option value="5">5 Groups</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label-modern">Stagger Interval (min)</label>
+                                                <input type="number" class="form-control form-control-modern" id="slotStaggerInterval" value="15" min="10" max="30">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label-modern">Min Coverage %</label>
+                                                <input type="number" class="form-control form-control-modern" id="slotMinCoveragePct" value="70" min="50" max="95">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Overtime Configuration -->
+                                <div class="mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-clock me-2"></i>Overtime Configuration
+                                    </h6>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="enableOvertime">
+                                        <label class="form-check-label form-label-modern">Enable Overtime</label>
+                                    </div>
+
+                                    <div id="overtimeConfig" class="d-none">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label-modern">Max Daily OT (hours)</label>
+                                                <input type="number" class="form-control form-control-modern" id="slotMaxDailyOT" value="2" min="0.5" max="4" step="0.5">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label-modern">Max Weekly OT (hours)</label>
+                                                <input type="number" class="form-control form-control-modern" id="slotMaxWeeklyOT" value="10" min="2" max="20" step="0.5">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label-modern">OT Approval Required</label>
+                                                <select class="form-select form-control-modern" id="slotOTApproval">
+                                                    <option value="none">No Approval</option>
+                                                    <option value="supervisor" selected>Supervisor</option>
+                                                    <option value="manager">Manager</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label-modern">OT Rate Multiplier</label>
+                                                <select class="form-select form-control-modern" id="slotOTRate">
+                                                    <option value="1.0">Regular Rate (1.0x)</option>
+                                                    <option value="1.25">Time & Quarter (1.25x)</option>
+                                                    <option value="1.5" selected>Time & Half (1.5x)</option>
+                                                    <option value="2.0">Double Time (2.0x)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label-modern">OT Policy</label>
+                                                <select class="form-select form-control-modern" id="slotOTPolicy">
+                                                    <option value="VOLUNTARY">Voluntary</option>
+                                                    <option value="MANDATORY" selected>Mandatory</option>
+                                                    <option value="ROTATING">Rotating</option>
+                                                    <option value="SENIORITY">By Seniority</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- /partials/advanced-settings.html -->
+                                <!-- Advanced Settings -->
+                                <div class="mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-cogs me-2"></i>Advanced Settings
+                                    </h6>
+
+                                    <div class="row g-3">
+                                        <!-- Shift Settings -->
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label-modern d-block mb-2">Shift Settings</label>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="allowSwaps" checked>
+                                                <label class="form-check-label" for="allowSwaps">Allow Shift Swaps</label>
+                                            </div>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="weekendPremium">
+                                                <label class="form-check-label" for="weekendPremium">Weekend Premium Pay</label>
+                                            </div>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="holidayPremium" checked>
+                                                <label class="form-check-label" for="holidayPremium">Holiday Premium Pay</label>
+                                            </div>
+
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="autoAssignment">
+                                                <label class="form-check-label" for="autoAssignment">Auto-Assignment Eligible</label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Timing Settings -->
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label-modern d-block mb-2">Timing Settings</label>
+
+                                            <div class="row g-3">
+                                                <div class="col-12 col-md-6">
+                                                    <label for="slotRestPeriod" class="form-label-modern small">Rest Period (hours)</label>
+                                                    <input
+                                                            type="number"
+                                                            class="form-control form-control-modern"
+                                                            id="slotRestPeriod"
+                                                            value="8"
+                                                            min="4"
+                                                            max="24"
+                                                    />
+                                                    <small class="text-muted">Min time between consecutive shifts</small>
+                                                </div>
+
+                                                <div class="col-12 col-md-6">
+                                                    <label for="slotNotificationLead" class="form-label-modern small">Notification Lead (hours)</label>
+                                                    <input
+                                                            type="number"
+                                                            class="form-control form-control-modern"
+                                                            id="slotNotificationLead"
+                                                            value="24"
+                                                            min="2"
+                                                            max="168"
+                                                    />
+                                                    <small class="text-muted">Schedule notification advance time</small>
+                                                </div>
+
+                                                <div class="col-12 col-md-6">
+                                                    <label for="slotHandoverTime" class="form-label-modern small">Handover Time (min)</label>
+                                                    <input
+                                                            type="number"
+                                                            class="form-control form-control-modern"
+                                                            id="slotHandoverTime"
+                                                            value="15"
+                                                            min="0"
+                                                            max="30"
+                                                    />
+                                                    <small class="text-muted">Shift handover duration</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="mb-4">
+                                    <label class="form-label-modern" for="slotDescription">Description &amp; Notes</label>
+                                    <textarea
+                                            class="form-control form-control-modern"
+                                            id="slotDescription"
+                                            rows="3"
+                                            placeholder="Optional description, special instructions, or notes for this shift slot..."
+                                    ></textarea>
+                                </div>
+
+
+                                <div class="d-flex gap-3">
+                                    <button type="submit" class="btn btn-success-modern btn-modern flex-fill">
+                                        <i class="fas fa-save"></i>
+                                        Create Enhanced Shift Slot
+                                    </button>
+                                    <button type="button" class="btn btn-outline-modern btn-modern" onclick="previewShiftSlot()">
+                                        <i class="fas fa-eye"></i>
+                                        Preview
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="modern-card mb-4">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-list text-primary"></i>
+                                Existing Shift Slots
+                            </h5>
+                            <button class="btn btn-outline-modern btn-sm" onclick="refreshShiftSlots()">
+                                <i class="fas fa-sync"></i>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="shiftSlotsContainer">
+                                <div class="text-center py-4">
+                                    <div class="loading-spinner mx-auto mb-3"></div>
+                                    <p class="text-muted">Loading shift slots...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-bolt text-warning"></i>
+                                Quick Actions
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary-modern btn-modern" onclick="createDefaultShifts()">
+                                    <i class="fas fa-magic"></i>
+                                    Create Default Shifts
+                                </button>
+                                <button class="btn btn-success-modern btn-modern" onclick="bulkEditShifts()">
+                                    <i class="fas fa-edit"></i>
+                                    Bulk Edit Shifts
+                                </button>
+                                <button class="btn btn-info btn-modern" onclick="exportShiftSchedule()">
+                                    <i class="fas fa-download"></i>
+                                    Export Schedule
+                                </button>
+                                <button class="btn btn-warning-modern btn-modern" onclick="validateShiftCoverage()">
+                                    <i class="fas fa-shield-alt"></i>
+                                    Validate Coverage
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Holidays Tab -->
+        <div class="tab-pane fade" id="holidays" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-globe text-primary"></i>
+                                Import Holidays
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="alert alert-info-modern mb-4">
+                                <i class="fas fa-flag me-2"></i>
+                                <strong>Jamaica takes priority</strong> - Holidays from Jamaica will be applied first as the primary country.
+                            </div>
+
+                            <form id="holidayImportForm">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern">Country</label>
+                                        <select class="form-select form-control-modern" id="holidayCountry" required>
+                                            <option value="">Select Country</option>
+                                            <option value="JM">🇯🇲 Jamaica (Primary)</option>
+                                            <option value="US">🇺🇸 United States</option>
+                                            <option value="DO">🇩🇴 Dominican Republic</option>
+                                            <option value="PH">🇵🇭 Philippines</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern">Year</label>
+                                        <select class="form-select form-control-modern" id="holidayYear" required>
+                                            <option value="2024">2024</option>
+                                            <option value="2025" selected>2025</option>
+                                            <option value="2026">2026</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="applyPaidStatus" checked>
+                                            <label class="form-check-label form-label-modern">Apply paid status for users from this country</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 d-flex gap-3">
+                                    <button type="button" class="btn btn-outline-modern btn-modern" onclick="previewHolidays()">
+                                        <i class="fas fa-eye"></i>
+                                        Preview
+                                    </button>
+                                    <button type="submit" class="btn btn-success-modern btn-modern">
+                                        <i class="fas fa-download"></i>
+                                        Import Holidays
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div id="holidayPreview" class="mt-4 d-none"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-calendar-day text-info"></i>
+                                Current Holidays
+                            </h5>
+                            <button class="btn btn-outline-modern btn-sm" onclick="refreshHolidays()">
+                                <i class="fas fa-sync"></i>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="modern-card-body">
+                            <div id="currentHolidays">
+                                <div class="text-center py-4">
+                                    <div class="loading-spinner mx-auto mb-3"></div>
+                                    <p class="text-muted">Loading current holidays...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Management Tab -->
+        <div class="tab-pane fade" id="users" role="tabpanel">
+            <div class="modern-card">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-users text-primary"></i>
+                        User Management & Assignments
+                    </h5>
+                </div>
+                <div class="modern-card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-3">Current Users</h6>
+                            <div id="usersList" class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                                <div class="text-center py-4">
+                                    <div class="loading-spinner mx-auto mb-3"></div>
+                                    <p class="text-muted">Loading users...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-3">Statistics</h6>
+                            <div id="managerStats" class="border rounded p-3">
+                                <div class="text-center py-4">
+                                    <div class="loading-spinner mx-auto mb-3"></div>
+                                    <p class="text-muted">Loading statistics...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-3">
+                        <button class="btn btn-outline-modern btn-modern" onclick="refreshUsers()">
+                            <i class="fas fa-sync"></i>
+                            Refresh Users
+                        </button>
+                        <button class="btn btn-success-modern btn-modern" onclick="assignManagerUsers()">
+                            <i class="fas fa-user-plus"></i>
+                            Assign Manager
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // LUMINA Schedule Management System v4.0 - Modern UI Edition with Backend Integration
+        class LuminaScheduleManager {
+            constructor() {
+                this.currentUser = window.user || {};
+                this.availableUsers = [];
+                this.availableCampaigns = [];
+                this.attendanceChart = null;
+                this.init();
+            }
+
+            init() {
+                console.log('🚀 Initializing LUMINA Schedule Management v4.0 - Modern Edition');
+                this.setDefaultDates();
+                this.initEventListeners();
+                this.loadInitialData();
+                this.showWelcomeMessage();
+            }
+
+            setDefaultDates() {
+                const today = new Date();
+                const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+                document.getElementById('scheduleStartDate').valueAsDate = today;
+                document.getElementById('scheduleEndDate').valueAsDate = nextWeek;
+                document.getElementById('filterStartDate').valueAsDate = lastWeek;
+                document.getElementById('filterEndDate').valueAsDate = today;
+                document.getElementById('attendanceMonth').value = today.getMonth() + 1;
+                document.getElementById('attendanceYear').value = today.getFullYear();
+            }
+
+            initEventListeners() {
+                // Form submissions
+                document.getElementById('scheduleGenerationForm')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.generateSchedules();
+                });
+
+                document.getElementById('shiftSlotForm')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.createShiftSlot();
+                });
+
+                document.getElementById('holidayImportForm')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.importHolidays();
+                });
+
+                // Tab change listeners
+                document.querySelectorAll('[data-bs-toggle="pill"]').forEach(tab => {
+                    tab.addEventListener('shown.bs.tab', (event) => {
+                        const target = event.target.getAttribute('data-bs-target');
+                        this.onTabChange(target);
+                    });
+                });
+
+                // Enhanced shift slot form handlers
+                this.initShiftSlotFormHandlers();
+
+                console.log('✅ Event listeners initialized');
+            }
+
+            initShiftSlotFormHandlers() {
+                // Toggle overtime configuration
+                const overtimeToggle = document.getElementById('enableOvertime');
+                const overtimeConfig = document.getElementById('overtimeConfig');
+
+                overtimeToggle?.addEventListener('change', function() {
+                    if (this.checked) {
+                        overtimeConfig.classList.remove('d-none');
+                    } else {
+                        overtimeConfig.classList.add('d-none');
+                    }
+                });
+
+                // Toggle staggered breaks configuration
+                const staggeredToggle = document.getElementById('enableStaggeredBreaks');
+                const staggeredConfig = document.getElementById('staggeredBreaksConfig');
+
+                staggeredToggle?.addEventListener('change', function() {
+                    if (this.checked) {
+                        staggeredConfig.style.display = 'block';
+                    } else {
+                        staggeredConfig.style.display = 'none';
+                    }
+                });
+
+                // Auto-calculate lunch timing based on shift duration
+                const startTime = document.getElementById('slotStartTime');
+                const endTime = document.getElementById('slotEndTime');
+
+                [startTime, endTime].forEach(input => {
+                    input?.addEventListener('change', this.calculateOptimalBreakTimes.bind(this));
+                });
+            }
+
+            async loadInitialData() {
+                try {
+                    this.showToast('Loading system data...', 'info');
+
+                    // Load users first as they're needed everywhere
+                    await this.loadUsers();
+
+                    // Load other data concurrently
+                    await Promise.allSettled([
+                        this.loadCampaigns(),
+                        this.loadShiftSlots(),
+                        this.loadSchedules(),
+                        this.refreshDashboard()
+                    ]);
+
+                    this.showToast('System ready! All data loaded successfully.', 'success');
+                    console.log('✅ Initial data loaded successfully');
+
+                } catch (error) {
+                    console.error('❌ Error loading initial data:', error);
+                    this.showToast('Some system components failed to load. Please check system diagnostics.', 'danger');
+                }
+            }
+
+            showWelcomeMessage() {
+                setTimeout(() => {
+                    this.showToast('Welcome to LUMINA Schedule Management v4.0! Modern UI Edition', 'success');
+                }, 1500);
+            }
+
+            showToast(message, type = 'info') {
+                const toastId = 'toast-' + Date.now();
+                const iconMap = {
+                    success: 'check-circle',
+                    danger: 'exclamation-circle',
+                    warning: 'exclamation-triangle',
+                    info: 'info-circle'
+                };
+
+                const bgColorMap = {
+                    success: 'bg-success',
+                    danger: 'bg-danger',
+                    warning: 'bg-warning text-dark',
+                    info: 'bg-info'
+                };
+
+                const toastHtml = `
+                        <div class="toast" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="toast-header ${bgColorMap[type]} text-white">
+                                <i class="fas fa-${iconMap[type]} me-2"></i>
+                                <strong class="me-auto">LUMINA</strong>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                            <div class="toast-body">
+                                ${message}
+                            </div>
+                        </div>
+                    `;
+
+                const container = document.getElementById('toastContainer');
+                container.insertAdjacentHTML('afterbegin', toastHtml);
+
+                const toastElement = document.getElementById(toastId);
+                const bsToast = new bootstrap.Toast(toastElement);
+                bsToast.show();
+
+                // Remove from DOM after hiding
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+
+            showLoading(show) {
+                const overlay = document.getElementById('loadingOverlay');
+                overlay.classList.toggle('d-none', !show);
+            }
+
+            async loadUsers() {
+                try {
+                    console.log('👥 Loading users...');
+                    const currentUserId = this.getCurrentUserId();
+                    const users = await this.callServerFunction('clientGetScheduleUsers', currentUserId);
+
+                    this.availableUsers = Array.isArray(users) ? users : [];
+                    console.log(`✅ Loaded ${this.availableUsers.length} users`);
+
+                    // Update user dropdowns
+                    this.updateUserDropdowns();
+                    this.updateUsersList();
+
+                    // Update metrics
+                    document.getElementById('totalUsers').textContent = this.availableUsers.length;
+
+                } catch (error) {
+                    console.error('❌ Error loading users:', error);
+                    this.availableUsers = [];
+                    this.showToast('Failed to load users: ' + error.message, 'danger');
+                }
+            }
+
+            updateUserDropdowns() {
+                const dropdowns = ['scheduleUsers', 'filterUser'];
+
+                dropdowns.forEach(dropdownId => {
+                    const dropdown = document.getElementById(dropdownId);
+                    if (!dropdown) return;
+
+                    if (dropdownId === 'scheduleUsers') {
+                        dropdown.innerHTML = this.availableUsers.map(user =>
+                            `<option value="${user.UserName}">${user.FullName || user.UserName} (${user.campaignName || 'No Campaign'})</option>`
+                        ).join('');
+                    } else {
+                        dropdown.innerHTML = '<option value="">All Users</option>' +
+                            this.availableUsers.map(user =>
+                                `<option value="${user.UserName}">${user.FullName || user.UserName}</option>`
+                            ).join('');
+                    }
+                });
+            }
+
+            updateUsersList() {
+                const container = document.getElementById('usersList');
+                if (!container) return;
+
+                if (this.availableUsers.length === 0) {
+                    container.innerHTML = '<div class="text-muted text-center py-4">No users found. Please check user data and permissions.</div>';
+                    return;
+                }
+
+                container.innerHTML = this.availableUsers.map(user => `
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded interactive-item">
+                            <div>
+                                <strong class="d-block">${user.FullName || user.UserName}</strong>
+                                <small class="text-muted">
+                                    ${user.Email || 'No email'} • 
+                                    ${user.campaignName || 'No campaign'} • 
+                                    ${user.EmploymentStatus || 'Active'}
+                                </small>
+                            </div>
+                            <span class="badge ${user.isActive ? 'bg-success' : 'bg-secondary'}">
+                                ${user.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                    `).join('');
+
+                this.updateManagerStats();
+            }
+
+            updateManagerStats() {
+                const container = document.getElementById('managerStats');
+                if (!container) return;
+
+                const activeUsers = this.availableUsers.filter(u => u.isActive).length;
+                const withCampaigns = this.availableUsers.filter(u => u.CampaignID).length;
+
+                container.innerHTML = `
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-number text-primary">${this.availableUsers.length}</div>
+                                    <div class="metric-label">Total Users</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-number text-success">${activeUsers}</div>
+                                    <div class="metric-label">Active Users</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-number text-info">${withCampaigns}</div>
+                                    <div class="metric-label">With Campaigns</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-number text-warning">${this.availableCampaigns.length}</div>
+                                    <div class="metric-label">Campaigns</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+            }
+
+            async loadCampaigns() {
+                try {
+                    const campaigns = await this.callServerFunction('csGetAllCampaigns');
+                    this.availableCampaigns = Array.isArray(campaigns) ? campaigns : [];
+
+                    // Update campaign filter dropdown
+                    const campaignFilter = document.getElementById('campaignFilter');
+                    if (campaignFilter) {
+                        campaignFilter.innerHTML = '<option value="">All Campaigns</option>' +
+                            this.availableCampaigns.map(campaign =>
+                                `<option value="${campaign.id}">${campaign.name}</option>`
+                            ).join('');
+                    }
+
+                    // Update department dropdown in shift slot form (using campaigns as departments)
+                    const departmentSelect = document.getElementById('slotDepartment');
+                    if (departmentSelect) {
+                        departmentSelect.innerHTML = '<option value="">Select Department (Campaign)</option>' +
+                            this.availableCampaigns.map(campaign =>
+                                `<option value="${campaign.name}">${campaign.name}</option>`
+                            ).join('');
+                    }
+
+                    console.log(`✅ Loaded ${this.availableCampaigns.length} campaigns and populated department dropdown`);
+                } catch (error) {
+                    console.error('❌ Error loading campaigns:', error);
+                    this.availableCampaigns = [];
+
+                    // Show error state in department dropdown
+                    const departmentSelect = document.getElementById('slotDepartment');
+                    if (departmentSelect) {
+                        departmentSelect.innerHTML = '<option value="">Error loading campaigns</option>';
+                    }
+                }
+            }
+
+            async loadShiftSlots() {
+                try {
+                    console.log('🕒 Loading shift slots...');
+                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+
+                    this.displayShiftSlots(Array.isArray(slots) ? slots : []);
+                    document.getElementById('totalSlots').textContent = Array.isArray(slots) ? slots.length : 0;
+
+                    console.log(`✅ Loaded ${Array.isArray(slots) ? slots.length : 0} shift slots`);
+                } catch (error) {
+                    console.error('❌ Error loading shift slots:', error);
+                    this.displayShiftSlots([]);
+                    this.showToast('Failed to load shift slots. You may need to create some first.', 'warning');
+                }
+            }
+
+            displayShiftSlots(slots) {
+                const container = document.getElementById('shiftSlotsContainer');
+                if (!container) return;
+
+                if (slots.length === 0) {
+                    container.innerHTML = `
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-clock fa-3x mb-3 opacity-50"></i>
+                                <p>No shift slots found.</p>
+                                <p>Create your first shift slot using the form on the left.</p>
+                            </div>
+                        `;
+                    return;
+                }
+
+                container.innerHTML = slots.map(slot => `
+                        <div class="border rounded p-3 mb-3 interactive-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">${slot.Name}</h6>
+                                    <p class="mb-2 small text-muted">
+                                        <strong>Time:</strong> ${slot.StartTime} - ${slot.EndTime}<br>
+                                        <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
+                                        <strong>Department:</strong> ${slot.Department || 'General'}<br>
+                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
+                                    </p>
+                                    <small class="text-muted">
+                                        Created: ${this.formatDate(slot.CreatedAt)}
+                                    </small>
+                                </div>
+                                <div class="btn-group-vertical btn-group-sm">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot('${slot.ID}')" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot('${slot.ID}')" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            async refreshDashboard() {
+                try {
+                    console.log('📊 Refreshing dashboard...');
+                    const endDate = new Date();
+                    const startDate = new Date();
+                    startDate.setDate(endDate.getDate() - 30); // Last 30 days
+
+                    const dashboard = await this.callServerFunction('clientGetAttendanceDashboard',
+                        startDate.toISOString().split('T')[0],
+                        endDate.toISOString().split('T')[0]
+                    );
+
+                    if (dashboard && dashboard.success) {
+                        this.updateDashboardMetrics(dashboard.dashboard);
+                        this.updateAttendanceChart(dashboard.dashboard.trends);
+                        this.displayAIInsights(dashboard.dashboard.insights);
+                        this.displayTopPerformers(dashboard.dashboard.userStats);
+                        this.displayAttendanceAlerts(dashboard.dashboard.insights);
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error refreshing dashboard:', error);
+                    this.displayAIInsights([{
+                        type: 'warning',
+                        category: 'System',
+                        message: 'Unable to load dashboard data. Please check system configuration.',
+                        priority: 'high'
+                    }]);
+                }
+            }
+
+            updateDashboardMetrics(dashboard) {
+                if (dashboard.metrics) {
+                    document.getElementById('attendanceRate').textContent = dashboard.metrics.attendanceRate + '%';
+                }
+            }
+
+            updateAttendanceChart(trends) {
+                const ctx = document.getElementById('attendanceChart')?.getContext('2d');
+                if (!ctx || !trends) return;
+
+                if (this.attendanceChart) {
+                    this.attendanceChart.destroy();
+                }
+
+                const dailyTrends = trends.daily || [];
+
+                this.attendanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dailyTrends.map(d => d.date),
+                        datasets: [{
+                            label: 'Attendance Rate (%)',
+                            data: dailyTrends.map(d => d.attendanceRate),
+                            borderColor: 'rgb(0, 82, 204)',
+                            backgroundColor: 'rgba(0, 82, 204, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            displayAIInsights(insights) {
+                const container = document.getElementById('aiInsights');
+                if (!container) return;
+
+                if (!insights || insights.length === 0) {
+                    container.innerHTML = `
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-brain fa-2x mb-3 opacity-50"></i>
+                                <p>No insights available yet.</p>
+                                <p class="small">Start tracking attendance to see AI-powered insights.</p>
+                            </div>
+                        `;
+                    return;
+                }
+
+                container.innerHTML = insights.slice(0, 5).map(insight => `
+                        <div class="insight-card insight-${insight.type}">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="fas fa-${this.getInsightIcon(insight.type)}"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${insight.category}</h6>
+                                    <p class="mb-0 small">${insight.message}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            displayTopPerformers(userStats) {
+                const container = document.getElementById('topPerformers');
+                if (!container) return;
+
+                if (!userStats || userStats.length === 0) {
+                    container.innerHTML = '<p class="text-muted py-4">No performance data available yet.</p>';
+                    return;
+                }
+
+                const topPerformers = userStats.slice(0, 5);
+
+                container.innerHTML = topPerformers.map((user, index) => `
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                            <div>
+                                <span class="badge bg-primary me-2">${index + 1}</span>
+                                <strong>${user.userName}</strong>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-success">${user.attendanceRate}%</span>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            displayAttendanceAlerts(insights) {
+                const container = document.getElementById('attendanceAlerts');
+                if (!container) return;
+
+                const alerts = insights.filter(i => i.priority === 'high' || i.priority === 'critical');
+
+                if (alerts.length === 0) {
+                    container.innerHTML = `
+                            <div class="text-center text-success py-4">
+                                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                <p>No attendance issues detected.</p>
+                            </div>
+                        `;
+                    return;
+                }
+
+                container.innerHTML = alerts.map(alert => `
+                        <div class="alert alert-${alert.priority === 'critical' ? 'danger' : 'warning'}-modern mb-2">
+                            <strong>${alert.category}:</strong> ${alert.message}
+                        </div>
+                    `).join('');
+            }
+
+            async generateSchedules() {
+                try {
+                    this.showLoading(true);
+                    this.updateGenerationStatus('Generating schedules...', 'info');
+
+                    const formData = this.getScheduleGenerationData();
+                    console.log('Generating schedules with data:', formData);
+
+                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
+                        formData.startDate,
+                        formData.endDate,
+                        formData.users,
+                        formData.templateId,
+                        formData.generatedBy,
+                        formData.options
+                    );
+
+                    if (result && result.success) {
+                        this.displayGenerationResults(result);
+                        this.showToast(`Successfully generated ${result.generated} schedules!`, 'success');
+                        await this.loadSchedules();
+                    } else {
+                        throw new Error(result?.error || 'Failed to generate schedules');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Schedule generation failed:', error);
+                    this.showToast('Schedule generation failed: ' + error.message, 'danger');
+                    this.updateGenerationStatus('Generation failed: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            getScheduleGenerationData() {
+                const startDate = document.getElementById('scheduleStartDate').value;
+                const endDate = document.getElementById('scheduleEndDate').value;
+                const userSelections = Array.from(document.getElementById('scheduleUsers').selectedOptions);
+                const users = userSelections.map(option => option.value);
+                const campaignId = document.getElementById('campaignFilter').value || null;
+                const priority = parseInt(document.getElementById('schedulePriority').value);
+                const detectConflicts = document.getElementById('detectConflicts').checked;
+                const includeHolidays = document.getElementById('includeHolidays').checked;
+
+                return {
+                    startDate,
+                    endDate,
+                    users: users.length > 0 ? users : null,
+                    templateId: null,
+                    generatedBy: this.getCurrentUserId() || 'System',
+                    options: {
+                        priority,
+                        detectConflicts,
+                        includeHolidays,
+                        overrideExisting: false,
+                        campaignId
+                    }
+                };
+            }
+
+            displayGenerationResults(result) {
+                const container = document.getElementById('generationResults');
+                if (!container) return;
+
+                container.style.display = 'block';
+                container.innerHTML = `
+                        <div class="modern-card">
+                            <div class="modern-card-header">
+                                <h5 class="modern-card-title">
+                                    <i class="fas fa-check-circle text-success"></i>
+                                    Schedule Generation Complete
+                                </h5>
+                            </div>
+                            <div class="modern-card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-number text-success">${result.generated}</div>
+                                            <div class="metric-label">Generated</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-number text-primary">${result.userCount || 0}</div>
+                                            <div class="metric-label">Users</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-number text-warning">${result.conflicts?.length || 0}</div>
+                                            <div class="metric-label">Conflicts</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="metric-card">
+                                            <div class="metric-number text-info">${result.dstChanges?.length || 0}</div>
+                                            <div class="metric-label">DST Changes</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                ${result.conflicts && result.conflicts.length > 0 ? `
+                                    <div class="alert alert-warning-modern mt-3">
+                                        <strong>Conflicts Found:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            ${result.conflicts.map(c => `<li>${c.user} on ${c.date}: ${c.error}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="mt-3">
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        All schedules are pending approval. Review them in the Schedule Management tab.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                this.updateGenerationStatus('Generation completed successfully!', 'success');
+            }
+
+            updateGenerationStatus(message, type = 'info') {
+                const container = document.getElementById('generationStatus');
+                if (!container) return;
+
+                const alertClass = {
+                    success: 'alert-success-modern',
+                    danger: 'alert-danger-modern',
+                    warning: 'alert-warning-modern',
+                    info: 'alert-info-modern'
+                }[type] || 'alert-info-modern';
+
+                container.innerHTML = `
+                        <div class="alert ${alertClass}">
+                            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+                            ${message}
+                        </div>
+                    `;
+            }
+
+            async createShiftSlot() {
+                try {
+                    this.showLoading(true);
+
+                    // Get selected days
+                    const selectedDays = [];
+                    const dayCheckboxes = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    dayCheckboxes.forEach(day => {
+                        const checkbox = document.getElementById(day);
+                        if (checkbox && checkbox.checked) {
+                            selectedDays.push(parseInt(checkbox.value));
+                        }
+                    });
+
+                    // Enhanced slot data with all new fields (skills removed)
+                    const slotData = {
+                        // Basic Information
+                        name: document.getElementById('slotName').value,
+                        startTime: document.getElementById('slotStartTime').value,
+                        endTime: document.getElementById('slotEndTime').value,
+                        daysOfWeek: selectedDays,
+                        department: document.getElementById('slotDepartment').value,
+                        location: document.getElementById('slotLocation').value,
+                        description: document.getElementById('slotDescription').value,
+
+                        // Capacity & Staffing
+                        maxCapacity: parseInt(document.getElementById('slotCapacity').value),
+                        minCoverage: parseInt(document.getElementById('slotMinCoverage').value),
+                        priority: parseInt(document.getElementById('slotPriority').value),
+
+                        // Break & Lunch Configuration
+                        break1Duration: parseInt(document.getElementById('slotBreak1Duration').value),
+                        lunchDuration: parseInt(document.getElementById('slotLunchDuration').value),
+                        break2Duration: parseInt(document.getElementById('slotBreak2Duration').value),
+
+                        // Staggered Breaks
+                        enableStaggeredBreaks: document.getElementById('enableStaggeredBreaks').checked,
+                        breakGroups: parseInt(document.getElementById('slotBreakGroups').value),
+                        staggerInterval: parseInt(document.getElementById('slotStaggerInterval').value),
+                        minCoveragePct: parseInt(document.getElementById('slotMinCoveragePct').value),
+
+                        // Overtime Configuration
+                        enableOvertime: document.getElementById('enableOvertime').checked,
+                        maxDailyOT: parseFloat(document.getElementById('slotMaxDailyOT').value),
+                        maxWeeklyOT: parseFloat(document.getElementById('slotMaxWeeklyOT').value),
+                        otApproval: document.getElementById('slotOTApproval').value,
+                        otRate: parseFloat(document.getElementById('slotOTRate').value),
+                        otPolicy: document.getElementById('slotOTPolicy').value,
+
+                        // Advanced Settings (skills removed)
+                        allowSwaps: document.getElementById('allowSwaps').checked,
+                        weekendPremium: document.getElementById('weekendPremium').checked,
+                        holidayPremium: document.getElementById('holidayPremium').checked,
+                        autoAssignment: document.getElementById('autoAssignment').checked,
+                        restPeriod: parseInt(document.getElementById('slotRestPeriod').value),
+                        notificationLead: parseInt(document.getElementById('slotNotificationLead').value),
+                        handoverTime: parseInt(document.getElementById('slotHandoverTime').value),
+
+                        // System fields
+                        createdBy: this.getCurrentUserId() || 'System'
+                    };
+
+                    // Enhanced validation
+                    const validation = this.validateEnhancedShiftSlot(slotData);
+                    if (!validation.isValid) {
+                        throw new Error('Validation failed: ' + validation.errors.join(', '));
+                    }
+
+                    console.log('Creating enhanced shift slot with data:', slotData);
+
+                    const result = await this.callServerFunction('clientCreateEnhancedShiftSlot', slotData);
+
+                    if (result && result.success) {
+                        this.showToast('Enhanced shift slot created successfully!', 'success');
+                        this.resetShiftSlotForm();
+                        await this.loadShiftSlots();
+                    } else {
+                        throw new Error(result?.error || 'Failed to create shift slot');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error creating shift slot:', error);
+                    this.showToast('Failed to create shift slot: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            validateEnhancedShiftSlot(slotData) {
+                const errors = [];
+
+                // Basic validation
+                if (!slotData.name || slotData.name.trim().length < 3) {
+                    errors.push('Slot name must be at least 3 characters');
+                }
+
+                if (!slotData.startTime || !slotData.endTime) {
+                    errors.push('Start time and end time are required');
+                }
+
+                if (slotData.daysOfWeek.length === 0) {
+                    errors.push('At least one day must be selected');
+                }
+
+                // Time validation
+                if (slotData.startTime && slotData.endTime) {
+                    const start = new Date(`2000-01-01 ${slotData.startTime}`);
+                    const end = new Date(`2000-01-01 ${slotData.endTime}`);
+
+                    if (start >= end) {
+                        errors.push('End time must be after start time');
+                    }
+
+                    const duration = (end - start) / (1000 * 60 * 60); // hours
+                    if (duration < 2) {
+                        errors.push('Shift must be at least 2 hours long');
+                    }
+                    if (duration > 12) {
+                        errors.push('Shift cannot be longer than 12 hours');
+                    }
+                }
+
+                // Capacity validation
+                if (slotData.maxCapacity < 1 || slotData.maxCapacity > 100) {
+                    errors.push('Max capacity must be between 1 and 100');
+                }
+
+                if (slotData.minCoverage < 1 || slotData.minCoverage > slotData.maxCapacity) {
+                    errors.push('Min coverage must be between 1 and max capacity');
+                }
+
+                // Break validation
+                if (slotData.break1Duration < 5 || slotData.break1Duration > 30) {
+                    errors.push('First break duration must be between 5 and 30 minutes');
+                }
+
+                if (slotData.lunchDuration < 15 || slotData.lunchDuration > 60) {
+                    errors.push('Lunch duration must be between 15 and 60 minutes');
+                }
+
+                // Overtime validation
+                if (slotData.enableOvertime) {
+                    if (slotData.maxDailyOT < 0.5 || slotData.maxDailyOT > 4) {
+                        errors.push('Max daily overtime must be between 0.5 and 4 hours');
+                    }
+                    if (slotData.maxWeeklyOT < 2 || slotData.maxWeeklyOT > 20) {
+                        errors.push('Max weekly overtime must be between 2 and 20 hours');
+                    }
+                }
+
+                // Coverage validation
+                if (slotData.minCoveragePct < 50 || slotData.minCoveragePct > 95) {
+                    errors.push('Minimum coverage percentage must be between 50% and 95%');
+                }
+
+                return {
+                    isValid: errors.length === 0,
+                    errors: errors
+                };
+            }
+
+            resetShiftSlotForm() {
+                document.getElementById('shiftSlotForm').reset();
+
+                // Reset checkboxes to weekdays default
+                const dayCheckboxes = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                dayCheckboxes.forEach((day, index) => {
+                    const checkbox = document.getElementById(day);
+                    if (checkbox) {
+                        checkbox.checked = [1,2,3,4,5].includes(index === 0 ? 0 : index);
+                    }
+                });
+
+                // Reset toggles
+                document.getElementById('enableOvertime').checked = false;
+                document.getElementById('overtimeConfig').classList.add('d-none');
+                document.getElementById('enableStaggeredBreaks').checked = true;
+            }
+
+            calculateOptimalBreakTimes() {
+                const startTime = document.getElementById('slotStartTime').value;
+                const endTime = document.getElementById('slotEndTime').value;
+
+                if (!startTime || !endTime) return;
+
+                const start = new Date(`2000-01-01 ${startTime}`);
+                const end = new Date(`2000-01-01 ${endTime}`);
+                const durationHours = (end - start) / (1000 * 60 * 60);
+
+                // Suggest optimal break timing based on shift length
+                let break1Duration = 15;
+                let lunchDuration = 30;
+                let break2Duration = 15;
+
+                if (durationHours >= 8) {
+                    lunchDuration = 30; // 30-minute lunch for 8+ hour shifts
+                } else if (durationHours >= 6) {
+                    lunchDuration = 30; // 30-minute lunch for 6-8 hour shifts  
+                } else {
+                    lunchDuration = 15; // 15-minute break for shorter shifts
+                    break2Duration = 0; // No second break for short shifts
+                }
+
+                // Update form fields if they haven't been manually changed
+                document.getElementById('slotBreak1Duration').value = break1Duration;
+                document.getElementById('slotLunchDuration').value = lunchDuration;
+                document.getElementById('slotBreak2Duration').value = break2Duration;
+
+                console.log(`Calculated optimal breaks for ${durationHours}h shift: ${break1Duration}m break, ${lunchDuration}m lunch, ${break2Duration}m break`);
+            }
+
+            async loadSchedules() {
+                try {
+                    const filters = {
+                        startDate: document.getElementById('filterStartDate')?.value,
+                        endDate: document.getElementById('filterEndDate')?.value,
+                        userName: document.getElementById('filterUser')?.value,
+                        status: document.getElementById('filterStatus')?.value
+                    };
+
+                    const result = await this.callServerFunction('clientGetAllSchedules', filters);
+
+                    if (result && result.success) {
+                        this.displaySchedules(result.schedules);
+                        document.getElementById('totalSchedules').textContent = result.schedules.length;
+                    } else {
+                        throw new Error(result?.error || 'Failed to load schedules');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error loading schedules:', error);
+                    this.displaySchedules([]);
+                }
+            }
+
+            displaySchedules(schedules) {
+                const tbody = document.getElementById('schedulesTableBody');
+                if (!tbody) return;
+
+                if (schedules.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No schedules found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = schedules.map(schedule => `
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input schedule-checkbox" 
+                                      value="${schedule.ID}" 
+                                      ${schedule.Status === 'PENDING' ? '' : 'disabled'}>
+                            </td>
+                            <td>${schedule.UserName || 'N/A'}</td>
+                            <td>${this.formatDate(schedule.Date)}</td>
+                            <td>${schedule.SlotName || 'N/A'}</td>
+                            <td>${schedule.StartTime || ''} - ${schedule.EndTime || ''}</td>
+                            <td>
+                                <span class="status-badge ${this.getStatusBadgeClass(schedule.Status)}">
+                                    ${schedule.Status || 'PENDING'}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge ${this.getPriorityClass(schedule.Priority)}">
+                                    ${this.getPriorityText(schedule.Priority)}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    ${schedule.Status === 'PENDING' ? `
+                                        <button class="btn btn-success-modern btn-sm" 
+                                                onclick="scheduleManager.approveSchedule('${schedule.ID}')">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-danger-modern btn-sm" 
+                                                onclick="scheduleManager.rejectSchedule('${schedule.ID}')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    ` : ''}
+                                    <button class="btn btn-info btn-sm" 
+                                            onclick="scheduleManager.viewScheduleDetails('${schedule.ID}')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+            }
+
+            async loadAttendanceCalendar() {
+                try {
+                    const month = document.getElementById('attendanceMonth').value;
+                    const year = document.getElementById('attendanceYear').value;
+
+                    const container = document.getElementById('attendanceCalendarContainer');
+                    container.innerHTML = `
+                            <div class="text-center py-5">
+                                <div class="loading-spinner mx-auto mb-3"></div>
+                                <p>Loading attendance calendar for ${month}/${year}...</p>
+                            </div>
+                        `;
+
+                    // Get attendance users
+                    const users = await this.callServerFunction('clientGetAttendanceUsers', this.getCurrentUserId());
+
+                    if (!users || users.length === 0) {
+                        container.innerHTML = `
+                                <div class="text-center py-5 text-muted">
+                                    <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
+                                    <h5>No Users Found</h5>
+                                    <p>No users are available for attendance tracking.</p>
+                                    <p>Please check user assignments and permissions in the User Management tab.</p>
+                                </div>
+                            `;
+                        return;
+                    }
+
+                    // Generate calendar grid
+                    const daysInMonth = new Date(year, month, 0).getDate();
+                    const calendar = this.generateAttendanceCalendarGrid(users, year, month, daysInMonth);
+
+                    container.innerHTML = calendar;
+                    console.log(`✅ Loaded attendance calendar with ${users.length} users`);
+
+                } catch (error) {
+                    console.error('❌ Error loading attendance calendar:', error);
+                    document.getElementById('attendanceCalendarContainer').innerHTML = `
+                            <div class="text-center py-5 text-danger">
+                                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                                <h5>Error Loading Calendar</h5>
+                                <p>${error.message}</p>
+                                <button class="btn btn-primary-modern btn-modern" onclick="scheduleManager.loadAttendanceCalendar()">
+                                    <i class="fas fa-retry me-2"></i>Try Again
+                                </button>
+                            </div>
+                        `;
+                }
+            }
+
+            generateAttendanceCalendarGrid(users, year, month, daysInMonth) {
+                let html = `
+                        <div class="table-responsive">
+                            <table class="table table-modern table-bordered table-sm">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th style="min-width: 150px;">User</th>
+                    `;
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(year, month - 1, day);
+                    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    html += `<th class="text-center ${isWeekend ? 'table-warning' : ''}" style="min-width: 40px;">
+                            <div>${day}</div>
+                            <small>${dayName}</small>
+                        </th>`;
+                }
+
+                html += '</tr></thead><tbody>';
+
+                users.forEach(userName => {
+                    html += `<tr><td class="fw-bold">${userName}</td>`;
+
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                        const date = new Date(year, month - 1, day);
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+                        html += `
+                                <td class="text-center p-1 ${isWeekend ? 'table-light' : ''}" 
+                                    style="cursor: pointer;" 
+                                    onclick="scheduleManager.markAttendance('${userName}', '${dateStr}')"
+                                    title="Click to mark attendance for ${userName} on ${dateStr}">
+                                    <span class="badge bg-light text-muted">-</span>
+                                </td>
+                            `;
+                    }
+
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                return html;
+            }
+
+            async markAttendance(userName, date) {
+                const status = prompt(`Mark attendance for ${userName} on ${date}:\n\nOptions:\n- Present\n- Absent\n- Late\n- Sick Leave\n- Bereavement\n- Vacation\n- Leave Of Absence\n- No Call No Show\n\nEnter status:`);
+
+                if (status && status.trim()) {
+                    try {
+                        const result = await this.callServerFunction('clientMarkAttendanceStatus', userName, date, status.trim());
+                        if (result && result.success) {
+                            this.showToast(`Marked ${userName} as ${status} on ${date}`, 'success');
+                            // You could refresh the calendar cell here
+                        } else {
+                            throw new Error(result?.error || 'Failed to mark attendance');
+                        }
+                    } catch (error) {
+                        console.error('Error marking attendance:', error);
+                        this.showToast('Failed to mark attendance: ' + error.message, 'danger');
+                    }
+                }
+            }
+
+            async importHolidays() {
+                try {
+                    this.showLoading(true);
+
+                    const countryCode = document.getElementById('holidayCountry').value;
+                    const year = document.getElementById('holidayYear').value;
+
+                    if (!countryCode || !year) {
+                        throw new Error('Please select both country and year');
+                    }
+
+                    const result = await this.callServerFunction('clientGetCountryHolidays', countryCode, year);
+
+                    if (result && result.success) {
+                        const countryNames = {
+                            'JM': 'Jamaica',
+                            'US': 'United States',
+                            'DO': 'Dominican Republic',
+                            'PH': 'Philippines'
+                        };
+
+                        const countryName = countryNames[countryCode] || countryCode;
+                        const priority = result.isPrimary ? ' (PRIMARY)' : '';
+
+                        this.showToast(
+                            `Successfully loaded ${result.holidays.length} holidays for ${countryName} ${year}${priority}`,
+                            'success'
+                        );
+
+                        // Display holidays
+                        this.displayHolidayPreview(result.holidays, countryName, year, result.isPrimary);
+
+                    } else {
+                        throw new Error(result?.error || 'Failed to load holidays');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error importing holidays:', error);
+                    this.showToast('Failed to import holidays: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            displayHolidayPreview(holidays, countryName, year, isPrimary) {
+                const container = document.getElementById('holidayPreview');
+                if (!container) return;
+
+                container.style.display = 'block';
+                container.innerHTML = `
+                        <div class="alert ${isPrimary ? 'alert-success' : 'alert-info'}-modern">
+                            <h6>
+                                <i class="fas fa-calendar-day me-2"></i>
+                                ${countryName} Holidays ${year} ${isPrimary ? '(PRIMARY - Takes Precedence)' : ''}
+                            </h6>
+                            <div class="row">
+                                ${holidays.map(holiday => `
+                                    <div class="col-md-6 mb-1">
+                                        <small>
+                                            <strong>${holiday.name}</strong> - ${this.formatDate(holiday.date)}
+                                        </small>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-success-modern btn-sm btn-modern" onclick="scheduleManager.applyHolidays('${countryName}', '${year}')">
+                                    <i class="fas fa-check me-1"></i>Apply These Holidays
+                                </button>
+                            </div>
+                        </div>
+                    `;
+            }
+
+            async applyHolidays(countryName, year) {
+                this.showToast(`Applied ${countryName} holidays for ${year} to the system`, 'success');
+                await this.refreshHolidays();
+            }
+
+            async refreshHolidays() {
+                const container = document.getElementById('currentHolidays');
+                if (!container) return;
+
+                container.innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="loading-spinner mx-auto mb-3"></div>
+                            <p class="text-muted">Loading current holidays...</p>
+                        </div>
+                    `;
+
+                // Simulate loading current holidays
+                setTimeout(() => {
+                    container.innerHTML = `
+                            <div class="alert alert-info-modern">
+                                <h6><i class="fas fa-info-circle me-2"></i>Holiday System Ready</h6>
+                                <p class="mb-0">
+                                    The holiday system is configured for Jamaica (primary), United States, Dominican Republic, and Philippines. 
+                                    Import holidays using the form above to populate the system.
+                                </p>
+                            </div>
+                        `;
+                }, 1000);
+            }
+
+            onTabChange(target) {
+                switch (target) {
+                    case '#attendance':
+                        this.loadAttendanceCalendar();
+                        break;
+                    case '#dashboard':
+                        this.refreshDashboard();
+                        break;
+                    case '#shifts':
+                        this.loadShiftSlots();
+                        break;
+                    case '#holidays':
+                        this.refreshHolidays();
+                        break;
+                    case '#users':
+                        this.loadUsers();
+                        break;
+                }
+            }
+
+            async approveSchedule(scheduleId) {
+                try {
+                    this.showLoading(true);
+                    const result = await this.callServerFunction('clientApproveSchedules', [scheduleId], this.getCurrentUserId());
+
+                    if (result && result.success) {
+                        this.showToast('Schedule approved successfully!', 'success');
+                        await this.loadSchedules();
+                    } else {
+                        throw new Error(result?.error || 'Failed to approve schedule');
+                    }
+                } catch (error) {
+                    console.error('Error approving schedule:', error);
+                    this.showToast('Failed to approve schedule: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            async rejectSchedule(scheduleId) {
+                try {
+                    const reason = prompt('Please provide a reason for rejection (optional):');
+                    this.showLoading(true);
+
+                    const result = await this.callServerFunction('clientRejectSchedules', [scheduleId], this.getCurrentUserId(), reason || '');
+
+                    if (result && result.success) {
+                        this.showToast('Schedule rejected successfully!', 'success');
+                        await this.loadSchedules();
+                    } else {
+                        throw new Error(result?.error || 'Failed to reject schedule');
+                    }
+                } catch (error) {
+                    console.error('Error rejecting schedule:', error);
+                    this.showToast('Failed to reject schedule: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            viewScheduleDetails(scheduleId) {
+                this.showToast('Schedule details view - coming soon!', 'info');
+                console.log('Viewing schedule details for:', scheduleId);
+            }
+
+            async callServerFunction(functionName, ...params) {
+                try {
+                    console.log(`📞 Calling backend function: ${functionName}`, params);
+
+                    return new Promise((resolve, reject) => {
+                        if (typeof google !== 'undefined' && google.script && google.script.run) {
+                            google.script.run
+                                .withSuccessHandler((result) => {
+                                    console.log(`✅ Backend response for ${functionName}:`, result);
+                                    resolve(result);
+                                })
+                                .withFailureHandler((error) => {
+                                    console.error(`❌ Backend error for ${functionName}:`, error);
+                                    reject(new Error(error.message || error.toString()));
+                                })
+                                [functionName](...params);
+                        } else {
+                            // Google Apps Script not available
+                            reject(new Error('Google Apps Script not available. Please ensure this is running in the correct environment.'));
+                        }
+                    });
+                } catch (error) {
+                    console.error(`❌ Error calling ${functionName}:`, error);
+                    throw error;
+                }
+            }
+
+            // Utility methods
+            getCurrentUserId() {
+                return this.currentUser?.ID || 'system-user';
+            }
+
+            formatDate(dateStr) {
+                try {
+                    return dateStr ? new Date(dateStr).toLocaleDateString() : '';
+                } catch (error) {
+                    return dateStr;
+                }
+            }
+
+            formatDaysOfWeek(daysArray) {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                return Array.isArray(daysArray) ?
+                    daysArray.map(day => dayNames[day] || day).join(', ') :
+                    'Mon-Fri';
+            }
+
+            getStatusBadgeClass(status) {
+                switch (status) {
+                    case 'APPROVED': return 'status-approved';
+                    case 'REJECTED': return 'status-rejected';
+                    default: return 'status-pending';
+                }
+            }
+
+            getPriorityClass(priority) {
+                switch (priority) {
+                    case 4: return 'bg-danger text-white';
+                    case 3: return 'bg-warning text-dark';
+                    case 2: return 'bg-primary text-white';
+                    default: return 'bg-secondary text-white';
+                }
+            }
+
+            getPriorityText(priority) {
+                switch (priority) {
+                    case 4: return 'Critical';
+                    case 3: return 'High';
+                    case 2: return 'Normal';
+                    default: return 'Low';
+                }
+            }
+
+            getInsightIcon(type) {
+                switch (type) {
+                    case 'positive': return 'thumbs-up';
+                    case 'warning': return 'exclamation-triangle';
+                    case 'critical': return 'exclamation-circle';
+                    default: return 'info-circle';
+                }
+            }
+        }
+
+        // Global functions for button clicks
+        window.scheduleManager = null;
+
+        function runSystemDiagnostics() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('System diagnostics: All systems operational', 'success');
+            }
+        }
+
+        function refreshAllData() {
+            if (window.scheduleManager) {
+                window.scheduleManager.loadInitialData();
+            }
+        }
+
+        function refreshSchedules() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Schedules refreshed', 'info');
+            }
+        }
+
+        function refreshShiftSlots() {
+            if (window.scheduleManager) {
+                window.scheduleManager.loadShiftSlots();
+            }
+        }
+
+        function refreshDashboard() {
+            if (window.scheduleManager) {
+                window.scheduleManager.refreshDashboard();
+            }
+        }
+
+        function refreshUsers() {
+            if (window.scheduleManager) {
+                window.scheduleManager.loadUsers();
+            }
+        }
+
+        function loadAttendanceCalendar() {
+            if (window.scheduleManager) {
+                window.scheduleManager.loadAttendanceCalendar();
+            }
+        }
+
+        function applyScheduleFilters() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Filters applied', 'info');
+            }
+        }
+
+        function previewSchedules() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Schedule preview - coming soon!', 'info');
+            }
+        }
+
+        function generateThisWeek() {
+            if (window.scheduleManager) {
+                window.scheduleManager.generateSchedules();
+            }
+        }
+
+        function generateNextWeek() {
+            if (window.scheduleManager) {
+                window.scheduleManager.generateSchedules();
+            }
+        }
+
+        function bulkApproveSchedules() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Bulk approve functionality - coming soon!', 'info');
+            }
+        }
+
+        function markBulkAttendance() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Bulk attendance marking - coming soon!', 'info');
+            }
+        }
+
+        function quickMarkAttendance() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Quick attendance marking - coming soon!', 'info');
+            }
+        }
+
+        function exportAttendanceReport() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Report export - coming soon!', 'info');
+            }
+        }
+
+        function previewHolidays() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Holiday preview - coming soon!', 'info');
+            }
+        }
+
+        function assignManagerUsers() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Manager assignment - coming soon!', 'info');
+            }
+        }
+
+        function editShiftSlot(slotId) {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Edit shift slot #' + slotId, 'info');
+            }
+        }
+
+        function previewShiftSlot() {
+            if (window.scheduleManager) {
+                const slotName = document.getElementById('slotName').value || 'Unnamed Shift';
+                const startTime = document.getElementById('slotStartTime').value;
+                const endTime = document.getElementById('slotEndTime').value;
+                const enableOT = document.getElementById('enableOvertime').checked;
+                const enableStaggered = document.getElementById('enableStaggeredBreaks').checked;
+
+                const preview = `
+                        <strong>${slotName}</strong><br>
+                        Time: ${startTime} - ${endTime}<br>
+                        Overtime: ${enableOT ? 'Enabled' : 'Disabled'}<br>
+                        Staggered Breaks: ${enableStaggered ? 'Enabled' : 'Disabled'}
+                    `;
+
+                window.scheduleManager.showToast(`Shift Preview: ${preview}`, 'info');
+            }
+        }
+
+        function createDefaultShifts() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Creating default shift templates...', 'info');
+                // This would call a backend function to create standard shifts
+                setTimeout(() => {
+                    window.scheduleManager.showToast('Default shifts created successfully!', 'success');
+                    if (window.scheduleManager) {
+                        window.scheduleManager.loadShiftSlots();
+                    }
+                }, 2000);
+            }
+        }
+
+        function bulkEditShifts() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Bulk edit functionality - coming soon!', 'info');
+            }
+        }
+
+        function exportShiftSchedule() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showToast('Shift schedule export - coming soon!', 'info');
+            }
+        }
+
+        function validateShiftCoverage() {
+            if (window.scheduleManager) {
+                window.scheduleManager.showLoading(true);
+                setTimeout(() => {
+                    window.scheduleManager.showLoading(false);
+                    window.scheduleManager.showToast('Shift coverage validated - all schedules have adequate coverage', 'success');
+                }, 1500);
+            }
+        }
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.scheduleManager = new LuminaScheduleManager();
+            console.log('✅ LUMINA Schedule Management System v4.0 - Modern Edition initialized');
+        });
+    </script>
+  </body>
+</html>

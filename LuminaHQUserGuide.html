@@ -1,0 +1,1476 @@
+<?!= include('header', { baseUrl: baseUrl, user: user, currentPage: 'Admin Dashboard' }) ?>
+
+
+    <style>
+        /* Modern documentation styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        /* Navigation */
+        .nav {
+            background: #fff;
+            border-bottom: 1px solid #e0e6ed;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav ul {
+            list-style: none;
+            display: flex;
+            overflow-x: auto;
+        }
+        
+        .nav li {
+            margin-right: 2rem;
+        }
+        
+        .nav a {
+            display: block;
+            padding: 1rem 0;
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .nav a:hover,
+        .nav a.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        /* Content */
+        .content {
+            padding: 2rem;
+        }
+        
+        .section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .section h3 {
+            color: #34495e;
+            font-size: 1.8rem;
+            margin: 2rem 0 1rem 0;
+        }
+        
+        .section h4 {
+            color: #555;
+            font-size: 1.3rem;
+            margin: 1.5rem 0 0.5rem 0;
+        }
+        
+        .section p {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        /* Feature cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 2rem;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+        
+        .feature-card .icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        /* Steps */
+        .steps {
+            counter-reset: step-counter;
+        }
+        
+        .step {
+            counter-increment: step-counter;
+            background: #f8f9fa;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            border-radius: 12px;
+            border-left: 4px solid #27ae60;
+            position: relative;
+        }
+        
+        .step::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: -15px;
+            top: 20px;
+            background: #27ae60;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .step h4 {
+            color: #27ae60;
+            margin-bottom: 1rem;
+        }
+        
+        /* Screenshots */
+        .screenshot {
+            background: #f1f3f4;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 2rem 0;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Tips and warnings */
+        .tip, .warning, .info {
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border-left: 4px solid;
+        }
+        
+        .tip {
+            background: #e8f5e8;
+            border-left-color: #27ae60;
+            color: #155724;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+        
+        .tip::before,
+        .warning::before,
+        .info::before {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .tip::before {
+            content: "💡 Tip: ";
+        }
+        
+        .warning::before {
+            content: "⚠️ Important: ";
+        }
+        
+        .info::before {
+            content: "ℹ️ Note: ";
+        }
+        
+        /* Code blocks */
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Consolas', monospace;
+            line-height: 1.4;
+        }
+        
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e6ed;
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        /* FAQ */
+        .faq-item {
+            background: white;
+            border: 1px solid #e0e6ed;
+            border-radius: 8px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+        
+        .faq-question {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .faq-question:hover {
+            background: #e9ecef;
+        }
+        
+        .faq-answer {
+            padding: 1.5rem;
+            display: none;
+        }
+        
+        .faq-answer.active {
+            display: block;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 2rem 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+            
+            .nav {
+                padding: 0 1rem;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .nav, .header {
+                display: none;
+            }
+            
+            .container {
+                box-shadow: none;
+            }
+            
+            .section {
+                display: block !important;
+                page-break-before: always;
+            }
+            
+            .section:first-child {
+                page-break-before: avoid;
+            }
+        }
+    </style>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🌟 LuminaHQ User Guide</h1>
+            <p>Your Complete Guide to Secure Web Browsing</p>
+        </div>
+        
+        <!-- Navigation -->
+        <nav class="nav">
+            <ul>
+                <li><a href="#overview" class="nav-link active">Overview</a></li>
+                <li><a href="#getting-started" class="nav-link">Getting Started</a></li>
+                <li><a href="#search-browse" class="nav-link">Search & Browse</a></li>
+                <li><a href="#bookmarks" class="nav-link">Bookmarks</a></li>
+                <li><a href="#security" class="nav-link">Security Features</a></li>
+                <li><a href="#mobile" class="nav-link">Mobile Usage</a></li>
+                <li><a href="#tips" class="nav-link">Tips & Tricks</a></li>
+                <li><a href="#faq" class="nav-link">FAQ</a></li>
+                <li><a href="#support" class="nav-link">Support</a></li>
+            </ul>
+        </nav>
+        
+        <!-- Content -->
+        <div class="content">
+            <!-- Overview Section -->
+            <section id="overview" class="section active">
+                <h2>Welcome to LuminaHQ</h2>
+                
+                <p>LuminaHQ is your organization's secure web browsing platform that allows you to safely access the internet while maintaining complete security and compliance. Everything you browse stays within our controlled environment, protecting both you and your organization.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">🔒</span>
+                        <h4>Secure Browsing</h4>
+                        <p>All web traffic is filtered and secured through our advanced proxy system, protecting you from malicious websites and content.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🚀</span>
+                        <h4>High Performance</h4>
+                        <p>Optimized caching and compression ensure fast loading times and smooth browsing experience.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">📱</span>
+                        <h4>Mobile Friendly</h4>
+                        <p>Responsive design works perfectly on desktop, tablet, and mobile devices with touch-optimized controls.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🔖</span>
+                        <h4>Smart Bookmarks</h4>
+                        <p>Organize your favorite sites with folders, tags, and intelligent search capabilities.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">📊</span>
+                        <h4>Usage Analytics</h4>
+                        <p>Track your browsing patterns and get insights into your web usage for better productivity.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🛡️</span>
+                        <h4>Compliance Ready</h4>
+                        <p>Full audit trails and compliance reporting ensure your organization meets all regulatory requirements.</p>
+                    </div>
+                </div>
+                
+                <div class="info">
+                    LuminaHQ replaces the need for traditional web browsers when accessing external websites, providing a secure gateway that maintains your organization's security posture while enabling productive web access.
+                </div>
+            </section>
+            
+            <!-- Getting Started Section -->
+            <section id="getting-started" class="section">
+                <h2>Getting Started</h2>
+                
+                <p>This section will help you get up and running with LuminaHQ quickly and efficiently.</p>
+                
+                <h3>System Requirements</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Minimum Requirement</th>
+                                <th>Recommended</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Web Browser</td>
+                                <td>Chrome 80+, Firefox 75+, Safari 13+, Edge 80+</td>
+                                <td>Latest version of Chrome or Firefox</td>
+                            </tr>
+                            <tr>
+                                <td>Internet Connection</td>
+                                <td>1 Mbps</td>
+                                <td>5+ Mbps for optimal performance</td>
+                            </tr>
+                            <tr>
+                                <td>Screen Resolution</td>
+                                <td>1024x768</td>
+                                <td>1920x1080 or higher</td>
+                            </tr>
+                            <tr>
+                                <td>JavaScript</td>
+                                <td>Enabled (Required)</td>
+                                <td>Enabled with no restrictions</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h3>First Time Access</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Access LuminaHQ</h4>
+                        <p>Navigate to your organization's LuminaHQ URL. This will typically be provided by your IT department and will look something like: <code>https://your-org.luminahq.com</code></p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Sign In</h4>
+                        <p>Use your organizational credentials to sign in. If you don't have credentials, contact your IT administrator.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Accept Terms</h4>
+                        <p>Review and accept your organization's browsing policy and terms of use.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Complete Setup</h4>
+                        <p>Configure your preferences, including bookmark folders and notification settings.</p>
+                    </div>
+                </div>
+                
+                <div class="tip">
+                    Bookmark the LuminaHQ URL in your regular browser for quick access. Consider adding it to your browser's bookmarks bar for easy access throughout the day.
+                </div>
+                
+                <h3>Interface Overview</h3>
+                <p>The LuminaHQ interface consists of several key components:</p>
+                
+                <div class="screenshot">
+                    [Interface Screenshot]<br>
+                    Search bar with logo at top, bookmark sidebar on left, main browsing area on right with tab navigation
+                </div>
+                
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Search Bar:</strong> Located at the top, this is where you enter search terms or direct URLs</li>
+                    <li><strong>Bookmark Sidebar:</strong> On the left side, contains your saved bookmarks organized by folders</li>
+                    <li><strong>Tab Bar:</strong> Above the main content area, allows you to switch between multiple open websites</li>
+                    <li><strong>Main Browsing Area:</strong> The central area where websites are displayed</li>
+                    <li><strong>Proxy Toolbar:</strong> Appears at the top of browsed websites with navigation controls</li>
+                </ul>
+            </section>
+            
+            <!-- Search & Browse Section -->
+            <section id="search-browse" class="section">
+                <h2>Search & Browse</h2>
+                
+                <p>LuminaHQ provides powerful search capabilities and secure browsing through our advanced proxy system.</p>
+                
+                <h3>Performing Searches</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>Enter Search Terms</h4>
+                        <p>Type your search query in the search bar. You can search for anything you would search for on Google or other search engines.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Review Results</h4>
+                        <p>Search results appear with title, description, and URL. Each result has bookmark and open buttons.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Open Websites</h4>
+                        <p>Click "Open" to view a website in a new tab, or click the title to open it directly.</p>
+                    </div>
+                </div>
+                
+                <h3>Direct URL Access</h3>
+                <p>You can also navigate directly to websites by entering URLs in the search bar:</p>
+                
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><code>example.com</code> - Automatically adds https://</li>
+                    <li><code>https://example.com</code> - Uses exact URL</li>
+                    <li><code>http://example.com</code> - Uses HTTP (if available)</li>
+                </ul>
+                
+                <h3>Tab Management</h3>
+                <p>LuminaHQ supports multiple tabs for efficient browsing:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">📑</span>
+                        <h4>Multiple Tabs</h4>
+                        <p>Open multiple websites simultaneously. Each tab operates independently for efficient multitasking.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🔄</span>
+                        <h4>Tab Switching</h4>
+                        <p>Click on tab titles to switch between open websites. Active tab is highlighted.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">✖️</span>
+                        <h4>Close Tabs</h4>
+                        <p>Click the × button on any tab to close it. Use the "Close" button in the proxy toolbar for current tab.</p>
+                    </div>
+                </div>
+                
+                <h3>Proxy Toolbar Features</h3>
+                <p>When browsing websites, you'll see the LuminaHQ proxy toolbar at the top:</p>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Button</th>
+                                <th>Function</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>← Back</td>
+                                <td>Navigate backward</td>
+                                <td>Go to the previous page in browser history</td>
+                            </tr>
+                            <tr>
+                                <td>Forward →</td>
+                                <td>Navigate forward</td>
+                                <td>Go to the next page in browser history</td>
+                            </tr>
+                            <tr>
+                                <td>⟳ Refresh</td>
+                                <td>Reload page</td>
+                                <td>Refresh the current page</td>
+                            </tr>
+                            <tr>
+                                <td>✕ Close</td>
+                                <td>Close tab</td>
+                                <td>Close the current tab and return to search</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="warning">
+                    The proxy toolbar ensures you always have navigation controls, even on websites that might try to disable browser navigation. Do not remove or hide this toolbar.
+                </div>
+                
+                <h3>Search Tips</h3>
+                <div class="tip">
+                    Use specific keywords for better results. For example, instead of "news", try "technology news 2024" or "financial news today".
+                </div>
+                
+                <div class="tip">
+                    Use quotation marks for exact phrases: "climate change impact" will search for that exact phrase.
+                </div>
+                
+                <div class="tip">
+                    Add site-specific searches by including the domain: "quarterly earnings site:sec.gov"
+                </div>
+            </section>
+            
+            <!-- Bookmarks Section -->
+            <section id="bookmarks" class="section">
+                <h2>Bookmark Management</h2>
+                
+                <p>LuminaHQ's bookmark system helps you organize and quickly access your frequently visited websites.</p>
+                
+                <h3>Adding Bookmarks</h3>
+                <div class="steps">
+                    <div class="step">
+                        <h4>From Search Results</h4>
+                        <p>Click the bookmark icon (🔖) next to any search result to save it to your bookmarks.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Fill Bookmark Details</h4>
+                        <p>A modal will appear asking for bookmark details:</p>
+                        <ul style="margin: 0.5rem 0; padding-left: 2rem;">
+                            <li><strong>Title:</strong> Automatically filled, but you can edit it</li>
+                            <li><strong>URL:</strong> The website address (read-only)</li>
+                            <li><strong>Description:</strong> Optional notes about the bookmark</li>
+                            <li><strong>Tags:</strong> Comma-separated keywords for searching</li>
+                            <li><strong>Folder:</strong> Choose a folder to organize your bookmark</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Save Bookmark</h4>
+                        <p>Click "Save Bookmark" to add it to your collection.</p>
+                    </div>
+                </div>
+                
+                <h3>Organizing Bookmarks</h3>
+                <p>Keep your bookmarks organized with folders and tags:</p>
+                
+                <h4>Default Folders</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Folder</th>
+                                <th>Purpose</th>
+                                <th>Examples</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>General</td>
+                                <td>Miscellaneous bookmarks</td>
+                                <td>News sites, entertainment</td>
+                            </tr>
+                            <tr>
+                                <td>Work</td>
+                                <td>Work-related sites</td>
+                                <td>Industry resources, tools</td>
+                            </tr>
+                            <tr>
+                                <td>Reference</td>
+                                <td>Information and documentation</td>
+                                <td>Manuals, databases, research</td>
+                            </tr>
+                            <tr>
+                                <td>Tools</td>
+                                <td>Online applications and utilities</td>
+                                <td>Calculators, converters, editors</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h4>Using Tags</h4>
+                <p>Tags help you find bookmarks quickly. Use descriptive keywords:</p>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Topic-based:</strong> finance, technology, research, marketing</li>
+                    <li><strong>Purpose-based:</strong> daily, reference, tool, tutorial</li>
+                    <li><strong>Priority-based:</strong> important, urgent, bookmark</li>
+                </ul>
+                
+                <h3>Accessing Bookmarks</h3>
+                <p>Use the bookmark sidebar to quickly access your saved sites:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">🔍</span>
+                        <h4>Search Bookmarks</h4>
+                        <p>Use the search box at the top of the bookmark sidebar to quickly find bookmarks by title or tag.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">📁</span>
+                        <h4>Browse by Folder</h4>
+                        <p>Click folder names to expand/collapse them. Click the chevron icon to toggle folder visibility.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">⏰</span>
+                        <h4>Recent Bookmarks</h4>
+                        <p>The "Recent" section shows your most recently added bookmarks for quick access.</p>
+                    </div>
+                </div>
+                
+                <h3>Managing Bookmarks</h3>
+                <p>Keep your bookmark collection clean and organized:</p>
+                
+                <h4>Editing Bookmarks</h4>
+                <p>Hover over any bookmark to see action buttons:</p>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Edit (✏️):</strong> Modify bookmark details</li>
+                    <li><strong>Delete (🗑️):</strong> Remove bookmark permanently</li>
+                </ul>
+                
+                <div class="tip">
+                    Regularly review your bookmarks and remove ones you no longer need. This keeps your collection manageable and relevant.
+                </div>
+                
+                <div class="tip">
+                    Use descriptive titles for your bookmarks. Instead of "Login Page", use "Company Portal - Employee Login" for clarity.
+                </div>
+            </section>
+            
+            <!-- Security Features Section -->
+            <section id="security" class="section">
+                <h2>Security Features</h2>
+                
+                <p>LuminaHQ incorporates multiple layers of security to protect you and your organization while browsing the web.</p>
+                
+                <h3>How Security Works</h3>
+                <p>Every website you visit goes through our security filtering system:</p>
+                
+                <div class="steps">
+                    <div class="step">
+                        <h4>Domain Verification</h4>
+                        <p>Each website is checked against our database of known malicious and blocked domains before allowing access.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Content Filtering</h4>
+                        <p>Website content is scanned for malicious code, inappropriate material, and security threats.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <h4>Safe Delivery</h4>
+                        <p>Clean, filtered content is delivered to your browser through our secure proxy system.</p>
+                    </div>
+                </div>
+                
+                <h3>Security Indicators</h3>
+                <p>LuminaHQ provides clear indicators about the security status of websites:</p>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicator</th>
+                                <th>Meaning</th>
+                                <th>Action Required</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>🟢 Green Badge</td>
+                                <td>Safe website, no security concerns detected</td>
+                                <td>None - browse safely</td>
+                            </tr>
+                            <tr>
+                                <td>🟡 Yellow Badge</td>
+                                <td>Website has minor security concerns or warnings</td>
+                                <td>Proceed with caution, avoid entering sensitive data</td>
+                            </tr>
+                            <tr>
+                                <td>🔴 Red Badge</td>
+                                <td>Website blocked due to security risks</td>
+                                <td>Access denied - contact IT if you believe this is an error</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h3>Blocked Content</h3>
+                <p>Certain types of content are automatically blocked for security:</p>
+                
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Malware and Viruses:</strong> Any content identified as malicious</li>
+                    <li><strong>Phishing Sites:</strong> Websites attempting to steal credentials</li>
+                    <li><strong>Executable Downloads:</strong> .exe, .bat, and other executable files</li>
+                    <li><strong>Suspicious Scripts:</strong> JavaScript that could be harmful</li>
+                    <li><strong>Blocked Domains:</strong> Sites specifically blocked by your organization</li>
+                </ul>
+                
+                <div class="warning">
+                    If you encounter a blocked website that you need for legitimate business purposes, contact your IT administrator rather than trying to bypass the security measures.
+                </div>
+                
+                <h3>Privacy Protection</h3>
+                <p>LuminaHQ protects your privacy while browsing:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">🕶️</span>
+                        <h4>Anonymous Browsing</h4>
+                        <p>Websites see LuminaHQ's servers, not your direct IP address or location.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🍪</span>
+                        <h4>Cookie Management</h4>
+                        <p>Tracking cookies are filtered and managed to protect your privacy.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🔒</span>
+                        <h4>Secure Transmission</h4>
+                        <p>All data between you and websites is encrypted and secure.</p>
+                    </div>
+                </div>
+                
+                <h3>Best Practices</h3>
+                <div class="tip">
+                    Always verify website URLs before entering sensitive information. Look for typos or suspicious domains.
+                </div>
+                
+                <div class="tip">
+                    Report any suspicious websites or content to your IT security team immediately.
+                </div>
+                
+                <div class="tip">
+                    Don't attempt to download files unless you're certain they're safe and necessary for your work.
+                </div>
+                
+                <div class="warning">
+                    Never provide your organizational credentials to websites that aren't explicitly approved by your IT department.
+                </div>
+            </section>
+            
+            <!-- Mobile Usage Section -->
+            <section id="mobile" class="section">
+                <h2>Mobile Usage</h2>
+                
+                <p>LuminaHQ is fully optimized for mobile devices, providing a seamless browsing experience on smartphones and tablets.</p>
+                
+                <h3>Mobile Interface</h3>
+                <p>The mobile interface automatically adapts to smaller screens:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">📱</span>
+                        <h4>Responsive Design</h4>
+                        <p>Interface automatically adjusts to your device screen size for optimal viewing.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">👆</span>
+                        <h4>Touch Optimized</h4>
+                        <p>Buttons and links are sized appropriately for touch interaction.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">⚡</span>
+                        <h4>Fast Performance</h4>
+                        <p>Optimized for mobile networks with efficient data usage.</p>
+                    </div>
+                </div>
+                
+                <h3>Mobile-Specific Features</h3>
+                
+                <h4>Gesture Support</h4>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Swipe Navigation:</strong> Swipe left/right to navigate between tabs</li>
+                    <li><strong>Pull to Refresh:</strong> Pull down on a page to refresh content</li>
+                    <li><strong>Pinch to Zoom:</strong> Zoom in/out on webpage content</li>
+                    <li><strong>Long Press:</strong> Long press links for additional options</li>
+                </ul>
+                
+                <h4>Mobile Toolbar</h4>
+                <p>The proxy toolbar adapts for mobile use:</p>
+                <div class="screenshot">
+                    [Mobile Toolbar Screenshot]<br>
+                    Compact toolbar with essential navigation buttons optimized for mobile
+                </div>
+                
+                <h3>Mobile Tips</h3>
+                <div class="tip">
+                    Add LuminaHQ to your device's home screen for quick access. Use your browser's "Add to Home Screen" option.
+                </div>
+                
+                <div class="tip">
+                    Use landscape mode for better viewing of websites with complex layouts.
+                </div>
+                
+                <div class="tip">
+                    The bookmark sidebar can be collapsed on mobile to provide more space for content viewing.
+                </div>
+                
+                <h3>Offline Considerations</h3>
+                <div class="info">
+                    LuminaHQ requires an internet connection to function. Bookmarks and recently viewed content may be cached, but new browsing requires connectivity.
+                </div>
+                
+                <h3>Performance Optimization</h3>
+                <p>LuminaHQ automatically optimizes performance on mobile devices:</p>
+                
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Image Compression:</strong> Images are automatically optimized for mobile viewing</li>
+                    <li><strong>Data Savings:</strong> Unnecessary content is filtered to reduce data usage</li>
+                    <li><strong>Smart Caching:</strong> Frequently accessed content is cached for faster loading</li>
+                    <li><strong>Battery Optimization:</strong> Reduced processing load to preserve battery life</li>
+                </ul>
+            </section>
+            
+            <!-- Tips & Tricks Section -->
+            <section id="tips" class="section">
+                <h2>Tips & Tricks</h2>
+                
+                <p>Get the most out of LuminaHQ with these helpful tips and advanced techniques.</p>
+                
+                <h3>Productivity Tips</h3>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">⌨️</span>
+                        <h4>Keyboard Shortcuts</h4>
+                        <p>Use Ctrl+T (Cmd+T on Mac) to focus the search bar quickly, and Ctrl+W to close the current tab.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🔍</span>
+                        <h4>Smart Search</h4>
+                        <p>Use specific search operators like "filetype:pdf" to find PDF documents or "site:example.com" for site-specific searches.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">📋</span>
+                        <h4>Bulk Bookmarking</h4>
+                        <p>Keep a browser tab open with search results and bookmark multiple sites quickly by using the bookmark buttons.</p>
+                    </div>
+                </div>
+                
+                <h3>Advanced Search Techniques</h3>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Search Operator</th>
+                                <th>Example</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>"exact phrase"</td>
+                                <td>"annual report 2024"</td>
+                                <td>Finds exact phrase match</td>
+                            </tr>
+                            <tr>
+                                <td>site:domain.com</td>
+                                <td>site:sec.gov quarterly</td>
+                                <td>Search within specific website</td>
+                            </tr>
+                            <tr>
+                                <td>filetype:extension</td>
+                                <td>budget filetype:xlsx</td>
+                                <td>Find specific file types</td>
+                            </tr>
+                            <tr>
+                                <td>intitle:keyword</td>
+                                <td>intitle:guidelines</td>
+                                <td>Find keyword in page title</td>
+                            </tr>
+                            <tr>
+                                <td>before:YYYY-MM-DD</td>
+                                <td>news before:2024-01-01</td>
+                                <td>Find content before specific date</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h3>Bookmark Organization Strategies</h3>
+                
+                <h4>Folder Structure Examples</h4>
+                <div class="code-block">
+📁 Work
+  📁 Daily Tools
+    🔖 Company Portal
+    🔖 Email System
+    🔖 Project Management
+  📁 Industry News
+    🔖 Trade Publications
+    🔖 Market Analysis
+  📁 Research
+    🔖 Databases
+    🔖 Reports
+    
+📁 Reference
+  📁 Documentation
+  📁 Tutorials
+  📁 Compliance
+                </div>
+                
+                <h4>Tagging Strategy</h4>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Frequency:</strong> daily, weekly, monthly, yearly</li>
+                    <li><strong>Priority:</strong> critical, important, useful, nice-to-have</li>
+                    <li><strong>Department:</strong> hr, finance, marketing, operations</li>
+                    <li><strong>Type:</strong> tool, reference, news, training</li>
+                </ul>
+                
+                <h3>Troubleshooting Tips</h3>
+                
+                <div class="warning">
+                    <strong>Page Won't Load:</strong> Try refreshing the page using the refresh button in the proxy toolbar. If it still doesn't work, the site may be temporarily unavailable or blocked.
+                </div>
+                
+                <div class="tip">
+                    <strong>Slow Loading:</strong> Clear your browser's cache and cookies, then try again. Some sites may load slowly due to heavy content filtering.
+                </div>
+                
+                <div class="info">
+                    <strong>Bookmark Missing:</strong> Use the bookmark search function to find bookmarks that may have been moved to different folders.
+                </div>
+                
+                <h3>Power User Features</h3>
+                
+                <h4>Tab Management</h4>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li>Keep frequently used sites open in tabs throughout your workday</li>
+                    <li>Use descriptive tab titles when bookmarking tab sets</li>
+                    <li>Close tabs you're not actively using to improve performance</li>
+                </ul>
+                
+                <h4>Search Efficiency</h4>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li>Start with broad searches and narrow down with additional keywords</li>
+                    <li>Use the search history feature by pressing the up arrow in the search box</li>
+                    <li>Bookmark effective search queries for repeated use</li>
+                </ul>
+                
+                <div class="tip">
+                    Create a "Quick Access" bookmark folder for sites you visit multiple times per day. This saves time over searching repeatedly.
+                </div>
+            </section>
+            
+            <!-- FAQ Section -->
+            <section id="faq" class="section">
+                <h2>Frequently Asked Questions</h2>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>Why can't I access certain websites?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Websites may be blocked for several reasons:</p>
+                        <ul>
+                            <li><strong>Security Risk:</strong> The site contains malware or phishing content</li>
+                            <li><strong>Policy Violation:</strong> The site violates your organization's acceptable use policy</li>
+                            <li><strong>Content Category:</strong> The site falls into a blocked category (e.g., social media, gaming)</li>
+                            <li><strong>Geographic Restrictions:</strong> The site blocks access from your region</li>
+                        </ul>
+                        <p>If you need access to a blocked site for legitimate business purposes, contact your IT administrator with a business justification.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>Can I download files through LuminaHQ?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>File downloads are restricted for security purposes. Most executable files (.exe, .bat, .cmd) are automatically blocked. Document downloads (PDF, DOCX, XLSX) may be allowed depending on your organization's policy.</p>
+                        <p>If you need to download a specific file, contact your IT administrator who can review the request and provide the file through secure channels if appropriate.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>How do I report a security concern?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>If you encounter suspicious content or potential security threats:</p>
+                        <ol>
+                            <li>Immediately close the website tab</li>
+                            <li>Note the website URL and describe what you observed</li>
+                            <li>Report the incident to your IT security team via your organization's standard reporting process</li>
+                            <li>Do not attempt to investigate further or share the suspicious link with colleagues</li>
+                        </ol>
+                        <p>Your organization's security team will investigate and take appropriate action.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>Why are some pages loading slowly?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Page loading speed can be affected by several factors:</p>
+                        <ul>
+                            <li><strong>Security Scanning:</strong> All content is scanned for threats, which adds processing time</li>
+                            <li><strong>Content Filtering:</strong> Large amounts of content may require additional processing</li>
+                            <li><strong>Network Conditions:</strong> Your internet connection speed affects loading times</li>
+                            <li><strong>Website Complexity:</strong> Sites with many resources take longer to process</li>
+                        </ul>
+                        <p>The system uses caching to improve performance for frequently visited sites. If a specific site consistently loads slowly, report it to IT for investigation.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>Can I use LuminaHQ on my personal device?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>LuminaHQ access depends on your organization's security policy. Generally:</p>
+                        <ul>
+                            <li><strong>Company Devices:</strong> Full access is typically provided</li>
+                            <li><strong>Personal Devices:</strong> May require additional security software or VPN connection</li>
+                            <li><strong>Mobile Devices:</strong> Often supported with appropriate mobile device management</li>
+                        </ul>
+                        <p>Check with your IT department about personal device access policies and requirements.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>How long are my bookmarks and browsing history kept?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Data retention policies vary by organization:</p>
+                        <ul>
+                            <li><strong>Bookmarks:</strong> Typically retained as long as your account is active</li>
+                            <li><strong>Browsing History:</strong> Usually kept for compliance purposes (often 7 years)</li>
+                            <li><strong>Search Queries:</strong> Logged for security analysis and policy compliance</li>
+                        </ul>
+                        <p>Your organization's privacy policy will outline specific retention periods. Contact your privacy officer for detailed information.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>What should I do if LuminaHQ is not working?</span>
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Follow these troubleshooting steps:</p>
+                        <ol>
+                            <li><strong>Refresh the page:</strong> Use Ctrl+F5 (Cmd+Shift+R on Mac) to force refresh</li>
+                            <li><strong>Clear browser cache:</strong> Clear your browser's cache and cookies</li>
+                            <li><strong>Try a different browser:</strong> Test with Chrome, Firefox, or Edge</li>
+                            <li><strong>Check network connection:</strong> Ensure you have internet connectivity</li>
+                            <li><strong>Restart browser:</strong> Close and reopen your web browser</li>
+                        </ol>
+                        <p>If issues persist, contact your IT help desk with details about the problem, including any error messages you're seeing.</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Support Section -->
+            <section id="support" class="section">
+                <h2>Support & Contact</h2>
+                
+                <p>Get help when you need it with these support resources and contact methods.</p>
+                
+                <h3>Self-Service Support</h3>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="icon">📚</span>
+                        <h4>Documentation</h4>
+                        <p>This user guide contains comprehensive information about all LuminaHQ features and capabilities.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">🎥</span>
+                        <h4>Video Tutorials</h4>
+                        <p>Access video tutorials for common tasks and advanced features through your organization's training portal.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="icon">❓</span>
+                        <h4>FAQ Section</h4>
+                        <p>Check the FAQ section above for answers to common questions and troubleshooting tips.</p>
+                    </div>
+                </div>
+                
+                <h3>Getting Help</h3>
+                
+                <h4>IT Help Desk</h4>
+                <p>For technical issues and general support:</p>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Email:</strong> Contact your organization's IT help desk email</li>
+                    <li><strong>Phone:</strong> Call your internal IT support number</li>
+                    <li><strong>Ticket System:</strong> Submit a ticket through your organization's support portal</li>
+                    <li><strong>In-Person:</strong> Visit the IT help desk if available in your location</li>
+                </ul>
+                
+                <h4>Security Incidents</h4>
+                <p>For security-related concerns or incidents:</p>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Security Team:</strong> Contact your organization's cybersecurity team directly</li>
+                    <li><strong>Emergency Line:</strong> Use the emergency security hotline for urgent threats</li>
+                    <li><strong>Email:</strong> Send detailed reports to the security team email address</li>
+                </ul>
+                
+                <div class="warning">
+                    For suspected security incidents, contact the security team immediately rather than using standard IT support channels.
+                </div>
+                
+                <h3>Information to Include When Requesting Support</h3>
+                
+                <p>When contacting support, provide the following information to help resolve your issue quickly:</p>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Information Type</th>
+                                <th>Details to Provide</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Problem Description</td>
+                                <td>Clear description of what's not working</td>
+                                <td>"Cannot access bookmarks sidebar - it's completely blank"</td>
+                            </tr>
+                            <tr>
+                                <td>Error Messages</td>
+                                <td>Exact text of any error messages</td>
+                                <td>"Access Denied: Domain blocked by security policy"</td>
+                            </tr>
+                            <tr>
+                                <td>Steps to Reproduce</td>
+                                <td>What you were doing when the problem occurred</td>
+                                <td>"1. Searched for 'financial news', 2. Clicked first result, 3. Page wouldn't load"</td>
+                            </tr>
+                            <tr>
+                                <td>Browser Information</td>
+                                <td>Browser type and version</td>
+                                <td>"Chrome version 120.0.6099.71"</td>
+                            </tr>
+                            <tr>
+                                <td>Device Information</td>
+                                <td>Operating system and device type</td>
+                                <td>"Windows 11, Dell laptop" or "iPhone 15, iOS 17.1"</td>
+                            </tr>
+                            <tr>
+                                <td>Timing</td>
+                                <td>When the problem started</td>
+                                <td>"Started this morning around 9 AM" or "Has been happening for 3 days"</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h3>Training Resources</h3>
+                
+                <h4>New User Training</h4>
+                <p>New users should complete the following training sequence:</p>
+                <ol style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Orientation Session:</strong> Overview of LuminaHQ and security policies</li>
+                    <li><strong>Hands-On Tutorial:</strong> Guided practice with basic features</li>
+                    <li><strong>Security Awareness:</strong> Understanding threats and best practices</li>
+                    <li><strong>Department-Specific Training:</strong> Role-based usage scenarios</li>
+                </ol>
+                
+                <h4>Ongoing Training</h4>
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Monthly Tips:</strong> Regular emails with productivity tips and new features</li>
+                    <li><strong>Security Updates:</strong> Quarterly briefings on new threats and protections</li>
+                    <li><strong>Advanced Features:</strong> Optional training on power user capabilities</li>
+                    <li><strong>Refresher Training:</strong> Annual recertification on policies and procedures</li>
+                </ul>
+                
+                <h3>Feedback and Suggestions</h3>
+                
+                <p>Your feedback helps improve LuminaHQ for everyone:</p>
+                
+                <div class="tip">
+                    Submit feature requests and improvement suggestions through your organization's feedback portal or directly to the IT team.
+                </div>
+                
+                <div class="tip">
+                    Report usability issues or confusing interfaces to help make the system more user-friendly.
+                </div>
+                
+                <div class="tip">
+                    Share success stories about how LuminaHQ has improved your productivity or security posture.
+                </div>
+                
+                <h3>System Status and Updates</h3>
+                
+                <p>Stay informed about system status and planned maintenance:</p>
+                
+                <ul style="margin: 1rem 0; padding-left: 2rem;">
+                    <li><strong>Status Page:</strong> Check your organization's IT status page for current system health</li>
+                    <li><strong>Maintenance Notifications:</strong> Subscribe to maintenance alerts and update notifications</li>
+                    <li><strong>Version Updates:</strong> Review release notes for new features and improvements</li>
+                    <li><strong>Emergency Communications:</strong> Monitor emergency communication channels during incidents</li>
+                </ul>
+                
+                <div class="info">
+                    LuminaHQ is continuously updated with new security protections and features. Regular updates ensure you have the latest protections against emerging threats.
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <script>
+        // Navigation functionality
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('.section');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Remove active class from all links and sections
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    
+                    // Add active class to clicked link
+                    this.classList.add('active');
+                    
+                    // Show corresponding section
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetSection = document.getElementById(targetId);
+                    if (targetSection) {
+                        targetSection.classList.add('active');
+                    }
+                    
+                    // Scroll to top of content
+                    document.querySelector('.content').scrollTop = 0;
+                });
+            });
+        }
+        
+        // FAQ toggle functionality
+        function toggleFAQ(questionElement) {
+            const answer = questionElement.nextElementSibling;
+            const symbol = questionElement.querySelector('span:last-child');
+            
+            if (answer.classList.contains('active')) {
+                answer.classList.remove('active');
+                symbol.textContent = '+';
+            } else {
+                // Close all other FAQ items
+                document.querySelectorAll('.faq-answer.active').forEach(item => {
+                    item.classList.remove('active');
+                    item.previousElementSibling.querySelector('span:last-child').textContent = '+';
+                });
+                
+                // Open this FAQ item
+                answer.classList.add('active');
+                symbol.textContent = '−';
+            }
+        }
+        
+        // Search functionality for sections
+        function addSearchFunctionality() {
+            // Add a search box to the nav (optional enhancement)
+            const nav = document.querySelector('.nav ul');
+            const searchContainer = document.createElement('li');
+            searchContainer.innerHTML = `
+                <input type="text" placeholder="Search documentation..." 
+                       style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; margin: 0.5rem 0;"
+                       onkeyup="searchDocumentation(this.value)">
+            `;
+            nav.appendChild(searchContainer);
+        }
+        
+        function searchDocumentation(query) {
+            const sections = document.querySelectorAll('.section');
+            const lowerQuery = query.toLowerCase();
+            
+            if (!query.trim()) {
+                // Show all sections in navigation
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.style.display = 'block';
+                });
+                return;
+            }
+            
+            sections.forEach((section, index) => {
+                const content = section.textContent.toLowerCase();
+                const navLink = document.querySelectorAll('.nav-link')[index];
+                
+                if (content.includes(lowerQuery)) {
+                    if (navLink) navLink.style.display = 'block';
+                } else {
+                    if (navLink) navLink.style.display = 'none';
+                }
+            });
+        }
+        
+        // Print functionality
+        function addPrintButton() {
+            const header = document.querySelector('.header');
+            const printButton = document.createElement('button');
+            printButton.innerHTML = '🖨️ Print Guide';
+            printButton.style.cssText = `
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: rgba(255,255,255,0.2);
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+            `;
+            printButton.onclick = () => window.print();
+            header.style.position = 'relative';
+            header.appendChild(printButton);
+        }
+        
+        // Initialize all functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            setupNavigation();
+            addSearchFunctionality();
+            addPrintButton();
+            
+            // Add smooth scrolling for better UX
+            document.documentElement.style.scrollBehavior = 'smooth';
+        });
+        
+        // Make toggleFAQ globally accessible
+        window.toggleFAQ = toggleFAQ;
+    </script>
+</body>
+</html>

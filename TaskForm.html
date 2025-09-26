@@ -1,0 +1,591 @@
+<?!= include('header',{
+     rawToken: rawToken,
+     baseUrl: baseUrl,
+     currentPage: currentPage,
+     user: user,
+     recordId: recordId,
+     record: record,
+     tasksJson: tasksJson
+}) ?>
+
+<style>
+  #taskForm {
+     max-width: 900px; 
+     margin: 2rem auto; 
+     background: #fff; 
+     padding: 2rem; 
+     border-radius: 12px; 
+     box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+  }
+  .form-group {
+     margin-bottom: 1.5rem; 
+  }
+  label {
+     font-weight: 600; 
+     margin-bottom: 0.5rem; 
+     display: block; 
+     color: #374151;
+  }
+  .required::after {
+     content: " *";
+     color: #ef4444;
+  }
+  .form-control, .form-select {
+     border-radius: 8px;
+     border: 1px solid #d1d5db;
+     padding: 0.75rem;
+     font-size: 0.875rem;
+     transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-control:focus, .form-select:focus {
+     border-color: #6366f1;
+     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+     outline: none;
+  }
+  .btn { 
+     padding: 0.75rem 1.5rem; 
+     border-radius: 8px;
+     font-weight: 600;
+     transition: all 0.2s;
+  }
+  .btn-primary {
+     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+     border: none;
+     color: white;
+  }
+  .btn-primary:hover {
+     transform: translateY(-1px);
+     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  }
+  .btn-secondary {
+     background: #6b7280;
+     border: none;
+     color: white;
+  }
+  .alert {
+     padding: 1rem;
+     border-radius: 8px;
+     margin-bottom: 1rem;
+  }
+  .alert-success {
+     background: #f0fdf4;
+     color: #166534;
+     border: 1px solid #bbf7d0;
+  }
+  .alert-danger {
+     background: #fef2f2;
+     color: #dc2626;
+     border: 1px solid #fecaca;
+  }
+  .recurrence-help {
+     background: #f8fafc;
+     border: 1px solid #e2e8f0;
+     border-radius: 8px;
+     padding: 1rem;
+     margin-top: 0.5rem;
+  }
+  .recurrence-help table {
+     width: 100%;
+     border-collapse: collapse;
+     margin-bottom: 1rem;
+  }
+  .recurrence-help th,
+  .recurrence-help td {
+     padding: 0.5rem;
+     border: 1px solid #e2e8f0;
+     text-align: left;
+  }
+  .recurrence-help th {
+     background: #f1f5f9;
+     font-weight: 600;
+  }
+  .recurrence-help code {
+     background: #f1f5f9;
+     padding: 0.125rem 0.25rem;
+     border-radius: 4px;
+     font-family: 'Monaco', 'Menlo', monospace;
+     font-size: 0.875rem;
+  }
+  #loadingOverlay {
+     display: none;
+     position: fixed;
+     top: 0;
+     left: 0;
+     width: 100%;
+     height: 100%;
+     background: rgba(0,0,0,0.5);
+     z-index: 9999;
+     justify-content: center;
+     align-items: center;
+  }
+  .spinner {
+     width: 40px;
+     height: 40px;
+     border: 4px solid #f3f4f6;
+     border-top: 4px solid #6366f1;
+     border-radius: 50%;
+     animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+     0% { transform: rotate(0deg); }
+     100% { transform: rotate(360deg); }
+  }
+</style>
+
+<div class="container">
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+  
+  <div id="alertContainer"></div>
+  
+  <form id="taskForm" enctype="multipart/form-data">
+    <h2 class="mb-4"><?= recordId ? 'Edit Task' : 'Create New Task' ?></h2>
+    
+    <!-- Basic Information -->
+    <div class="row">
+      <div class="col-md-8">
+        <div class="form-group">
+          <label for="task" class="required">Task Name</label>
+          <input class="form-control" type="text" name="task" id="task" required 
+                 placeholder="Enter a descriptive task name"/>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="priority">Priority</label>
+          <select class="form-select" name="priority" id="priority">
+            <option value="None">None</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="notes">Description/Notes</label>
+      <textarea class="form-control" name="notes" id="notes" rows="4"
+                placeholder="Add any additional details or notes about this task"></textarea>
+    </div>
+
+    <!-- Assignment -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="owner" class="required">Task Owner</label>
+          <input class="form-control" type="email" name="owner" id="owner" required
+                 placeholder="owner@example.com"
+                 value="<?= record?.Owner || user?.Email || '' ?>"/>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <label for="delegations">Delegate To (Additional Assignees)</label>
+          <select class="form-select" name="delegations" id="delegations" multiple>
+            <? if (typeof users !== 'undefined' && users) { ?>
+              <? users.forEach(u => { ?>
+                <option value="<?= u ?>"><?= u ?></option>
+              <? }) ?>
+            <? } ?>
+          </select>
+          <small class="text-muted">Hold Ctrl/Cmd to select multiple users</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timing -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Start Date & Time</label>
+          <div class="row">
+            <div class="col-7">
+              <input type="date" class="form-control" name="startDate" id="startDate"/>
+            </div>
+            <div class="col-5">
+              <input type="time" class="form-control" name="startTime" id="startTime"/>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Due Date & Time</label>
+          <div class="row">
+            <div class="col-7">
+              <input type="date" class="form-control" name="endDate" id="endDate"/>
+            </div>
+            <div class="col-5">
+              <input type="time" class="form-control" name="endTime" id="endTime"/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="allDay" id="allDay"/>
+        <label class="form-check-label" for="allDay">All Day Task</label>
+      </div>
+    </div>
+
+    <!-- Categories and Status -->
+    <div class="row">
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select class="form-select" name="status" id="status">
+            <option value="Needs Action">Needs Action</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="On Hold">On Hold</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="category">Category</label>
+          <input type="text" class="form-control" name="category" id="category"
+                 placeholder="e.g., Project, Meeting, Review"/>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="calendar">Calendar</label>
+          <select class="form-select" name="calendar" id="calendar">
+            <option value="Default">Default</option>
+            <option value="Work">Work</option>
+            <option value="Personal">Personal</option>
+            <option value="Project">Project</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Features -->
+    <div class="form-group">
+      <label for="recurrenceRule">Recurrence Rule</label>
+      <input type="text" class="form-control" name="recurrenceRule" id="recurrenceRule" 
+             placeholder="e.g., FREQ=WEEKLY;BYDAY=MO,WE,FR"/>
+      <div class="recurrence-help">
+        <strong>Recurrence Rule Reference:</strong>
+        <table class="table-sm mt-2">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Description</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>FREQ</code></td>
+              <td>Frequency</td>
+              <td><code>DAILY</code>, <code>WEEKLY</code>, <code>MONTHLY</code></td>
+            </tr>
+            <tr>
+              <td><code>BYDAY</code></td>
+              <td>Days of week</td>
+              <td><code>MO,WE,FR</code> (Mon, Wed, Fri)</td>
+            </tr>
+            <tr>
+              <td><code>INTERVAL</code></td>
+              <td>Every N periods</td>
+              <td><code>INTERVAL=2</code> (every 2 weeks)</td>
+            </tr>
+            <tr>
+              <td><code>COUNT</code></td>
+              <td>Number of occurrences</td>
+              <td><code>COUNT=10</code> (10 times)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="mb-0"><strong>Common patterns:</strong></p>
+        <ul class="mb-0">
+          <li><code>FREQ=DAILY</code> - Every day</li>
+          <li><code>FREQ=WEEKLY;BYDAY=MO,WE,FR</code> - Monday, Wednesday, Friday</li>
+          <li><code>FREQ=MONTHLY;BYMONTHDAY=1</code> - First day of each month</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="dependencies">Dependencies</label>
+      <select class="form-select" name="dependencies" id="dependencies" multiple>
+        <? if (typeof tasks !== 'undefined' && tasks) { ?>
+          <? tasks.forEach(t => { ?>
+            <? if (t.ID !== recordId) { ?>
+              <option value="<?= t.ID ?>"><?= t.Task ?></option>
+            <? } ?>
+          <? }) ?>
+        <? } ?>
+      </select>
+      <small class="text-muted">Select tasks that must be completed before this one</small>
+    </div>
+
+    <div class="form-group">
+      <label for="attachments">Attachments</label>
+      <input class="form-control" type="file" name="attachments" id="attachments" multiple
+             accept=".pdf,.doc,.docx,.txt,.xlsx,.xls,.png,.jpg,.jpeg,.gif"/>
+      <small class="text-muted">You can upload multiple files (PDF, Word, Excel, Images, etc.)</small>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex justify-content-end gap-3 mt-4">
+      <button type="button" class="btn btn-secondary" onclick="cancelForm()">Cancel</button>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-check-lg me-1"></i>
+        <?= recordId ? 'Update Task' : 'Create Task' ?>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  const recordId = '<?= recordId || '' ?>';
+  const baseUrl = '<?= baseUrl ?>';
+  const rawToken = '<?= rawToken ?>';
+  
+  // Parse data safely
+  let tasks = [];
+  let record = {};
+  
+  try {
+    tasks = JSON.parse('<?= tasksJson || "[]" ?>');
+  } catch (e) {
+    console.warn('Failed to parse tasks JSON:', e);
+  }
+  
+  try {
+    record = JSON.parse('<?= record || "{}" ?>');
+  } catch (e) {
+    console.warn('Failed to parse record JSON:', e);
+  }
+
+  function showAlert(message, type = 'success') {
+    const alertHtml = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    `;
+    document.getElementById('alertContainer').innerHTML = alertHtml;
+    
+    // Auto-dismiss success alerts
+    if (type === 'success') {
+      setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+          const bsAlert = new bootstrap.Alert(alert);
+          bsAlert.close();
+        }
+      }, 3000);
+    }
+  }
+
+  function showLoading(show = true) {
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+  }
+
+  function populateForm(data) {
+    if (!data || typeof data !== 'object') return;
+    
+    // Basic fields
+    $('#task').val(data.Task || '');
+    $('#notes').val(data.Notes || '');
+    $('#owner').val(data.Owner || '');
+    $('#priority').val(data.Priority || 'None');
+    $('#status').val(data.Status || 'Needs Action');
+    $('#category').val(data.Category || '');
+    $('#calendar').val(data.Calendar || 'Default');
+    
+    // Dates and times
+    $('#startDate').val(data.StartDate || '');
+    $('#startTime').val(data.StartTime || '');
+    $('#endDate').val(data.EndDate || data.DueDate || '');
+    $('#endTime').val(data.EndTime || '');
+    
+    // Checkboxes
+    $('#allDay').prop('checked', data.AllDay === 'Yes');
+    
+    // Advanced fields
+    $('#recurrenceRule').val(data.RecurrenceRule || '');
+    
+    // Multi-select fields
+    if (data.Delegations) {
+      const delegations = data.Delegations.split(',').map(d => d.trim());
+      delegations.forEach(delegation => {
+        $(`#delegations option[value="${delegation}"]`).prop('selected', true);
+      });
+    }
+    
+    if (data.Dependencies && Array.isArray(data.Dependencies)) {
+      data.Dependencies.forEach(dep => {
+        $(`#dependencies option[value="${dep}"]`).prop('selected', true);
+      });
+    }
+  }
+
+  function validateForm() {
+    const errors = [];
+    
+    if (!$('#task').val().trim()) {
+      errors.push('Task name is required');
+    }
+    
+    if (!$('#owner').val().trim()) {
+      errors.push('Task owner is required');
+    }
+    
+    const email = $('#owner').val().trim();
+    if (email && !isValidEmail(email)) {
+      errors.push('Please enter a valid email address for the task owner');
+    }
+    
+    if (errors.length > 0) {
+      showAlert(errors.join('<br>'), 'danger');
+      return false;
+    }
+    
+    return true;
+  }
+
+  function isValidEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  }
+
+  function collectFormData() {
+    // Get selected delegations
+    const delegations = Array.from($('#delegations option:selected')).map(opt => opt.value);
+    
+    // Get selected dependencies
+    const dependencies = Array.from($('#dependencies option:selected')).map(opt => opt.value);
+    
+    return {
+      id: recordId || undefined,
+      task: $('#task').val().trim(),
+      notes: $('#notes').val().trim(),
+      owner: $('#owner').val().trim(),
+      delegations: delegations.join(','),
+      startDate: $('#startDate').val(),
+      startTime: $('#startTime').val(),
+      endDate: $('#endDate').val(),
+      endTime: $('#endTime').val(),
+      dueDate: $('#endDate').val(), // Use endDate as dueDate
+      allDay: $('#allDay').is(':checked'),
+      priority: $('#priority').val(),
+      status: $('#status').val(),
+      category: $('#category').val(),
+      calendar: $('#calendar').val(),
+      recurrenceRule: $('#recurrenceRule').val().trim(),
+      dependencies: dependencies,
+      createdAt: record.CreatedAt || undefined
+    };
+  }
+
+  function cancelForm() {
+    if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+      window.location.href = `${baseUrl}&page=tasklist`;
+    }
+  }
+
+  // Initialize form
+  $(document).ready(function() {
+    // Populate form if editing existing task
+    if (recordId && record) {
+      populateForm(record);
+    }
+    
+    // Set default owner to current user if creating new task
+    if (!recordId && !$('#owner').val()) {
+      $('#owner').val('<?= user?.Email || "" ?>');
+    }
+    
+    // Form submission handler
+    $('#taskForm').on('submit', function(e) {
+      e.preventDefault();
+      
+      if (!validateForm()) {
+        return;
+      }
+      
+      showLoading(true);
+      
+      const formData = collectFormData();
+      
+      // Handle file attachments
+      const fileInput = document.getElementById('attachments');
+      if (fileInput.files.length > 0) {
+        // For now, we'll just log that files were selected
+        // In a real implementation, you'd need to handle file uploads
+        console.log('Files selected:', fileInput.files.length);
+      }
+      
+      google.script.run
+        .withSuccessHandler(function(response) {
+          showLoading(false);
+          if (response && response.success) {
+            showAlert(recordId ? 'Task updated successfully!' : 'Task created successfully!');
+            setTimeout(() => {
+              window.location.href = `${baseUrl}&page=tasklist`;
+            }, 1500);
+          } else {
+            showAlert('Failed to save task. Please try again.', 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showLoading(false);
+          console.error('Error saving task:', error);
+          showAlert('An error occurred while saving the task. Please try again.', 'danger');
+        })
+        .clientAddOrUpdateTask(formData);
+    });
+    
+    // Auto-save draft every 30 seconds (optional)
+    let autoSaveTimer;
+    function startAutoSave() {
+      autoSaveTimer = setInterval(() => {
+        if ($('#task').val().trim()) {
+          const formData = collectFormData();
+          // Save to localStorage as draft
+          localStorage.setItem('taskFormDraft', JSON.stringify(formData));
+        }
+      }, 30000);
+    }
+    
+    function stopAutoSave() {
+      if (autoSaveTimer) {
+        clearInterval(autoSaveTimer);
+        localStorage.removeItem('taskFormDraft');
+      }
+    }
+    
+    // Load draft if available (for new tasks only)
+    if (!recordId) {
+      const draft = localStorage.getItem('taskFormDraft');
+      if (draft) {
+        try {
+          const draftData = JSON.parse(draft);
+          if (confirm('A draft of this task was found. Would you like to restore it?')) {
+            populateForm(draftData);
+          }
+        } catch (e) {
+          console.warn('Failed to load draft:', e);
+        }
+      }
+      startAutoSave();
+    }
+    
+    // Cleanup on form submission or page unload
+    $(window).on('beforeunload', function() {
+      stopAutoSave();
+    });
+  });
+</script>

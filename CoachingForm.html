@@ -1,0 +1,1057 @@
+<!-- CoachingForm.html -->
+<?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Quill CSS & FontAwesome -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css" rel="stylesheet">
+
+<style>
+  /* Use the same design system as your other pages */
+  :root {
+    --primary-color: #4285f4;
+    --primary-dark: #1a73e8;
+    --primary-light: #a5b4fc;
+    --accent: #34a853;
+    --warning: #fbbc04;
+    --danger: #ea4335;
+    --success: #22c55e;
+    --surface: #ffffff;
+    --surface-variant: #f8f9fa;
+    --surface-elevated: #ffffff;
+    --outline: #dadce0;
+    --outline-variant: #e2e8f0;
+    --shadow: rgba(0,0,0,0.1);
+    --shadow-hover: rgba(0,0,0,0.15);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --border-radius: 12px;
+    --border-radius-sm: 8px;
+    --spacing: 1.5rem;
+    --transition-fast: 0.2s;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+
+  /* Enhanced Page Header */
+  .page-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2.5rem 2rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(50px, -50px);
+  }
+
+  .page-header h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .page-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin: 0;
+  }
+
+  .page-header i {
+    font-size: 2.5rem;
+    opacity: 0.9;
+  }
+
+  /* Enhanced Sections */
+  .section {
+    background: var(--surface-elevated);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-bottom: var(--spacing);
+    padding: 0;
+    border: 1px solid var(--outline);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent) 100%);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .section:hover::before {
+    transform: scaleX(1);
+  }
+
+  .section-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--outline);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+  }
+
+  .section-header i {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+  }
+
+  .section-content {
+    padding: 2rem;
+  }
+
+  /* Enhanced Form Elements */
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing);
+    margin-bottom: var(--spacing);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--outline);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.875rem;
+    background: var(--surface);
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+  }
+
+  .form-group input[readonly] {
+    background: var(--surface-variant);
+    color: #64748b;
+    cursor: not-allowed;
+  }
+
+  /* Enhanced Topics UI */
+  .topics-ui {
+    background: var(--surface-variant);
+    border-radius: var(--border-radius-sm);
+    padding: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .topics-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .topics-header h4 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .topics-header i {
+    color: var(--primary-color);
+    font-size: 1.25rem;
+  }
+
+  .topic-input-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .topic-input-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: end;
+  }
+
+  #topicNameInput {
+    flex: 1;
+  }
+
+  /* Quill Editor Enhancements */
+  .quill-wrapper {
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    border: 2px solid var(--outline);
+    transition: border-color 0.2s ease;
+  }
+
+  .quill-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+  }
+
+  .ql-toolbar.ql-snow {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: none;
+    border-bottom: 1px solid var(--outline);
+    padding: 0.75rem;
+  }
+
+  .ql-container.ql-snow {
+    border: none;
+    font-family: inherit;
+  }
+
+  .ql-editor {
+    padding: 1rem;
+    min-height: 120px;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .ql-editor.ql-blank::before {
+    color: #9ca3af;
+    font-style: normal;
+  }
+
+  /* Enhanced Topic Pills */
+  .topics-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .topic-pill {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    box-shadow: var(--shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 300px;
+  }
+
+  .topic-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .topic-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .topic-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .topic-detail {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    line-height: 1.3;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .topic-remove {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: all 0.2s;
+    padding: 0.25rem;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .topic-remove:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+  }
+
+  /* Enhanced Buttons */
+  .modern-btn {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+  }
+
+  .modern-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    color: white;
+  }
+
+  .modern-btn.btn-success {
+    background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+  }
+
+  .modern-btn.btn-danger {
+    background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+  }
+
+  .modern-btn.btn-secondary {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  }
+
+  .modern-btn i {
+    font-size: 1rem;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--outline);
+  }
+
+  /* Enhanced Loading Overlay */
+  #loaderOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .loading-content {
+    text-align: center;
+    color: #64748b;
+  }
+
+  .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border: 3px solid var(--outline);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  /* Enhanced Toast Notifications */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: var(--border-radius-sm);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 300px;
+    z-index: 1050;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .toast i {
+    font-size: 1.25rem;
+  }
+
+  .toast.error {
+    background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+  }
+
+  /* Empty State */
+  .empty-topics {
+    text-align: center;
+    padding: 2rem;
+    color: #64748b;
+  }
+
+  .empty-topics i {
+    font-size: 3rem;
+    color: var(--outline);
+    margin-bottom: 1rem;
+  }
+
+  .empty-topics h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.125rem;
+    color: #374151;
+  }
+
+  .empty-topics p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    #maincontent {
+      padding: 1rem;
+    }
+
+    .page-header {
+      padding: 2rem 1.5rem;
+    }
+
+    .page-header h1 {
+      font-size: 1.75rem;
+      flex-direction: column;
+      text-align: center;
+      gap: 0.5rem;
+    }
+
+    .section-content {
+      padding: 1.5rem;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .topic-input-row {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .topics-ui {
+      padding: 1rem;
+    }
+
+    .topic-pill {
+      max-width: 100%;
+    }
+
+    .button-group {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .modern-btn {
+      justify-content: center;
+    }
+
+    .toast {
+      right: 1rem;
+      left: 1rem;
+      bottom: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .page-header {
+      padding: 1.5rem;
+    }
+
+    .section-header {
+      padding: 1rem 1.5rem;
+      font-size: 1.125rem;
+    }
+
+    .section-content {
+      padding: 1rem;
+    }
+
+    .ql-editor {
+      min-height: 100px;
+    }
+  }
+
+  /* Smooth animations */
+  .animate-in {
+    animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes slideInUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(20px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+</style>
+
+<div id="maincontent" class="animate-in">
+  <!-- Enhanced Page Header -->
+  <div class="page-header">
+    <h1>
+      <i class="fas fa-users-cog"></i>
+      New Coaching Session
+    </h1>
+    <p>Document coaching conversations, track progress, and plan follow-up actions</p>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loaderOverlay">
+    <div class="loading-content">
+      <div class="spinner-border"></div>
+      <div class="loading-text">Saving coaching session...</div>
+    </div>
+  </div>
+
+  <form id="coachingForm">
+    <!-- Enhanced Session Details -->
+    <div class="section">
+      <div class="section-header">
+        <i class="fas fa-info-circle"></i>
+        Session Details
+      </div>
+      <div class="section-content">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="qaItem">QA Record</label>
+            <select id="qaItem" name="qaItem">
+              <option>Loading QA records...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="employeeName">Employee Name</label>
+            <input id="employeeName" name="employeeName" readonly placeholder="Select QA record first">
+          </div>
+          <div class="form-group" style="display:none">
+            <label for="coacheeEmail">Coachee Email</label>
+            <input type="email" id="coacheeEmail" name="coacheeEmail">
+          </div>        
+          <div class="form-group">
+            <label for="coachName">Coach Name</label>
+            <input id="coachName" name="coachName" placeholder="Enter your name">
+          </div>
+          <div class="form-group">
+            <label for="coachingDate">Session Date</label>
+            <input type="date" id="coachingDate" name="coachingDate">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Topics to Cover -->
+    <div class="section">
+      <div class="section-header">
+        <i class="fas fa-list-check"></i>
+        Topics to Cover
+      </div>
+      <div class="section-content">
+        <div class="topics-ui">
+          <div class="topics-header">
+            <i class="fas fa-plus-circle"></i>
+            <h4>Add Discussion Topics</h4>
+          </div>
+          
+          <div class="topic-input-grid">
+            <div class="form-group">
+              <label for="topicNameInput">Topic Name</label>
+              <input type="text" id="topicNameInput" placeholder="Enter topic name...">
+            </div>
+
+            <div class="form-group">
+              <label for="quillEditorTopicDetail">Brief Detail</label>
+              <div class="quill-wrapper">
+                <div id="quillEditorTopicDetail"></div>
+              </div>
+            </div>
+
+            <div class="topic-input-row">
+              <div></div>
+              <button type="button" id="addTopicBtn" class="modern-btn">
+                <i class="fas fa-plus"></i>
+                Add Topic
+              </button>
+            </div>
+          </div>
+
+          <!-- Topics List -->
+          <div id="topicsContainer">
+            <ul id="topicsList" class="topics-list"></ul>
+          </div>
+          
+          <input type="hidden" id="topicsPlanned" name="topicsPlanned">
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Coaching Summary -->
+    <div class="section">
+      <div class="section-header">
+        <i class="fas fa-file-alt"></i>
+        Coaching Summary
+      </div>
+      <div class="section-content">
+        <div class="form-group">
+          <label for="quillEditorSummary">Session Summary</label>
+          <div class="quill-wrapper">
+            <div id="quillEditorSummary"></div>
+          </div>
+          <input type="hidden" id="summaryText" name="summaryText">
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Action Plan & Objectives -->
+    <div class="section">
+      <div class="section-header">
+        <i class="fas fa-tasks"></i>
+        Action Plan & Objectives
+      </div>
+      <div class="section-content">
+        <div class="form-group">
+          <label for="quillEditorPlan">Action Items & Goals</label>
+          <div class="quill-wrapper">
+            <div id="quillEditorPlan"></div>
+          </div>
+          <input type="hidden" id="planText" name="planText">
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Follow-Up -->
+    <div class="section">
+      <div class="section-header">
+        <i class="fas fa-calendar-check"></i>
+        Follow-Up Planning
+      </div>
+      <div class="section-content">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="followUpDate">Next Follow-Up Date</label>
+            <input type="date" id="followUpDate" name="followUpDate">
+          </div>
+          <div class="form-group">
+            <label for="followUpNotes">Follow-Up Notes</label>
+            <div class="quill-wrapper">
+              <div id="quillEditorFollowUpNotes"></div>
+            </div>
+            <input type="hidden" id="followUpNotesText" name="followUpNotes">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Action Buttons -->
+    <div class="button-group">
+      <button type="button" id="resetBtn" class="modern-btn btn-secondary">
+        <i class="fas fa-undo"></i>
+        Reset Form
+      </button>
+      <button type="submit" class="modern-btn btn-success">
+        <i class="fas fa-save"></i>
+        Save Coaching Session
+      </button>
+    </div>
+  </form>
+
+  <!-- Enhanced Toast -->
+  <div id="toast" class="toast">
+    <i class="fas fa-check-circle"></i>
+    <span id="toastMessage">Session saved successfully!</span>
+  </div>
+</div>
+
+<!-- Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Set default date
+  document.getElementById('coachingDate').value = new Date().toISOString().slice(0, 10);
+
+  // Enhanced toolbar options
+  const toolbarOptions = [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    ['blockquote', 'code-block'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    [{ color: [] }, { background: [] }],
+    [{ align: [] }],
+    ['link'],
+    ['clean']
+  ];
+
+  // Initialize Quill editors with consistent styling
+  const summaryQ = new Quill('#quillEditorSummary', {
+    theme: 'snow',
+    placeholder: 'Summarize the key points discussed during this coaching session...',
+    modules: { toolbar: toolbarOptions }
+  });
+
+  const planQ = new Quill('#quillEditorPlan', {
+    theme: 'snow',
+    placeholder: 'Outline specific action items, goals, and objectives...',
+    modules: { toolbar: toolbarOptions }
+  });
+
+  const topicDetailQ = new Quill('#quillEditorTopicDetail', {
+    theme: 'snow',
+    placeholder: 'Provide additional context or details for this topic...',
+    modules: { toolbar: toolbarOptions }
+  });
+
+  const followUpQ = new Quill('#quillEditorFollowUpNotes', {
+    theme: 'snow',
+    placeholder: 'Add notes for the follow-up session...',
+    modules: { toolbar: toolbarOptions }
+  });
+
+  // Enhanced QA dropdown handling
+  let qaItems = [];
+  const qaSelect = document.getElementById('qaItem');
+  
+  // Show loading state
+  qaSelect.innerHTML = '<option>Loading QA records...</option>';
+  qaSelect.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(items => {
+      qaItems = items;
+      qaSelect.disabled = false;
+      qaSelect.innerHTML = '<option value="">— Select QA Record —</option>';
+      
+      if (items.length === 0) {
+        qaSelect.innerHTML = '<option value="">No QA records available</option>';
+        qaSelect.disabled = true;
+      } else {
+        items.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item.id;
+          opt.textContent = `${item.date} • ${Math.round(item.percentage * 100)}% • ${item.agentName}`;
+          qaSelect.appendChild(opt);
+        });
+      }
+    })
+    .withFailureHandler(error => {
+      qaSelect.innerHTML = '<option value="">Error loading QA records</option>';
+      qaSelect.disabled = true;
+      console.error('Failed to load QA items:', error);
+    })
+    .getQAItems();
+
+  // Handle QA selection
+  qaSelect.addEventListener('change', e => {
+    const selectedItem = qaItems.find(i => i.id === e.target.value) || {};
+    document.getElementById('employeeName').value = selectedItem.agentName || '';
+    document.getElementById('coacheeEmail').value = selectedItem.agentEmail || '';
+  });
+
+  // Enhanced Topics Management
+  const topicNameInput = document.getElementById('topicNameInput');
+  const addTopicBtn = document.getElementById('addTopicBtn');
+  const topicsList = document.getElementById('topicsList');
+  const topicsContainer = document.getElementById('topicsContainer');
+  const topicsHidden = document.getElementById('topicsPlanned');
+  let topicsArray = [];
+
+  function renderTopics() {
+    if (topicsArray.length === 0) {
+      topicsContainer.innerHTML = `
+        <div class="empty-topics">
+          <i class="fas fa-comments"></i>
+          <h4>No Topics Added Yet</h4>
+          <p>Add topics you plan to discuss during this coaching session</p>
+        </div>
+      `;
+    } else {
+      topicsContainer.innerHTML = '<ul id="topicsList" class="topics-list"></ul>';
+      const newTopicsList = document.getElementById('topicsList');
+      
+      topicsArray.forEach((topic, index) => {
+        const li = document.createElement('li');
+        li.className = 'topic-pill fade-in';
+        li.innerHTML = `
+          <div class="topic-content">
+            <div class="topic-name">${topic.name}</div>
+            <div class="topic-detail">${topic.detail.replace(/<[^>]*>/g, '')}</div>
+          </div>
+          <button class="topic-remove" data-index="${index}" title="Remove topic">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+        newTopicsList.appendChild(li);
+      });
+
+      // Add remove event listeners
+      newTopicsList.querySelectorAll('.topic-remove').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const index = parseInt(e.currentTarget.dataset.index);
+          topicsArray.splice(index, 1);
+          renderTopics();
+        });
+      });
+    }
+    
+    topicsHidden.value = JSON.stringify(topicsArray);
+  }
+
+  // Enhanced add topic functionality
+  addTopicBtn.addEventListener('click', () => {
+    const name = topicNameInput.value.trim();
+    const detail = topicDetailQ.root.innerHTML.trim();
+    
+    if (!name) {
+      showToast('Please enter a topic name', 'error');
+      topicNameInput.focus();
+      return;
+    }
+    
+    if (!detail || detail === '<p><br></p>') {
+      showToast('Please provide topic details', 'error');
+      topicDetailQ.focus();
+      return;
+    }
+    
+    // Add topic with animation
+    topicsArray.push({ name, detail });
+    topicNameInput.value = '';
+    topicDetailQ.setContents([{ insert: '\n' }]);
+    renderTopics();
+    
+    showToast('Topic added successfully', 'success');
+  });
+
+  // Enhanced toast function
+  function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    const icon = toast.querySelector('i');
+    
+    // Update content
+    toastMessage.textContent = message;
+    
+    // Update styling based on type
+    toast.className = `toast ${type}`;
+    
+    if (type === 'error') {
+      icon.className = 'fas fa-exclamation-circle';
+    } else {
+      icon.className = 'fas fa-check-circle';
+    }
+    
+    // Show toast
+    toast.classList.add('show');
+    
+    // Hide after 4 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 4000);
+  }
+
+  // Enhanced form submission
+  document.getElementById('coachingForm').addEventListener('submit', e => {
+    e.preventDefault();
+    
+    // Validation
+    const requiredFields = [
+      { field: 'qaItem', name: 'QA Record' },
+      { field: 'coachName', name: 'Coach Name' },
+      { field: 'coachingDate', name: 'Coaching Date' }
+    ];
+    
+    for (const { field, name } of requiredFields) {
+      if (!document.getElementById(field).value.trim()) {
+        showToast(`${name} is required`, 'error');
+        document.getElementById(field).focus();
+        return;
+      }
+    }
+    
+    // Show loading
+    document.getElementById('loaderOverlay').style.display = 'flex';
+    
+    // Prepare data
+    document.getElementById('summaryText').value = summaryQ.root.innerHTML;
+    document.getElementById('planText').value = planQ.root.innerHTML;
+    document.getElementById('followUpNotesText').value = followUpQ.root.innerHTML;
+
+    const sessionData = {
+      qaId: document.getElementById('qaItem').value,
+      coachingDate: document.getElementById('coachingDate').value,
+      coachName: document.getElementById('coachName').value,
+      employeeName: document.getElementById('employeeName').value,
+      coacheeEmail: document.getElementById('coacheeEmail').value,
+      topicsPlanned: JSON.stringify(topicsArray),
+      summary: document.getElementById('summaryText').value,
+      plan: document.getElementById('planText').value,
+      followUpDate: document.getElementById('followUpDate').value,
+      followUpNotes: document.getElementById('followUpNotesText').value
+    };
+
+    google.script.run
+      .withSuccessHandler(response => {
+        document.getElementById('loaderOverlay').style.display = 'none';
+        showToast(`Coaching session saved successfully! ID: ${response.id}`, 'success');
+        
+        // Reset form after successful save
+        setTimeout(() => {
+          resetForm();
+        }, 2000);
+      })
+      .withFailureHandler(error => {
+        document.getElementById('loaderOverlay').style.display = 'none';
+        showToast(`Error saving session: ${error.message}`, 'error');
+        console.error('Save error:', error);
+      })
+      .saveCoachingSession(sessionData);
+  });
+
+  // Enhanced reset functionality
+  function resetForm() {
+    document.getElementById('coachingForm').reset();
+    topicsArray = [];
+    renderTopics();
+    
+    // Reset Quill editors
+    summaryQ.setContents([{ insert: '\n' }]);
+    planQ.setContents([{ insert: '\n' }]);
+    topicDetailQ.setContents([{ insert: '\n' }]);
+    followUpQ.setContents([{ insert: '\n' }]);
+    
+    // Reset date
+    document.getElementById('coachingDate').value = new Date().toISOString().slice(0, 10);
+    
+    showToast('Form reset successfully', 'success');
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (confirm('Are you sure you want to reset the form? All unsaved data will be lost.')) {
+      resetForm();
+    }
+  });
+
+  // Initialize empty topics display
+  renderTopics();
+
+  // Enhanced keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    // Ctrl/Cmd + Enter to save
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('coachingForm').dispatchEvent(new Event('submit'));
+    }
+    
+    // Ctrl/Cmd + R to reset (when not in input)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+      e.preventDefault();
+      document.getElementById('resetBtn').click();
+    }
+  });
+
+  console.log('🎯 Modern Coaching Form loaded successfully');
+});
+</script>
+
+</body>
+</html>

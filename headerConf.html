@@ -1,0 +1,456 @@
+<!-- File: header.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base target="_top">
+ <link rel="icon" 
+        href="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754586751/vlbpo/lumina/4_mdomle.png" 
+        type="image/x-icon" />
+  <!-- Bootstrap & FontAwesome -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    rel="stylesheet"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --sidebar-bg: #1f1f2f;
+      --sidebar-text: #e0e0e8;
+      --sidebar-hover: rgba(255,255,255,0.05);
+      --primary:   #4e73df;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f7fb;
+      overflow-x: hidden;
+    }
+
+    /* ─── SIDEBAR ─────────────────────────────────────────────────────────── */
+    #sidebar {
+      width: 240px;
+      height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      padding-top: 1rem;
+      transition: width 0.3s;
+    }
+    #sidebar.collapsed {
+      width: 60px;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      padding: 0 .75rem 1rem;
+      cursor: pointer;
+    }
+    .sidebar-logo img { height: 28px; }
+    .sidebar-logo span {
+      margin-left: .5rem;
+      font-size: 1.125rem;
+      font-weight: 500;
+      color: #fff;
+    }
+    #sidebar.collapsed .sidebar-logo span { display: none; }
+    .sidebar-logo span span { color: var(--primary); }
+
+    .sidebar-section {
+      padding: .5rem .75rem .25rem;
+      font-size: .75rem;
+      text-transform: uppercase;
+      color: #888;
+    }
+    #sidebar.collapsed .sidebar-section { display: none; }
+
+    /* group links vertically with a bit of gap */
+    .sidebar-group {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      padding: 0 .5rem 1rem;
+    }
+
+    .sidebar-group a {
+      display: flex;
+      align-items: center;
+      padding: .5rem .75rem;
+      color: var(--sidebar-text);
+      border-radius: .375rem;
+      transition: background .2s, color .2s;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .sidebar-group a:hover {
+      background: var(--sidebar-hover);
+      color: #fff;
+    }
+    .sidebar-group a.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .sidebar-group a i {
+      width: 1.25rem;
+      text-align: center;
+      margin-right: .5rem;
+    }
+    #sidebar.collapsed .sidebar-group a {
+      justify-content: center;
+    }
+    #sidebar.collapsed .sidebar-group a span {
+      display: none;
+    }
+
+    /* ─── USER PANEL ────────────────────────────────────────────────────── */
+    .user-panel {
+      margin-top: auto;
+      padding: 1rem .75rem;
+      display: flex;
+      align-items: center;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .user-panel img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .user-info {
+      margin-left: .75rem;
+      line-height: 1.1;
+      overflow: hidden;
+    }
+    .user-info .name {
+      font-size: .9rem;
+      color: #fff;
+      font-weight: 500;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .user-info .role {
+      font-size: .75rem;
+      color: #aaa;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #sidebar.collapsed .user-info { display: none; }
+
+    #topbar .top-icons i {
+      font-size: 1.2rem;
+      margin-left: 1rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    /* ─── TOPBAR & CONTENT ────────────────────────────────────────────── */
+    #topbar {
+      position: fixed;
+      top: 0;
+      left: 240px;
+      right: 0;
+      height: 56px;
+      background: #fff;
+      border-bottom: 1px solid #e3e6f0;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      padding: 0 .75rem;
+      transition: left .3s;
+    }
+    #sidebar.collapsed ~ #topbar { left: 60px; }
+
+    #maincontent {
+      margin-left: 270px;
+      margin-top: 77px;
+      transition: margin-left .3s;
+    }
+    #sidebar.collapsed ~ #maincontent { margin-left: 77px; }
+    /* KPI CARD STYLES (Rep Metrics at bottom) */
+    .kpi-card {
+      border-radius: 8px;
+      background-color: #ffffff;
+      border: 1px solid #e3e6f0;
+      text-align: center;
+      padding: 1rem 0.5rem;
+      transition: box-shadow 0.2s;
+    }
+    .kpi-card:hover {
+      box-shadow: 0 0.5rem 1rem rgba(58, 59, 69, 0.1);
+    }
+    .kpi-card .kpi-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+    }
+    .kpi-card .kpi-label {
+      font-size: 0.85rem;
+      color: #858796;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+    .kpi-card .kpi-change {
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 0.25rem;
+      display: inline-flex;
+      align-items: center;
+    }
+    .kpi-card .kpi-change.positive {
+      color: var(--success);
+    }
+    .kpi-card .kpi-change.negative {
+      color: var(--danger);
+    }
+    .kpi-card .kpi-change i {
+      margin-right: 0.25rem;
+    }
+
+    /* HEATMAP CELL (If you want to repurpose later) */
+    .heatmap-cell {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      margin: 2px;
+      text-align: center;
+      line-height: 28px;
+      font-size: 0.65rem;
+      color: white;
+      border-radius: 4px;
+    }
+
+    /* HIDE all period-specific inputs by default */
+    #weekPicker,
+    #monthPicker,
+    #quarterPicker,
+    #yearPicker {
+      display: none;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }      
+  </style>
+</head>
+<body>
+<nav id="sidebar">
+  <!-- Logo -->
+<div class="sidebar-logo" id="sidebarToggle">
+  <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754586750/vlbpo/lumina/1_e0ykfc.png" alt="datalog_logo"/>
+    <span><img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754587234/vlbpo/lumina/Lumina_ladp5s.png" alt="DATA" class="logo-part"/></span>
+</div>
+
+
+  <? 
+    // allowed pages in lowercase
+    var allowed = (user.pages||[]).map(p=>p.toLowerCase());
+    var campaignId = user.CampaignID || '';
+    var campaignName = user.campaignName || '';
+  ?>
+
+  <!-- ── MY CAMPAIGN ────────────────────────────────────────────────────────── -->
+
+  <? if (campaignId) { ?>
+    <div class="sidebar-section"><?= campaignName ?></div>
+      <div class="sidebar-section">Home</div>   
+      <div class="sidebar-group">
+      <!-- Home -->
+      <? if (allowed.indexOf('dashboard') >= 0) { ?>
+        <a href="<?= baseUrl ?>&page=dashboard&campaign=<?= campaignId ?>"
+           class="<?=
+             currentPage==='Dashboard' && e.parameter.campaign===campaignId
+             ? 'active' : '' ?>">
+          <i class="fas fa-gauge"></i><span>Dashboard</span>
+        </a>
+      <? } ?>
+      </div>
+
+      <!-- Reports -->
+      <div class="sidebar-section">Reports</div>
+      <div class="sidebar-group">
+      <? if (allowed.indexOf('callreports') >= 0) { ?>
+        <a href="<?= baseUrl ?>&page=callreports&campaign=<?= campaignId ?>"
+           class="<?=
+             currentPage==='CallReports' && e.parameter.campaign===campaignId
+             ? 'active' : '' ?>">
+          <i class="fas fa-square-phone-flip"></i><span>Call Reports</span>
+        </a>
+      <? } ?>
+      <? if (allowed.indexOf('attendance') >= 0 || allowed.indexOf('attendancereports') >= 0) { ?>
+        <a href="<?= baseUrl ?>&page=attendance&campaign=<?= campaignId ?>"
+           class="<?=
+             currentPage==='Attendance' && e.parameter.campaign===campaignId
+             ? 'active' : '' ?>">
+          <i class="fas fa-business-time"></i><span>Attendance</span>
+        </a>
+      <? } ?>
+      <? if (allowed.indexOf('qadashboard') >= 0) { ?>
+        <a href="<?= baseUrl ?>&page=qadashboard&campaign=<?= campaignId ?>"
+           class="<?=
+             currentPage==='Quality' && e.parameter.campaign===campaignId
+             ? 'active' : '' ?>">
+          <i class="fas fa-chart-column"></i><span>QA Dashboard</span>
+        </a>
+      <? } ?>
+      </div>
+
+      <!-- Management -->
+      <div class="sidebar-section">MANAGEMENT</div>
+      <div class="sidebar-group">
+        <? if (allowed.indexOf('coachingdashboard') >= 0) { ?>
+          <a href="<?= baseUrl ?>&page=coachingdashboard&campaign=<?= campaignId ?>"
+            class="<?=
+              currentPage==='Coaching' && e.parameter.campaign===campaignId
+              ? 'active' : '' ?>">
+            <i class="fas fa-chart-line"></i><span>Coaching</span>
+          </a>
+        <? } ?>
+        <? if (allowed.indexOf('schedulemanagement') >= 0) { ?>
+          <a href="<?= baseUrl ?>&page=schedulemanagement&campaign=<?= campaignId ?>"
+            class="<?=
+              currentPage==='Schedule' && e.parameter.campaign===campaignId
+              ? 'active' : '' ?>">
+            <i class="fas fa-calendar-week"></i><span>Schedule</span>
+          </a>
+        <? } ?>
+        <? if (allowed.indexOf('tasklist') >= 0) { ?>
+          <a href="<?= baseUrl ?>&page=taskboard&campaign=<?= campaignId ?>"
+            class="<?=
+              currentPage==='Task' && e.parameter.campaign===campaignId
+              ? 'active' : '' ?>">
+            <i class="fas fa-tasks"></i><span>Tasks</span>
+          </a>
+        <? } ?>
+        <? if (allowed.indexOf('calendar') >= 0) { ?>
+          <a href="<?= baseUrl ?>&page=calendar&campaign=<?= campaignId ?>"
+            class="<?=
+              currentPage==='Calendar' && e.parameter.campaign===campaignId
+              ? 'active' : '' ?>">
+            <i class="fas fa-calendar-alt"></i><span>Calendar</span>
+          </a>
+        <? } ?>
+      </div>
+
+      <!-- Other -->
+      <div class="sidebar-section">OTHER</div>   
+      <div class="sidebar-group">
+        <? if (allowed.indexOf('escalations') >= 0) { ?>
+          <a href="<?= baseUrl ?>&page=escalations&campaign=<?= campaignId ?>"
+            class="<?=
+              currentPage==='Escalations' && e.parameter.campaign===campaignId
+              ? 'active' : '' ?>">
+            <i class="fas fa-exclamation-triangle"></i><span>Escalations</span>
+          </a>
+        <? } ?>
+        <? if (allowed.indexOf('settings') >= 0) { ?>
+          <a href="<?= baseUrl ?>&page=settings&campaign=<?= campaignId ?>"
+            class="<?=
+              currentPage==='Settings' && e.parameter.campaign===campaignId
+              ? 'active' : '' ?>">
+            <i class="fas fa-cog"></i><span>Settings</span>
+          </a>
+        <? } ?>
+      </div>
+    </div>
+  <? } ?>
+
+  <!-- ── GLOBAL (only Chat) ─────────────────────────────────────────────────── -->
+  <div class="sidebar-section">Global</div>
+  <div class="sidebar-group">
+    <? if (allowed.indexOf('chat') >= 0) { ?>
+      <a href="<?= baseUrl ?>&page=chat"
+         class="<?= currentPage==='Chat'?'active':'' ?>">
+        <i class="fas fa-comments"></i><span>Chat</span>
+      </a>
+    <? } ?>
+  </div>
+  
+  <!-- User panel -->
+  <div class="user-panel">
+    <i class="fas fa-user-circle fa-2x text-light"></i>
+    <div class="user-info">
+
+    </div>
+    <button id="logoutBtn" class="btn btn-link text-light p-0 ms-auto" title="Logout">
+      <i class="fas fa-sign-out-alt"></i>
+    </button>
+  </div>
+</nav>
+
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // collapse toggle
+    document.getElementById('sidebarToggle')
+      .addEventListener('click', ()=>
+        document.getElementById('sidebar').classList.toggle('collapsed')
+      );
+
+    // keep token on every link
+    const rawToken = new URLSearchParams(location.search).get('token') ||
+                     document.cookie.replace(
+                       /(?:(?:^|.*;\s*)authToken\s*\=\s*([^;]*).*$)|^.*$/,
+                       "$1"
+                     );
+    document.body.addEventListener('click', e=>{
+      const a = e.target.closest('a[href]');
+      if(!a) return;
+      const href = a.getAttribute('href');
+      if(href.startsWith('http')||href.includes('token=')) return;
+      e.preventDefault();
+      const next = new URL(href, location.origin + location.pathname);
+      next.searchParams.set('token', rawToken);
+      window.location.href = next.toString();
+    });
+
+    // ping keep-alive every 10m
+    setInterval(()=>{
+      rawToken && google.script.run.keepAlive(rawToken);
+    }, 10*60*1000);
+
+    document.getElementById('logoutBtn').addEventListener('click', e => {
+      e.preventDefault();
+      // call your server‐side logout, then redirect to Login
+      google.script.run
+        .withSuccessHandler(() => {
+          // build a URL to the Login page (no token → shows login form)
+          const loginUrl = new URL(location.origin + location.pathname);
+          loginUrl.searchParams.set('page', 'Login');
+          window.location.href = loginUrl.toString();
+        })
+        .logout(rawToken);
+    });   
+  </script>
+
+<? const page = (currentPage || '').toLowerCase();
+  if (allowed.includes('chat') && page !== 'chat') {
+?>
+  <?!= include('ChatBubble', { user, baseUrl, rawToken, currentPage }) ?>
+<? } ?>
+
+<script>
+  // Server-injected user object available on every page
+  window.currentUser = JSON.parse('<?= currentUserJson ?>');
+</script>
+
+<!-- If you want a readable label instead of [object Object] -->
+<? function _userLabel(u){ return (u && (u.FullName || u.UserName || u.Email)) || 'Unknown User'; } ?>
+<div class="small text-muted">Current user: <?= escapeHtml(_userLabel(user)) ?></div>
+

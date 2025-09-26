@@ -1,0 +1,1204 @@
+    <!-- CoachingDashboard.html -->
+    <?!= include('header', { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --primary-dark: #1a73e8;
+            --accent: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --surface: #ffffff;
+            --surface-variant: #f8f9fa;
+            --surface-elevated: #ffffff;
+            --outline: #dadce0;
+            --outline-variant: #e2e8f0;
+            --shadow: rgba(0, 0, 0, .1);
+            --shadow-hover: rgba(0, 0, 0, .15);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+            --border-radius: 12px;
+            --border-radius-sm: 8px
+        }
+
+        /* Navbar */
+        .modern-navbar {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden
+        }
+
+        .modern-navbar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 255, 255, .1) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(50px, -25px)
+        }
+
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem
+        }
+
+        .navbar-title {
+            color: #fff;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: .75rem
+        }
+
+        .navbar-title i {
+            font-size: 2rem;
+            opacity: .9
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap
+        }
+
+        .navbar-links a {
+            color: rgba(255, 255, 255, .9);
+            text-decoration: none;
+            font-weight: 600;
+            padding: .75rem 1.25rem;
+            border-radius: var(--border-radius-sm);
+            transition: all .3s cubic-bezier(.4, 0, .2, 1);
+            background: rgba(255, 255, 255, .1);
+            backdrop-filter: blur(10px);
+            font-size: .875rem
+        }
+
+        .navbar-links a:hover {
+            background: rgba(255, 255, 255, .2);
+            transform: translateY(-2px);
+            color: #fff
+        }
+
+        .navbar-links a.active {
+            background: rgba(255, 255, 255, .25);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .2)
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem
+        }
+
+        .kpi-card {
+            background: var(--surface-elevated);
+            border: 1px solid var(--outline);
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: var(--shadow)
+        }
+
+        .kpi-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(66, 133, 244, .15), rgba(26, 115, 232, .15));
+            color: var(--primary-dark)
+        }
+
+        .kpi-title {
+            font-size: .8rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: .25rem
+        }
+
+        .kpi-value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #1e293b
+        }
+
+        .kpi-sub {
+            font-size: .8rem;
+            color: #64748b
+        }
+
+        /* Filters */
+        .filter-section {
+            background: var(--surface-elevated);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--outline);
+            position: relative;
+            overflow: hidden
+        }
+
+        .filter-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent) 100%)
+        }
+
+        .filter-header {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1.25rem
+        }
+
+        .filter-header h3 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 1.25rem;
+            font-weight: 700
+        }
+
+        .filter-header i {
+            color: var(--primary-color);
+            font-size: 1.5rem
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #374151;
+            font-size: .875rem;
+            text-transform: uppercase;
+            letter-spacing: .05em
+        }
+
+        .filter-group select, .filter-group input {
+            padding: .75rem 1rem;
+            border: 2px solid var(--outline);
+            border-radius: var(--border-radius-sm);
+            font-size: .875rem;
+            background: var(--surface);
+            transition: all .2s ease;
+            font-family: inherit
+        }
+
+        .filter-group select:focus, .filter-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, .1)
+        }
+
+        .quick-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin-top: .5rem
+        }
+
+        .chip-btn {
+            border: none;
+            background: #f1f5f9;
+            border: 1px solid var(--outline);
+            border-radius: 999px;
+            padding: .4rem .75rem;
+            font-size: .8rem;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer
+        }
+
+        .chip-btn:hover {
+            background: #e2e8f0
+        }
+
+        .btn-row {
+            display: flex;
+            gap: .9rem;
+            flex-wrap: nowrap;
+            padding-top: 1rem;
+        }
+
+        .modern-btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            padding: .75rem 1.25rem;
+            font-weight: 700;
+            font-size: .875rem;
+            cursor: pointer;
+            transition: all .3s cubic-bezier(.4, 0, .2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            box-shadow: var(--shadow)
+        }
+
+        .modern-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg)
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%)
+        }
+
+        .btn-outline {
+            background: #fff;
+            color: #1e293b;
+            border: 2px solid var(--outline)
+        }
+
+        .modern-btn i {
+            font-size: 1rem
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns:repeat(auto-fit, minmax(380px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem
+        }
+
+        .chart-card {
+            background: var(--surface-elevated);
+            border-radius: var(--border-radius);
+            padding: 1.5rem 1.5rem 2rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--outline);
+            position: relative;
+            overflow: hidden
+        }
+
+        .chart-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent) 100%);
+            transform: scaleX(0);
+            transition: transform .3s ease
+        }
+
+        .chart-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg)
+        }
+
+        .chart-card:hover::before {
+            transform: scaleX(1)
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem
+        }
+
+        .chart-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: .5rem
+        }
+
+        .chart-header i {
+            color: var(--primary-color);
+            font-size: 1.3rem
+        }
+
+        .chart-actions {
+            display: flex;
+            gap: .5rem
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px
+        }
+
+        .chart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #64748b
+        }
+
+        .chart-loading i {
+            animation: spin 1s linear infinite;
+            font-size: 2rem;
+            margin-right: .75rem
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0)
+            }
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        /* Table */
+        .table-section {
+            background: var(--surface-elevated);
+            border-radius: var(--border-radius);
+            padding: 0;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--outline);
+            overflow: hidden
+        }
+
+        .table-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--outline)
+        }
+
+        .table-header h3 {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: .75rem
+        }
+
+        .table-header i {
+            color: var(--warning);
+            font-size: 1.5rem
+        }
+
+        .table-subtitle {
+            margin: .4rem 0 0 0;
+            color: #64748b;
+            font-size: .875rem
+        }
+
+        .table-controls {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem
+        }
+
+        .table-controls input {
+            padding: .6rem .9rem;
+            border: 2px solid var(--outline);
+            border-radius: 10px;
+            font-size: .85rem
+        }
+
+        .table-container {
+            overflow-x: auto
+        }
+
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .875rem
+        }
+
+        .modern-table thead th {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            font-weight: 700;
+            padding: 1rem 1.25rem;
+            text-align: left;
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            border: none;
+            white-space: nowrap
+        }
+
+        .modern-table tbody tr {
+            border-bottom: 1px solid var(--outline);
+            transition: all .2s ease
+        }
+
+        .modern-table tbody tr:hover {
+            background: var(--surface-variant);
+            transform: scale(1.002)
+        }
+
+        .modern-table tbody td {
+            padding: 1rem 1.25rem;
+            border: none;
+            vertical-align: middle
+        }
+
+        .modern-table tbody tr:last-child {
+            border-bottom: none
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            padding: .375rem .75rem;
+            border-radius: 20px;
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .02em
+        }
+
+        .status-badge.upcoming {
+            background: rgba(251, 188, 4, .1);
+            color: var(--warning);
+            border: 1px solid rgba(251, 188, 4, .2)
+        }
+
+        .status-badge.completed {
+            background: rgba(52, 168, 83, .1);
+            color: var(--accent);
+            border: 1px solid rgba(52, 168, 83, .2)
+        }
+
+        .status-badge.overdue {
+            background: rgba(234, 67, 53, .1);
+            color: var(--danger);
+            border: 1px solid rgba(234, 67, 53, .2)
+        }
+
+        .agent-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: .75rem;
+            margin-right: .6rem
+        }
+
+        .agent-info {
+            display: flex;
+            align-items: center
+        }
+
+        .agent-name {
+            font-weight: 700;
+            color: #1e293b
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #64748b
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--outline);
+            margin-bottom: 1rem
+        }
+
+        .empty-state h4 {
+            margin: 0 0 .5rem 0;
+            font-size: 1.25rem;
+            color: #374151
+        }
+
+        .empty-state p {
+            margin: 0;
+            font-size: .875rem
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #maincontent {
+                padding: 0 1rem 2rem
+            }
+
+            .modern-navbar {
+                padding: 1rem 1.5rem
+            }
+
+            .navbar-content {
+                flex-direction: column;
+                align-items: stretch
+            }
+
+            .navbar-title {
+                font-size: 1.5rem;
+                text-align: center
+            }
+
+            .navbar-links {
+                justify-content: center
+            }
+
+            .charts-grid {
+                grid-template-columns:1fr;
+                gap: 1.25rem
+            }
+
+            .chart-container {
+                height: 260px
+            }
+
+            .table-header {
+                padding: 1.25rem
+            }
+
+            .modern-table thead th, .modern-table tbody td {
+                padding: .9rem
+            }
+        }
+
+        @media (max-width: 480px) {
+            .navbar-links a {
+                flex: 1;
+                text-align: center
+            }
+
+            .filter-section {
+                padding: 1.25rem
+            }
+
+            .chart-card {
+                padding: 1.25rem
+            }
+
+            .modern-table {
+                font-size: .8rem
+            }
+
+            .modern-table thead th, .modern-table tbody td {
+                padding: .75rem
+            }
+        }
+
+        /* Animations */
+        .animate-in {
+            animation: slideInUp .6s cubic-bezier(.4, 0, .2, 1) forwards
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px)
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+    </style>
+
+    <!-- Navbar -->
+    <div class="modern-navbar">
+        <div class="navbar-content">
+            <h1 class="navbar-title"><i class="fas fa-chart-line"></i> Coaching Dashboard</h1>
+            <div class="navbar-links">
+                <a href="<?= baseUrl ?>&page=coachinglist"
+                   class="<?= currentPage==='Coaching Sessions' ? 'active' : '' ?>"><i class="fas fa-list me-1"></i>All
+                    Sessions</a>
+                <a href="<?= baseUrl ?>&page=coachingsheet"
+                   class="<?= currentPage==='Coaching Form' ? 'active' : '' ?>"><i class="fas fa-plus me-1"></i>New
+                    Session</a>
+                <a href="<?= baseUrl ?>&page=coachingdashboard"
+                   class="<?= currentPage==='Coaching Dashboard' ? 'active' : '' ?>"><i
+                        class="fas fa-chart-bar me-1"></i>Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <section class="kpi-grid" aria-label="Key performance indicators">
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="fas fa-chalkboard-user"></i></div>
+            <div>
+                <div class="kpi-title">Total Sessions (Selected)</div>
+                <div class="kpi-value" id="kpiSessions">—</div>
+                <div class="kpi-sub">Across current filters</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="fas fa-user-group"></i></div>
+            <div>
+                <div class="kpi-title">Active Follow-ups</div>
+                <div class="kpi-value" id="kpiFollowups">—</div>
+                <div class="kpi-sub">Next 20 upcoming</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="fas fa-fire"></i></div>
+            <div>
+                <div class="kpi-title">Top Topic</div>
+                <div class="kpi-value" id="kpiTopTopic">—</div>
+                <div class="kpi-sub" id="kpiTopTopicCount">—</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon"><i class="fas fa-calendar-day"></i></div>
+            <div>
+                <div class="kpi-title">Next Follow-up</div>
+                <div class="kpi-value" id="kpiNextDate">—</div>
+                <div class="kpi-sub" id="kpiNextWho">—</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Filters -->
+    <div class="filter-section">
+        <div class="filter-header">
+            <i class="fas fa-filter"></i>
+            <h3>Filter & Analysis</h3>
+        </div>
+
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label for="granSelect">Time Period</label>
+                <select id="granSelect">
+                    <option
+                    <?= granularity==='Week'   ? 'selected':'' ?>>Week</option>
+                    <option
+                    <?= granularity==='Month'  ? 'selected':'' ?>>Month</option>
+                    <option
+                    <?= granularity==='Quarter'? 'selected':'' ?>>Quarter</option>
+                    <option
+                    <?= granularity==='Year'   ? 'selected':'' ?>>Year</option>
+                </select>
+                <div class="quick-chips" id="quickChips"></div>
+            </div>
+
+            <div class="filter-group">
+                <label for="periodInput">Specific Period</label>
+                <input type="text" id="periodInput" value="<?= periodValue ?>" placeholder="e.g. 2025-W24 or 2025-06">
+            </div>
+
+            <div class="filter-group">
+                <label for="agentSelect">Coach/Agent</label>
+                <select id="agentSelect">
+                    <option value="">All Coaches</option>
+                    <? userList.forEach(name => { ?>
+                    <option
+                    <?= selectedAgent===name ? 'selected':'' ?>><?= name ?></option>
+                    <? }); ?>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <div class="btn-row">
+                    <button id="applyBtn" class="modern-btn"><i class="fas fa-search"></i>Apply Filters</button>
+                    <button id="resetBtn" type="button" class="modern-btn btn-secondary"><i class="fas fa-rotate"></i>Reset
+                    </button>
+                    <button id="copyLinkBtn" type="button" class="modern-btn btn-outline"><i class="fas fa-link"></i>Copy
+                        Link
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-bar"></i> Sessions Trend</h3>
+                <div class="chart-actions">
+                    <button class="modern-btn btn-outline" id="toggleTrendType" type="button" title="Toggle chart type">
+                        <i class="fas fa-chart-line"></i>Type
+                    </button>
+                    <button class="modern-btn btn-outline" id="dlTrendPng" type="button" title="Download PNG"><i
+                            class="fas fa-download"></i>PNG
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div id="trendLoader" class="chart-loading"><i class="fas fa-spinner"></i> Loading…</div>
+                <canvas id="trendChart" style="display:none"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-pie"></i> Topics Distribution</h3>
+                <div class="chart-actions">
+                    <button class="modern-btn btn-outline" id="dlTopicPng" type="button" title="Download PNG"><i
+                            class="fas fa-download"></i>PNG
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div id="topicLoader" class="chart-loading"><i class="fas fa-spinner"></i> Loading…</div>
+                <canvas id="topicChart" style="display:none"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Table -->
+    <div class="table-section">
+        <div class="table-header">
+            <h3><i class="fas fa-calendar-check"></i> Upcoming Follow-ups</h3>
+            <p class="table-subtitle">Track and manage scheduled coaching follow-up sessions</p>
+            <div class="table-controls">
+                <input type="search" id="followupSearch" placeholder="Search coachee, coach, or topic…">
+                <button id="exportCsvBtn" class="modern-btn btn-outline" type="button"><i
+                        class="fas fa-file-export"></i>Export CSV
+                </button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="modern-table" aria-describedby="followupsHelp">
+                <thead>
+                <tr>
+                    <th data-sort="date">Follow-up Date</th>
+                    <th data-sort="coach">Coach</th>
+                    <th data-sort="coachee">Coachee</th>
+                    <th>Topics Covered</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="upcomingBody"></tbody>
+            </table>
+            <div id="followupsHelp" class="sr-only" style="position:absolute;left:-9999px">Table is sortable by clicking
+                column headers.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Server data
+    const sessionsTrend = JSON.parse('<?= sessionsTrend ?>') || [];
+    const topicsDist = JSON.parse('<?= topicsDist ?>') || [];
+    const upcomingAll = JSON.parse('<?= upcomingFollow ?>') || [];
+
+    // Utilities
+    const $ = (s, root = document) => root.querySelector(s);
+    const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
+    const fmtDate = (iso) => {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+        } catch {
+            return iso || '—'
+        }
+    };
+    const dayName = (iso) => new Date(iso).toLocaleDateString('en-US', {weekday: 'long'});
+    const initials = (name = '') => name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    const statusFor = (followUpDate) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const f = new Date(followUpDate);
+        f.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((f - today) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) return {cls: 'overdue', text: 'Overdue', icon: 'fas fa-exclamation-triangle'};
+        if (diffDays <= 7) return {cls: 'upcoming', text: 'Due Soon', icon: 'fas fa-clock'};
+        return {cls: 'completed', text: 'Scheduled', icon: 'fas fa-check-circle'};
+    };
+    const debounce = (fn, ms = 300) => {
+        let t;
+        return (...a) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn(...a), ms)
+        }
+    };
+
+    // KPIs
+    const kpi = {
+        setTotals() {
+            const totalSessions = sessionsTrend.reduce((s, r) => s + (Number(r.count) || 0), 0);
+            $('#kpiSessions').textContent = totalSessions.toString();
+            const activeCount = upcomingAll.length || 0;
+            $('#kpiFollowups').textContent = activeCount.toString();
+
+            let top = {topic: '—', count: 0};
+            topicsDist.forEach(r => {
+                if ((r.count || 0) > top.count) top = r;
+            });
+            $('#kpiTopTopic').textContent = top.topic || '—';
+            $('#kpiTopTopicCount').textContent = top.count ? `${top.count} mention${top.count === 1 ? '' : 's'}` : '—';
+
+            if (upcomingAll.length) {
+                const soon = [...upcomingAll].sort((a, b) => new Date(a.FollowUpDate) - new Date(b.FollowUpDate))[0];
+                $('#kpiNextDate').textContent = fmtDate(soon.FollowUpDate);
+                $('#kpiNextWho').textContent = `${soon.CoacheeName || '—'} • ${soon.AgentName || '—'}`;
+            } else {
+                $('#kpiNextDate').textContent = '—';
+                $('#kpiNextWho').textContent = '—';
+            }
+        }
+    };
+    kpi.setTotals();
+
+    // Quick period chips based on granularity
+    const chips = $('#quickChips');
+    const now = new Date();
+
+    function isoWeekNumber(d) {
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+        return [d.getUTCFullYear(), weekNo];
+    }
+
+    function makeChips() {
+        chips.innerHTML = '';
+        const g = $('#granSelect').value;
+        const btn = (label, val) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chip-btn';
+            b.textContent = label;
+            b.onclick = () => {
+                $('#periodInput').value = val;
+            };
+            chips.appendChild(b);
+        };
+        if (g === 'Week') {
+            const [y, w] = isoWeekNumber(now);
+            btn('This Week', `${y}-W${String(w).padStart(2, '0')}`);
+            const prev = new Date(now);
+            prev.setDate(now.getDate() - 7);
+            const [py, pw] = isoWeekNumber(prev);
+            btn('Last Week', `${py}-W${String(pw).padStart(2, '0')}`);
+        } else if (g === 'Month') {
+            const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const ymPrev = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+            btn('This Month', ym);
+            btn('Last Month', ymPrev);
+            btn('YTD', `${now.getFullYear()}-YTD`);
+        } else if (g === 'Quarter') {
+            const q = Math.floor(now.getMonth() / 3) + 1;
+            btn(`Q${q}-${now.getFullYear()}`, `Q${q}-${now.getFullYear()}`);
+            const pq = q === 1 ? 4 : q - 1;
+            const py = q === 1 ? now.getFullYear() - 1 : now.getFullYear();
+            btn(`Q${pq}-${py}`, `Q${pq}-${py}`);
+        } else {
+            btn(`${now.getFullYear()}`, `${now.getFullYear()}`);
+            btn(`${now.getFullYear() - 1}`, `${now.getFullYear() - 1}`);
+        }
+    }
+
+    makeChips();
+    $('#granSelect').addEventListener('change', makeChips);
+
+    // Filters behavior
+    $('#applyBtn').onclick = (e) => {
+        e.preventDefault();
+        const g = $('#granSelect').value;
+        const p = $('#periodInput').value;
+        const a = $('#agentSelect').value;
+        window.location = `<?= baseUrl ?>&page=coachingdashboard`
+            + `&granularity=${encodeURIComponent(g)}`
+            + `&period=${encodeURIComponent(p)}`
+            + (a ? `&agent=${encodeURIComponent(a)}` : '');
+    };
+    $('#resetBtn').onclick = () => {
+        $('#granSelect').value = 'Month';
+        $('#periodInput').value = '';
+        $('#agentSelect').value = '';
+    };
+    $('#copyLinkBtn').onclick = async () => {
+        const g = $('#granSelect').value;
+        const p = $('#periodInput').value;
+        const a = $('#agentSelect').value;
+        const url = `<?= baseUrl ?>&page=coachingdashboard&granularity=${encodeURIComponent(g)}&period=${encodeURIComponent(p)}${a ? `&agent=${encodeURIComponent(a)}` : ''}`;
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch {
+        }
+        $('#copyLinkBtn').innerHTML = '<i class="fas fa-check"></i>Copied';
+        setTimeout(() => $('#copyLinkBtn').innerHTML = '<i class="fas fa-link"></i>Copy Link', 1200);
+    };
+
+    // Chart helpers
+    const palette = [
+        'rgba(66,133,244,0.85)', 'rgba(52,168,83,0.85)', 'rgba(251,188,4,0.85)',
+        'rgba(234,67,53,0.85)', 'rgba(156,39,176,0.85)', 'rgba(0,172,193,0.85)',
+        'rgba(121,85,72,0.85)', 'rgba(63,81,181,0.85)', 'rgba(0,150,136,0.85)'
+    ];
+    const paletteBorder = palette.map(c => c.replace(/0\.85\)/, '1)'));
+
+    // Trend chart
+    let trendType = 'bar';
+    const trendCanvas = $('#trendChart');
+    let trendChart;
+
+    function gradientBar(ctx) {
+        const g = ctx.createLinearGradient(0, 0, 0, 300);
+        g.addColorStop(0, 'rgba(66,133,244,0.9)');
+        g.addColorStop(1, 'rgba(66,133,244,0.5)');
+        return g;
+    }
+
+    function buildTrend() {
+        const labels = sessionsTrend.map(r => r.periodLabel);
+        const data = sessionsTrend.map(r => Number(r.count) || 0);
+        $('#trendLoader').style.display = 'none';
+        trendCanvas.style.display = 'block';
+        const ctx = trendCanvas.getContext('2d');
+        const dataset = {
+            label: 'Coaching Sessions',
+            data,
+            backgroundColor: trendType === 'bar' ? gradientBar(ctx) : 'rgba(66,133,244,0.15)',
+            borderColor: 'rgba(66,133,244,1)',
+            borderWidth: 2,
+            tension: 0.25,
+            fill: trendType !== 'bar',
+            borderRadius: trendType === 'bar' ? 6 : 0,
+            borderSkipped: false
+        };
+        trendChart = new Chart(ctx, {
+            type: trendType,
+            data: {labels, datasets: [dataset]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false},
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.85)', titleColor: '#fff', bodyColor: '#fff',
+                        borderColor: 'rgba(66,133,244,1)', borderWidth: 1, cornerRadius: 8, displayColors: false,
+                        callbacks: {
+                            title: (c) => 'Period: ' + c[0].label,
+                            label: (c) => 'Sessions: ' + c.parsed.y
+                        }
+                    }
+                },
+                scales: {
+                    y: {beginAtZero: true, grid: {color: 'rgba(0,0,0,0.05)'}, ticks: {color: '#64748b'}},
+                    x: {grid: {display: false}, ticks: {color: '#64748b'}}
+                }
+            }
+        });
+    }
+
+    if (sessionsTrend.length) {
+        buildTrend();
+    } else {
+        $('#trendLoader').innerHTML = '<i class="fas fa-circle-info"></i> No data available for selected filters.';
+    }
+
+    $('#toggleTrendType').onclick = () => {
+        trendType = trendType === 'bar' ? 'line' : 'bar';
+        if (trendChart) {
+            trendChart.destroy();
+        }
+        buildTrend();
+    };
+    $('#dlTrendPng').onclick = () => {
+        if (!trendChart) return;
+        const url = trendChart.toBase64Image('image/png', 1);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'coaching_sessions_trend.png';
+        a.click();
+    };
+    window.addEventListener('resize', debounce(() => {
+        if (trendChart && trendType === 'bar') {
+            trendChart.destroy();
+            buildTrend();
+        }
+    }, 250));
+
+    // Topic chart
+    let topicChart;
+
+    function buildTopic() {
+        if (!topicsDist.length) {
+            $('#topicLoader').innerHTML = '<i class="fas fa-circle-info"></i> No topics captured for this period.';
+            return;
+        }
+        $('#topicLoader').style.display = 'none';
+        $('#topicChart').style.display = 'block';
+        const labels = topicsDist.map(r => r.topic);
+        const data = topicsDist.map(r => Number(r.count) || 0);
+        const bg = labels.map((_, i) => palette[i % palette.length]);
+        const bc = labels.map((_, i) => paletteBorder[i % paletteBorder.length]);
+        const ctx = $('#topicChart').getContext('2d');
+        topicChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {labels, datasets: [{data, backgroundColor: bg, borderColor: bc, borderWidth: 2, hoverOffset: 10}]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: {position: 'bottom', labels: {padding: 16, usePointStyle: true, color: '#64748b'}},
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.85)', titleColor: '#fff', bodyColor: '#fff',
+                        borderColor: 'rgba(66,133,244,1)', borderWidth: 1, cornerRadius: 8,
+                        callbacks: {
+                            label: (c) => {
+                                const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
+                                return `${c.label}: ${c.parsed} (${pct}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    buildTopic();
+    $('#dlTopicPng').onclick = () => {
+        if (!topicChart) return;
+        const url = topicChart.toBase64Image('image/png', 1);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'coaching_topics_distribution.png';
+        a.click();
+    };
+
+    // Follow-ups table
+    const tbody = $('#upcomingBody');
+    let tableData = [...upcomingAll];
+
+    function renderTable(rows) {
+        if (!rows.length) {
+            tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="empty-state">
+            <i class="fas fa-calendar-times"></i>
+            <h4>No Upcoming Follow-ups</h4>
+            <p>All coaching sessions are up to date</p>
+          </td>
+        </tr>`;
+            return;
+        }
+        tbody.innerHTML = '';
+        rows.forEach(r => {
+            const st = statusFor(r.FollowUpDate);
+            const html = `
+        <tr>
+          <td>
+            <strong>${fmtDate(r.FollowUpDate)}</strong><br>
+            <small style="color:#64748b">${dayName(r.FollowUpDate)}</small>
+          </td>
+          <td>
+            <div class="agent-info">
+              <div class="agent-avatar">${initials(r.AgentName || '')}</div>
+              <span class="agent-name">${r.AgentName || '—'}</span>
+            </div>
+          </td>
+          <td><strong>${r.CoacheeName || '—'}</strong></td>
+          <td><span style="color:#64748b;font-size:.875rem">${r.TopicsCovered || '—'}</span></td>
+          <td><span class="status-badge ${st.cls}"><i class="${st.icon}"></i>${st.text}</span></td>
+        </tr>`;
+            tbody.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    renderTable(tableData);
+
+    // Table search
+    $('#followupSearch').addEventListener('input', debounce((e) => {
+        const q = e.target.value.trim().toLowerCase();
+        if (!q) {
+            renderTable(upcomingAll);
+            tableData = [...upcomingAll];
+            return;
+        }
+        const f = upcomingAll.filter(r =>
+            String(r.CoacheeName || '').toLowerCase().includes(q) ||
+            String(r.AgentName || '').toLowerCase().includes(q) ||
+            String(r.TopicsCovered || '').toLowerCase().includes(q)
+        );
+        tableData = f;
+        renderTable(f);
+    }, 200));
+
+    // Sort table
+    const sorters = {
+        date: (a, b) => new Date(a.FollowUpDate) - new Date(b.FollowUpDate),
+        coach: (a, b) => String(a.AgentName || '').localeCompare(String(b.AgentName || '')),
+        coachee: (a, b) => String(a.CoacheeName || '').localeCompare(String(b.CoacheeName || ''))
+    };
+    $$('th[data-sort]').forEach(th => {
+        let dir = 1;
+        th.style.cursor = 'pointer';
+        th.title = 'Click to sort';
+        th.addEventListener('click', () => {
+            const key = th.getAttribute('data-sort');
+            tableData.sort((a, b) => dir * sorters[key](a, b));
+            dir *= -1;
+            renderTable(tableData);
+        });
+    });
+
+    // Export CSV
+    function toCsv(rows) {
+        const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const header = ['FollowUpDate', 'Coach', 'Coachee', 'Topics', 'Status'];
+        const lines = [header.join(',')];
+        rows.forEach(r => {
+            const st = statusFor(r.FollowUpDate).text;
+            lines.push([esc(r.FollowUpDate), esc(r.AgentName), esc(r.CoacheeName), esc(r.TopicsCovered), esc(st)].join(','));
+        });
+        return lines.join('\n');
+    }
+
+    $('#exportCsvBtn').onclick = () => {
+        const csv = toCsv(tableData);
+        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'upcoming_followups.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    console.log('🎯 Independence Coaching Dashboard loaded');
+</script>
+
+</body>
+</html>

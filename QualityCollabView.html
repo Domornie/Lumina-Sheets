@@ -1,0 +1,268 @@
+<!-- QAView.html -->
+<?!= include("header", { baseUrl, user: user, currentPage: currentPage }) ?>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+  :root {
+    --primary:    #4e73df;
+    --light:      #f8f9fc;
+    --border:     #e3e6f0;
+    --text-dark:  #1e2833;
+    --radius:     6px;
+    --spacing:    1rem;
+    --yes-color:  #28a745;
+    --no-color:   #dc3545;
+  }
+  * { box-sizing: border-box; }
+
+  .section {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: var(--spacing);
+    padding: var(--spacing);
+  }
+  h3 {
+    margin-top: 0;
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: .25rem;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: var(--spacing);
+    row-gap: .5rem;
+    margin-bottom: var(--spacing);
+  }
+  dt { font-weight: 600; }
+  dd { margin: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--spacing);
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--primary);
+    color: #fff;
+  }
+  tr:nth-child(even) { background: #f9f9f9; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: #fff;
+    font-weight: 500;
+  }
+  .badge-yes { background: var(--yes-color); }
+  .badge-no  { background: var(--no-color); }
+</style>
+
+<script>
+  // injected by Code.gs
+  const record   = <?!= record ?>;
+  const recordId = '<?= recordId ?>';
+
+  const questionText = {
+    q1:'Did the agent say thank you for calling and brand the call with the client name?',
+    q2:'Did the agent offer further assistance before closing the call?',
+    q3:'Did the agent sound polite and courteous on the call?',
+    q4:'Did the agent empathize with caller’s issue?',
+    q5:'Did the agent modulate pitch and volume according to caller’s?',
+    q6:'Did the agent follow the call transfer protocol?',
+    q7:'Did the agent follow the correct HOLD procedure?',
+    q8:'Did the agent authenticate caller and confirm the issue?',
+    q9:'Did the agent do effective probing on the call?',
+    q10:'Did the agent provide accurate and complete resolution using tools?',
+    q11:'Did the agent provide clear understanding of the issue to the caller?',
+    q12:'Did the agent process the request as promised to the caller?',
+    q13:'Did the agent document the case correctly?',
+    q14:'Did the agent escalate the case to the right department with all relevant details?',
+    q15:'Did the agent offer the survey at the end of the call?',
+    q16:'Did the agent create the call case correctly?',
+    q17:'Did the agent modify case fields to avoid survey going to the customer?',
+    q18:'Did the customer respond positively to the survey?'
+  };
+  const categories = {
+    'Courtesy & Communication': ['q1','q2','q3','q4','q5'],
+    'Resolution': ['q6','q7','q8','q9'],
+    'Case Documentation': ['q10','q11','q12','q13','q14'],
+    'Process Compliance': ['q15','q16','q17','q18']
+  };
+  const weights = {
+    q1:5,  q2:5,  q3:8,  q4:10, q5:5,
+    q6:5,  q7:5,  q8:10, q9:10,
+    q10:5, q11:5, q12:5, q13:8, q14:5,
+    q15:2, q16:1, q17:1, q18:5
+  };
+
+  function fmtDate(raw, opts={time:false}) {
+    const d = new Date(raw);
+    if (isNaN(d)) return raw||'—';
+    return opts.time
+      ? d.toLocaleString()
+      : d.toLocaleDateString();
+  }
+</script>
+
+<header id="topbar" class="d-flex align-items-center px-4 py-3 bg-white shadow-sm">
+  <button class="btn" id="sidebarToggle">
+    <i class="fas fa-bars"></i>
+  </button>
+  <a href="<?= baseUrl ?>&page=search" class="icon-link ms-4" title="Search">
+    <i class="fas fa-search"></i>
+  </a>
+
+  <div class="ms-auto d-flex gap-3 text-secondary align-items-center">
+    <i class="fas fa-sliders-h" title="Filters"></i>
+    <i class="fas fa-share-alt" title="Share"></i>
+
+    <!-- Notifications bell with badge -->
+    <a href="<?= baseUrl ?>&page=notifications"
+       class="icon-link position-relative"
+       title="Notifications">
+      <i class="fas fa-bell"></i>
+      <span id="notifCount"
+            class="badge bg-danger position-absolute top-0 start-100 translate-middle p-1">
+        0
+      </span>
+    </a>
+
+    <i class="fas fa-user-circle" title="Profile"></i>
+  </div>
+</header>
+
+<style>
+  /* hide badge when zero */
+  #notifCount { display: none; font-size: .65rem; }
+</style>
+
+<script>
+  // Poll every 10 minutes (and on load) to refresh the badge count
+  function refreshNotifBadge() {
+    google.script.run
+      .withSuccessHandler(count => {
+        const el = document.getElementById('notifCount');
+        el.textContent = count;
+        el.style.display = count > 0 ? 'inline-block' : 'none';
+      })
+      .getTaskNotifications();
+  }
+
+  document.addEventListener('DOMContentLoaded', refreshNotifBadge);
+  setInterval(refreshNotifBadge, 10 * 60 * 1000);
+</script>
+
+<div id="maincontent">
+
+<nav class="navbar">
+  <a href="<?= baseUrl ?>&page=qacollablist">← Back to QA List</a>
+</nav>
+
+  <!-- Metadata -->
+  <div class="section">
+    <h3>QA Metadata</h3>
+    <dl>
+      <dt>Timestamp</dt>
+        <dd id="dTimestamp"></dd>
+      <dt>Agent</dt>
+        <dd id="dAgentName"></dd>
+      <dt>Case #</dt>
+        <dd id="dCaseNumber"></dd>
+      <dt>Call Date</dt>
+        <dd id="dCallDate"></dd>
+      <dt>Feedback Shared</dt>
+        <dd id="dFeedbackShared"></dd>
+      <dt>Overall %</dt>
+        <dd id="dPercentageMeta"></dd>
+    </dl>
+  </div>
+
+  <!-- Question-by-Question -->
+  <div class="section">
+    <h3>Question-by-Question</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Question</th>
+          <th>Weight</th>
+          <th>Answer</th>
+        </tr>
+      </thead>
+      <tbody id="qaResultsBody"></tbody>
+    </table>
+    <p><strong>Total Score:</strong> <span id="dTotalScore"></span></p>
+  </div>
+
+  <!-- Overall Feedback -->
+  <div class="section">
+    <h3>Overall Feedback</h3>
+    <div id="dOverallFeedback"></div>
+  </div>
+
+  <!-- Agent Feedback -->
+  <div class="section">
+    <h3>Agent’s Feedback</h3>
+    <div id="dAgentFeedback"></div>
+  </div>
+
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // metadata
+    document.getElementById('dTimestamp').textContent = fmtDate(record.Timestamp, {time:true});
+    document.getElementById('dAgentName').textContent = record.AgentName || '—';
+
+    // Case # → hyperlink if starts with http
+    const cnum = record.CaseNumber || '';
+    const ddCase = document.getElementById('dCaseNumber');
+    if (/^https?:\/\//i.test(cnum)) {
+      ddCase.innerHTML = `<a href="${cnum}" target="_blank">${cnum}</a>`;
+    } else {
+      ddCase.textContent = cnum;
+    }
+
+    document.getElementById('dCallDate').textContent = fmtDate(record.CallDate);
+    document.getElementById('dFeedbackShared').textContent  = record.FeedbackShared||'—';
+    const pct = Math.round((record.Percentage||0)*100);
+    document.getElementById('dPercentageMeta').textContent  = pct + '%';
+
+    // Q-by-Q
+    const tbody = document.getElementById('qaResultsBody');
+    Object.entries(categories).forEach(([cat, qs]) => {
+      qs.forEach(q => {
+        // upper-case key: "q1" → "Q1"
+        const key = q.charAt(0).toUpperCase() + q.slice(1);
+        const raw = String(record[key]||'').toLowerCase();
+        let ansHTML = '—';
+        if (raw === 'yes') ansHTML = `<span class="badge badge-yes">Yes</span>`;
+        else if (raw === 'no') ansHTML = `<span class="badge badge-no">No</span>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${cat}</td>
+          <td>${questionText[q]}</td>
+          <td>${weights[q]}</td>
+          <td>${ansHTML}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+    document.getElementById('dTotalScore').textContent   = record.TotalScore||'—';
+    document.getElementById('dOverallFeedback').innerHTML = record.OverallFeedback||'—';
+    document.getElementById('dAgentFeedback').innerHTML   = record.AgentFeedback  ||'—';
+  });
+</script>
+</body>
+</html>

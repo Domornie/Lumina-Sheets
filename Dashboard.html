@@ -1,0 +1,2068 @@
+<!-- OKR Dashboard -->
+
+<?!= include('header', { 
+        baseUrl: baseUrl || '', 
+        user: user || {}, 
+        currentPage: currentPage || 'okr-dashboard',
+        pageTitle: 'OKR Performance Dashboard',
+        pageDescription: 'Multi-Campaign Analytics & Insights'
+      }) ?>
+
+    
+    <!-- Enhanced Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        :root {
+            /* Lumina Brand Colors */
+            --navy-primary: #003177;
+            --cyan-accent: #00BFFF;
+            --gold-highlight: #FFB800;
+            --fire-red: #FF4000;
+            --success-green: #10b981;
+            --warning-orange: #f59e0b;
+            --info-blue: #3b82f6;
+
+            /* Modern UI Colors */
+            --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+            --success-gradient: linear-gradient(135deg, var(--success-green) 0%, #059669 100%);
+            --warning-gradient: linear-gradient(135deg, var(--warning-orange) 0%, #d97706 100%);
+            --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+            --info-gradient: linear-gradient(135deg, var(--info-blue) 0%, #1d4ed8 100%);
+
+            --surface-primary: #ffffff;
+            --surface-secondary: #f8fafc;
+            --surface-elevated: #ffffff;
+            --border-subtle: #e2e8f0;
+            --border-strong: #cbd5e1;
+
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-tertiary: #94a3b8;
+
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+            --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--surface-secondary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header Styles */
+        .dashboard-header {
+            background: var(--navy-primary);
+            color: white;
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            border-radius: var(--radius-2xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--primary-gradient);
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--spacing-lg);
+        }
+
+        .header-info {
+            flex: 1;
+        }
+
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            margin-top: var(--spacing-sm);
+        }
+
+        .header-stats {
+            display: flex;
+            gap: var(--spacing-xl);
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: var(--spacing-md);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(10px);
+            transition: var(--transition-base);
+            min-width: 100px;
+        }
+
+        .stat-item:hover {
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Auto-refresh indicator */
+        .refresh-indicator {
+            position: absolute;
+            top: var(--spacing-md);
+            right: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .refresh-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Filter Panel */
+        .filter-panel {
+            background: var(--surface-elevated);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .filter-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-control, .form-select {
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 0.875rem;
+            transition: var(--transition-base);
+        }
+
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--navy-primary);
+            box-shadow: 0 0 0 3px rgba(0, 49, 119, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        .btn-enhanced {
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: var(--transition-bounce);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .btn-primary-enhanced {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary-enhanced:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .btn-outline-enhanced {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-outline-enhanced:hover {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: transparent;
+            transform: translateY(-1px);
+        }
+
+        /* Campaign Cards Grid */
+        .campaigns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .campaign-card {
+            background: var(--surface-elevated);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-subtle);
+            transition: var(--transition-base);
+            cursor: pointer;
+        }
+
+        .campaign-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .campaign-header {
+            padding: var(--spacing-lg);
+            color: white;
+            position: relative;
+            background: var(--primary-gradient);
+        }
+
+        .campaign-header.independence {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .campaign-header.credit-suite {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .campaign-header.general {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .campaign-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .campaign-info {
+            flex: 1;
+        }
+
+        .campaign-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .campaign-description {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .campaign-score {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            backdrop-filter: blur(10px);
+        }
+
+        .score-value {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .score-label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .campaign-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm);
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: var(--spacing-xs);
+        }
+
+        .stat-number {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .stat-text {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+
+        .campaign-body {
+            padding: var(--spacing-lg);
+        }
+
+        .metrics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .metrics-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .view-details-btn {
+            font-size: 0.75rem;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--info-gradient);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition-base);
+        }
+
+        .view-details-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .metrics-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .metric-item {
+            background: var(--surface-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            transition: var(--transition-base);
+        }
+
+        .metric-item:hover {
+            transform: translateX(2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .metric-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .metric-status {
+            padding: 2px var(--spacing-xs);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.25px;
+        }
+
+        .status-excellent {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+
+        .status-good {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+        }
+
+        .status-needs_improvement {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .metric-values {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .metric-current {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .metric-target {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .metric-progress {
+            height: 6px;
+            background: var(--surface-primary);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .metric-progress-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1s ease-out;
+        }
+
+        .progress-excellent {
+            background: var(--success-gradient);
+        }
+
+        .progress-good {
+            background: var(--warning-gradient);
+        }
+
+        .progress-needs_improvement {
+            background: var(--danger-gradient);
+        }
+
+        /* Summary Charts Section */
+        .charts-section {
+            background: var(--surface-elevated);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .charts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .charts-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: var(--spacing-xl);
+        }
+
+        .chart-card {
+            background: var(--surface-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .chart-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        /* Loading and Error States */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 64px;
+            height: 64px;
+            border: 4px solid var(--border-subtle);
+            border-top: 4px solid var(--navy-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-state {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-lg);
+            opacity: 0.5;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .campaigns-grid {
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: var(--spacing-md);
+            }
+            
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .header-stats {
+                justify-content: center;
+            }
+            
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .campaigns-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .campaign-stats {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="dashboard-container" style="padding: var(--spacing-lg);">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="refresh-indicator" id="refreshIndicator">
+                <div class="refresh-dot"></div>
+                <span>Auto-refresh active</span>
+            </div>
+            
+            <div class="header-content">
+                <div class="header-info">
+                    <h1 class="header-title">Lumina Campaign Overview</h1>
+                    <p class="header-subtitle">Call Center Performance Analytics Across All Campaigns</p>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalCampaigns">--</div>
+                        <div class="stat-label">Active Campaigns</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalAgents">--</div>
+                        <div class="stat-label">Total Agents</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avgPerformance">--</div>
+                        <div class="stat-label">Avg Performance</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="lastUpdated">--</div>
+                        <div class="stat-label">Last Updated</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Panel -->
+        <div class="filter-panel">
+            <div class="filter-header">
+                <h2 class="filter-title">
+                    <i class="fas fa-sliders-h"></i>
+                    Dashboard Controls
+                </h2>
+                <div class="action-buttons">
+                    <button id="refreshBtn" class="btn-enhanced btn-primary-enhanced">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh Data
+                    </button>
+                    <button id="exportBtn" class="btn-enhanced btn-outline-enhanced">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="granularitySelect" class="filter-label">Time Granularity</label>
+                    <select id="granularitySelect" class="form-select">
+                        <option value="Hour">Hourly</option>
+                        <option value="Day">Daily</option>
+                        <option value="Week">Weekly</option>
+                        <option value="Month">Monthly</option>
+                        <option value="Quarter">Quarterly</option>
+                        <option value="Year">Yearly</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="periodInput" class="filter-label">Specific Period</label>
+                    <input type="text" id="periodInput" class="form-control" placeholder="Auto-selected">
+                </div>
+
+                <div class="filter-group">
+                    <label for="campaignSelect" class="filter-label">Campaign Filter</label>
+                    <select id="campaignSelect" class="form-select">
+                        <option value="">All Campaigns</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="statusFilter" class="filter-label">Performance Status</label>
+                    <select id="statusFilter" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="excellent">Excellent (80%+)</option>
+                        <option value="good">Good (60-79%)</option>
+                        <option value="needs_improvement">Needs Improvement (<60%)</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="agentFilter" class="filter-label">Agent Filter</label>
+                    <select id="agentFilter" class="form-select">
+                        <option value="">All Agents</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="timeRangeSelect" class="filter-label">Quick Time Range</label>
+                    <select id="timeRangeSelect" class="form-select">
+                        <option value="">Custom</option>
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="thisweek">This Week</option>
+                        <option value="lastweek">Last Week</option>
+                        <option value="thismonth">This Month</option>
+                        <option value="lastmonth">Last Month</option>
+                        <option value="thisquarter">This Quarter</option>
+                        <option value="thisyear">This Year</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campaign Cards -->
+        <div id="campaignsContainer" class="campaigns-grid">
+            <!-- Campaign cards will be populated by JavaScript -->
+        </div>
+
+        <!-- Summary Charts -->
+        <div class="charts-section">
+            <div class="charts-header">
+                <h2 class="charts-title">
+                    <i class="fas fa-chart-line"></i>
+                    Performance Analytics
+                </h2>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3 class="chart-title">
+                        <i class="fas fa-chart-pie"></i>
+                        Campaign Performance Distribution
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="performanceDistributionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="chart-title">
+                        <i class="fas fa-chart-bar"></i>
+                        OKR Categories Comparison
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="categoriesComparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="chart-title">
+                        <i class="fas fa-chart-area"></i>
+                        Performance Trends
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="trendsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="chart-title">
+                        <i class="fas fa-bullseye"></i>
+                        Target Achievement
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="targetAchievementChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="chart-title">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Real-Time Call Metrics
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="realTimeMetricsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="chart-title">
+                        <i class="fas fa-users"></i>
+                        Agent Performance Heatmap
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="agentHeatmapChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lumina Campaign OKR Overview Dashboard Controller
+        class LuminaCampaignOKROverview {
+            constructor() {
+                this.currentData = null;
+                this.charts = {};
+                this.filters = {
+                    granularity: 'Week',
+                    period: '',
+                    campaign: '',
+                    status: '',
+                    agent: '',
+                    timeRange: ''
+                };
+                this.isLoading = false;
+                this.autoRefreshInterval = null;
+                this.lastDataHash = null;
+
+                this.init();
+            }
+
+            init() {
+                try {
+                    console.log('Initializing Lumina Campaign OKR Overview Dashboard...');
+
+                    // Initialize filters
+                    this.initializeFilters();
+
+                    // Set up event listeners
+                    this.setupEventListeners();
+
+                    // Load initial data
+                    this.loadOverviewData();
+
+                    // Start auto-refresh
+                    this.startAutoRefresh();
+
+                    console.log('Dashboard initialized successfully');
+                } catch (error) {
+                    console.error('Failed to initialize dashboard:', error);
+                    this.showError('Failed to initialize dashboard: ' + error.message);
+                }
+            }
+
+            initializeFilters() {
+                try {
+                    // Get URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+
+                    // Initialize filters
+                    this.filters.granularity = urlParams.get('granularity') || 'Week';
+                    this.filters.period = urlParams.get('period') || this.getCurrentPeriod(this.filters.granularity);
+                    this.filters.campaign = urlParams.get('campaign') || '';
+                    this.filters.status = urlParams.get('status') || '';
+                    this.filters.agent = urlParams.get('agent') || '';
+                    this.filters.timeRange = urlParams.get('timeRange') || '';
+
+                    // Update filter controls
+                    this.updateFilterControls();
+
+                    console.log('Filters initialized:', this.filters);
+                } catch (error) {
+                    console.error('Error initializing filters:', error);
+                }
+            }
+
+            updateFilterControls() {
+                try {
+                    const granularitySelect = document.getElementById('granularitySelect');
+                    const periodInput = document.getElementById('periodInput');
+                    const campaignSelect = document.getElementById('campaignSelect');
+                    const statusFilter = document.getElementById('statusFilter');
+                    const agentFilter = document.getElementById('agentFilter');
+                    const timeRangeSelect = document.getElementById('timeRangeSelect');
+
+                    if (granularitySelect) granularitySelect.value = this.filters.granularity;
+                    if (periodInput) periodInput.value = this.filters.period;
+                    if (campaignSelect) campaignSelect.value = this.filters.campaign;
+                    if (statusFilter) statusFilter.value = this.filters.status;
+                    if (agentFilter) agentFilter.value = this.filters.agent;
+                    if (timeRangeSelect) timeRangeSelect.value = this.filters.timeRange;
+                } catch (error) {
+                    console.error('Error updating filter controls:', error);
+                }
+            }
+
+            setupEventListeners() {
+                try {
+                    // Filter change listeners
+                    const granularitySelect = document.getElementById('granularitySelect');
+                    if (granularitySelect) {
+                        granularitySelect.addEventListener('change', (e) => {
+                            this.filters.granularity = e.target.value;
+                            this.filters.period = this.getCurrentPeriod(this.filters.granularity);
+                            this.updateFilterControls();
+                            this.loadOverviewData();
+                        });
+                    }
+
+                    const periodInput = document.getElementById('periodInput');
+                    if (periodInput) {
+                        periodInput.addEventListener('change', (e) => {
+                            this.filters.period = e.target.value;
+                            this.loadOverviewData();
+                        });
+                    }
+
+                    const campaignSelect = document.getElementById('campaignSelect');
+                    if (campaignSelect) {
+                        campaignSelect.addEventListener('change', (e) => {
+                            this.filters.campaign = e.target.value;
+                            this.loadOverviewData();
+                        });
+                    }
+
+                    const statusFilter = document.getElementById('statusFilter');
+                    if (statusFilter) {
+                        statusFilter.addEventListener('change', (e) => {
+                            this.filters.status = e.target.value;
+                            this.filterCampaigns();
+                        });
+                    }
+
+                    const agentFilter = document.getElementById('agentFilter');
+                    if (agentFilter) {
+                        agentFilter.addEventListener('change', (e) => {
+                            this.filters.agent = e.target.value;
+                            this.loadOverviewData();
+                        });
+                    }
+
+                    const timeRangeSelect = document.getElementById('timeRangeSelect');
+                    if (timeRangeSelect) {
+                        timeRangeSelect.addEventListener('change', (e) => {
+                            this.handleQuickTimeRange(e.target.value);
+                        });
+                    }
+
+                    // Action buttons
+                    const refreshBtn = document.getElementById('refreshBtn');
+                    if (refreshBtn) {
+                        refreshBtn.addEventListener('click', () => this.loadOverviewData(true));
+                    }
+
+                    const exportBtn = document.getElementById('exportBtn');
+                    if (exportBtn) {
+                        exportBtn.addEventListener('click', () => this.exportReport());
+                    }
+
+                    console.log('Event listeners set up successfully');
+                } catch (error) {
+                    console.error('Error setting up event listeners:', error);
+                }
+            }
+
+            handleQuickTimeRange(timeRange) {
+                if (!timeRange) return;
+
+                const now = new Date();
+                let newGranularity = this.filters.granularity;
+                let newPeriod = '';
+
+                switch (timeRange) {
+                    case 'today':
+                        newGranularity = 'Day';
+                        newPeriod = now.toISOString().split('T')[0];
+                        break;
+                    case 'yesterday':
+                        newGranularity = 'Day';
+                        const yesterday = new Date(now);
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        newPeriod = yesterday.toISOString().split('T')[0];
+                        break;
+                    case 'thisweek':
+                        newGranularity = 'Week';
+                        newPeriod = this.getCurrentPeriod('Week');
+                        break;
+                    case 'lastweek':
+                        newGranularity = 'Week';
+                        const lastWeek = new Date(now);
+                        lastWeek.setDate(lastWeek.getDate() - 7);
+                        newPeriod = this.getCurrentPeriod('Week', lastWeek);
+                        break;
+                    case 'thismonth':
+                        newGranularity = 'Month';
+                        newPeriod = this.getCurrentPeriod('Month');
+                        break;
+                    case 'lastmonth':
+                        newGranularity = 'Month';
+                        const lastMonth = new Date(now);
+                        lastMonth.setMonth(lastMonth.getMonth() - 1);
+                        newPeriod = this.getCurrentPeriod('Month', lastMonth);
+                        break;
+                    case 'thisquarter':
+                        newGranularity = 'Quarter';
+                        newPeriod = this.getCurrentPeriod('Quarter');
+                        break;
+                    case 'thisyear':
+                        newGranularity = 'Year';
+                        newPeriod = this.getCurrentPeriod('Year');
+                        break;
+                }
+
+                this.filters.granularity = newGranularity;
+                this.filters.period = newPeriod;
+                this.filters.timeRange = timeRange;
+                this.updateFilterControls();
+                this.loadOverviewData();
+            }
+
+            loadOverviewData(forceRefresh = false) {
+                // Prevent concurrent calls
+                if (this.isLoading && !forceRefresh) {
+                    console.log('Already loading, skipping request');
+                    return Promise.resolve();
+                }
+
+                try {
+                    console.log('Loading overview data with filters:', this.filters);
+
+                    this.isLoading = true;
+                    
+                    // Only show loading overlay for manual refresh, not auto-refresh
+                    if (forceRefresh) {
+                        this.showLoading(true);
+                    }
+
+                    // Call your existing OKR data function with proper error handling
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        return new Promise((resolve, reject) => {
+                            const timeoutId = setTimeout(() => {
+                                console.warn('Google Apps Script call timed out');
+                                this.handleDataError('Request timed out', forceRefresh);
+                                reject(new Error('Request timed out'));
+                            }, 30000); // 30 second timeout
+
+                            try {
+                                google.script.run
+                                    .withSuccessHandler((response) => {
+                                        clearTimeout(timeoutId);
+                                        this.handleDataSuccess(response, forceRefresh);
+                                        resolve(response);
+                                    })
+                                    .withFailureHandler((error) => {
+                                        clearTimeout(timeoutId);
+                                        this.handleDataError(error, forceRefresh);
+                                        reject(error);
+                                    })
+                                    .clientGetOKRData(
+                                        this.filters.granularity,
+                                        this.filters.period,
+                                        this.filters.agent,
+                                        this.filters.campaign,
+                                        ''  // department not used in new version
+                                    );
+                            } catch (callError) {
+                                clearTimeout(timeoutId);
+                                this.handleDataError(callError, forceRefresh);
+                                reject(callError);
+                            }
+                        });
+                    } else {
+                        // For development - no data loading without Google Apps Script
+                        console.warn('Google Apps Script not available - running in development mode');
+                        this.handleDataError('Google Apps Script not available', forceRefresh);
+                        return Promise.reject(new Error('Google Apps Script not available'));
+                    }
+
+                } catch (error) {
+                    console.error('Error loading overview data:', error);
+                    this.handleDataError(error, forceRefresh);
+                    return Promise.reject(error);
+                }
+            }
+
+            handleDataSuccess(response, wasManualRefresh = false) {
+                try {
+                    console.log('Data loaded successfully:', response);
+
+                    this.isLoading = false;
+                    if (wasManualRefresh) {
+                        this.showLoading(false);
+                    }
+
+                    // Check if data actually changed (for silent refresh)
+                    const dataHash = this.hashData(response);
+                    if (!wasManualRefresh && this.lastDataHash === dataHash) {
+                        console.log('No data changes detected, skipping update');
+                        return;
+                    }
+                    this.lastDataHash = dataHash;
+
+                    if (!response.success) {
+                        throw new Error(response.error || 'Failed to load data');
+                    }
+
+                    this.currentData = response.data;
+
+                    // Update dashboard
+                    this.updateHeaderStats(this.currentData);
+                    this.updateCampaignDropdowns(this.currentData);
+                    this.updateCampaignCards(this.currentData);
+                    this.updateCharts(this.currentData);
+
+                    console.log('Dashboard updated successfully');
+                } catch (error) {
+                    console.error('Error handling data success:', error);
+                    this.showError('Error updating dashboard: ' + error.message);
+                }
+            }
+
+            handleDataError(error, wasManualRefresh = false) {
+                try {
+                    console.error('Data loading failed:', error);
+
+                    this.isLoading = false;
+                    if (wasManualRefresh) {
+                        this.showLoading(false);
+                    }
+
+                    const errorMessage = error && error.message ? error.message : error.toString();
+                    
+                    // Handle specific Google Apps Script errors
+                    if (errorMessage.includes('message channel closed') || 
+                        errorMessage.includes('listener indicated an asynchronous response')) {
+                        console.warn('Google Apps Script communication issue, will retry on next refresh cycle');
+                        if (wasManualRefresh) {
+                            this.showError('Connection issue - data will refresh automatically');
+                        }
+                        return;
+                    }
+
+                    if (errorMessage.includes('timed out')) {
+                        console.warn('Request timed out, will retry on next refresh cycle');
+                        if (wasManualRefresh) {
+                            this.showError('Request timed out - data will refresh automatically');
+                        }
+                        return;
+                    }
+                    
+                    if (wasManualRefresh) {
+                        this.showError('Failed to load data: ' + errorMessage);
+                    } else {
+                        console.warn('Silent refresh failed:', errorMessage);
+                    }
+
+                    // Show empty state if no current data
+                    if (!this.currentData) {
+                        this.showEmptyState();
+                    }
+
+                } catch (e) {
+                    console.error('Error handling data error:', e);
+                }
+            }
+
+            hashData(data) {
+                try {
+                    return JSON.stringify(data).length + '_' + (data.lastUpdated || '');
+                } catch (error) {
+                    return Math.random().toString();
+                }
+            }
+
+            updateHeaderStats(data) {
+                try {
+                    const campaigns = data.campaigns || [];
+                    const totalCampaigns = campaigns.length;
+                    const totalAgents = data.aggregated ? data.aggregated.totalUsers : 0;
+                    const avgPerformance = data.overall ? data.overall.score : 0;
+
+                    const totalCampaignsEl = document.getElementById('totalCampaigns');
+                    const totalAgentsEl = document.getElementById('totalAgents');
+                    const avgPerformanceEl = document.getElementById('avgPerformance');
+                    const lastUpdatedEl = document.getElementById('lastUpdated');
+
+                    if (totalCampaignsEl) totalCampaignsEl.textContent = totalCampaigns;
+                    if (totalAgentsEl) totalAgentsEl.textContent = totalAgents;
+                    if (avgPerformanceEl) avgPerformanceEl.textContent = avgPerformance + '%';
+                    if (lastUpdatedEl) {
+                        const now = new Date();
+                        lastUpdatedEl.textContent = now.toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                    }
+
+                    console.log('Header stats updated');
+                } catch (error) {
+                    console.error('Error updating header stats:', error);
+                }
+            }
+
+            updateCampaignDropdowns(data) {
+                try {
+                    const campaigns = data.campaigns || [];
+                    
+                    // Update campaign dropdown
+                    const campaignSelect = document.getElementById('campaignSelect');
+                    if (campaignSelect) {
+                        const currentValue = campaignSelect.value;
+                        campaignSelect.innerHTML = '<option value="">All Campaigns</option>';
+                        
+                        campaigns.forEach(campaign => {
+                            const option = document.createElement('option');
+                            option.value = campaign.name;
+                            option.textContent = campaign.name;
+                            campaignSelect.appendChild(option);
+                        });
+                        
+                        campaignSelect.value = currentValue;
+                    }
+
+                    // Update agent dropdown (if you have agent data)
+                    const agentFilter = document.getElementById('agentFilter');
+                    if (agentFilter && data.agents) {
+                        const currentValue = agentFilter.value;
+                        agentFilter.innerHTML = '<option value="">All Agents</option>';
+                        
+                        data.agents.forEach(agent => {
+                            const option = document.createElement('option');
+                            option.value = agent;
+                            option.textContent = agent;
+                            agentFilter.appendChild(option);
+                        });
+                        
+                        agentFilter.value = currentValue;
+                    }
+
+                } catch (error) {
+                    console.error('Error updating dropdowns:', error);
+                }
+            }
+
+            updateCampaignCards(data) {
+                try {
+                    const container = document.getElementById('campaignsContainer');
+                    if (!container) return;
+
+                    const campaigns = data.campaigns || [];
+
+                    if (campaigns.length === 0) {
+                        container.innerHTML = this.createEmptyState();
+                        return;
+                    }
+
+                    container.innerHTML = '';
+
+                    campaigns.forEach(campaign => {
+                        const card = this.createCampaignCard(campaign);
+                        container.appendChild(card);
+                    });
+
+                    console.log('Campaign cards updated');
+                } catch (error) {
+                    console.error('Error updating campaign cards:', error);
+                }
+            }
+
+            createCampaignCard(campaign) {
+                try {
+                    const card = document.createElement('div');
+                    card.className = 'campaign-card';
+                    card.onclick = () => this.navigateToCampaign(campaign.name);
+
+                    const headerClass = this.getCampaignHeaderClass(campaign.name);
+                    const performance = campaign.overall || { score: 0, grade: 'F', status: 'needs_improvement' };
+
+                    card.innerHTML = `
+                        <div class="campaign-header ${headerClass}">
+                            <div class="campaign-title-row">
+                                <div class="campaign-info">
+                                    <h3 class="campaign-name">${campaign.name}</h3>
+                                    <p class="campaign-description">${campaign.description || 'Call center campaign operations'}</p>
+                                </div>
+                                <div class="campaign-score">
+                                    <div class="score-value">${performance.score}%</div>
+                                    <div class="score-label">Overall Score</div>
+                                </div>
+                            </div>
+                            
+                            <div class="campaign-stats">
+                                <div class="stat-box">
+                                    <div class="stat-number">${campaign.agents || 0}</div>
+                                    <div class="stat-text">Agents</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-number">${campaign.calls || 0}</div>
+                                    <div class="stat-text">Calls</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-number">${performance.grade}</div>
+                                    <div class="stat-text">Grade</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-number">${campaign.department || 'N/A'}</div>
+                                    <div class="stat-text">Dept</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="campaign-body">
+                            <div class="metrics-header">
+                                <h4 class="metrics-title">OKR Metrics</h4>
+                                <button class="view-details-btn" onclick="event.stopPropagation(); window.open('?page=dashboard&campaign=${encodeURIComponent(campaign.name)}', '_blank')">
+                                    <i class="fas fa-external-link-alt"></i> View Details
+                                </button>
+                            </div>
+
+                            <div class="metrics-list">
+                                ${this.createMetricsList(data, campaign.name)}
+                            </div>
+                        </div>
+                    `;
+
+                    return card;
+                } catch (error) {
+                    console.error('Error creating campaign card:', error);
+                    return document.createElement('div');
+                }
+            }
+
+            createMetricsList(data, campaignName) {
+                try {
+                    const categories = ['productivity', 'quality', 'efficiency', 'engagement', 'growth'];
+                    
+                    return categories.map(category => {
+                        const categoryData = data[category];
+                        if (!categoryData || !categoryData.metrics) {
+                            return `
+                                <div class="metric-item">
+                                    <div class="metric-header">
+                                        <span class="metric-name">${category.charAt(0).toUpperCase() + category.slice(1)}</span>
+                                        <span class="metric-status status-needs_improvement">No Data</span>
+                                    </div>
+                                    <div class="metric-values">
+                                        <span class="metric-current">--</span>
+                                        <span class="metric-target">/ --</span>
+                                    </div>
+                                    <div class="metric-progress">
+                                        <div class="metric-progress-bar progress-needs_improvement" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        // Get first metric from category (you can modify this logic)
+                        const metrics = Object.values(categoryData.metrics);
+                        const firstMetric = metrics[0] || { percentage: 0, status: 'needs_improvement' };
+
+                        const score = firstMetric.percentage || 0;
+                        const target = 100;
+                        const status = firstMetric.status || 'needs_improvement';
+
+                        return `
+                            <div class="metric-item">
+                                <div class="metric-header">
+                                    <span class="metric-name">${category.charAt(0).toUpperCase() + category.slice(1)}</span>
+                                    <span class="metric-status status-${status}">${status.replace('_', ' ')}</span>
+                                </div>
+                                <div class="metric-values">
+                                    <span class="metric-current">${score}%</span>
+                                    <span class="metric-target">/ ${target}%</span>
+                                </div>
+                                <div class="metric-progress">
+                                    <div class="metric-progress-bar progress-${status}" style="width: ${Math.min(100, score)}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } catch (error) {
+                    console.error('Error creating metrics list:', error);
+                    return '<p class="text-danger">Error loading metrics</p>';
+                }
+            }
+
+            getCampaignHeaderClass(name) {
+                const lowerName = name.toLowerCase();
+                if (lowerName.includes('independence') || lowerName.includes('insurance')) {
+                    return 'independence';
+                } else if (lowerName.includes('credit') || lowerName.includes('suite')) {
+                    return 'credit-suite';
+                } else {
+                    return 'general';
+                }
+            }
+
+            createEmptyState() {
+                return `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <i class="fas fa-chart-bar"></i>
+                        <h3>No Campaign Data Available</h3>
+                        <p>No campaigns match the current filters or no data has been loaded yet.</p>
+                        <button class="btn-enhanced btn-primary-enhanced" onclick="dashboard.loadOverviewData(true)">
+                            <i class="fas fa-refresh"></i>
+                            Reload Data
+                        </button>
+                    </div>
+                `;
+            }
+
+            showEmptyState() {
+                const container = document.getElementById('campaignsContainer');
+                if (container) {
+                    container.innerHTML = this.createEmptyState();
+                }
+            }
+
+            updateCharts(data) {
+                try {
+                    console.log('Updating charts...');
+
+                    this.updatePerformanceDistributionChart(data);
+                    this.updateCategoriesComparisonChart(data);
+                    this.updateTrendsChart(data);
+                    this.updateTargetAchievementChart(data);
+                    this.updateRealTimeMetricsChart(data);
+                    this.updateAgentHeatmapChart(data);
+
+                    console.log('Charts updated successfully');
+                } catch (error) {
+                    console.error('Error updating charts:', error);
+                }
+            }
+
+            updatePerformanceDistributionChart(data) {
+                try {
+                    const canvas = document.getElementById('performanceDistributionChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    if (this.charts.performanceDistribution) {
+                        this.charts.performanceDistribution.destroy();
+                    }
+
+                    const campaigns = data.campaigns || [];
+                    const excellent = campaigns.filter(c => c.overall && c.overall.score >= 80).length;
+                    const good = campaigns.filter(c => c.overall && c.overall.score >= 60 && c.overall.score < 80).length;
+                    const needsImprovement = campaigns.filter(c => !c.overall || c.overall.score < 60).length;
+
+                    this.charts.performanceDistribution = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Excellent (80%+)', 'Good (60-79%)', 'Needs Improvement (<60%)'],
+                            datasets: [{
+                                data: [excellent, good, needsImprovement],
+                                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        usePointStyle: true
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error updating performance distribution chart:', error);
+                }
+            }
+
+            updateCategoriesComparisonChart(data) {
+                try {
+                    const canvas = document.getElementById('categoriesComparisonChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    if (this.charts.categoriesComparison) {
+                        this.charts.categoriesComparison.destroy();
+                    }
+
+                    const categories = ['Productivity', 'Quality', 'Efficiency', 'Engagement', 'Growth'];
+                    const categoryKeys = ['productivity', 'quality', 'efficiency', 'engagement', 'growth'];
+                    
+                    const scores = categoryKeys.map(key => {
+                        const categoryData = data[key];
+                        if (!categoryData || !categoryData.metrics) return 0;
+                        
+                        const metrics = Object.values(categoryData.metrics);
+                        return metrics.length > 0 ? 
+                            metrics.reduce((sum, m) => sum + (m.percentage || 0), 0) / metrics.length : 0;
+                    });
+
+                    this.charts.categoriesComparison = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: categories,
+                            datasets: [{
+                                label: 'Performance %',
+                                data: scores,
+                                backgroundColor: [
+                                    '#667eea',
+                                    '#764ba2',
+                                    '#f093fb',
+                                    '#36d1dc',
+                                    '#4facfe'
+                                ],
+                                borderWidth: 0,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error updating categories comparison chart:', error);
+                }
+            }
+
+            updateTrendsChart(data) {
+                try {
+                    const canvas = document.getElementById('trendsChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    if (this.charts.trends) {
+                        this.charts.trends.destroy();
+                    }
+
+                    // Use trends data if available
+                    const trends = data.trends || {};
+                    const labels = Object.keys(trends).sort();
+                    const values = labels.map(label => trends[label] || 0);
+
+                    // Fallback to sample data if no trends
+                    const finalLabels = labels.length > 0 ? labels : ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+                    const finalValues = values.length > 0 ? values : [70, 75, 78, data.overall ? data.overall.score : 80];
+
+                    this.charts.trends = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: finalLabels,
+                            datasets: [{
+                                label: 'Overall Performance',
+                                data: finalValues,
+                                borderColor: '#667eea',
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error updating trends chart:', error);
+                }
+            }
+
+            updateTargetAchievementChart(data) {
+                try {
+                    const canvas = document.getElementById('targetAchievementChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    if (this.charts.targetAchievement) {
+                        this.charts.targetAchievement.destroy();
+                    }
+
+                    const campaigns = data.campaigns || [];
+                    const labels = campaigns.map(c => c.name);
+                    const scores = campaigns.map(c => c.overall ? c.overall.score : 0);
+
+                    this.charts.targetAchievement = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Current Performance',
+                                data: scores,
+                                backgroundColor: scores.map(score => 
+                                    score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444'
+                                ),
+                                borderRadius: 4,
+                                borderSkipped: false
+                            }, {
+                                label: 'Target (80%)',
+                                data: labels.map(() => 80),
+                                type: 'line',
+                                borderColor: '#64748b',
+                                borderDash: [5, 5],
+                                pointStyle: false,
+                                fill: false,
+                                tension: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error updating target achievement chart:', error);
+                }
+            }
+
+            updateRealTimeMetricsChart(data) {
+                try {
+                    const canvas = document.getElementById('realTimeMetricsChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    if (this.charts.realTimeMetrics) {
+                        this.charts.realTimeMetrics.destroy();
+                    }
+
+                    // Create gauge-like visualization for key call metrics
+                    const currentCalls = data.aggregated ? data.aggregated.totalRecords : 0;
+                    const targetCalls = 1000; // You can make this dynamic
+                    const callsPercentage = Math.min(100, (currentCalls / targetCalls) * 100);
+
+                    this.charts.realTimeMetrics = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Current Calls', 'Remaining'],
+                            datasets: [{
+                                data: [callsPercentage, 100 - callsPercentage],
+                                backgroundColor: ['#00BFFF', '#e5e7eb'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '70%',
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: [{
+                            id: 'centerText',
+                            afterDraw: (chart) => {
+                                const ctx = chart.ctx;
+                                ctx.save();
+                                ctx.font = 'bold 24px Inter';
+                                ctx.textAlign = 'center';
+                                ctx.fillStyle = '#1e293b';
+                                ctx.fillText(currentCalls, chart.width / 2, chart.height / 2 - 10);
+                                ctx.font = '12px Inter';
+                                ctx.fillStyle = '#64748b';
+                                ctx.fillText('Active Calls', chart.width / 2, chart.height / 2 + 15);
+                                ctx.restore();
+                            }
+                        }]
+                    });
+                } catch (error) {
+                    console.error('Error updating real-time metrics chart:', error);
+                }
+            }
+
+            updateAgentHeatmapChart(data) {
+                try {
+                    const canvas = document.getElementById('agentHeatmapChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    if (this.charts.agentHeatmap) {
+                        this.charts.agentHeatmap.destroy();
+                    }
+
+                    // Create scatter plot for agent performance analysis
+                    const campaigns = data.campaigns || [];
+                    const scatterData = campaigns.map((campaign, index) => ({
+                        x: campaign.agents || 0,
+                        y: campaign.overall ? campaign.overall.score : 0,
+                        r: Math.max(5, (campaign.calls || 0) / 20) // Bubble size based on calls
+                    }));
+
+                    this.charts.agentHeatmap = new Chart(ctx, {
+                        type: 'scatter',
+                        data: {
+                            datasets: [{
+                                label: 'Campaign Performance',
+                                data: scatterData,
+                                backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                                borderColor: '#667eea',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Number of Agents'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Performance Score'
+                                    },
+                                    beginAtZero: true,
+                                    max: 100
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error updating agent heatmap chart:', error);
+                }
+            }
+
+            filterCampaigns() {
+                try {
+                    if (!this.currentData || !this.currentData.campaigns) return;
+
+                    const filteredData = {
+                        ...this.currentData,
+                        campaigns: this.currentData.campaigns.filter(campaign => {
+                            if (this.filters.status) {
+                                const status = campaign.overall && campaign.overall.score >= 80 ? 'excellent' 
+                                    : campaign.overall && campaign.overall.score >= 60 ? 'good' 
+                                    : 'needs_improvement';
+                                if (status !== this.filters.status) return false;
+                            }
+                            return true;
+                        })
+                    };
+
+                    this.updateCampaignCards(filteredData);
+                    this.updateCharts(filteredData);
+                } catch (error) {
+                    console.error('Error filtering campaigns:', error);
+                }
+            }
+
+            navigateToCampaign(campaignName) {
+                try {
+                    const url = `?page=dashboard&campaign=${encodeURIComponent(campaignName)}`;
+                    window.open(url, '_blank');
+                } catch (error) {
+                    console.error('Error navigating to campaign:', error);
+                }
+            }
+
+            exportReport() {
+                try {
+                    console.log('Exporting campaign overview report...');
+
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        google.script.run
+                            .withSuccessHandler((response) => {
+                                if (response.success) {
+                                    this.downloadCSV(response.data, response.filename);
+                                } else {
+                                    this.showError('Export failed: ' + response.error);
+                                }
+                            })
+                            .withFailureHandler((error) => {
+                                this.showError('Export failed: ' + error);
+                            })
+                            .clientExportCampaignOverviewReport(this.filters);
+                    } else {
+                        this.showError('Export not available - Google Apps Script not connected');
+                    }
+                } catch (error) {
+                    console.error('Error exporting report:', error);
+                    this.showError('Export failed: ' + error.message);
+                }
+            }
+
+            downloadCSV(csvData, filename) {
+                try {
+                    const blob = new Blob([csvData], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename || 'campaign_overview.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+
+                    console.log('CSV downloaded successfully');
+                } catch (error) {
+                    console.error('Error downloading CSV:', error);
+                }
+            }
+
+            startAutoRefresh() {
+                try {
+                    // Stop any existing refresh interval
+                    this.stopAutoRefresh();
+                    
+                    // Auto refresh every 15 seconds (reduced frequency to prevent conflicts)
+                    this.autoRefreshInterval = setInterval(async () => {
+                        // Skip if currently loading or if there's no network
+                        if (this.isLoading || !navigator.onLine) {
+                            console.log('Skipping auto-refresh: loading or offline');
+                            return;
+                        }
+
+                        try {
+                            console.log('Auto-refreshing dashboard data...');
+                            await this.loadOverviewData(false); // false = silent refresh
+                        } catch (error) {
+                            console.warn('Auto-refresh failed:', error);
+                            // Continue running but log the error
+                        }
+                    }, 15000); // 15 seconds instead of 10
+
+                    console.log('Auto-refresh started (15 seconds interval)');
+                } catch (error) {
+                    console.error('Error starting auto-refresh:', error);
+                }
+            }
+
+            stopAutoRefresh() {
+                try {
+                    if (this.autoRefreshInterval) {
+                        clearInterval(this.autoRefreshInterval);
+                        this.autoRefreshInterval = null;
+                    }
+                    console.log('Auto-refresh stopped');
+                } catch (error) {
+                    console.error('Error stopping auto-refresh:', error);
+                }
+            }
+
+            showLoading(show) {
+                try {
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) {
+                        overlay.style.display = show ? 'flex' : 'none';
+                    }
+
+                    const refreshBtn = document.getElementById('refreshBtn');
+                    if (refreshBtn) {
+                        const icon = refreshBtn.querySelector('i');
+                        if (icon) {
+                            if (show) {
+                                icon.style.animation = 'spin 1s linear infinite';
+                            } else {
+                                icon.style.animation = '';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error showing/hiding loading:', error);
+                }
+            }
+
+            showError(message) {
+                try {
+                    console.error('Dashboard error:', message);
+                    // You can implement a more sophisticated error display here
+                    alert('Error: ' + message);
+                } catch (error) {
+                    console.error('Error showing error message:', error);
+                }
+            }
+
+            getCurrentPeriod(granularity, date = null) {
+                const targetDate = date || new Date();
+
+                switch (granularity) {
+                    case 'Hour':
+                        return targetDate.toISOString().slice(0, 13) + ':00:00Z';
+                    case 'Day':
+                        return targetDate.toISOString().split('T')[0];
+                    case 'Week':
+                        return this.getWeekString(targetDate);
+                    case 'Month':
+                        return `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+                    case 'Quarter':
+                        const quarter = Math.floor(targetDate.getMonth() / 3) + 1;
+                        return `Q${quarter}-${targetDate.getFullYear()}`;
+                    case 'Year':
+                        return `${targetDate.getFullYear()}`;
+                    default:
+                        return this.getWeekString(targetDate);
+                }
+            }
+
+            getWeekString(date) {
+                const d = new Date(date);
+                d.setHours(0, 0, 0, 0);
+                d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+                const yearStart = new Date(d.getFullYear(), 0, 1);
+                const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+            }
+
+            destroy() {
+                try {
+                    this.stopAutoRefresh();
+                    
+                    // Destroy all charts
+                    Object.values(this.charts).forEach(chart => {
+                        if (chart && typeof chart.destroy === 'function') {
+                            chart.destroy();
+                        }
+                    });
+                    
+                    this.charts = {};
+                    console.log('Dashboard destroyed');
+                } catch (error) {
+                    console.error('Error destroying dashboard:', error);
+                }
+            }
+        }
+
+        // Initialize dashboard when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                console.log('DOM loaded, initializing Lumina campaign overview dashboard...');
+                window.dashboard = new LuminaCampaignOKROverview();
+            } catch (error) {
+                console.error('Failed to initialize dashboard:', error);
+                
+                const container = document.getElementById('campaignsContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="error-state" style="grid-column: 1 / -1;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h3>Dashboard Error</h3>
+                            <p>Failed to initialize dashboard. Please refresh the page or contact support.</p>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        // Global functions for external access
+        window.refreshCampaignOverview = function() {
+            if (window.dashboard) {
+                window.dashboard.loadOverviewData(true);
+            }
+        };
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (window.dashboard) {
+                window.dashboard.destroy();
+            }
+        });
+    </script>
+</body>
+</html>

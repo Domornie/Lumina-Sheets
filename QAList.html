@@ -1,0 +1,799 @@
+<?!= include('header', {
+  baseUrl: baseUrl,
+  user: user,
+  currentPage: currentPage
+}) ?>
+
+<style>
+    :root {
+        /* Brand Color Palette */
+        --navy-primary: #003177;
+        --cyan-accent: #00BFFF;
+        --gold-highlight: #FFB800;
+        --fire-red: #FF4000;
+        
+        /* Modern UI Colors */
+        --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+        --accent-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+        --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+        --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+        --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        
+        /* UI Properties */
+        --card-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        --card-shadow-hover: 0 20px 60px rgba(0,0,0,0.15);
+        --border-radius-lg: 16px;
+        --border-radius-xl: 24px;
+        --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --border-color: #e2e8f0;
+    }
+
+    body {
+        background: var(--surface-gradient);
+        font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--text-primary);
+        line-height: 1.6;
+    }
+
+    /* Modern Page Header */
+    .modern-page-header {
+        background: var(--primary-gradient);
+        border-radius: var(--border-radius-xl);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .modern-page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 200px;
+        background: rgba(0, 191, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(50%, -50%);
+    }
+
+    .modern-page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .modern-page-header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0.5rem 0 0 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    .header-actions {
+        position: absolute;
+        top: 2rem;
+        right: 2rem;
+        z-index: 3;
+    }
+
+    /* Modern Main Card */
+    .modern-main-card {
+        background: white;
+        border-radius: var(--border-radius-xl);
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(255,255,255,0.2);
+        overflow: hidden;
+        transition: var(--transition-smooth);
+    }
+
+    .modern-main-card:hover {
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    /* Modern Controls Section */
+    .controls-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 2rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-container {
+        position: relative;
+        max-width: 400px;
+    }
+
+    .search-container input {
+        width: 100%;
+        padding: 1rem 1rem 1rem 3rem;
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: var(--transition-smooth);
+        background: white;
+    }
+
+    .search-container input:focus {
+        border-color: var(--cyan-accent);
+        box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
+        outline: none;
+        transform: translateY(-2px);
+    }
+
+    .search-container .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    /* Modern Buttons */
+    .modern-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.875rem 1.5rem;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        transition: var(--transition-smooth);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .modern-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .modern-btn:hover::before {
+        left: 100%;
+    }
+
+    .modern-btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 49, 119, 0.3);
+    }
+
+    .modern-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 49, 119, 0.4);
+        color: white;
+    }
+
+    .modern-btn-info {
+        background: var(--accent-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3);
+    }
+
+    .modern-btn-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 191, 255, 0.4);
+        color: white;
+    }
+
+    .modern-btn-warning {
+        background: var(--warning-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(255, 184, 0, 0.3);
+    }
+
+    .modern-btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 184, 0, 0.4);
+        color: white;
+    }
+
+    .modern-btn-danger {
+        background: var(--danger-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(255, 64, 0, 0.3);
+    }
+
+    .modern-btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 64, 0, 0.4);
+        color: white;
+    }
+
+    .modern-btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    /* Modern Table */
+    .table-container {
+        padding: 2rem;
+        overflow-x: auto;
+    }
+
+    .modern-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .modern-table thead {
+        background: var(--primary-gradient);
+        color: white;
+    }
+
+    .modern-table th {
+        padding: 1.25rem 1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.8rem;
+        border: none;
+    }
+
+    .modern-table td {
+        padding: 1rem;
+        border: none;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .modern-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+
+    .modern-table tbody tr:hover {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+
+    .modern-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Row Number Styling */
+    .row-number {
+        width: 3rem;
+        text-align: center;
+        font-weight: 700;
+        color: var(--navy-primary);
+        background: linear-gradient(135deg, var(--cyan-accent) 0%, var(--gold-highlight) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* Score Badge */
+    .score-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 3rem;
+        padding: 0.5rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .score-excellent {
+        background: var(--success-gradient);
+        color: white;
+    }
+
+    .score-good {
+        background: var(--warning-gradient);
+        color: white;
+    }
+
+    .score-needs-improvement {
+        background: var(--danger-gradient);
+        color: white;
+    }
+
+    /* Status Indicators */
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-shared {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-pending {
+        background: rgba(255, 184, 0, 0.1);
+        color: var(--gold-highlight);
+        border: 1px solid rgba(255, 184, 0, 0.2);
+    }
+
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    /* Modern Pagination */
+    .modern-pagination {
+        padding: 2rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .pagination .page-link {
+        border: 2px solid var(--border-color);
+        border-radius: 8px !important;
+        margin: 0 2px;
+        padding: 0.5rem 0.75rem;
+        color: var(--text-primary);
+        font-weight: 600;
+        transition: var(--transition-smooth);
+    }
+
+    .pagination .page-link:hover {
+        border-color: var(--cyan-accent);
+        background: var(--cyan-accent);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary-gradient);
+        border-color: var(--navy-primary);
+        color: white;
+    }
+
+    .pagination .page-item.disabled .page-link {
+        opacity: 0.5;
+        background: #f8fafc;
+        color: var(--text-secondary);
+        border-color: var(--border-color);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: var(--cyan-accent);
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .empty-state h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    /* Modern Toast */
+    .modern-toast {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        min-width: 320px;
+        max-width: 480px;
+        background: white;
+        color: var(--text-primary);
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        border-left: 4px solid #10b981;
+        display: none;
+        z-index: 9999;
+        backdrop-filter: blur(10px);
+    }
+
+    .modern-toast.error {
+        border-left-color: var(--fire-red);
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+    .modern-toast.success {
+        border-left-color: #10b981;
+        background: #f0f9f4;
+        color: #059669;
+    }
+
+    .modern-toast.show {
+        display: block;
+        animation: toastIn 0.5s cubic-bezier(0.4, 0, 0.2, 1), toastOut 0.5s cubic-bezier(0.4, 0, 0.2, 1) 2.5s;
+    }
+
+    @keyframes toastIn {
+        from {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes toastOut {
+        from {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+    }
+
+    /* Action Buttons Group */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .modern-page-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .modern-page-header h1 {
+            font-size: 2rem;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .header-actions {
+            position: static;
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .controls-section {
+            padding: 1.5rem;
+        }
+
+        .search-container {
+            max-width: 100%;
+        }
+
+        .table-container {
+            padding: 1rem;
+        }
+
+        .modern-table {
+            font-size: 0.8rem;
+        }
+
+        .modern-table th,
+        .modern-table td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .modern-btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.7rem;
+        }
+
+        .modern-pagination {
+            padding: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .modern-toast {
+            bottom: 1rem;
+            right: 1rem;
+            left: 1rem;
+            min-width: auto;
+        }
+    }
+
+    /* Animation Enhancements */
+    .fade-in {
+        animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .stagger-animation > * {
+        opacity: 0;
+        animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+    .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+    .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
+</style>
+
+<!-- Modern Page Header -->
+<div class="modern-page-header fade-in">
+    <h1>
+        <i class="fas fa-clipboard-list"></i>
+        Quality Audits
+    </h1>
+    <p>Comprehensive quality assessment tracking and management system</p>
+    <div class="header-actions">
+        <a href="<?= baseUrl ?>&page=qualityform" class="modern-btn modern-btn-primary">
+            <i class="fas fa-clipboard-check"></i>
+            New Audit
+        </a>
+    </div>
+</div>
+
+<div class="stagger-animation">
+    <!-- Modern Main Card -->
+    <div class="modern-main-card">
+        <!-- Controls Section -->
+        <div class="controls-section">
+            <div class="row align-items-center">
+                <div class="col-12 col-md-6">
+                    <div class="search-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            placeholder="Search by ID, Agent, Case Number..."
+                        >
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 text-md-end mt-3 mt-md-0">
+                    <div class="d-flex align-items-center justify-content-md-end gap-3">
+                        <span class="text-muted small">Quality audit records</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="modern-table" id="qaTable">
+                    <thead>
+                        <tr>
+                            <th class="row-number">#</th>
+                            <th>
+                                <i class="fas fa-clock me-2"></i>
+                                Timestamp
+                            </th>
+                            <th>
+                                <i class="fas fa-user me-2"></i>
+                                Agent
+                            </th>
+                            <th>
+                                <i class="fas fa-link me-2"></i>
+                                Case/Link
+                            </th>
+                            <th>
+                                <i class="fas fa-chart-line me-2"></i>
+                                Score
+                            </th>
+                            <th>
+                                <i class="fas fa-calendar-check me-2"></i>
+                                Feedback
+                            </th>
+                            <th>
+                                <i class="fas fa-comment-dots me-2"></i>
+                                Agent Feedback
+                            </th>
+                            <th>
+                                <i class="fas fa-cogs me-2"></i>
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Content will be injected by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modern Pagination -->
+        <div class="modern-pagination">
+            <nav aria-label="QA pagination" class="mt-3">
+                <ul id="pagination" class="pagination justify-content-center mb-0"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-body"></div>
+</div>
+
+<script>
+    const baseUrl = '<?= baseUrl ?>';
+    let allQA = [], currentPage = 1, rowsPerPage = 15;
+
+    function showToast(msg, isError) {
+        const el = document.getElementById('toast');
+        el.querySelector('.toast-body').textContent = msg;
+        el.classList.toggle('bg-danger', isError);
+        el.classList.toggle('bg-success', !isError);
+        new bootstrap.Toast(el).show();
+    }
+
+    function loadQA() {
+        google.script.run
+            .withSuccessHandler(data => { allQA = data || []; renderTable(); })
+            .withFailureHandler(err => showToast(err.message, true))
+            .getAllQA();
+    }
+
+    function formatTS(ts) {
+        return ts ? new Date(ts).toLocaleString() : '';
+    }
+
+    function renderTable() {
+        const term = (document.getElementById('searchInput').value || '').toLowerCase();
+        const filtered = allQA.filter(r =>
+            (r.ID||'').toLowerCase().includes(term) ||
+            (r.AgentName||'').toLowerCase().includes(term) ||
+            (r.CaseNumber||'').toLowerCase().includes(term)
+        );
+
+        // 1) pagination math
+        const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+        currentPage = Math.min(currentPage, totalPages);
+        const start = (currentPage - 1) * rowsPerPage;
+        const pageItems = filtered.slice(start, start + rowsPerPage);
+
+        // 2) render rows
+        const tbody = document.querySelector('#qaTable tbody');
+        if (!pageItems.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center">No records found.</td></tr>`;
+        } else {
+            tbody.innerHTML = pageItems.map((r, idx) => {
+                const rowNo = start + idx + 1;
+                const ts = formatTS(r.Timestamp);
+                const view = /^https?:\/\//i.test(r.CaseNumber)
+                    ? `<a href="${r.CaseNumber}" target="_blank">View</a>`
+                    : "—";
+                const editUrl = `${baseUrl}&page=qualityform&id=${encodeURIComponent(r.ID)}`;
+                return `
+                    <tr>
+                        <td class="text-center">${rowNo}</td>
+                        <td>${ts}</td>
+                        <td>${r.AgentName}</td>
+                        <td>${view}</td>
+                        <td>${r.TotalScore}</td>
+                        <td>${r.FeedbackShared}</td>
+                        <td>${r.AgentFeedback||""}</td>
+                        <td>
+                            <a href="${baseUrl}&page=qaview&id=${encodeURIComponent(r.ID)}" class="btn btn-sm btn-info me-1">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                            <a href="${editUrl}" class="btn btn-sm btn-primary me-1">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.ID}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        // 3) render pagination
+        renderPagination(totalPages);
+
+        // 4) hide loader if present
+        const loader = document.getElementById('pageLoader');
+        if (loader) loader.style.display = 'none';
+    }
+
+    function renderPagination(totalPages) {
+        const pagUl = document.getElementById('pagination');
+        if (totalPages < 2) {
+            pagUl.innerHTML = '';
+            return;
+        }
+        let html = `
+            <li class="page-item ${currentPage===1?'disabled':''}">
+                <button type="button" class="page-link" onclick="changePage(${currentPage-1})">
+                    Prev
+                </button>
+            </li>`;
+        for (let p = 1; p <= totalPages; p++) {
+            html += `
+            <li class="page-item ${p===currentPage?'active':''}">
+                <button type="button" class="page-link" onclick="changePage(${p})">
+                    ${p}
+                </button>
+            </li>`;
+        }
+        html += `
+            <li class="page-item ${currentPage===totalPages?'disabled':''}">
+                <button type="button" class="page-link" onclick="changePage(${currentPage+1})">
+                    Next
+                </button>
+            </li>`;
+        pagUl.innerHTML = html;
+    }
+
+    function changePage(p) {
+        // ensure within bounds
+        const term = (document.getElementById('searchInput').value || '').toLowerCase();
+        const filteredLen = allQA.filter(r =>
+            (r.ID||'').toLowerCase().includes(term) ||
+            (r.AgentName||'').toLowerCase().includes(term) ||
+            (r.CaseNumber||'').toLowerCase().includes(term)
+        ).length;
+        const totalPages = Math.max(1, Math.ceil(filteredLen / rowsPerPage));
+        if (p < 1 || p > totalPages) return;
+        currentPage = p;
+        renderTable();
+    }
+
+    function deleteRecord(id) {
+        if (!confirm('Delete this QA record?')) return;
+        google.script.run
+            .withSuccessHandler(() => { showToast('Deleted', false); loadQA(); })
+            .withFailureHandler(err => showToast(err.message, true))
+            .deleteQARecord(id);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadQA();
+        document.getElementById('searchInput').addEventListener('input', () => {
+            currentPage = 1;
+            renderTable();
+        });
+    });
+</script>
+
+</body>
+</html>

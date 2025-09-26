@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Schedule - VLBPO</title>
+  <base target="_top">
+
+  <!-- Modern CSS Libraries -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --primary-50: #f0f9ff;
+      --primary-100: #e0f2fe;
+      --primary-200: #bae6fd;
+      --primary-300: #7dd3fc;
+      --primary-400: #38bdf8;
+      --primary-500: #0ea5e9;
+      --primary-600: #0284c7;
+      --primary-700: #0369a1;
+      --primary-800: #075985;
+      --primary-900: #0c4a6e;
+      --success-50: #f0fdf4;
+      --success-100: #dcfce7;
+      --success-200: #bbf7d0;
+      --success-500: #22c55e;
+      --success-700: #15803d;
+      --warning-50: #fffbeb;
+      --warning-200: #fed7aa;
+      --warning-500: #f59e0b;
+      --warning-700: #b45309;
+      --danger-50: #fef2f2;
+      --danger-500: #ef4444;
+      --gray-50: #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-300: #cbd5e1;
+      --gray-400: #94a3b8;
+      --gray-500: #64748b;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1e293b;
+      --gray-900: #0f172a;
+      --border-radius: 20px;
+      --border-radius-sm: 16px;
+      --border-radius-xs: 12px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', "Google Sans", "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, var(--primary-50) 0%, #ffffff 100%);
+      color: var(--gray-800);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Header */
+    .schedule-header {
+      background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-800) 100%);
+      color: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      margin-bottom: 2rem;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .schedule-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+      opacity: 0.3;
+    }
+
+    .schedule-header .content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .schedule-header h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin: 0 0 1rem 0;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .agent-info {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: var(--border-radius-sm);
+      padding: 1.5rem;
+      margin-top: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .agent-info h3 {
+      margin: 0 0 1rem 0;
+      font-size: 1.25rem;
+    }
+
+    .agent-info p {
+      margin: 0.5rem 0;
+      opacity: 0.9;
+    }
+
+    /* Navigation */
+    .nav-tabs {
+      border: none;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      background: white;
+      padding: 0.5rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+    }
+
+    .nav-tabs .nav-link {
+      border: none;
+      background: none;
+      color: var(--gray-600);
+      font-weight: 600;
+      padding: 1rem 1.5rem;
+      border-radius: var(--border-radius-xs);
+      transition: var(--transition);
+    }
+
+    .nav-tabs .nav-link:hover {
+      background: var(--gray-50);
+      color: var(--primary-600);
+    }
+
+    .nav-tabs .nav-link.active {
+      background: var(--primary-500);
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: var(--border-radius-sm);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      transition: var(--transition);
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+      padding: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .card-body {
+      padding: 1.5rem;
+    }
+
+    /* Schedule Cards */
+    .schedule-item {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--border-radius-sm);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .schedule-item:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .schedule-item.today {
+      border-left: 4px solid var(--success-500);
+      background: var(--success-50);
+    }
+
+    .schedule-item.upcoming {
+      border-left: 4px solid var(--primary-500);
+      background: var(--primary-50);
+    }
+
+    .schedule-item.past {
+      opacity: 0.7;
+      border-left: 4px solid var(--gray-300);
+    }
+
+    .schedule-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+
+    .schedule-date {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .schedule-time {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      margin-bottom: 0.5rem;
+    }
+
+    .schedule-status {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .schedule-status.active {
+      background: var(--success-100);
+      color: var(--success-700);
+    }
+
+    .schedule-status.completed {
+      background: var(--gray-100);
+      color: var(--gray-600);
+    }
+
+    .schedule-status.cancelled {
+      background: var(--danger-50);
+      color: var(--danger-500);
+    }
+
+    .schedule-actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--border-radius-sm);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary-500);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      background: var(--primary-100);
+      color: var(--primary-700);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--gray-900);
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--border-radius-xs);
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+
+    .btn-primary {
+      background: var(--primary-500);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-600);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-success {
+      background: var(--success-500);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: var(--success-600);
+    }
+
+    .btn-warning {
+      background: var(--warning-500);
+      color: white;
+    }
+
+    .btn-warning:hover {
+      background: var(--warning-700);
+    }
+
+    .btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      border: 1px solid var(--gray-300);
+    }
+
+    .btn-secondary:hover {
+      background: var(--gray-200);
+    }
+
+    .btn-sm {
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+    }
+
+    /* Alert Styles */
+    .alert {
+      padding: 1rem 1.5rem;
+      border-radius: var(--border-radius-xs);
+      margin-bottom: 1.5rem;
+      border: 1px solid;
+    }
+
+    .alert-info {
+      background: var(--primary-50);
+      border-color: var(--primary-200);
+      color: var(--primary-800);
+    }
+
+    .alert-warning {
+      background: var(--warning-50);
+      border-color: var(--warning-200);
+      color: var(--warning-700);
+    }
+
+    .alert-success {
+      background: var(--success-50);
+      border-color: var(--success-200);
+      color: var(--success-700);
+    }
+
+    /* Modals */
+    .modal-content {
+      border: none;
+      border-radius: var(--border-radius-sm);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .modal-header {
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+      border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+    }
+
+    .modal-title {
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--border-radius-xs);
+      font-size: 1rem;
+      transition: var(--transition);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary-500);
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+    }
+
+    /* Loading and Empty States */
+    .loading-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      color: var(--gray-500);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--gray-200);
+      border-top: 3px solid var(--primary-500);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--gray-500);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+
+      .schedule-header h1 {
+        font-size: 2rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .schedule-actions {
+        flex-direction: column;
+      }
+
+      .nav-tabs .nav-link {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="schedule-header">
+      <div class="content">
+        <h1><i class="fas fa-calendar-check"></i> My Schedule</h1>
+        <p class="lead">View your shifts, request changes, and manage your availability</p>
+
+        <div class="agent-info">
+          <h3>Welcome, <span id="agentName">Agent</span>!</h3>
+          <p><i class="fas fa-envelope"></i> <span id="agentEmail">agent@company.com</span></p>
+          <p><i class="fas fa-id-badge"></i> Agent ID: <span id="agentId">12345</span></p>
+          <p><i class="fas fa-calendar"></i> Current Period: <span id="currentPeriod">Loading...</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs" id="scheduleTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                    <i class="fas fa-chart-pie"></i> Overview
+                </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="my-schedule-tab" data-bs-toggle="tab" data-bs-target="#my-schedule" type="button" role="tab">
+                    <i class="fas fa-calendar"></i> My Schedule
+                </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="swap-requests-tab" data-bs-toggle="tab" data-bs-target="#swap-requests" type="button" role="tab">
+                    <i class="fas fa-exchange-alt"></i> Shift Swaps
+                </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="availability-tab" data-bs-toggle="tab" data-bs-target="#availability" type="button" role="tab">
+                    <i class="fas fa-user-check"></i> Availability
+                </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="holidays-tab" data-bs-toggle="tab" data-bs-target="#holidays" type="button" role="tab">
+                    <i class="fas fa-umbrella-beach"></i> Holidays
+                </button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="scheduleTabContent">
+      <!-- Overview Tab -->
+      <div class="tab-pane fade show active" id="overview" role="tabpanel">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-value" id="totalShifts">0</div>
+            <div class="stat-label">Total Shifts</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value" id="totalHours">0</div>
+            <div class="stat-label">Total Hours</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-exchange-alt"></i>
+            </div>
+            <div class="stat-value" id="pendingSwaps">0</div>
+            <div class="stat-label">Pending Swaps</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-umbrella-beach"></i>
+            </div>
+            <div class="stat-value" id="upcomingHolidays">0</div>
+            <div class="stat-label">Upcoming Holidays</div>
+          </div>
+        </div>
+
+        <!-- Important Notices -->
+        <div id="noticesContainer"></div>
+
+        <!-- Upcoming Shifts Preview -->
+        <div class="card">
+          <div class="card-header">
+            <h5><i class="fas fa-calendar-day"></i> Next 7 Days</h5>
+          </div>
+          <div class="card-body">
+            <div id="upcomingShiftsPreview">
+              <div class="loading-spinner">
+                <div class="spinner"></div>
+                <span style="margin-left: 1rem;">Loading your upcoming shifts...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Schedule Tab -->
+      <div class="tab-pane fade" id="my-schedule" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4>Your Scheduled Shifts</h4>
+          <div>
+            <select id="scheduleFilter" class="form-control" style="width: auto; display: inline-block;">
+                            <option value="all">All Shifts</option>
+                            <option value="upcoming">Upcoming Only</option>
+                            <option value="this-week">This Week</option>
+                            <option value="next-week">Next Week</option>
+                        </select>
+          </div>
+        </div>
+
+        <div id="myScheduleContainer">
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <span style="margin-left: 1rem;">Loading your schedule...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Swap Requests Tab -->
+      <div class="tab-pane fade" id="swap-requests" role="tabpanel">
+        <div class="row">
+          <div class="col-md-8">
+            <div class="card">
+              <div class="card-header">
+                <h5><i class="fas fa-exchange-alt"></i> My Swap Requests</h5>
+              </div>
+              <div class="card-body">
+                <div id="mySwapRequests">
+                  <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <span style="margin-left: 1rem;">Loading swap requests...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card">
+              <div class="card-header">
+                <h6>Request New Swap</h6>
+              </div>
+              <div class="card-body">
+                <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#swapRequestModal">
+                                    <i class="fas fa-plus"></i> Request Shift Swap
+                                </button>
+                <hr>
+                <h6>Swap Guidelines</h6>
+                <ul class="small text-muted">
+                  <li>Requests must be made 24 hours in advance</li>
+                  <li>Both parties must agree to the swap</li>
+                  <li>Management approval is required</li>
+                  <li>Swaps must be for similar shift types</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Availability Tab -->
+      <div class="tab-pane fade" id="availability" role="tabpanel">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-user-check"></i> Mark Your Availability</h5>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#availabilityModal">
+                            <i class="fas fa-plus"></i> Update Availability
+                        </button>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle"></i>
+              <strong>Important:</strong> Please keep your availability updated so we can schedule you appropriately.
+              Mark yourself as unavailable for dates when you cannot work.
+            </div>
+            <div id="availabilityContainer">
+              <div class="loading-spinner">
+                <div class="spinner"></div>
+                <span style="margin-left: 1rem;">Loading availability...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Holidays Tab -->
+      <div class="tab-pane fade" id="holidays" role="tabpanel">
+        <div class="card">
+          <div class="card-header">
+            <h5><i class="fas fa-umbrella-beach"></i> Upcoming Holidays</h5>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle"></i>
+              <strong>Note:</strong> As a Jamaican company, only Jamaican holidays are recognized as non-working days.
+              All other holidays are regular work days.
+            </div>
+            <div id="holidaysContainer">
+              <div class="loading-spinner">
+                <div class="spinner"></div>
+                <span style="margin-left: 1rem;">Loading holidays...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+
+  <!-- Swap Request Modal -->
+  <div class="modal fade" id="swapRequestModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Request Shift Swap</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="swapRequestForm">
+            <div class="form-group">
+              <label class="form-label">My Shift to Swap</label>
+              <select class="form-control" id="myShiftSelect" required>
+                                <option value="">Select your shift to swap</option>
+                            </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Swap With Agent</label>
+              <select class="form-control" id="swapWithAgent" required>
+                                <option value="">Select agent to swap with</option>
+                            </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Their Shift (Optional)</label>
+              <select class="form-control" id="theirShiftSelect">
+                                <option value="">Select their shift (or leave blank)</option>
+                            </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Reason for Swap</label>
+              <textarea class="form-control" id="swapReason" rows="3" placeholder="Please explain why you need this swap..." required></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="submitSwapRequest()">Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Availability Modal -->
+  <div class="modal fade" id="availabilityModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Update Availability</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="availabilityForm">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input type="date" class="form-control" id="availabilityDate" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Availability Status</label>
+              <select class="form-control" id="availabilityStatus" required>
+                                <option value="">Select Status</option>
+                                <option value="available">Available</option>
+                                <option value="unavailable">Unavailable</option>
+                                <option value="sick">Sick Leave</option>
+                                <option value="vacation">Vacation</option>
+                            </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Reason (if unavailable)</label>
+              <textarea class="form-control" id="availabilityReason" rows="3" placeholder="Please explain why you're unavailable..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="submitAvailability()">Update Availability</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Global variables
+        let currentAgent = null;
+        let agentSchedules = [];
+        let agentSwapRequests = [];
+
+        // Initialize the agent schedule page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Initializing Agent Schedule Page...');
+            
+            try {
+                initializeAgentPage();
+                setupEventListeners();
+                loadAgentData();
+                console.log('✅ Agent Schedule Page initialized successfully');
+            } catch (error) {
+                console.error('❌ Failed to initialize Agent Schedule Page:', error);
+                showAlert('Failed to initialize schedule page', 'warning');
+            }
+        });
+
+        function initializeAgentPage() {
+            // Get URL parameters for agent identification
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            
+            if (!token) {
+                showAlert('Invalid access token. Please use the link from your email.', 'warning');
+                return;
+            }
+            
+            // Store token for API calls
+            window.agentToken = token;
+            
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('availabilityDate').value = today;
+        }
+
+        function setupEventListeners() {
+            // Tab change events
+            document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function(event) {
+                    const targetId = event.target.getAttribute('data-bs-target').replace('#', '');
+                    onTabChanged(targetId);
+                });
+            });
+
+            // Schedule filter change
+            const scheduleFilter = document.getElementById('scheduleFilter');
+            if (scheduleFilter) {
+                scheduleFilter.addEventListener('change', function() {
+                    filterSchedules(this.value);
+                });
+            }
+
+            // Swap with agent change
+            const swapWithAgent = document.getElementById('swapWithAgent');
+            if (swapWithAgent) {
+                swapWithAgent.addEventListener('change', function() {
+                    loadAgentShifts(this.value);
+                });
+            }
+        }
+
+        function onTabChanged(tabId) {
+            console.log('Tab changed to:', tabId);
+            
+            switch(tabId) {
+                case 'overview':
+                    loadOverviewData();
+                    break;
+                case 'my-schedule':
+                    loadMySchedule();
+                    break;
+                case 'swap-requests':
+                    loadSwapRequests();
+                    break;
+                case 'availability':
+                    loadAvailability();
+                    break;
+                case 'holidays':
+                    loadHolidays();
+                    break;
+            }
+        }
+
+        function loadAgentData() {
+            console.log('Loading agent data...');
+            
+            // Extract agent ID from token (in real implementation)
+            const agentId = 'agent123'; // This would come from the token
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleAgentDataLoaded)
+                    .withFailureHandler(handleError)
+                    .getAgentData(agentId);
+            } else {
+                // Use placeholder data for demo
+                handleAgentDataLoaded({
+                    id: 'agent123',
+                    name: 'John Doe',
+                    email: 'john.doe@company.com'
+                });
+            }
+        }
+
+        function handleAgentDataLoaded(agent) {
+            console.log('Agent data loaded:', agent);
+            
+            currentAgent = agent;
+            
+            // Update UI with agent info
+            document.getElementById('agentName').textContent = agent.name;
+            document.getElementById('agentEmail').textContent = agent.email;
+            document.getElementById('agentId').textContent = agent.id;
+            
+            // Set current period
+            const today = new Date();
+            const endDate = new Date();
+            endDate.setDate(today.getDate() + 14);
+            
+            document.getElementById('currentPeriod').textContent = 
+                `${today.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+            
+            // Load initial data
+            loadOverviewData();
+        }
+
+        function loadOverviewData() {
+            console.log('Loading overview data...');
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleOverviewDataLoaded)
+                    .withFailureHandler(handleError)
+                    .getAgentOverview(currentAgent.id);
+            } else {
+                // Use placeholder data for demo
+                handleOverviewDataLoaded({
+                    totalShifts: 12,
+                    totalHours: 96,
+                    pendingSwaps: 1,
+                    upcomingHolidays: 2,
+                    upcomingShifts: []
+                });
+            }
+        }
+
+        function handleOverviewDataLoaded(data) {
+            console.log('Overview data loaded:', data);
+            
+            // Update stats
+            document.getElementById('totalShifts').textContent = data.totalShifts || 0;
+            document.getElementById('totalHours').textContent = data.totalHours || 0;
+            document.getElementById('pendingSwaps').textContent = data.pendingSwaps || 0;
+            document.getElementById('upcomingHolidays').textContent = data.upcomingHolidays || 0;
+            
+            // Show notices if any
+            showNotices(data.notices || []);
+            
+            // Load upcoming shifts preview
+            loadUpcomingShiftsPreview(data.upcomingShifts || []);
+        }
+
+        function showNotices(notices) {
+            const container = document.getElementById('noticesContainer');
+            
+            if (notices.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let noticesHtml = '';
+            notices.forEach(notice => {
+                noticesHtml += `
+                    <div class="alert alert-${notice.type}">
+                        <strong>${notice.title}:</strong> ${notice.message}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = noticesHtml;
+        }
+
+        function loadUpcomingShiftsPreview(shifts) {
+            const container = document.getElementById('upcomingShiftsPreview');
+            
+            if (shifts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h5>No upcoming shifts</h5>
+                        <p>You don't have any shifts scheduled for the next 7 days.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let shiftsHtml = '';
+            shifts.forEach(shift => {
+                const shiftDate = new Date(shift.date);
+                const isToday = shiftDate.toDateString() === new Date().toDateString();
+                const isTomorrow = shiftDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
+                
+                let dateLabel = shiftDate.toLocaleDateString();
+                if (isToday) dateLabel = 'Today';
+                else if (isTomorrow) dateLabel = 'Tomorrow';
+                
+                shiftsHtml += `
+                    <div class="schedule-item ${isToday ? 'today' : 'upcoming'}">
+                        <div class="schedule-header-row">
+                            <div>
+                                <div class="schedule-date">${dateLabel}</div>
+                                <div class="schedule-time">${shift.startTime} - ${shift.endTime}</div>
+                                <div class="text-muted">${shift.shiftSlot}</div>
+                            </div>
+                            <span class="schedule-status ${shift.status}">${shift.status}</span>
+                        </div>
+                        <div class="schedule-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="viewShiftDetails('${shift.id}')">
+                                <i class="fas fa-eye"></i> Details
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="requestShiftSwap('${shift.id}')">
+                                <i class="fas fa-exchange-alt"></i> Request Swap
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = shiftsHtml;
+        }
+
+        function loadMySchedule() {
+            console.log('Loading my schedule...');
+            
+            const container = document.getElementById('myScheduleContainer');
+            container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span style="margin-left: 1rem;">Loading your schedule...</span></div>';
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleMyScheduleLoaded)
+                    .withFailureHandler(handleError)
+                    .getAgentSchedule(currentAgent.id);
+            } else {
+                setTimeout(() => {
+                    handleMyScheduleLoaded([]);
+                }, 1000);
+            }
+        }
+
+        function handleMyScheduleLoaded(schedules) {
+            console.log('My schedule loaded:', schedules);
+            
+            agentSchedules = schedules;
+            displaySchedules(schedules);
+            
+            // Populate shift selector for swap requests
+            populateMyShifts(schedules);
+        }
+
+        function displaySchedules(schedules) {
+            const container = document.getElementById('myScheduleContainer');
+            
+            if (schedules.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h4>No shifts scheduled</h4>
+                        <p>You don't have any shifts in your current schedule.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let schedulesHtml = '';
+            schedules.forEach(schedule => {
+                const scheduleDate = new Date(schedule.date);
+                const isToday = scheduleDate.toDateString() === new Date().toDateString();
+                const isPast = scheduleDate < new Date();
+                
+                let scheduleClass = 'schedule-item';
+                if (isToday) scheduleClass += ' today';
+                else if (isPast) scheduleClass += ' past';
+                else scheduleClass += ' upcoming';
+                
+                schedulesHtml += `
+                    <div class="${scheduleClass}">
+                        <div class="schedule-header-row">
+                            <div>
+                                <div class="schedule-date">${scheduleDate.toLocaleDateString()}</div>
+                                <div class="schedule-time">${schedule.startTime} - ${schedule.endTime}</div>
+                                <div class="text-muted">${schedule.shiftSlot}</div>
+                            </div>
+                            <span class="schedule-status ${schedule.status}">${schedule.status}</span>
+                        </div>
+                        <div class="schedule-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="viewShiftDetails('${schedule.id}')">
+                                <i class="fas fa-eye"></i> Details
+                            </button>
+                            ${schedule.status === 'active' && !isPast ? `
+                                <button class="btn btn-sm btn-warning" onclick="requestShiftSwap('${schedule.id}')">
+                                    <i class="fas fa-exchange-alt"></i> Request Swap
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = schedulesHtml;
+        }
+
+        function populateMyShifts(schedules) {
+            const select = document.getElementById('myShiftSelect');
+            select.innerHTML = '<option value="">Select your shift to swap</option>';
+            
+            // Only show upcoming shifts that are active
+            const upcomingShifts = schedules.filter(s => 
+                new Date(s.date) > new Date() && s.status === 'active'
+            );
+            
+            upcomingShifts.forEach(shift => {
+                const option = document.createElement('option');
+                option.value = shift.id;
+                option.textContent = `${new Date(shift.date).toLocaleDateString()} - ${shift.startTime}-${shift.endTime} (${shift.shiftSlot})`;
+                select.appendChild(option);
+            });
+        }
+
+        function filterSchedules(filter) {
+            console.log('Filtering schedules by:', filter);
+            
+            let filteredSchedules = [...agentSchedules];
+            const now = new Date();
+            
+            switch(filter) {
+                case 'upcoming':
+                    filteredSchedules = agentSchedules.filter(s => new Date(s.date) > now);
+                    break;
+                case 'this-week':
+                    const endOfWeek = new Date(now);
+                    endOfWeek.setDate(now.getDate() + (7 - now.getDay()));
+                    filteredSchedules = agentSchedules.filter(s => {
+                        const date = new Date(s.date);
+                        return date >= now && date <= endOfWeek;
+                    });
+                    break;
+                case 'next-week':
+                    const startOfNextWeek = new Date(now);
+                    startOfNextWeek.setDate(now.getDate() + (7 - now.getDay()) + 1);
+                    const endOfNextWeek = new Date(startOfNextWeek);
+                    endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+                    filteredSchedules = agentSchedules.filter(s => {
+                        const date = new Date(s.date);
+                        return date >= startOfNextWeek && date <= endOfNextWeek;
+                    });
+                    break;
+            }
+            
+            displaySchedules(filteredSchedules);
+        }
+
+        function loadSwapRequests() {
+            console.log('Loading swap requests...');
+            
+            const container = document.getElementById('mySwapRequests');
+            container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span style="margin-left: 1rem;">Loading swap requests...</span></div>';
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleSwapRequestsLoaded)
+                    .withFailureHandler(handleError)
+                    .getAgentSwapRequests(currentAgent.id);
+            } else {
+                setTimeout(() => {
+                    handleSwapRequestsLoaded([]);
+                }, 1000);
+            }
+        }
+
+        function handleSwapRequestsLoaded(requests) {
+            console.log('Swap requests loaded:', requests);
+            
+            agentSwapRequests = requests;
+            
+            const container = document.getElementById('mySwapRequests');
+            
+            if (requests.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exchange-alt"></i>
+                        <h5>No swap requests</h5>
+                        <p>You haven't made any shift swap requests yet.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let requestsHtml = '';
+            requests.forEach(request => {
+                const statusClass = request.status === 'pending' ? 'warning' : 
+                                   request.status === 'approved' ? 'success' : 'danger';
+                
+                requestsHtml += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6>Swap Request with ${request.swapWithName}</h6>
+                                    <p class="mb-1">
+                                        <strong>Your shift:</strong> ${new Date(request.myShiftDate).toLocaleDateString()} ${request.myShiftTime}
+                                    </p>
+                                    ${request.theirShiftDate ? `
+                                        <p class="mb-1">
+                                            <strong>Their shift:</strong> ${new Date(request.theirShiftDate).toLocaleDateString()} ${request.theirShiftTime}
+                                        </p>
+                                    ` : ''}
+                                    <p class="mb-1"><strong>Reason:</strong> ${request.reason}</p>
+                                    <small class="text-muted">Requested: ${new Date(request.requestedAt).toLocaleDateString()}</small>
+                                </div>
+                                <span class="badge bg-${statusClass}">${request.status.toUpperCase()}</span>
+                            </div>
+                            ${request.status === 'pending' ? `
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-danger" onclick="cancelSwapRequest('${request.id}')">
+                                        <i class="fas fa-times"></i> Cancel Request
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = requestsHtml;
+            
+            // Load available agents for new swap requests
+            loadAvailableAgents();
+        }
+
+        function loadAvailableAgents() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleAvailableAgentsLoaded)
+                    .withFailureHandler(handleError)
+                    .getAvailableAgents();
+            }
+        }
+
+        function handleAvailableAgentsLoaded(agents) {
+            const select = document.getElementById('swapWithAgent');
+            select.innerHTML = '<option value="">Select agent to swap with</option>';
+            
+            // Filter out current agent
+            const availableAgents = agents.filter(a => a.id !== currentAgent.id);
+            
+            availableAgents.forEach(agent => {
+                const option = document.createElement('option');
+                option.value = agent.id;
+                option.textContent = agent.name;
+                select.appendChild(option);
+            });
+        }
+
+        function loadAgentShifts(agentId) {
+            if (!agentId) {
+                document.getElementById('theirShiftSelect').innerHTML = '<option value="">Select their shift (or leave blank)</option>';
+                return;
+            }
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleAgentShiftsLoaded)
+                    .withFailureHandler(handleError)
+                    .getAgentUpcomingShifts(agentId);
+            }
+        }
+
+        function handleAgentShiftsLoaded(shifts) {
+            const select = document.getElementById('theirShiftSelect');
+            select.innerHTML = '<option value="">Select their shift (or leave blank)</option>';
+            
+            shifts.forEach(shift => {
+                const option = document.createElement('option');
+                option.value = shift.id;
+                option.textContent = `${new Date(shift.date).toLocaleDateString()} - ${shift.startTime}-${shift.endTime} (${shift.shiftSlot})`;
+                select.appendChild(option);
+            });
+        }
+
+        function loadAvailability() {
+            console.log('Loading availability...');
+            
+            const container = document.getElementById('availabilityContainer');
+            container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span style="margin-left: 1rem;">Loading availability...</span></div>';
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleAvailabilityLoaded)
+                    .withFailureHandler(handleError)
+                    .getAgentAvailability(currentAgent.id);
+            } else {
+                setTimeout(() => {
+                    handleAvailabilityLoaded([]);
+                }, 1000);
+            }
+        }
+
+        function handleAvailabilityLoaded(availability) {
+            console.log('Availability loaded:', availability);
+            
+            const container = document.getElementById('availabilityContainer');
+            
+            if (availability.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-check"></i>
+                        <h5>No availability records</h5>
+                        <p>You haven't marked any specific availability yet. By default, you're considered available for all shifts.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let availabilityHtml = `
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Reason</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            availability.forEach(record => {
+                const statusClass = record.status === 'available' ? 'success' : 
+                                   record.status === 'unavailable' ? 'warning' : 'danger';
+                
+                availabilityHtml += `
+                    <tr>
+                        <td>${new Date(record.date).toLocaleDateString()}</td>
+                        <td><span class="badge bg-${statusClass}">${record.status}</span></td>
+                        <td>${record.reason || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editAvailability('${record.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            availabilityHtml += '</tbody></table>';
+            container.innerHTML = availabilityHtml;
+        }
+
+        function loadHolidays() {
+            console.log('Loading holidays...');
+            
+            const container = document.getElementById('holidaysContainer');
+            container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span style="margin-left: 1rem;">Loading holidays...</span></div>';
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleHolidaysLoaded)
+                    .withFailureHandler(handleError)
+                    .getUpcomingHolidays();
+            } else {
+                setTimeout(() => {
+                    handleHolidaysLoaded([]);
+                }, 1000);
+            }
+        }
+
+        function handleHolidaysLoaded(holidays) {
+            console.log('Holidays loaded:', holidays);
+            
+            const container = document.getElementById('holidaysContainer');
+            
+            if (holidays.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-umbrella-beach"></i>
+                        <h5>No upcoming holidays</h5>
+                        <p>There are no holidays in the next few months.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let holidaysHtml = `
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Holiday</th>
+                            <th>Country</th>
+                            <th>Work Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            holidays.forEach(holiday => {
+                const workStatus = holiday.isRecognized ? 'No Work Required' : 'Regular Work Day';
+                const statusClass = holiday.isRecognized ? 'success' : 'warning';
+                
+                holidaysHtml += `
+                    <tr ${holiday.isRecognized ? 'class="table-success"' : ''}>
+                        <td>${new Date(holiday.date).toLocaleDateString()}</td>
+                        <td><strong>${holiday.name}</strong></td>
+                        <td>${holiday.country.charAt(0).toUpperCase() + holiday.country.slice(1)}</td>
+                        <td><span class="badge bg-${statusClass}">${workStatus}</span></td>
+                    </tr>
+                `;
+            });
+            
+            holidaysHtml += '</tbody></table>';
+            container.innerHTML = holidaysHtml;
+        }
+
+        // Action functions
+        function viewShiftDetails(shiftId) {
+            console.log('Viewing shift details:', shiftId);
+            showAlert('Shift details feature coming soon', 'info');
+        }
+
+        function requestShiftSwap(shiftId) {
+            console.log('Requesting shift swap for:', shiftId);
+            
+            // Pre-select the shift in the modal
+            document.getElementById('myShiftSelect').value = shiftId;
+            
+            // Show the modal
+            new bootstrap.Modal(document.getElementById('swapRequestModal')).show();
+        }
+
+        function submitSwapRequest() {
+            const swapRequest = {
+                myShift: document.getElementById('myShiftSelect').value,
+                swapWithAgent: document.getElementById('swapWithAgent').value,
+                theirShift: document.getElementById('theirShiftSelect').value,
+                reason: document.getElementById('swapReason').value
+            };
+            
+            if (!swapRequest.myShift || !swapRequest.swapWithAgent || !swapRequest.reason) {
+                showAlert('Please fill in all required fields', 'warning');
+                return;
+            }
+            
+            console.log('Submitting swap request:', swapRequest);
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleSwapRequestSubmitted)
+                    .withFailureHandler(handleError)
+                    .submitShiftSwapRequest(currentAgent.id, swapRequest);
+            } else {
+                setTimeout(() => {
+                    handleSwapRequestSubmitted({ success: true });
+                }, 1000);
+            }
+        }
+
+        function handleSwapRequestSubmitted(result) {
+            if (result.success) {
+                showAlert('Swap request submitted successfully! You will be notified when it is processed.', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('swapRequestModal')).hide();
+                document.getElementById('swapRequestForm').reset();
+                
+                // Refresh swap requests
+                loadSwapRequests();
+            } else {
+                showAlert('Failed to submit swap request: ' + (result.error || 'Unknown error'), 'danger');
+            }
+        }
+
+        function cancelSwapRequest(requestId) {
+            if (!confirm('Are you sure you want to cancel this swap request?')) {
+                return;
+            }
+            
+            console.log('Cancelling swap request:', requestId);
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleSwapRequestCancelled)
+                    .withFailureHandler(handleError)
+                    .cancelShiftSwapRequest(requestId);
+            } else {
+                setTimeout(() => {
+                    handleSwapRequestCancelled({ success: true });
+                }, 500);
+            }
+        }
+
+        function handleSwapRequestCancelled(result) {
+            if (result.success) {
+                showAlert('Swap request cancelled successfully', 'success');
+                loadSwapRequests();
+            } else {
+                showAlert('Failed to cancel swap request: ' + (result.error || 'Unknown error'), 'danger');
+            }
+        }
+
+        function submitAvailability() {
+            const availability = {
+                date: document.getElementById('availabilityDate').value,
+                status: document.getElementById('availabilityStatus').value,
+                reason: document.getElementById('availabilityReason').value
+            };
+            
+            if (!availability.date || !availability.status) {
+                showAlert('Please fill in all required fields', 'warning');
+                return;
+            }
+            
+            if (!currentAgent) {
+                showAlert('Agent data not loaded', 'warning');
+                return;
+            }
+            
+            console.log('Submitting availability:', availability);
+            
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(handleAvailabilitySubmitted)
+                    .withFailureHandler(handleError)
+                    .updateAgentAvailability(currentAgent.id, availability);
+            } else {
+                showAlert('Unable to update availability - backend connection failed', 'danger');
+            }
+        }
+
+        function handleAvailabilitySubmitted(result) {
+            if (result.success) {
+                showAlert('Availability updated successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('availabilityModal')).hide();
+                document.getElementById('availabilityForm').reset();
+                
+                // Refresh availability
+                loadAvailability();
+            } else {
+                showAlert('Failed to update availability: ' + (result.error || 'Unknown error'), 'danger');
+            }
+        }
+
+        function editAvailability(recordId) {
+            console.log('Editing availability:', recordId);
+            showAlert('Edit availability feature coming soon', 'info');
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            const container = document.querySelector('.container');
+            const alertDiv = document.createElement('div');
+            alertDiv.innerHTML = alertHtml;
+            container.insertBefore(alertDiv.firstElementChild, container.firstElementChild);
+            
+            setTimeout(() => {
+                const alert = container.querySelector('.alert');
+                if (alert) {
+                    bootstrap.Alert.getOrCreateInstance(alert).close();
+                }
+            }, 5000);
+        }
+
+        function handleError(error) {
+            console.error('Error:', error);
+            showAlert('An error occurred: ' + (error.message || error), 'danger');
+        }
+  </script>
+</body>
+
+</html>

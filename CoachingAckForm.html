@@ -1,0 +1,868 @@
+<!-- CoachingAckForm.html -->
+<?!= include("headerConf", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+
+<script>
+  // Injected by doGet:
+  const recordId = '<?= recordId ?>';
+  const record   = recordId
+    ? JSON.parse('<?= record ?>')
+    : {};
+</script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Quill CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<style>
+  :root {
+    --primary: #4285f4;
+    --primary-dark: #1a73e8;
+    --accent: #34a853;
+    --warning: #fbbc04;
+    --danger: #ea4335;
+    --surface: #ffffff;
+    --surface-variant: #f8f9fa;
+    --surface-elevated: #ffffff;
+    --outline: #dadce0;
+    --outline-variant: #e8eaed;
+    --shadow: rgba(0,0,0,0.1);
+    --shadow-hover: rgba(0,0,0,0.15);
+    --shadow-elevated: 0 4px 24px rgba(0,0,0,0.12);
+    --text-primary: #202124;
+    --text-secondary: #5f6368;
+    --text-tertiary: #80868b;
+    --border-radius: 12px;
+    --border-radius-lg: 16px;
+    --spacing: 1.5rem;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    --gradient-accent: linear-gradient(135deg, var(--accent) 0%, #2e7d32 100%);
+  }
+
+  * { 
+    box-sizing: border-box; 
+  }
+
+  body {
+    background: var(--surface-variant);
+    font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Header Styling */
+  #topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--gradient-primary);
+    color: white;
+    z-index: 1000;
+    padding: 0 2rem;
+    box-shadow: var(--shadow-elevated);
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo span {
+    color: rgba(255,255,255,0.8);
+    font-weight: 400;
+  }
+
+  /* Main Content */
+  #maincontent {
+    margin-top: 64px;
+    padding: var(--spacing);
+    min-height: calc(100vh - 64px);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  /* Container */
+  .ack-container {
+    background: var(--surface-elevated);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-elevated);
+    padding: 0;
+    max-width: 700px;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--outline-variant);
+    backdrop-filter: blur(10px);
+    animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  /* Header */
+  .ack-header {
+    background: var(--gradient-primary);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ack-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1));
+    transform: translateX(100px);
+    transition: transform 0.6s ease;
+  }
+
+  .ack-container:hover .ack-header::before {
+    transform: translateX(-100px);
+  }
+
+  .ack-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .ack-header i {
+    font-size: 1.5rem;
+    opacity: 0.9;
+  }
+
+  .ack-header p {
+    margin: 0.75rem 0 0;
+    opacity: 0.9;
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  /* Content */
+  .ack-content {
+    padding: 2rem;
+  }
+
+  /* Details Section */
+  .details-card {
+    background: var(--surface-variant);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid var(--outline-variant);
+    transition: var(--transition);
+  }
+
+  .details-card:hover {
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+
+  .details-card h3 {
+    margin: 0 0 1.25rem 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .details-card h3 i {
+    font-size: 1rem;
+    opacity: 0.8;
+  }
+
+  .details-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .detail-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .detail-label i {
+    font-size: 0.75rem;
+    opacity: 0.7;
+  }
+
+  .detail-value {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    line-height: 1.6;
+    padding: 0.5rem 0;
+  }
+
+  .detail-value.empty {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+
+  /* Rich text formatting for HTML content */
+  .detail-value p {
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+  }
+
+  .detail-value p:last-child {
+    margin-bottom: 0;
+  }
+
+  .detail-value strong, 
+  .detail-value b {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .detail-value em, 
+  .detail-value i {
+    font-style: italic;
+    color: var(--text-secondary);
+  }
+
+  .detail-value ul, 
+  .detail-value ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .detail-value li {
+    margin-bottom: 0.25rem;
+    line-height: 1.5;
+  }
+
+  /* Topics List */
+  .topics-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+  }
+
+  .topics-list li {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    color: #1565c0;
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    border: 1px solid rgba(21, 101, 192, 0.1);
+    transition: var(--transition);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .topics-list li:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(21, 101, 192, 0.2);
+  }
+
+  .topics-list li strong {
+    color: #0d47a1;
+    font-weight: 600;
+  }
+
+  .topics-list li.empty {
+    background: var(--surface);
+    color: var(--text-tertiary);
+    border-color: var(--outline-variant);
+    font-style: italic;
+  }
+
+  /* Editor Section */
+  .editor-section {
+    margin-bottom: 2rem;
+  }
+
+  .editor-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .editor-section h3 i {
+    font-size: 1rem;
+    opacity: 0.8;
+  }
+
+  .editor-description {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+
+  /* Custom Quill Styling */
+  .ql-container {
+    border-radius: 0 0 var(--border-radius) var(--border-radius) !important;
+    border-color: var(--outline) !important;
+    font-family: inherit !important;
+    font-size: 0.95rem !important;
+  }
+
+  .ql-toolbar {
+    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+    border-color: var(--outline) !important;
+    background: var(--surface-variant) !important;
+  }
+
+  .ql-editor {
+    min-height: 150px !important;
+    line-height: 1.6 !important;
+    color: var(--text-primary) !important;
+  }
+
+  .ql-editor.ql-blank::before {
+    color: var(--text-tertiary) !important;
+    font-style: italic !important;
+  }
+
+  .ql-toolbar .ql-stroke {
+    stroke: var(--text-secondary) !important;
+  }
+
+  .ql-toolbar .ql-fill {
+    fill: var(--text-secondary) !important;
+  }
+
+  .ql-toolbar button:hover {
+    background: rgba(66, 133, 244, 0.1) !important;
+    border-radius: 4px !important;
+  }
+
+  .ql-toolbar button.ql-active {
+    background: rgba(66, 133, 244, 0.15) !important;
+    border-radius: 4px !important;
+  }
+
+  .ql-toolbar button.ql-active .ql-stroke {
+    stroke: var(--primary) !important;
+  }
+
+  .ql-toolbar button.ql-active .ql-fill {
+    fill: var(--primary) !important;
+  }
+
+  /* Action Section */
+  .action-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .ack-button {
+    background: var(--gradient-accent);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 1rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(52, 168, 83, 0.2);
+    letter-spacing: -0.01em;
+    min-width: 180px;
+    justify-content: center;
+  }
+
+  .ack-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(52, 168, 83, 0.3);
+  }
+
+  .ack-button:disabled {
+    background: var(--outline-variant);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .ack-button i {
+    font-size: 1.1rem;
+  }
+
+  /* Message */
+  .message {
+    min-height: 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+  }
+
+  .message.success {
+    background: rgba(52, 168, 83, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(52, 168, 83, 0.2);
+  }
+
+  .message.error {
+    background: rgba(234, 67, 53, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(234, 67, 53, 0.2);
+  }
+
+  .message:empty {
+    display: none;
+  }
+
+  /* Loading States */
+  .loading-spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  /* Responsive Design */
+  @media (min-width: 768px) {
+    .details-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 767px) {
+    #topbar {
+      padding: 0 1rem;
+    }
+
+    #maincontent {
+      padding: 1rem;
+    }
+
+    .ack-header {
+      padding: 1.5rem 1rem;
+    }
+
+    .ack-header h1 {
+      font-size: 1.5rem;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .ack-content {
+      padding: 1.5rem 1rem;
+    }
+
+    .details-card {
+      padding: 1rem;
+    }
+
+    .ack-button {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .ack-header h1 {
+      font-size: 1.25rem;
+    }
+
+    .details-card {
+      margin-bottom: 1.5rem;
+    }
+
+    .ql-editor {
+      min-height: 120px !important;
+    }
+  }
+
+  /* Focus States */
+  .ack-button:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .topics-list li {
+      border-width: 2px;
+    }
+    
+    .ack-button {
+      border: 2px solid transparent;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Print Styles */
+  @media print {
+    #topbar {
+      position: static;
+      box-shadow: none;
+    }
+
+    #maincontent {
+      margin-top: 0;
+    }
+
+    .ack-button,
+    .editor-section {
+      display: none;
+    }
+
+    .ack-container {
+      box-shadow: none;
+      border: 1px solid #000;
+    }
+  }
+</style>
+
+<header id="topbar" class="d-flex align-items-center">
+  <div class="logo">DATA<span>LOG</span></div>
+</header>
+
+<div id="maincontent">
+  <div class="ack-container">
+    <!-- Header -->
+    <div class="ack-header">
+      <h1>
+        <i class="fas fa-handshake"></i>
+        Coaching Acknowledgment
+      </h1>
+      <p>Please review your coaching session details and provide your acknowledgment</p>
+    </div>
+
+    <!-- Content -->
+    <div class="ack-content">
+      <!-- Session Details -->
+      <div class="details-card">
+        <h3>
+          <i class="fas fa-info-circle"></i>
+          Session Details
+        </h3>
+        <div id="details" class="details-grid">
+          <!-- Content will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Editor Section -->
+      <div class="editor-section">
+        <h3>
+          <i class="fas fa-pen"></i>
+          Your Acknowledgment
+        </h3>
+        <p class="editor-description">
+          Share your thoughts, feedback, or commitments regarding this coaching session. 
+          Your input helps improve future sessions and tracks your progress.
+        </p>
+        <div id="ackEditor"></div>
+      </div>
+
+      <!-- Action Section -->
+      <div class="action-section">
+        <button id="ackBtn" class="ack-button" disabled>
+          <i class="fas fa-check-circle"></i>
+          Submit Acknowledgment
+        </button>
+        <div id="msg" class="message"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const detailsEl = document.getElementById('details');
+    const btn       = document.getElementById('ackBtn');
+    const msg       = document.getElementById('msg');
+
+    if (!recordId) {
+      detailsEl.innerHTML = `
+        <div class="detail-item" style="grid-column: 1 / -1;">
+          <div class="detail-value empty">No session specified.</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Utility functions
+    function formatDate(dateStr) {
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString([], {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      } catch (e) {
+        return dateStr || 'Not specified';
+      }
+    }
+
+    function safeHTML(html) {
+      return html || '<em class="text-muted">Not specified</em>';
+    }
+
+    // Parse topics
+    let topics = [];
+    try {
+      topics = JSON.parse(record.TopicsPlanned || '[]');
+    } catch (e) {
+      topics = [];
+    }
+
+    // Render session details with proper formatting
+    detailsEl.innerHTML = `
+      <div class="detail-item">
+        <div class="detail-label">
+          <i class="fas fa-calendar"></i>
+          Session Date
+        </div>
+        <div class="detail-value">${formatDate(record.SessionDate)}</div>
+      </div>
+
+      <div class="detail-item">
+        <div class="detail-label">
+          <i class="fas fa-user-tie"></i>
+          Coach
+        </div>
+        <div class="detail-value">${record.AgentName || 'Not specified'}</div>
+      </div>
+
+      <div class="detail-item">
+        <div class="detail-label">
+          <i class="fas fa-user"></i>
+          Coachee
+        </div>
+        <div class="detail-value">${record.CoacheeName || 'Not specified'}</div>
+      </div>
+
+      <div class="detail-item" style="grid-column: 1 / -1;">
+        <div class="detail-label">
+          <i class="fas fa-lightbulb"></i>
+          Topics Covered
+        </div>
+        <div class="detail-value">
+          <ul class="topics-list">
+            ${topics.length
+              ? topics.map(t => `
+                  <li>
+                    <i class="fas fa-arrow-right" style="margin-top: 0.125rem; font-size: 0.75rem; opacity: 0.7;"></i>
+                    <div>
+                      <strong>${t.name}</strong>: ${t.detail}
+                    </div>
+                  </li>
+                `).join('')
+              : '<li class="empty"><i class="fas fa-info-circle"></i> No specific topics were assigned for this session</li>'
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="detail-item" style="grid-column: 1 / -1;">
+        <div class="detail-label">
+          <i class="fas fa-tasks"></i>
+          Action Plan
+        </div>
+        <div class="detail-value">${safeHTML(record.ActionPlan)}</div>
+      </div>
+    `;
+
+    // Initialize Quill editor with enhanced configuration
+    const ackQuill = new Quill('#ackEditor', {
+      theme: 'snow',
+      placeholder: 'Share your thoughts about this coaching session...\n\n• What did you learn?\n• What commitments are you making?\n• Any questions or concerns?',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          ['link'],
+          ['clean']
+        ]
+      }
+    });
+
+    // Add enhanced interactivity
+    ackQuill.on('text-change', () => {
+      const hasContent = ackQuill.getText().trim().length > 0;
+      btn.disabled = !hasContent;
+      
+      if (hasContent && btn.disabled) {
+        btn.classList.add('fade-in');
+      }
+    });
+
+    // Enhanced button click handler
+    btn.addEventListener('click', () => {
+      const content = ackQuill.getText().trim();
+      
+      if (content.length === 0) {
+        showMessage('Please enter your acknowledgment before submitting.', 'error');
+        ackQuill.focus();
+        return;
+      }
+
+      if (content.length < 10) {
+        showMessage('Please provide a more detailed acknowledgment (at least 10 characters).', 'error');
+        ackQuill.focus();
+        return;
+      }
+
+      // Update button state
+      btn.disabled = true;
+      const originalIcon = btn.querySelector('i').className;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner loading-spinner"></i> Submitting...';
+      
+      // Clear any previous messages
+      msg.textContent = '';
+      msg.className = 'message';
+
+      const ackHtml = ackQuill.root.innerHTML;
+
+      google.script.run
+        .withSuccessHandler(timestamp => {
+          btn.innerHTML = '<i class="fas fa-check-circle"></i> Acknowledged!';
+          btn.style.background = 'var(--gradient-accent)';
+          
+          showMessage(`Thank you! Your acknowledgment was successfully submitted on ${timestamp}`, 'success');
+          
+          // Disable editor
+          ackQuill.disable();
+          
+          // Show completion animation
+          setTimeout(() => {
+            const container = document.querySelector('.ack-container');
+            container.style.transform = 'scale(0.98)';
+            container.style.opacity = '0.9';
+            
+            setTimeout(() => {
+              container.style.transform = 'scale(1)';
+              container.style.opacity = '1';
+            }, 200);
+          }, 500);
+        })
+        .withFailureHandler(error => {
+          console.error('Acknowledgment submission failed:', error);
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          
+          showMessage(`Error submitting acknowledgment: ${error.message || 'Please try again.'}`, 'error');
+          
+          // Re-enable editor
+          ackQuill.enable();
+          ackQuill.focus();
+        })
+        .acknowledgeCoaching(recordId, ackHtml);
+    });
+
+    function showMessage(text, type = 'success') {
+      msg.textContent = text;
+      msg.className = `message ${type}`;
+      
+      // Scroll message into view if needed
+      msg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      // Auto-hide success messages after 5 seconds
+      if (type === 'success') {
+        setTimeout(() => {
+          msg.style.opacity = '0';
+          setTimeout(() => {
+            if (msg.classList.contains('success')) {
+              msg.textContent = '';
+              msg.className = 'message';
+              msg.style.opacity = '1';
+            }
+          }, 300);
+        }, 5000);
+      }
+    }
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + Enter to submit
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (!btn.disabled) {
+          btn.click();
+        }
+      }
+    });
+
+    // Enable button after setup
+    setTimeout(() => {
+      btn.disabled = ackQuill.getText().trim().length === 0;
+    }, 100);
+
+    // Add focus to editor
+    setTimeout(() => {
+      ackQuill.focus();
+    }, 300);
+
+    console.log('Modern Coaching Acknowledgment Form loaded successfully');
+  });
+</script>
+
+</body>
+</html>

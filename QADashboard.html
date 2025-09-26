@@ -1,0 +1,1870 @@
+<!-- QA Dashboard -->
+
+<?!= include('header', {
+      baseUrl: baseUrl,
+      currentPage: currentPage,
+      userList: userList,
+      granularity: granularity,
+      periodValue: periodValue,
+      selectedAgent: selectedAgent,
+      user: user,
+      campaignId: campaignId,
+      campaignName: campaignName
+    }) ?>
+
+<style>
+  :root {
+    /* Brand Color Palette */
+    --navy-primary: #003177;
+    --cyan-accent: #00BFFF;
+    --gold-highlight: #FFB800;
+    --fire-red: #FF4000;
+
+    /* Modern UI Colors */
+    --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+    --info-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+    --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+    --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    --card-shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.15);
+    --glass-bg: rgba(255, 255, 255, 0.25);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --backdrop-blur: blur(10px);
+    --border-radius-lg: 16px;
+    --border-radius-xl: 24px;
+    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Enhanced Loader */
+  #loaderOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: var(--backdrop-blur);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  #loaderOverlay.show {
+    opacity: 1;
+  }
+
+  .modern-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid transparent;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: modernSpin 1s linear infinite;
+    position: relative;
+  }
+
+  .modern-spinner::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 4px solid transparent;
+    border-top: 4px solid #764ba2;
+    border-radius: 50%;
+    animation: modernSpin 1.5s linear infinite reverse;
+  }
+
+  @keyframes modernSpin {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Modern Page Header with Live Status */
+  .modern-page-header {
+    background: var(--primary-gradient);
+    border-radius: var(--border-radius-xl);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modern-page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+  }
+
+  .modern-page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .modern-page-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin: 0.5rem 0 0 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .live-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    font-size: 1rem;
+    position: relative;
+    z-index: 2;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+  }
+
+  .live-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+  }
+
+  .live-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse-live 2s infinite;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+    position: relative;
+  }
+
+  .live-indicator::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    animation: ripple 2s infinite;
+  }
+
+  .datetime-display {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .status-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-text i {
+    color: #10b981;
+    font-size: 1.1rem;
+  }
+
+  @keyframes pulse-live {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.3);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.8);
+    }
+  }
+
+  @keyframes ripple {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  /* Modern Control Panel */
+  .modern-controls {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .modern-controls .control-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .modern-controls .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .modern-controls label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .modern-controls select,
+  .modern-controls input {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+    background: white;
+    min-width: 140px;
+  }
+
+  .modern-controls select:focus,
+  .modern-controls input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    outline: none;
+  }
+
+  /* Modern Action Buttons */
+  .modern-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .modern-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modern-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .modern-btn:hover::before {
+    left: 100%;
+  }
+
+  .modern-btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  }
+
+  .modern-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    color: white;
+  }
+
+  .modern-btn-secondary {
+    background: #f8fafc;
+    color: #475569;
+    border: 2px solid #e2e8f0;
+  }
+
+  .modern-btn-secondary:hover {
+    background: #f1f5f9;
+    transform: translateY(-2px);
+    color: #475569;
+  }
+
+  .modern-btn-success {
+    background: var(--success-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(17, 153, 142, 0.3);
+  }
+
+  .modern-btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(17, 153, 142, 0.4);
+    color: white;
+  }
+
+  /* Modern KPI Cards */
+  .modern-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .modern-kpi-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modern-kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .modern-kpi-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .modern-kpi-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .modern-kpi-card .kpi-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    color: white;
+    font-size: 1.5rem;
+  }
+
+  .modern-kpi-card .kpi-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    line-height: 1;
+  }
+
+  .modern-kpi-card .kpi-label {
+    font-size: 0.9rem;
+    color: #64748b;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .modern-kpi-card .kpi-trend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .modern-kpi-card .kpi-trend.positive {
+    color: #10b981;
+  }
+
+  .modern-kpi-card .kpi-trend.negative {
+    color: #ef4444;
+  }
+
+  /* Modern Category KPIs */
+  .category-kpis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .category-kpi-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: var(--transition-smooth);
+    text-align: center;
+  }
+
+  .category-kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .category-kpi-card h6 {
+    font-size: 0.9rem;
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .category-metrics {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .category-metric {
+    text-align: center;
+  }
+
+  .category-metric .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .category-metric .label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* Modern Chart Cards */
+  .modern-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .modern-chart-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: var(--transition-smooth);
+  }
+
+  .modern-chart-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .modern-chart-card h6 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .modern-chart-card h6::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--primary-gradient);
+    border-radius: 2px;
+  }
+
+  /* Chart Container Constraints */
+  .chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .chart-container.small {
+    height: 200px;
+  }
+
+  .chart-container canvas {
+    max-height: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Full width chart container */
+  .full-width-chart {
+    position: relative;
+    height: 250px;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  /* Modern Tables */
+  .modern-table-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom: 2rem;
+    overflow: hidden;
+  }
+
+  .modern-table-card h6 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .modern-table-card h6::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--success-gradient);
+    border-radius: 2px;
+  }
+
+  .modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .modern-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 2px solid #e2e8f0;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+  }
+
+  .modern-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+
+  .modern-table tbody tr {
+    transition: background-color 0.2s ease;
+  }
+
+  .modern-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  /* Badge styles for agent table */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-badge.excellent {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .status-badge.good {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+  }
+
+  .status-badge.needs-improvement {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .status-badge .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .modern-page-header {
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .modern-page-header h1 {
+      font-size: 2rem;
+      justify-content: center;
+    }
+
+    .live-header {
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+    }
+
+    .datetime-display {
+      font-size: 0.9rem;
+    }
+
+    .modern-controls .control-section {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .modern-controls select,
+    .modern-controls input {
+      min-width: auto;
+    }
+
+    .modern-chart-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .chart-container {
+      height: 250px;
+    }
+
+    .full-width-chart {
+      height: 200px;
+    }
+
+    .modern-kpi-grid {
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+
+    .modern-actions {
+      justify-content: center;
+    }
+
+    .modern-btn {
+      font-size: 0.8rem;
+      padding: 0.75rem 1.25rem;
+    }
+  }
+
+  /* Animation Enhancements */
+  .fade-in {
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .stagger-animation>* {
+    opacity: 0;
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .stagger-animation>*:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+
+  .stagger-animation>*:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .stagger-animation>*:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  .stagger-animation>*:nth-child(4) {
+    animation-delay: 0.4s;
+  }
+
+  .stagger-animation>*:nth-child(5) {
+    animation-delay: 0.5s;
+  }
+
+  .stagger-animation>*:nth-child(6) {
+    animation-delay: 0.6s;
+  }
+</style>
+
+<!-- Modern Page Header with Live Status -->
+<div class="modern-page-header fade-in">
+  <h1>
+    <i class="fas fa-chart-line"></i>
+    Quality Dashboard
+  </h1>
+  <p>
+    Monitor performance metrics and quality assurance
+    <? if (typeof campaignName !== 'undefined' && campaignName) { ?>
+    for <strong><?= campaignName ?></strong> campaign
+    <? } else { ?>
+    across all agents
+    <? } ?>
+  </p>
+  
+  <div class="live-header">
+    <div class="live-status">
+      <div class="live-indicator"></div>
+      <div class="status-text">
+        <i class="fas fa-wifi"></i>
+        <span>Dashboard Live</span>
+      </div>
+    </div>
+    <div class="datetime-display" id="liveDatetime">
+      Loading...
+    </div>
+  </div>
+</div>
+
+<!-- Modern Control Panel -->
+<div class="modern-controls fade-in">
+  <div class="row">
+    <div class="col-md-8">
+      <div class="control-section">
+        <div class="control-group">
+          <label>Report Type</label>
+          <select id="reportTypeSelect" class="form-select">
+                <option value="dashboard" <?= currentPage==="Dashboard" ? "selected":"" ?>>Dashboard</option>
+                <option value="callreports" <?= currentPage==="CallReports" ? "selected":"" ?>>Call Reports</option>
+                <option value="attendancereports" <?= currentPage==="AttendanceReports" ? "selected":"" ?>>Attendance Reports</option>
+                <option value="ibtrqualityreports" <?= currentPage==="QualityReports" ? "selected":"" ?>>Quality Report</option>
+                <option value="incentives" <?= currentPage==="Incentives" ? "selected":"" ?>>Incentives</option>
+              </select>
+        </div>
+
+        <div class="control-group">
+          <label>Time Period</label>
+          <select class="form-select" id="granularitySelect">
+                <option value="Week" selected>Week</option>
+                <option value="Month">Month</option>
+                <option value="Quarter">Quarter</option>
+                <option value="Year">Year</option>
+              </select>
+        </div>
+
+        <div class="control-group">
+          <label>Agent Filter</label>
+          <select class="form-select" id="agentSelect">
+                <option value="">
+                    All Agents
+                </option>
+                <? userList.forEach(function(u) { ?>
+                  <option value="<?= u ?>" <?= u === selectedAgent ? "selected" : "" ?>>
+                    <?= u ?>
+                  </option>
+                <? }); ?>
+              </select>
+        </div>
+
+        <!-- Period Pickers -->
+        <div class="control-group" id="weekPicker" style="display: none;">
+          <label>Week</label>
+          <input type="week" class="form-control" id="weekInput" />
+        </div>
+        <div class="control-group" id="monthPicker" style="display: none;">
+          <label>Month</label>
+          <input type="month" class="form-control" id="monthInput" />
+        </div>
+        <div class="control-group" id="quarterPicker" style="display: none;">
+          <label>Quarter</label>
+          <div class="d-flex gap-2">
+            <select class="form-select" id="quarterSelect">
+                  <option value="Q1">Q1</option>
+                  <option value="Q2">Q2</option>
+                  <option value="Q3">Q3</option>
+                  <option value="Q4">Q4</option>
+                </select>
+            <input type="number" class="form-control" id="quarterYearInput" placeholder="YYYY" min="2000" max="2100" style="width: 100px;" />
+          </div>
+        </div>
+        <div class="control-group" id="yearPicker" style="display: none;">
+          <label>Year</label>
+          <input type="number" class="form-control" id="yearInput" placeholder="YYYY" min="2000" max="2100"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modern Action Buttons -->
+<div class="modern-actions fade-in">
+  <? 
+        // Build clean URLs with campaign context using cookie-based auth
+        function buildUrl(page) {
+          var url = baseUrl + '?page=' + page;
+          if (typeof campaignId !== 'undefined' && campaignId) {
+            url += '&campaign=' + encodeURIComponent(campaignId);
+          }
+          return url;
+        }
+      ?>
+  <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
+    <i class="fas fa-clipboard-check"></i> New Quality
+  </a>
+  <a href="<?= buildUrl('qualitylist') ?>" class="modern-btn modern-btn-secondary">
+    <i class="fas fa-list"></i> Quality List
+  </a>
+  <button id="exportCsvBtn" class="modern-btn modern-btn-success">
+        <i class="fas fa-file-csv"></i> Export CSV
+      </button>
+  <a href="<?= buildUrl('coachinglist') ?>" class="modern-btn modern-btn-secondary">
+    <i class="fas fa-chalkboard-teacher"></i> Coaching
+  </a>
+  <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
+    <i class="fas fa-users"></i> New Collab Quality
+  </a>
+  <a href="<?= buildUrl('qacollablist') ?>" class="modern-btn modern-btn-secondary">
+    <i class="fas fa-list-check"></i> Quality Collab List
+  </a>
+</div>
+
+<!-- Modern KPI Cards -->
+<div class="modern-kpi-grid stagger-animation">
+  <div class="modern-kpi-card">
+    <div class="kpi-icon">
+      <i class="fas fa-chart-line"></i>
+    </div>
+    <div class="kpi-value" id="kpiAvgScore">0%</div>
+    <div class="kpi-label">Average Score</div>
+    <div class="kpi-trend" id="kpiAvgScoreTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
+
+  <div class="modern-kpi-card">
+    <div class="kpi-icon" style="background: var(--success-gradient);">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div class="kpi-value" id="kpiPassRate">0%</div>
+    <div class="kpi-label">Pass Rate</div>
+    <div class="kpi-trend" id="kpiPassRateTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
+
+  <div class="modern-kpi-card">
+    <div class="kpi-icon" style="background: var(--info-gradient);">
+      <i class="fas fa-users"></i>
+    </div>
+    <div class="kpi-value" id="kpiAgentsEval">0%</div>
+    <div class="kpi-label">Agents Evaluated</div>
+    <div class="kpi-trend" id="kpiAgentsEvalTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
+
+  <div class="modern-kpi-card">
+    <div class="kpi-icon" style="background: var(--warning-gradient);">
+      <i class="fas fa-tasks"></i>
+    </div>
+    <div class="kpi-value" id="kpiEvalsDone">0%</div>
+    <div class="kpi-label">Evaluations Completed</div>
+    <div class="kpi-trend" id="kpiEvalsDoneTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
+</div>
+
+<!-- Category KPIs -->
+<div class="category-kpis-grid stagger-animation" id="categoryKpis">
+  <!-- Dynamically populated by JavaScript -->
+</div>
+
+<!-- Modern Charts -->
+<div class="modern-chart-grid stagger-animation">
+  <div class="modern-chart-card">
+    <h6><i class="fas fa-calendar-day me-2"></i>Daily Performance</h6>
+    <div class="chart-container">
+      <canvas id="dailyChart"></canvas>
+    </div>
+  </div>
+
+  <div class="modern-chart-card">
+    <h6><i class="fas fa-user-friends me-2"></i>Agent Activity</h6>
+    <div class="chart-container">
+      <canvas id="agentChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Category Comparison Chart -->
+<div class="modern-chart-card fade-in">
+  <h6><i class="fas fa-chart-bar me-2"></i>Category Comparison</h6>
+  <div class="full-width-chart">
+    <canvas id="categoryChart"></canvas>
+  </div>
+</div>
+
+<!-- Modern Tables -->
+<div class="row">
+  <div class="col-lg-6 mb-4 mt-4">
+    <div class="modern-table-card fade-in">
+      <h6><i class="fas fa-layer-group me-2"></i>Performance by Category</h6>
+      <div class="table-responsive">
+        <table class="modern-table" id="categoryTable">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Avg Score</th>
+              <th>Pass Rate</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 mb-4 mt-4">
+    <div class="modern-table-card fade-in">
+      <h6><i class="fas fa-users-cog me-2"></i>Agent Performance</h6>
+      <div class="table-responsive">
+        <table class="modern-table" id="agentTable">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Evals %</th>
+              <th>Avg Score</th>
+              <th>Pass Rate</th>
+              <th>Recent</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Enhanced Loader -->
+<div id="loaderOverlay">
+  <div class="modern-spinner"></div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const campaignId = '<?= typeof campaignId !== "undefined" ? campaignId : "" ?>';
+      const campaignName = '<?= typeof campaignName !== "undefined" ? campaignName : "" ?>';
+
+      let lastFilteredData = [];
+
+      const PASS_MARK = 0.95;
+      const PASS_SCORE_THRESHOLD = PASS_MARK * 100;
+
+      const rawQA = JSON.parse('<?= qaRecords ?>');
+      let currentGran = '<?= granularity ?>';
+      let currentPeriod = '<?= periodValue ?>';
+      let currentAgent = '<?= selectedAgent ?>';
+      let userList = <?!= JSON.stringify(userList || []) ?>;
+
+      const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
+      const categories = {
+        'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
+        'Resolution':['Q6','Q7','Q8','Q9'],
+        'Case Documentation':['Q10','Q11','Q12','Q13','Q14'],
+        'Process Compliance':['Q15','Q16','Q17','Q18']
+      };
+
+      // Live datetime display function
+      function updateLiveDatetime() {
+        const now = new Date();
+        
+        const options = {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZoneName: 'short'
+        };
+        
+        const formatted = now.toLocaleDateString('en-US', options);
+        const datetimeDisplay = document.getElementById('liveDatetime');
+        
+        if (datetimeDisplay) {
+          datetimeDisplay.textContent = formatted;
+        }
+      }
+
+      function safeToDate(dateValue) {
+          if (!dateValue) return null;
+          
+          // If it's already a Date object, check if it's valid
+          if (dateValue instanceof Date) {
+              return isNaN(dateValue.getTime()) ? null : dateValue;
+          }
+          
+          // If it's a string or number, try to convert
+          const date = new Date(dateValue);
+          return isNaN(date.getTime()) ? null : date;
+      }
+
+      function safeToISOString(dateValue) {
+          const date = safeToDate(dateValue);
+          return date ? date.toISOString() : null;
+      }
+
+      function isValidDate(dateValue) {
+          return safeToDate(dateValue) !== null;
+      }
+      
+      let dailyChart, agentChart, categoryChart;
+
+      function showLoader(){ const el=document.getElementById('loaderOverlay'); el.style.display='flex'; setTimeout(()=>el.classList.add('show'),10); }
+      function hideLoader(){ const el=document.getElementById('loaderOverlay'); el.classList.remove('show'); setTimeout(()=>el.style.display='none',300); }
+
+      function toISOWeek(d){
+        d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+        const day=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-day);
+        const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        const w=Math.ceil((((d-ys)/86400000)+1)/7);
+        return `${d.getUTCFullYear()}-W${String(w).padStart(2,'0')}`;
+      }
+      function getQuarter(d){ return 'Q'+(Math.floor(d.getMonth()/3)+1); }
+
+      function getPreviousPeriod(granularity, period){
+        if(!period) return '';
+        switch(granularity){
+          case 'Week':{ const [y,w]=period.split('-W'); const n=parseInt(w,10); return (n<=1)?`${parseInt(y,10)-1}-W52`:`${y}-W${String(n-1).padStart(2,'0')}`; }
+          case 'Month':{ const [y,m]=period.split('-').map(Number); const date=new Date(y,m-1); date.setMonth(date.getMonth()-1); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`; }
+          case 'Quarter':{ const [q,y]=period.split('-'); const n=parseInt(q.replace('Q',''),10); return (n<=1)?`Q4-${parseInt(y,10)-1}`:`Q${n-1}-${y}`; }
+          case 'Year': return String(parseInt(period,10)-1);
+          default: return '';
+        }
+      }
+
+      function computeCategoryMetrics(data){
+        const out={};
+        Object.entries(categories).forEach(([cat,keys])=>{
+          const scores=[], passes=[];
+          data.forEach(r=>{
+            const ans=keys.map(k=>(r[k]||'').toString().toLowerCase()==='yes');
+            const earned=keys.reduce((s,k,i)=> s + (ans[i]?weightsMap[k]:0),0);
+            const totalW=keys.reduce((s,k)=> s + weightsMap[k],0);
+            scores.push(totalW? Math.round(earned/totalW*100):0);
+            passes.push(ans.every(Boolean)?1:0);
+          });
+          const avgScore=scores.length? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+          const passPct=passes.length? Math.round(passes.reduce((a,b)=>a+b,0)/passes.length*100):0;
+          out[cat]={ avgScore, passPct };
+        });
+        return out;
+      }
+
+      // CHANGED: uses PASS_SCORE_THRESHOLD / no undefined class access
+      function renderCategoryTable(metrics){
+        const tbody=document.querySelector('#categoryTable tbody'); tbody.innerHTML='';
+        Object.entries(metrics).forEach(([cat,m])=>{
+          const passScore=PASS_SCORE_THRESHOLD;
+          const goodScore=Math.round(passScore*0.8);
+          const avgClass = m.avgScore>=passScore ? 'excellent' : m.avgScore>=goodScore ? 'good':'needs-improvement';
+          const passClass= m.passPct >=passScore ? 'excellent' : m.passPct >=goodScore ? 'good':'needs-improvement';
+          const row=document.createElement('tr');
+          row.innerHTML=`
+            <td><strong>${cat}</strong></td>
+            <td><span class="status-badge ${avgClass}"><span class="badge-dot"></span>${m.avgScore}%</span></td>
+            <td><span class="status-badge ${passClass}"><span class="badge-dot"></span>${m.passPct}%</span></td>`;
+          tbody.appendChild(row);
+        });
+      }
+
+      function renderCategoryChart(metrics){
+        const labels=Object.keys(metrics);
+        const data=labels.map(l=>metrics[l].avgScore);
+        if(categoryChart){ categoryChart.destroy(); categoryChart=null; }
+        const ctx=document.getElementById('categoryChart'); if(!ctx) return;
+        categoryChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Score %',data,backgroundColor:'rgba(102,126,234,.1)',borderColor:'#667eea',borderWidth:2,borderRadius:8,borderSkipped:false}]},options:{...chartConfig,plugins:{...chartConfig.plugins,legend:{display:false}}}});
+      }
+
+      // CHANGED: weekday-only + correct thresholds
+      function renderDailyChart(data) {
+          const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+          const cnt = {}, sums = {}, ps = {};
+          days.forEach(d => { cnt[d] = 0; sums[d] = 0; ps[d] = 0; });
+          
+          data.forEach(r => {
+              // Use the cleaned date object
+              const dt = r.callDateObj || safeToDate(r.CallDate);
+              if (!dt) {
+                  console.warn('Skipping record with invalid date in renderDailyChart:', r);
+                  return;
+              }
+              
+              const idx = (dt.getDay() + 6) % 7; 
+              if (idx > 4) return; // skip Sat/Sun
+              
+              const day = days[idx];
+              cnt[day]++; 
+              sums[day] += r.recordScore;
+              if (r.recordScore >= PASS_SCORE_THRESHOLD) ps[day]++;
+          });
+          
+          const tot = data.length;
+          const evalPct = days.map(d => tot ? Math.round(cnt[d] / tot * 100) : 0);
+          const avgData = days.map(d => cnt[d] ? Math.round(sums[d] / cnt[d]) : 0);
+          const passPct = days.map(d => cnt[d] ? Math.round(ps[d] / cnt[d] * 100) : 0);
+
+          if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+          const ctx = document.getElementById('dailyChart'); 
+          if (!ctx) return;
+          
+          dailyChart = new Chart(ctx, {
+              data: {
+                  labels: days, 
+                  datasets: [
+                      { type: 'bar', label: 'Evaluations %', data: evalPct, backgroundColor: 'rgba(102,126,234,.1)', borderColor: '#667eea', borderWidth: 2, borderRadius: 6 },
+                      { type: 'line', label: 'Average Score', data: avgData, yAxisID: 'y1', tension: .4, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.1)', pointBackgroundColor: '#10b981', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 5 },
+                      { type: 'line', label: 'Pass Rate', data: passPct, yAxisID: 'y1', tension: .4, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.1)', pointBackgroundColor: '#f59e0b', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 5 }
+                  ]
+              },
+              options: { ...chartConfig, scales: { y: chartConfig.scales.y, y1: { ...chartConfig.scales.y, position: 'right', grid: { drawOnChartArea: false } }, x: chartConfig.scales.x } }
+          });
+      }
+
+      function renderAgentTable(data) {
+          const tbody = document.querySelector('#agentTable tbody'); 
+          tbody.innerHTML = '';
+          const stats = {};
+          
+          data.forEach(r => {
+              const n = r.AgentName;
+              if (!stats[n]) stats[n] = { count: 0, sum: 0, passes: 0, recent: r.CallDate };
+              
+              const s = stats[n]; 
+              s.count++; 
+              s.sum += r.recordScore; 
+              if (r.Percentage >= PASS_MARK) s.passes++;
+              
+              // Safely compare dates
+              const currentDate = safeToDate(r.CallDate);
+              const recentDate = safeToDate(s.recent);
+              
+              if (currentDate && recentDate && currentDate > recentDate) {
+                  s.recent = r.CallDate;
+              }
+          });
+          
+          const tot = data.length;
+          Object.entries(stats).forEach(([name, s]) => {
+              const evalPct = tot ? Math.round(s.count / tot * 100) : 0;
+              const avgScore = s.count ? Math.round(s.sum / s.count) : 0;
+              const passPct = s.count ? Math.round(s.passes / s.count * 100) : 0;
+              
+              // Safely format the date
+              let recentDateFormatted = 'N/A';
+              const recentDate = safeToDate(s.recent);
+              if (recentDate) {
+                  recentDateFormatted = recentDate.toLocaleDateString();
+              }
+              
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                  <td><strong>${name}</strong></td>
+                  <td>${evalPct}%</td>
+                  <td><span class="status-badge ${avgScore >= 95 ? 'excellent' : avgScore >= 80 ? 'good' : 'needs-improvement'}"><span class="badge-dot"></span>${avgScore}%</span></td>
+                  <td><span class="status-badge ${passPct >= 95 ? 'excellent' : passPct >= 80 ? 'good' : 'needs-improvement'}"><span class="badge-dot"></span>${passPct}%</span></td>
+                  <td>${recentDateFormatted}</td>`;
+              tbody.appendChild(row);
+          });
+      }
+
+      function debugInvalidDates() {
+          console.log('=== QA Data Date Debug ===');
+          let invalidCount = 0;
+          
+          rawQA.forEach((record, index) => {
+              const callDate = record.CallDate;
+              const testDate = safeToDate(callDate);
+              
+              if (!testDate) {
+                  console.log(`Invalid date at index ${index}:`, {
+                      CallDate: callDate,
+                      CallDateType: typeof callDate,
+                      AgentName: record.AgentName,
+                      record: record
+                  });
+                  invalidCount++;
+              }
+          });
+          
+          console.log(`Found ${invalidCount} records with invalid dates out of ${rawQA.length} total records`);
+          return invalidCount;
+      }
+
+      function renderAgentChart(data){
+        const aCnt={}, aPs={}, aSum={};
+        data.forEach(r=>{
+          const n=r.AgentName, score=r.recordScore, passed=r.Percentage>=PASS_MARK;
+          aCnt[n]=(aCnt[n]||0)+1; aPs[n]=(aPs[n]||0)+(passed?1:0); aSum[n]=(aSum[n]||0)+score;
+        });
+        const agents=Object.keys(aCnt); const tot=data.length;
+        const evalPct=agents.map(a=>tot?Math.round(aCnt[a]/tot*100):0);
+        const passPct=agents.map(a=>aCnt[a]?Math.round(aPs[a]/aCnt[a]*100):0);
+        const avgScore=agents.map(a=>aCnt[a]?Math.round(aSum[a]/aCnt[a]):0);
+
+        if(agentChart){ agentChart.destroy(); agentChart=null; }
+        const ctx=document.getElementById('agentChart'); if(!ctx) return;
+        agentChart=new Chart(ctx,{type:'bar',data:{labels:agents,datasets:[
+          {label:'Evaluations %',data:evalPct,backgroundColor:'rgba(102,126,234,.1)',borderColor:'#667eea',borderWidth:2,borderRadius:6},
+          {label:'Average Score',data:avgScore,backgroundColor:'rgba(16,185,129,.1)',borderColor:'#10b981',borderWidth:2,borderRadius:6},
+          {label:'Pass Rate',data:passPct,backgroundColor:'rgba(245,158,11,.1)',borderColor:'#f59e0b',borderWidth:2,borderRadius:6}]},
+          options:chartConfig});
+      }
+
+      function renderCategoryKpis(metrics){
+        const container=document.getElementById('categoryKpis'); container.innerHTML='';
+        Object.entries(metrics).forEach(([cat,m])=>{
+          const card=document.createElement('div'); card.className='category-kpi-card';
+          card.innerHTML=`<h6>${cat}</h6>
+            <div class="category-metrics">
+              <div class="category-metric"><div class="value">${m.avgScore}%</div><div class="label">Avg Score</div></div>
+              <div class="category-metric"><div class="value">${m.passPct}%</div><div class="label">Pass Rate</div></div>
+            </div>`;
+          container.appendChild(card);
+        });
+      }
+
+      const chartConfig={responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{labels:{usePointStyle:true,padding:20,font:{family:"'Google Sans', sans-serif",size:12,weight:'500'}}},tooltip:{backgroundColor:'rgba(0,0,0,.8)',titleColor:'#fff',bodyColor:'#fff',borderColor:'#667eea',borderWidth:1,cornerRadius:8,padding:12}},scales:{y:{beginAtZero:true,max:100,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{family:"'Google Sans', sans-serif"}}},x:{grid:{display:false},ticks:{font:{family:"'Google Sans', sans-serif"}}}},layout:{padding:{top:10,bottom:10}}};
+
+      function safePercentage(numerator, denominator, maxCap = 100, debugLabel = '') {
+        if (debugLabel) {
+          console.log(`${debugLabel}: ${numerator}/${denominator}`);
+        }
+        if (!denominator || denominator <= 0) return 0;
+        const result = Math.round((numerator / denominator) * 100);
+        return Math.min(result, maxCap);
+      }
+
+      function applyFilters(){
+          showLoader();
+          setTimeout(()=>{
+              // STEP 1: Clean and validate the raw QA data first
+              const cleanedQA = rawQA.map(r => {
+                  // Validate and clean the CallDate
+                  const callDate = safeToDate(r.CallDate);
+                  if (!callDate) {
+                      console.warn('Invalid CallDate found in record:', r);
+                      return null; // Mark for removal
+                  }
+                  
+                  return {
+                      ...r,
+                      CallDate: callDate.toISOString(), // Store as valid ISO string
+                      callDateObj: callDate // Keep Date object for processing
+                  };
+              }).filter(r => r !== null); // Remove records with invalid dates
+
+              // STEP 2: Calculate scores safely
+              const scored = cleanedQA.map(r => {
+                  let s = 0; 
+                  Object.entries(weightsMap).forEach(([q, w]) => { 
+                      if ((r[q] || '').toString().toLowerCase() === 'yes') s += w; 
+                  });
+                  return { ...r, recordScore: s };
+              });
+
+              // STEP 3: Apply period and agent filters safely
+              const filtered = scored.filter(r => {
+                  // Agent filter
+                  if (currentAgent && r.AgentName !== currentAgent) return false;
+                  
+                  // Use the cleaned Date object for period filtering
+                  const dt = r.callDateObj;
+                  
+                  try {
+                      switch (currentGran) {
+                          case 'Week': 
+                              return toISOWeek(dt) === currentPeriod;
+                          case 'Month': 
+                              return dt.toISOString().slice(0, 7) === currentPeriod;
+                          case 'Quarter': 
+                              return `${getQuarter(dt)}-${dt.getFullYear()}` === currentPeriod;
+                          case 'Year': 
+                              return String(dt.getFullYear()) === currentPeriod;
+                          default: 
+                              return true;
+                      }
+                  } catch (error) {
+                      console.warn('Error filtering record by period:', r, error);
+                      return false; // Exclude problematic records
+                  }
+              });
+
+              lastFilteredData = filtered;
+
+              const tot = filtered.length;
+              const agentsInPeriod = new Set(filtered.map(r => r.AgentName)).size;
+              const uniqueAgentsInData = Array.from(new Set(filtered.map(r => r.AgentName)));
+
+              console.log('=== Agents Evaluated Debug ===');
+              console.log('Total evaluations:', tot);
+              console.log('Agents in current period:', agentsInPeriod);
+              console.log('Agent names in period:', uniqueAgentsInData);
+              console.log('userList length:', userList.length);
+              console.log('userList:', userList);
+
+              // Calculate KPIs with enhanced Agents Evaluated logic
+              const avgPct = tot ? Math.round(filtered.reduce((s, r) => s + (r.Percentage || 0), 0) / tot * 100) : 0;
+              const passPct = safePercentage(filtered.filter(r => r.Percentage >= PASS_MARK).length, tot);
+              
+              // Agents Evaluated: percentage of total agents that have evaluations
+              let agentsEvalPct = 0;
+              if (userList.length > 0) {
+                  // Primary method: percentage of known agents that have evaluations
+                  agentsEvalPct = safePercentage(agentsInPeriod, userList.length, 100, 'Agents Evaluated (primary)');
+              } else {
+                  // Fallback method: if userList is empty, use a different approach
+                  // Get all unique agents from the entire QA dataset as the universe
+                  const allAgentsInQA = new Set(rawQA.map(r => r.AgentName).filter(Boolean)).size;
+                  if (allAgentsInQA > 0) {
+                      agentsEvalPct = safePercentage(agentsInPeriod, allAgentsInQA, 100, 'Agents Evaluated (fallback)');
+                      console.log('Using fallback: agents in period vs all agents in QA data');
+                  } else {
+                      // Last resort: show 100% if there are any evaluations
+                      agentsEvalPct = agentsInPeriod > 0 ? 100 : 0;
+                      console.log('Using last resort: 100% if any evaluations exist');
+                  }
+              }
+              
+              // Evaluations Completed: average evaluations per agent (capped at 100%)
+              const evalsCompletedPct = agentsInPeriod > 0 ? 
+                  Math.min(Math.round(tot / agentsInPeriod * 10), 100) : 0;
+
+              console.log('Final agentsEvalPct:', agentsEvalPct);
+              console.log('Final evalsCompletedPct:', evalsCompletedPct);
+
+              // Previous period calculations...
+              const prevPeriod = getPreviousPeriod(currentGran, currentPeriod);
+              const prevFiltered = scored.filter(r => {
+                  if (currentAgent && r.AgentName !== currentAgent) return false;
+                  
+                  const dt = r.callDateObj;
+                  
+                  try {
+                      switch (currentGran) {
+                          case 'Week': 
+                              return toISOWeek(dt) === prevPeriod;
+                          case 'Month': 
+                              return dt.toISOString().slice(0, 7) === prevPeriod;
+                          case 'Quarter': 
+                              return `${getQuarter(dt)}-${dt.getFullYear()}` === prevPeriod;
+                          case 'Year': 
+                              return String(dt.getFullYear()) === prevPeriod;
+                          default: 
+                              return false;
+                      }
+                  } catch (error) {
+                      console.warn('Error filtering previous period record:', r, error);
+                      return false;
+                  }
+              });
+
+              const prevTot = prevFiltered.length;
+              const prevAgentsInPeriod = new Set(prevFiltered.map(r => r.AgentName)).size;
+              
+              // Previous period KPIs with same logic
+              const prevAvgPct = prevTot ? Math.round(prevFiltered.reduce((s, r) => s + (r.Percentage || 0), 0) / prevTot * 100) : 0;
+              const prevPassPct = safePercentage(prevFiltered.filter(r => r.Percentage >= PASS_MARK).length, prevTot);
+              
+              let prevAgentsEvalPct = 0;
+              if (userList.length > 0) {
+                  prevAgentsEvalPct = safePercentage(prevAgentsInPeriod, userList.length);
+              } else {
+                  const allAgentsInQA = new Set(rawQA.map(r => r.AgentName).filter(Boolean)).size;
+                  if (allAgentsInQA > 0) {
+                      prevAgentsEvalPct = safePercentage(prevAgentsInPeriod, allAgentsInQA);
+                  } else {
+                      prevAgentsEvalPct = prevAgentsInPeriod > 0 ? 100 : 0;
+                  }
+              }
+              
+              const prevEvalsCompletedPct = prevAgentsInPeriod > 0 ? 
+                  Math.min(Math.round(prevTot / prevAgentsInPeriod * 10), 100) : 0;
+
+              // Safe change calculation
+              const change = (cur, prev) => {
+                  if (prev === 0) {
+                      return cur === 0 ? 0 : (cur > 0 ? 100 : -100);
+                  }
+                  const result = Math.round((cur - prev) * 100) / 100;
+                  return Math.max(-100, Math.min(100, result));
+              };
+
+              // Update KPIs
+              [
+                  { id: 'kpiAvgScore', trendId: 'kpiAvgScoreTrend', value: Math.min(avgPct, 100), change: change(avgPct, prevAvgPct) },
+                  { id: 'kpiPassRate', trendId: 'kpiPassRateTrend', value: passPct, change: change(passPct, prevPassPct) },
+                  { id: 'kpiAgentsEval', trendId: 'kpiAgentsEvalTrend', value: agentsEvalPct, change: change(agentsEvalPct, prevAgentsEvalPct) },
+                  { id: 'kpiEvalsDone', trendId: 'kpiEvalsDoneTrend', value: evalsCompletedPct, change: change(evalsCompletedPct, prevEvalsCompletedPct) },
+              ].forEach(({ id, trendId, value, change }) => {
+                  const el = document.getElementById(id), tr = document.getElementById(trendId);
+                  if (el && tr) {
+                      el.style.transform = 'scale(1.1)'; 
+                      el.textContent = Math.min(value, 100) + '%';
+                      setTimeout(() => el.style.transform = 'scale(1)', 200);
+                      
+                      const pos = change >= 0; 
+                      const txt = change === 0 ? 'No change' : `${Math.abs(change).toFixed(1)}% vs last period`;
+                      tr.className = `kpi-trend ${pos ? 'positive' : 'negative'}`;
+                      tr.innerHTML = `<i class="fas ${pos ? 'fa-arrow-up' : 'fa-arrow-down'}"></i><span>${txt}</span>`;
+                  }
+              });
+
+              // Update charts and tables
+              const catMetrics = computeCategoryMetrics(filtered);
+              renderCategoryKpis(catMetrics);
+              renderCategoryChart(catMetrics);
+              renderCategoryTable(catMetrics);
+              renderDailyChart(filtered);
+              renderAgentChart(filtered);
+              renderAgentTable(filtered);
+
+              hideLoader();
+          }, 100);
+      }
+
+      function convertToCSV(arr){
+        if(!arr.length) return '';
+        const keys=Object.keys(arr[0]);
+        const header=keys.join(',');
+        const rows=arr.map(o=> keys.map(k=>{ let c=o[k]!=null?o[k].toString():''; c=c.replace(/"/g,'""'); return `"${c}"`; }).join(',') );
+        return [header].concat(rows).join('\r\n');
+      }
+
+      function prepareWeeklyMatrix(data){
+        const dates=Array.from(new Set(data.map(r=>r.CallDate.slice(0,10)))).sort();
+        const agents=Array.from(new Set(data.map(r=>r.AgentName))).sort();
+        const rows=agents.map(agent=>{
+          const row={AgentName:agent};
+          const dayValues=dates.map(d=>{
+            const recs=data.filter(r=> r.AgentName===agent && r.CallDate.slice(0,10)===d);
+            if(!recs.length) return '';
+            const sum=recs.reduce((s,r)=>{ let p=Number(r.Percentage); if(p<=1) p*=100; return s+p; },0);
+            return (sum/recs.length).toFixed(2);
+          });
+          dates.forEach((d,i)=>row[d]=dayValues[i]);
+          const nums=dayValues.filter(v=>v!=='').map(Number);
+          const weekly=nums.length? (nums.reduce((a,b)=>a+b,0)/nums.length):0;
+          row['Weekly Percentage']=weekly.toFixed(2);
+          return row;
+        });
+        return { header:['AgentName',...dates,'Weekly Percentage'], rows };
+      }
+
+      function downloadCSV(csv,filename){
+        const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+        const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.setAttribute('download',filename);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      }
+
+      function exportWeeklyCsv(){
+        if(!lastFilteredData.length) return alert('No data to export for the selected filters.');
+        const {header,rows}=prepareWeeklyMatrix(lastFilteredData);
+        let csv=header.join(',')+'\r\n'; rows.forEach(r=>{ csv+=header.map(c=>r[c]||'').join(',')+'\r\n'; });
+        const filename=`quality_weekly_${currentPeriod||'all'}.csv`; downloadCSV(csv,filename);
+      }
+
+      const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+
+      // Rebuilds the <select id="agentSelect">
+      function populateAgentSelect(list){
+        const sel = document.getElementById('agentSelect');
+        if (!sel) return;
+        sel.innerHTML = ['<option value="">All Agents</option>']
+          .concat((list||[]).map(n => `<option value="${esc(n)}"${n===currentAgent?' selected':''}>${esc(n)}</option>`))
+          .join('');
+      }
+
+        // Pull names via Code.gs (no edits needed there)
+        function hydrateAgentList(){
+          if (!(window.google && google.script && google.script.run)) {
+              console.warn('google.script.run not available, using fallback agent list');
+              // Fallback: extract unique agents from QA data
+              const fallbackAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
+              userList = fallbackAgents;
+              populateAgentSelect(fallbackAgents);
+              console.log('Fallback userList:', userList);
+              applyFilters();
+              return;
+          }
+
+        const cid = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
+
+          google.script.run
+              .withSuccessHandler(names => {
+                  console.log('Received agent names:', names);
+                  if (!Array.isArray(names) || names.length === 0) { 
+                      console.warn('Empty or invalid names payload, falling back');
+                      fallbackToGetUsers(); 
+                      return; 
+                  }
+                  userList = names;
+                  populateAgentSelect(names);
+                  console.log('Updated userList:', userList);
+                  applyFilters();
+              })
+              .withFailureHandler(err => {
+                  console.warn('clientGetAssignedAgentNames failed:', err);
+                  fallbackToGetUsers();
+              })
+              .clientGetAssignedAgentNames(cid);
+
+          function fallbackToGetUsers(){
+              google.script.run
+                  .withSuccessHandler(users => {
+                      console.log('Received users:', users);
+                      const names = (users||[])
+                          .map(u => u.FullName || u.UserName || u.Email)
+                          .filter(Boolean)
+                          .sort((a,b)=>a.localeCompare(b));
+                      
+                      if (names.length === 0) {
+                          console.warn('No users found, using QA data as fallback');
+                          const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
+                          userList = qaAgents;
+                          populateAgentSelect(qaAgents);
+                      } else {
+                          userList = names;
+                          populateAgentSelect(names);
+                      }
+                      
+                      console.log('Final userList:', userList);
+                      applyFilters();
+                  })
+                  .withFailureHandler(err => {
+                      console.error('getUsers failed:', err);
+                      // Ultimate fallback: use agents from QA data
+                      const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
+                      userList = qaAgents;
+                      populateAgentSelect(qaAgents);
+                      console.log('Ultimate fallback userList:', userList);
+                      applyFilters();
+                  })
+                  .getUsers();
+          }
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('Dashboard initialization starting...');
+
+        // Initialize animations
+        try {
+          const observer = new IntersectionObserver((entries) => { 
+            entries.forEach(e => { 
+              if(e.isIntersecting) { 
+                e.target.style.opacity = '1'; 
+                e.target.style.transform = 'translateY(0)'; 
+              } 
+            }); 
+          });
+          document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => observer.observe(el));
+        } catch(e) {
+          console.warn('Animation observer failed:', e);
+        }
+
+        // Initialize live datetime updates
+        try {
+          updateLiveDatetime();
+          setInterval(updateLiveDatetime, 1000);
+        } catch(e) {
+          console.warn('Live datetime failed:', e);
+        }
+
+        // Initialize data status
+        try {
+          updateDataRefreshStatus('success', 'System Ready');
+        } catch(e) {
+          console.warn('Data status failed:', e);
+        }
+
+        // Live status click handler
+        try {
+          const liveStatus = document.querySelector('.live-status');
+          if (liveStatus) {
+            liveStatus.addEventListener('click', () => {
+              const indicator = document.querySelector('.live-indicator');
+              if (indicator) {
+                indicator.style.animation = 'none';
+                setTimeout(() => {
+                  indicator.style.animation = 'pulse-live 2s infinite';
+                }, 100);
+              }
+            });
+          }
+        } catch(e) {
+          console.warn('Live status click failed:', e);
+        }
+
+        // Data status click handler
+        try {
+          const dataStatus = document.getElementById('dataRefreshStatus');
+          if (dataStatus) {
+            dataStatus.addEventListener('click', () => {
+              updateDataRefreshStatus('updating', 'Refreshing...');
+              setTimeout(() => {
+                updateDataRefreshStatus('success', `Data Current • ${new Date().toLocaleTimeString()}`);
+              }, 1500);
+            });
+            dataStatus.style.cursor = 'pointer';
+            dataStatus.title = 'Click to simulate refresh';
+          }
+        } catch(e) {
+          console.warn('Data status click failed:', e);
+        }
+
+        // Report Type Select
+        try {
+          const reportTypeSelect = document.getElementById('reportTypeSelect');
+          if (reportTypeSelect) {
+            reportTypeSelect.addEventListener('change', function(e) {
+              const baseUrl = '<?= baseUrl ?>';
+              const campaignId = '<?= typeof campaignId !== "undefined" ? campaignId : "" ?>';
+              let url = `${baseUrl}?page=${e.target.value}`;
+              if (campaignId) {
+                url += `&campaign=${encodeURIComponent(campaignId)}`;
+              }
+              window.location.href = url;
+            });
+          } else {
+            console.warn('reportTypeSelect not found');
+          }
+        } catch(e) {
+          console.error('Report type select failed:', e);
+        }
+
+        // Granularity Select
+        try {
+          const granularitySelect = document.getElementById('granularitySelect');
+          if (granularitySelect) {
+            granularitySelect.value = currentGran;
+            granularitySelect.addEventListener('change', function() {
+              currentGran = granularitySelect.value;
+              showPicker();
+              setPeriod();
+              applyFilters();
+            });
+          } else {
+            console.warn('granularitySelect not found');
+          }
+        } catch(e) {
+          console.error('Granularity select failed:', e);
+        }
+
+        // Agent Select
+        try {
+          const agentSelect = document.getElementById('agentSelect');
+          if (agentSelect) {
+            agentSelect.addEventListener('change', function(e) {
+              currentAgent = e.target.value;
+              applyFilters();
+            });
+          } else {
+            console.warn('agentSelect not found');
+          }
+        } catch(e) {
+          console.error('Agent select failed:', e);
+        }
+
+        // Period input handlers
+        try {
+          ['weekInput', 'monthInput', 'yearInput'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+              el.addEventListener('change', function(e) {
+                currentPeriod = e.target.value;
+                applyFilters();
+              });
+            }
+          });
+
+          ['quarterSelect', 'quarterYearInput'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+              el.addEventListener('change', function() {
+                setQuarter();
+                applyFilters();
+              });
+            }
+          });
+        } catch(e) {
+          console.error('Period inputs failed:', e);
+        }
+
+        // Export CSV Button
+        try {
+          const exportBtn = document.getElementById('exportCsvBtn');
+          if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+              exportWeeklyCsv();
+            });
+          } else {
+            console.warn('exportCsvBtn not found');
+          }
+        } catch(e) {
+          console.error('Export button failed:', e);
+        }
+
+        // Helper functions
+        function showPicker() {
+          try {
+            ['weekPicker', 'monthPicker', 'quarterPicker', 'yearPicker'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) el.style.display = 'none';
+            });
+            
+            const map = {
+              'Week': 'weekPicker',
+              'Month': 'monthPicker',
+              'Quarter': 'quarterPicker',
+              'Year': 'yearPicker'
+            };
+            
+            const target = document.getElementById(map[currentGran]);
+            if (target) {
+              target.style.display = (currentGran === 'Quarter') ? 'flex' : 'block';
+            }
+          } catch(e) {
+            console.error('showPicker failed:', e);
+          }
+        }
+
+        function setPeriod() {
+          try {
+            const map = {
+              'Week': 'weekInput',
+              'Month': 'monthInput',
+              'Year': 'yearInput'
+            };
+            const input = document.getElementById(map[currentGran]);
+            if (input && input.value) {
+              currentPeriod = input.value;
+            }
+          } catch(e) {
+            console.error('setPeriod failed:', e);
+          }
+        }
+
+        function setQuarter() {
+          try {
+            const q = document.getElementById('quarterSelect')?.value;
+            const y = document.getElementById('quarterYearInput')?.value;
+            currentPeriod = (q && y) ? `${q}-${y}` : '';
+          } catch(e) {
+            console.error('setQuarter failed:', e);
+          }
+        }
+
+        // Initialize UI
+        try {
+          showPicker();
+          const weekInput = document.getElementById('weekInput');
+          if (weekInput) {
+            weekInput.value = currentPeriod;
+          }
+        } catch(e) {
+          console.error('UI initialization failed:', e);
+        }
+
+        // Load data
+        try {
+          setTimeout(() => {
+            console.log('Starting data load...');
+            applyFilters();
+          }, 300);
+          
+          debugInvalidDates();
+          hydrateAgentList();
+        } catch(e) {
+          console.error('Data load failed:', e);
+        }
+
+        console.log('Quality Dashboard initialization completed');
+      });
+</script>
+</body>
+
+</html>

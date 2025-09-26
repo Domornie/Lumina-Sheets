@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base target="_top">
+
+  <!-- jQuery (single include) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+  <!-- Modern CSS Libraries -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Notify.js (jQuery plugin) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/notify/0.4.2/notify.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/notify/0.4.2/notify.min.js"></script>
+
+  <style>
+    /* Make sure notifications float above modals/menus */
+    .notifyjs-corner {
+      z-index: 99999 !important;
+    }
+  </style>
+
+  <script>
+    // Base URLs for navigation
+    const BASE_URL = '<?= baseUrl ?>';
+    const SCRIPT_URL = '<?= SCRIPT_URL ?>';
+
+    /**
+     * Generate URLs for navigation
+     */
+    function generateUrl(page, campaign = null, additionalParams = {}) {
+      let url = BASE_URL;
+      const params = new URLSearchParams();
+      
+      if (page) {
+        params.set('page', page);
+      }
+      
+      if (campaign) {
+        params.set('campaign', campaign);
+      }
+      
+      // Add any additional parameters
+      Object.entries(additionalParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          params.set(key, value);
+        }
+      });
+      
+      const queryString = params.toString();
+      return queryString ? `${url}?${queryString}` : url;
+    }
+
+    /**
+     * Navigate to a page
+     */
+    function navigateToPage(page, campaign = null, additionalParams = {}) {
+      const url = generateUrl(page, campaign, additionalParams);
+      window.location.href = url;
+    }
+
+    // Make utilities available globally
+    window.generateUrl = generateUrl;
+    window.navigateToPage = navigateToPage;
+  </script>
+
+  <style>
+    :root {
+      /* Enhanced Modern Color Palette */
+      --sidebar-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+      --sidebar-text: #f8fafc;
+      --sidebar-text-muted: #cbd5e1;
+      --sidebar-hover: rgba(255, 255, 255, 0.1);
+      --sidebar-active: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+      --primary: #0ea5e9;
+      --primary-dark: #0284c7;
+      --primary-light: #38bdf8;
+      --accent: #22d3ee;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --success: #10b981;
+      --info: #3b82f6;
+      --light: #f8fafc;
+      --dark: #0f172a;
+      --surface: #ffffff;
+      --surface-variant: #f1f5f9;
+      --outline: #e2e8f0;
+      --shadow: rgba(15, 23, 42, 0.1);
+      --shadow-hover: rgba(15, 23, 42, 0.2);
+      --glass-bg: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.2);
+
+      --sidebar-width: 320px;
+      --sidebar-collapsed: 80px;
+      --topbar-height: 72px;
+      --border-radius: 20px;
+      --border-radius-sm: 12px;
+      --border-radius-xs: 8px;
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, var(--surface-variant) 0%, #ffffff 100%);
+      color: #1e293b;
+      overflow-x: hidden;
+      font-size: 14px;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    /* Enhanced Sidebar with Glassmorphism */
+    #sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: var(--sidebar-bg);
+      backdrop-filter: blur(20px);
+      color: var(--sidebar-text);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      transition: var(--transition-smooth);
+      box-shadow: 8px 0 32px rgba(15, 23, 42, 0.2);
+      overflow: hidden;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #sidebar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="0.5" fill="rgba(255,255,255,0.02)"/><circle cx="25" cy="25" r="0.3" fill="rgba(255,255,255,0.01)"/><circle cx="75" cy="75" r="0.4" fill="rgba(255,255,255,0.015)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+      opacity: 0.3;
+    }
+
+    .header .container {
+      position: relative;
+      z-index: 1;
+    }
+
+    #sidebar.collapsed {
+      width: var(--sidebar-collapsed);
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+      position: relative;
+      z-index: 2;
+    }
+
+    #sidebar .sidebar-content {
+      overflow-y: auto !important;
+    }
+
+    .sidebar-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .sidebar-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .sidebar-content::-webkit-scrollbar-thumb {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.4));
+      border-radius: 4px;
+      transition: var(--transition-fast);
+    }
+
+    .sidebar-content::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.5));
+    }
+
+    #sidebar.collapsed .sidebar-content::-webkit-scrollbar {
+      width: 0px;
+    }
+
+    #sidebar.collapsed .sidebar-content {
+      scrollbar-width: none;
+    }
+
+    /* Enhanced Logo Section */
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      padding: 1.5rem 1.25rem;
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition-smooth);
+      min-height: 80px;
+      z-index: 3;
+      backdrop-filter: blur(10px);
+    }
+
+    .sidebar-logo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+      opacity: 0;
+      transition: var(--transition-smooth);
+    }
+
+    .sidebar-logo:hover::before {
+      opacity: 1;
+    }
+
+    .sidebar-logo:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--border-radius-xs);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      object-fit: contain;
+      padding: 6px;
+      transition: var(--transition-smooth);
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+    }
+
+    .sidebar-logo:hover .logo-icon {
+      transform: scale(1.05) rotate(2deg);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .logo-text-container {
+      margin-left: 1rem;
+      overflow: hidden;
+      transition: var(--transition-smooth);
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .logo-text {
+      height: 42px;
+      width: auto;
+      max-width: 220px;
+      object-fit: contain;
+      transition: var(--transition-smooth);
+      font-weight: 800;
+      filter: brightness(1.1);
+    }
+
+    .logo-text-fallback {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--sidebar-text);
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+      display: none;
+      background: linear-gradient(135deg, #ffffff, #e2e8f0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-text-fallback .brand-accent {
+      color: var(--primary-light);
+      font-weight: 900;
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+    }
+
+    #sidebar.collapsed .logo-text-container {
+      opacity: 0;
+      visibility: hidden;
+      width: 0;
+      margin-left: 0;
+      overflow: hidden;
+    }
+
+    #sidebar.collapsed .sidebar-logo {
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    #sidebar.collapsed .logo-icon {
+      margin: 0;
+    }
+
+    /* Enhanced Campaign Header */
+    .campaign-header-sidebar {
+      transition: var(--transition-smooth);
+      position: relative;
+      z-index: 3;
+    }
+
+    .campaign-badge-sidebar {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 1.5rem 1rem 1.25rem;
+      border-radius: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3);
+      transition: var(--transition-smooth);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      height: 4.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      margin-bottom: 1.5rem;
+    }
+
+    .campaign-badge-sidebar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+    }
+
+    .campaign-badge-sidebar:hover::before {
+      transform: translateX(100%);
+    }
+
+    .campaign-badge-sidebar i {
+      margin-right: 0.75rem;
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    #sidebar.collapsed .campaign-header-sidebar {
+      opacity: 0;
+      visibility: hidden;
+      height: 0;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    /* Enhanced Category Sections */
+    .sidebar-category {
+      margin-bottom: 2rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .category-header {
+      padding: 1rem 1.5rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--sidebar-text-muted);
+      letter-spacing: 1px;
+      position: relative;
+      transition: var(--transition-smooth);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+      margin-bottom: 0.25rem;
+    }
+
+    .category-header i {
+      font-size: 1rem;
+      opacity: 0.8;
+      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .category-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 1rem;
+      right: 1rem;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: var(--transition-smooth);
+    }
+
+    #sidebar.collapsed .category-header {
+      opacity: 0;
+      visibility: hidden;
+      height: 0;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #sidebar.collapsed .category-header::after {
+      display: none;
+    }
+
+    .sidebar-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      padding: 0 1rem;
+      transition: var(--transition-smooth);
+    }
+
+    #sidebar.collapsed .sidebar-group {
+      padding: 0 0.75rem;
+    }
+
+    .sidebar-group a {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1.25rem;
+      color: var(--sidebar-text);
+      border-radius: var(--border-radius-sm);
+      transition: var(--transition-smooth);
+      text-decoration: none;
+      white-space: nowrap;
+      position: relative;
+      font-weight: 500;
+      font-size: 0.875rem;
+      overflow: hidden;
+      border: 1px solid transparent;
+    }
+
+    .sidebar-group a::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+      transform: scaleY(0);
+      transition: transform 0.3s ease;
+      border-radius: 0 2px 2px 0;
+    }
+
+    .sidebar-group a::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent);
+      opacity: 0;
+      transition: var(--transition-smooth);
+    }
+
+    .sidebar-group a:hover {
+      background: var(--sidebar-hover);
+      color: var(--sidebar-text);
+      transform: translateX(6px);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-group a:hover::after {
+      opacity: 1;
+    }
+
+    .sidebar-group a:hover::before {
+      transform: scaleY(1);
+    }
+
+    .sidebar-group a.active {
+      background: var(--sidebar-active);
+      color: white;
+      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+      transform: translateX(6px);
+      border-color: rgba(255, 255, 255, 0.2);
+      font-weight: 600;
+    }
+
+    .sidebar-group a.active::before {
+      transform: scaleY(1);
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .sidebar-group a i {
+      width: 1.75rem;
+      text-align: center;
+      margin-right: 1rem;
+      font-size: 1.125rem;
+      transition: var(--transition-smooth);
+      flex-shrink: 0;
+      opacity: 0.9;
+    }
+
+    .sidebar-group a:hover i {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+
+    .sidebar-group a.active i {
+      opacity: 1;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .sidebar-group a span {
+      transition: var(--transition-smooth);
+      overflow: hidden;
+      font-weight: 500;
+    }
+
+    #sidebar.collapsed .sidebar-group a {
+      justify-content: center;
+      padding: 1rem;
+      margin: 0.25rem 0;
+      transform: none;
+    }
+
+    #sidebar.collapsed .sidebar-group a:hover {
+      transform: none;
+    }
+
+    #sidebar.collapsed .sidebar-group a.active {
+      transform: none;
+    }
+
+    #sidebar.collapsed .sidebar-group a span {
+      opacity: 0;
+      visibility: hidden;
+      width: 0;
+      margin: 0;
+      padding: 0;
+    }
+
+    #sidebar.collapsed .sidebar-group a i {
+      margin-right: 0;
+      font-size: 1.25rem;
+    }
+
+    /* Enhanced Global Pages Section */
+    .global-section {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: auto;
+      padding-top: 1.5rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .global-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 1rem;
+      right: 1rem;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    }
+
+    /* Enhanced User Panel with Employment Info and Role Display */
+    .user-panel {
+      margin-top: auto;
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(15px);
+      transition: var(--transition-smooth);
+      position: relative;
+      z-index: 3;
+    }
+
+    .user-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 1rem;
+      right: 1rem;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    }
+
+    .user-avatar-side {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--sidebar-active);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 1.25rem;
+      box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4);
+      flex-shrink: 0;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: var(--transition-smooth);
+    }
+
+    .user-panel:hover .user-avatar-side {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+    }
+
+    .user-info {
+      margin-left: 1rem;
+      line-height: 1.4;
+      overflow: hidden;
+      flex: 1;
+      transition: var(--transition-smooth);
+    }
+
+    .user-info .names {
+      font-size: 1rem;
+      color: var(--sidebar-text);
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .user-info .role {
+      font-size: 0.8rem;
+      color: var(--sidebar-text-muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      margin-bottom: 0.375rem;
+      font-weight: 500;
+    }
+
+    .user-info .employment-status {
+      font-size: 0.75rem;
+      color: var(--sidebar-text-muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-weight: 500;
+    }
+
+    .user-info .employment-status i {
+      font-size: 0.7rem;
+      opacity: 0.9;
+      margin-right: 0.25rem;
+    }
+
+    /* Enhanced Employment Status Colors */
+    .user-info .employment-status .status-active {
+      color: #4ade80;
+      text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+    }
+
+    .user-info .employment-status .status-inactive {
+      color: #f87171;
+      text-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+    }
+
+    .user-info .employment-status .status-contract {
+      color: #60a5fa;
+      text-shadow: 0 0 8px rgba(96, 165, 250, 0.3);
+    }
+
+    .user-info .employment-status .status-probation {
+      color: #fbbf24;
+      text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+    }
+
+    .user-info .employment-status .status-leave {
+      color: #a78bfa;
+      text-shadow: 0 0 8px rgba(167, 139, 250, 0.3);
+    }
+
+    .user-info .employment-status .status-terminated {
+      color: #ef4444;
+      text-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+    }
+
+    .user-info .employment-status .status-suspended {
+      color: #6b7280;
+      text-shadow: 0 0 8px rgba(107, 114, 128, 0.3);
+    }
+
+    .user-info .employment-status .status-part-time {
+      color: #34d399;
+      text-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+    }
+
+    .user-info .employment-status .status-full-time {
+      color: #10b981;
+      text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+    }
+
+    #sidebar.collapsed .user-info {
+      opacity: 0;
+      visibility: hidden;
+      width: 0;
+      margin: 0;
+    }
+
+    /* Enhanced Topbar */
+    #topbar {
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-width);
+      right: 0;
+      height: var(--topbar-height);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--outline);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      transition: var(--transition-smooth);
+      box-shadow: 0 1px 3px var(--shadow);
+    }
+
+    #sidebar.collapsed~#topbar {
+      left: var(--sidebar-collapsed);
+    }
+
+    .topbar-toggle {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      color: #64748b;
+      padding: 0.75rem;
+      border-radius: 50%;
+      transition: var(--transition-smooth);
+      margin-right: 1.5rem;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .topbar-toggle:hover {
+      background: rgba(100, 116, 139, 0.1);
+      color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .breadcrumb-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #64748b;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .breadcrumb-nav .current-page {
+      color: #1e293b;
+      font-weight: 700;
+      font-size: 1.125rem;
+    }
+
+    .breadcrumb-nav i {
+      opacity: 0.6;
+      font-size: 0.875rem;
+    }
+
+    .top-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .notification-btn {
+      position: relative;
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      color: #64748b;
+      padding: 0.75rem;
+      border-radius: 50%;
+      transition: var(--transition-smooth);
+      text-decoration: none;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(248, 250, 252, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(226, 232, 240, 0.5);
+    }
+
+    .notification-btn:hover {
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--primary);
+      text-decoration: none;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+      border-color: rgba(14, 165, 233, 0.3);
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: 0.375rem;
+      right: 0.375rem;
+      width: 10px;
+      height: 10px;
+      background: linear-gradient(135deg, var(--danger), #dc2626);
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+      }
+    }
+
+    /* Enhanced Topbar Logout Button */
+    .logout-btn-topbar {
+      position: relative;
+      background: rgba(248, 250, 252, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(226, 232, 240, 0.5);
+      font-size: 1.25rem;
+      color: #64748b;
+      padding: 0.75rem;
+      border-radius: 50%;
+      transition: var(--transition-smooth);
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .logout-btn-topbar:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .logout-btn-topbar:active {
+      transform: translateY(-1px);
+    }
+
+    .logout-btn-topbar:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .logout-btn-topbar .loading-spinner-head {
+      animation: spin 1s linear infinite;
+    }
+
+    /* Mobile responsiveness for top actions */
+    @media (max-width: 768px) {
+      .top-actions {
+        gap: 0.5rem;
+      }
+
+      .notification-btn,
+      .logout-btn-topbar {
+        width: 44px;
+        height: 44px;
+        font-size: 1.125rem;
+      }
+
+      #topbar {
+        padding: 0 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .top-actions .notification-btn:not(.logout-btn-topbar):first-child {
+        display: none;
+      }
+    }
+
+    #maincontent {
+      margin-left: calc(var(--sidebar-width) + 2rem);
+      margin-top: calc(var(--topbar-height) + 2rem);
+      margin-right: 2rem;
+      margin-bottom: 2rem;
+      transition: var(--transition-smooth);
+      min-height: calc(100vh - var(--topbar-height) - 4rem);
+    }
+
+    #sidebar.collapsed~#maincontent {
+      margin-left: calc(var(--sidebar-collapsed) + 2rem);
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
+  <nav id="sidebar">
+    <!-- Enhanced Logo Section -->
+    <div class="sidebar-logo" id="sidebarToggle">
+      <!-- Logo Icon -->
+      <img
+        src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png"
+        alt="LuminaHQ Icon"
+        class="logo-icon"
+        onerror="this.style.display='none'"
+      />
+
+      <!-- Logo Text Container -->
+      <div class="logo-text-container">
+        <!-- Logo Text Image -->
+        <img
+          src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763929/vlbpo/lumina/Lumina_aa8rch.png"
+          alt="LuminaHQ"
+          class="logo-text"
+          onerror="this.style.display='none'; this.nextElementSibling.style.display='block'"
+        />
+
+        <!-- Fallback Text (shown if image fails to load) -->
+        <div class="logo-text-fallback">
+          <span class="brand-accent">Lumina</span>HQ
+        </div>
+      </div>
+    </div>
+
+    <!-- Scrollable Content Area -->
+    <div class="sidebar-content">
+      <?
+        // ─────────────────────────────────────────────
+        // SIMPLIFIED USER SERVICE INTEGRATION
+        // Token-based authentication with simple URL generation
+        // ─────────────────────────────────────────────────────
+        var SU = (typeof safeUser !== 'undefined' && safeUser) ? safeUser : (typeof user !== 'undefined' ? user : {});
+        
+        // Use UserService's createSafeUserObject to get properly resolved user data
+        if (SU.ID && typeof createSafeUserObject === 'function') {
+            try {
+                SU = createSafeUserObject(SU);
+                console.log('Created safe user object with roles:', SU.roleNames);
+            } catch (e) {
+                console.error('Error creating safe user object:', e);
+                // Fallback: try manual role resolution
+                if (!SU.roleNames || !SU.roleNames.length) {
+                    try {
+                        if (typeof getUserRolesSafe === 'function') {
+                            var userRoles = getUserRolesSafe(SU.ID);
+                            SU.roleNames = userRoles.map(function(role) { return role.name || ''; }).filter(Boolean);
+                        }
+                    } catch (e2) {
+                        console.error('Manual role resolution failed:', e2);
+                        SU.roleNames = [];
+                    }
+                }
+            }
+        }
+        
+        var isAdmin = (SU.IsAdmin === true || String(SU.IsAdmin).toUpperCase() === 'TRUE' || SU.isAdminBool === true);
+        var campaignId = SU.CampaignID || '';
+        var campaignName = SU.campaignName || '';
+        
+        // roleNames should already be resolved by createSafeUserObject
+        var roleNames = [];
+        if (Array.isArray(SU.roleNames) && SU.roleNames.length > 0) {
+            roleNames = SU.roleNames;
+        } else if (isAdmin) {
+            roleNames = ['System Administrator'];
+        }
+        
+        function _fmtStatus(status) {
+          if (!status) return {status:'',cls:'',icon:'fas fa-briefcase'};
+          var s = String(status).toLowerCase();
+          var map = {
+            'active': ['status-active','fas fa-check-circle'],
+            'full time': ['status-active','fas fa-check-circle'],
+            'full-time': ['status-active','fas fa-check-circle'],
+            'inactive': ['status-inactive','fas fa-times-circle'],
+            'terminated': ['status-inactive','fas fa-times-circle'],
+            'contract': ['status-contract','fas fa-file-contract'],
+            'probation': ['status-probation','fas fa-hourglass-half'],
+            'on leave': ['status-leave','fas fa-pause-circle'],
+            'part time': ['status-part-time','fas fa-clock'],
+            'part-time': ['status-part-time','fas fa-clock'],
+            'suspended': ['status-suspended','fas fa-ban']
+          };
+          var hit = map[s] || null;
+          return {status: status, cls: hit?hit[0]:'', icon: hit?hit[1]:'fas fa-briefcase'};
+        }
+        var emp = _fmtStatus(SU.EmploymentStatus);
+        
+        // Get campaign navigation
+        var navigation = { categories: [], uncategorizedPages: [] };
+        if (campaignId) {
+            try {
+                if (typeof clientGetCampaignNavigation === 'function') {
+                    navigation = clientGetCampaignNavigation(campaignId);
+                } else if (SU.campaignNavigation) {
+                    navigation = SU.campaignNavigation;
+                }
+            } catch (e) {
+                console.error('Error getting campaign navigation:', e);
+            }
+        }
+        
+        // Helper function to generate URLs in server-side template
+        function generateLink(page, campaign) {
+          var url = baseUrl + '?page=' + encodeURIComponent(page);
+          if (campaign) {
+            url += '&campaign=' + encodeURIComponent(campaign);
+          }
+          return url;
+        }
+        ?>
+
+      <!-- Enhanced Campaign Header -->
+      <? if (campaignId && campaignName) { ?>
+      <div class="campaign-header-sidebar">
+        <div class="campaign-badge-sidebar">
+          <i class="fas fa-building"></i>
+          <?= campaignName ?>
+        </div>
+      </div>
+      <? } else if (isAdmin) { ?>
+      <div class="campaign-header-sidebar">
+        <div class="campaign-badge-sidebar">
+          <i class="fas fa-user-shield"></i>System Administrator
+        </div>
+      </div>
+      <? } ?>
+
+      <!-- Dynamic Campaign Navigation -->
+      <? if (navigation && navigation.categories && navigation.categories.length > 0) { ?>
+      <? navigation.categories.forEach(function(category) { ?>
+      <? if (category && category.pages && category.pages.length > 0) { ?>
+      <div class="sidebar-category">
+        <div class="category-header">
+          <i class="<?= category.CategoryIcon || 'fas fa-folder' ?>"></i>
+          <span><?= category.CategoryName || 'Unnamed Category' ?></span>
+        </div>
+        <div class="sidebar-group">
+          <? category.pages.forEach(function(page) { ?>
+          <? if (page && page.PageKey && page.PageTitle) { ?>
+          <a href="<?= generateLink(page.PageKey, campaignId) ?>"
+            class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
+            <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
+            <span><?= page.PageTitle ?></span>
+          </a>
+          <? } ?>
+          <? }); ?>
+        </div>
+      </div>
+      <? } ?>
+      <? }); ?>
+      <? } ?>
+
+      <!-- Uncategorized Pages -->
+      <? if (navigation && navigation.uncategorizedPages && navigation.uncategorizedPages.length > 0) { ?>
+      <div class="sidebar-category">
+        <div class="category-header">
+          <i class="fas fa-list"></i>
+          <span>Other</span>
+        </div>
+        <div class="sidebar-group">
+          <? navigation.uncategorizedPages.forEach(function(page) { ?>
+          <? if (page && page.PageKey && page.PageTitle) { ?>
+          <a href="<?= generateLink(page.PageKey, campaignId) ?>"
+            class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
+            <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
+            <span><?= page.PageTitle ?></span>
+          </a>
+          <? } ?>
+          <? }); ?>
+        </div>
+      </div>
+      <? } ?>
+
+      <!-- Global Section -->
+      <div class="global-section">
+        <div class="sidebar-category">
+          <div class="category-header">
+            <i class="fas fa-globe"></i>
+            <span>Global</span>
+          </div>
+          <div class="sidebar-group">
+            <a href="<?= generateLink('chat', null) ?>" class="<?= currentPage==='Chat'?'active':'' ?>" data-bs-toggle="tooltip"
+              data-bs-placement="right" title="Team Chat">
+              <i class="fas fa-comments"></i><span>Chat</span>
+            </a>
+            <a href="<?= generateLink('search', null) ?>" class="<?= currentPage==='Search'?'active':'' ?>"
+              data-bs-toggle="tooltip" data-bs-placement="right" title="Web Search">
+              <i class="fas fa-search"></i><span>Search</span>
+            </a>
+            <a href="<?= generateLink('bookmarks', null) ?>" class="<?= currentPage==='Bookmarks'?'active':'' ?>"
+              data-bs-toggle="tooltip" data-bs-placement="right" title="Bookmarks">
+              <i class="fas fa-bookmark"></i><span>Bookmarks</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Admin Section (only show if user is admin) -->
+        <? if (isAdmin) { ?>
+        <div class="sidebar-category">
+          <div class="category-header">
+            <i class="fas fa-shield-alt"></i>
+            <span>Administration</span>
+          </div>
+          <div class="sidebar-group">
+            <a href="<?= generateLink('manageuser', null) ?>" class="<?= currentPage==='Users'?'active':'' ?>"
+              data-bs-toggle="tooltip" data-bs-placement="right" title="User Management">
+              <i class="fas fa-users"></i><span>Users</span>
+            </a>
+            <a href="<?= generateLink('manageroles', null) ?>" class="<?= currentPage==='Settings'?'active':'' ?>"
+              data-bs-toggle="tooltip" data-bs-placement="right" title="Role Management">
+              <i class="fas fa-user-shield"></i><span>Roles</span>
+            </a>
+            <a href="<?= generateLink('managecampaign', null) ?>" class="<?= currentPage==='Campaigns'?'active':'' ?>"
+              data-bs-toggle="tooltip" data-bs-placement="right" title="Campaign Management">
+              <i class="fas fa-bullhorn"></i><span>Campaigns</span>
+            </a>
+          </div>
+        </div>
+        <? } ?>
+      </div>
+    </div>
+
+    <!-- User Panel (server-rendered first paint) -->
+    <div class="user-panel" id="userPanel" data-initialized="true"
+      data-name="<?= SU.FullName || SU.UserName || 'Unknown User' ?>"
+      data-roles="<?= (roleNames && roleNames.length)? roleNames.join(', ') : (isAdmin?'System Administrator':'User') ?>"
+      data-status="<?= SU.EmploymentStatus || '' ?>" data-country="<?= SU.Country || '' ?>">
+      <div class="user-avatar-side" id="userAvatar">
+        <?= (SU.FullName || SU.UserName || 'U').charAt(0).toUpperCase() ?>
+      </div>
+      <div class="user-info">
+        <div class="names" id="userName">
+          <?= SU.FullName || SU.UserName || 'Unknown User' ?>
+        </div>
+        <div class="role" id="userRole">
+          <? if (roleNames && roleNames.length) { ?>
+          <?= roleNames.join(', ') ?>
+          <? } else if (isAdmin) { ?>
+          System Administrator
+          <? } else { ?>
+          User
+          <? } ?>
+        </div>
+        <div class="employment-status" id="userEmp">
+          <? if (emp.status) { ?>
+          <i class="<?= emp.icon ?> <?= emp.cls ?>"></i>
+          <span class="<?= emp.cls ?>"><?= emp.status ?></span>
+          <? if (SU.Country) { ?><span>• <?= SU.Country ?></span>
+          <? } ?>
+          <? } else if (SU.Country) { ?>
+          <i class="fas fa-globe"></i><span><?= SU.Country ?></span>
+          <? } ?>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div id="topbar">
+    <button class="topbar-toggle d-md-none" id="mobileToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <div class="breadcrumb-nav">
+      <? if (campaignName) { ?>
+      <span class="current-campaign"><?= campaignName ?></span>
+      <? } ?>
+      <i class="fas fa-chevron-right"></i>
+      <span class="current-page"><?= currentPage || 'Home' ?></span>
+    </div>
+
+    <div class="top-actions">
+      <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
+            <i class="fas fa-bell"></i>
+            <div class="notification-badge"></div>
+        </button>
+
+      <a href="<?= generateLink('search', null) ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
+        <i class="fas fa-search"></i>
+      </a>
+
+      <!-- Employment Report Link for Admins -->
+      <? if (isAdmin) { ?>
+      <a href="<?= generateLink('manageuser', null) ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
+        title="Employment Report">
+        <i class="fas fa-chart-bar"></i>
+      </a>
+      <? } ?>
+
+      <!-- Simplified Logout Button -->
+      <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+  </div>
+
+  <div id="maincontent" class="animate-in main-content">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ──────────────────────────────────────────────────────────────────────────────
+        // SIMPLIFIED HYDRATION SYSTEM
+        // ──────────────────────────────────────────────────────────────────────────────
+        window.__userHydrated = false;
+
+        function nonEmpty(s) {
+            return s != null && String(s).trim().length > 0;
+        }
+
+        function isBetterUser(incoming) {
+            // Completely reject any data with "lumina" user or email
+            if (incoming?.FullName === 'lumina' || 
+                incoming?.UserName === 'lumina' || 
+                incoming?.Email === 'lumina@vlbpo.com') {
+                console.log('🚫 REJECTED: Incoming data contains lumina defaults, completely blocking');
+                return false;
+            }
+            
+            // Better user data has meaningful name AND role information
+            const hasName = nonEmpty(incoming?.FullName) || nonEmpty(incoming?.UserName);
+            const hasRoles = Array.isArray(incoming?.roleNames) && incoming.roleNames.length > 0;
+            const hasRoleIds = nonEmpty(incoming?.Roles);
+            const isAdmin = incoming?.IsAdmin === true || String(incoming?.IsAdmin).toUpperCase() === 'TRUE';
+            
+            // Better if it has a proper name AND (roles OR admin status)
+            return hasName && (hasRoles || hasRoleIds || isAdmin);
+        }
+
+        function formatEmployment(status) {
+            const s = (status || '').toLowerCase();
+            const map = {
+                'active': { cls: 'status-active', icon: 'fas fa-check-circle' },
+                'full time': { cls: 'status-active', icon: 'fas fa-check-circle' },
+                'full-time': { cls: 'status-active', icon: 'fas fa-check-circle' },
+                'inactive': { cls: 'status-inactive', icon: 'fas fa-times-circle' },
+                'terminated': { cls: 'status-inactive', icon: 'fas fa-times-circle' },
+                'contract': { cls: 'status-contract', icon: 'fas fa-file-contract' },
+                'probation': { cls: 'status-probation', icon: 'fas fa-hourglass-half' },
+                'on leave': { cls: 'status-leave', icon: 'fas fa-pause-circle' },
+                'part time': { cls: 'status-part-time', icon: 'fas fa-clock' },
+                'part-time': { cls: 'status-part-time', icon: 'fas fa-clock' },
+                'suspended': { cls: 'status-suspended', icon: 'fas fa-ban' }
+            };
+            return map[s] || { cls: '', icon: 'fas fa-briefcase' };
+        }
+
+        function updateUserDisplaySafely(user) {
+            if (!user) return;
+            
+            // 🚫 COMPLETE REJECTION: Block any "lumina" user data entirely
+            if (user.FullName === 'lumina' || 
+                user.UserName === 'lumina' || 
+                user.Email === 'lumina@vlbpo.com') {
+                console.log('🚫 COMPLETELY BLOCKED: Incoming user data contains lumina - rejecting entirely');
+                return; // Exit immediately - no processing at all
+            }
+            
+            console.log('Attempting to update user display with:', user);
+            
+            // CRITICAL: Check if user panel was server-rendered with good data
+            const userPanel = document.getElementById('userPanel');
+            const wasServerRendered = userPanel && userPanel.getAttribute('data-initialized') === 'true';
+            const serverName = userPanel ? userPanel.getAttribute('data-name') : '';
+            const serverRoles = userPanel ? userPanel.getAttribute('data-roles') : '';
+            
+            // If server rendered with real data (not defaults), NEVER allow client updates
+            if (wasServerRendered && nonEmpty(serverName) && serverName !== 'Unknown User') {
+                console.log('🛡️ PROTECTED: Server-rendered user panel has good data, blocking all client updates');
+                console.log('Server name:', serverName, 'Server roles:', serverRoles);
+                window.__userHydrated = true; // Mark as hydrated to prevent further attempts
+                return;
+            }
+            
+            // Additional protection: If current displayed name is real, don't override
+            const nameEl = document.getElementById('userName');
+            const currentName = nameEl ? nameEl.textContent : '';
+            if (nonEmpty(currentName) && currentName !== 'Unknown User') {
+                console.log('🛡️ PROTECTED: Current displayed name is real, blocking override');
+                console.log('Current name:', currentName, 'Incoming name:', user.FullName || user.UserName);
+                window.__userHydrated = true;
+                return;
+            }
+
+            // Only update if this is better data or first time AND no good data exists
+            if (window.__userHydrated && !isBetterUser(user)) {
+                console.log('Rejecting user update - not better than current data');
+                return;
+            }
+
+            const roleEl = document.getElementById('userRole');
+            const empEl = document.getElementById('userEmp');
+            const avatar = document.getElementById('userAvatar');
+
+            // Name: only set if provided and not empty AND not any default value
+            const bestName = user.FullName || user.UserName;
+            if (nonEmpty(bestName) && bestName !== 'Unknown User') {
+                if (nameEl) nameEl.textContent = bestName;
+                if (avatar) avatar.textContent = bestName.charAt(0).toUpperCase();
+                console.log('Updated name to:', bestName);
+            } else {
+                console.log('Skipping name update - invalid or default value:', bestName);
+            }
+
+            // Roles: prefer incoming roleNames; else keep existing
+            let roleText = null;
+            if (Array.isArray(user.roleNames) && user.roleNames.length) {
+                roleText = user.roleNames.join(', ');
+                console.log('Using roleNames:', roleText);
+            } else if (user.IsAdmin === true || String(user.IsAdmin).toUpperCase() === 'TRUE' || user.isAdminBool === true) {
+                roleText = 'System Administrator';
+                console.log('Using admin status for role');
+            }
+            
+            if (nonEmpty(roleText) && roleEl) {
+                roleEl.textContent = roleText;
+                console.log('Updated role to:', roleText);
+            }
+
+            // Employment
+            if (empEl && (nonEmpty(user.EmploymentStatus) || nonEmpty(user.Country))) {
+                const fmt = formatEmployment(user.EmploymentStatus || '');
+                const pieces = [];
+                if (nonEmpty(user.EmploymentStatus)) {
+                    pieces.push(`<i class="${fmt.icon} ${fmt.cls}"></i><span class="${fmt.cls}">${user.EmploymentStatus}</span>`);
+                }
+                if (nonEmpty(user.Country)) {
+                    pieces.push(`<span>• ${user.Country}</span>`);
+                }
+                if (pieces.length) {
+                    empEl.innerHTML = pieces.join(' ');
+                    console.log('Updated employment status');
+                }
+            }
+
+            window.__userHydrated = true;
+            console.log('User display updated successfully');
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // SIMPLIFIED LOGOUT FUNCTION
+        // ──────────────────────────────────────────────────────────────────────────────
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            
+            const btn = document.querySelector('.logout-btn-topbar');
+            btn.disabled = true;
+            const icon = btn.querySelector('i');
+            if (icon) icon.className = 'fas fa-spinner loading-spinner-head';
+            
+            console.log('🚪 Initiating logout...');
+            
+            // Clear browser storage
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                console.log('🧹 Browser storage cleared');
+            } catch (e) {
+                console.warn('⚠️ Could not clear storage:', e);
+            }
+            
+            // Call server logout
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    console.log('✅ Server logout completed:', result);
+                    performLogout();
+                })
+                .withFailureHandler(function(err) {
+                    console.warn('⚠️ Server logout failed, but proceeding with client logout:', err);
+                    performLogout();
+                })
+                .logout('');
+        }
+
+        function performLogout() {
+            console.log('Performing logout...');
+            
+            // Clear browser storage again
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                console.log('Browser storage cleared');
+            } catch (e) {
+                console.warn('Could not clear storage:', e);
+            }
+            
+            // Show logout message and redirect
+            showLogoutMessage();
+            
+            setTimeout(function() {
+                window.location.href = BASE_URL;
+            }, 2000);
+        }
+
+        function showLogoutMessage() {
+            // Create and show a logout notification
+            const logoutDiv = document.createElement('div');
+            logoutDiv.style.cssText = `
+                position: fixed; top: 20px; right: 20px; 
+                background: linear-gradient(135deg, #27ae60, #2ecc71);
+                color: white; padding: 1rem 1.5rem; border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+                z-index: 10000; font-family: 'Inter', sans-serif;
+                font-weight: 500; animation: slideInRight 0.5s ease-out;
+            `;
+            logoutDiv.innerHTML = '✓ Logged out successfully';
+            document.body.appendChild(logoutDiv);
+            
+            // Add animation keyframes
+            if (!document.getElementById('logout-animation')) {
+                const style = document.createElement('style');
+                style.id = 'logout-animation';
+                style.textContent = `
+                    @keyframes slideInRight {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            setTimeout(() => logoutDiv.remove(), 5000);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // DOCUMENT READY INITIALIZATION
+        // ──────────────────────────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 VLBPO Dashboard initializing...');
+            
+            // Initialize tooltips
+            [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function(tooltipTriggerEl) {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Sidebar toggle
+            document.getElementById('sidebarToggle').addEventListener('click', function() {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('collapsed');
+                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+            });
+            
+            // Mobile toggle
+            const mobileToggle = document.getElementById('mobileToggle');
+            if (mobileToggle) {
+                mobileToggle.addEventListener('click', function() {
+                    document.getElementById('sidebar').classList.toggle('mobile-open');
+                    document.getElementById('mobileOverlay').classList.toggle('active');
+                });
+            }
+            
+            // Mobile overlay close
+            document.getElementById('mobileOverlay')?.addEventListener('click', function() {
+                document.getElementById('sidebar').classList.remove('mobile-open');
+                this.classList.remove('active');
+            });
+            
+            // Restore sidebar state
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                document.getElementById('sidebar').classList.add('collapsed');
+            }
+
+            console.log('✅ Lumina Dashboard initialized');
+            
+            // Mark as hydrated immediately to prevent any client updates
+            window.__userHydrated = true;
+            
+            // Check if user panel was properly rendered by server
+            const userPanel = document.getElementById('userPanel');
+            if (userPanel && userPanel.getAttribute('data-initialized') === 'true') {
+                const serverName = userPanel.getAttribute('data-name');
+                const serverRoles = userPanel.getAttribute('data-roles');
+                console.log('✅ Server-rendered user panel detected:', { 
+                    name: serverName, 
+                    roles: serverRoles 
+                });
+            } else {
+                console.warn('⚠️ User panel not properly initialized by server');
+            }
+        });
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // GLOBAL FUNCTION AVAILABILITY
+        // ──────────────────────────────────────────────────────────────────────────────
+        
+        // Make functions available globally
+        window.handleLogout = handleLogout;
+        window.updateUserDisplaySafely = updateUserDisplaySafely;
+        
+        console.log('✨ Simplified header system loaded successfully');
+    </script>

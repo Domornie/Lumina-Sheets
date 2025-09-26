@@ -1,0 +1,3250 @@
+<!-- Include header and existing styles -->
+<?!= include('header', {
+    currentPage: currentPage || 'Users', 
+    baseUrl: baseUrl,    
+    user: user
+}) ?>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+      rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --primary-50: #f0f9ff;
+        --primary-100: #e0f2fe;
+        --primary-200: #bae6fd;
+        --primary-300: #7dd3fc;
+        --primary-400: #38bdf8;
+        --primary-500: #0ea5e9;
+        --primary-600: #0284c7;
+        --primary-700: #0369a1;
+        --primary-800: #075985;
+        --primary-900: #0c4a6e;
+        --success-50: #f0fdf4;
+        --success-100: #dcfce7;
+        --success-200: #bbf7d0;
+        --success-500: #22c55e;
+        --success-700: #15803d;
+        --warning-50: #fffbeb;
+        --warning-200: #fed7aa;
+        --warning-500: #f59e0b;
+        --warning-700: #b45309;
+        --danger-50: #fef2f2;
+        --danger-500: #ef4444;
+        --gray-50: #f8fafc;
+        --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0;
+        --gray-300: #cbd5e1;
+        --gray-400: #94a3b8;
+        --gray-500: #64748b;
+        --gray-600: #475569;
+        --gray-700: #334155;
+        --gray-800: #1e293b;
+        --gray-900: #0f172a;
+        --border-radius: 20px;
+        --border-radius-sm: 16px;
+        --border-radius-xs: 12px;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    .glass-effect {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .gradient-border {
+        position: relative;
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+        padding: 2px;
+        border-radius: var(--border-radius);
+    }
+
+    .gradient-border-content {
+        background: white;
+        border-radius: calc(var(--border-radius) - 2px);
+        padding: 1.5rem;
+    }
+
+    /* Enhanced Live Banner */
+    .live-banner {
+        position: relative;
+        background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-800) 50%, var(--primary-900) 100%);
+        color: white;
+        padding: 2.5rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-xl);
+        overflow: hidden;
+        transform: perspective(1000px) rotateX(2deg);
+        transition: var(--transition);
+    }
+
+    .live-banner:hover {
+        transform: perspective(1000px) rotateX(0deg) translateY(-2px);
+        box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.25);
+    }
+
+    .live-banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            left: -100%;
+        }
+
+        100% {
+            left: 100%;
+        }
+    }
+
+    .live-banner .led-strip {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg,
+        rgba(34, 197, 94, 0.8) 0%,
+        rgba(34, 197, 94, 1) 50%,
+        rgba(34, 197, 94, 0.8) 100%);
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+
+        0%,
+        100% {
+            opacity: 0.8;
+            transform: scaleY(1);
+        }
+
+        50% {
+            opacity: 1;
+            transform: scaleY(1.5);
+        }
+    }
+
+    .live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        backdrop-filter: blur(8px);
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+    }
+
+    .live-pill:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+    }
+
+    .ping {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background: #22c55e;
+        position: relative;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+    }
+
+    .ping::after {
+        content: '';
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        border: 2px solid #22c55e;
+        opacity: 0.7;
+        animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes ping {
+        0% {
+            transform: scale(0.8);
+            opacity: 1;
+        }
+
+        75%,
+        100% {
+            transform: scale(2);
+            opacity: 0;
+        }
+    }
+
+    /* Enhanced Content Header */
+    .content-header {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .content-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-500), var(--primary-700), var(--primary-500));
+        background-size: 200% 100%;
+        animation: gradient-flow 3s ease infinite;
+    }
+
+    @keyframes gradient-flow {
+
+        0%,
+        100% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+    }
+
+    /* Enhanced User Cards */
+    .user-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+    }
+
+    .user-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.05), transparent);
+        transition: var(--transition);
+    }
+
+    .user-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: var(--shadow-xl);
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .user-card:hover::before {
+        left: 100%;
+    }
+
+    .user-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: var(--border-radius-xs);
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .user-avatar::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+        transform: translateX(-100%);
+        transition: transform 0.6s ease;
+    }
+
+    .user-card:hover .user-avatar::before {
+        transform: translateX(100%);
+    }
+
+    /* Enhanced Buttons */
+    .btn-modern {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.875rem 1.75rem;
+        border-radius: var(--border-radius-sm);
+        font-weight: 600;
+        font-size: 0.875rem;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        white-space: nowrap;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+    }
+
+    .btn-modern::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+        transform: translateX(-100%);
+        transition: transform 0.5s ease;
+    }
+
+    .btn-modern:hover::before {
+        transform: translateX(100%);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px -8px rgba(59, 130, 246, 0.4);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--gray-700);
+        border: 1px solid rgba(203, 213, 225, 0.6);
+        backdrop-filter: blur(8px);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(248, 250, 252, 0.95);
+        border-color: var(--primary-300);
+        color: var(--primary-700);
+        transform: translateY(-1px);
+    }
+
+    /* Enhanced Badges */
+    .badge-modern {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.875rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition-fast);
+    }
+
+    .badge-modern:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .badge-active {
+        background: linear-gradient(135deg, var(--success-100), var(--success-50));
+        color: var(--success-700);
+        border: 1px solid var(--success-200);
+    }
+
+    .badge-inactive {
+        background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+        color: var(--gray-600);
+        border: 1px solid var(--gray-200);
+    }
+
+    .badge-campaign {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        color: white;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    /* Enhanced Filter Bar */
+    .filter-bar {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 2rem;
+        position: relative;
+    }
+
+    .filter-bar::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.02), rgba(147, 197, 253, 0.02));
+        border-radius: var(--border-radius);
+        pointer-events: none;
+    }
+
+    /* Enhanced Form Controls */
+    .form-control,
+    .form-select {
+        border: 2px solid rgba(203, 213, 225, 0.6);
+        border-radius: var(--border-radius-xs);
+        padding: 0.875rem 1rem;
+        font-size: 0.875rem;
+        transition: var(--transition);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(8px);
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary-500);
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        background: white;
+    }
+
+    .input-group-lg .form-control {
+        padding: 1.125rem 1.25rem;
+        font-size: 1rem;
+    }
+
+    .input-group-text {
+        background: rgba(248, 250, 252, 0.9);
+        border: 2px solid rgba(203, 213, 225, 0.6);
+        border-radius: var(--border-radius-xs) 0 0 var(--border-radius-xs);
+        border-right: none;
+        backdrop-filter: blur(8px);
+    }
+
+    /* Enhanced Modal */
+    .modal-content {
+        border-radius: var(--border-radius);
+        border: none;
+        box-shadow: var(--shadow-xl);
+        backdrop-filter: blur(16px);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
+        color: white;
+        border-bottom: none;
+        padding: 2rem;
+        position: relative;
+    }
+
+    .modal-header::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    }
+
+    .modal-body {
+        padding: 2rem;
+        max-height: 70vh;
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.98);
+    }
+
+    .modal-footer {
+        background: rgba(248, 250, 252, 0.9);
+        border-top: 1px solid rgba(203, 213, 225, 0.3);
+        padding: 1.5rem 2rem;
+        backdrop-filter: blur(8px);
+    }
+
+    /* Enhanced Tab Navigation */
+    .nav-tabs {
+        border-bottom: 2px solid rgba(203, 213, 225, 0.3);
+        margin-bottom: 2rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: var(--gray-600);
+        font-weight: 500;
+        padding: 1rem 1.5rem;
+        transition: var(--transition);
+        border-radius: var(--border-radius-xs) var(--border-radius-xs) 0 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .nav-tabs .nav-link::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent);
+        opacity: 0;
+        transition: var(--transition);
+    }
+
+    .nav-tabs .nav-link:hover::before {
+        opacity: 1;
+    }
+
+    .nav-tabs .nav-link.active {
+        background: none;
+        border-bottom-color: var(--primary-500);
+        color: var(--primary-600);
+        position: relative;
+    }
+
+    .nav-tabs .nav-link.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 24px;
+        height: 3px;
+        background: var(--primary-500);
+        border-radius: 2px;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Enhanced Page Grid */
+    .page-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+        max-height: 500px;
+        overflow-y: auto;
+        padding: 1.5rem;
+        background: rgba(248, 250, 252, 0.5);
+        border-radius: var(--border-radius);
+        border: 2px solid rgba(203, 213, 225, 0.3);
+    }
+
+    .page-option {
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px solid rgba(203, 213, 225, 0.3);
+        border-radius: var(--border-radius-sm);
+        padding: 1.5rem;
+        transition: var(--transition);
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .page-option::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--primary-500), var(--primary-700));
+        transition: var(--transition);
+    }
+
+    .page-option:hover {
+        border-color: var(--primary-300);
+        background: rgba(59, 130, 246, 0.05);
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .page-option:hover::before {
+        left: 0;
+    }
+
+    .page-option.selected {
+        border-color: var(--primary-500);
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 197, 253, 0.05));
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+    }
+
+    .page-option.selected::before {
+        left: 0;
+    }
+
+    /* Enhanced Employment Badges */
+    .employment-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: rgba(248, 250, 252, 0.5);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(203, 213, 225, 0.3);
+    }
+
+    .employment-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        transition: var(--transition-fast);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .employment-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .employment-badge.status {
+        background: linear-gradient(135deg, var(--warning-50), var(--warning-100));
+        color: var(--warning-700);
+        border: 1px solid var(--warning-200);
+    }
+
+    .employment-badge.hire-date {
+        background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+        color: var(--gray-700);
+        border: 1px solid var(--gray-200);
+    }
+
+    .employment-badge.country {
+        background: linear-gradient(135deg, var(--primary-50), var(--primary-100));
+        color: var(--primary-700);
+        border: 1px solid var(--primary-200);
+    }
+
+    .employment-badge.insured {
+        background: linear-gradient(135deg, var(--success-50), var(--success-100));
+        color: var(--success-700);
+        border: 1px solid var(--success-200);
+    }
+
+    /* Enhanced Pagination */
+    .pagination {
+        gap: 0.5rem;
+    }
+
+    .page-link {
+        border: 2px solid rgba(203, 213, 225, 0.3);
+        border-radius: var(--border-radius-xs);
+        color: var(--gray-600);
+        font-weight: 500;
+        transition: var(--transition);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(8px);
+    }
+
+    .page-link:hover {
+        border-color: var(--primary-300);
+        background: rgba(59, 130, 246, 0.05);
+        color: var(--primary-600);
+        transform: translateY(-1px);
+    }
+
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        border-color: var(--primary-500);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    /* Enhanced Loading Overlay */
+    .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        transition: var(--transition);
+    }
+
+    .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(203, 213, 225, 0.3);
+        border-top: 4px solid var(--primary-500);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Enhanced Alert */
+    .alert-modern {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        z-index: 1055;
+        min-width: 320px;
+        max-width: 90vw;
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-xl);
+        backdrop-filter: blur(16px);
+        animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-left: 4px solid;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%) scale(0.9);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+        }
+    }
+
+    .alert-success {
+        background: rgba(34, 197, 94, 0.1);
+        color: var(--success-700);
+        border-left-color: var(--success-500);
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border-left-color: var(--danger-500);
+    }
+
+    .alert-warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning-700);
+        border-left-color: var(--warning-500);
+    }
+
+    .alert-info {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--primary-700);
+        border-left-color: var(--primary-500);
+    }
+
+    /* Enhanced Discovery Info */
+    .discovery-info {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 197, 253, 0.02));
+        border: 2px solid rgba(59, 130, 246, 0.2);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .discovery-info::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-500), var(--primary-700), var(--primary-500));
+        background-size: 200% 100%;
+        animation: gradient-flow 3s ease infinite;
+    }
+
+    .discovery-feature {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+        padding: 0.5rem;
+        border-radius: var(--border-radius-xs);
+        transition: var(--transition-fast);
+    }
+
+    .discovery-feature:hover {
+        background: rgba(59, 130, 246, 0.05);
+        transform: translateX(4px);
+    }
+
+    .discovery-feature i {
+        color: var(--primary-600);
+        width: 1.5rem;
+        flex-shrink: 0;
+        font-size: 1rem;
+    }
+
+    /* Enhanced Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: var(--border-radius);
+        border: 2px dashed rgba(203, 213, 225, 0.5);
+        transition: var(--transition);
+    }
+
+    .empty-state:hover {
+        border-color: rgba(59, 130, 246, 0.3);
+        background: rgba(59, 130, 246, 0.02);
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: var(--gray-300);
+        margin-bottom: 1.5rem;
+        display: block;
+    }
+
+    /* Responsive Design Enhancements */
+    @media (max-width: 768px) {
+        .live-banner {
+            padding: 1.5rem;
+            transform: none;
+        }
+
+        .live-banner:hover {
+            transform: translateY(-2px);
+        }
+
+        .content-header {
+            padding: 1.5rem;
+        }
+
+        .user-card {
+            padding: 1.5rem;
+        }
+
+        .user-avatar {
+            width: 48px;
+            height: 48px;
+            font-size: 1.125rem;
+        }
+
+        .filter-bar {
+            padding: 1.5rem;
+        }
+
+        .page-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .btn-modern {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    /* Scroll Bar Styling */
+    .page-grid::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .page-grid::-webkit-scrollbar-track {
+        background: rgba(248, 250, 252, 0.5);
+        border-radius: 4px;
+    }
+
+    .page-grid::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, var(--primary-400), var(--primary-500));
+        border-radius: 4px;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .page-grid::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+    }
+
+    /* Focus States for Accessibility */
+    .btn-modern:focus,
+    .form-control:focus,
+    .form-select:focus,
+    .page-option:focus {
+        outline: 2px solid var(--primary-500);
+        outline-offset: 2px;
+    }
+
+    /* Page Assignment Section */
+    .page-assignment-section,
+    .campaign-assignment-section,
+    .manager-assignment-section {
+        background: rgba(248, 250, 252, 0.5);
+        border: 2px solid rgba(203, 213, 225, 0.3);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(8px);
+    }
+
+    /* User Selection Grid */
+    .user-selection-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: rgba(248, 250, 252, 0.3);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(203, 213, 225, 0.3);
+    }
+
+    .user-option {
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px solid rgba(203, 213, 225, 0.3);
+        border-radius: var(--border-radius-xs);
+        padding: 1rem;
+        transition: var(--transition);
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+    }
+
+    .user-option:hover {
+        border-color: var(--primary-300);
+        background: rgba(59, 130, 246, 0.05);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .campaign-option {
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px solid rgba(203, 213, 225, 0.3);
+        border-radius: var(--border-radius-xs);
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: var(--transition);
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+    }
+
+    .campaign-option:hover {
+        border-color: var(--primary-300);
+        background: rgba(59, 130, 246, 0.05);
+        transform: translateY(-1px);
+    }
+
+    /* Clock Styling */
+    .clock {
+        text-align: right;
+    }
+
+    .tz-badge,
+    .dst-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        font-size: 0.75rem;
+        background: rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(4px);
+        font-weight: 500;
+    }
+
+    /* Live Ticker */
+    .live-ticker {
+        margin-top: 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        padding-top: 1rem;
+        opacity: 0.9;
+        overflow: hidden;
+    }
+
+    .marquee {
+        white-space: nowrap;
+        display: inline-block;
+        animation: marquee 25s linear infinite;
+        font-size: 0.875rem;
+    }
+
+    @keyframes marquee {
+        from {
+            transform: translateX(100%);
+        }
+
+        to {
+            transform: translateX(-100%);
+        }
+    }
+
+    /* Page Stats */
+    .page-stats {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        flex-wrap: wrap;
+        padding: 1rem;
+        background: rgba(248, 250, 252, 0.5);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(203, 213, 225, 0.3);
+    }
+
+    .page-stats span {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+    }
+
+    /* User Pages Display */
+    .user-pages {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .user-page-badge {
+        background: linear-gradient(135deg, var(--primary-50), var(--primary-100));
+        color: var(--primary-700);
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border: 1px solid var(--primary-200);
+        transition: var(--transition-fast);
+    }
+
+    .user-page-badge:hover {
+        transform: scale(1.05);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .user-page-count {
+        background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+        color: var(--gray-600);
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border: 1px solid var(--gray-200);
+    }
+</style>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay d-none">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Enhanced Live User Banner -->
+<div class="live-banner">
+    <div class="led-strip" aria-hidden="true"></div>
+
+    <div class="live-banner-main">
+        <div>
+      <span class="live-pill">
+                <span class="ping"></span>
+      Live
+      </span>
+            <h1 class="mt-3 mb-2 fw-bold" style="font-size: 2.5rem; font-weight: 700;">
+                <i class="fas fa-users me-3"></i>User Management
+            </h1>
+            <p class="opacity-90 mb-0 fs-5">
+                Comprehensive user management with employment & benefits tracking, automatic page discovery and granular access
+                control
+            </p>
+        </div>
+
+        <div>
+            <div class="clock" aria-live="polite" aria-atomic="true">
+                <div class="d-flex align-items-center fw-bold fs-4">
+                    <i class="fas fa-clock me-2"></i>
+                    <span id="headerTime">--:--:--</span>
+                </div>
+                <div class="d-flex align-items-center small text-light">
+                    <i class="fas fa-calendar-day me-2"></i>
+                    <span id="headerDate">-- --- ----</span>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <span class="tz-badge" id="tzBadge">Local</span>
+                    <span class="dst-badge" id="dstStatusLocal">DST: Off</span>
+                </div>
+            </div>
+
+            <div class="live-actions btn-group-responsive mt-3">
+                <button class="btn-modern btn-secondary" onclick="refreshPageDiscovery()"
+                        title="Refresh page discovery">
+                    <i class="fas fa-sync"></i><span class="d-none d-sm-inline"> Discover Pages</span>
+                </button>
+                <button class="btn-modern btn-secondary" onclick="showPageDiscoveryInfo()"
+                        title="Page discovery info">
+                    <i class="fas fa-info-circle"></i><span class="d-none d-sm-inline"> Discovery Info</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="live-ticker" aria-hidden="true">
+        <div class="marquee">
+            Tips: Use the big search to find users fast • Filter by role/campaign/permission •
+            Edit a user to assign pages, permissions & benefits • "Refresh Discovery" finds new routes automatically •
+            Track employment status, hire/termination dates, probation, and insurance eligibility
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Page Discovery Info -->
+<div class="discovery-info">
+    <h6 class="mb-3 fw-bold fs-5"><i class="fas fa-magic me-2"></i>Automatic Page Discovery System</h6>
+    <p class="mb-4 fs-6">The system automatically discovers pages from your Code.gs routing system. Advanced features
+        include:</p>
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="discovery-feature">
+                <i class="fas fa-robot"></i>
+                <span>Auto-discovery of all routes from <code>routeToPage()</code> function</span>
+            </div>
+            <div class="discovery-feature">
+                <i class="fas fa-sitemap"></i>
+                <span>Campaign-aware page assignment and management</span>
+            </div>
+            <div class="discovery-feature">
+                <i class="fas fa-clock"></i>
+                <span>Real-time page availability based on user roles</span>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="discovery-feature">
+                <i class="fas fa-icons"></i>
+                <span>Automatic icon assignment and smart categorization</span>
+            </div>
+            <div class="discovery-feature">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin-only page detection and enforcement</span>
+            </div>
+            <div class="discovery-feature">
+                <i class="fas fa-briefcase"></i>
+                <span>Employment & benefits tracking (status, probation, eligibility)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Main Content Header -->
+<div class="content-header">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-md-center gap-3">
+        <h2 class="mb-0 fw-bold fs-3">Users <span id="userCount" class="text-muted fw-normal">(0)</span></h2>
+        <div class="btn-group-responsive">
+            <button class="btn-modern btn-primary" onclick="showAddUserModal()">
+                <i class="fas fa-plus"></i>Add New User
+            </button>
+            <button class="btn-modern btn-secondary" onclick="refreshUsers()">
+                <i class="fas fa-sync"></i>Refresh
+            </button>
+            <button class="btn-modern btn-secondary" onclick="showEmploymentReport()">
+                <i class="fas fa-chart-bar"></i>Employment Report
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Users Filters -->
+<div class="px-3 pt-3" id="usersFiltersWrapper">
+    <div class="filter-bar">
+        <!-- Search row -->
+        <div class="row g-3 align-items-center pb-4">
+            <div class="col-12 col-lg-8 mx-auto">
+                <div class="input-group input-group-lg">
+          <span class="input-group-text">
+                        <i class="fas fa-search text-primary"></i>
+                    </span>
+                    <input type="text" class="form-control form-control-lg ps-2"
+                           id="userSearch"
+                           placeholder="Search users..."
+                           aria-label="Search users">
+                    <button class="btn btn-light" type="button"
+                            onclick="clearUserFilters()" title="Clear search">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters row -->
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label text-muted small fw-medium">Roles</label>
+                <select id="filterRole" class="form-select form-select-lg" multiple></select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label text-muted small fw-medium">Campaign</label>
+                <select id="filterCampaign" class="form-select form-select-lg"></select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label text-muted small fw-medium">Permission</label>
+                <select id="filterPermission" class="form-select form-select-lg">
+                    <option value="">Any permission</option>
+                    <option value="USER">User</option>
+                    <option value="MANAGER">Manager</option>
+                    <option value="ADMIN">Administrator</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label text-muted small fw-medium">Employment</label>
+                <select id="filterEmploymentStatus" class="form-select form-select-lg">
+                    <option value="">Any status</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Terminated">Terminated</option>
+                    <option value="On Leave">On Leave</option>
+                    <option value="Probation">Probation</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Part Time">Part Time</option>
+                    <option value="Full Time">Full Time</option>
+                    <option value="Suspended">Suspended</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <button class="btn btn-light btn-lg w-100" id="clearUserFilters">
+                    <i class="fas fa-broom"></i> Clear Filters
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Users Container -->
+<div class="p-3" id="usersContainer">
+    <div class="empty-state">
+        <div class="loading-spinner mx-auto mb-3"></div>
+        <p class="text-muted">Loading users...</p>
+    </div>
+</div>
+
+<!-- Enhanced Users Pagination Bar -->
+<div id="usersPaginationBar" class="px-3 pb-4 d-flex justify-content-between align-items-center" style="display:none;">
+    <div class="small text-muted fw-medium" id="usersPageInfo">Showing 0–0 of 0</div>
+
+    <div class="d-flex align-items-center gap-3">
+        <label for="usersPageSize" class="small text-muted mb-0 fw-medium">Per page</label>
+        <select id="usersPageSize" class="form-select form-select-sm" style="width:auto;min-width:80px">
+            <option value="8">8</option>
+            <option value="12" selected>12</option>
+            <option value="24">24</option>
+            <option value="48">48</option>
+        </select>
+
+        <nav aria-label="Users pagination">
+            <ul class="pagination pagination-sm mb-0" id="usersPagination"></ul>
+        </nav>
+    </div>
+</div>
+</div>
+<!-- Enhanced User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold fs-4" id="userModalTitle">Add New User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm" novalidate>
+                    <input type="hidden" id="userId">
+
+                    <!-- Enhanced Tabs -->
+                    <ul class="nav nav-tabs" id="userTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic"
+                                    type="button" role="tab" aria-controls="basic" aria-selected="true">
+                                <i class="fas fa-user me-2"></i><span class="d-none d-sm-inline">Basic Info</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="campaigns-tab" data-bs-toggle="tab" data-bs-target="#campaigns"
+                                    type="button" role="tab" aria-controls="campaigns" aria-selected="false">
+                                <i class="fas fa-building me-2"></i><span class="d-none d-sm-inline">Campaigns</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pages-tab" data-bs-toggle="tab" data-bs-target="#pages"
+                                    type="button" role="tab" aria-controls="pages" aria-selected="false">
+                                <i class="fas fa-file-alt me-2"></i><span class="d-none d-sm-inline">Page Access</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions"
+                                    type="button" role="tab" aria-controls="permissions" aria-selected="false">
+                                <i class="fas fa-shield-alt me-2"></i><span class="d-none d-sm-inline">Permissions</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="manage-users-tab" data-bs-toggle="tab" data-bs-target="#manage-users"
+                                    type="button" role="tab" aria-controls="manage-users" aria-selected="false" style="display:none">
+                                <i class="fas fa-users me-2"></i><span class="d-none d-sm-inline">Manage Users</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="userTabContent">
+                        <!-- Basic Tab -->
+                        <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
+                            <!-- User Identity Section -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6 class="mb-0 fw-bold"><i class="fas fa-id-card me-2"></i>User Identity</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="userName" class="form-label fw-medium">
+                                                    Username <span class="text-danger">*</span>
+                                                    <i class="fas fa-info-circle ms-1"
+                                                       title="Unique identifier for login. Must be at least 2 characters."></i>
+                                                </label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                                    <input type="text" class="form-control" id="userName" required
+                                                           aria-describedby="userNameHelp"
+                                                           placeholder="Enter unique username"
+                                                           minlength="2" maxlength="50">
+                                                </div>
+                                                <div class="invalid-feedback">Please provide a valid username (2-50 characters).</div>
+                                                <div id="userNameHelp" class="form-text">This will be used for login. Must be unique.</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="fullName" class="form-label fw-medium">
+                                                    Full Name
+                                                    <i class="fas fa-info-circle ms-1" title="User's complete name for display purposes"></i>
+                                                </label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+                                                    <input type="text" class="form-control" id="fullName"
+                                                           placeholder="Enter full display name"
+                                                           maxlength="100">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="email" class="form-label fw-medium">
+                                                    Email Address <span class="text-danger">*</span>
+                                                    <i class="fas fa-info-circle ms-1" title="Primary email for notifications and login"></i>
+                                                </label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                                    <input type="email" class="form-control" id="email" required
+                                                           placeholder="user@company.com">
+                                                </div>
+                                                <div class="invalid-feedback">Please provide a valid email address.</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="phoneNumber" class="form-label fw-medium">
+                                                    Phone Number
+                                                    <i class="fas fa-info-circle ms-1" title="Contact phone number (optional)"></i>
+                                                </label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                                    <input type="tel" class="form-control" id="phoneNumber"
+                                                           placeholder="+1 (555) 123-4567">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Employment & Benefits Section -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6 class="mb-0 fw-bold"><i class="fas fa-briefcase me-2"></i>Employment & Benefits</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info border-0 mb-3"
+                                         style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 197, 253, 0.05));">
+                                        <i class="fas fa-lightbulb me-2"></i>
+                                        <strong>HR Integration:</strong> Track employment status, hire/termination dates, probation periods,
+                                        and insurance eligibility (automatically calculated as 3 months after probation ends).
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="employmentStatus" class="form-label fw-medium">
+                                                    Employment Status
+                                                    <i class="fas fa-info-circle ms-1" title="Current employment classification"></i>
+                                                </label>
+                                                <select class="form-select" id="employmentStatus">
+                                                    <option value="">Select Status</option>
+                                                    <option value="Active">Active</option>
+                                                    <option value="Inactive">Inactive</option>
+                                                    <option value="Terminated">Terminated</option>
+                                                    <option value="On Leave">On Leave</option>
+                                                    <option value="Probation">Probation</option>
+                                                    <option value="Contract">Contract</option>
+                                                    <option value="Part Time">Part Time</option>
+                                                    <option value="Full Time">Full Time</option>
+                                                    <option value="Suspended">Suspended</option>
+                                                </select>
+                                                <div class="form-text">Current employment classification</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="hireDate" class="form-label fw-medium">
+                                                    Hire Date
+                                                    <i class="fas fa-info-circle ms-1" title="Date when employment began"></i>
+                                                </label>
+                                                <input type="date" class="form-control" id="hireDate">
+                                                <div class="form-text">Date employee was hired</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="country" class="form-label fw-medium">
+                                                    Work Location Country
+                                                    <i class="fas fa-info-circle ms-1" title="Primary work location for tax and compliance"></i>
+                                                </label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-globe"></i></span>
+                                                    <input type="text" class="form-control" id="country"
+                                                           placeholder="e.g. United States"
+                                                           maxlength="100">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Probation & Termination -->
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="probationMonths" class="form-label fw-medium">
+                                                    Probation Period (months)
+                                                    <i class="fas fa-info-circle ms-1" title="Duration of probationary period in months"></i>
+                                                </label>
+                                                <input type="number" class="form-control" id="probationMonths"
+                                                       min="0" max="24" step="1" placeholder="3">
+                                                <div class="form-text">Used to calculate probation end date (default: 3 months)</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="probationEndDate" class="form-label fw-medium">
+                                                    Probation End Date
+                                                    <i class="fas fa-info-circle ms-1" title="Automatically calculated from hire date + probation months"></i>
+                                                </label>
+                                                <input type="date" class="form-control" id="probationEndDate" readonly>
+                                                <div class="form-text text-muted">
+                                                    <i class="fas fa-calculator me-1"></i>Auto-calculated: Hire Date + Probation Months
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="terminationDate" class="form-label fw-medium">
+                                                    Termination Date
+                                                    <i class="fas fa-info-circle ms-1" title="Date of employment termination (if applicable)"></i>
+                                                </label>
+                                                <input type="date" class="form-control" id="terminationDate">
+                                                <div class="form-text">Leave blank if still employed</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Insurance Information -->
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="insuranceEligibilityDate" class="form-label fw-medium">
+                                                    Insurance Eligibility Date
+                                                    <i class="fas fa-info-circle ms-1" title="Date when insurance becomes available"></i>
+                                                </label>
+                                                <input type="date" class="form-control" id="insuranceEligibilityDate" readonly>
+                                                <div class="form-text text-muted">
+                                                    <i class="fas fa-calculator me-1"></i>Auto-calculated: Probation End + 3 months
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-medium d-flex justify-content-between align-items-center">
+                                                    <span>Insurance Qualification Status</span>
+                                                    <span id="eligibilityStatusPill" class="badge bg-secondary">
+                            <i class="fas fa-hourglass-half me-1"></i>Not Qualified
+                          </span>
+                                                </label>
+                                                <div class="form-text">Automatically determined based on eligibility date and employment status</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="insuranceEnrolled">
+                                                    <label class="form-check-label fw-medium" for="insuranceEnrolled">
+                                                        <i class="fas fa-clipboard-check me-1"></i><strong>Enrolled in Insurance</strong>
+                                                    </label>
+                                                </div>
+                                                <label for="insuranceCardDate" class="form-label fw-medium">Insurance Card Received</label>
+                                                <input type="date" class="form-control" id="insuranceCardDate">
+                                                <div class="form-text">Date insurance card was received</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- System Access Section -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6 class="mb-0 fw-bold"><i class="fas fa-shield-alt me-2"></i>System Access & Roles</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="roles" class="form-label fw-medium">
+                                            User Roles
+                                            <i class="fas fa-info-circle ms-1" title="Assign roles to define user permissions"></i>
+                                        </label>
+                                        <select class="form-control" id="roles" multiple aria-describedby="rolesHelp"></select>
+                                        <div id="rolesHelp" class="form-text">Select one or more roles for this user. Roles determine available features and permissions.</div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="canLogin">
+                                                <label class="form-check-label fw-medium" for="canLogin">
+                                                    <i class="fas fa-sign-in-alt me-2"></i><strong>Enable Login Access</strong>
+                                                    <small class="d-block text-muted">Allow this user to log into the system</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="isAdmin">
+                                                <label class="form-check-label fw-medium" for="isAdmin">
+                                                    <i class="fas fa-crown me-2"></i><strong>System Administrator</strong>
+                                                    <small class="d-block text-muted">Grant full system administration privileges</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Campaigns Tab -->
+                        <div class="tab-pane fade" id="campaigns" role="tabpanel" aria-labelledby="campaigns-tab">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h6 class="mb-0 fw-bold"><i class="fas fa-building me-2"></i>Campaign Access</h6>
+                                <div class="badge bg-info">
+                                    <i class="fas fa-info-circle me-1"></i>Multi-Campaign Support
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info border-0 mb-4"
+                                 style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 197, 253, 0.05));">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                <strong>Campaign Management:</strong> Users can belong to multiple campaigns. Select all campaigns
+                                this user should have access to. The first selected campaign will be their primary campaign.
+                            </div>
+
+                            <div class="campaign-assignment-section">
+                                <h6 class="fw-bold mb-3"><i class="fas fa-list me-2"></i>Available Campaigns</h6>
+                                <div id="campaignAccessContainer" class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-primary mb-3" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted mb-0">Loading available campaigns...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pages Tab -->
+                        <div class="tab-pane fade" id="pages" role="tabpanel" aria-labelledby="pages-tab">
+                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-md-center mb-4 gap-3">
+                                <div>
+                                    <h6 class="mb-1 fw-bold"><i class="fas fa-file-alt me-2"></i>Page Access Control</h6>
+                                    <small class="text-muted">Grant access to specific system pages and features</small>
+                                </div>
+                                <div class="btn-group" role="group" aria-label="Page management actions">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllPages()">
+                                        <i class="fas fa-check-double me-1"></i>Select All
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllPages()">
+                                        <i class="fas fa-times me-1"></i>Clear All
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm" onclick="refreshPageDiscovery()">
+                                        <i class="fas fa-sync me-1"></i>Refresh Discovery
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-success border-0 mb-3"
+                                 style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(74, 222, 128, 0.05));">
+                                <i class="fas fa-robot me-2"></i>
+                                <strong>Auto-Discovery Active:</strong> Pages are automatically discovered from your routing system.
+                                Grant access to specific pages or use role-based defaults.
+                            </div>
+
+                            <!-- Page Search -->
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="pageSearch"
+                                           placeholder="Search pages by name, description, or key..."
+                                           oninput="filterPages()">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('pageSearch').value=''; filterPages();">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Page Statistics -->
+                            <div class="page-stats mb-3">
+                                <span class="me-3"><i class="fas fa-file-alt text-primary me-1"></i><strong id="totalPages">0</strong> Total</span>
+                                <span class="me-3"><i class="fas fa-check text-success me-1"></i><strong id="selectedPages">0</strong> Selected</span>
+                                <span class="me-3"><i class="fas fa-shield-alt text-warning me-1"></i><strong id="adminPages">0</strong> Admin Only</span>
+                                <span><i class="fas fa-eye text-info me-1"></i><strong id="visiblePages">0</strong> Visible</span>
+                            </div>
+
+                            <!-- Page Assignment Container -->
+                            <div class="page-assignment-section">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="fas fa-cogs me-2"></i>Discovered Pages
+                                    <small class="text-muted fw-normal">(Auto-Updated from System Routes)</small>
+                                </h6>
+                                <div id="pageAssignmentContainer" class="page-grid border rounded p-3" style="max-height: 450px; overflow-y: auto;">
+                                    <div class="text-center py-4 w-100">
+                                        <div class="spinner-border text-primary mb-3" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted mb-0">Running page discovery...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Permissions Tab -->
+                        <div class="tab-pane fade" id="permissions" role="tabpanel" aria-labelledby="permissions-tab">
+                            <h6 class="mb-4 fw-bold"><i class="fas fa-user-shield me-2"></i>Campaign Permission Settings</h6>
+
+                            <div class="alert alert-warning border-0 mb-4">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Note:</strong> These permissions apply to the user's primary campaign.
+                                Select a campaign in the Campaigns tab to configure these settings.
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-4">
+                                        <label for="permissionLevel" class="form-label fw-medium">
+                                            Permission Level
+                                            <i class="fas fa-info-circle ms-1" title="Overall permission level for the campaign"></i>
+                                        </label>
+                                        <select class="form-control form-select" id="permissionLevel">
+                                            <option value="USER">User - Basic access</option>
+                                            <option value="MANAGER">Manager - Can manage team members</option>
+                                            <option value="ADMIN">Administrator - Full campaign control</option>
+                                        </select>
+                                        <div class="form-text">Determines the overall access level for this user in their campaign</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="canManageUsers">
+                                                <label class="form-check-label fw-medium" for="canManageUsers">
+                                                    <i class="fas fa-users me-2"></i><strong>Manage Users</strong>
+                                                    <small class="d-block text-muted">Can create, edit, and manage users in assigned campaigns</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="canManagePages">
+                                                <label class="form-check-label fw-medium" for="canManagePages">
+                                                    <i class="fas fa-sitemap me-2"></i><strong>Manage Pages</strong>
+                                                    <small class="d-block text-muted">Can manage page access and navigation structure</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manage Users Tab -->
+                        <div class="tab-pane fade" id="manage-users" role="tabpanel" aria-labelledby="manage-users-tab">
+                            <div class="manager-assignment-section">
+                                <h6 class="mb-3 fw-bold"><i class="fas fa-crown me-2"></i>Manager Assignment Information</h6>
+
+                                <div class="alert alert-info border-0 mb-4">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <strong>Current Manager:</strong> <span id="currentManagerName" class="fw-bold">—</span><br>
+                                            <small class="text-muted">This user will be able to manage the selected team members below</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-md-center mb-4 gap-3">
+                                    <div>
+                                        <h6 class="mb-1 fw-bold"><i class="fas fa-users me-2"></i>Team Member Assignment</h6>
+                                        <small class="text-muted">Select users this manager should oversee</small>
+                                    </div>
+                                    <div class="btn-group" role="group" aria-label="User management actions">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllUsersForManager()">
+                                            <i class="fas fa-check-double me-1"></i>Select All
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllUsersForManager()">
+                                            <i class="fas fa-times me-1"></i>Clear All
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info btn-sm" onclick="refreshUserListForManager()">
+                                            <i class="fas fa-sync me-1"></i>Refresh
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-warning border-0 mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Manager Scope:</strong> Managers can only manage users within campaigns they have access to.
+                                    Users will be notified of manager assignments.
+                                </div>
+
+                                <!-- User Search -->
+                                <div class="mb-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="manageUserSearch"
+                                               placeholder="Search users by name, email, role, or campaign…"
+                                               oninput="filterManagedUsers()">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('manageUserSearch').value=''; filterManagedUsers();">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- User Statistics -->
+                                <div class="page-stats mb-3">
+                                    <span class="me-3"><i class="fas fa-users text-primary me-1"></i><strong id="totalManagedUsers">0</strong> Total</span>
+                                    <span class="me-3"><i class="fas fa-check text-success me-1"></i><strong id="selectedManagedUsers">0</strong> Selected</span>
+                                    <span class="me-3"><i class="fas fa-building text-warning me-1"></i><strong id="campaignUsers">0</strong> In Campaigns</span>
+                                    <span><i class="fas fa-eye text-info me-1"></i><strong id="visibleManagedUsers">0</strong> Visible</span>
+                                </div>
+
+                                <!-- User Assignment Container -->
+                                <div id="userAssignmentContainer" class="user-selection-grid border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                                    <div class="text-center py-4 w-100">
+                                        <div class="spinner-border text-primary mb-3" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted mb-0">Loading users for manager assignment…</p>
+                                    </div>
+                                </div>
+
+                                <!-- Assignment Summary -->
+                                <div class="mt-4 p-3 border rounded bg-light">
+                                    <h6 class="fw-bold mb-2"><i class="fas fa-clipboard-list me-2"></i>Assignment Summary</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="small">
+                                                <strong>Manager:</strong> <span id="summaryManagerName">—</span><br>
+                                                <strong>Selected Users:</strong> <span id="assignmentCount">0</span><br>
+                                                <strong>Campaigns Involved:</strong> <span id="campaignCount">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="small text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>Users will be notified of the manager assignment via email.
+                                                Managers can view reports and assist with training for their assigned team members.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- /tab-content -->
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveUserWithPages()">
+                    <i class="fas fa-save me-1"></i><span id="saveButtonText">Save User</span>
+                </button>
+                <button id="saveManagerBtn" type="button" class="btn btn-success" onclick="saveManagerAssignments()" style="display:none">
+                    <i class="fas fa-user-check me-1"></i>Save Manager Assignments
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Page Discovery Info Modal -->
+<div class="modal fade" id="pageInfoModal" tabindex="-1" aria-labelledby="pageInfoModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="pageInfoModalTitle">Page Discovery Information</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="pageInfoContent">
+                    <div class="text-center py-4">
+                        <div class="loading-spinner mx-auto mb-3"></div>
+                        <p class="text-muted mb-0">Loading page discovery information...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-modern btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn-modern btn-primary" onclick="refreshPageDiscovery()">
+                    <i class="fas fa-sync"></i>Refresh Discovery
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employment Report Modal -->
+<div class="modal fade" id="employmentReportModal" tabindex="-1" aria-labelledby="employmentReportModalTitle"
+     aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="employmentReportModalTitle">Employment Status Report</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="employmentReportContent">
+                    <div class="text-center py-4">
+                        <div class="loading-spinner mx-auto mb-3"></div>
+                        <p class="text-muted mb-0">Loading employment report...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-modern btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn-modern btn-primary" onclick="refreshEmploymentReport()">
+                    <i class="fas fa-sync"></i>Refresh Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+  // ---------- Promise wrapper for Apps Script ----------
+  function callGoogleScript(fnName, ...args) {
+    return new Promise((resolve, reject) => {
+      if (!google || !google.script || !google.script.run) {
+        // Why: allow local preview without Apps Script runtime
+        return reject(new Error('google.script.run unavailable'));
+      }
+      try {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(err => reject(new Error(err && err.message ? err.message : String(err))))
+          [fnName](...args);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  // ---------- UX helpers ----------
+  function showLoading(show) {
+    const el = document.getElementById('loadingOverlay');
+    if (!el) return;
+    el.classList.toggle('d-none', !show);
+  }
+
+  /** type: 'success' | 'info' | 'warning' | 'error' */
+  function showAlert(type, message, timeoutMs = 4500) {
+    const map = { success: 'alert-success', info: 'alert-info', warning: 'alert-warning', error: 'alert-danger' };
+    const css = map[type] || map.info;
+    const host = document.createElement('div');
+    host.className = `alert alert-modern ${css}`;
+    host.role = 'alert';
+    host.innerHTML = `
+    <div class="d-flex align-items-start gap-2">
+      <i class="fas ${type==='success'?'fa-check-circle':type==='warning'?'fa-exclamation-triangle':type==='error'?'fa-times-circle':'fa-info-circle'} mt-1"></i>
+      <div class="flex-grow-1">${escapeHtml(message)}</div>
+      <button type="button" class="btn btn-sm btn-light" aria-label="Close"><i class="fas fa-times"></i></button>
+    </div>
+  `;
+    document.body.appendChild(host);
+    const closeBtn = host.querySelector('button');
+    closeBtn.onclick = () => host.remove();
+    if (timeoutMs > 0) setTimeout(() => host.remove(), timeoutMs);
+  }
+
+  // ---------- Globals ----------
+  let allUsers = [];
+  let allPages = [];
+  let campaigns = [];
+  let roles = [];
+  let currentEditingUserId = null;
+  let currentEditingManagerId = null;
+  let availableUsersForManager = [];
+  let managedAssignments = new Set(); // user IDs under current manager
+  let userFilters = { search: '', roles: [], campaignId: '', permission: '', employmentStatus: '' };
+  let usersPage = 1;
+  let usersPerPage = 12;
+  let filteredUsers = [];
+
+  // ---------- Clock (12h + DST) ----------
+  function startLiveClock() {
+    const t = document.getElementById('headerTime'),
+      d = document.getElementById('headerDate'),
+      tz = document.getElementById('tzBadge'),
+      dst = document.getElementById('dstStatusLocal');
+    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+    const tzShort = (now) => {
+      try {
+        const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(now);
+        return parts.find(p => p.type === 'timeZoneName')?.value || tzName;
+      } catch { return tzName; }
+    };
+    const isDST = (now) => {
+      const jan = new Date(now.getFullYear(), 0, 1), jul = new Date(now.getFullYear(), 6, 1);
+      const std = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+      return now.getTimezoneOffset() < std;
+    };
+    function tick() {
+      const now = new Date();
+      if (t) t.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      if (d) d.textContent = now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      if (tz) tz.textContent = tzShort(now);
+      if (dst) dst.textContent = 'DST: ' + (isDST(now) ? 'On' : 'Off');
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  // ---------- Bootstrap ----------
+  $(document).ready(function () {
+    initializeApp();
+    startLiveClock();
+  });
+
+  function initializeApp() {
+    try {
+      setupEventListeners();
+      loadAllData();
+    } catch (err) {
+      console.error('Init failed:', err);
+      showAlert('error', 'Failed to initialize: ' + err.message);
+    }
+  }
+
+  // ---------- Listeners ----------
+  function setupEventListeners() {
+    $('#roles').select2({ theme: 'bootstrap-5', placeholder: 'Select roles', width: '100%' });
+
+    $('#userTabs button[data-bs-toggle="tab"]').on('shown.bs.tab', () => setTimeout(() => $('#roles').trigger('change'), 100));
+
+    $('#manage-users-tab').on('shown.bs.tab', function () {
+      if (!currentEditingManagerId) return;
+      document.getElementById('saveManagerBtn').style.display = 'inline-flex';
+      loadManagerTabData();
+    });
+    $('#manage-users-tab').on('hidden.bs.tab', function () {
+      document.getElementById('saveManagerBtn').style.display = 'none';
+    });
+
+    $('#filterRole').select2({ theme: 'bootstrap-5', placeholder: 'Filter by role', allowClear: true, width: '100%' });
+    $('#filterCampaign').select2({ theme: 'bootstrap-5', placeholder: 'Filter by campaign', allowClear: true, width: '100%' });
+
+    $('#usersPageSize').on('change', function () {
+      usersPerPage = parseInt(this.value, 10) || 12;
+      usersPage = 1;
+      renderUsersPage();
+    });
+
+    $('#userSearch').on('input', function () {
+      userFilters.search = this.value.trim().toLowerCase();
+      applyUserFilters();
+    });
+    $('#filterRole').on('change', function () {
+      userFilters.roles = $(this).val() || [];
+      applyUserFilters();
+    });
+    $('#filterCampaign').on('change', function () {
+      userFilters.campaignId = $(this).val() || '';
+      applyUserFilters();
+    });
+    $('#filterPermission').on('change', function () {
+      userFilters.permission = this.value || '';
+      applyUserFilters();
+    });
+    $('#filterEmploymentStatus').on('change', function () {
+      userFilters.employmentStatus = this.value || '';
+      applyUserFilters();
+    });
+    $('#clearUserFilters').on('click', function () {
+      clearUserFilters();
+    });
+
+    $(document).on('change', '.campaign-checkbox', function () {
+      const firstSelected = Array.from(document.querySelectorAll('.campaign-checkbox:checked'))[0]?.value;
+      if (currentEditingUserId && firstSelected) loadUserPermissions(currentEditingUserId, firstSelected);
+    });
+
+    $(document).on('click', '.page-option', function (e) {
+      if (e.target.type === 'checkbox') return;
+      const cb = $(this).find('.page-checkbox')[0];
+      cb.checked = !cb.checked;
+      updatePageStats();
+    });
+    $(document).on('click', '.campaign-option', function (e) {
+      if (e.target.type === 'checkbox') return;
+      const $cb = $(this).find('.campaign-checkbox');
+      $cb.prop('checked', !$cb.prop('checked')).trigger('change');
+    });
+    $(document).on('click', '.user-option', function (e) {
+      if (e.target.type === 'checkbox') return;
+      const cb = $(this).find('.user-checkbox')[0];
+      cb.checked = !cb.checked;
+      updateManagedUserStats();
+    });
+
+    $('#userForm').on('submit', function (e) {
+      e.preventDefault();
+      saveUserWithPages();
+    });
+
+    document.getElementById('hireDate').addEventListener('change', recomputeEmploymentDates);
+    document.getElementById('probationMonths').addEventListener('input', recomputeEmploymentDates);
+  }
+
+  // ---------- Loads ----------
+  function loadAllData() {
+    showLoading(true);
+    Promise.all([
+      callGoogleScript('clientGetAllUsers').catch(() => []),
+      callGoogleScript('clientGetAvailablePages').catch(() => []),
+      callGoogleScript('getAllCampaigns').catch(() => []),
+      callGoogleScript('getAllRoles').catch(() => [])
+    ])
+      .then(([usersData, pagesData, campaignsData, rolesData]) => {
+        handleUsersLoaded(usersData || []);
+        handlePagesLoaded(pagesData || []);
+        handleCampaignsLoaded(campaignsData || []);
+        handleRolesLoaded(rolesData || []);
+        initializeUsersFiltersUI();
+        applyUserFilters();
+      })
+      .catch(err => {
+        console.error('Load error:', err);
+        showAlert('error', 'Failed to load data: ' + err.message);
+      })
+      .finally(() => showLoading(false));
+  }
+
+  function handleUsersLoaded(users) {
+    allUsers = users || [];
+    filteredUsers = allUsers.slice();
+    usersPage = 1;
+    renderUsersPage();
+    $('#userCount').text(`(${allUsers.length})`);
+  }
+  function handlePagesLoaded(pages) {
+    allPages = pages || [];
+    populatePageAssignmentOptions();
+    updatePageStats();
+    if (!allPages.length) showAlert('warning', 'No pages discovered. Check routing or run discovery.');
+  }
+  function handleCampaignsLoaded(list) {
+    campaigns = list || [];
+    populateCampaignOptions();
+  }
+  function handleRolesLoaded(list) {
+    roles = list || [];
+    const sel = $('#roles').empty();
+    roles.forEach(r => {
+      const id = r.ID || r.id;
+      const name = r.Name || r.name;
+      if (id && name) sel.append(`<option value="${id}">${escapeHtml(name)}</option>`);
+    });
+  }
+
+  // ---------- Pages (auto discovery) ----------
+  function populatePageAssignmentOptions() {
+    const container = document.getElementById('pageAssignmentContainer');
+    if (!container) return;
+
+    if (!allPages.length) {
+      container.innerHTML = `
+      <div class="text-center py-3 text-warning w-100">
+        <i class="fas fa-exclamation-triangle me-2"></i>No pages discovered.
+        <div class="mt-2"><button class="btn btn-primary btn-sm" onclick="refreshPageDiscovery()">
+          <i class="fas fa-sync me-1"></i>Run Discovery</button></div>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = allPages.map(page => {
+      const isAdminOnly = !!page.requiresAdmin;
+      const icon = page.icon || 'fas fa-file';
+      return `
+      <div class="page-option" data-page-key="${escapeHtml(page.key)}" data-admin="${isAdminOnly}">
+        <div class="d-flex align-items-start gap-2">
+          <input type="checkbox" class="form-check-input mt-1 page-checkbox" value="${escapeHtml(page.key)}" onchange="updatePageStats()" ${isAdminOnly ? 'data-admin="true"' : ''}>
+          <div class="flex-grow-1">
+            <div class="fw-semibold"><i class="${icon} me-2"></i>${escapeHtml(page.title || page.key)}</div>
+            <div class="text-muted small">${escapeHtml(page.description || 'No description')}</div>
+            <div class="mt-1 small">
+              <span class="badge ${isAdminOnly ? 'bg-danger' : 'bg-secondary'}">${isAdminOnly ? 'Admin Only' : 'Standard'}</span>
+              <span class="badge bg-light text-dark">Key: ${escapeHtml(page.key)}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    updatePageStats();
+  }
+
+  function filterPages() {
+    const term = (document.getElementById('pageSearch').value || '').toLowerCase();
+    const cards = document.querySelectorAll('#pageAssignmentContainer .page-option');
+    let visible = 0;
+    cards.forEach(card => {
+      const key = (card.getAttribute('data-page-key') || '').toLowerCase();
+      const text = card.innerText.toLowerCase();
+      const show = !term || key.includes(term) || text.includes(term);
+      card.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    document.getElementById('visiblePages').textContent = String(visible);
+  }
+
+  function updatePageStats() {
+    const total = document.querySelectorAll('#pageAssignmentContainer .page-option').length;
+    const selected = document.querySelectorAll('#pageAssignmentContainer .page-checkbox:checked').length;
+    const admin = document.querySelectorAll('#pageAssignmentContainer .page-option[data-admin="true"]').length;
+    const visible = Array.from(document.querySelectorAll('#pageAssignmentContainer .page-option')).filter(x => x.style.display !== 'none').length;
+    document.getElementById('totalPages').textContent = String(total);
+    document.getElementById('selectedPages').textContent = String(selected);
+    document.getElementById('adminPages').textContent = String(admin);
+    document.getElementById('visiblePages').textContent = String(visible);
+  }
+
+  function selectAllPages() {
+    document.querySelectorAll('#pageAssignmentContainer .page-checkbox').forEach(cb => cb.checked = true);
+    updatePageStats();
+  }
+  function clearAllPages() {
+    document.querySelectorAll('#pageAssignmentContainer .page-checkbox').forEach(cb => cb.checked = false);
+    updatePageStats();
+  }
+
+  function refreshPageDiscovery() {
+    showLoading(true);
+    // Updated: use service's enhanced discovery, then reload available pages
+    callGoogleScript('clientRunEnhancedDiscovery')
+      .catch(() => null)
+      .then(() => callGoogleScript('clientGetAvailablePages'))
+      .then(pages => {
+        allPages = pages || [];
+        populatePageAssignmentOptions();
+        updatePageStats();
+        showAlert('success', 'Page discovery refreshed.');
+        // If modal open, refresh content
+        const modalEl = document.getElementById('pageInfoModal');
+        if (modalEl && bootstrap.Modal.getInstance(modalEl)) loadPageDiscoveryInfoIntoModal();
+      })
+      .catch(err => showAlert('error', 'Failed to refresh page discovery: ' + err.message))
+      .finally(() => showLoading(false));
+  }
+
+  function showPageDiscoveryInfo() {
+    const modal = new bootstrap.Modal(document.getElementById('pageInfoModal'));
+    loadPageDiscoveryInfoIntoModal();
+    modal.show();
+  }
+
+  function loadPageDiscoveryInfoIntoModal() {
+    const el = document.getElementById('pageInfoContent');
+    if (!el) return;
+    const adminCount = allPages.filter(p => p.requiresAdmin).length;
+    const stdCount = allPages.length - adminCount;
+    const list = allPages.slice(0, 25).map(p => `
+    <tr>
+      <td class="text-nowrap"><code>${escapeHtml(p.key)}</code></td>
+      <td>${escapeHtml(p.title || '')}</td>
+      <td class="small text-muted">${escapeHtml(p.description || '')}</td>
+      <td>${p.requiresAdmin ? '<span class="badge bg-danger">Admin</span>' : '<span class="badge bg-secondary">Standard</span>'}</td>
+    </tr>
+  `).join('');
+    el.innerHTML = `
+    <div class="mb-3">
+      <div class="d-flex gap-3 flex-wrap">
+        <span class="badge bg-primary">Total: ${allPages.length}</span>
+        <span class="badge bg-danger">Admin: ${adminCount}</span>
+        <span class="badge bg-secondary">Standard: ${stdCount}</span>
+      </div>
+    </div>
+    <div class="table-responsive" style="max-height:45vh;overflow:auto;">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Key</th><th>Title</th><th>Description</th><th>Type</th></tr></thead>
+        <tbody>${list || '<tr><td colspan="4" class="text-muted">No pages.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+  }
+
+  // ---------- Campaigns ----------
+  function populateCampaignOptions() {
+    const container = document.getElementById('campaignAccessContainer');
+    if (!container) return;
+    if (!campaigns.length) {
+      container.innerHTML = `
+      <div class="text-center py-3 text-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>No campaigns available.
+      </div>`;
+      return;
+    }
+    container.innerHTML = campaigns.map(c => {
+      const id = c.id || c.ID;
+      const name = c.name || c.Name;
+      const desc = c.description || c.Description;
+      return `
+      <div class="campaign-option d-flex align-items-start gap-2">
+        <input type="checkbox" id="campaign_${escapeHtml(String(id))}" value="${escapeHtml(String(id))}" class="form-check-input campaign-checkbox mt-1">
+        <label for="campaign_${escapeHtml(String(id))}" class="flex-grow-1 mb-0">
+          <strong>${escapeHtml(name)}</strong>
+          ${desc ? `<br><small class="text-muted">${escapeHtml(desc)}</small>` : ''}
+        </label>
+      </div>`;
+    }).join('');
+  }
+
+  // ---------- Users list & pagination ----------
+  function renderUsersPage() {
+    const total = filteredUsers.length;
+    const totalPages = Math.max(1, Math.ceil(total / usersPerPage));
+    usersPage = Math.min(Math.max(1, usersPage), totalPages);
+    const start = (usersPage - 1) * usersPerPage;
+    const end = Math.min(start + usersPerPage, total);
+    const pageSlice = filteredUsers.slice(start, end);
+
+    renderUsersWithPages(pageSlice);
+
+    const infoEl = document.getElementById('usersPageInfo');
+    const barEl = document.getElementById('usersPaginationBar');
+    if (infoEl) {
+      infoEl.textContent = total ? `Showing ${start + 1}–${end} of ${total}` : 'No users';
+    }
+    if (barEl) {
+      barEl.style.display = total ? 'flex' : 'none';
+    }
+    updateUsersPagination(totalPages);
+  }
+
+  function renderUsersWithPages(users) {
+    const container = document.getElementById('usersContainer');
+    if (!container) return;
+
+    if (!users || !users.length) {
+      container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-users"></i>
+        <h5 class="text-muted fw-bold">No users found</h5>
+        <p class="text-muted mb-4">Get started by adding your first user with employment tracking and auto page discovery</p>
+        <button class="btn-modern btn-primary" onclick="showAddUserModal()"><i class="fas fa-plus"></i>Add New User</button>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = users.map(renderUserCardWithPages).join('');
+  }
+
+  function renderUserCardWithPages(user) {
+    const name = user.FullName || user.UserName || 'Unknown User';
+    const username = user.UserName || 'unknown';
+    const initials = getInitials(name);
+    const userId = user.ID || '';
+
+    return `
+  <div class="user-card">
+    <div class="d-flex align-items-start">
+      <div class="user-avatar me-3">${initials}</div>
+      <div class="flex-grow-1">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            <h5 class="mb-2 fw-bold">${escapeHtml(name)}</h5>
+            <div class="text-muted small mb-1">@${escapeHtml(username)}</div>
+            <div class="text-muted small mb-1"><i class="fas fa-envelope me-1"></i>${escapeHtml(user.Email || 'No email')}</div>
+            ${user.PhoneNumber ? `<div class="text-muted small mb-1"><i class="fas fa-phone me-1"></i>${escapeHtml(user.PhoneNumber)}</div>` : ''}
+          </div>
+          <div class="btn-group" role="group" aria-label="User actions">
+            <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password"><i class="fas fa-key"></i></button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
+            <button class="btn btn-outline-danger btn-sm" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          ${renderStatusBadge(user)}
+          ${renderCampaignBadges(user)}
+          ${renderRolesBadges(user)}
+        </div>
+
+        ${renderEmploymentInfo(user)}
+
+        <div class="mt-3">
+          <div class="small text-muted mb-2 fw-medium"><i class="fas fa-robot me-1"></i>Auto-Discovered Page Access:</div>
+          ${renderUserPagesBadges(user)}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  }
+
+  // ---------- Utilities for user card ----------
+  function renderEmploymentInfo(user) {
+    const employmentStatus = user.EmploymentStatus || '';
+    const hireDate = user.HireDate || '';
+    const country = user.Country || '';
+    const terminationDate = user.TerminationDate || '';
+    const probationEnd = user.ProbationEndDate || '';
+    const enrolled = !!(user.InsuranceSignedUp || user.InsuranceEnrolled || user.InsuranceEnrolledBool);
+    const eligDate = user.InsuranceQualifiedDate || user.InsuranceEligibilityDate || '';
+    const qualified = (user.InsuranceEligible === true || user.InsuranceQualifiedBool === true)
+      ? true
+      : (eligDate ? (new Date() >= new Date(eligDate)) : false);
+
+    if (!employmentStatus && !hireDate && !country && !terminationDate && !probationEnd && !eligDate) return '';
+
+    let html = '<div class="employment-info">';
+    if (employmentStatus) html += `<span class="employment-badge status"><i class="fas fa-briefcase me-1"></i>${escapeHtml(employmentStatus)}</span>`;
+    if (hireDate) html += `<span class="employment-badge hire-date"><i class="fas fa-calendar-alt me-1"></i>Hired: ${formatHireVisual(hireDate)}</span>`;
+    if (terminationDate) html += `<span class="employment-badge termination"><i class="fas fa-user-slash me-1"></i>Terminated: ${formatHireVisual(terminationDate)}</span>`;
+    if (probationEnd) html += `<span class="employment-badge probation"><i class="fas fa-flag-checkered me-1"></i>Probation End: ${formatHireVisual(probationEnd)}</span>`;
+    if (eligDate) html += `<span class="employment-badge eligible-date"><i class="fas fa-id-card me-1"></i>Eligibility: ${formatHireVisual(eligDate)}</span>`;
+    html += enrolled
+      ? `<span class="employment-badge insured"><i class="fas fa-shield-heart me-1"></i>Insured</span>`
+      : `<span class="employment-badge not-insured"><i class="fas fa-shield me-1"></i>Not Enrolled</span>`;
+    html += qualified
+      ? `<span class="employment-badge insured"><i class="fas fa-check-circle me-1"></i>Qualified</span>`
+      : `<span class="employment-badge not-eligible"><i class="fas fa-hourglass-half me-1"></i>Not Qualified</span>`;
+    if (country) html += `<span class="employment-badge country"><i class="fas fa-globe me-1"></i>${escapeHtml(country)}</span>`;
+    html += '</div>';
+    return html;
+  }
+
+  function renderUserPagesBadges(user) {
+    const userPages = user.pages || [];
+    if (!userPages.length) return '<span class="user-page-count">🚫 No pages assigned</span>';
+    const maxDisplay = 5;
+    const firstFew = userPages.slice(0, maxDisplay).map(key => {
+      const page = allPages.find(p => p.key === key);
+      const title = page ? page.title : key;
+      const icon = page ? page.icon : 'fas fa-file';
+      return `<span class="user-page-badge" title="${escapeHtml(title)}"><i class="${icon} me-1"></i>${escapeHtml(key)}</span>`;
+    }).join('');
+    const extra = userPages.length > maxDisplay ? `<span class="user-page-count" title="Total: ${userPages.length} pages">+${userPages.length - maxDisplay} more</span>` : '';
+    return firstFew + extra;
+  }
+
+  function renderStatusBadge(user) {
+    return user.canLoginBool
+      ? '<span class="badge-modern badge-active"><i class="fas fa-check-circle me-1"></i>Active</span>'
+      : '<span class="badge-modern badge-inactive"><i class="fas fa-times-circle me-1"></i>Inactive</span>';
+  }
+  function renderCampaignBadges(user) {
+    const name = user.campaignName || '';
+    return name
+      ? `<span class="badge-modern badge-campaign">${escapeHtml(name)}</span>`
+      : '<span class="badge-modern" style="background:var(--gray-100);color:var(--gray-600);">No Campaign</span>';
+  }
+  function renderRolesBadges(user) {
+    if (!user.roleNames || !user.roleNames.length) return '';
+    return user.roleNames.map(r => `<span class="badge bg-secondary">${escapeHtml(r)}</span>`).join(' ');
+  }
+
+  // ---------- Pagination control ----------
+  function updateUsersPagination(totalPages) {
+    const ul = document.getElementById('usersPagination');
+    if (!ul) return;
+    ul.innerHTML = '';
+    const addBtn = (label, page, disabled = false, active = false) => {
+      const li = document.createElement('li');
+      li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+      const a = document.createElement('a');
+      a.className = 'page-link';
+      a.href = '#';
+      a.innerText = label;
+      if (!disabled) {
+        a.onclick = (e) => { e.preventDefault(); goToUsersPage(page); };
+      }
+      li.appendChild(a);
+      ul.appendChild(li);
+    };
+    const makeRange = () => {
+      if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+      const pages = new Set([1, 2, totalPages - 1, totalPages, usersPage - 1, usersPage, usersPage + 1]);
+      return Array.from(pages).filter(p => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    };
+    addBtn('«', usersPage - 1, usersPage === 1);
+    const nums = makeRange();
+    for (let i = 0; i < nums.length; i++) {
+      const p = nums[i];
+      addBtn(String(p), p, false, p === usersPage);
+      const next = nums[i + 1];
+      if (next && next - p > 1) {
+        const li = document.createElement('li');
+        li.className = 'page-item disabled';
+        li.innerHTML = `<span class="page-link">…</span>`;
+        ul.appendChild(li);
+      }
+    }
+    addBtn('»', usersPage + 1, usersPage === totalPages);
+  }
+  function goToUsersPage(page) {
+    usersPage = page;
+    renderUsersPage();
+    const top = document.getElementById('usersContainer');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---------- Filters ----------
+  function initializeUsersFiltersUI() {
+    const roleSelect = $('#filterRole').empty();
+    const roleNames = Array.from(new Set((roles || []).map(r => (r.Name || r.name)).filter(Boolean))).sort();
+    roleNames.forEach(n => roleSelect.append(new Option(n, n)));
+    const campSelect = $('#filterCampaign').empty();
+    campSelect.append(new Option('Any campaign', '', true, false));
+    (campaigns || []).forEach(c => {
+      const id = c.ID || c.id;
+      const name = c.Name || c.name;
+      if (id && name) campSelect.append(new Option(name, id));
+    });
+    if (userFilters.roles.length) $('#filterRole').val(userFilters.roles).trigger('change');
+    if (userFilters.campaignId) $('#filterCampaign').val(userFilters.campaignId).trigger('change');
+    if (userFilters.permission) $('#filterPermission').val(userFilters.permission).trigger('change');
+    if (userFilters.employmentStatus) $('#filterEmploymentStatus').val(userFilters.employmentStatus).trigger('change');
+    if (userFilters.search) $('#userSearch').val(userFilters.search);
+  }
+  function clearUserFilters() {
+    userFilters = { search: '', roles: [], campaignId: '', permission: '', employmentStatus: '' };
+    $('#userSearch').val('');
+    $('#filterRole').val(null).trigger('change');
+    $('#filterCampaign').val('').trigger('change');
+    $('#filterPermission').val('').trigger('change');
+    $('#filterEmploymentStatus').val('').trigger('change');
+    applyUserFilters();
+  }
+  function getUserEffectivePermissionLevels(user) {
+    const raw = (user && Array.isArray(user.campaignPermissions)) ? user.campaignPermissions : [];
+    const levels = raw.map(p => (p.PermissionLevel || p.permissionLevel || p.level || '').toString().toUpperCase()).filter(Boolean);
+    return levels.length ? Array.from(new Set(levels)) : ['USER'];
+  }
+  function applyUserFilters() {
+    const term = userFilters.search;
+    const roleVals = (userFilters.roles || []).map(s => s.toLowerCase());
+    const campaignId = (userFilters.campaignId || '').toString();
+    const perm = (userFilters.permission || '').toUpperCase();
+    const empStatus = (userFilters.employmentStatus || '').toString();
+
+    let filtered = (allUsers || []).filter(u => {
+      if (term) {
+        const hay = [u.FullName, u.UserName, u.Email, (u.campaignName || ''), (u.roleNames || []).join(' '), u.EmploymentStatus, u.Country]
+          .join(' ').toLowerCase();
+        if (!hay.includes(term)) return false;
+      }
+      if (roleVals.length) {
+        const uRoles = (u.roleNames || []).map(r => (r || '').toLowerCase());
+        if (!roleVals.some(rv => uRoles.includes(rv))) return false;
+      }
+      if (campaignId) {
+        if (String(u.CampaignID || '') !== campaignId) return false;
+      }
+      if (perm) {
+        const levels = getUserEffectivePermissionLevels(u);
+        if (!levels.includes(perm)) return false;
+      }
+      if (empStatus) {
+        if (String(u.EmploymentStatus || '') !== empStatus) return false;
+      }
+      return true;
+    });
+
+    filteredUsers = filtered;
+    usersPage = 1;
+    renderUsersPage();
+    $('#userCount').text(`(${filtered.length}/${allUsers.length})`);
+  }
+
+  // ---------- CRUD ----------
+  function showAddUserModal() {
+    currentEditingUserId = null;
+    currentEditingManagerId = null;
+
+    document.getElementById('userModalTitle').textContent = 'Add New User';
+    document.getElementById('saveButtonText').textContent = 'Create User';
+
+    // Reset form
+    document.getElementById('userForm').reset();
+    document.getElementById('userForm').classList.remove('was-validated');
+
+    // Clear selections
+    $('#roles').val(null).trigger('change');
+    document.querySelectorAll('.campaign-checkbox').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = false);
+
+    // Reset UI elements
+    updatePageStats();
+    setEligibilityPill(false);
+
+    // Hide manager tab for new users
+    document.getElementById('manage-users-tab').style.display = 'none';
+    document.getElementById('saveManagerBtn').style.display = 'none';
+
+    // Set default values
+    document.getElementById('canLogin').checked = true;
+    document.getElementById('probationMonths').value = '3';
+
+    // Recompute dates
+    recomputeEmploymentDates();
+
+    // Show modal
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+
+    // Focus on username field
+    setTimeout(() => {
+      const userNameField = document.getElementById('userName');
+      if (userNameField) userNameField.focus();
+    }, 300);
+  }
+
+  function editUserWithPages(userId) {
+    const u = allUsers.find(x => x.ID === userId);
+    if (!u) return showAlert('error', 'User not found');
+
+    console.log('Editing user:', u); // Debug log
+
+    currentEditingUserId = userId;
+    currentEditingManagerId = userId;
+    document.getElementById('userModalTitle').textContent = 'Edit User';
+    document.getElementById('saveButtonText').textContent = 'Update User';
+
+    // Clear form validation
+    document.getElementById('userForm').classList.remove('was-validated');
+
+    // Reset form and clear all fields first
+    document.getElementById('userForm').reset();
+
+    // Set basic fields with better field mapping
+    document.getElementById('userId').value = userId || '';
+
+    // Username field - check all possible variations
+    const userNameField = document.getElementById('userName');
+    let mappedUserName = '';
+    if (userNameField) {
+      mappedUserName = u.UserName || u.userName || u.username || '';
+      console.log('Setting username:', mappedUserName); // Debug log
+      userNameField.value = mappedUserName;
+
+      // Trigger validation check
+      if (mappedUserName) {
+        userNameField.classList.remove('is-invalid');
+        userNameField.classList.add('is-valid');
+      }
+    }
+
+    // Other basic fields
+    document.getElementById('fullName').value = u.FullName || u.fullName || '';
+    document.getElementById('email').value = u.Email || u.email || '';
+    document.getElementById('phoneNumber').value = u.PhoneNumber || u.phoneNumber || '';
+
+    // System access
+    document.getElementById('canLogin').checked = !!(u.canLoginBool || u.CanLogin === true || u.CanLogin === 'TRUE');
+    document.getElementById('isAdmin').checked = !!(u.isAdminBool || u.IsAdmin === true || u.IsAdmin === 'TRUE');
+
+    // Employment fields
+    document.getElementById('employmentStatus').value = u.EmploymentStatus || '';
+    document.getElementById('hireDate').value = formatDateForInput(u.HireDate);
+    document.getElementById('country').value = u.Country || '';
+
+    // Benefits/HR fields
+    document.getElementById('terminationDate').value = formatDateForInput(u.TerminationDate);
+
+    const probMonths = (u.ProbationMonths !== undefined && u.ProbationMonths !== null && u.ProbationMonths !== '')
+      ? u.ProbationMonths : '';
+    document.getElementById('probationMonths').value = probMonths;
+
+    document.getElementById('probationEndDate').value = formatDateForInput(u.ProbationEndDate);
+    document.getElementById('insuranceEligibilityDate').value = formatDateForInput(
+      u.InsuranceQualifiedDate || u.InsuranceEligibilityDate
+    );
+
+    document.getElementById('insuranceEnrolled').checked = !!(
+      u.InsuranceSignedUp || u.InsuranceEnrolled || u.InsuranceEnrolledBool
+    );
+
+    document.getElementById('insuranceCardDate').value = formatDateForInput(
+      u.InsuranceCardReceivedDate || u.InsuranceCardDate
+    );
+
+    // Set eligibility pill
+    const qualified = (u.InsuranceEligible === true || u.InsuranceQualifiedBool === true)
+      ? true
+      : (document.getElementById('insuranceEligibilityDate').value
+        ? (new Date() >= new Date(document.getElementById('insuranceEligibilityDate').value))
+        : false);
+    setEligibilityPill(qualified);
+
+    // Set roles
+    const roleIds = u.roleIds || [];
+    $('#roles').val(roleIds).trigger('change');
+
+    // Set campaign selection
+    document.querySelectorAll('.campaign-checkbox').forEach(cb => {
+      cb.checked = (cb.value === String(u.CampaignID || ''));
+    });
+
+    // Load permissions for primary campaign
+    const primaryCampaignId = String(u.CampaignID || '');
+    if (primaryCampaignId) {
+      loadUserPermissions(userId, primaryCampaignId);
+    }
+
+    // Load user pages
+    loadUserPages(userId);
+
+    // Handle manager tab
+    callGoogleScript('canUserManageOthers', userId)
+      .then(can => {
+        const tab = document.getElementById('manage-users-tab');
+        const btn = document.getElementById('saveManagerBtn');
+        if (can) {
+          tab.style.display = 'block';
+          const name = (u.FullName || u.UserName || 'Manager');
+          document.getElementById('currentManagerName').textContent = name;
+          document.getElementById('summaryManagerName').textContent = name;
+        } else {
+          tab.style.display = 'none';
+          btn.style.display = 'none';
+        }
+      })
+      .catch(() => {
+        document.getElementById('manage-users-tab').style.display = 'none';
+        document.getElementById('saveManagerBtn').style.display = 'none';
+      });
+
+    // Recompute employment dates based on current values
+    recomputeEmploymentDates();
+
+    // Show the modal
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+
+    console.log('Edit user modal opened for:', mappedUserName || userId);
+  }
+  function getElementValue(id, defaultValue = '') {
+    const element = document.getElementById(id);
+    if (!element) return defaultValue;
+    return element.value || defaultValue;
+  }
+
+  function saveUserWithPages() {
+    const form = document.getElementById('userForm');
+    form.classList.add('was-validated');
+
+    // Get and validate username
+    const userNameField = document.getElementById('userName');
+    const userName = userNameField ? userNameField.value.trim() : '';
+
+    console.log('Saving user with username:', userName); // Debug log
+
+    if (!userName) {
+      showAlert('error', 'Username is required and cannot be empty');
+      if (userNameField) {
+        userNameField.focus();
+        userNameField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        userNameField.classList.add('is-invalid');
+      }
+
+      // Switch to basic tab if not already there
+      const basicTab = new bootstrap.Tab(document.getElementById('basic-tab'));
+      basicTab.show();
+      return;
+    }
+
+    if (userName.length < 2) {
+      showAlert('error', 'Username must be at least 2 characters long');
+      if (userNameField) {
+        userNameField.focus();
+        userNameField.classList.add('is-invalid');
+      }
+      return;
+    }
+
+    // Validate email
+    const emailField = document.getElementById('email');
+    const email = emailField ? emailField.value.trim() : '';
+    if (!email) {
+      showAlert('error', 'Email address is required');
+      if (emailField) {
+        emailField.focus();
+        emailField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        emailField.classList.add('is-invalid');
+      }
+      return;
+    }
+
+    // Check basic form validity
+    if (!form.checkValidity()) {
+      const firstInvalid = form.querySelector(':invalid');
+      if (firstInvalid) {
+        firstInvalid.focus();
+        showAlert('error', 'Please correct the validation errors before saving');
+      }
+      return;
+    }
+
+    // Validate campaign selection
+    const selectedCampaigns = Array.from(document.querySelectorAll('.campaign-checkbox:checked')).map(cb => cb.value);
+    if (!selectedCampaigns.length) {
+      showAlert('error', 'Please select at least one campaign');
+      const campaignTab = new bootstrap.Tab(document.getElementById('campaigns-tab'));
+      campaignTab.show();
+      return;
+    }
+
+    // Get selected pages
+    const selectedPages = Array.from(document.querySelectorAll('.page-checkbox:checked')).map(cb => cb.value);
+
+    // Helper functions for safe field access
+    const getFieldValue = (id, defaultValue = '') => {
+      const element = document.getElementById(id);
+      return element ? (element.value || defaultValue) : defaultValue;
+    };
+
+    const getFieldChecked = (id, defaultValue = false) => {
+      const element = document.getElementById(id);
+      return element ? element.checked : defaultValue;
+    };
+
+    // Build payload with all field mappings
+    const insuranceEligibilityDate = getFieldValue('insuranceEligibilityDate');
+    const insuranceEligible = insuranceEligibilityDate ? (new Date() >= new Date(insuranceEligibilityDate)) : false;
+
+    const payload = {
+      userName: userName,
+      UserName: userName, // Also include PascalCase version for backend compatibility
+      fullName: getFieldValue('fullName').trim(),
+      email: email,
+      phoneNumber: getFieldValue('phoneNumber').trim(),
+      campaignId: selectedCampaigns[0],
+      roles: $('#roles').val() || [],
+      canLogin: getFieldChecked('canLogin'),
+      isAdmin: getFieldChecked('isAdmin'),
+      pages: selectedPages,
+      permissionLevel: getFieldValue('permissionLevel'),
+      canManageUsers: getFieldChecked('canManageUsers'),
+      canManagePages: getFieldChecked('canManagePages'),
+
+      // Employment & Benefits
+      employmentStatus: getFieldValue('employmentStatus').trim(),
+      hireDate: getFieldValue('hireDate'),
+      country: getFieldValue('country').trim(),
+      terminationDate: getFieldValue('terminationDate'),
+      probationMonths: (() => {
+        const v = parseInt(getFieldValue('probationMonths'), 10);
+        return isNaN(v) ? null : v;
+      })(),
+      probationEndDate: getFieldValue('probationEndDate'),
+      insuranceQualifiedDate: insuranceEligibilityDate,
+      insuranceEligible: insuranceEligible,
+      insuranceSignedUp: getFieldChecked('insuranceEnrolled'),
+      insuranceCardReceivedDate: getFieldValue('insuranceCardDate')
+    };
+
+    console.log('Save payload:', payload); // Debug log
+
+    showLoading(true);
+
+    const isEditing = !!currentEditingUserId;
+    let targetUserId = currentEditingUserId;
+    let savePromise;
+
+    if (isEditing) {
+      // Update existing user
+      savePromise = callGoogleScript('clientUpdateUser', targetUserId, payload)
+        .then(res => {
+          if (!res || !res.success) return res;
+
+          // Set permissions
+          return callGoogleScript('clientSetUserPermissions', targetUserId, selectedCampaigns[0],
+            payload.permissionLevel, payload.canManageUsers, payload.canManagePages)
+            .then(permRes => (permRes && permRes.success) ? res : permRes);
+        })
+        .then(res => {
+          if (!res || !res.success) return res;
+
+          // Assign pages
+          return callGoogleScript('clientAssignPagesToUser', targetUserId, selectedPages);
+        });
+    } else {
+      // Create new user
+      savePromise = callGoogleScript('clientRegisterUser', payload)
+        .then(res => {
+          if (!res || !res.success || !res.userId) return res;
+          targetUserId = res.userId;
+
+          // Set permissions
+          return callGoogleScript('clientSetUserPermissions', targetUserId, selectedCampaigns[0],
+            payload.permissionLevel, payload.canManageUsers, payload.canManagePages)
+            .then(permRes => (permRes && permRes.success) ? res : permRes);
+        })
+        .then(res => {
+          if (!res || !res.success || !targetUserId) return res;
+
+          // Assign pages
+          return callGoogleScript('clientAssignPagesToUser', targetUserId, selectedPages);
+        });
+    }
+
+    savePromise
+      .then(res => {
+        if (res && res.success) {
+          const statusMsg = payload.employmentStatus ? ` (${payload.employmentStatus})` : '';
+          showAlert('success', `User ${isEditing ? 'updated' : 'created'} successfully${statusMsg} with username "${payload.userName}"`);
+
+          // Hide modal and refresh data
+          bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+          loadAllData();
+        } else {
+          console.error('Save failed:', res);
+          showAlert('error', res?.error || res?.message || 'Operation failed');
+        }
+      })
+      .catch(err => {
+        console.error('Save error:', err);
+        showAlert('error', 'Failed to save user: ' + (err.message || String(err)));
+      })
+      .finally(() => {
+        showLoading(false);
+      });
+  }
+
+  function deleteUser(userId) {
+    if (!confirm('Delete this user? This cannot be undone.')) return;
+    showLoading(true);
+    callGoogleScript('clientDeleteUser', userId)
+      .then(res => {
+        if (res && res.success) {
+          showAlert('success', 'User deleted');
+          loadAllData();
+        } else {
+          showAlert('error', res?.error || 'Failed to delete');
+        }
+      })
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => showLoading(false));
+  }
+
+  function adminResetPassword(userId) {
+    const u = allUsers.find(x => String(x.ID) === String(userId));
+    if (!u) return showAlert('error', 'User not found');
+    const label = u.Email || u.UserName || u.FullName || userId;
+    if (!confirm(`Send password reset to ${label}?`)) return;
+    showLoading(true);
+    callGoogleScript('clientAdminResetPasswordById', userId)
+      .then(res => showAlert(res && res.success ? 'success' : 'error', (res && (res.message || res.error)) || 'Unknown response'))
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => showLoading(false));
+  }
+
+  function resendFirstLogin(userId) {
+    const u = allUsers.find(x => String(x.ID) === String(userId));
+    if (!u) return showAlert('error', 'User not found');
+    const label = u.Email || u.UserName || u.FullName || userId;
+    if (!confirm(`Resend first-login email to ${label}?`)) return;
+    showLoading(true);
+    callGoogleScript('clientResendFirstLoginEmail', userId)
+      .then(res => showAlert(res && res.success ? 'success' : 'error', (res && (res.message || res.error)) || 'Unknown response'))
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => showLoading(false));
+  }
+
+  // ---------- Employment helpers ----------
+  function formatHireVisual(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch { return dateStr; }
+  }
+  function formatDateForInput(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      return toDateInput(d);
+    } catch { return ''; }
+  }
+  function toDateInput(d) {
+    if (!d || isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${da}`;
+  }
+  function addMonthsSafe(date, months) {
+    const d = new Date(date.getTime());
+    const targetMonth = d.getMonth() + months;
+    const day = d.getDate();
+    d.setMonth(targetMonth);
+    if (d.getDate() < day) d.setDate(0);
+    return d;
+  }
+  function recomputeEmploymentDates() {
+    const hireStr = document.getElementById('hireDate').value;
+    const months = parseInt(document.getElementById('probationMonths').value, 10);
+    const validMonths = isNaN(months) ? null : Math.max(0, months);
+    if (hireStr && validMonths !== null) {
+      const hire = new Date(hireStr + 'T00:00:00');
+      const probationEnd = addMonthsSafe(hire, validMonths);
+      document.getElementById('probationEndDate').value = toDateInput(probationEnd);
+      // Frontend uses +3 months default to match service's default INSURANCE_MONTHS_AFTER_PROBATION
+      const elig = addMonthsSafe(probationEnd, 3);
+      document.getElementById('insuranceEligibilityDate').value = toDateInput(elig);
+      setEligibilityPill(new Date() >= new Date(elig));
+    } else {
+      document.getElementById('probationEndDate').value = '';
+      document.getElementById('insuranceEligibilityDate').value = '';
+      setEligibilityPill(false);
+    }
+  }
+  function setEligibilityPill(isQualified) {
+    const pill = document.getElementById('eligibilityStatusPill');
+    if (!pill) return;
+
+    if (isQualified) {
+      pill.className = 'badge bg-success';
+      pill.innerHTML = '<i class="fas fa-check-circle me-1"></i>Qualified';
+    } else {
+      pill.className = 'badge bg-secondary';
+      pill.innerHTML = '<i class="fas fa-hourglass-half me-1"></i>Not Qualified';
+    }
+  }
+
+  // ---------- Employment report ----------
+  function showEmploymentReport() {
+    const modal = new bootstrap.Modal(document.getElementById('employmentReportModal'));
+    modal.show();
+    loadEmploymentReport();
+  }
+  function refreshEmploymentReport() {
+    loadEmploymentReport();
+  }
+  function loadEmploymentReport() {
+    const content = document.getElementById('employmentReportContent');
+    content.innerHTML = `<div class="text-center py-4"><div class="loading-spinner mx-auto mb-3"></div><p class="text-muted mb-0">Loading employment report...</p></div>`;
+    callGoogleScript('clientGetEmploymentStatusReport')
+      .then(res => {
+        if (!res || !res.success) {
+          content.innerHTML = `<div class="text-center py-3 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Failed to load report: ${res?.error || 'Unknown error'}</div>`;
+          return;
+        }
+        renderEmploymentReport(res);
+      })
+      .catch(err => {
+        content.innerHTML = `<div class="text-center py-3 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error: ${escapeHtml(err.message || String(err))}</div>`;
+      });
+  }
+  function renderEmploymentReport(data) {
+    const content = document.getElementById('employmentReportContent');
+    const statusCounts = data.statusCounts || {};
+    const totalUsers = data.totalUsers || 0;
+
+    const statusData = Object.entries(statusCounts).map(([status, count]) => ({
+      status, count, percentage: totalUsers > 0 ? ((count / totalUsers) * 100).toFixed(1) : '0.0'
+    })).sort((a, b) => b.count - a.count);
+
+    content.innerHTML = `
+    <div class="row">
+      <div class="col-md-8">
+        <h6 class="fw-bold"><i class="fas fa-chart-pie me-2"></i>Employment Status Distribution</h6>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>Status</th><th>Count</th><th>Percentage</th><th>Visual</th></tr></thead>
+            <tbody>
+              ${statusData.map(item => `
+                <tr>
+                  <td><strong>${escapeHtml(item.status)}</strong></td>
+                  <td>${item.count}</td>
+                  <td>${item.percentage}%</td>
+                  <td>
+                    <div class="progress" style="height: 20px;">
+                      <div class="progress-bar ${getStatusColorClass(item.status)}" role="progressbar"
+                           style="width: ${item.percentage}%"
+                           aria-valuenow="${item.percentage}" aria-valuemin="0" aria-valuemax="100">
+                      </div>
+                    </div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold"><i class="fas fa-info-circle me-2"></i>Summary</h6>
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span>Total Users:</span><strong>${totalUsers}</strong>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span>Active Employees:</span><strong class="text-success">${statusCounts['Active'] || 0}</strong>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span>Inactive/Terminated:</span><strong class="text-danger">${(statusCounts['Inactive'] || 0) + (statusCounts['Terminated'] || 0)}</strong>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span>Unspecified:</span><strong class="text-muted">${statusCounts['Unspecified'] || 0}</strong>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3">
+          <h6 class="fw-bold"><i class="fas fa-calendar-alt me-2"></i>Recent Activity</h6>
+          <div class="small text-muted">
+            <ul class="mb-0">
+              ${(data.recentChanges || []).slice(0,5).map(r => `<li>${escapeHtml(r)}</li>`).join('') || '<li>No recent changes</li>'}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  }
+  function getStatusColorClass(status) {
+    const s = (status || '').toLowerCase();
+    if (s.includes('active')) return 'bg-success';
+    if (s.includes('term')) return 'bg-danger';
+    if (s.includes('probation')) return 'bg-warning';
+    if (s.includes('leave')) return 'bg-info';
+    if (s.includes('suspend')) return 'bg-danger';
+    return 'bg-secondary';
+  }
+
+  // ---------- Permissions & Pages for a user ----------
+  function loadUserPages(userId) {
+    showLoading(true);
+    callGoogleScript('clientGetUserPages', userId)
+      .then(keys => {
+        const set = new Set((keys || []).map(String));
+        document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = set.has(cb.value));
+        updatePageStats();
+      })
+      .catch(() => {
+        // Fallback: use in-memory user
+        const u = allUsers.find(x => x.ID === userId);
+        const set = new Set(((u && u.pages) || []).map(String));
+        document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = set.has(cb.value));
+        updatePageStats();
+      })
+      .finally(() => showLoading(false));
+  }
+
+  function loadUserPermissions(userId, campaignId) {
+    callGoogleScript('clientGetUserPermissions', userId, campaignId)
+      .then(p => {
+        if (!p) throw new Error('No permissions');
+        document.getElementById('permissionLevel').value = (p.PermissionLevel || p.permissionLevel || 'USER').toUpperCase();
+        document.getElementById('canManageUsers').checked = !!(p.canManageUsers ?? p.CanManageUsers);
+        document.getElementById('canManagePages').checked = !!(p.canManagePages ?? p.CanManagePages);
+      })
+      .catch(() => {
+        const u = allUsers.find(x => x.ID === userId);
+        const perm = (u?.campaignPermissions || []).find(pp => String(pp.CampaignID || pp.campaignId) === String(campaignId));
+        document.getElementById('permissionLevel').value = (perm?.PermissionLevel || 'USER').toUpperCase();
+        document.getElementById('canManageUsers').checked = !!(perm?.CanManageUsers);
+        document.getElementById('canManagePages').checked = !!(perm?.CanManagePages);
+      });
+  }
+
+  // ---------- Manager assignments ----------
+  function loadManagerTabData() {
+    const managerId = currentEditingManagerId;
+    const container = document.getElementById('userAssignmentContainer');
+    container.innerHTML = `<div class="text-center py-4 w-100"><div class="loading-spinner mx-auto mb-3"></div><p class="text-muted mb-0">Loading users for manager assignment…</p></div>`;
+
+    Promise.all([
+      // Updated: use service function names
+      callGoogleScript('clientGetAvailableUsersForManager', managerId).catch(() => null),
+      callGoogleScript('clientGetManagedUsers', managerId).catch(() => null)
+    ]).then(([availRes, managedRes]) => {
+      const fallbackUsers = allUsers.filter(u => u.ID !== managerId);
+      availableUsersForManager = (availRes && availRes.success && Array.isArray(availRes.users)) ? availRes.users : fallbackUsers;
+      const managedList = (managedRes && managedRes.success && Array.isArray(managedRes.users)) ? managedRes.users : [];
+      managedAssignments = new Set(managedList.map(u => String(u.ID)).filter(Boolean));
+
+      renderManagerUserList(availableUsersForManager, managedAssignments);
+      updateManagedUserStats();
+    }).catch(err => {
+      availableUsersForManager = allUsers.filter(u => u.ID !== managerId);
+      managedAssignments = new Set();
+      renderManagerUserList(availableUsersForManager, managedAssignments);
+      updateManagedUserStats();
+      showAlert('warning', 'Using local data for manager assignments: ' + (err.message || String(err)));
+    });
+  }
+
+  function renderManagerUserList(users, assignedSet) {
+    const container = document.getElementById('userAssignmentContainer');
+    if (!users.length) {
+      container.innerHTML = `<div class="text-center text-muted py-4">No users found.</div>`;
+      return;
+    }
+    container.innerHTML = users.map(u => {
+      const checked = assignedSet.has(String(u.ID)) ? 'checked' : '';
+      const rolesTxt = (u.roleNames || []).join(', ');
+      const camp = u.campaignName || '';
+      return `
+      <div class="user-option d-flex align-items-start gap-2">
+        <input type="checkbox" class="form-check-input user-checkbox mt-1" value="${escapeHtml(String(u.ID))}" ${checked} />
+        <div class="flex-grow-1">
+          <div class="fw-semibold">${escapeHtml(u.FullName || u.UserName || 'User')}</div>
+          <div class="small text-muted">
+            ${u.Email ? `<i class="fas fa-envelope me-1"></i>${escapeHtml(u.Email)} · ` : ''}
+            ${rolesTxt ? `<i class="fas fa-id-badge me-1"></i>${escapeHtml(rolesTxt)} · ` : ''}
+            ${camp ? `<i class="fas fa-building me-1"></i>${escapeHtml(camp)}` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterManagedUsers() {
+    const term = (document.getElementById('manageUserSearch').value || '').toLowerCase();
+    const items = document.querySelectorAll('#userAssignmentContainer .user-option');
+    let visible = 0;
+    items.forEach(el => {
+      const text = el.innerText.toLowerCase();
+      const show = !term || text.includes(term);
+      el.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    document.getElementById('visibleManagedUsers').textContent = String(visible);
+  }
+
+  function updateManagedUserStats() {
+    const total = document.querySelectorAll('#userAssignmentContainer .user-option').length;
+    const selected = document.querySelectorAll('#userAssignmentContainer .user-checkbox:checked').length;
+    const visible = Array.from(document.querySelectorAll('#userAssignmentContainer .user-option')).filter(x => x.style.display !== 'none').length;
+    const campaignUsers = availableUsersForManager.filter(u => !!u.CampaignID).length;
+    document.getElementById('totalManagedUsers').textContent = String(total);
+    document.getElementById('selectedManagedUsers').textContent = String(selected);
+    document.getElementById('visibleManagedUsers').textContent = String(visible);
+    document.getElementById('campaignUsers').textContent = String(campaignUsers);
+    document.getElementById('assignmentCount').textContent = String(selected);
+    const uniqueCampaigns = new Set(availableUsersForManager.map(u => u.CampaignID).filter(Boolean));
+    document.getElementById('campaignCount').textContent = String(uniqueCampaigns.size);
+  }
+
+  function selectAllUsersForManager() {
+    document.querySelectorAll('#userAssignmentContainer .user-checkbox').forEach(cb => cb.checked = true);
+    updateManagedUserStats();
+  }
+  function clearAllUsersForManager() {
+    document.querySelectorAll('#userAssignmentContainer .user-checkbox').forEach(cb => cb.checked = false);
+    updateManagedUserStats();
+  }
+  function refreshUserListForManager() {
+    loadManagerTabData();
+  }
+  function saveManagerAssignments() {
+    const selectedIds = Array.from(document.querySelectorAll('#userAssignmentContainer .user-checkbox:checked')).map(cb => cb.value);
+    if (!selectedIds.length && !confirm('No users selected. Clear all assignments?')) return;
+    showLoading(true);
+    // Updated: use service function name
+    callGoogleScript('clientAssignUsersToManager', currentEditingManagerId, selectedIds)
+      .then(res => {
+        if (res && res.success) {
+          showAlert('success', res.message || 'Manager assignments saved.');
+        } else {
+          showAlert('error', res?.error || 'Failed to save assignments');
+        }
+      })
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => showLoading(false));
+  }
+
+  // ---------- Small utils ----------
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  function getInitials(name) {
+    const parts = String(name || '').trim().split(/\s+/).slice(0, 2);
+    return parts.map(p => p[0]?.toUpperCase() || '').join('') || 'U';
+  }
+
+  // ---------- Refresh button(s) ----------
+  function refreshUsers() { loadAllData(); }
+</script>
+
+</body>
+
+</html>

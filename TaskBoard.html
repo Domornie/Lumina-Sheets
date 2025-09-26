@@ -1,0 +1,1365 @@
+<?!= include('header', {
+  rawToken: rawToken,
+  baseUrl: baseUrl,
+  currentUser: user,
+  user: user,
+  currentPage: currentPage,
+  scriptUrl: scriptUrl
+}) ?>
+
+<!-- SortableJS for drag & drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+<!-- Chart.js for analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-light: #8b5cf6;
+        --primary-dark: #4f46e5;
+        --secondary: #6b7280;
+        --success: #10b981;
+        --info: #3b82f6;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --light: #f8fafc;
+        --dark: #1e293b;
+        --gray-50: #f8fafc;
+        --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0;
+        --gray-300: #cbd5e1;
+        --gray-400: #94a3b8;
+        --gray-500: #64748b;
+        --gray-600: #475569;
+        --gray-700: #334155;
+        --gray-800: #1e293b;
+        --gray-900: #0f172a;
+        
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --gradient-danger: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+        --gradient-info: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-secondary: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        
+        --border-radius: 16px;
+        --border-radius-lg: 24px;
+    }
+
+    /* Main Content Layout */
+    #mainContent {
+        position: relative;
+        min-height: calc(100vh - 80px);
+        display: flex;
+        gap: 1.5rem;
+        overflow: hidden;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+
+    #boardContainer {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        overflow: hidden;
+    }
+
+    /* Top Navigation */
+    .top-nav {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.5rem;
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        flex-wrap: wrap;
+    }
+
+    .nav-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .nav-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    /* Modern Buttons */
+    .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        position: relative;
+        overflow: hidden;
+        padding: 0.75rem 1.5rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.6s;
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--gradient-primary);
+        box-shadow: var(--shadow-md);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: var(--gradient-secondary);
+        box-shadow: var(--shadow-md);
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Form Controls */
+    .form-select {
+        border-radius: 12px;
+        border: 1px solid var(--gray-300);
+        background: white;
+        transition: all 0.3s ease;
+        font-size: 0.875rem;
+        padding: 0.75rem;
+        font-weight: 500;
+        min-width: 150px;
+    }
+
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+    }
+
+    /* Kanban Board */
+    #kanbanBoard {
+        flex: 1;
+        display: flex;
+        gap: 1.5rem;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        scrollbar-width: thin;
+        scrollbar-color: var(--gray-300) transparent;
+        min-height: 0;
+    }
+
+    #kanbanBoard::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    #kanbanBoard::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #kanbanBoard::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 4px;
+    }
+
+    /* Kanban Columns */
+    .column {
+        flex: 1;
+        min-width: 300px;
+        max-width: 350px;
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-md);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .column::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--gradient-primary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .column:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .column:hover::before {
+        opacity: 1;
+    }
+
+    .column[data-status="Needs Action"]::before {
+        background: var(--gradient-warning);
+    }
+
+    .column[data-status="In Progress"]::before {
+        background: var(--gradient-info);
+    }
+
+    .column[data-status="Completed"]::before {
+        background: var(--gradient-success);
+    }
+
+    .column[data-status="Overdue"]::before {
+        background: var(--gradient-danger);
+    }
+
+    .column-header {
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, var(--gray-50) 0%, #ffffff 100%);
+        border-bottom: 1px solid var(--gray-200);
+        font-weight: 700;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: var(--gray-800);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .column-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .column-cards {
+        flex: 1;
+        padding: 1.25rem;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--gray-300) transparent;
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .column-cards::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .column-cards::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .column-cards::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 3px;
+    }
+
+    /* Task Cards */
+    .task-card {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        cursor: grab;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--gray-200);
+        position: relative;
+        overflow: hidden;
+        padding: 1.25rem;
+    }
+
+    .task-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-xl);
+        border-color: var(--gray-300);
+    }
+
+    .task-card:active {
+        cursor: grabbing;
+        transform: scale(1.02);
+    }
+
+    .task-card-title {
+        font-weight: 600;
+        color: var(--gray-800);
+        font-size: 0.95rem;
+        line-height: 1.4;
+        margin: 0 0 0.75rem 0;
+        word-wrap: break-word;
+    }
+
+    .task-card-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .task-card-owner {
+        font-size: 0.8rem;
+        color: var(--gray-600);
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .task-card-due {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .task-card-due.overdue {
+        color: var(--danger);
+        font-weight: 600;
+    }
+
+    .task-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+    }
+
+    /* Priority Indicators */
+    .priority-indicator {
+        width: 8px;
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        border-radius: 12px 0 0 12px;
+    }
+
+    .task-card[data-priority="High"] .priority-indicator {
+        background: var(--danger);
+    }
+
+    .task-card[data-priority="Medium"] .priority-indicator {
+        background: var(--warning);
+    }
+
+    .task-card[data-priority="Low"] .priority-indicator {
+        background: var(--success);
+    }
+
+    .task-card[data-priority="None"] .priority-indicator {
+        background: var(--gray-300);
+    }
+
+    /* Priority Badges */
+    .priority-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .priority-high {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .priority-medium {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .priority-low {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .priority-none {
+        background: var(--gray-100);
+        color: var(--gray-600);
+    }
+
+    /* Action Icons */
+    .task-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .action-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.875rem;
+        border: none;
+        background: var(--gray-100);
+        color: var(--gray-600);
+    }
+
+    .action-icon:hover {
+        background: var(--primary);
+        color: white;
+        transform: scale(1.1);
+    }
+
+    /* Count Badges */
+    .count-badge {
+        background: var(--gradient-primary);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+        min-width: 24px;
+        text-align: center;
+    }
+
+    /* Analytics Panel */
+    #analytics {
+        flex-shrink: 0;
+        width: 320px;
+        overflow-y: auto;
+        padding-bottom: 1rem;
+        scrollbar-width: thin;
+        scrollbar-color: var(--gray-300) transparent;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    #analytics::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #analytics::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #analytics::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 3px;
+    }
+
+    .analytics-card {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+    .analytics-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .analytics-card-header {
+        background: var(--gradient-primary);
+        color: white;
+        padding: 1rem 1.25rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .analytics-card-body {
+        padding: 1.25rem;
+    }
+
+    /* Chart containers */
+    .chart-container {
+        position: relative;
+        height: 200px;
+        width: 100%;
+    }
+
+    /* Drag and Drop States */
+    .sortable-ghost {
+        opacity: 0.5;
+        transform: rotate(2deg);
+    }
+
+    .sortable-chosen {
+        box-shadow: var(--shadow-xl);
+        transform: scale(1.02);
+    }
+
+    .sortable-drag {
+        opacity: 0.8;
+        transform: rotate(-2deg);
+        box-shadow: var(--shadow-xl);
+    }
+
+    /* Empty State */
+    .empty-column {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: var(--gray-400);
+        text-align: center;
+        min-height: 200px;
+    }
+
+    .empty-column i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.5;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+        #analytics {
+            width: 280px;
+        }
+        
+        .column {
+            min-width: 260px;
+        }
+    }
+
+    @media (max-width: 1024px) {
+        #mainContent {
+            flex-direction: column;
+            padding: 1rem;
+        }
+        
+        #analytics {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            order: -1;
+        }
+        
+        #kanbanBoard {
+            gap: 1rem;
+        }
+        
+        .column {
+            min-width: 250px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        #mainContent {
+            padding: 0.75rem;
+            gap: 1rem;
+        }
+        
+        .top-nav {
+            padding: 1rem;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .nav-controls {
+            justify-content: center;
+        }
+        
+        .nav-buttons {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.8125rem;
+        }
+        
+        .column {
+            min-width: 220px;
+        }
+        
+        .task-card {
+            padding: 1rem;
+        }
+    }
+
+    /* Loading States */
+    .loading-shimmer {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+        border-radius: 8px;
+        height: 20px;
+        margin: 0.5rem 0;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .animate-fade-in-up {
+        animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-slide-in-right {
+        animation: slideInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    /* Stagger animation delays */
+    .column:nth-child(1) { animation-delay: 0.1s; }
+    .column:nth-child(2) { animation-delay: 0.2s; }
+    .column:nth-child(3) { animation-delay: 0.3s; }
+    .column:nth-child(4) { animation-delay: 0.4s; }
+
+    .analytics-card:nth-child(1) { animation-delay: 0.5s; }
+    .analytics-card:nth-child(2) { animation-delay: 0.6s; }
+    .analytics-card:nth-child(3) { animation-delay: 0.7s; }
+</style>
+
+<div id="mainContent">
+    <div id="boardContainer">
+        <div class="top-nav animate-fade-in-up">
+            <div class="nav-controls">
+                <select id="ownerSelect" class="form-select">
+                    <option value="">👥 All Owners</option>
+                </select>
+                
+                <select id="priorityFilter" class="form-select">
+                    <option value="">🎯 All Priorities</option>
+                    <option value="High">🔴 High</option>
+                    <option value="Medium">🟡 Medium</option>
+                    <option value="Low">🟢 Low</option>
+                    <option value="None">⚪ None</option>
+                </select>
+            </div>
+            
+            <div class="nav-buttons">
+                <a href="<?= baseUrl ?>&page=taskform" class="btn btn-primary">
+                    <i class="bi bi-plus-lg"></i>New Task
+                </a>
+                <a href="<?= baseUrl ?>&page=tasklist" class="btn btn-secondary">
+                    <i class="bi bi-list-ul"></i>List View
+                </a>
+            </div>
+        </div>
+        
+        <div id="kanbanBoard" class="animate-fade-in-up" style="animation-delay: 0.2s;">
+            <!-- Columns will be dynamically generated -->
+        </div>
+    </div>
+
+    <div id="analytics" class="animate-slide-in-right">
+        <div class="analytics-card">
+            <div class="analytics-card-header">
+                <i class="bi bi-bar-chart"></i>Task Distribution
+            </div>
+            <div class="analytics-card-body">
+                <div class="chart-container">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-card">
+            <div class="analytics-card-header">
+                <i class="bi bi-graph-up"></i>Completion Trend
+            </div>
+            <div class="analytics-card-body">
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-card">
+            <div class="analytics-card-header">
+                <i class="bi bi-speedometer"></i>Team Performance
+            </div>
+            <div class="analytics-card-body">
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Task Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="taskModalBody">
+                <!-- Task details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="editCurrentTask()">Edit Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let allTasks = [];
+let filteredTasks = [];
+let currentTaskId = null;
+const baseUrl = '<?= baseUrl ?>';
+const currentUser = '<?= user?.Email || "" ?>';
+
+// Define status configurations
+const statusConfig = {
+    'Needs Action': { 
+        icon: '⏳', 
+        color: 'warning',
+        emoji: '⏳'
+    },
+    'In Progress': { 
+        icon: '🔄', 
+        color: 'info',
+        emoji: '🔄'
+    },
+    'Completed': { 
+        icon: '✅', 
+        color: 'success',
+        emoji: '✅'
+    },
+    'Overdue': { 
+        icon: '🚨', 
+        color: 'danger',
+        emoji: '🚨'
+    }
+};
+
+// Priority emojis
+const priorityEmojis = {
+    'High': '🔴',
+    'Medium': '🟡',
+    'Low': '🟢',
+    'None': '⚪'
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeBoard();
+});
+
+function initializeBoard() {
+    loadTasks();
+    setupEventListeners();
+    createKanbanColumns();
+}
+
+function setupEventListeners() {
+    document.getElementById('ownerSelect').addEventListener('change', filterTasks);
+    document.getElementById('priorityFilter').addEventListener('change', filterTasks);
+}
+
+function createKanbanColumns() {
+    const board = document.getElementById('kanbanBoard');
+    const statuses = Object.keys(statusConfig);
+    
+    board.innerHTML = '';
+    
+    statuses.forEach((status, index) => {
+        const config = statusConfig[status];
+        const column = document.createElement('div');
+        column.className = 'column animate-fade-in-up';
+        column.style.animationDelay = `${0.1 * (index + 1)}s`;
+        column.dataset.status = status;
+        
+        column.innerHTML = `
+            <div class="column-header">
+                <div class="column-title">
+                    <span>${config.emoji} ${status}</span>
+                </div>
+                <span class="count-badge" id="count-${status}">0</span>
+            </div>
+            <div class="column-cards" id="cards-${status}">
+                <div class="empty-column">
+                    <i class="bi bi-inbox"></i>
+                    <div>No tasks</div>
+                </div>
+            </div>
+        `;
+        
+        board.appendChild(column);
+        
+        // Initialize Sortable for drag and drop
+        const cardsContainer = column.querySelector('.column-cards');
+        Sortable.create(cardsContainer, {
+            group: 'kanban',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function(evt) {
+                const taskId = evt.item.dataset.taskId;
+                const newStatus = evt.to.closest('.column').dataset.status;
+                updateTaskStatus(taskId, newStatus);
+            }
+        });
+    });
+}
+
+function loadTasks() {
+    showLoading(true);
+    
+    google.script.run
+        .withSuccessHandler(function(tasks) {
+            allTasks = tasks || [];
+            processTasksData();
+            populateOwnerFilter();
+            filterTasks();
+            renderCharts();
+            showLoading(false);
+        })
+        .withFailureHandler(function(error) {
+            console.error('Error loading tasks:', error);
+            showError('Failed to load tasks. Please refresh the page.');
+            showLoading(false);
+        })
+        .clientGetAllTasks();
+}
+
+function processTasksData() {
+    // Add computed properties to tasks
+    allTasks.forEach(task => {
+        // Check if task is overdue
+        if (task.DueDate && task.Status !== 'Completed' && task.Status !== 'Done') {
+            const dueDate = new Date(task.DueDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (dueDate < today) {
+                task.Status = 'Overdue';
+            }
+        }
+        
+        // Ensure priority is set
+        if (!task.Priority) {
+            task.Priority = 'None';
+        }
+    });
+}
+
+function populateOwnerFilter() {
+    const ownerSelect = document.getElementById('ownerSelect');
+    const owners = [...new Set(allTasks.map(task => task.Owner))].filter(Boolean);
+    
+    // Clear existing options except the first one
+    ownerSelect.innerHTML = '<option value="">👥 All Owners</option>';
+    
+    owners.forEach(owner => {
+        const option = document.createElement('option');
+        option.value = owner;
+        option.textContent = owner;
+        ownerSelect.appendChild(option);
+    });
+}
+
+function filterTasks() {
+    const selectedOwner = document.getElementById('ownerSelect').value;
+    const selectedPriority = document.getElementById('priorityFilter').value;
+    
+    filteredTasks = allTasks.filter(task => {
+        const matchesOwner = !selectedOwner || task.Owner === selectedOwner;
+        const matchesPriority = !selectedPriority || task.Priority === selectedPriority;
+        
+        return matchesOwner && matchesPriority;
+    });
+    
+    renderTasks();
+    updateColumnCounts();
+}
+
+function renderTasks() {
+    const statuses = Object.keys(statusConfig);
+    
+    // Clear all columns
+    statuses.forEach(status => {
+        const container = document.getElementById(`cards-${status}`);
+        container.innerHTML = '';
+    });
+    
+    // Group tasks by status
+    const tasksByStatus = {};
+    statuses.forEach(status => {
+        tasksByStatus[status] = filteredTasks.filter(task => task.Status === status);
+    });
+    
+    // Render tasks in each column
+    statuses.forEach(status => {
+        const container = document.getElementById(`cards-${status}`);
+        const tasks = tasksByStatus[status];
+        
+        if (tasks.length === 0) {
+            container.innerHTML = `
+                <div class="empty-column">
+                    <i class="bi bi-inbox"></i>
+                    <div>No tasks</div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '';
+            tasks.forEach(task => {
+                const taskCard = createTaskCard(task);
+                container.appendChild(taskCard);
+            });
+        }
+    });
+}
+
+function createTaskCard(task) {
+    const card = document.createElement('div');
+    card.className = 'task-card';
+    card.dataset.taskId = task.ID;
+    card.dataset.priority = task.Priority || 'None';
+    
+    const dueDate = task.DueDate || task.EndDate;
+    const isOverdue = task.Status === 'Overdue';
+    const dueDateFormatted = dueDate ? formatDate(dueDate) : 'No due date';
+    
+    card.innerHTML = `
+        <div class="priority-indicator"></div>
+        <div class="task-card-title">${escapeHtml(task.Task)}</div>
+        <div class="task-card-meta">
+            <div class="task-card-owner">
+                <i class="bi bi-person"></i>
+                ${escapeHtml(task.Owner)}
+            </div>
+            <div class="task-card-due ${isOverdue ? 'overdue' : ''}">
+                <i class="bi bi-calendar"></i>
+                ${dueDateFormatted}
+            </div>
+        </div>
+        <div class="task-card-footer">
+            <span class="priority-badge priority-${task.Priority?.toLowerCase() || 'none'}">
+                ${priorityEmojis[task.Priority || 'None']} ${task.Priority || 'None'}
+            </span>
+            <div class="task-actions">
+                <button class="action-icon" onclick="viewTask('${task.ID}')" title="View Details">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="action-icon" onclick="editTask('${task.ID}')" title="Edit">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="action-icon" onclick="snoozeTask('${task.ID}')" title="Snooze">
+                    <i class="bi bi-alarm"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Add click handler for task details
+    card.addEventListener('click', function(e) {
+        if (!e.target.closest('.task-actions')) {
+            viewTask(task.ID);
+        }
+    });
+    
+    return card;
+}
+
+function updateColumnCounts() {
+    const statuses = Object.keys(statusConfig);
+    
+    statuses.forEach(status => {
+        const count = filteredTasks.filter(task => task.Status === status).length;
+        const badge = document.getElementById(`count-${status}`);
+        if (badge) {
+            badge.textContent = count;
+        }
+    });
+}
+
+function updateTaskStatus(taskId, newStatus) {
+    const task = allTasks.find(t => t.ID === taskId);
+    if (!task) return;
+    
+    // Update local data
+    task.Status = newStatus;
+    
+    // Update on server
+    const formData = {
+        id: taskId,
+        task: task.Task,
+        owner: task.Owner,
+        status: newStatus,
+        priority: task.Priority,
+        startDate: task.StartDate,
+        endDate: task.EndDate,
+        notes: task.Notes,
+        delegations: task.Delegations,
+        createdAt: task.CreatedAt
+    };
+    
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result && result.success) {
+                showSuccess('Task status updated successfully!');
+                filterTasks(); // Refresh the display
+            } else {
+                showError('Failed to update task status');
+                loadTasks(); // Reload to revert changes
+            }
+        })
+        .withFailureHandler(function(error) {
+            console.error('Error updating task:', error);
+            showError('Failed to update task status');
+            loadTasks(); // Reload to revert changes
+        })
+        .clientAddOrUpdateTask(formData);
+}
+
+function viewTask(taskId) {
+    const task = allTasks.find(t => t.ID === taskId);
+    if (!task) return;
+    
+    currentTaskId = taskId;
+    
+    const modalBody = document.getElementById('taskModalBody');
+    modalBody.innerHTML = `
+        <div class="row">
+            <div class="col-md-8">
+                <h5>${escapeHtml(task.Task)}</h5>
+                <p class="text-muted">${escapeHtml(task.Notes || 'No description')}</p>
+            </div>
+            <div class="col-md-4">
+                <span class="priority-badge priority-${task.Priority?.toLowerCase() || 'none'}">
+                    ${priorityEmojis[task.Priority || 'None']} ${task.Priority || 'None'}
+                </span>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Owner:</strong> ${escapeHtml(task.Owner)}<br>
+                <strong>Status:</strong> ${task.Status}<br>
+                <strong>Category:</strong> ${task.Category || 'None'}
+            </div>
+            <div class="col-md-6">
+                <strong>Start Date:</strong> ${task.StartDate || 'Not set'}<br>
+                <strong>Due Date:</strong> ${task.DueDate || task.EndDate || 'Not set'}<br>
+                <strong>Created:</strong> ${formatDateTime(task.CreatedAt)}
+            </div>
+        </div>
+        ${task.Delegations ? `<hr><strong>Delegated to:</strong> ${escapeHtml(task.Delegations)}` : ''}
+        ${task.Dependencies && task.Dependencies.length > 0 ? 
+          `<hr><strong>Dependencies:</strong> ${task.Dependencies.length} task(s)` : ''}
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+    modal.show();
+}
+
+function editTask(taskId) {
+    window.location.href = `${baseUrl}&page=taskform&id=${taskId}`;
+}
+
+function editCurrentTask() {
+    if (currentTaskId) {
+        editTask(currentTaskId);
+    }
+}
+
+function snoozeTask(taskId) {
+    const newDate = prompt('Enter new due date (YYYY-MM-DD):');
+    if (!newDate) return;
+    
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result && result.success) {
+                showSuccess('Task snoozed successfully!');
+                loadTasks();
+            } else {
+                showError('Failed to snooze task');
+            }
+        })
+        .withFailureHandler(function(error) {
+            console.error('Error snoozing task:', error);
+            showError('Failed to snooze task');
+        })
+        .clientSnoozeTask(taskId, newDate);
+}
+
+function renderCharts() {
+    renderDistributionChart();
+    renderTrendChart();
+    renderPerformanceChart();
+}
+
+function renderDistributionChart() {
+    const ctx = document.getElementById('distributionChart');
+    if (!ctx) return;
+    
+    const statusCounts = Object.keys(statusConfig).map(status => 
+        allTasks.filter(task => task.Status === status).length
+    );
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(statusConfig),
+            datasets: [{
+                data: statusCounts,
+                backgroundColor: [
+                    'rgba(245, 158, 11, 0.8)',
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(239, 68, 68, 0.8)'
+                ],
+                borderWidth: 2,
+                borderColor: 'white'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+}
+
+function renderTrendChart() {
+    const ctx = document.getElementById('trendChart');
+    if (!ctx) return;
+    
+    // Generate last 7 days data
+    const days = [];
+    const completedCounts = [];
+    
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = formatDate(date);
+        
+        days.push(dateStr);
+        
+        const completed = allTasks.filter(task => 
+            task.CompletedDate === date.toISOString().split('T')[0]
+        ).length;
+        
+        completedCounts.push(completed);
+    }
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: days,
+            datasets: [{
+                label: 'Completed Tasks',
+                data: completedCounts,
+                borderColor: 'rgba(16, 185, 129, 1)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderPerformanceChart() {
+    const ctx = document.getElementById('performanceChart');
+    if (!ctx) return;
+    
+    // Get top 5 performers by completed tasks
+    const userStats = {};
+    
+    allTasks.forEach(task => {
+        if (!userStats[task.Owner]) {
+            userStats[task.Owner] = { completed: 0, total: 0 };
+        }
+        userStats[task.Owner].total++;
+        if (task.Status === 'Completed' || task.Status === 'Done') {
+            userStats[task.Owner].completed++;
+        }
+    });
+    
+    const performers = Object.entries(userStats)
+        .map(([owner, stats]) => ({
+            owner,
+            completionRate: stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+        }))
+        .sort((a, b) => b.completionRate - a.completionRate)
+        .slice(0, 5);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: performers.map(p => p.owner.split('@')[0]), // Show only username part
+            datasets: [{
+                label: 'Completion Rate (%)',
+                data: performers.map(p => p.completionRate),
+                backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                borderColor: 'rgba(99, 102, 241, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Utility Functions
+function formatDate(date) {
+    if (typeof date === 'string') date = new Date(date);
+    return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric'
+    });
+}
+
+function formatDateTime(dateTime) {
+    if (!dateTime) return 'Unknown';
+    const date = new Date(dateTime);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showLoading(show) {
+    // You can implement a loading indicator here
+    if (show) {
+        console.log('Loading...');
+    } else {
+        console.log('Loading complete');
+    }
+}
+
+function showSuccess(message) {
+    // Simple alert for now - you can implement a toast notification
+    alert(message);
+}
+
+function showError(message) {
+    // Simple alert for now - you can implement a toast notification
+    alert('Error: ' + message);
+}
+</script>

@@ -1,0 +1,1984 @@
+    <!-- Independence Insurance QA Form - Enhanced Client-Side Integration -->
+    <?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Quill CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --navy-primary: #003177;
+            --cyan-accent: #00BFFF;
+            --gold-highlight: #FFB800;
+            --fire-red: #FF4000;
+            --primary-gradient: linear-gradient(135deg, var(--navy-primary) 0%, #004ba0 100%);
+            --info-gradient: linear-gradient(135deg, var(--cyan-accent) 0%, #0099cc 100%);
+            --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --warning-gradient: linear-gradient(135deg, var(--gold-highlight) 0%, #d97706 100%);
+            --danger-gradient: linear-gradient(135deg, var(--fire-red) 0%, #dc2626 100%);
+            --surface-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            --card-shadow-hover: 0 20px 60px rgba(0, 0, 0, 0.15);
+            --border-radius-lg: 16px;
+            --border-radius-xl: 24px;
+            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --text-primary: var(--cyan-accent);
+            --text-secondary: var(--navy-primary);
+            --border-color: var(--navy-primary);
+        }
+
+        body {
+            background: var(--surface-gradient);
+            font-family: "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .modern-page-header {
+            background: var(--info-gradient);
+            border-radius: var(--border-radius-xl);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modern-page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(50%, -50%);
+        }
+
+        .modern-page-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .modern-page-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0.5rem 0 0 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .system-status {
+            background: rgba(255, 255, 255, 0.15);
+            padding: .75rem 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: .9rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .section {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--info-gradient);
+            transform: scaleX(0);
+            transition: transform .3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-shadow-hover);
+        }
+
+        .section:hover::before {
+            transform: scaleX(1);
+        }
+
+        .section-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section-header::before {
+            content: '';
+            width: 6px;
+            height: 30px;
+            background: var(--info-gradient);
+            border-radius: 3px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            font-size: .9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .form-group input, .form-group select {
+            padding: .875rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: .95rem;
+            transition: var(--transition-smooth);
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--cyan-accent);
+            box-shadow: 0 0 0 3px rgba(0, 191, 255, .1);
+            outline: none;
+            transform: translateY(-2px);
+        }
+
+        .form-group input[readonly] {
+            background: #f8fafc;
+            color: var(--text-secondary);
+        }
+
+        .audio-upload-group {
+            grid-column: span 2;
+        }
+
+        .audio-upload-container {
+            position: relative;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            background: #f8fafc;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+        }
+
+        .audio-upload-container:hover {
+            border-color: var(--cyan-accent);
+            background: rgba(0, 191, 255, .02);
+        }
+
+        .audio-upload-container.has-file {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, .05);
+            border-style: solid;
+        }
+
+        .audio-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .audio-upload-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .5rem;
+            pointer-events: none;
+        }
+
+        .audio-upload-display i {
+            font-size: 2rem;
+            color: var(--cyan-accent);
+        }
+
+        .audio-text {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .audio-info {
+            color: #64748b;
+            font-size: .875rem;
+        }
+
+        .question-row {
+            display: grid;
+            grid-template-columns: 3fr auto 1fr 2fr;
+            gap: 1.5rem;
+            align-items: center;
+            padding: 1.5rem;
+            border: 2px solid #f1f5f9;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            transition: var(--transition-smooth);
+            background: white;
+        }
+
+        .question-row.critical {
+            border-color: var(--fire-red);
+            background: rgba(255, 64, 0, .02);
+            position: relative;
+        }
+
+        .question-row.critical::before {
+            content: '⚠️ CRITICAL';
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            background: var(--fire-red);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: .7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            animation: pulse-critical 2s infinite;
+        }
+
+        .question-row:hover {
+            border-color: var(--cyan-accent);
+            box-shadow: 0 4px 20px rgba(0, 191, 255, .1);
+        }
+
+        .question-row.critical:hover {
+            border-color: var(--fire-red);
+            box-shadow: 0 4px 20px rgba(255, 64, 0, .2);
+        }
+
+        .question-text {
+            font-weight: 500;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .question-text.critical {
+            color: var(--fire-red);
+            font-weight: 600;
+        }
+
+        .question-description {
+            font-size: .8rem;
+            color: #6b7280;
+            font-style: italic;
+            margin-top: .5rem;
+        }
+
+        .question-tags {
+            display: flex;
+            gap: .25rem;
+            margin-top: .5rem;
+            flex-wrap: wrap;
+        }
+
+        .question-tag {
+            background: #e5e7eb;
+            color: #374151;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: .65rem;
+            font-weight: 500;
+        }
+
+        .question-tag.critical {
+            background: rgba(255, 64, 0, .1);
+            color: var(--fire-red);
+        }
+
+        .max-points {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            padding: .5rem 1rem;
+            background: var(--info-gradient);
+            color: white;
+            border-radius: 20px;
+            font-size: .875rem;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .max-points.critical {
+            background: var(--danger-gradient);
+        }
+
+        .points-weight {
+            font-size: .7rem;
+            opacity: .8;
+        }
+
+        .points-selector {
+            display: flex;
+            gap: .75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .points-option {
+            position: relative;
+        }
+
+        .points-option input[type=radio] {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .points-option label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 35px;
+            height: 30px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: .7rem;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+            background: white;
+            color: var(--text-secondary);
+        }
+
+        .points-option input[type=radio]:checked + label {
+            transform: scale(1.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
+        }
+
+        .points-option.yes label {
+            background: #71e8c4;
+            color: white;
+            border-color: #83eac4;
+        }
+
+        .points-option.yes input[type=radio]:checked + label {
+            background: #00b67c;
+            border-color: #00ca8a;
+            box-shadow: 0 2px 10px rgba(4, 182, 124, .3);
+        }
+
+        .points-option.no label {
+            background: #ff6868;
+            color: white;
+            border-color: #f66969;
+        }
+
+        .points-option.no input[type=radio]:checked + label {
+            background: #dc2626;
+            border-color: #dc2626;
+            box-shadow: 0 2px 10px rgba(239, 68, 68, .3);
+        }
+
+        .points-option.na label {
+            background: #64748b;
+            color: white;
+            border-color: #64748b;
+            width: 35px;
+            font-size: .65rem;
+        }
+
+        .points-option.na input[type=radio]:checked + label {
+            background: #475569;
+            border-color: #475569;
+            box-shadow: 0 2px 10px rgba(100, 116, 139, .25);
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: .75rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: .9rem;
+            transition: var(--transition-smooth);
+            resize: vertical;
+            min-height: 45px;
+        }
+
+        .comment-input:focus {
+            border-color: var(--cyan-accent);
+            box-shadow: 0 0 0 3px rgba(0, 191, 255, .1);
+            outline: none;
+        }
+
+        .category-header-con {
+            background: var(--info-gradient);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 2rem 0 1rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            position: relative;
+        }
+
+        .category-header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .category-header-con i {
+            font-size: 1.5rem;
+            padding: .5rem;
+            background: rgba(255, 255, 255, .2);
+            border-radius: 8px;
+        }
+
+        .category-info {
+            display: flex;
+            flex-direction: column;
+            gap: .25rem;
+        }
+
+        .category-title {
+            font-size: 1.25rem;
+        }
+
+        .category-description {
+            font-size: .9rem;
+            opacity: .8;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .category-meta {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .category-points {
+            background: rgba(255, 255, 255, .2);
+            padding: .5rem 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .category-weight {
+            background: rgba(255, 255, 255, .15);
+            padding: .25rem .75rem;
+            border-radius: 6px;
+            font-size: .8rem;
+            font-weight: 500;
+        }
+
+        .score-summary {
+            position: sticky;
+            top: 2rem;
+            background: white;
+            border-radius: var(--border-radius-lg);
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 2px solid var(--cyan-accent);
+        }
+
+        .score-display {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .total-score {
+            font-size: 3rem;
+            font-weight: 800;
+            background: var(--info-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+            line-height: 1;
+        }
+
+        .score-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-top: .5rem;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .category-score {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .75rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid var(--cyan-accent);
+            margin-bottom: .5rem;
+        }
+
+        .category-name {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: .875rem;
+        }
+
+        .category-points-display {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: .875rem;
+        }
+
+        .pass-indicator {
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pass-indicator.pass {
+            background: rgba(16, 185, 129, .1);
+            color: #10b981;
+            border: 2px solid rgba(16, 185, 129, .2);
+        }
+
+        .pass-indicator.fail {
+            background: rgba(255, 64, 0, .1);
+            color: var(--fire-red);
+            border: 2px solid rgba(255, 64, 0, .2);
+        }
+
+        .pass-indicator.excellent {
+            background: rgba(0, 191, 255, .1);
+            color: var(--cyan-accent);
+            border: 2px solid rgba(0, 191, 255, .2);
+        }
+
+        .pass-indicator.critical-failure {
+            background: rgba(255, 64, 0, .2);
+            color: var(--fire-red);
+            border: 2px solid var(--fire-red);
+            animation: pulse 2s infinite;
+        }
+
+        .performance-insights {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .insights-title {
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: .5rem;
+            font-size: .9rem;
+        }
+
+        .insight-item {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: .5rem;
+            font-size: .8rem;
+        }
+
+        .insight-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .7rem;
+            color: white;
+            font-weight: 600;
+        }
+
+        .insight-icon.strength {
+            background: #10b981;
+        }
+
+        .insight-icon.improvement {
+            background: #f59e0b;
+        }
+
+        .insight-icon.critical {
+            background: #ef4444;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            justify-content: start;
+            align-items: center;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, .2);
+            position: sticky;
+            bottom: 2rem;
+        }
+
+        .modern-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .modern-btn-primary {
+            background: var(--info-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 191, 255, .3);
+        }
+
+        .modern-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 191, 255, .4);
+        }
+
+        .modern-btn-primary:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .modern-btn-secondary {
+            background: #f8fafc;
+            color: var(--text-secondary);
+            border: 2px solid var(--border-color);
+        }
+
+        .modern-btn-secondary:hover {
+            background: #f1f5f9;
+            transform: translateY(-2px);
+        }
+
+        .system-status-indicator {
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .1);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .system-status-indicator.healthy {
+            border: 3px solid #10b981;
+            color: #10b981;
+        }
+
+        .system-status-indicator.warning {
+            border: 3px solid #f59e0b;
+            color: #f59e0b;
+        }
+
+        .system-status-indicator.error {
+            border: 3px solid #ef4444;
+            color: #ef4444;
+        }
+
+        @media (max-width: 768px) {
+            .modern-page-header {
+                padding: 1.5rem;
+                text-align: center;
+            }
+
+            .modern-page-header h1 {
+                font-size: 2rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .question-row {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .points-selector {
+                justify-content: center;
+            }
+
+            .score-summary {
+                position: static;
+                margin-bottom: 2rem;
+            }
+
+            .action-bar {
+                flex-direction: column;
+                align-items: start;
+            }
+
+            .modern-btn {
+                justify-content: center;
+            }
+
+            .category-header-con {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .category-meta {
+                justify-content: center;
+            }
+        }
+
+        .loading {
+            opacity: .6;
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1
+            }
+            50% {
+                opacity: .7
+            }
+        }
+
+        @keyframes pulse-critical {
+            0%, 100% {
+                opacity: 1
+            }
+            50% {
+                opacity: .8
+            }
+        }
+    </style>
+
+
+<!-- Modern Page Header with System Status -->
+<div class="modern-page-header fade-in">
+    <h1><i class="fas fa-phone-alt me-3"></i>Independence Insurance Quality Assessment</h1>
+    <p>Enhanced business-focused call quality evaluation with comprehensive scoring system</p>
+    <div class="system-status" id="systemStatusDisplay">
+        <i class="fas fa-circle-notch fa-spin"></i> Initializing system...
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Form Section -->
+        <div class="col-lg-8">
+            <form id="independenceQAForm" class="stagger-animation">
+                <!-- Basic Information -->
+                <div class="section">
+                    <div class="section-header">
+                        <i class="fas fa-user-tie"></i>
+                        Assessment Information
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="callerName">Caller Name</label>
+                            <input type="text" id="callerName" name="callerName" placeholder="Enter caller's full name"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="agentName">Agent Name</label>
+                            <select id="agentName" name="agentName" required aria-describedby="agentHelper">
+                                <option value="" disabled selected>-- Select Agent --</option>
+                            </select>
+                            <small id="agentHelper" style="opacity:.8">Only agents assigned to you are shown.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="agentEmail">Agent Email</label>
+                            <input type="email" id="agentEmail" name="agentEmail" readonly
+                                   placeholder="Auto-filled when agent selected">
+                        </div>
+                        <div class="form-group">
+                            <label for="callDate">Call Date</label>
+                            <input type="date" id="callDate" name="callDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="auditorName">Auditor Name</label>
+                            <input type="text" id="auditorName" name="auditorName" placeholder="Enter auditor's name"
+                                   required>
+                        </div>
+                        <div class="form-group">
+                            <label for="callType">Call Type</label>
+                            <select id="callType" name="callType" required>
+                                <option value="">-- Select Call Type --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Audio Upload -->
+                    <div class="form-row">
+                        <div class="form-group audio-upload-group">
+                            <label for="audioFile">Call Recording *</label>
+                            <div class="audio-upload-container">
+                                <input type="file" id="audioFile" name="audioFile" accept="audio/*" class="audio-input"
+                                       required>
+                                <div class="audio-upload-display">
+                                    <i class="fas fa-microphone"></i>
+                                    <span class="audio-text">Click to upload call recording</span>
+                                    <small class="audio-info">Required • Supports MP3, WAV, M4A, OGG</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quality Assessment Questions -->
+                <div id="qaQuestions"></div>
+
+                <!-- Overall Feedback -->
+                <div class="section">
+                    <div class="section-header">
+                        <i class="fas fa-comment-dots"></i>
+                        Overall Feedback & Recommendations
+                    </div>
+                    <div id="quillEditor" style="height: 250px;"></div>
+                    <input type="hidden" id="overallFeedback" name="overallFeedback">
+                    <input type="hidden" id="overallFeedbackHtml" name="overallFeedbackHtml">
+                </div>
+            </form>
+        </div>
+
+        <!-- Score Summary Sidebar -->
+        <div class="col-lg-4">
+            <div class="score-summary">
+                <div class="pass-indicator" id="passIndicator">Calculating...</div>
+                <div class="score-display">
+                    <div class="total-score" id="totalScore">0%</div>
+                    <div class="score-label">Overall Score</div>
+                    <div class="score-details" id="scoreDetails">0/0 points</div>
+                </div>
+                <div class="score-breakdown" id="scoreBreakdown"></div>
+                <div class="performance-insights" id="performanceInsights" style="display:none;">
+                    <div class="insights-title">Performance Insights</div>
+                    <div id="strengthAreas"></div>
+                    <div id="improvementAreas"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Bar -->
+<div class="action-bar fade-in">
+    <button type="button" id="systemHealthBtn" class="modern-btn modern-btn-secondary">
+        <i class="fas fa-heartbeat"></i> System Health
+    </button>
+    <button type="button" id="recalculateBtn" class="modern-btn modern-btn-secondary">
+        <i class="fas fa-calculator"></i> Recalculate Score
+    </button>
+    <button type="button" id="resetBtn" class="modern-btn modern-btn-secondary">
+        <i class="fas fa-redo"></i> Reset Form
+    </button>
+    <button type="submit" form="independenceQAForm" class="modern-btn modern-btn-primary" id="submitBtn">
+        <i class="fas fa-save"></i> Submit Assessment
+    </button>
+    <div class="system-status-indicator healthy" id="systemStatusIndicator" title="System Status">
+        <i class="fas fa-heartbeat"></i>
+    </div>
+</div>
+
+<!-- Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<!-- Client Logic -->
+<script>
+    /* ===== Enhanced Independence QA Client (only assigned users, no dummy data) ===== */
+    let qaConfig = {};
+    let independenceUsers = [];
+    let systemStatus = {};
+    let quill;
+    let currentScoreResults = {};
+    let isSubmitting = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        showMessage('Initializing system...', 'info', 1500);
+        initializeForm();
+    });
+
+    async function initializeForm() {
+        try {
+            setLoadingState(true);
+            initializeQuillEditor();
+
+            const today = new Date();
+            document.getElementById('callDate').value =
+                today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+            placeholderSelect('agentName', 'Loading agents…');
+            placeholderSelect('callType', 'Loading call types…');
+
+            await Promise.allSettled([
+              loadQAConfiguration(),
+              loadUsersFromServer(),
+              performSystemHealthCheck(),
+              prefillAuditorName()
+            ]);
+
+            setupEventListeners();
+            setTimeout(() => calculateScore(), 300);
+            setLoadingState(false);
+            showMessage('System ready.', 'success', 1000);
+        } catch (e) {
+            console.error(e);
+            setLoadingState(false);
+            showMessage('Initialization encountered issues. Some features may not work.', 'error', 4000);
+        }
+    }
+
+    /* ---------- Quill ---------- */
+    function initializeQuillEditor() {
+        try {
+            if (quill) return;
+            const el = document.getElementById('quillEditor');
+            if (!el) return;
+            if (typeof Quill === 'undefined') {
+                createFallbackTextarea();
+                return;
+            }
+            quill = new Quill('#quillEditor', {
+                theme: 'snow',
+                placeholder: 'Provide detailed feedback, observations and recommendations…',
+                modules: {toolbar: [['bold', 'italic', 'underline'], [{list: 'ordered'}, {list: 'bullet'}], [{header: [1, 2, 3, false]}], ['link'], ['clean']]}
+            });
+            quill.on('text-change', () => {
+                document.getElementById('overallFeedbackHtml').value = quill.root.innerHTML;
+                document.getElementById('overallFeedback').value = quill.getText();
+            });
+        } catch (e) {
+            console.error('Quill init error', e);
+            createFallbackTextarea();
+        }
+    }
+
+    function createFallbackTextarea() {
+        const t = document.createElement('textarea');
+        t.id = 'fallbackFeedback';
+        t.name = 'overallFeedback';
+        t.placeholder = 'Provide detailed feedback and recommendations…';
+        Object.assign(t.style, {
+            width: '100%',
+            height: '250px',
+            padding: '1rem',
+            border: '2px solid #003177',
+            borderRadius: '8px',
+            fontSize: '.95rem',
+            resize: 'vertical'
+        });
+        const el = document.getElementById('quillEditor');
+        if (el && el.parentNode) el.parentNode.replaceChild(t, el);
+    }
+
+    /* ---------- Data loads ---------- */
+    function createFallbackConfig() {
+        return {
+            categories: {
+                "Basic Questions": {
+                    icon: "fas fa-question", color: "#00BFFF", totalPoints: 10,
+                    questions: [{
+                        id: "Q1_BasicQuestion",
+                        text: "Basic QA Question",
+                        maxPoints: 5,
+                        weight: 1,
+                        critical: false,
+                        tags: ["basic"]
+                    }]
+                }
+            },
+            scoring: {passThreshold: 85, excellentThreshold: 95, totalPossiblePoints: 10},
+            callTypes: [{value: "New Venture", label: "New Venture"}, {value: "Renewal", label: "Renewal"}]
+        };
+    }
+
+    async function loadQAConfiguration() {
+        return new Promise((resolve) => {
+            if (!hasGAS()) {
+                qaConfig = createFallbackConfig();
+                generateQAQuestions();
+                resolve(qaConfig);
+                return;
+            }
+            google.script.run
+                .withSuccessHandler((config) => {
+                    qaConfig = config && config.categories ? config : createFallbackConfig();
+                    generateQAQuestions();
+                    updateSystemStatus('Configuration', 'loaded');
+                    resolve(qaConfig);
+                })
+                .withFailureHandler((err) => {
+                    console.error(err);
+                    qaConfig = createFallbackConfig();
+                    generateQAQuestions();
+                    updateSystemStatus('Configuration', 'error');
+                    resolve(qaConfig);
+                })
+                .clientGetIndependenceQAConfig();
+        });
+    }
+
+    // Replace the old loadIndependenceUsers with this:
+    async function loadUsersFromServer() {
+      return new Promise((resolve) => {
+        if (!hasGAS()) {
+          independenceUsers = [];
+          populateAgentDropdown();
+          resolve([]);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler((users) => {
+            // getUsers() returns [{name, email}], keep shape the UI expects
+            independenceUsers = (users || []).map(u => ({
+              name: u?.name || '',
+              email: u?.email || '',
+              // department/performance are optional; keep as blanks
+              department: '',
+              performance: null
+            }));
+            populateAgentDropdown();
+            updateSystemStatus('Users', 'loaded');
+            resolve(independenceUsers);
+          })
+          .withFailureHandler((err) => {
+            console.error(err);
+            independenceUsers = [];
+            populateAgentDropdown();
+            updateSystemStatus('Users', 'error');
+            resolve([]);
+          })
+          .getUsers(); // <-- direct server call
+      });
+    }
+
+    // (Optional safety shim) Keep old name working if anything else still calls it
+    function loadIndependenceUsers() {
+      return loadUsersFromServer();
+    }
+
+    async function prefillAuditorName() {
+        return new Promise((resolve) => {
+            if (!hasGAS()) {
+                resolve(null);
+                return;
+            }
+            google.script.run
+                .withSuccessHandler((profile) => {
+                    const f = document.getElementById('auditorName');
+                    if (f && !f.value) f.value = (profile && (profile.displayName || profile.email)) || '';
+                    resolve(profile);
+                })
+                .withFailureHandler(() => resolve(null))
+                .clientGetCurrentUserProfile();
+        });
+    }
+
+    async function performSystemHealthCheck() {
+        return new Promise((resolve) => {
+            if (!hasGAS()) {
+                updateSystemStatusIndicator('error');
+                resolve({status: 'error'});
+                return;
+            }
+            google.script.run
+                .withSuccessHandler((health) => {
+                    systemStatus = health || {};
+                    updateSystemStatusDisplay(health);
+                    resolve(health);
+                })
+                .withFailureHandler((err) => {
+                    console.error(err);
+                    updateSystemStatusIndicator('error');
+                    resolve({status: 'error'});
+                })
+                .clientPerformIndependenceHealthCheck();
+        });
+    }
+
+    /* ---------- UI population ---------- */
+    function placeholderSelect(id, text) {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        while (sel.children.length > 0) sel.removeChild(sel.lastChild);
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.disabled = true;
+        opt.selected = true;
+        opt.textContent = `— ${text} —`;
+        sel.appendChild(opt);
+    }
+
+    function populateAgentDropdown() {
+        const sel = document.getElementById('agentName');
+        if (!sel) return;
+        while (sel.children.length > 1) sel.removeChild(sel.lastChild);
+
+        const list = [...independenceUsers].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        list.forEach(u => {
+            const op = document.createElement('option');
+            op.value = u.name || '';
+            op.textContent = `${u.name || 'Unknown'}${u.department ? ` (${u.department})` : ''}`;
+            op.dataset.email = u.email || '';
+            op.dataset.department = u.department || '';
+            op.dataset.performance = u.performance ? JSON.stringify(u.performance) : '';
+            sel.appendChild(op);
+        });
+
+        wireAgentFilter();
+        loadCallTypes();
+    }
+
+    function wireAgentFilter() {
+        const input = document.getElementById('agentSearch');
+        const sel = document.getElementById('agentName');
+        if (!input || !sel) return;
+        const apply = () => {
+            const q = input.value.trim().toLowerCase();
+            let visible = 0;
+            for (const op of sel.options) {
+                if (!op.value) continue;
+                const t = op.textContent.toLowerCase();
+                const email = (op.dataset.email || '').toLowerCase();
+                const match = !q || t.includes(q) || email.includes(q);
+                op.hidden = !match;
+                if (match) visible++;
+            }
+            input.setAttribute('aria-label', `Filter agents (${visible} visible)`);
+        };
+        input.addEventListener('input', apply);
+        apply();
+    }
+
+    function loadCallTypes() {
+        const callTypeSelect = document.getElementById('callType');
+        if (!callTypeSelect) return;
+
+        if (!hasGAS()) {
+            populateFallbackCallTypes();
+            return;
+        }
+
+        google.script.run
+            .withSuccessHandler((types) => {
+                while (callTypeSelect.children.length > 1) callTypeSelect.removeChild(callTypeSelect.lastChild);
+                (types || []).forEach(t => {
+                    const op = document.createElement('option');
+                    op.value = t.value || '';
+                    op.textContent = t.label || t.value || '';
+                    op.title = t.description || '';
+                    callTypeSelect.appendChild(op);
+                });
+            })
+            .withFailureHandler(() => populateFallbackCallTypes())
+            .clientGetIndependenceCallTypes();
+    }
+
+    function populateFallbackCallTypes() {
+        const callTypeSelect = document.getElementById('callType');
+        if (!callTypeSelect) return;
+        const data = [{value: 'New Venture', label: 'New Venture'}, {value: 'Renewal', label: 'Renewal'}];
+        while (callTypeSelect.children.length > 1) callTypeSelect.removeChild(callTypeSelect.lastChild);
+        data.forEach(t => {
+            const op = document.createElement('option');
+            op.value = t.value;
+            op.textContent = t.label;
+            callTypeSelect.appendChild(op);
+        });
+    }
+
+    /* ---------- Questions & scoring ---------- */
+    function generateQAQuestions() {
+        const container = document.getElementById('qaQuestions');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!qaConfig || !qaConfig.categories) {
+            container.innerHTML = `
+      <div class="section">
+        <div class="section-header"><i class="fas fa-exclamation-triangle"></i> Configuration Loading</div>
+        <p style="text-align:center;color:#6b7280;font-style:italic">QA configuration is loading…</p>
+      </div>`;
+            return;
+        }
+
+        Object.entries(qaConfig.categories).forEach(([categoryName, categoryData]) => {
+            const color = categoryData.color || '#00BFFF';
+            const header = document.createElement('div');
+            header.className = 'category-header-con';
+            header.style.background = `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`;
+            header.innerHTML = `
+      <div class="category-header-left">
+        <i class="${categoryData.icon || 'fas fa-question'}"></i>
+        <div class="category-info">
+          <div class="category-title">${categoryName}</div>
+          <div class="category-description">${categoryData.description || ''}</div>
+        </div>
+      </div>
+      <div class="category-meta">
+        <div class="category-points">${categoryData.totalPoints || 0} Points</div>
+        ${categoryData.weight && categoryData.weight !== 1 ? `<div class="category-weight">Weight: ${categoryData.weight}x</div>` : ''}
+      </div>`;
+            container.appendChild(header);
+
+            (categoryData.questions || []).forEach(q => container.appendChild(createEnhancedQuestionElement(q)));
+        });
+
+        generateEnhancedScoreBreakdown();
+    }
+
+    function createEnhancedQuestionElement(q) {
+        const div = document.createElement('div');
+        div.className = `question-row ${q.critical ? 'critical' : ''}`;
+        const weightInfo = q.weight && q.weight !== 1 ? `<div class="points-weight">Weight: ${q.weight}x</div>` : '';
+        const tagsHtml = (q.tags || []).length ? `<div class="question-tags">${q.tags.map(t => `<span class="question-tag ${q.critical ? 'critical' : ''}">${t}</span>`).join('')}</div>` : '';
+        div.innerHTML = `
+    <div class="question-text ${q.critical ? 'critical' : ''}">
+      <div><strong>${q.text}</strong></div>
+      ${q.description ? `<div class="question-description">${q.description}</div>` : ''}
+      ${tagsHtml}
+      ${q.critical ? '<div style="margin-top:.5rem;color:#dc2626;font-weight:600;font-size:.8rem">⚠️ CRITICAL: Answering "No" results in automatic fail</div>' : ''}
+    </div>
+    <div class="max-points ${q.critical ? 'critical' : ''}">
+      <div style="display:flex;align-items:center;gap:.25rem"><i class="fas ${q.critical ? 'fa-exclamation-triangle' : 'fa-star'}"></i><span>${q.maxPoints} pts</span></div>
+      ${weightInfo}
+    </div>
+    <div class="points-selector">
+      <div class="points-option yes"><input type="radio" name="${q.id}" value="Yes" id="${q.id}_yes"><label for="${q.id}_yes">Yes</label></div>
+      <div class="points-option no"><input type="radio" name="${q.id}" value="No" id="${q.id}_no"><label for="${q.id}_no">No</label></div>
+      <div class="points-option na"><input type="radio" name="${q.id}" value="NA" id="${q.id}_na" checked><label for="${q.id}_na">N/A</label></div>
+    </div>
+    <div><textarea class="comment-input" name="${q.id}_Comments" placeholder="Add specific comments, observations, or recommendations…"></textarea></div>
+  `;
+        return div;
+    }
+
+    function generateEnhancedScoreBreakdown() {
+        const breakdown = document.getElementById('scoreBreakdown');
+        if (!breakdown) return;
+        breakdown.innerHTML = '';
+        if (!qaConfig || !qaConfig.categories) {
+            breakdown.innerHTML = `<div style="text-align:center;color:#6b7280;font-style:italic;padding:1rem">Score breakdown will appear when configuration loads…</div>`;
+            return;
+        }
+        Object.entries(qaConfig.categories).forEach(([name, data]) => {
+            const total = data.totalPoints || 0;
+            const weight = data.weight || 1;
+            const color = data.color || '#00BFFF';
+            const row = document.createElement('div');
+            row.className = 'category-score';
+            row.style.borderLeftColor = color;
+            row.innerHTML = `<div class="category-name">${name}${weight !== 1 ? ` <small style="opacity:.7">(${weight}x)</small>` : ''}</div><span class="category-points-display" id="category_${name.replace(/\s+/g, '')}_score">0/${total}</span>`;
+            breakdown.appendChild(row);
+        });
+    }
+
+    /* ---------- Events & scoring ---------- */
+    function setupEventListeners() {
+        const agentNameSelect = document.getElementById('agentName');
+        if (agentNameSelect) {
+            agentNameSelect.addEventListener('change', (e) => {
+                const op = e.target.selectedOptions[0];
+                document.getElementById('agentEmail').value = op?.dataset?.email || '';
+                updateSubmitEnabled();
+                if (op?.dataset?.performance) {
+                    try {
+                        const perf = JSON.parse(op.dataset.performance);
+                        if (perf && perf.avgScore) showMessage(`Agent Performance: ${perf.avgScore}% average, ${perf.evaluations || 0} evals`, 'info', 3000);
+                    } catch {
+                    }
+                }
+            });
+        }
+
+        const audioFileInput = document.getElementById('audioFile');
+        if (audioFileInput) audioFileInput.addEventListener('change', onAudioPicked);
+
+        const form = document.getElementById('independenceQAForm');
+        if (form) form.addEventListener('submit', handleEnhancedSubmit);
+
+        ['callerName', 'agentName', 'agentEmail', 'callDate', 'auditorName', 'callType'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updateSubmitEnabled);
+            if (el) el.addEventListener('change', updateSubmitEnabled);
+        });
+
+        document.addEventListener('change', (e) => {
+            if (e.target.type === 'radio' && e.target.name.startsWith('Q')) {
+                const ts = document.getElementById('totalScore');
+                const pi = document.getElementById('passIndicator');
+                if (ts) ts.style.opacity = '0.5';
+                if (pi) {
+                    pi.textContent = 'Calculating…';
+                    pi.className = 'pass-indicator';
+                }
+                setTimeout(calculateScore, 100);
+            }
+        });
+
+        document.getElementById('systemHealthBtn')?.addEventListener('click', showSystemHealthModal);
+        document.getElementById('recalculateBtn')?.addEventListener('click', () => {
+            showMessage('Recalculating…', 'info', 1000);
+            calculateScore();
+        });
+        document.getElementById('resetBtn')?.addEventListener('click', handleReset);
+        document.getElementById('systemStatusIndicator')?.addEventListener('click', showSystemHealthModal);
+
+        updateSubmitEnabled();
+    }
+
+    function onAudioPicked(e) {
+        const file = e.target.files[0];
+        const container = document.querySelector('.audio-upload-container');
+        const display = document.querySelector('.audio-upload-display');
+
+        if (!file) {
+            container?.classList.remove('has-file');
+            if (display) display.innerHTML = `<i class="fas fa-microphone"></i><span class="audio-text">Click to upload call recording</span><small class="audio-info">Required • Supports MP3, WAV, M4A, OGG</small>`;
+            updateSubmitEnabled();
+            return;
+        }
+
+        const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/ogg'];
+        if (!validTypes.includes(file.type) && !/\.(mp3|wav|m4a|ogg)$/i.test(file.name)) {
+            showMessage('Please select a valid audio file (MP3, WAV, M4A, OGG).', 'error');
+            e.target.value = '';
+            updateSubmitEnabled();
+            return;
+        }
+        if (file.size > 100 * 1024 * 1024) {
+            showMessage('Audio file too large (max 100MB).', 'error');
+            e.target.value = '';
+            updateSubmitEnabled();
+            return;
+        }
+
+        container?.classList.add('has-file');
+        if (display) {
+            display.innerHTML = `<i class="fas fa-file-audio"></i><span class="audio-text">${file.name}</span><small class="audio-info">File size: ${(file.size / 1024 / 1024).toFixed(2)} MB • Duration: Analyzing…</small>`;
+            getAudioDuration(file).then(d => {
+                if (!d) return;
+                const m = Math.floor(d / 60), s = String(Math.floor(d % 60)).padStart(2, '0');
+                display.querySelector('.audio-info').textContent = `File size: ${(file.size / 1024 / 1024).toFixed(2)} MB • Duration: ${m}:${s}`;
+            });
+        }
+        updateSubmitEnabled();
+    }
+
+    function calculateScore() {
+        if (!qaConfig || !qaConfig.categories) {
+            setScoreUI({
+                overallPercentage: 0,
+                totalEarned: 0,
+                totalPossible: 0,
+                passStatus: 'Configuration Loading…',
+                hasCriticalFailure: false
+            });
+            return;
+        }
+        const formObj = {};
+        document.querySelectorAll('input[type="radio"]:checked').forEach(r => formObj[r.name] = r.value);
+        document.querySelectorAll('#independenceQAForm input:not([type="file"]):not([type="radio"]), #independenceQAForm select, #independenceQAForm textarea')
+            .forEach(el => formObj[el.name] = (el.type === 'checkbox' ? el.checked : el.value));
+
+        if (quill && quill.root) {
+            formObj['overallFeedback'] = quill.getText();
+            formObj['overallFeedbackHtml'] = quill.root.innerHTML;
+        } else {
+            const fb = document.getElementById('fallbackFeedback');
+            if (fb) {
+                formObj['overallFeedback'] = fb.value;
+                formObj['overallFeedbackHtml'] = fb.value;
+            }
+        }
+
+        Object.values(qaConfig.categories).forEach(cat => (cat.questions || []).forEach(q => {
+            if (!formObj[q.id]) formObj[q.id] = 'NA';
+        }));
+
+        if (!hasGAS()) {
+            showMessage('Cannot calculate scores (offline).', 'error');
+            setScoreUI({
+                overallPercentage: 0,
+                totalEarned: 0,
+                totalPossible: 0,
+                passStatus: 'Offline',
+                hasCriticalFailure: false
+            });
+            return;
+        }
+
+        google.script.run
+            .withSuccessHandler((results) => {
+                if (!results || typeof results !== 'object') results = {
+                    overallPercentage: 0,
+                    totalEarned: 0,
+                    totalPossible: 0,
+                    passStatus: 'Error',
+                    hasCriticalFailure: false
+                };
+                currentScoreResults = results;
+                setScoreUI(results);
+                updateEnhancedCategoryScores(results);
+                updatePerformanceInsights(results);
+            })
+            .withFailureHandler((err) => {
+                console.error(err);
+                const fallback = {
+                    overallPercentage: 0,
+                    totalEarned: 0,
+                    totalPossible: 0,
+                    passStatus: 'Calculation Error',
+                    hasCriticalFailure: false
+                };
+                currentScoreResults = fallback;
+                setScoreUI(fallback);
+            })
+            .clientPreviewIndependenceQAScore(formObj);
+    }
+
+    function setScoreUI(results) {
+        const pct = results.overallPercentage || 0;
+        const earned = results.totalEarned || 0;
+        const possible = results.totalPossible || 0;
+        const status = results.passStatus || 'Unknown';
+        const critical = !!results.hasCriticalFailure;
+
+        const totalScoreEl = document.getElementById('totalScore');
+        const passIndicatorEl = document.getElementById('passIndicator');
+        const scoreDetailsEl = document.getElementById('scoreDetails');
+
+        if (totalScoreEl) {
+            totalScoreEl.style.opacity = '1';
+            totalScoreEl.style.transform = 'scale(1.1)';
+            totalScoreEl.textContent = pct + '%';
+            setTimeout(() => totalScoreEl.style.transform = 'scale(1)', 200);
+        }
+        if (scoreDetailsEl) scoreDetailsEl.textContent = `${earned}/${possible} points`;
+        if (passIndicatorEl) {
+            passIndicatorEl.textContent = status;
+            passIndicatorEl.className = 'pass-indicator ' + (critical ? 'critical-failure' : (pct >= 95 ? 'excellent' : (pct >= 85 ? 'pass' : 'fail')));
+        }
+        updateSystemStatusIndicator(critical ? 'error' : 'healthy');
+    }
+
+    function updateEnhancedCategoryScores(results) {
+        if (!results || !results.categoryScores) return;
+        Object.entries(results.categoryScores).forEach(([name, score]) => {
+            const el = document.getElementById(`category_${name.replace(/\s+/g, '')}_score`);
+            if (!el || !score) return;
+            const earned = Math.round(score.earned || 0);
+            const total = Math.round(score.possible || 0);
+            const pct = score.percentage || 0;
+            el.textContent = `${earned}/${total} (${pct}%)`;
+            const row = el.closest('.category-score');
+            if (row) row.style.borderLeftColor = pct >= 90 ? '#10b981' : pct >= 80 ? '#f59e0b' : '#ef4444';
+        });
+    }
+
+    function updatePerformanceInsights(results) {
+        const box = document.getElementById('performanceInsights');
+        const strengths = document.getElementById('strengthAreas');
+        const improves = document.getElementById('improvementAreas');
+        if (!box || !strengths || !improves) return;
+        strengths.innerHTML = '';
+        improves.innerHTML = '';
+        let has = false;
+
+        (results.strengthAreas || []).forEach(a => {
+            has = true;
+            const d = document.createElement('div');
+            d.className = 'insight-item';
+            d.innerHTML = `<div class="insight-icon strength">✓</div><span><strong>Strength:</strong> ${a.category || 'Unknown'} (${a.percentage || 0}%)</span>`;
+            strengths.appendChild(d);
+        });
+        const imp = results.improvementAreas && Array.isArray(results.improvementAreas.categories) ? results.improvementAreas.categories : [];
+        imp.forEach(a => {
+            has = true;
+            const d = document.createElement('div');
+            d.className = 'insight-item';
+            d.innerHTML = `<div class="insight-icon improvement">!</div><span><strong>Improve:</strong> ${a.name || 'Unknown'} (${a.percentage || 0}%)</span>`;
+            improves.appendChild(d);
+        });
+        (results.criticalFailures || []).forEach(f => {
+            has = true;
+            const d = document.createElement('div');
+            d.className = 'insight-item';
+            d.innerHTML = `<div class="insight-icon critical">⚠</div><span><strong>Critical:</strong> ${f.category || f.text || 'Unknown'}</span>`;
+            improves.appendChild(d);
+        });
+
+        box.style.display = has ? 'block' : 'none';
+    }
+
+    /* ---------- Submit ---------- */
+    async function handleEnhancedSubmit(e) {
+        e.preventDefault();
+        if (isSubmitting) return;
+        const validation = validateFormData();
+        if (!validation.isValid) {
+            showMessage(validation.errorMessage, 'error', 8000);
+            return;
+        }
+
+        try {
+            isSubmitting = true;
+            setSubmissionState(true);
+            showMessage('Preparing submission…', 'info');
+
+            const formData = await prepareFormData();
+            showMessage('Calculating final scores…', 'info');
+            const finalScores = await calculateFinalScores(formData);
+            if (!finalScores || finalScores.error) throw new Error(finalScores?.error || 'Failed to calculate final scores');
+            formData.finalScores = finalScores;
+
+            showMessage('Submitting to server…', 'info');
+            const res = await submitToServer(formData);
+            if (!res.success) throw new Error(res.error || 'Server submission failed');
+
+            await handleSubmissionSuccess(res);
+        } catch (err) {
+            handleSubmissionError(err);
+        } finally {
+            isSubmitting = false;
+            setSubmissionState(false);
+        }
+    }
+
+    function validateFormData() {
+        const req = [
+            {id: 'callerName', name: 'Caller Name'},
+            {id: 'agentName', name: 'Agent Name'},
+            {id: 'agentEmail', name: 'Agent Email'},
+            {id: 'callDate', name: 'Call Date'},
+            {id: 'auditorName', name: 'Auditor Name'},
+            {id: 'callType', name: 'Call Type'}
+        ];
+        const errors = [];
+        req.forEach(f => {
+            const el = document.getElementById(f.id);
+            const v = (el && el.value || '').trim();
+            if (!v) errors.push(`${f.name} is required`);
+        });
+        const agentEmail = (document.getElementById('agentEmail')?.value || '').trim();
+        if (agentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(agentEmail)) errors.push('Agent Email must be a valid email address');
+
+        const dt = document.getElementById('callDate')?.value;
+        if (dt) {
+            const d = new Date(dt), today = new Date();
+            today.setHours(23, 59, 59, 999);
+            const yr = new Date();
+            yr.setFullYear(yr.getFullYear() - 1);
+            if (d > today) errors.push('Call Date cannot be in the future');
+            if (d < yr) errors.push('Call Date cannot be more than 1 year ago');
+        }
+
+        const audio = document.getElementById('audioFile')?.files[0];
+        if (!audio) errors.push('Call Recording is required');
+        else {
+            const okType = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/ogg'].includes(audio.type) || /\.(mp3|wav|m4a|ogg)$/i.test(audio.name);
+            if (!okType) errors.push('Call Recording must be an audio file (MP3, WAV, M4A, OGG)');
+            if (audio.size > 100 * 1024 * 1024) errors.push('Call Recording file size must be less than 100MB');
+            if (audio.size < 1024) errors.push('Call Recording file appears too small or corrupted');
+        }
+
+        const answered = document.querySelectorAll('input[type="radio"]:checked[name*="Q"]').length;
+        if (answered === 0) errors.push('Please answer at least some assessment questions');
+
+        return {isValid: errors.length === 0, errors, errorMessage: errors.join('; '), totalAnswered: answered};
+    }
+
+    async function prepareFormData() {
+        const data = {};
+        document.querySelectorAll('#independenceQAForm input, #independenceQAForm select, #independenceQAForm textarea').forEach(el => {
+            if (el.type === 'file') {
+                if (el.files && el.files[0]) data[el.name + '_file'] = el.files[0];
+            } else if (el.type === 'checkbox') data[el.name] = el.checked;
+            else if (el.type === 'radio') {
+                if (el.checked) data[el.name] = el.value;
+            } else data[el.name] = el.value;
+        });
+
+        if (quill && quill.root) {
+            data.overallFeedback = quill.getText();
+            data.overallFeedbackHtml = quill.root.innerHTML;
+        } else {
+            const fb = document.getElementById('fallbackFeedback');
+            if (fb) {
+                data.overallFeedback = fb.value;
+                data.overallFeedbackHtml = fb.value;
+            }
+        }
+
+        if (qaConfig && qaConfig.categories) {
+            Object.values(qaConfig.categories).forEach(cat => (cat.questions || []).forEach(q => {
+                if (!data[q.id]) data[q.id] = 'NA';
+                if (!data[q.id + '_Comments']) data[q.id + '_Comments'] = '';
+            }));
+        }
+
+        if (data.audioFile_file) {
+            const f = data.audioFile_file;
+            const buf = await f.arrayBuffer();
+            data.audioFile = {name: f.name, mimeType: f.type, bytes: Array.from(new Uint8Array(buf)), size: f.size};
+            delete data.audioFile_file;
+        }
+
+        data.submissionTimestamp = new Date().toISOString();
+        data.userAgent = navigator.userAgent;
+        data.submissionSource = 'Independence QA Form v2.2';
+        return data;
+    }
+
+    async function calculateFinalScores(formData) {
+        return new Promise((resolve) => {
+            if (!hasGAS()) {
+                resolve({
+                    error: 'Google Apps Script not available',
+                    overallPercentage: 0,
+                    passStatus: 'Unable to calculate'
+                });
+                return;
+            }
+            const payload = {...formData};
+            delete payload.audioFile;
+            delete payload.finalScores;
+            google.script.run
+                .withSuccessHandler(res => resolve(res))
+                .withFailureHandler(err => resolve({
+                    error: err.message || 'Score calculation failed',
+                    overallPercentage: 0,
+                    passStatus: 'Calculation Error'
+                }))
+                .clientPreviewIndependenceQAScore(payload);
+        });
+    }
+
+    async function submitToServer(formData) {
+        return new Promise((resolve) => {
+            if (!hasGAS()) {
+                resolve({success: false, error: 'Google Apps Script not available'});
+                return;
+            }
+            const payload = JSON.parse(JSON.stringify(formData));
+            google.script.run
+                .withSuccessHandler(res => resolve(res))
+                .withFailureHandler(err => resolve({success: false, error: err.message || 'Server submission failed'}))
+                .clientSubmitIndependenceQAWithAudio(payload);
+        });
+    }
+
+    async function handleSubmissionSuccess(res) {
+        showMessage('Assessment submitted successfully!', 'success', 6000);
+        updateSystemStatusIndicator('healthy');
+        displaySubmissionResults(res);
+        if (confirm('Assessment submitted! Reset the form for a new assessment?')) resetFormAfterSubmission();
+        updateActionBarAfterSubmission(res);
+    }
+
+    function handleSubmissionError(error) {
+        showMessage(`Submission failed: ${error.message}`, 'error', 10000);
+        updateSystemStatusIndicator('error');
+        displayErrorDetails(error);
+        showRetryOption();
+    }
+
+    /* ---------- UI helpers ---------- */
+    function displaySubmissionResults(result) {
+        const modal = createSubmissionResultModal(result);
+        document.body.appendChild(modal);
+        setTimeout(() => modal.remove(), 30000);
+    }
+
+    function createSubmissionResultModal(result) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(4px)`;
+        const box = document.createElement('div');
+        box.style.cssText = `background:#fff;padding:2rem;border-radius:16px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center`;
+        box.innerHTML = `
+    <div style="color:#10b981;font-size:3rem;margin-bottom:1rem"><i class="fas fa-check-circle"></i></div>
+    <h2 style="color:#003177;margin-bottom:1rem">Assessment Submitted Successfully!</h2>
+    <div style="text-align:left;margin:1.25rem 0">
+      <p><strong>Assessment ID:</strong> ${result.assessmentId || 'N/A'}</p>
+      <p><strong>Agent:</strong> ${document.getElementById('agentName')?.value || 'N/A'}</p>
+      <p><strong>Score:</strong> ${result.scoreResults?.overallPercentage || result.finalScores?.overallPercentage || 0}%</p>
+      <p><strong>Status:</strong> ${result.scoreResults?.passStatus || result.finalScores?.passStatus || 'Unknown'}</p>
+      ${result.pdfUrl ? `<p><strong>Report:</strong> <a href="${result.pdfUrl}" target="_blank" style="color:#00BFFF">View PDF Report</a></p>` : ''}
+      ${result.audioUrl ? `<p><strong>Recording:</strong> <a href="${result.audioUrl}" target="_blank" style="color:#00BFFF">View Audio File</a></p>` : ''}
+    </div>
+    <div><button onclick="this.closest('[style*=&quot;inset:0&quot;]').remove()" style="background:#00BFFF;color:#fff;border:none;padding:.75rem 2rem;border-radius:8px;font-weight:600;cursor:pointer">Close</button></div>
+  `;
+        modal.appendChild(box);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        return modal;
+    }
+
+    /* Single implementation (fixed duplicate) */
+    function displayErrorDetails(error) {
+        console.error('Error details', {
+            message: error.message,
+            stack: error.stack,
+            time: new Date().toISOString(),
+            ua: navigator.userAgent,
+            qaLoaded: !!qaConfig,
+            usersLoaded: independenceUsers.length > 0,
+            gas: hasGAS()
+        });
+        const modal = document.createElement('div');
+        modal.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:2rem;border-radius:16px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);z-index:10000;border:2px solid #ef4444;text-align:center`;
+        modal.innerHTML = `
+    <div style="color:#ef4444;font-size:2rem;margin-bottom:1rem"><i class="fas fa-exclamation-triangle"></i></div>
+    <h3 style="color:#ef4444;margin-bottom:1rem">Submission Failed</h3>
+    <p style="margin-bottom:1.25rem;color:#666">${error.message}</p>
+    <div>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:#ef4444;color:#fff;border:none;padding:.75rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer;margin-right:.5rem">Close</button>
+      <button onclick="this.parentElement.parentElement.remove(); document.getElementById('submitBtn').click();" style="background:#00BFFF;color:#fff;border:none;padding:.75rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer">Retry</button>
+    </div>`;
+        document.body.appendChild(modal);
+        setTimeout(() => modal.remove(), 15000);
+    }
+
+    function showRetryOption() {
+        const b = document.getElementById('submitBtn');
+        if (!b) return;
+        b.innerHTML = '<i class="fas fa-redo"></i> Retry Submission';
+        b.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+        setTimeout(() => {
+            b.innerHTML = '<i class="fas fa-save"></i> Submit Assessment';
+            b.style.background = '';
+        }, 10000);
+    }
+
+    function setSubmissionState(on) {
+        const b = document.getElementById('submitBtn');
+        const form = document.getElementById('independenceQAForm');
+        if (b) {
+            b.disabled = !!on;
+            b.innerHTML = on ? '<i class="fas fa-spinner fa-spin"></i> Submitting…' : '<i class="fas fa-save"></i> Submit Assessment';
+            b.style.opacity = on ? '0.7' : '1';
+        }
+        if (form) {
+            form.classList.toggle('loading', !!on);
+        }
+    }
+
+    function resetFormAfterSubmission() {
+        const form = document.getElementById('independenceQAForm');
+        if (form) form.reset();
+        if (quill) quill.setContents([]);
+        const audioContainer = document.querySelector('.audio-upload-container');
+        const audioDisplay = document.querySelector('.audio-upload-display');
+        audioContainer?.classList.remove('has-file');
+        if (audioDisplay) audioDisplay.innerHTML = `<i class="fas fa-microphone"></i><span class="audio-text">Click to upload call recording</span><small class="audio-info">Required • Supports MP3, WAV, M4A, OGG</small>`;
+
+        currentScoreResults = {};
+        document.getElementById('totalScore').textContent = '0%';
+        const pi = document.getElementById('passIndicator');
+        if (pi) {
+            pi.textContent = 'Start Assessment';
+            pi.className = 'pass-indicator';
+        }
+        const sd = document.getElementById('scoreDetails');
+        if (sd) sd.textContent = '0/0 points';
+
+        const today = new Date();
+        document.getElementById('callDate').value =
+            today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+        updateSubmitEnabled();
+        showMessage('Form reset. Ready for next assessment.', 'info', 2000);
+    }
+
+    function updateActionBarAfterSubmission(result) {
+        const bar = document.querySelector('.action-bar');
+        if (!bar) return;
+        const tag = document.createElement('div');
+        tag.style.cssText = 'display:flex;align-items:center;gap:.5rem;color:#10b981;font-weight:600;background:rgba(16,185,129,.1);padding:.75rem 1rem;border-radius:8px;border:1px solid rgba(16,185,129,.3)';
+        tag.innerHTML = `<i class="fas fa-check-circle"></i><span>Assessment Submitted: ${result.assessmentId || 'Success'}</span>`;
+        bar.insertBefore(tag, bar.firstChild);
+        setTimeout(() => tag.remove(), 30000);
+    }
+
+    function handleReset() {
+        if (isSubmitting) {
+            showMessage('Cannot reset while submitting.', 'warning');
+            return;
+        }
+        if (confirm('Reset the form?')) resetFormAfterSubmission();
+    }
+
+    function updateSubmitEnabled() {
+        const requiredIds = ['callerName', 'agentName', 'agentEmail', 'callDate', 'auditorName', 'callType'];
+        const allOk = requiredIds.every(id => (document.getElementById(id)?.value || '').trim());
+        const hasAudio = !!document.getElementById('audioFile')?.files?.length;
+        const btn = document.getElementById('submitBtn');
+        if (btn) btn.disabled = !(allOk && hasAudio);
+    }
+
+    function showSystemHealthModal() {
+        if (!hasGAS()) {
+            showMessage('Google Apps Script is not available.', 'error');
+            return;
+        }
+        showMessage('Running system health check…', 'info');
+        google.script.run
+            .withSuccessHandler((health) => {
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:2rem;border-radius:16px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);z-index:10000;text-align:left';
+                const color = health.status === 'healthy' ? '#10b981' : '#f59e0b';
+                modal.innerHTML = `
+        <h3 style="color:${color};margin-bottom:1rem"><i class="fas fa-heartbeat"></i> System Health Check</h3>
+        <div style="margin-bottom:1rem">
+          <strong>Status:</strong> <span style="color:${color}">${health.status}</span><br>
+          <strong>Response Time:</strong> ${health.responseTime}<br>
+          <strong>Timestamp:</strong> ${health.timestamp}
+        </div>
+        ${health.components ? `<div style="margin-bottom:1rem"><strong>Components:</strong><br>${Object.entries(health.components).map(([n, c]) => `• ${n}: <span style="color:${c.status === 'healthy' ? '#10b981' : '#ef4444'}">${c.status}</span>`).join('<br>')}</div>` : ''}
+        <div style="text-align:center;margin-top:1.5rem"><button onclick="this.closest('[style*=&quot;position:fixed&quot;]').remove()" style="background:#00BFFF;color:#fff;border:none;padding:.75rem 2rem;border-radius:8px;font-weight:600;cursor:pointer">Close</button></div>`;
+                document.body.appendChild(modal);
+            })
+            .withFailureHandler((err) => showMessage('Health check failed: ' + err.message, 'error'))
+            .clientPerformIndependenceHealthCheck();
+    }
+
+    function updateSystemStatus(component, status) {
+        const el = document.getElementById('systemStatusDisplay');
+        if (!el) return;
+        const icon = (status === 'loaded' || status === 'completed') ? 'fa-check' : (status === 'error' ? 'fa-times' : 'fa-circle-notch fa-spin');
+        const color = (status === 'loaded' || status === 'completed') ? '#10b981' : (status === 'error' ? '#ef4444' : '#f59e0b');
+        el.innerHTML = `<i class="fas ${icon}" style="color:${color}"></i> ${component}: ${status}`;
+    }
+
+    function updateSystemStatusDisplay(health) {
+        const el = document.getElementById('systemStatusDisplay');
+        if (!el || !health) return;
+        const ok = health.status === 'healthy';
+        el.innerHTML = `<i class="fas ${ok ? 'fa-check-circle' : 'fa-exclamation-triangle'}" style="color:${ok ? '#10b981' : '#f59e0b'}"></i> ${ok ? 'All systems operational' : 'Issues detected'} • Response: ${health.responseTime || 'Unknown'}`;
+    }
+
+    function updateSystemStatusIndicator(status) {
+        const el = document.getElementById('systemStatusIndicator');
+        if (el) el.className = `system-status-indicator ${status}`;
+    }
+
+    function setLoadingState(loading) {
+        const form = document.getElementById('independenceQAForm');
+        if (!form) return;
+        form.classList.toggle('loading', !!loading);
+    }
+
+    function showMessage(message, type = 'info', duration = 5000) {
+        const cls = type === 'error' ? 'alert-danger' : type === 'warning' ? 'alert-warning' : type === 'success' ? 'alert-success' : 'alert-info';
+        const div = document.createElement('div');
+        div.className = `alert ${cls}`;
+        div.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;padding:1rem 1.5rem;border-radius:8px;max-width:400px;box-shadow:0 4px 12px rgba(0,0,0,.15);border:1px solid currentColor;font-weight:500;display:flex;align-items:center;gap:.5rem';
+        const icon = type === 'error' ? 'fa-times-circle' : type === 'warning' ? 'fa-exclamation-triangle' : type === 'success' ? 'fa-check-circle' : 'fa-info-circle';
+        div.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+        document.body.appendChild(div);
+        if (duration > 0) setTimeout(() => {
+            div.style.opacity = '0';
+            div.style.transform = 'translateX(100%)';
+            setTimeout(() => div.remove(), 300);
+        }, duration);
+    }
+
+    function getAudioDuration(file) {
+        return new Promise((resolve) => {
+            const a = document.createElement('audio');
+            a.preload = 'metadata';
+            a.onloadedmetadata = function () {
+                URL.revokeObjectURL(a.src);
+                resolve(a.duration);
+            };
+            a.onerror = () => resolve(null);
+            a.src = URL.createObjectURL(file);
+        });
+    }
+
+    function hasGAS() {
+        return typeof google !== 'undefined' && google.script && google.script.run;
+    }
+
+    /* Tiny console helpers */
+    window.debugQAForm = {
+        calculateScore,
+        showUsers: () => console.log(independenceUsers),
+        showCurrentResults: () => console.log(currentScoreResults),
+        testConnection: () => {
+            const ok = hasGAS();
+            console.log(ok ? '✅ Google Apps Script available' : '❌ No GAS');
+            return ok;
+        }
+    };
+</script>
+
+</body>
+</html>

@@ -1,0 +1,708 @@
+<!-- Quality Form--->
+<?!= include("header", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+<?  
+  // server‐side templating:
+  // recordId   is a string ("" or your UUID)
+  // record     is a JSON string ( "{}" or '{"CallerName":"…",…}' )
+  const recObj = recordId ? JSON.parse(record) : {};  
+?>
+
+<? var users = getUsers(); /* server-side array of {name,email} */ ?>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Quill CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<style>
+    h2, h3 {
+        color: #4e73df;
+        margin-bottom: 0.5rem;
+    }
+
+    .section {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.1);
+        margin-bottom: 1.5rem;
+        padding: 1rem 1.5rem;
+    }
+
+    .section-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #e3e6f0;
+        padding-bottom: 0.5rem;
+        color: #1e2833;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .form-group {
+        flex: 1;
+        min-width: 200px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group label {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+        font-size: 0.9rem;
+    }
+
+    .form-group input,
+    .form-group select {
+        padding: 0.4rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+
+    table thead {
+        background: #e3e6f0;
+    }
+
+    th, td {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #ddd;
+        font-size: 0.9rem;
+        text-align: left;
+    }
+
+    tbody tr:nth-child(even) {
+        background: #f8f9fc;
+    }
+
+    .radio-cell {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .btn {
+        cursor: pointer;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        border: none;
+        border-radius: 4px;
+        color: #fff;
+        background: #1cc88a;
+        margin-right: 1rem;
+    }
+
+    .btn:disabled {
+        background: #adb5bd;
+    }
+
+    .btn-reset {
+        background: #e74a3b;
+    }
+
+    .toast {
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        min-width: 250px;
+        background: #1cc88a;
+        color: #fff;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.1);
+        display: none;
+        z-index: 9999;
+    }
+
+    .toast.error {
+        background: #e74a3b;
+    }
+
+    .toast.show {
+        display: block;
+        animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+
+    @keyframes fadein {
+        from {
+            opacity: 0
+        }
+        to {
+            opacity: 1
+        }
+    }
+
+    @keyframes fadeout {
+        from {
+            opacity: 1
+        }
+        to {
+            opacity: 0
+        }
+    }
+
+    /* Summary + Gauge layout */
+    .summary-wrapper {
+        display: flex;
+        gap: 2rem;
+        align-items: flex-start;
+    }
+
+    .summary-table {
+        flex: 1;
+        overflow-x: auto;
+    }
+
+    .quality-gauge {
+        text-align: center;
+        min-width: 180px;
+    }
+
+    .quality-gauge .percent {
+        font-size: 4rem;
+        font-weight: bold;
+    }
+
+    .legend {
+        margin-top: 1rem;
+        font-size: .85rem;
+    }
+
+    .legend span {
+        margin: 0 .5rem;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .legend .dot {
+        font-size: 1.2rem;
+        margin-right: .3rem;
+    }
+    #loaderOverlay {
+      display: none;               /* hidden by default */
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;  height: 100%;
+      background: rgba(255,255,255,0.8);
+      z-index: 2;
+      align-items: center;
+      justify-content: center;
+    }
+  .icon-link {
+    color: #333;
+    font-size: 1.2rem;
+    transition: color 0.2s;
+  }
+  .icon-link:hover {
+    color: #4a90e2;
+  }
+</style>
+<!-- Loader Overlay -->
+<div id="loaderOverlay">
+  <div class="spinner-border" role="status" style="width:3rem; height:3rem;">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+</div>
+    <form id="auditForm">
+        <!-- Employee & Other Details -->
+    <div class="section">
+      <div class="section-header">Employee &amp; Other Details</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="callerName">Caller Name</label>
+          <input type="text" id="callerName" name="callerName" value="<?= recObj.CallerName||'' ?>">
+        </div>
+        <div class="form-group">
+          <label for="agentName">Agent Name</label>
+          <select id="agentName" name="agentName">
+            <option value="" disabled selected>-- Select Agent --</option>
+            <? users.forEach(u=>{ ?>
+              <option value="<?= u.name ?>" <?= recObj.AgentName===u.name?'selected':'' ?>><?= u.name ?></option>
+            <? }); ?>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="agentEmail">Agent Email</label>
+          <input type="email" id="agentEmail" name="agentEmail" value="<?= recObj.AgentEmail||'' ?>" readonly>
+        </div>
+        <div class="form-group">
+          <label for="clientName">Client Name</label>
+          <input type="text" id="clientName" name="clientName" value="<?= recObj.ClientName||'' ?>">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="callDate">Call Date</label>
+          <input type="date" id="callDate" name="callDate" value="<?= recObj.CallDate||'' ?>">
+        </div>
+        <div class="form-group">
+          <label for="caseNumber">Case Number</label>
+          <input type="text" id="caseNumber" name="caseNumber" value="<?= recObj.CaseNumber||'' ?>">
+        </div>
+
+        <div class="form-group">
+          <label for="auditorName">Auditor’s Name</label>
+          <input type="text" id="auditorName" name="auditorName" value="<?= recObj.AuditorName||'' ?>">
+        </div>
+        <div class="form-group">
+          <label for="auditDate">Audit Date</label>
+          <input type="date" id="auditDate" name="auditDate" value="<?= recObj.AuditDate||'' ?>">
+        </div>
+        <div class="form-group">
+          <label for="feedbackShared">Feedback Shared</label>
+          <input type="date" id="feedbackShared" name="feedbackShared" value="<?= recObj.FeedbackShared||'' ?>">
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit Score Summary -->
+    <div class="section">
+      <div class="section-header">Audit Score Summary</div>
+      <div class="summary-wrapper">
+        <div class="summary-table">
+          <table id="summaryTable">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Weightage</th>
+                <th>Applicable Points</th>
+                <th>Earned Points</th>
+                <th>Score (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-category="courtesy">
+                <td>Courtesy &amp; Communication</td>
+                <td class="weightage">30</td>
+                <td class="applicable">0</td>
+                <td class="earned">0</td>
+                <td class="percent">0%</td>
+              </tr>
+              <tr data-category="resolution">
+                <td>Resolution</td>
+                <td class="weightage">40</td>
+                <td class="applicable">0</td>
+                <td class="earned">0</td>
+                <td class="percent">0%</td>
+              </tr>
+              <tr data-category="documentation">
+                <td>Case Documentation</td>
+                <td class="weightage">30</td>
+                <td class="applicable">0</td>
+                <td class="earned">0</td>
+                <td class="percent">0%</td>
+              </tr>
+              <tr data-category="process">
+                <td>Process Compliance</td>
+                <td class="weightage">20</td>
+                <td class="applicable">0</td>
+                <td class="earned">0</td>
+                <td class="percent">0%</td>
+              </tr>
+              <tr data-category="overall" style="font-weight:600; background:#e3e6f0;">
+                <td>Overall</td>
+                <td class="weightage">120</td>
+                <td class="applicable">N/A</td>
+                <td class="earned">0</td>
+                <td class="percent">N/A</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="quality-gauge">
+          <div class="percent" id="overallQuality">N/A</div>
+          <div>Quality%</div>
+          <div class="legend">
+            <span><span class="dot" style="color:red;">●</span> ≤85%</span>
+            <span><span class="dot" style="color:gold;">●</span> 85–94%</span>
+            <span><span class="dot" style="color:green;">●</span> ≥95%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit Details -->
+    <div class="section">
+      <div class="section-header">Audit Details</div>
+      <div class="table-container">
+        <table id="detailsTable">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Weightage</th>
+              <th>Parameter</th>
+              <th>Audit Result</th>
+              <th>Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Courtesy & Communication -->
+            <tr class="category-row"><td colspan="5" style="background:#e3e6f0;font-weight:600;">Courtesy &amp; Communication</td></tr>
+            <tr data-category="courtesy" data-weight="3">
+              <td></td><td>3</td>
+              <td>Did the agent say thank you for calling and brand the call with the client name?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q1"  value="yes" <?= (recObj.Q1||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q1"  value="no"  <?= (recObj.Q1||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q1"  value="na"  <?= !recObj.Q1|| (recObj.Q1||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c1" value="<?= recObj.c1||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="courtesy" data-weight="5">
+              <td></td><td>5</td>
+              <td>Did the agent offer further assistance before closing the call?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q2" value="yes" <?= (recObj.Q2||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q2" value="no"  <?= (recObj.Q2||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q2" value="na"  <?= !recObj.Q2|| (recObj.Q2||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c2" value="<?= recObj.c2||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="courtesy" data-weight="7">
+              <td></td><td>7</td>
+              <td>Did the agent sound polite and courteous on the call?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q3" value="yes" <?= (recObj.Q3||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q3" value="no"  <?= (recObj.Q3||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q3" value="na"  <?= !recObj.Q3|| (recObj.Q3||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c3" value="<?= recObj.c3||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="courtesy" data-weight="10">
+              <td></td><td>10</td>
+              <td>Did the agent empathize with caller’s issue?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q4" value="yes" <?= (recObj.Q4||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q4" value="no"  <?= (recObj.Q4||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q4" value="na"  <?= !recObj.Q4|| (recObj.Q4||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c4" value="<?= recObj.c4||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="courtesy" data-weight="5">
+              <td></td><td>5</td>
+              <td>Did the agent modulate pitch and volume according to caller’s?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q5" value="yes" <?= (recObj.Q5||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q5" value="no"  <?= (recObj.Q5||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q5" value="na"  <?= !recObj.Q5|| (recObj.Q5||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c5" value="<?= recObj.c5||'' ?>" placeholder="Comments"></td>
+            </tr>
+
+            <!-- Resolution -->
+            <tr class="category-row"><td colspan="5" style="background:#e3e6f0;font-weight:600;">Resolution</td></tr>
+            <tr data-category="resolution" data-weight="8">
+              <td></td><td>8</td>
+              <td>Did the agent follow the call transfer protocol?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q6" value="yes" <?= (recObj.Q6||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q6" value="no"  <?= (recObj.Q6||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q6" value="na"  <?= !recObj.Q6|| (recObj.Q6||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c6" value="<?= recObj.c6||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="resolution" data-weight="8">
+              <td></td><td>8</td>
+              <td>Did the agent follow the correct HOLD procedure?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q7" value="yes" <?= (recObj.Q7||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q7" value="no"  <?= (recObj.Q7||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q7" value="na"  <?= !recObj.Q7|| (recObj.Q7||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c7" value="<?= recObj.c7||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="resolution" data-weight="15">
+              <td></td><td>15</td>
+              <td>Did the agent authenticate caller and confirm the issue?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q8" value="yes" <?= (recObj.Q8||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q8" value="no"  <?= (recObj.Q8||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q8" value="na"  <?= !recObj.Q8|| (recObj.Q8||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c8" value="<?= recObj.c8||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="resolution" data-weight="9">
+              <td></td><td>9</td>
+              <td>Did the agent do effective probing on the call?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q9" value="yes" <?= (recObj.Q9||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q9" value="no"  <?= (recObj.Q9||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q9" value="na"  <?= !recObj.Q9|| (recObj.Q9||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c9" value="<?= recObj.c9||'' ?>" placeholder="Comments"></td>
+            </tr>
+
+            <!-- Case Documentation -->
+            <tr class="category-row"><td colspan="5" style="background:#e3e6f0;font-weight:600;">Case Documentation</td></tr>
+            <tr data-category="documentation" data-weight="8">
+              <td></td><td>8</td>
+              <td>Did the agent provide accurate and complete resolution using tools?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q10" value="yes" <?= (recObj.Q10||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q10" value="no"  <?= (recObj.Q10||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q10" value="na"  <?= !recObj.Q10|| (recObj.Q10||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c10" value="<?= recObj.c10||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="documentation" data-weight="6">
+              <td></td><td>6</td>
+              <td>Did the agent provide clear understanding of the issue to the caller?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q11" value="yes" <?= (recObj.Q11||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q11" value="no"  <?= (recObj.Q11||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q11" value="na"  <?= !recObj.Q11|| (recObj.Q11||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c11" value="<?= recObj.c11||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="documentation" data-weight="6">
+              <td></td><td>6</td>
+              <td>Did the agent process the request as promised to the caller?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q12" value="yes" <?= (recObj.Q12||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q12" value="no"  <?= (recObj.Q12||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q12" value="na"  <?= !recObj.Q12|| (recObj.Q12||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c12" value="<?= recObj.c12||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="documentation" data-weight="7">
+              <td></td><td>7</td>
+              <td>Did the agent document the case/Wrapup up with Wrap-Up notes correctly?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q13" value="yes" <?= (recObj.Q13||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q13" value="no"  <?= (recObj.Q13||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q13" value="na"  <?= !recObj.Q13|| (recObj.Q13||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c13" value="<?= recObj.c13||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="documentation" data-weight="3">
+              <td></td><td>3</td>
+              <td>Did the agent escalate the case to the right department with all relevant details?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q14" value="yes" <?= (recObj.Q14||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q14" value="no"  <?= (recObj.Q14||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q14" value="na"  <?= !recObj.Q14|| (recObj.Q14||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c14" value="<?= recObj.c14||'' ?>" placeholder="Comments"></td>
+            </tr>
+
+            <!-- Process Compliance -->
+            <tr class="category-row"><td colspan="5" style="background:#e3e6f0;font-weight:600;">Process Compliance</td></tr>
+            <tr data-category="process" data-weight="6">
+              <td></td><td>6</td>
+              <td>Did the agent offer the survey at the end of the call?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q15" value="yes" <?= (recObj.Q15||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q15" value="no"  <?= (recObj.Q15||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q15" value="na"  <?= !recObj.Q15|| (recObj.Q15||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c15" value="<?= recObj.c15||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="process" data-weight="5">
+              <td></td><td>5</td>
+              <td>Did the agent create the call case correctly/Wrap-Up the call?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q16" value="yes" <?= (recObj.Q16||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q16" value="no"  <?= (recObj.Q16||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q16" value="na"  <?= !recObj.Q16|| (recObj.Q16||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c16" value="<?= recObj.c16||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="process" data-weight="4">
+              <td></td><td>4</td>
+              <td>Did the agent modify case fields appropriately?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q17" value="yes" <?= (recObj.Q17||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q17" value="no"  <?= (recObj.Q17||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q17" value="na"  <?= !recObj.Q17|| (recObj.Q17||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c17" value="<?= recObj.c17||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="process" data-weight="5">
+              <td></td><td>5</td>
+              <td>Did the customer respond positively to the survey?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q18" value="yes" <?= (recObj.Q18||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q18" value="no"  <?= (recObj.Q18||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q18" value="na"  <?= !recObj.Q18|| (recObj.Q18||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c18" value="<?= recObj.c18||'' ?>" placeholder="Comments"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Overall Feedback -->
+    <div class="section">
+      <div class="section-header">Overall Feedback</div>
+      <div id="quillEditor"><?!= recObj.OverallFeedback||'' ?></div>
+      <input type="hidden" id="hOverallFeedback" name="overallFeedback">
+      <input type="hidden" id="hOverallFeedbackPlain" name="overallFeedbackPlain">
+    </div>
+
+    <!-- Submit / Reset -->
+    <div style="text-align:right; margin-top:1rem;">
+      <button type="submit" class="btn">Submit</button>
+      <button type="button" id="resetBtn" class="btn btn-reset">Reset</button>
+    </div>
+    <div id="toast" class="toast"></div>
+  </form>
+</div>
+<!-- Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+    const baseUrl = '<?= baseUrl ?>';
+    const recordId = '<?= recordId ?>';
+    const record = '<?= record ?>';
+    const rawToken = '<?= rawToken ?>';
+    console.log('Template-injected recordId=', recordId, 'record=', record);
+
+    // Quill setup
+    const quill = new Quill('#quillEditor', {
+        theme: 'snow', placeholder: 'Any additional feedback…',
+        modules: {toolbar: [['bold', 'italic'], [{list: 'bullet'}], ['clean']]}
+    });
+
+    // agent→email map
+    const userMap = {};
+    <? users.forEach(u => {?>userMap["<?= u.name ?>"] = "<?= u.email ?>"; <?}); ?>
+
+    const questionMap = {
+      q1:  { w: 3,  c: 'courtesy' },
+      q2:  { w: 5,  c: 'courtesy' },
+      q3:  { w: 7,  c: 'courtesy' },
+      q4:  { w:10,  c: 'courtesy' },
+      q5:  { w: 5,  c: 'courtesy' },
+
+      q6:  { w: 8,  c: 'resolution' },
+      q7:  { w: 8,  c: 'resolution' },
+      q8:  { w:15,  c: 'resolution' },
+      q9:  { w: 9,  c: 'resolution' },
+
+      q10: { w: 8,  c: 'documentation' },
+      q11: { w: 6,  c: 'documentation' },
+      q12: { w: 6,  c: 'documentation' },
+      q13: { w: 7,  c: 'documentation' },
+      q14: { w: 3,  c: 'documentation' },
+
+      q15: { w: 6,  c: 'process' },
+      q16: { w: 5,  c: 'process' },
+      q17: { w: 4,  c: 'process' },
+      q18: { w: 5,  c: 'process' }
+    };
+
+    function recalcSummary() {
+        let totalApp = 0, totalEarn = 0;
+        document.querySelectorAll('#summaryTable tbody tr').forEach(row => {
+            const cat = row.dataset.category;
+            if (cat === 'overall') return;
+            let app = 0, earn = 0;
+            for (const [q, info] of Object.entries(questionMap)) {
+                if (info.c !== cat) continue;
+                const sel = document.querySelector(`input[name="${q}"]:checked`);
+                if (!sel || sel.value === 'na') continue;
+                app += info.w;
+                if (sel.value === 'yes') earn += info.w;
+            }
+            const pct = app ? Math.floor(earn / app * 100) : 0;
+            row.querySelector('.applicable').textContent = app;
+            row.querySelector('.earned').textContent = earn;
+            row.querySelector('.percent').textContent = pct + '%';
+            totalApp += app;
+            totalEarn += earn;
+        });
+
+        // compute raw overall %
+        let overallPct = totalApp ? Math.floor(totalEarn / totalApp * 100) : 0;
+        const q8val  = document.querySelector('input[name="q8"]:checked')?.value;
+        const q15val = document.querySelector('input[name="q15"]:checked')?.value;
+        const q17val = document.querySelector('input[name="q17"]:checked')?.value;
+
+        if (q8val === 'no') {
+          overallPct = 0;
+        } else {
+          if (q15val === 'no') {
+            overallPct = Math.max(overallPct - 50, 0);
+          }
+          if (q17val === 'yes') {
+            overallPct = Math.max(overallPct - 50, 0);
+          }
+        }
+        const orow = document.querySelector('tr[data-category="overall"]');
+        orow.querySelector('.applicable').textContent = totalApp || 'N/A';
+        orow.querySelector('.earned').textContent = totalEarn || '0';
+        orow.querySelector('.percent').textContent = totalApp ? overallPct + '%' : 'N/A';
+        document.getElementById('overallQuality').textContent = 
+            totalApp ? overallPct + '%' : 'N/A';
+    }
+
+    function showToast(msg, isErr = false) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (isErr ? ' error' : '');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function htmlToPlainText(html) {
+      return html
+        .replace(/<blockquote[^>]*>/gi, '\n> ')
+        .replace(/<\/blockquote>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '\n• ')
+        .replace(/<\/li>/gi, '')
+        .replace(/<p[^>]*>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\n{2,}/g, '\n\n')
+        .trim();
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('auditDate').value = new Date().toISOString().slice(0,10);
+
+      document.getElementById('agentName')
+        .addEventListener('change', e => {
+          document.getElementById('agentEmail').value = userMap[e.target.value] || '';
+        });
+
+      document.querySelectorAll('input[type="radio"]')
+        .forEach(r => r.addEventListener('change', recalcSummary));
+      recalcSummary();
+
+      const form = document.getElementById('auditForm');
+
+        form.addEventListener('submit', e => {
+          e.preventDefault();
+          document.getElementById('loaderOverlay').style.display = 'flex';
+          // removed any status.innerHTML updates for audio/pdf links
+
+          google.script.run
+            .withSuccessHandler(() => {
+              document.getElementById('loaderOverlay').style.display = 'none';
+              showToast('Upload & audit saved.');
+            })
+            .withFailureHandler(err => {
+              document.getElementById('loaderOverlay').style.display = 'none';
+              showToast(err.message, true);
+            })
+            .saveQA(form);
+        });
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        form.reset(); quill.setContents([{insert:'\n'}]); recalcSummary(); status.textContent = '';
+      });
+    });
+</script>
+</body>
+</html>

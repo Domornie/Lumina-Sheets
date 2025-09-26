@@ -1,0 +1,909 @@
+<!-- CoachingDashboard.html -->
+<?!= include('header', { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+  /* Use the same design system as your other pages */
+  :root {
+    --primary-color: #4285f4;
+    --primary-dark: #1a73e8;
+    --accent: #34a853;
+    --warning: #fbbc04;
+    --danger: #ea4335;
+    --surface: #ffffff;
+    --surface-variant: #f8f9fa;
+    --surface-elevated: #ffffff;
+    --outline: #dadce0;
+    --outline-variant: #e2e8f0;
+    --shadow: rgba(0,0,0,0.1);
+    --shadow-hover: rgba(0,0,0,0.15);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --border-radius: 12px;
+    --border-radius-sm: 8px;
+  }
+
+  /* Enhanced Navigation */
+  .modern-navbar {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modern-navbar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 100px;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(50px, -25px);
+  }
+
+  .navbar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .navbar-title {
+    color: white;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .navbar-title i {
+    font-size: 2rem;
+    opacity: 0.9;
+  }
+
+  .navbar-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .navbar-links a {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--border-radius-sm);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    font-size: 0.875rem;
+  }
+
+  .navbar-links a:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+    color: white;
+  }
+
+  .navbar-links a.active {
+    background: rgba(255,255,255,0.25);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* Enhanced Filter Section */
+  .filter-section {
+    background: var(--surface-elevated);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--outline);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .filter-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent) 100%);
+  }
+
+  .filter-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .filter-header i {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+  }
+
+  .filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    align-items: end;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-group label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .filter-group select,
+  .filter-group input {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--outline);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.875rem;
+    background: var(--surface);
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .filter-group select:focus,
+  .filter-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+  }
+
+  .modern-btn {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: var(--shadow);
+  }
+
+  .modern-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .modern-btn i {
+    font-size: 1rem;
+  }
+
+  /* Enhanced Charts Grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .chart-card {
+    background: var(--surface-elevated);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--outline);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent) 100%);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .chart-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .chart-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .chart-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .chart-header i {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+  }
+
+  .chart-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+
+  .chart-container {
+    position: relative;
+    height: 300px;
+  }
+
+  /* Enhanced Table Section */
+  .table-section {
+    background: var(--surface-elevated);
+    border-radius: var(--border-radius);
+    padding: 0;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--outline);
+    overflow: hidden;
+  }
+
+  .table-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 2rem;
+    border-bottom: 1px solid var(--outline);
+  }
+
+  .table-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .table-header i {
+    color: var(--warning);
+    font-size: 1.75rem;
+  }
+
+  .table-subtitle {
+    margin: 0.5rem 0 0 0;
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .modern-table thead th {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: none;
+  }
+
+  .modern-table tbody tr {
+    border-bottom: 1px solid var(--outline);
+    transition: all 0.2s ease;
+  }
+
+  .modern-table tbody tr:hover {
+    background: var(--surface-variant);
+    transform: scale(1.005);
+  }
+
+  .modern-table tbody td {
+    padding: 1.25rem 1.5rem;
+    border: none;
+    vertical-align: middle;
+  }
+
+  .modern-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #64748b;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: var(--outline);
+    margin-bottom: 1rem;
+  }
+
+  .empty-state h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    color: #374151;
+  }
+
+  .empty-state p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  /* Status Badges */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+  }
+
+  .status-badge.upcoming {
+    background: rgba(251, 188, 4, 0.1);
+    color: var(--warning);
+    border: 1px solid rgba(251, 188, 4, 0.2);
+  }
+
+  .status-badge.completed {
+    background: rgba(52, 168, 83, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(52, 168, 83, 0.2);
+  }
+
+  .status-badge.overdue {
+    background: rgba(234, 67, 53, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(234, 67, 53, 0.2);
+  }
+
+  .agent-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.75rem;
+    margin-right: 0.75rem;
+  }
+
+  .agent-info {
+    display: flex;
+    align-items: center;
+  }
+
+  .agent-name {
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    #maincontent {
+      padding: 0 1rem 2rem;
+    }
+
+    .modern-navbar {
+      padding: 1rem 1.5rem;
+    }
+
+    .navbar-content {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .navbar-title {
+      font-size: 1.5rem;
+      text-align: center;
+    }
+
+    .navbar-links {
+      justify-content: center;
+    }
+
+    .filter-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .charts-grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .chart-container {
+      height: 250px;
+    }
+
+    .table-header {
+      padding: 1.5rem;
+    }
+
+    .modern-table thead th,
+    .modern-table tbody td {
+      padding: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .navbar-links a {
+      flex: 1;
+      text-align: center;
+    }
+
+    .filter-section {
+      padding: 1.5rem;
+    }
+
+    .chart-card {
+      padding: 1.5rem;
+    }
+
+    .modern-table {
+      font-size: 0.8rem;
+    }
+
+    .modern-table thead th,
+    .modern-table tbody td {
+      padding: 0.75rem;
+    }
+  }
+
+  /* Loading Animation */
+  .chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: #64748b;
+  }
+
+  .chart-loading i {
+    animation: spin 1s linear infinite;
+    font-size: 2rem;
+    margin-right: 0.75rem;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Smooth animations */
+  .animate-in {
+    animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes slideInUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(20px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+</style>
+
+<div id="maincontent" class="animate-in">
+  <!-- Enhanced Navigation -->
+  <div class="modern-navbar">
+    <div class="navbar-content">
+      <h1 class="navbar-title">
+        <i class="fas fa-chart-line"></i>
+        Coaching Dashboard
+      </h1>
+      <div class="navbar-links">
+        <a href="<?= baseUrl ?>&page=coachinglist" class="<?= currentPage==='Coaching Sessions' ? 'active' : '' ?>">
+          <i class="fas fa-list me-1"></i>All Sessions
+        </a>
+        <a href="<?= baseUrl ?>&page=coachingsheet" class="<?= currentPage==='Coaching Form' ? 'active' : '' ?>">
+          <i class="fas fa-plus me-1"></i>New Session
+        </a>
+        <a href="<?= baseUrl ?>&page=coachingdashboard" class="<?= currentPage==='Coaching Dashboard'? 'active' : '' ?>">
+          <i class="fas fa-chart-bar me-1"></i>Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Filters Section -->
+  <div class="filter-section">
+    <div class="filter-header">
+      <i class="fas fa-filter"></i>
+      <h3>Filter & Analysis</h3>
+    </div>
+    <div class="filter-grid">
+      <div class="filter-group">
+        <label for="granSelect">Time Period</label>
+        <select id="granSelect">
+          <option <?= granularity==='Week'   ? 'selected':'' ?>>Week</option>
+          <option <?= granularity==='Month'  ? 'selected':'' ?>>Month</option>
+          <option <?= granularity==='Quarter'? 'selected':'' ?>>Quarter</option>
+          <option <?= granularity==='Year'   ? 'selected':'' ?>>Year</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="periodInput">Specific Period</label>
+        <input type="text" id="periodInput" value="<?= periodValue ?>"
+               placeholder="e.g. 2025-W24 or 2025-06">
+      </div>
+      <div class="filter-group">
+        <label for="agentSelect">Coach/Agent</label>
+        <select id="agentSelect">
+          <option value="">All Coaches</option>
+          <? userList.forEach(name => { ?>
+            <option <?= selectedAgent===name ? 'selected':'' ?>><?= name ?></option>
+          <? }); ?>
+        </select>
+      </div>
+      <div class="filter-group">
+        <button id="applyBtn" class="modern-btn">
+          <i class="fas fa-search"></i>
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Charts Grid -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>
+          <i class="fas fa-chart-bar"></i>
+          Sessions Trend
+        </h3>
+        <div class="chart-stats">
+          <i class="fas fa-info-circle"></i>
+          <span>Sessions over time</span>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>
+          <i class="fas fa-chart-pie"></i>
+          Topics Distribution
+        </h3>
+        <div class="chart-stats">
+          <i class="fas fa-info-circle"></i>
+          <span>Most covered topics</span>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="topicChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Follow-ups Table -->
+  <div class="table-section">
+    <div class="table-header">
+      <h3>
+        <i class="fas fa-calendar-check"></i>
+        Upcoming Follow-ups
+      </h3>
+      <p class="table-subtitle">Track and manage scheduled coaching follow-up sessions</p>
+    </div>
+    <div class="table-container">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th>Follow-up Date</th>
+            <th>Coach</th>
+            <th>Coachee</th>
+            <th>Topics Covered</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="upcomingBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const sessionsTrend = JSON.parse('<?= sessionsTrend ?>');
+  const topicsDist = JSON.parse('<?= topicsDist ?>');
+  const upcomingRecords = JSON.parse('<?= upcomingFollow ?>');
+
+  // Filter handler - RESTORED ORIGINAL LOGIC
+  document.getElementById('applyBtn').onclick = () => {
+    const g = document.getElementById('granSelect').value;
+    const p = document.getElementById('periodInput').value;
+    const a = document.getElementById('agentSelect').value;
+    window.location = `<?= baseUrl ?>&page=coachingdashboard`
+                    + `&granularity=${g}`
+                    + `&period=${encodeURIComponent(p)}`
+                    + (a ? `&agent=${encodeURIComponent(a)}` : '');
+  };
+
+  // Enhanced Sessions Trend Chart
+  const trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: {
+      labels: sessionsTrend.map(r => r.periodLabel),
+      datasets: [{
+        label: 'Coaching Sessions',
+        data: sessionsTrend.map(r => r.count),
+        backgroundColor: 'rgba(66, 133, 244, 0.8)',
+        borderColor: 'rgba(66, 133, 244, 1)',
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: 'rgba(66, 133, 244, 1)',
+          borderWidth: 1,
+          cornerRadius: 8,
+          displayColors: false,
+          callbacks: {
+            title: function(context) {
+              return 'Period: ' + context[0].label;
+            },
+            label: function(context) {
+              return 'Sessions: ' + context.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)',
+          },
+          ticks: {
+            color: '#64748b',
+            font: {
+              size: 12
+            }
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            color: '#64748b',
+            font: {
+              size: 12
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Enhanced Topics Distribution Chart
+  const topicChart = new Chart(document.getElementById('topicChart'), {
+    type: 'doughnut',
+    data: {
+      labels: topicsDist.map(r => r.topic),
+      datasets: [{
+        data: topicsDist.map(r => r.count),
+        backgroundColor: [
+          'rgba(66, 133, 244, 0.8)',
+          'rgba(52, 168, 83, 0.8)',
+          'rgba(251, 188, 4, 0.8)',
+          'rgba(234, 67, 53, 0.8)',
+          'rgba(156, 39, 176, 0.8)',
+          'rgba(255, 152, 0, 0.8)'
+        ],
+        borderColor: [
+          'rgba(66, 133, 244, 1)',
+          'rgba(52, 168, 83, 1)',
+          'rgba(251, 188, 4, 1)',
+          'rgba(234, 67, 53, 1)',
+          'rgba(156, 39, 176, 1)',
+          'rgba(255, 152, 0, 1)'
+        ],
+        borderWidth: 2,
+        hoverOffset: 10
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: 12
+            },
+            color: '#64748b'
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: 'rgba(66, 133, 244, 1)',
+          borderWidth: 1,
+          cornerRadius: 8,
+          displayColors: true,
+          callbacks: {
+            label: function(context) {
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((context.parsed / total) * 100).toFixed(1);
+              return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Function to get user initials
+  function getInitials(name) {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+
+  // Function to determine status
+  function getFollowUpStatus(followUpDate) {
+    const today = new Date();
+    const followUp = new Date(followUpDate);
+    const diffTime = followUp - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return { class: 'overdue', text: 'Overdue', icon: 'fas fa-exclamation-triangle' };
+    } else if (diffDays <= 7) {
+      return { class: 'upcoming', text: 'Due Soon', icon: 'fas fa-clock' };
+    } else {
+      return { class: 'completed', text: 'Scheduled', icon: 'fas fa-check-circle' };
+    }
+  }
+
+  // Enhanced Follow-ups Table Population
+  const tbody = document.getElementById('upcomingBody');
+  
+  if (!upcomingRecords.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="empty-state">
+          <i class="fas fa-calendar-times"></i>
+          <h4>No Upcoming Follow-ups</h4>
+          <p>All coaching sessions are up to date</p>
+        </td>
+      </tr>
+    `;
+  } else {
+    upcomingRecords.forEach(r => {
+      const status = getFollowUpStatus(r.FollowUpDate);
+      const initials = getInitials(r.AgentName);
+      const formattedDate = new Date(r.FollowUpDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td>
+            <strong>${formattedDate}</strong>
+            <br>
+            <small style="color: #64748b;">${new Date(r.FollowUpDate).toLocaleDateString('en-US', { weekday: 'long' })}</small>
+          </td>
+          <td>
+            <div class="agent-info">
+              <div class="agent-avatar">${initials}</div>
+              <span class="agent-name">${r.AgentName}</span>
+            </div>
+          </td>
+          <td>
+            <strong>${r.CoacheeName}</strong>
+          </td>
+          <td>
+            <span style="color: #64748b; font-size: 0.875rem;">${r.TopicsCovered}</span>
+          </td>
+          <td>
+            <span class="status-badge ${status.class}">
+              <i class="${status.icon}"></i>
+              ${status.text}
+            </span>
+          </td>
+        </tr>
+      `);
+    });
+  }
+
+  // Initialize tooltips if available
+  if (typeof bootstrap !== 'undefined') {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+  }
+
+  console.log('🎯 Modern Coaching Dashboard loaded successfully');
+</script>
+
+</body>
+</html>
