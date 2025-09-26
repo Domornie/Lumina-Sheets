@@ -317,52 +317,58 @@ function setupTasksFolder() {
 /**
  * Enhanced readSheet function with error handling and caching
  */
-function readSheet(sheetName, useCache = true) {
-  try {
-    // Simple caching mechanism
-    const cacheKey = `sheet_${sheetName}`;
-    const cache = CacheService.getScriptCache();
-    
-    if (useCache) {
-      const cached = cache.get(cacheKey);
-      if (cached) {
-        return JSON.parse(cached);
+if (typeof readSheet !== 'function') {
+  function readSheet(sheetName, useCache = true) {
+    try {
+      if (typeof dbSelect === 'function') {
+        return dbSelect(sheetName, { cache: useCache });
       }
-    }
-    
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(sheetName);
-    
-    if (!sheet) {
-      console.warn(`Sheet '${sheetName}' not found`);
+
+      // Simple caching mechanism
+      const cacheKey = `sheet_${sheetName}`;
+      const cache = CacheService.getScriptCache();
+
+      if (useCache) {
+        const cached = cache.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(sheetName);
+
+      if (!sheet) {
+        console.warn(`Sheet '${sheetName}' not found`);
+        return [];
+      }
+
+      const data = sheet.getDataRange().getValues();
+      if (data.length < 2) return [];
+
+      const headers = data[0];
+      const rows = data.slice(1);
+
+      const result = rows.map(row => {
+        const obj = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index] || '';
+        });
+        return obj;
+      });
+
+      // Cache for 5 minutes
+      if (useCache) {
+        cache.put(cacheKey, JSON.stringify(result), 300);
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error(`Error reading sheet ${sheetName}:`, error);
+      writeError('readSheet', error);
       return [];
     }
-    
-    const data = sheet.getDataRange().getValues();
-    if (data.length < 2) return [];
-    
-    const headers = data[0];
-    const rows = data.slice(1);
-    
-    const result = rows.map(row => {
-      const obj = {};
-      headers.forEach((header, index) => {
-        obj[header] = row[index] || '';
-      });
-      return obj;
-    });
-    
-    // Cache for 5 minutes
-    if (useCache) {
-      cache.put(cacheKey, JSON.stringify(result), 300);
-    }
-    
-    return result;
-    
-  } catch (error) {
-    console.error(`Error reading sheet ${sheetName}:`, error);
-    writeError('readSheet', error);
-    return [];
   }
 }
 
