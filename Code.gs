@@ -3279,6 +3279,14 @@ function initializeSystem() {
     initializeMainSheets();
     initializeCampaignSystems();
 
+    if (typeof CallCenterWorkflowService !== 'undefined' && CallCenterWorkflowService.initialize) {
+      try {
+        CallCenterWorkflowService.initialize();
+      } catch (err) {
+        console.warn('CallCenterWorkflowService initialization failed', err);
+      }
+    }
+
     console.log('System initialization completed successfully');
     return { success: true, message: 'System initialized' };
 

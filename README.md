@@ -98,3 +98,73 @@ const scopedUsers = TenantSecurity.getScopedTable(userId, campaignId, USERS_SHEE
 Legacy helpers such as `dbSelect` and `dbCreate` accept an optional tenant context as
 their final argument, while dedicated helpers (`dbTenantSelect`, `dbTenantCreate`,
 etc.) provide a more explicit API.
+
+## End-to-end call center workflows
+
+`CallCenterWorkflowService.gs` stitches together authentication, scheduling,
+performance, coaching, reporting, and collaboration into a single tenant-aware
+facade. It automatically registers the critical sheets with `DatabaseManager`,
+hydrates dashboard-ready aggregates, and exposes the most common CRUD flows used by
+managers and agents.
+
+```javascript
+// Initialize during startup (handled automatically inside initializeSystem)
+CallCenterWorkflowService.initialize();
+
+// Hydrate the authenticated user's workspace
+const workspace = CallCenterWorkflowService.getWorkspace(currentUserId, {
+  campaignId: activeCampaignId,
+  activeOnly: true,
+});
+
+// Schedule a shift for an agent (campaign enforcement handled internally)
+CallCenterWorkflowService.scheduleAgentShift(managerId, {
+  UserID: agentId,
+  Date: '2024-04-01',
+  StartTime: '09:00',
+  EndTime: '17:00',
+  CampaignID: activeCampaignId,
+});
+
+// Log QA/performance results
+CallCenterWorkflowService.logPerformanceReview(qaLeadId, {
+  UserID: agentId,
+  CampaignID: activeCampaignId,
+  EvaluationDate: new Date(),
+  FinalScore: 94.2,
+  Notes: 'Excellent rapport building',
+});
+
+// Create and acknowledge coaching engagements
+const coaching = CallCenterWorkflowService.createCoachingSession(managerId, {
+  UserID: agentId,
+  CampaignID: activeCampaignId,
+  FocusArea: 'Call control',
+  DueDate: '2024-04-05',
+});
+CallCenterWorkflowService.acknowledgeCoaching(agentId, coaching.ID, {
+  Notes: 'Reviewed and will implement feedback',
+});
+
+// Post tenant-scoped collaboration updates
+CallCenterWorkflowService.postCollaborationMessage(agentId, channelId, 'QA review completed', {
+  campaignId: activeCampaignId,
+});
+```
+
+The workspace payload returned by `getWorkspace` bundles:
+
+* **Authentication context** – the signed-in user, their roles, claims, and active
+  sessions.
+* **Scheduling + attendance** – upcoming shifts, today's coverage, and shift counts.
+* **Performance** – QA averages, attendance distribution, and adherence trends.
+* **Coaching** – pending acknowledgements, overdue sessions, and coaching summaries.
+* **Collaboration** – recent chat activity scoped to the user's accessible campaigns.
+* **Reporting** – aggregated metrics (agents, shifts, QA scores, attendance rates,
+  coaching backlog) ready for dashboards.
+
+Each write helper (`scheduleAgentShift`, `recordAttendanceEvent`,
+`logPerformanceReview`, `createCoachingSession`, `acknowledgeCoaching`,
+`postCollaborationMessage`) automatically asserts campaign permissions through
+`TenantSecurityService`, assigns the correct tenant column, and preserves the sheet
+schemas registered with `DatabaseManager`.
