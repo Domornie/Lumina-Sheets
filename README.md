@@ -7,6 +7,12 @@ Call center management system built on Google Apps Script + Google Sheets.
 The `DatabaseManager.gs` module turns any worksheet into a CRUD-ready table. Define
 schema defaults once and re-use the same interface across every client campaign.
 
+> **Compatibility note:** shared helpers such as `ensureSheetWithHeaders`,
+> `readSheet`, and `invalidateCache` are wrapped so they prefer the centralized
+> database logic while falling back to any legacy implementations already loaded
+> in your project. This eliminates Apps Script "function already defined"
+> conflicts when combining the database layer with existing utility files.
+
 ### Quick start
 
 ```javascript

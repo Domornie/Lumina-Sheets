@@ -579,19 +579,35 @@
     return dbDelete(name, identifier, context);
   }
 
-  global.registerTableSchema = registerTableSchema;
-  global.dbTable = dbTable;
-  global.dbSelect = dbSelect;
-  global.dbCreate = dbCreate;
-  global.dbUpdate = dbUpdate;
-  global.dbUpsert = dbUpsert;
-  global.dbDelete = dbDelete;
-  global.dbTenantSelect = dbTenantSelect;
-  global.dbTenantCreate = dbTenantCreate;
-  global.dbTenantUpdate = dbTenantUpdate;
-  global.dbTenantUpsert = dbTenantUpsert;
-  global.dbTenantDelete = dbTenantDelete;
-  global.dbWithContext = function (context) {
+  function expose(name, fn) {
+    var previous = (typeof global[name] === 'function') ? global[name].bind(global) : null;
+    var wrapped = function () {
+      try {
+        return fn.apply(this, arguments);
+      } catch (err) {
+        if (previous) {
+          try { return previous.apply(this, arguments); } catch (fallbackErr) { if (global.safeWriteError) { try { global.safeWriteError(name + 'Fallback', fallbackErr); } catch (_) { } } }
+        }
+        throw err;
+      }
+    };
+    wrapped.previous = previous;
+    global[name] = wrapped;
+  }
+
+  expose('registerTableSchema', registerTableSchema);
+  expose('dbTable', dbTable);
+  expose('dbSelect', dbSelect);
+  expose('dbCreate', dbCreate);
+  expose('dbUpdate', dbUpdate);
+  expose('dbUpsert', dbUpsert);
+  expose('dbDelete', dbDelete);
+  expose('dbTenantSelect', dbTenantSelect);
+  expose('dbTenantCreate', dbTenantCreate);
+  expose('dbTenantUpdate', dbTenantUpdate);
+  expose('dbTenantUpsert', dbTenantUpsert);
+  expose('dbTenantDelete', dbTenantDelete);
+  expose('dbWithContext', function (context) {
     var manager = getManager();
     if (manager) {
       return manager.tenant(context);
@@ -603,7 +619,7 @@
       upsert: function (name, where, updates) { return dbUpsert(name, where, updates, context); },
       delete: function (name, identifier) { return dbDelete(name, identifier, context); }
     };
-  };
-  global.__dbApplyQueryOptions = applyQueryOptions;
+  });
+  expose('__dbApplyQueryOptions', applyQueryOptions);
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

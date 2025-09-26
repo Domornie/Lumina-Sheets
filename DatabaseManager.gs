@@ -947,7 +947,28 @@
   };
 
   global.DatabaseManager = DatabaseManager;
-  global.defineTable = DatabaseManager.defineTable;
-  global.getTable = DatabaseManager.table;
+
+  function exposeHelper(name, fn) {
+    var previous = (typeof global[name] === 'function') ? global[name].bind(global) : null;
+    var wrapped = function () {
+      try {
+        return fn.apply(this, arguments);
+      } catch (err) {
+        if (previous) {
+          try { return previous.apply(this, arguments); } catch (fallbackErr) {
+            if (typeof safeWriteError === 'function') {
+              try { safeWriteError(name + 'Fallback', fallbackErr); } catch (_) { }
+            }
+          }
+        }
+        throw err;
+      }
+    };
+    wrapped.previous = previous;
+    global[name] = wrapped;
+  }
+
+  exposeHelper('defineTable', DatabaseManager.defineTable);
+  exposeHelper('getTable', DatabaseManager.table);
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);
