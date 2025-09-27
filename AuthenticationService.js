@@ -125,6 +125,91 @@ var AuthenticationService = (function () {
     return out;
   }
 
+  function normalizePrincipal(value) {
+    const raw = toStr(value);
+    return {
+      raw,
+      lower: raw.toLowerCase()
+    };
+  }
+
+  function cloneScope(scope) {
+    if (!scope) {
+      return {
+        defaultCampaignId: '',
+        allowedCampaignIds: [],
+        managedCampaignIds: [],
+        adminCampaignIds: [],
+        isGlobalAdmin: false
+      };
+    }
+
+    return {
+      defaultCampaignId: toStr(scope.defaultCampaignId || scope.DefaultCampaignId),
+      allowedCampaignIds: dedupeStrings(scope.allowedCampaignIds || scope.AllowedCampaignIds),
+      managedCampaignIds: dedupeStrings(scope.managedCampaignIds || scope.ManagedCampaignIds),
+      adminCampaignIds: dedupeStrings(scope.adminCampaignIds || scope.AdminCampaignIds),
+      isGlobalAdmin: !!scope.isGlobalAdmin
+    };
+  }
+
+  function sanitizeRole(role) {
+    if (!role) return null;
+    const id = toStr(role.ID || role.Id || role.id);
+    if (!id) return null;
+
+    return {
+      ID: id,
+      Name: toStr(role.Name || role.name),
+      NormalizedName: toStr(
+        role.NormalizedName
+        || role.normalizedName
+        || (role.Name || role.name || '').toUpperCase()
+      ),
+      CreatedAt: role.CreatedAt || role.createdAt || null,
+      UpdatedAt: role.UpdatedAt || role.updatedAt || null
+    };
+  }
+
+  function sanitizeClaim(claim) {
+    if (!claim) return null;
+    const id = toStr(claim.ID || claim.Id || claim.id);
+    const userId = toStr(claim.UserId || claim.UserID || claim.userId);
+    if (!userId) return null;
+
+    return {
+      ID: id,
+      UserId: userId,
+      ClaimType: toStr(claim.ClaimType || claim.claimType),
+      CreatedAt: claim.CreatedAt || claim.createdAt || null,
+      UpdatedAt: claim.UpdatedAt || claim.updatedAt || null
+    };
+  }
+
+  function sanitizeUserForTransport(user) {
+    if (!user || typeof user !== 'object') return null;
+
+    const scope = cloneScope(user.TenantScope || user.tenantScope);
+
+    return {
+      ID: toStr(user.ID || user.Id || user.id),
+      UserName: toStr(user.UserName || user.username),
+      FullName: toStr(user.FullName || user.fullName || user.UserName || user.username),
+      Email: toStr(user.Email || user.email).toLowerCase(),
+      IsAdmin: toBool(user.IsAdmin),
+      IsGlobalAdmin: !!user.IsGlobalAdmin,
+      CampaignID: toStr(user.CampaignID || user.CampaignId || user.campaignId),
+      DefaultCampaignId: toStr(user.DefaultCampaignId || user.defaultCampaignId),
+      AllowedCampaignIds: scope.allowedCampaignIds.slice(),
+      ManagedCampaignIds: scope.managedCampaignIds.slice(),
+      AdminCampaignIds: scope.adminCampaignIds.slice(),
+      TenantScope: scope,
+      roles: (Array.isArray(user.roles) ? user.roles : []).map(sanitizeRole).filter(Boolean),
+      claims: (Array.isArray(user.claims) ? user.claims : []).map(sanitizeClaim).filter(Boolean),
+      pages: (Array.isArray(user.pages) ? user.pages : []).map(toStr).filter(Boolean)
+    };
+  }
+
   function readTable(sheetName, options = {}) {
     const table = getDbTable(sheetName);
     if (table) {
@@ -199,13 +284,15 @@ var AuthenticationService = (function () {
       allowedCampaignIds.push(defaultCampaignId);
     }
 
-    return {
+    const scope = {
       defaultCampaignId,
       allowedCampaignIds,
       managedCampaignIds: dedupeStrings(profile ? profile.managedCampaignIds : []),
       adminCampaignIds: dedupeStrings(profile ? profile.adminCampaignIds : []),
       isGlobalAdmin: profile ? !!profile.isGlobalAdmin : toBool(user.IsAdmin)
     };
+
+    return cloneScope(scope);
   }
 
   function updateSessionRecord(sessionToken, updates) {
@@ -362,15 +449,42 @@ var AuthenticationService = (function () {
     }
   }
 
+  function findUserByPrincipal(principal) {
+    const norm = normalizePrincipal(principal);
+    if (!norm.lower) return null;
+
+    try {
+      const match = readTable(USERS_SHEET)
+        .find(u => {
+          const email = toStr(u.Email).toLowerCase();
+          const username = toStr(u.UserName).toLowerCase();
+          return email === norm.lower || username === norm.lower;
+        });
+      if (match) return match;
+    } catch (error) {
+      console.warn('Primary user lookup failed:', error);
+    }
+
+    try {
+      if (typeof readSheet === 'function') {
+        const rows = readSheet(USERS_SHEET) || [];
+        return rows.find(u => {
+          const email = toStr(u.Email).toLowerCase();
+          const username = toStr(u.UserName).toLowerCase();
+          return email === norm.lower || username === norm.lower;
+        }) || null;
+      }
+    } catch (fallbackError) {
+      console.warn('Fallback user lookup failed:', fallbackError);
+    }
+
+    return null;
+  }
+
   /** Find a user row by email (case-insensitive) */
   function getUserByEmail(email) {
     try {
-      const target = toStr(email).toLowerCase();
-      if (!target) return null;
-
-      return readTable(USERS_SHEET)
-        .find(u => toStr(u.Email).toLowerCase() === target || toStr(u.UserName).toLowerCase() === target)
-        || null;
+      return findUserByPrincipal(email);
     } catch (error) {
       console.error('Error getting user by email:', error);
       return null;
@@ -385,7 +499,7 @@ var AuthenticationService = (function () {
       const ttl = rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
       const expiresAt = new Date(now.getTime() + ttl);
 
-      const scope = (options && options.scope) || buildSessionScope(userId, options && options.user);
+      const scope = cloneScope((options && options.scope) || buildSessionScope(userId, options && options.user));
       const sessionRecord = {
         Token: token,
         UserId: userId,
@@ -524,7 +638,8 @@ var AuthenticationService = (function () {
         };
       }
 
-      const sessionOptions = { scope: tenantScope, user };
+      const sessionScope = cloneScope(tenantScope);
+      const sessionOptions = { scope: sessionScope, user };
 
       // Check if password reset is required
       const resetRequired = toBool(user.ResetRequired);
@@ -553,37 +668,14 @@ var AuthenticationService = (function () {
       // Update last login
       updateLastLogin(user.ID);
 
-      // Get user roles and permissions
-      const userRoles = getUserRoles(user.ID);
-      const userClaims = getUserClaims(user.ID);
-
-      const allowedCampaignIds = tenantScope.allowedCampaignIds ? tenantScope.allowedCampaignIds.slice() : [];
-      const effectiveCampaignId = tenantScope.defaultCampaignId
-        || (allowedCampaignIds.length ? allowedCampaignIds[0] : user.CampaignID);
-
-      const managedCampaignIds = tenantScope.managedCampaignIds ? tenantScope.managedCampaignIds.slice() : [];
-      const adminCampaignIds = tenantScope.adminCampaignIds ? tenantScope.adminCampaignIds.slice() : [];
+      const userPayload = sanitizeUserForTransport(
+        buildClientUserPayload(user, sessionScope)
+      );
 
       return {
         success: true,
         sessionToken: token,
-        user: {
-          ID: user.ID,
-          UserName: user.UserName,
-          FullName: user.FullName,
-          Email: user.Email,
-          IsAdmin: toBool(user.IsAdmin),
-          IsGlobalAdmin: !!tenantScope.isGlobalAdmin,
-          CampaignID: effectiveCampaignId,
-          DefaultCampaignId: tenantScope.defaultCampaignId || '',
-          AllowedCampaignIds: allowedCampaignIds,
-          ManagedCampaignIds: managedCampaignIds,
-          AdminCampaignIds: adminCampaignIds,
-          TenantScope: tenantScope,
-          roles: userRoles,
-          claims: userClaims,
-          pages: getUserCampaignPages(user.ID, effectiveCampaignId)
-        },
+        user: userPayload,
         message: 'Login successful'
       };
 
@@ -605,8 +697,9 @@ var AuthenticationService = (function () {
       // Get campaign pages from campaign configuration
       const campaignPages = getCampaignPages(campaignId);
       return campaignPages
-        .filter(cp => cp.IsActive !== false)
-        .map(cp => cp.PageKey);
+        .filter(cp => cp && cp.IsActive !== false)
+        .map(cp => toStr(cp.PageKey))
+        .filter(Boolean);
     } catch (e) {
       console.warn('Error getting user campaign pages:', e);
       return [];
@@ -626,6 +719,33 @@ var AuthenticationService = (function () {
       console.warn('Error getting campaign pages:', error);
       return [];
     }
+  }
+
+  function buildClientUserPayload(userRow, scope) {
+    if (!userRow) return null;
+
+    const safeScope = cloneScope(scope || buildSessionScope(userRow.ID, userRow));
+    const allowedCampaignIds = safeScope.allowedCampaignIds.slice();
+    const effectiveCampaignId = safeScope.defaultCampaignId
+      || (allowedCampaignIds.length ? allowedCampaignIds[0] : toStr(userRow.CampaignID));
+
+    return {
+      ID: toStr(userRow.ID),
+      UserName: toStr(userRow.UserName),
+      FullName: toStr(userRow.FullName) || toStr(userRow.UserName),
+      Email: toStr(userRow.Email).toLowerCase(),
+      IsAdmin: toBool(userRow.IsAdmin),
+      IsGlobalAdmin: !!safeScope.isGlobalAdmin,
+      CampaignID: effectiveCampaignId,
+      DefaultCampaignId: safeScope.defaultCampaignId,
+      AllowedCampaignIds: allowedCampaignIds,
+      ManagedCampaignIds: safeScope.managedCampaignIds.slice(),
+      AdminCampaignIds: safeScope.adminCampaignIds.slice(),
+      TenantScope: safeScope,
+      roles: getUserRoles(userRow.ID),
+      claims: getUserClaims(userRow.ID),
+      pages: getUserCampaignPages(userRow.ID, effectiveCampaignId)
+    };
   }
 
   /**
@@ -716,69 +836,34 @@ var AuthenticationService = (function () {
       }
 
       const tenantScope = buildSessionScope(userRow.ID, userRow);
-      const allowedCampaignIds = tenantScope.allowedCampaignIds ? tenantScope.allowedCampaignIds.slice() : [];
-      const managedCampaignIds = tenantScope.managedCampaignIds ? tenantScope.managedCampaignIds.slice() : [];
-      const adminCampaignIds = tenantScope.adminCampaignIds ? tenantScope.adminCampaignIds.slice() : [];
-      const effectiveCampaignId = tenantScope.defaultCampaignId
-        || (allowedCampaignIds.length ? allowedCampaignIds[0] : userRow.CampaignID);
+      const sessionScope = cloneScope(tenantScope);
 
       try {
         updateSessionRecord(sessionToken, {
           ExpiresAt: newExpiry.toISOString(),
-          CampaignScope: JSON.stringify(tenantScope)
+          CampaignScope: JSON.stringify(sessionScope)
         });
       } catch (updateErr) {
         console.warn('Failed to update session metadata:', updateErr);
       }
 
-      // Parse roles and pages (handle both JSON and CSV formats)
-      try {
-        userRow.roles = userRow.Roles ?
-          (userRow.Roles.startsWith('[') ?
-            JSON.parse(userRow.Roles) :
-            userRow.Roles.split(',').map(r => r.trim()).filter(Boolean)
-          ) : [];
-      } catch {
-        userRow.roles = [];
+      const userPayload = sanitizeUserForTransport(
+        buildClientUserPayload(userRow, sessionScope)
+      );
+
+      if (!userPayload) {
+        console.warn('Unable to build user payload for session user:', userRow && userRow.ID);
+        return null;
       }
 
-      if (typeof getUserRoles === 'function') {
-        try { userRow.roles = getUserRoles(userRow.ID); } catch (roleErr) { console.warn('Failed to refresh user roles:', roleErr); }
-      }
+      const sessionUser = Object.assign({}, userPayload, {
+        sessionToken,
+        sessionExpiry: newExpiry.toISOString(),
+        needsReset: toBool(userRow.ResetRequired)
+      });
 
-      try {
-        userRow.pages = userRow.Pages ?
-          (userRow.Pages.startsWith('[') ?
-            JSON.parse(userRow.Pages) :
-            userRow.Pages.split(',').map(p => p.trim()).filter(Boolean)
-          ) : [];
-      } catch {
-        userRow.pages = [];
-      }
-
-      if (typeof getUserClaims === 'function') {
-        try { userRow.claims = getUserClaims(userRow.ID); } catch (claimErr) { console.warn('Failed to refresh user claims:', claimErr); }
-      }
-
-      // Check if password reset is required
-      userRow.needsReset = String(userRow.ResetRequired).toUpperCase() === 'TRUE';
-
-      userRow.IsAdmin = toBool(userRow.IsAdmin);
-      userRow.IsGlobalAdmin = !!tenantScope.isGlobalAdmin;
-      userRow.CampaignID = effectiveCampaignId;
-      userRow.DefaultCampaignId = tenantScope.defaultCampaignId || '';
-      userRow.AllowedCampaignIds = allowedCampaignIds;
-      userRow.ManagedCampaignIds = managedCampaignIds;
-      userRow.AdminCampaignIds = adminCampaignIds;
-      userRow.TenantScope = tenantScope;
-      userRow.pages = getUserCampaignPages(userRow.ID, effectiveCampaignId);
-
-      // Add session info
-      userRow.sessionToken = sessionToken;
-      userRow.sessionExpiry = newExpiry.toISOString();
-
-      console.log('Session validated and extended for user:', userRow.Email);
-      return userRow;
+      console.log('Session validated and extended for user:', userPayload.Email);
+      return sessionUser;
 
     } catch (error) {
       console.error('Error validating session:', error);
@@ -868,8 +953,14 @@ var AuthenticationService = (function () {
    */
   function getUserClaims(userId) {
     try {
+      const target = toStr(userId);
+      if (!target) return [];
+
       const claims = readTable(USER_CLAIMS_SHEET);
-      return claims.filter(claim => claim.UserId === userId);
+      return claims
+        .filter(claim => toStr(claim.UserId || claim.UserID) === target)
+        .map(sanitizeClaim)
+        .filter(Boolean);
     } catch (error) {
       console.error('Error getting user claims:', error);
       return [];
@@ -881,14 +972,20 @@ var AuthenticationService = (function () {
    */
   function getUserRoles(userId) {
     try {
+      const target = toStr(userId);
+      if (!target) return [];
+
       const userRoles = readTable(USER_ROLES_SHEET);
       const allRoles = readTable(ROLES_SHEET);
 
       const userRoleIds = userRoles
-        .filter(ur => ur.UserId === userId)
-        .map(ur => ur.RoleId);
+        .filter(ur => toStr(ur.UserId || ur.UserID) === target)
+        .map(ur => toStr(ur.RoleId || ur.RoleID));
 
-      return allRoles.filter(role => userRoleIds.includes(role.ID));
+      return allRoles
+        .filter(role => userRoleIds.indexOf(toStr(role.ID || role.Id)) !== -1)
+        .map(sanitizeRole)
+        .filter(Boolean);
     } catch (error) {
       console.error('Error getting user roles:', error);
       return [];
@@ -1342,29 +1439,54 @@ var AuthenticationService = (function () {
  */
 function loginUser(email, password, rememberMe = false) {
   try {
-    console.log('Server-side login for:', email);
+    const normalizedEmail = typeof email === 'string' ? email.trim() : '';
+    console.log('Server-side login for:', normalizedEmail || '[empty]');
 
-    // Use AuthenticationService
-    const result = AuthenticationService.login(email, password, rememberMe);
+    const result = AuthenticationService.login(normalizedEmail, password, rememberMe);
 
-    if (!result.success) {
-      return result;
+    if (!result || typeof result !== 'object') {
+      return {
+        success: false,
+        error: 'The authentication service did not return a response. Please try again.',
+        errorCode: 'NO_RESPONSE'
+      };
     }
 
-    // Create response with redirect URL including token
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Login failed. Please try again.',
+        errorCode: result.errorCode || 'AUTHENTICATION_FAILED',
+        needsEmailConfirmation: !!result.needsEmailConfirmation,
+        needsPasswordReset: !!result.needsPasswordReset,
+        needsPasswordSetup: !!result.needsPasswordSetup,
+        resetToken: result.resetToken || null
+      };
+    }
+
+    const sessionToken = toStr(result.sessionToken);
+    if (!sessionToken) {
+      return {
+        success: false,
+        error: 'Login succeeded but no session token was generated. Please try again.',
+        errorCode: 'SESSION_TOKEN_MISSING'
+      };
+    }
+
+    const sanitizedUser = sanitizeUserForTransport(result.user);
+
     const baseScriptUrl = resolveScriptUrl();
+    const redirectUrl = baseScriptUrl
+      ? (baseScriptUrl + '?page=dashboard&token=' + encodeURIComponent(sessionToken))
+      : ('?page=dashboard&token=' + encodeURIComponent(sessionToken));
 
-    const response = {
+    return {
       success: true,
-      message: 'Login successful',
-      redirectUrl: baseScriptUrl
-        ? (baseScriptUrl + '?page=dashboard&token=' + encodeURIComponent(result.sessionToken))
-        : ('?page=dashboard&token=' + encodeURIComponent(result.sessionToken)),
-      sessionToken: result.sessionToken,
-      user: result.user
+      message: result.message || 'Login successful',
+      redirectUrl,
+      sessionToken,
+      user: sanitizedUser
     };
-
-    return response;
   } catch (error) {
     console.error('Server login error:', error);
     writeError('loginUser', error);

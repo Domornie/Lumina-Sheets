@@ -1305,6 +1305,43 @@
           break;
         }
 
+        case 'NO_RESPONSE':
+        case 'SESSION_TOKEN_MISSING': {
+          showAlert('error', errorMessage || 'We could not complete the sign-in process.');
+          showNextSteps({
+            title: 'We ran into a problem signing you in',
+            subtitle: 'The authentication service did not respond as expected.',
+            body: 'Please try again in a moment. If the issue persists, reach out to our support team so we can investigate immediately.',
+            tone: 'danger',
+            icon: 'fa-plug-circle-xmark',
+            actions: [
+              {
+                type: 'button',
+                label: 'Try Again',
+                icon: 'fa-rotate',
+                variant: 'primary',
+                onClick: () => {
+                  hideAllAlerts();
+                  if (elements.loginForm) {
+                    const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    elements.loginForm.dispatchEvent(retryEvent);
+                  }
+                }
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
         default: {
           showAlert('error', errorMessage);
           showNextSteps({
@@ -1467,6 +1504,42 @@
           if (response && response.success) {
             console.log('Login successful');
             showAlert('success', response.message || 'Login successful!');
+
+            if (!response.user) {
+              showNextSteps({
+                title: 'We signed you in, but need a moment',
+                subtitle: 'Your profile details were not returned by the server.',
+                body: 'Try again in a moment. If this message keeps appearing, please contact support so we can review your account.',
+                tone: 'warning',
+                icon: 'fa-user-clock',
+                actions: [
+                  {
+                    type: 'button',
+                    label: 'Try Again',
+                    icon: 'fa-rotate',
+                    variant: 'primary',
+                    onClick: () => {
+                      hideAllAlerts();
+                      if (elements.loginForm) {
+                        const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                        elements.loginForm.dispatchEvent(retryEvent);
+                      }
+                    }
+                  },
+                  {
+                    type: 'link',
+                    label: 'Email Support',
+                    icon: 'fa-headset',
+                    variant: 'outline-secondary',
+                    href: `mailto:${SUPPORT_EMAIL}`,
+                    target: '_blank',
+                    rel: 'noopener'
+                  }
+                ]
+              });
+              setLoading(false);
+              return;
+            }
 
             // Setup redirect with token in URL
             setupRedirect(response.redirectUrl, response.user);
