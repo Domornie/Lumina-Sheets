@@ -365,8 +365,11 @@ var AuthenticationService = (function () {
   /** Find a user row by email (case-insensitive) */
   function getUserByEmail(email) {
     try {
+      const target = toStr(email).toLowerCase();
+      if (!target) return null;
+
       return readTable(USERS_SHEET)
-        .find(u => String(u.Email).toLowerCase() === String(email || '').toLowerCase())
+        .find(u => toStr(u.Email).toLowerCase() === target || toStr(u.UserName).toLowerCase() === target)
         || null;
     } catch (error) {
       console.error('Error getting user by email:', error);
@@ -446,7 +449,10 @@ var AuthenticationService = (function () {
     try {
       ensureSheets();
 
-      if (!email || !rawPwd) {
+      const normalizedEmail = toStr(email).toLowerCase();
+      const passwordInput = rawPwd == null ? '' : String(rawPwd);
+
+      if (!normalizedEmail || !passwordInput.trim()) {
         return {
           success: false,
           error: 'Email and password are required',
@@ -455,7 +461,7 @@ var AuthenticationService = (function () {
       }
 
       cleanExpiredSessions();
-      const user = getUserByEmail(email);
+      const user = getUserByEmail(normalizedEmail);
 
       if (!user) {
         return {
@@ -466,7 +472,7 @@ var AuthenticationService = (function () {
       }
 
       // Check if user can login
-      const canLogin = String(user.CanLogin).toUpperCase() === 'TRUE';
+      const canLogin = toBool(user.CanLogin);
       if (!canLogin) {
         return {
           success: false,
@@ -476,7 +482,7 @@ var AuthenticationService = (function () {
       }
 
       // Check email confirmation
-      const emailConfirmed = String(user.EmailConfirmed).toUpperCase() === 'TRUE';
+      const emailConfirmed = toBool(user.EmailConfirmed);
       if (!emailConfirmed) {
         return {
           success: false,
@@ -487,7 +493,8 @@ var AuthenticationService = (function () {
       }
 
       // Check if password has been set
-      const hasPassword = String(user.PasswordHash || '').length > 0;
+      const storedHash = toStr(user.PasswordHash).toLowerCase();
+      const hasPassword = storedHash.length > 0;
       if (!hasPassword) {
         return {
           success: false,
@@ -498,8 +505,7 @@ var AuthenticationService = (function () {
       }
 
       // Verify password
-      const storedHash = String(user.PasswordHash || '').toLowerCase();
-      const providedHash = hashPwd(rawPwd).toLowerCase();
+      const providedHash = hashPwd(passwordInput).toLowerCase();
 
       if (storedHash !== providedHash) {
         return {
@@ -521,7 +527,7 @@ var AuthenticationService = (function () {
       const sessionOptions = { scope: tenantScope, user };
 
       // Check if password reset is required
-      const resetRequired = String(user.ResetRequired).toUpperCase() === 'TRUE';
+      const resetRequired = toBool(user.ResetRequired);
       if (resetRequired) {
         // Create a temporary session for password reset
         const resetToken = createSessionFor(user.ID, null, false, sessionOptions);
