@@ -1,0 +1,1246 @@
+<!-- ManagerExecutiveExperience.html -->
+<?!= include('header', {
+  baseUrl: baseUrl || '',
+  user: user || {},
+  currentPage: currentPage || 'manager-executive-experience',
+  pageTitle: 'Manager & Executive Command Center',
+  pageDescription: 'Campaign-wide leadership analytics, coaching, and administration hub'
+}) ?>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-9xK8gX1SO1kVpWw2X2gYdEx+kt1/3uzMdGII4XESyqCCpt5TR1+t0NenE2no0RvrRZtGJPD7W82dMan3Z8Ykg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  :root {
+    --navy: #062046;
+    --navy-dark: #02142c;
+    --cyan: #00bcd4;
+    --mint: #39d1a0;
+    --amber: #f59e0b;
+    --rose: #f97373;
+    --violet: #8b5cf6;
+    --surface: #ffffff;
+    --surface-soft: #f5f7fb;
+    --surface-glass: rgba(255, 255, 255, 0.75);
+    --border: #d9e1f2;
+    --border-strong: #b8c2d8;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --shadow-sm: 0 4px 18px rgba(15, 23, 42, 0.08);
+    --shadow-md: 0 16px 45px rgba(15, 23, 42, 0.15);
+    --radius-xl: 22px;
+    --radius-lg: 18px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --transition: all 0.25s ease;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+    color: var(--text-primary);
+  }
+
+  .manager-wrapper {
+    padding: clamp(2.5rem, 4vw, 4rem) clamp(1.5rem, 3vw, 3.5rem);
+    max-width: 1440px;
+    margin: 0 auto 5rem auto;
+  }
+
+  .hero-card {
+    background: radial-gradient(circle at top left, rgba(6, 32, 70, 0.95) 0%, rgba(9, 47, 100, 0.88) 45%, rgba(2, 20, 44, 0.92) 100%);
+    border-radius: var(--radius-xl);
+    padding: clamp(2rem, 3vw, 3.25rem);
+    color: white;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2.75rem;
+  }
+
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 60%);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  .hero-content {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: clamp(2rem, 4vw, 3rem);
+    align-items: center;
+    z-index: 1;
+  }
+
+  .hero-title h1 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .hero-title p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: clamp(1rem, 1.4vw, 1.15rem);
+    line-height: 1.7;
+    max-width: 520px;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .hero-actions .btn {
+    padding: 0.85rem 1.5rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: white;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    transition: var(--transition);
+  }
+
+  .hero-actions .btn:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1.1rem;
+  }
+
+  .metric-card {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-md);
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(14px);
+    position: relative;
+    transition: var(--transition);
+  }
+
+  .metric-card:hover {
+    transform: translateY(-6px);
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .metric-card .label {
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .metric-card .label i {
+    font-size: 1rem;
+  }
+
+  .metric-card .value {
+    font-size: clamp(1.7rem, 3vw, 2.1rem);
+    font-weight: 700;
+    color: white;
+  }
+
+  .card-section {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.75rem, 2.5vw, 2.25rem);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .section-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .section-header h2 i {
+    color: var(--navy);
+  }
+
+  .section-header .section-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .section-header .btn-outline-primary {
+    border-radius: 999px;
+    padding: 0.55rem 1.3rem;
+  }
+
+  .campaign-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .campaign-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    background: linear-gradient(180deg, var(--surface) 0%, #f9fbff 100%);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .campaign-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 35px rgba(15, 23, 42, 0.12);
+  }
+
+  .campaign-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .campaign-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .campaign-header span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .metric-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .metric-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.75rem;
+    border-radius: var(--radius-sm);
+    background: rgba(6, 32, 70, 0.04);
+  }
+
+  .metric-item strong {
+    color: var(--text-primary);
+  }
+
+  .metric-item span {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    background: rgba(6, 32, 70, 0.08);
+    color: var(--text-primary);
+  }
+
+  .tag.success { background: rgba(57, 209, 160, 0.15); color: #047857; }
+  .tag.warning { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+  .tag.danger { background: rgba(249, 115, 115, 0.18); color: #b91c1c; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .coaching-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .coaching-table th,
+  .coaching-table td {
+    padding: 0.75rem;
+    font-size: 0.92rem;
+    vertical-align: top;
+  }
+
+  .coaching-table th {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .coaching-table tr + tr td {
+    border-top: 1px solid #ecf1f9;
+  }
+
+  .communications-feed {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .communication-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.2rem;
+    background: linear-gradient(135deg, rgba(6, 32, 70, 0.03), rgba(255, 255, 255, 0.9));
+  }
+
+  .communication-item h5 {
+    font-size: 1rem;
+    margin-bottom: 0.35rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .communication-item p {
+    margin: 0.35rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+  }
+
+  .form-control,
+  .form-select {
+    border-radius: var(--radius-sm);
+    border-color: var(--border);
+  }
+
+  .form-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .empty-state {
+    padding: 1.75rem;
+    text-align: center;
+    border: 2px dashed rgba(6, 32, 70, 0.15);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+  }
+
+  .toast-container {
+    position: fixed;
+    top: 90px;
+    right: 32px;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .toast-message {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 0.9rem 1.1rem;
+    box-shadow: var(--shadow-sm);
+    border-left: 5px solid var(--navy);
+    min-width: 240px;
+    max-width: 320px;
+    color: var(--text-primary);
+    animation: slideIn 0.35s ease;
+  }
+
+  .toast-message.success { border-left-color: var(--mint); }
+  .toast-message.error { border-left-color: var(--rose); }
+  .toast-message.warning { border-left-color: var(--amber); }
+
+  .toast-message strong { display: block; margin-bottom: 0.25rem; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @media (max-width: 992px) {
+    .hero-content { grid-template-columns: 1fr; }
+    .hero-actions { justify-content: flex-start; }
+  }
+</style>
+
+<div class="manager-wrapper">
+  <section class="hero-card" id="heroCard">
+    <div class="hero-content">
+      <div class="hero-title">
+        <h1>Lead with Clarity</h1>
+        <p id="heroSubtitle">Unified oversight of campaign health, coaching execution, and compliance actions in one workspace.</p>
+        <div class="hero-actions">
+          <button class="btn" data-bs-toggle="modal" data-bs-target="#coachingModal"><i class="fas fa-user-plus me-2"></i>New Coaching Item</button>
+          <button class="btn" data-bs-toggle="modal" data-bs-target="#broadcastModal"><i class="fas fa-bullhorn me-2"></i>Broadcast Update</button>
+          <button class="btn" id="refreshDashboard"><i class="fas fa-rotate me-2"></i>Refresh Insights</button>
+        </div>
+      </div>
+      <div class="hero-metrics" id="heroMetrics"></div>
+    </div>
+  </section>
+
+  <section class="card-section" id="campaignSection">
+    <div class="section-header">
+      <h2><i class="fas fa-chart-line"></i>Campaign Performance Overview</h2>
+      <div class="section-actions">
+        <button class="btn btn-outline-primary btn-sm" id="toggleExecutiveView"><i class="fas fa-sitemap me-1"></i>Executive Summary</button>
+      </div>
+    </div>
+    <div class="campaign-grid" id="campaignGrid"></div>
+    <div class="empty-state" id="campaignEmpty" style="display:none;">
+      <i class="fas fa-layer-group fa-2x mb-2"></i>
+      <p>No campaign dashboards available. Assign this manager to a campaign to populate insights.</p>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="section-header">
+      <h2><i class="fas fa-user-check"></i>Coaching & Follow-up Control</h2>
+      <div class="section-actions">
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#coachingModal"><i class="fas fa-plus me-1"></i>Issue Coaching</button>
+      </div>
+    </div>
+    <div class="grid-2 align-items-start">
+      <div>
+        <table class="coaching-table" id="coachingTable">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Campaign</th>
+              <th>Due</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="coachingBody"></tbody>
+        </table>
+        <div class="empty-state" id="coachingEmpty" style="display:none;">
+          <i class="fas fa-handshake-angle fa-2x mb-2"></i>
+          <p>No pending coaching acknowledgements. Great job keeping the team aligned!</p>
+        </div>
+      </div>
+      <div>
+        <canvas id="coachingStatusChart" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="section-header">
+      <h2><i class="fas fa-comments"></i>Communications & Broadcasts</h2>
+    </div>
+    <div class="grid-2 align-items-start">
+      <div>
+        <div class="communications-feed" id="communicationsFeed"></div>
+        <div class="empty-state" id="communicationsEmpty" style="display:none;">
+          <i class="fas fa-envelope-open-text fa-2x mb-2"></i>
+          <p>No broadcasts yet. Use the form to share quick performance updates.</p>
+        </div>
+      </div>
+      <div>
+        <form id="broadcastForm" class="needs-validation" novalidate>
+          <div class="mb-3">
+            <label class="form-label">Campaign</label>
+            <select class="form-select" id="broadcastCampaign" required></select>
+            <div class="invalid-feedback">Select a campaign to notify.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-control" id="broadcastTitle" placeholder="Performance update" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Message</label>
+            <textarea class="form-control" id="broadcastMessage" rows="4" placeholder="Share acknowledgement requests, compliance reminders, or key KPIs." required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Severity</label>
+            <select class="form-select" id="broadcastSeverity">
+              <option value="Info" selected>Informational</option>
+              <option value="Success">Celebration</option>
+              <option value="Warning">Warning</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="fas fa-paper-plane me-2"></i>Send Update</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="section-header">
+      <h2><i class="fas fa-shield-alt"></i>Administrative Controls</h2>
+    </div>
+    <div class="grid-2 align-items-start">
+      <div>
+        <h5 class="mb-3">Onboard Team Member</h5>
+        <form id="onboardForm" class="needs-validation" novalidate>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-control" id="onboardName" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="onboardEmail" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Username</label>
+              <input type="text" class="form-control" id="onboardUsername" placeholder="Optional">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Campaign</label>
+              <select class="form-select" id="onboardCampaign" required></select>
+              <div class="invalid-feedback">Select an onboarding campaign.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Role Assignment</label>
+              <select class="form-select" id="onboardRole"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Permission Level</label>
+              <select class="form-select" id="onboardPermission"></select>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Employment Status</label>
+              <select class="form-select" id="onboardStatus">
+                <option value="Active" selected>Active</option>
+                <option value="Probation">Probation</option>
+                <option value="Leave">Leave</option>
+                <option value="Contract">Contract</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="onboardInvite">
+                <label class="form-check-label" for="onboardInvite">Send login invitation</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="onboardGuest">
+                <label class="form-check-label" for="onboardGuest">Grant guest access</label>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success mt-3 w-100"><i class="fas fa-user-plus me-2"></i>Create Account</button>
+        </form>
+      </div>
+      <div>
+        <h5 class="mb-3">Manage Client Guest Access</h5>
+        <form id="guestForm" class="needs-validation" novalidate>
+          <div class="mb-3">
+            <label class="form-label">Campaign</label>
+            <select class="form-select" id="guestCampaign" required></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Guest User</label>
+            <select class="form-select" id="guestUser" required></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Permission Level</label>
+            <select class="form-select" id="guestPermission"></select>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="guestManageUsers">
+                <label class="form-check-label" for="guestManageUsers">Can manage users</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="guestManagePages">
+                <label class="form-check-label" for="guestManagePages">Can manage pages</label>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-outline-primary mt-3 w-100"><i class="fas fa-save me-2"></i>Update Access</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Coaching Modal -->
+<div class="modal fade" id="coachingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Issue Coaching Item</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="coachingForm" class="needs-validation" novalidate>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Campaign</label>
+              <select class="form-select" id="coachingCampaign" required></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Agent</label>
+              <select class="form-select" id="coachingAgent" required></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Focus Area</label>
+              <input type="text" class="form-control" id="coachingFocus" placeholder="QA adherence, attendance, etc.">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Follow-up Date</label>
+              <input type="date" class="form-control" id="coachingFollowUp">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Summary</label>
+              <textarea class="form-control" id="coachingSummary" rows="3" required placeholder="Outline the coaching expectation and desired outcome."></textarea>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Action Plan</label>
+              <textarea class="form-control" id="coachingActionPlan" rows="3" placeholder="Capture agreed action steps or remediation plan."></textarea>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="coachingAck">
+                <label class="form-check-label" for="coachingAck">Require acknowledgement</label>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-floppy-disk me-2"></i>Save Coaching</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Broadcast Modal quick alias -->
+<div class="modal fade" id="broadcastModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-bullhorn me-2"></i>Broadcast Performance Update</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Use the Communications form on the dashboard to send messages. This shortcut keeps the workflow consistent.</p>
+        <div class="text-end">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="document.getElementById('broadcastMessage').focus();">
+            Go to Communications
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const managerExecutiveState = {
+    data: null,
+    charts: {
+      coachingStatus: null
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    bindFormHandlers();
+    loadManagerExecutiveDashboard();
+  });
+
+  function bindFormHandlers() {
+    document.getElementById('refreshDashboard').addEventListener('click', function () {
+      loadManagerExecutiveDashboard(true);
+    });
+
+    document.getElementById('toggleExecutiveView').addEventListener('click', toggleExecutiveSummary);
+
+    document.getElementById('coachingCampaign').addEventListener('change', function () {
+      populateAgentOptions(this.value, 'coachingAgent');
+    });
+
+    document.getElementById('guestCampaign').addEventListener('change', function () {
+      populateGuestUserOptions(this.value);
+    });
+
+    document.getElementById('coachingForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!this.checkValidity()) {
+        event.stopPropagation();
+        this.classList.add('was-validated');
+        return;
+      }
+      const payload = {
+        campaignId: document.getElementById('coachingCampaign').value,
+        agentId: document.getElementById('coachingAgent').value,
+        focusArea: document.getElementById('coachingFocus').value,
+        followUpDate: document.getElementById('coachingFollowUp').value,
+        summary: document.getElementById('coachingSummary').value,
+        actionPlan: document.getElementById('coachingActionPlan').value,
+        requireAcknowledgement: document.getElementById('coachingAck').checked
+      };
+      setLoading(this, true);
+      google.script.run
+        .withSuccessHandler(function (_, element) {
+          setLoading(element, false);
+          showToast('success', 'Coaching item created successfully.');
+          bootstrap.Modal.getInstance(document.getElementById('coachingModal')).hide();
+          document.getElementById('coachingForm').reset();
+          document.getElementById('coachingForm').classList.remove('was-validated');
+          loadManagerExecutiveDashboard(true);
+        })
+        .withFailureHandler(function (err, element) {
+          setLoading(element, false);
+          console.error(err);
+          showToast('error', err && err.message ? err.message : 'Unable to create coaching.');
+        })
+        .withUserObject(this)
+        .clientCreateManagerExecutiveCoaching(payload);
+    });
+
+    document.getElementById('broadcastForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!this.checkValidity()) {
+        event.stopPropagation();
+        this.classList.add('was-validated');
+        return;
+      }
+      const payload = {
+        campaignId: document.getElementById('broadcastCampaign').value,
+        title: document.getElementById('broadcastTitle').value,
+        message: document.getElementById('broadcastMessage').value,
+        severity: document.getElementById('broadcastSeverity').value
+      };
+      setLoading(this, true);
+      google.script.run
+        .withSuccessHandler(function (_, element) {
+          setLoading(element, false);
+          showToast('success', 'Broadcast delivered to campaign.');
+          document.getElementById('broadcastForm').reset();
+          document.getElementById('broadcastForm').classList.remove('was-validated');
+          loadManagerExecutiveDashboard(true);
+        })
+        .withFailureHandler(function (err, element) {
+          setLoading(element, false);
+          console.error(err);
+          showToast('error', err && err.message ? err.message : 'Unable to send broadcast.');
+        })
+        .withUserObject(this)
+        .clientSendManagerExecutiveBroadcast(payload);
+    });
+
+    document.getElementById('onboardForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!this.checkValidity()) {
+        event.stopPropagation();
+        this.classList.add('was-validated');
+        return;
+      }
+      const payload = {
+        fullName: document.getElementById('onboardName').value,
+        email: document.getElementById('onboardEmail').value,
+        userName: document.getElementById('onboardUsername').value,
+        campaignId: document.getElementById('onboardCampaign').value,
+        roleIds: getSelectedValues('onboardRole'),
+        permissionLevel: document.getElementById('onboardPermission').value,
+        employmentStatus: document.getElementById('onboardStatus').value,
+        sendInvite: document.getElementById('onboardInvite').checked,
+        grantGuestAccess: document.getElementById('onboardGuest').checked
+      };
+      setLoading(this, true);
+      google.script.run
+        .withSuccessHandler(function (result, element) {
+          setLoading(element, false);
+          const message = result && result.message ? result.message : 'User onboarded successfully.';
+          showToast('success', message);
+          document.getElementById('onboardForm').reset();
+          document.getElementById('onboardForm').classList.remove('was-validated');
+          loadManagerExecutiveDashboard(true);
+        })
+        .withFailureHandler(function (err, element) {
+          setLoading(element, false);
+          console.error(err);
+          showToast('error', err && err.message ? err.message : 'Unable to onboard user.');
+        })
+        .withUserObject(this)
+        .clientOnboardManagedUser(payload);
+    });
+
+    document.getElementById('guestForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!this.checkValidity()) {
+        event.stopPropagation();
+        this.classList.add('was-validated');
+        return;
+      }
+      const payload = {
+        campaignId: document.getElementById('guestCampaign').value,
+        userId: document.getElementById('guestUser').value,
+        permissionLevel: document.getElementById('guestPermission').value,
+        canManageUsers: document.getElementById('guestManageUsers').checked,
+        canManagePages: document.getElementById('guestManagePages').checked
+      };
+      setLoading(this, true);
+      google.script.run
+        .withSuccessHandler(function (_, element) {
+          setLoading(element, false);
+          showToast('success', 'Guest permissions updated.');
+          document.getElementById('guestForm').classList.remove('was-validated');
+        })
+        .withFailureHandler(function (err, element) {
+          setLoading(element, false);
+          console.error(err);
+          showToast('error', err && err.message ? err.message : 'Unable to update guest access.');
+        })
+        .withUserObject(this)
+        .clientSetCampaignGuestAccess(payload);
+    });
+  }
+
+  function loadManagerExecutiveDashboard(forceRefresh) {
+    const heroMetrics = document.getElementById('heroMetrics');
+    heroMetrics.innerHTML = '<div class="text-white-50">Loading insights...</div>';
+    google.script.run
+      .withSuccessHandler(function (data) {
+        managerExecutiveState.data = data;
+        renderHero(data.hero);
+        renderCampaigns(data);
+        renderCoaching(data.coachingInsights);
+        renderCommunications(data.communications);
+        populateConfiguration(data);
+      })
+      .withFailureHandler(function (err) {
+        console.error(err);
+        showToast('error', err && err.message ? err.message : 'Unable to load dashboard.');
+      })
+      .clientGetManagerExecutiveExperience({ lookbackDays: 90, includeRoster: true, forceRefresh: !!forceRefresh });
+  }
+
+  function renderHero(hero) {
+    const heroMetrics = document.getElementById('heroMetrics');
+    if (!hero || !Array.isArray(hero.metrics)) {
+      heroMetrics.innerHTML = '<div class="text-white-50">No leadership metrics available.</div>';
+      return;
+    }
+    heroMetrics.innerHTML = hero.metrics.map(function (metric) {
+      const value = formatMetricValue(metric.value, metric.format);
+      return '<div class="metric-card">' +
+        '<div class="label"><i class="fas ' + (metric.icon || 'fa-circle') + '"></i>' + metric.label + '</div>' +
+        '<div class="value">' + value + '</div>' +
+        '</div>';
+    }).join('');
+
+    const subtitle = document.getElementById('heroSubtitle');
+    subtitle.textContent = hero.campaigns
+      ? 'Overseeing ' + hero.campaigns + ' campaign' + (hero.campaigns === 1 ? '' : 's') + ' with ' + hero.agents + ' active agents.'
+      : subtitle.textContent;
+  }
+
+  function renderCampaigns(data) {
+    const grid = document.getElementById('campaignGrid');
+    const empty = document.getElementById('campaignEmpty');
+    grid.innerHTML = '';
+    if (!data || !Array.isArray(data.dashboards) || !data.dashboards.length) {
+      grid.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    grid.style.display = 'grid';
+    empty.style.display = 'none';
+
+    data.dashboards.forEach(function (entry) {
+      const snapshot = entry.snapshot;
+      const campaign = entry.campaign;
+      if (entry.error) {
+        grid.insertAdjacentHTML('beforeend', '<div class="campaign-card"><div class="campaign-header"><h3>' +
+          escapeHtml(campaign.name || 'Campaign') + '</h3><span class="tag danger">Error</span></div><p class="text-danger">' +
+          escapeHtml(entry.error) + '</p></div>');
+        return;
+      }
+      const qaSummary = snapshot.performance && snapshot.performance.qa && snapshot.performance.qa.summary;
+      const attendanceSummary = snapshot.performance && snapshot.performance.attendance && snapshot.performance.attendance.summary;
+      const coachingSummary = snapshot.coaching && snapshot.coaching.summary;
+      const communications = snapshot.communications && snapshot.communications.total || 0;
+      const metrics = [
+        { label: 'Agents', value: snapshot.roster ? snapshot.roster.total : 0 },
+        { label: 'QA Avg', value: qaSummary ? formatMetricValue(qaSummary.averageScore, 'percentage') : '–' },
+        { label: 'Attendance', value: attendanceSummary ? formatMetricValue(attendanceSummary.attendanceRate, 'percentage') : '–' },
+        { label: 'Pending Coaching', value: coachingSummary ? coachingSummary.pendingCount : 0 }
+      ];
+      const healthTag = deriveHealthTag(qaSummary, attendanceSummary, coachingSummary);
+      const metricHtml = metrics.map(function (metric) {
+        return '<div class="metric-item"><span>' + metric.label + '</span><strong>' + metric.value + '</strong></div>';
+      }).join('');
+      grid.insertAdjacentHTML('beforeend',
+        '<div class="campaign-card">' +
+          '<div class="campaign-header">' +
+            '<div>' +
+              '<h3>' + escapeHtml(campaign.name || 'Campaign') + '</h3>' +
+              '<span>' + (campaign.description ? escapeHtml(campaign.description) : 'Leadership overview') + '</span>' +
+            '</div>' +
+            (healthTag ? '<span class="tag ' + healthTag.className + '"><i class="fas ' + healthTag.icon + '"></i>' + healthTag.label + '</span>' : '') +
+          '</div>' +
+          '<div class="metric-list">' + metricHtml + '</div>' +
+          '<div class="d-flex justify-content-between text-muted small">' +
+            '<span><i class="fas fa-bullhorn me-1"></i>' + communications + ' broadcasts</span>' +
+            '<span><i class="fas fa-clock me-1"></i>Updated ' + formatRelativeTime(data.generatedAt) + '</span>' +
+          '</div>' +
+        '</div>'
+      );
+    });
+  }
+
+  function renderCoaching(coaching) {
+    const tbody = document.getElementById('coachingBody');
+    const empty = document.getElementById('coachingEmpty');
+    if (!coaching || !Array.isArray(coaching.pending) || !coaching.pending.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      updateCoachingChart(coaching);
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = coaching.pending.map(function (item) {
+      return '<tr>' +
+        '<td><strong>' + escapeHtml(item.agentName) + '</strong><div class="text-muted small">' + (item.focusArea ? escapeHtml(item.focusArea) : 'Performance coaching') + '</div></td>' +
+        '<td>' + escapeHtml(item.campaignName || '') + '</td>' +
+        '<td>' + (item.dueDate ? formatDateDisplay(item.dueDate) : '—') + '</td>' +
+        '<td><span class="tag ' + statusTagClass(item.status) + '">' + escapeHtml(item.status || 'Pending') + '</span></td>' +
+        '<td class="text-nowrap">' +
+          '<button type="button" class="btn btn-link btn-sm" data-action="request-ack" data-coaching-id="' + escapeAttribute(item.id) + '" data-campaign-id="' + escapeAttribute(item.campaignId || '') + '" data-agent-id="' + escapeAttribute(item.agentId || '') + '">Ack</button>' +
+          '<button type="button" class="btn btn-link btn-sm text-success" data-action="mark-complete" data-coaching-id="' + escapeAttribute(item.id) + '" data-campaign-id="' + escapeAttribute(item.campaignId || '') + '">Complete</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+    attachCoachingActions();
+    updateCoachingChart(coaching);
+  }
+
+  function renderCommunications(communications) {
+    const feed = document.getElementById('communicationsFeed');
+    const empty = document.getElementById('communicationsEmpty');
+    feed.innerHTML = '';
+    if (!communications || !Array.isArray(communications.records) || !communications.records.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    communications.records.slice(0, 10).forEach(function (record) {
+      feed.insertAdjacentHTML('beforeend',
+        '<div class="communication-item">' +
+          '<h5><span>' + escapeHtml(record.title || 'Campaign Update') + '</span>' +
+            '<span class="text-muted small">' + formatRelativeTime(record.createdAt) + '</span></h5>' +
+          '<div class="text-muted small mb-2"><i class="fas fa-layer-group me-1"></i>' + escapeHtml(record.campaignName || '') + '</div>' +
+          '<p>' + escapeHtml(record.body || '') + '</p>' +
+        '</div>'
+      );
+    });
+  }
+
+  function populateConfiguration(data) {
+    const campaigns = (data && data.campaigns) || [];
+    const admin = data && data.admin;
+
+    populateSelect('broadcastCampaign', campaigns, { placeholder: 'Select campaign' });
+    populateSelect('coachingCampaign', campaigns, { placeholder: 'Select campaign' });
+    populateSelect('onboardCampaign', campaigns, { placeholder: 'Select campaign' });
+    populateSelect('guestCampaign', campaigns, { placeholder: 'Select campaign' });
+
+    const roles = admin && admin.roles ? admin.roles : [];
+    const roleSelect = document.getElementById('onboardRole');
+    roleSelect.innerHTML = '<option value="">No default role</option>' + roles.map(function (role) {
+      return '<option value="' + escapeAttribute(role.id || '') + '">' + escapeHtml(role.name || '') + '</option>';
+    }).join('');
+
+    const permissionLevels = admin && admin.permissionLevels ? admin.permissionLevels : [];
+    const permissionHtml = permissionLevels.map(function (perm) {
+      return '<option value="' + escapeAttribute(perm.key) + '">' + escapeHtml(perm.label || perm.key) + '</option>';
+    }).join('');
+    document.getElementById('onboardPermission').innerHTML = permissionHtml;
+    document.getElementById('guestPermission').innerHTML = permissionHtml;
+
+    if (campaigns.length) {
+      populateAgentOptions(campaigns[0].id, 'coachingAgent');
+      populateGuestUserOptions(campaigns[0].id);
+    }
+  }
+
+  function populateSelect(elementId, campaigns, options) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const placeholder = options && options.placeholder ? '<option value="" disabled selected>' + escapeHtml(options.placeholder) + '</option>' : '';
+    el.innerHTML = placeholder + campaigns.map(function (campaign) {
+      return '<option value="' + escapeAttribute(campaign.id || '') + '">' + escapeHtml(campaign.name || '') + '</option>';
+    }).join('');
+  }
+
+  function populateAgentOptions(campaignId, elementId) {
+    const agentsByCampaign = (managerExecutiveState.data && managerExecutiveState.data.agentsByCampaign) || {};
+    const select = document.getElementById(elementId);
+    if (!select) return;
+    const agents = agentsByCampaign[campaignId] || [];
+    select.innerHTML = agents.map(function (agent) {
+      return '<option value="' + escapeAttribute(agent.id || '') + '">' + escapeHtml(agent.name || agent.email || 'Agent') + '</option>';
+    }).join('');
+  }
+
+  function populateGuestUserOptions(campaignId) {
+    const agentsByCampaign = (managerExecutiveState.data && managerExecutiveState.data.agentsByCampaign) || {};
+    const select = document.getElementById('guestUser');
+    if (!select) return;
+    const agents = agentsByCampaign[campaignId] || [];
+    if (!agents.length) {
+      select.innerHTML = '<option value="" disabled selected>No roster found</option>';
+      return;
+    }
+    select.innerHTML = agents.map(function (agent) {
+      return '<option value="' + escapeAttribute(agent.id || '') + '">' + escapeHtml(agent.name || agent.email || 'User') + '</option>';
+    }).join('');
+  }
+
+  function toggleExecutiveSummary() {
+    const data = managerExecutiveState.data;
+    if (!data || !data.executive || !data.executive.summary) {
+      showToast('warning', 'Executive analytics not available for this account.');
+      return;
+    }
+    renderHero(buildExecutiveHeroView(data.executive.summary));
+  }
+
+  function buildExecutiveHeroView(summary) {
+    return {
+      campaigns: summary.totalCampaigns || 0,
+      agents: summary.totalAgents || 0,
+      metrics: [
+        { key: 'totalCampaigns', label: 'Campaigns', value: summary.totalCampaigns || 0, icon: 'fa-diagram-project', format: 'number' },
+        { key: 'agents', label: 'Agents', value: summary.totalAgents || 0, icon: 'fa-users', format: 'number' },
+        { key: 'qa', label: 'Avg QA', value: summary.averageQaScore, icon: 'fa-star', format: 'percentage' },
+        { key: 'attendance', label: 'Avg Attendance', value: summary.averageAttendanceRate, icon: 'fa-calendar-check', format: 'percentage' },
+        { key: 'qaEvaluations', label: 'QA Evaluations', value: summary.totalQaEvaluations || 0, icon: 'fa-clipboard-check', format: 'number' },
+        { key: 'attendanceEvents', label: 'Attendance Events', value: summary.totalAttendanceEvents || 0, icon: 'fa-business-time', format: 'number' }
+      ]
+    };
+  }
+
+  function updateCoachingChart(coaching) {
+    const ctx = document.getElementById('coachingStatusChart').getContext('2d');
+    const totals = coaching && coaching.totals ? coaching.totals : { sessions: 0, pending: 0, acknowledged: 0, overdue: 0 };
+    const data = {
+      labels: ['Pending', 'Acknowledged', 'Overdue'],
+      datasets: [{
+        data: [totals.pending || 0, totals.acknowledged || 0, totals.overdue || 0],
+        backgroundColor: ['#38bdf8', '#34d399', '#f97373'],
+        borderWidth: 0
+      }]
+    };
+    if (managerExecutiveState.charts.coachingStatus) {
+      managerExecutiveState.charts.coachingStatus.data = data;
+      managerExecutiveState.charts.coachingStatus.update();
+    } else {
+      managerExecutiveState.charts.coachingStatus = new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+  }
+
+  function requestAcknowledgement(coachingId, campaignId, agentId) {
+    google.script.run
+      .withSuccessHandler(function () {
+        showToast('success', 'Acknowledgement requested.');
+        loadManagerExecutiveDashboard(true);
+      })
+      .withFailureHandler(function (err) {
+        console.error(err);
+        showToast('error', err && err.message ? err.message : 'Unable to request acknowledgement.');
+      })
+      .clientUpdateManagerCoachingStatus({
+        coachingId: coachingId,
+        campaignId: campaignId,
+        agentId: agentId,
+        requestAcknowledgement: true
+      });
+  }
+
+  function markCoachingComplete(coachingId, campaignId) {
+    google.script.run
+      .withSuccessHandler(function () {
+        showToast('success', 'Coaching marked as complete.');
+        loadManagerExecutiveDashboard(true);
+      })
+      .withFailureHandler(function (err) {
+        console.error(err);
+        showToast('error', err && err.message ? err.message : 'Unable to update coaching status.');
+      })
+      .clientUpdateManagerCoachingStatus({
+        coachingId: coachingId,
+        campaignId: campaignId,
+        status: 'Completed',
+        acknowledgedAt: new Date().toISOString()
+      });
+  }
+
+  function setLoading(form, isLoading) {
+    if (!form) return;
+    const buttons = form.querySelectorAll('button[type="submit"],button:not([data-bs-dismiss])');
+    buttons.forEach(function (btn) {
+      btn.disabled = isLoading;
+      if (isLoading) {
+        btn.dataset.originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Working...';
+      } else if (btn.dataset.originalText) {
+        btn.innerHTML = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }
+    });
+  }
+
+  function showToast(type, message) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast-message ' + type;
+    toast.innerHTML = '<strong>' + (type === 'error' ? 'Action Required' : type === 'success' ? 'Success' : 'Notice') + '</strong>' + escapeHtml(message);
+    container.appendChild(toast);
+    setTimeout(function () {
+      toast.classList.add('fade');
+      toast.style.opacity = '0';
+      setTimeout(function () { container.removeChild(toast); }, 400);
+    }, 3500);
+  }
+
+  function getSelectedValues(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return [];
+    if (select.multiple) {
+      return Array.from(select.selectedOptions).map(function (opt) { return opt.value; });
+    }
+    return select.value ? [select.value] : [];
+  }
+
+  function formatMetricValue(value, format) {
+    if (value == null || value === '') return '—';
+    if (format === 'percentage') {
+      var num = Number(value);
+      if (isNaN(num)) return '—';
+      if (num <= 1 && num >= 0) num *= 100;
+      return num.toFixed(1) + '%';
+    }
+    if (format === 'number') {
+      var parsed = Number(value);
+      if (isNaN(parsed)) return value;
+      return parsed.toLocaleString();
+    }
+    return value;
+  }
+
+  function deriveHealthTag(qaSummary, attendanceSummary, coachingSummary) {
+    var qa = qaSummary && qaSummary.averageScore;
+    var attendance = attendanceSummary && attendanceSummary.attendanceRate;
+    var pending = coachingSummary && coachingSummary.pendingCount;
+    if (qa != null && qa >= 95 && attendance != null && attendance >= 95 && pending < 3) {
+      return { label: 'Healthy', className: 'success', icon: 'fa-circle-check' };
+    }
+    if ((qa != null && qa < 85) || (attendance != null && attendance < 85) || (pending > 5)) {
+      return { label: 'Attention', className: 'danger', icon: 'fa-triangle-exclamation' };
+    }
+    return { label: 'Monitoring', className: 'warning', icon: 'fa-eye' };
+  }
+
+  function attachCoachingActions() {
+    const tbody = document.getElementById('coachingBody');
+    if (!tbody) return;
+    tbody.querySelectorAll('[data-action="request-ack"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        requestAcknowledgement(this.dataset.coachingId, this.dataset.campaignId, this.dataset.agentId);
+      });
+    });
+    tbody.querySelectorAll('[data-action="mark-complete"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        markCoachingComplete(this.dataset.coachingId, this.dataset.campaignId);
+      });
+    });
+  }
+
+  function statusTagClass(status) {
+    if (!status) return 'warning';
+    var s = status.toLowerCase();
+    if (s.indexOf('ack') >= 0 || s.indexOf('complete') >= 0) return 'success';
+    if (s.indexOf('overdue') >= 0) return 'danger';
+    return 'warning';
+  }
+
+  function formatDateDisplay(isoDate) {
+    if (!isoDate) return '—';
+    const date = new Date(isoDate);
+    if (isNaN(date)) return isoDate;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function formatRelativeTime(isoString) {
+    if (!isoString) return 'n/a';
+    const date = new Date(isoString);
+    if (isNaN(date)) return isoString;
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.round(diff / 60000);
+    if (minutes < 60) return minutes + 'm ago';
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return hours + 'h ago';
+    const days = Math.round(hours / 24);
+    if (days < 7) return days + 'd ago';
+    return date.toLocaleDateString();
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeAttribute(str) {
+    return escapeHtml(str).replace(/"/g, '&quot;');
+  }
+</script>

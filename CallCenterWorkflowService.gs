@@ -1091,6 +1091,24 @@
     return safeCreate('coaching', context, record);
   };
 
+  WorkflowService.updateCoachingSession = function (managerId, coachingId, updates, campaignId) {
+    ensureInitialized();
+    if (!coachingId) throw new Error('updateCoachingSession requires a coaching session ID');
+    updates = updates || {};
+    var resolvedCampaign = toStr(campaignId || updates.CampaignID || updates.CampaignId || updates.campaignId);
+    var ctxInfo = getTenantTools(managerId, resolvedCampaign || null, { requireManager: !!resolvedCampaign });
+    var context = ctxInfo.context;
+    var table = getTable('coaching');
+    if (!table) throw new Error('Coaching table is not registered');
+
+    if (resolvedCampaign) {
+      updates.CampaignID = resolvedCampaign;
+      updates.CampaignId = resolvedCampaign;
+    }
+    updates.UpdatedAt = nowIso();
+    return safeUpdate('coaching', context, coachingId, updates);
+  };
+
   WorkflowService.acknowledgeCoaching = function (agentId, coachingId, ackData) {
     ensureInitialized();
     if (!coachingId) throw new Error('acknowledgeCoaching requires a coaching session ID');
