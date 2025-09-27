@@ -174,3 +174,4 @@ Each write helper (`scheduleAgentShift`, `recordAttendanceEvent`,
 `postCollaborationMessage`) automatically asserts campaign permissions through
 `TenantSecurityService`, assigns the correct tenant column, and preserves the sheet
 schemas registered with `DatabaseManager`.
+

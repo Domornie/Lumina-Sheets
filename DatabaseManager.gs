@@ -451,6 +451,7 @@
     var prepared = this.prepareTenantOptions(options, context, true);
     var finalOptions = prepared.options;
     var useCache = finalOptions.cache !== false;
+
     var cache = CacheService.getScriptCache();
     var headers = this.headers;
 
@@ -460,6 +461,7 @@
         try {
           var parsed = JSON.parse(cached);
           return applyQueryOptions(parsed, headers, finalOptions);
+
         } catch (err) {
           logger.warn('Cache parse failed for table ' + this.name + ': ' + err);
         }
@@ -496,12 +498,14 @@
   };
 
   Table.prototype.insert = function (record, context) {
+
     if (!record || typeof record !== 'object') {
       throw new Error('Record must be an object for insert');
     }
     var copy = clone(record);
     var tenantAccess = this.getTenantAccess(context, false);
     this.enforceTenantOnRecord(copy, tenantAccess);
+
     this.ensureId(copy);
     this.applyDefaults(copy, true);
     this.touchTimestamps(copy, true);
@@ -514,6 +518,7 @@
   };
 
   Table.prototype.batchInsert = function (records, context) {
+
     if (!Array.isArray(records) || records.length === 0) {
       return [];
     }
@@ -525,6 +530,7 @@
     for (var i = 0; i < records.length; i++) {
       var copy = clone(records[i]);
       this.enforceTenantOnRecord(copy, tenantAccess);
+
       this.ensureId(copy);
       this.applyDefaults(copy, true);
       this.touchTimestamps(copy, true);
@@ -563,6 +569,7 @@
 
     var updatedRecord = null;
     var tenantAccess = this.getTenantAccess(context, false);
+
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
         var record = {};
@@ -578,6 +585,7 @@
         });
 
         this.enforceTenantOnRecord(record, tenantAccess);
+
 
         this.touchTimestamps(record, false);
         this.validateRecord(record);
@@ -615,6 +623,7 @@
   };
 
   Table.prototype.delete = function (id, context) {
+
     if (!this.idColumn) {
       throw new Error('Cannot delete without idColumn configuration');
     }
@@ -642,6 +651,7 @@
           record[headers[j]] = values[i][j];
         }
         this.ensureExistingTenantAllowed(record, tenantAccess);
+
         sheet.deleteRow(i + 2);
         this.invalidateCache();
         return true;
@@ -664,6 +674,7 @@
   Table.prototype.count = function (where, context) {
     var options = where ? { where: where } : {};
     return this.read(options, context).length;
+
   };
 
   Table.prototype.listColumns = function () {
@@ -918,6 +929,7 @@
         return table.withContext(context);
       }
       return table;
+
     },
     listTables: function () {
       return Object.keys(tables);
@@ -970,5 +982,6 @@
 
   exposeHelper('defineTable', DatabaseManager.defineTable);
   exposeHelper('getTable', DatabaseManager.table);
+
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

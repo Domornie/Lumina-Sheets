@@ -502,6 +502,7 @@ const __ensureSheetWithHeaders = (function () {
         const range = sh.getRange(1, 1, 1, headers.length);
         const existing = range.getValues()[0] || [];
         if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) {
+
           if (typeof registerTableSchema === 'function') {
             try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
           }
@@ -578,6 +579,7 @@ const __ensureSheetWithHeaders = (function () {
     }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Error / Debug logging
@@ -738,6 +740,7 @@ const __invalidateCache = (function () {
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
+
 function _normalizeReadSheetOptions_(optionsOrCache) {
   let options = {};
   let useCache = true;
@@ -784,6 +787,7 @@ function _normalizeReadSheetOptions_(optionsOrCache) {
     : null;
 
   return { useCache, allowScriptCache, queryOptions, tenantContext, campaignId, userId };
+
 }
 
 function _legacyReadSheet_(sheetName) {
