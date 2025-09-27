@@ -1300,7 +1300,8 @@
       let baseUrl = null;
 
       const configuredBase = (CONFIG.baseUrl || '').trim();
-      if (configuredBase) {
+      const hasConfiguredBase = !!configuredBase;
+      if (hasConfiguredBase) {
         try {
           baseUrl = new URL(configuredBase, current);
         } catch (err) {
@@ -1312,7 +1313,9 @@
         baseUrl = new URL(current.toString());
       }
 
-      baseUrl = alignUrlToCurrentContext(baseUrl);
+      if (!hasConfiguredBase) {
+        baseUrl = alignUrlToCurrentContext(baseUrl);
+      }
 
       const keysToRemove = new Set(['page']);
       Object.keys(params || {}).forEach(key => keysToRemove.add(key));
@@ -1824,7 +1827,8 @@
       let baseUrl = null;
 
       const configuredBase = (CONFIG.baseUrl || '').trim();
-      if (configuredBase) {
+      const hasConfiguredBase = !!configuredBase;
+      if (hasConfiguredBase) {
         try {
           baseUrl = new URL(configuredBase, current);
         } catch (err) {
@@ -1836,7 +1840,9 @@
         baseUrl = new URL(current.toString());
       }
 
-      baseUrl = alignUrlToCurrentContext(baseUrl);
+      if (!hasConfiguredBase) {
+        baseUrl = alignUrlToCurrentContext(baseUrl);
+      }
 
       const keysToRemove = new Set(['page']);
       Object.keys(params || {}).forEach(key => keysToRemove.add(key));
