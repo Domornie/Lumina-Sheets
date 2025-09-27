@@ -115,6 +115,7 @@ campaign (unless they are global administrators), and returns the full list of
 allowed/managed/admin campaigns to the client. Session renewals automatically refresh
 the campaign scope so managers cannot switch to unauthorized tenants mid-session.
 
+
 ## End-to-end call center workflows
 
 `CallCenterWorkflowService.gs` stitches together authentication, scheduling,
@@ -184,3 +185,4 @@ Each write helper (`scheduleAgentShift`, `recordAttendanceEvent`,
 `postCollaborationMessage`) automatically asserts campaign permissions through
 `TenantSecurityService`, assigns the correct tenant column, and preserves the sheet
 schemas registered with `DatabaseManager`.
+

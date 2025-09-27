@@ -1484,6 +1484,7 @@ function getCurrentUser() {
       CampaignID: user.CampaignID,
       IsAdmin: String(user.IsAdmin).toUpperCase() === 'TRUE',
       IsGlobalAdmin: tenantProfile ? !!tenantProfile.isGlobalAdmin : String(user.IsAdmin).toUpperCase() === 'TRUE',
+
       CanLogin: String(user.CanLogin).toUpperCase() === 'TRUE',
       EmailConfirmed: String(user.EmailConfirmed).toUpperCase() === 'TRUE',
       ResetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE',
@@ -1491,6 +1492,7 @@ function getCurrentUser() {
       ManagedCampaignIds: tenantProfile ? tenantProfile.managedCampaignIds.slice() : [],
       AdminCampaignIds: tenantProfile ? tenantProfile.adminCampaignIds.slice() : [],
       DefaultCampaignId: tenantProfile ? tenantProfile.defaultCampaignId : toStr(user.CampaignID),
+
       TenantAccess: tenantProfile
     };
   } catch (error) {

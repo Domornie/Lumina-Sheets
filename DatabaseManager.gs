@@ -496,6 +496,7 @@
   };
 
   Table.prototype.insert = function (record, context) {
+
     if (!record || typeof record !== 'object') {
       throw new Error('Record must be an object for insert');
     }
@@ -563,6 +564,7 @@
 
     var updatedRecord = null;
     var tenantAccess = this.getTenantAccess(context, false);
+
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
         var record = {};
@@ -578,7 +580,6 @@
         });
 
         this.enforceTenantOnRecord(record, tenantAccess);
-
         this.touchTimestamps(record, false);
         this.validateRecord(record);
         var serialized = this.serialize(record);
