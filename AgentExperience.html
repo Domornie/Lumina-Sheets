@@ -1,0 +1,1358 @@
+<!-- AgentExperience.html -->
+<?!= include('header', { baseUrl: baseUrl || '', user: user || {}, currentPage: currentPage || 'agent-experience', pageTitle: 'Agent Experience Hub', pageDescription: 'Personalized operations cockpit for support specialists' }) ?>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-9xK8gX1SO1kVpWw2X2gYdEx+kt1/3uzMdGII4XESyqCCpt5TR1+t0NenE2no0RvrRZtGJPD7W82dMan3Z8Ykg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  :root {
+    --navy: #022b5b;
+    --navy-dark: #001d3f;
+    --cyan: #00bcd4;
+    --mint: #3dd9b6;
+    --peach: #ffb68e;
+    --lavender: #8f9bff;
+    --surface: #ffffff;
+    --surface-soft: #f5f7fb;
+    --surface-glass: rgba(255, 255, 255, 0.75);
+    --border: #d9e1f2;
+    --shadow-sm: 0 4px 10px rgba(2, 43, 91, 0.08);
+    --shadow-md: 0 12px 30px rgba(2, 43, 91, 0.12);
+    --radius-lg: 18px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-tertiary: #64748b;
+    --transition: all 0.25s ease;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+    color: var(--text-primary);
+  }
+
+  .experience-wrapper {
+    padding: 2.5rem clamp(1.25rem, 2vw, 3rem);
+    max-width: 1400px;
+    margin: 0 auto 4rem auto;
+  }
+
+  .hero-card {
+    background: linear-gradient(135deg, rgba(2, 43, 91, 0.92) 0%, rgba(2, 43, 91, 0.75) 50%, rgba(17, 94, 185, 0.85) 100%);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.5rem, 3vw, 3rem);
+    margin-bottom: 2.5rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 55%);
+    opacity: 0.9;
+  }
+
+  .hero-card .hero-content {
+    position: relative;
+    display: flex;
+    gap: clamp(1.5rem, 2.5vw, 3rem);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .hero-card h1 {
+    font-size: clamp(1.9rem, 3vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+
+  .hero-card p {
+    font-size: clamp(1rem, 1.75vw, 1.2rem);
+    color: rgba(255, 255, 255, 0.85);
+    max-width: 520px;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    position: relative;
+    z-index: 1;
+    flex: 1;
+  }
+
+  .hero-stat {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.1rem;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    transition: var(--transition);
+  }
+
+  .hero-stat:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .hero-stat span {
+    display: block;
+  }
+
+  .hero-stat .label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.35rem;
+  }
+
+  .hero-stat .value {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title h2 {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .section-title h2 i {
+    color: var(--navy);
+  }
+
+  .card-surface {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .schedule-card {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: var(--transition);
+  }
+
+  .schedule-card:hover {
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-4px);
+  }
+
+  .schedule-date {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .schedule-date span {
+    color: var(--text-secondary);
+  }
+
+  .assignment-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface-soft);
+    border-radius: 999px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+  }
+
+  .status-onsite {
+    background: rgba(255, 182, 142, 0.18);
+    color: #b45309;
+  }
+
+  .status-remote {
+    background: rgba(63, 217, 182, 0.18);
+    color: #047857;
+  }
+
+  .status-training {
+    background: rgba(143, 155, 255, 0.18);
+    color: #4338ca;
+  }
+
+  .qa-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .qa-tile {
+    background: var(--surface-soft);
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(2, 43, 91, 0.08);
+    position: relative;
+  }
+
+  .qa-tile strong {
+    font-size: 1.4rem;
+    display: block;
+    color: var(--navy);
+  }
+
+  .qa-tile span {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+  }
+
+  .qa-score-breakdown {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .qa-score-breakdown .metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .progress-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    overflow: hidden;
+  }
+
+  .progress-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+  }
+
+  .metric .label {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .metric .value {
+    font-weight: 700;
+    color: var(--navy);
+  }
+
+  .coaching-list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .coaching-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.2rem 1.5rem;
+    background: var(--surface);
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .coaching-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .acknowledge-btn {
+    padding: 0.55rem 1.2rem;
+    border-radius: 999px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, var(--mint) 0%, #2bbf9e 100%);
+    color: white;
+    transition: var(--transition);
+    box-shadow: 0 10px 20px rgba(61, 217, 182, 0.25);
+  }
+
+  .acknowledge-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 30px rgba(61, 217, 182, 0.28);
+  }
+
+  .acknowledge-btn.completed {
+    background: linear-gradient(135deg, #cbd5f5 0%, #94a3ff 100%);
+    box-shadow: none;
+  }
+
+  .recognition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .recognition-card {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    border: 1px solid rgba(2, 43, 91, 0.08);
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition);
+  }
+
+  .recognition-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 182, 142, 0.12) 0%, rgba(255, 255, 255, 0) 60%);
+    z-index: 0;
+  }
+
+  .recognition-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .recognition-card h3 {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .recognition-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .recognition-card li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.95rem;
+  }
+
+  .recognition-card li span {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .message-center {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .message-feed {
+    display: grid;
+    gap: 0.85rem;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+  }
+
+  .message-card {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--border);
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .message-card .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+  }
+
+  .message-card .category {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--surface-soft);
+    border-radius: 999px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .message-card .body {
+    color: var(--text-secondary);
+  }
+
+  .message-compose {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 1.2rem 1.5rem;
+    border: 1px solid var(--border);
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .message-compose textarea {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    resize: none;
+    min-height: 100px;
+  }
+
+  .message-compose button {
+    align-self: flex-end;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, var(--lavender) 0%, #5b6ae0 100%);
+    color: white;
+    font-weight: 600;
+    transition: var(--transition);
+  }
+
+  .message-compose button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px rgba(95, 107, 230, 0.25);
+  }
+
+  .tag-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .tag {
+    background: rgba(2, 43, 91, 0.08);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 768px) {
+    .hero-card {
+      padding: 1.75rem;
+    }
+
+    .experience-wrapper {
+      padding: 1.5rem;
+    }
+  }
+</style>
+
+<div class="experience-wrapper">
+  <section class="hero-card">
+    <div class="hero-content">
+      <div>
+        <h1 id="heroGreeting">Welcome back!</h1>
+        <p id="heroSubtext">Stay on top of schedules, quality targets, coaching actions, and recognition moments in one operational cockpit designed for high-performing agents.</p>
+        <div class="tag-group" id="heroTags"></div>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="label">QA Score</span>
+          <span class="value" id="heroQA">--</span>
+          <span class="text-white-50" id="heroQATarget">Target --</span>
+        </div>
+        <div class="hero-stat">
+          <span class="label">Attendance</span>
+          <span class="value" id="heroAttendance">--</span>
+          <span class="text-white-50" id="heroAttendanceRange">Last 30 days</span>
+        </div>
+        <div class="hero-stat">
+          <span class="label">Coaching</span>
+          <span class="value" id="heroCoaching">--</span>
+          <span class="text-white-50" id="heroCoachingSubtitle">Acknowledgements</span>
+        </div>
+        <div class="hero-stat">
+          <span class="label">Shifts</span>
+          <span class="value" id="heroShifts">--</span>
+          <span class="text-white-50" id="heroShiftsSubtitle">Upcoming coverage</span>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div id="dashboardStatus" class="alert alert-info d-none" role="status"></div>
+
+  <section class="card-surface" aria-labelledby="schedule-heading">
+    <div class="section-title">
+      <h2 id="schedule-heading"><i class="fa-regular fa-clock"></i> Upcoming Schedule & Assignments</h2>
+      <button class="btn btn-sm btn-outline-primary" id="syncCalendarBtn"><i class="fa-solid fa-rotate"></i> Sync Calendar</button>
+    </div>
+    <div class="grid-3" id="scheduleGrid"></div>
+  </section>
+
+  <section class="card-surface mt-4" aria-labelledby="qa-heading">
+    <div class="section-title">
+      <h2 id="qa-heading"><i class="fa-solid fa-star"></i> QA Performance</h2>
+      <div class="btn-group">
+        <button class="btn btn-sm btn-outline-secondary active" data-range="30">30 Days</button>
+        <button class="btn btn-sm btn-outline-secondary" data-range="90">Quarter</button>
+      </div>
+    </div>
+    <div class="qa-summary">
+      <div class="qa-tile">
+        <span>Composite Score</span>
+        <strong id="qaComposite">--</strong>
+        <small class="text-secondary" id="qaCompositeDelta"></small>
+      </div>
+      <div class="qa-tile">
+        <span>Pass Rate</span>
+        <strong id="qaPassRate">--</strong>
+        <small class="text-secondary" id="qaPassRateDetails"></small>
+      </div>
+      <div class="qa-tile">
+        <span>Focus Area</span>
+        <strong id="qaFocus">--</strong>
+        <small class="text-secondary" id="qaFocusDetails"></small>
+      </div>
+      <div class="qa-tile">
+        <span>Rank</span>
+        <strong id="qaRank">--</strong>
+        <small class="text-secondary" id="qaRankDetails"></small>
+      </div>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="position-relative" id="qaTrendContainer">
+          <canvas id="qaTrendChart" height="260" class="d-none"></canvas>
+          <div id="qaTrendEmpty" class="text-muted text-center py-5">Loading trend…</div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="qa-score-breakdown" id="qaBreakdown"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-surface mt-4" aria-labelledby="coaching-heading">
+    <div class="section-title">
+      <h2 id="coaching-heading"><i class="fa-solid fa-clipboard-check"></i> Coaching & Acknowledgements</h2>
+      <span class="text-muted" id="coachingSummary">3 records • 1 acknowledgement pending</span>
+    </div>
+    <div class="coaching-list" id="coachingList"></div>
+  </section>
+
+  <section class="card-surface mt-4" aria-labelledby="recognition-heading">
+    <div class="section-title">
+      <h2 id="recognition-heading"><i class="fa-solid fa-trophy"></i> Recognition Highlights</h2>
+      <div class="btn btn-sm btn-outline-secondary" id="viewLeaderboard"><i class="fa-solid fa-ranking-star"></i> View Leaderboard</div>
+    </div>
+    <div class="recognition-grid" id="recognitionGrid"></div>
+  </section>
+
+  <section class="card-surface mt-4" aria-labelledby="messaging-heading">
+    <div class="section-title">
+      <h2 id="messaging-heading"><i class="fa-solid fa-comments"></i> Messaging Center</h2>
+      <div class="btn-group" role="group" aria-label="Message filters">
+        <button class="btn btn-sm btn-outline-secondary active" data-filter="all" data-label="All">All</button>
+        <button class="btn btn-sm btn-outline-secondary" data-filter="coaching" data-label="Coaching">Coaching</button>
+        <button class="btn btn-sm btn-outline-secondary" data-filter="recognition" data-label="Recognition">Recognition</button>
+        <button class="btn btn-sm btn-outline-secondary" data-filter="updates" data-label="Updates">Updates</button>
+      </div>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="message-feed" id="messageFeed"></div>
+      </div>
+      <div class="col-lg-5">
+        <div class="message-compose">
+          <h5>Quick Reply</h5>
+          <select class="form-select" id="messageAudience">
+            <option value="coach">Send to Coach</option>
+            <option value="manager">Send to Manager</option>
+            <option value="qa">Send to QA Analyst</option>
+          </select>
+          <textarea class="form-control" id="messageBody" placeholder="Type your response or update"></textarea>
+          <button type="button" id="sendMessage"><i class="fa-solid fa-paper-plane"></i> Send</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const dashboardState = {
+    agent: {},
+    hero: {},
+    schedule: { items: [], metrics: {} },
+    qa: { metrics: {}, trend: {}, categoryBreakdown: [], recentAudits: [] },
+    coaching: { records: [], pendingCount: 0, acknowledgedCount: 0, totalCount: 0 },
+    attendance: { metrics: {} },
+    recognition: [],
+    messaging: { threads: [], unreadCount: 0, byCategory: {} },
+    generatedAt: null
+  };
+
+  let qaChart = null;
+  let currentQaRange = '30';
+  let currentMessageFilter = 'all';
+  let isLoadingDashboard = false;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setupControls();
+    fetchDashboard();
+  });
+
+  function setupControls() {
+    document.querySelectorAll('[data-range]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const range = button.getAttribute('data-range') || '30';
+        currentQaRange = range;
+        renderQaChart(range);
+      });
+    });
+
+    document.querySelectorAll('[data-filter]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const filter = button.getAttribute('data-filter') || 'all';
+        currentMessageFilter = filter;
+        renderMessages(filter);
+      });
+    });
+
+    const syncButton = document.getElementById('syncCalendarBtn');
+    if (syncButton) {
+      syncButton.addEventListener('click', () => fetchDashboard(false));
+    }
+
+    const sendButton = document.getElementById('sendMessage');
+    if (sendButton) {
+      sendButton.addEventListener('click', sendQuickMessage);
+    }
+
+    const leaderboardButton = document.getElementById('viewLeaderboard');
+    if (leaderboardButton) {
+      leaderboardButton.addEventListener('click', () => {
+        showStatus('Leaderboard view is coming soon. Reach out to your manager for current standings.', 'info', true);
+        setTimeout(() => showStatus('', 'info'), 4000);
+      });
+    }
+  }
+
+  function fetchDashboard(showSpinner = true) {
+    if (isLoadingDashboard) return;
+    if (!(window.google && google.script && google.script.run)) {
+      showStatus('Server connection unavailable. Please reopen this page from the Lumina Sheets add-on.', 'danger', true);
+      return;
+    }
+
+    isLoadingDashboard = true;
+    toggleLoadingState(true, showSpinner);
+
+    google.script.run
+      .withSuccessHandler((data) => {
+        isLoadingDashboard = false;
+        toggleLoadingState(false, false);
+        applyDashboardData(data || {});
+      })
+      .withFailureHandler((error) => {
+        isLoadingDashboard = false;
+        toggleLoadingState(false, false);
+        const message = error && error.message ? error.message : 'Failed to load dashboard data.';
+        showStatus(message, 'danger', true);
+      })
+      .clientGetAgentExperienceDashboard();
+  }
+
+  function toggleLoadingState(isLoading, showSpinner) {
+    const syncButton = document.getElementById('syncCalendarBtn');
+    if (syncButton) {
+      syncButton.disabled = isLoading;
+    }
+
+    if (isLoading && showSpinner) {
+      showStatus('Loading your latest data…', 'info', true);
+    } else if (!isLoading) {
+      const statusEl = document.getElementById('dashboardStatus');
+      if (statusEl && statusEl.dataset.persist !== 'true') {
+        showStatus('');
+      }
+    }
+  }
+
+  function applyDashboardData(data) {
+    dashboardState.agent = data.agent || {};
+    dashboardState.hero = data.hero || {};
+    dashboardState.schedule = data.schedule || { items: [], metrics: {} };
+    dashboardState.qa = data.qa || { metrics: {}, trend: {}, categoryBreakdown: [], recentAudits: [] };
+    dashboardState.coaching = data.coaching || { records: [], pendingCount: 0, acknowledgedCount: 0, totalCount: 0 };
+    dashboardState.attendance = data.attendance || { metrics: {} };
+    dashboardState.recognition = Array.isArray(data.recognition) ? data.recognition : [];
+    dashboardState.messaging = data.messaging || { threads: [], unreadCount: 0, byCategory: {} };
+    dashboardState.generatedAt = data.generatedAt || null;
+
+    updateHero();
+    renderSchedule();
+    renderQA();
+    renderCoaching();
+    renderRecognition();
+    renderMessages(currentMessageFilter);
+    updateMessageFilterCounts();
+
+    showStatus('');
+  }
+
+  function updateHero() {
+    const greeting = document.getElementById('heroGreeting');
+    const subtext = document.getElementById('heroSubtext');
+    if (greeting) {
+      const name = dashboardState.agent.firstName || dashboardState.agent.fullName || 'Agent';
+      greeting.textContent = `Welcome back, ${name}!`;
+    }
+    if (subtext) {
+      subtext.textContent = dashboardState.hero.subtitle || 'Stay on top of schedules, quality targets, coaching actions, and recognition moments in one operational cockpit designed for high-performing agents.';
+    }
+
+    const tagsContainer = document.getElementById('heroTags');
+    if (tagsContainer) {
+      clearElement(tagsContainer);
+      const tags = Array.isArray(dashboardState.hero.tags) ? dashboardState.hero.tags : [];
+      if (!tags.length) {
+        tagsContainer.classList.add('d-none');
+      } else {
+        tagsContainer.classList.remove('d-none');
+        tags.forEach((tag) => {
+          const span = createElement('span', 'tag');
+          const icon = createElement('i', tag.icon || 'fa-regular fa-circle');
+          span.appendChild(icon);
+          span.appendChild(document.createTextNode(` ${tag.label || ''}`));
+          tagsContainer.appendChild(span);
+        });
+      }
+    }
+
+    const heroStats = dashboardState.hero.stats || {};
+    setText('heroQA', formatPercent(heroStats.qa && heroStats.qa.value));
+    const qaTargetParts = [];
+    if (heroStats.qa && heroStats.qa.target != null) {
+      qaTargetParts.push(`Target ${formatPercent(heroStats.qa.target)}`);
+    }
+    if (heroStats.qa && typeof heroStats.qa.delta === 'number') {
+      const deltaText = formatDelta(heroStats.qa.delta);
+      if (deltaText && deltaText !== 'In line') {
+        qaTargetParts.push(deltaText);
+      }
+    }
+    setText('heroQATarget', qaTargetParts.join(' • '));
+
+    setText('heroAttendance', formatPercent(heroStats.attendance && heroStats.attendance.value));
+    setText('heroAttendanceRange', heroStats.attendance && heroStats.attendance.periodLabel ? heroStats.attendance.periodLabel : 'Attendance window');
+
+    if (heroStats.coaching) {
+      const pending = Number(heroStats.coaching.pending || 0);
+      const completed = Number(heroStats.coaching.completed || 0);
+      setText('heroCoaching', `${pending} pending`);
+      setText('heroCoachingSubtitle', `${completed} completed`);
+    } else {
+      setText('heroCoaching', '--');
+      setText('heroCoachingSubtitle', 'Acknowledgements');
+    }
+
+    if (heroStats.shifts) {
+      const upcoming = Number(heroStats.shifts.upcoming || 0);
+      setText('heroShifts', `${upcoming} upcoming`);
+      setText('heroShiftsSubtitle', heroStats.shifts.nextShift || 'Upcoming coverage');
+    } else {
+      setText('heroShifts', '--');
+      setText('heroShiftsSubtitle', 'Upcoming coverage');
+    }
+  }
+
+  function renderSchedule() {
+    const container = document.getElementById('scheduleGrid');
+    if (!container) return;
+    clearElement(container);
+
+    const items = Array.isArray(dashboardState.schedule.items) ? dashboardState.schedule.items : [];
+    if (!items.length) {
+      const empty = createElement('div', 'text-muted');
+      empty.textContent = 'No upcoming shifts found. Check back soon.';
+      container.appendChild(empty);
+      return;
+    }
+
+    items.slice(0, 9).forEach((item) => {
+      const card = createElement('article', 'schedule-card');
+
+      const header = createElement('div', 'schedule-date');
+      const dateLabel = createElement('strong', null, item.displayDate || '--');
+      const timeSpan = createElement('span', null, formatTimeRange(item.startDisplay, item.endDisplay));
+      header.appendChild(dateLabel);
+      header.appendChild(timeSpan);
+      card.appendChild(header);
+
+      const assignment = createElement('div', 'assignment-pill');
+      const icon = createElement('i', 'fa-solid fa-headset');
+      assignment.appendChild(icon);
+      assignment.appendChild(document.createTextNode(` ${item.slotName || 'Scheduled Shift'}`));
+      card.appendChild(assignment);
+
+      const meta = createElement('div', 'd-flex align-items-center gap-2 flex-wrap');
+      meta.appendChild(renderStatusBadge(item.status || '', item.location || ''));
+      if (item.notes) {
+        meta.appendChild(createElement('small', 'text-muted', item.notes));
+      } else if (item.location) {
+        meta.appendChild(createElement('small', 'text-muted', item.location));
+      }
+      card.appendChild(meta);
+
+      container.appendChild(card);
+    });
+  }
+
+  function renderStatusBadge(status, location) {
+    const badge = createElement('span', 'status-badge');
+    const normalized = String(status || '').toLowerCase();
+    let config = { icon: 'fa-building', label: 'Onsite', className: 'status-onsite' };
+    if (normalized.includes('remote')) {
+      config = { icon: 'fa-house-laptop', label: 'Remote', className: 'status-remote' };
+    } else if (normalized.includes('training')) {
+      config = { icon: 'fa-graduation-cap', label: 'Training', className: 'status-training' };
+    } else if (normalized.includes('flex') || normalized.includes('rest')) {
+      config = { icon: 'fa-mug-hot', label: 'Flex Day', className: 'status-training' };
+    }
+    badge.classList.add(config.className);
+    const icon = createElement('i', `fa-solid ${config.icon}`);
+    badge.appendChild(icon);
+    badge.appendChild(document.createTextNode(` ${config.label}`));
+    return badge;
+  }
+
+  function renderQA() {
+    const metrics = dashboardState.qa.metrics || {};
+    setText('qaComposite', formatPercent(metrics.averageScore));
+    setText('qaCompositeDelta', metrics.delta != null ? `${formatDelta(metrics.delta)} vs prior period` : '');
+
+    setText('qaPassRate', formatPercent(metrics.passRate));
+    if (metrics.evaluationsCount) {
+      const passCount = Math.round((metrics.passRate || 0) * metrics.evaluationsCount);
+      setText('qaPassRateDetails', `${passCount} of ${metrics.evaluationsCount} evaluations`);
+    } else {
+      setText('qaPassRateDetails', 'No evaluations recorded');
+    }
+
+    setText('qaFocus', metrics.focusArea || '--');
+    setText('qaFocusDetails', metrics.lastAuditDate ? `Latest audit ${formatDateShort(metrics.lastAuditDate)}` : 'Awaiting latest audit');
+
+    setText('qaRank', metrics.rankLabel || '--');
+    setText('qaRankDetails', 'Campaign comparison');
+
+    renderQaChart(currentQaRange);
+
+    const breakdownContainer = document.getElementById('qaBreakdown');
+    if (breakdownContainer) {
+      clearElement(breakdownContainer);
+      const breakdown = Array.isArray(dashboardState.qa.categoryBreakdown) ? dashboardState.qa.categoryBreakdown : [];
+      if (!breakdown.length) {
+        breakdownContainer.appendChild(createElement('p', 'text-muted mb-0', 'No category breakdown available.'));
+      } else {
+        breakdown.forEach((item) => {
+          const metricRow = createElement('div', 'metric');
+          metricRow.appendChild(createElement('span', 'label', item.label || 'Category'));
+          metricRow.appendChild(createElement('span', 'value', formatPercent(item.value)));
+          breakdownContainer.appendChild(metricRow);
+
+          const progress = createElement('div', 'progress-bar');
+          const span = createElement('span');
+          const percent = Math.min(100, Math.max(0, (item.value || 0) * 100));
+          span.style.width = `${percent}%`;
+          span.style.background = 'linear-gradient(90deg,#3dd9b6,#0284c7)';
+          progress.appendChild(span);
+          breakdownContainer.appendChild(progress);
+        });
+      }
+    }
+  }
+
+  function renderQaChart(range) {
+    const canvas = document.getElementById('qaTrendChart');
+    const placeholder = document.getElementById('qaTrendEmpty');
+    if (!canvas) return;
+
+    const dataset = dashboardState.qa.trend ? dashboardState.qa.trend[range] : null;
+    document.querySelectorAll('[data-range]').forEach((button) => {
+      if (button.getAttribute('data-range') === range) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+
+    if (!dataset || !dataset.length) {
+      if (qaChart) {
+        qaChart.destroy();
+        qaChart = null;
+      }
+      if (canvas) canvas.classList.add('d-none');
+      if (placeholder) {
+        placeholder.classList.remove('d-none');
+        placeholder.textContent = 'No QA evaluations in this period.';
+      }
+      return;
+    }
+
+    if (placeholder) {
+      placeholder.classList.add('d-none');
+    }
+    canvas.classList.remove('d-none');
+
+    const labels = dataset.map((item) => item.label);
+    const scores = dataset.map((item) => item.score);
+
+    if (qaChart) {
+      qaChart.destroy();
+    }
+
+    qaChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'QA Score',
+          data: scores,
+          fill: false,
+          tension: 0.35,
+          borderWidth: 3,
+          borderColor: '#3dd9b6',
+          pointBackgroundColor: '#022b5b',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            suggestedMin: 70,
+            suggestedMax: 100,
+            ticks: {
+              callback: (value) => `${value}%`
+            },
+            grid: { color: 'rgba(2, 43, 91, 0.08)' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.parsed.y}%`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderCoaching() {
+    const list = document.getElementById('coachingList');
+    const summary = document.getElementById('coachingSummary');
+    if (!list || !summary) return;
+
+    clearElement(list);
+
+    const records = Array.isArray(dashboardState.coaching.records) ? dashboardState.coaching.records : [];
+    const pending = Number(dashboardState.coaching.pendingCount || 0);
+    const total = Number(dashboardState.coaching.totalCount || records.length || 0);
+    summary.textContent = `${total} record${total === 1 ? '' : 's'} • ${pending} acknowledgement${pending === 1 ? '' : 's'} pending`;
+
+    if (!records.length) {
+      const empty = createElement('div', 'text-muted');
+      empty.textContent = 'No coaching records yet.';
+      list.appendChild(empty);
+      return;
+    }
+
+    records.forEach((record) => {
+      const card = createElement('article', 'coaching-item');
+
+      const header = createElement('div');
+      const title = createElement('h5', 'mb-1', record.topics && record.topics.length ? record.topics[0] : 'Coaching Session');
+      header.appendChild(title);
+
+      const meta = createElement('div', 'coaching-meta');
+      meta.appendChild(buildMetaItem('fa-regular fa-user', record.coach || 'Coach'));
+      meta.appendChild(buildMetaItem('fa-regular fa-calendar', formatDateShort(record.sessionDate)));
+      if (record.followUpDate) {
+        meta.appendChild(buildMetaItem('fa-solid fa-clock-rotate-left', `Follow-up ${formatDateShort(record.followUpDate)}`));
+      }
+      header.appendChild(meta);
+      card.appendChild(header);
+
+      const actionSection = createElement('div');
+      actionSection.appendChild(createElement('p', 'mb-2 text-secondary', 'Action Items'));
+      const listEl = createElement('ul', 'mb-0 ps-3');
+      const actions = record.actionPlan ? record.actionPlan.split(/\r?\n|\u2022|,/).map((item) => item.trim()).filter(Boolean) : record.topics || [];
+      if (!actions.length) {
+        const li = createElement('li', null, 'No action items listed.');
+        listEl.appendChild(li);
+      } else {
+        actions.forEach((action) => {
+          listEl.appendChild(createElement('li', null, action));
+        });
+      }
+      actionSection.appendChild(listEl);
+      card.appendChild(actionSection);
+
+      const footer = createElement('div', 'd-flex justify-content-between align-items-center flex-wrap gap-2');
+      const statusBadge = createElement('span', `badge rounded-pill ${record.acknowledged ? 'text-bg-success' : 'text-bg-warning'}`, record.acknowledged ? 'Acknowledged' : 'Awaiting acknowledgement');
+      footer.appendChild(statusBadge);
+
+      const button = createElement('button', `acknowledge-btn ${record.acknowledged ? 'completed' : ''}`);
+      button.type = 'button';
+      button.innerHTML = record.acknowledged ? '<i class="fa-solid fa-check"></i> Recorded' : '<i class="fa-solid fa-pen"></i> Acknowledge';
+      button.disabled = record.acknowledged;
+      if (!record.acknowledged) {
+        button.addEventListener('click', () => handleCoachingAcknowledgement(record.id, button));
+      }
+      footer.appendChild(button);
+
+      card.appendChild(footer);
+      list.appendChild(card);
+    });
+  }
+
+  function renderRecognition() {
+    const grid = document.getElementById('recognitionGrid');
+    if (!grid) return;
+    clearElement(grid);
+
+    const highlights = Array.isArray(dashboardState.recognition) ? dashboardState.recognition : [];
+    if (!highlights.length) {
+      const empty = createElement('div', 'text-muted');
+      empty.textContent = 'Recognition updates will appear here once available.';
+      grid.appendChild(empty);
+      return;
+    }
+
+    highlights.forEach((card) => {
+      const article = createElement('article', 'recognition-card');
+      const heading = createElement('h3');
+      const icon = createElement('i', card.icon || 'fa-solid fa-trophy');
+      heading.appendChild(icon);
+      heading.appendChild(document.createTextNode(` ${card.title || 'Recognition'}`));
+      article.appendChild(heading);
+
+      const badge = createElement('span', 'badge bg-light text-primary mb-3', card.badge || 'Achievement');
+      article.appendChild(badge);
+
+      const list = createElement('ul');
+      const leaders = Array.isArray(card.leaders) ? card.leaders : [];
+      leaders.forEach((leader) => {
+        const li = createElement('li');
+        const strong = createElement('strong', null, leader.name || '');
+        const detail = createElement('span', null, leader.detail || '');
+        li.appendChild(strong);
+        li.appendChild(detail);
+        list.appendChild(li);
+      });
+      article.appendChild(list);
+      grid.appendChild(article);
+    });
+  }
+
+  function renderMessages(filter) {
+    const feed = document.getElementById('messageFeed');
+    if (!feed) return;
+    clearElement(feed);
+
+    const threads = Array.isArray(dashboardState.messaging.threads) ? dashboardState.messaging.threads.slice() : [];
+    threads.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    const filtered = filter === 'all' ? threads : threads.filter((thread) => (thread.category || '').toLowerCase() === filter);
+
+    document.querySelectorAll('[data-filter]').forEach((button) => {
+      if (button.getAttribute('data-filter') === filter) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+
+    if (!filtered.length) {
+      const empty = createElement('div', 'text-muted text-center py-4', 'No messages in this view yet.');
+      feed.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((thread) => {
+      const card = createElement('article', 'message-card');
+      const meta = createElement('div', 'meta');
+      meta.appendChild(createElement('span', 'fw-semibold text-primary', thread.title || 'Update'));
+      meta.appendChild(createElement('span', null, formatRelativeTimestamp(thread.createdAt)));
+      card.appendChild(meta);
+
+      const category = createElement('div', 'category');
+      category.appendChild(createElement('i', 'fa-solid fa-tag'));
+      category.appendChild(document.createTextNode(` ${(thread.category || 'updates').charAt(0).toUpperCase()}${(thread.category || 'updates').slice(1)}`));
+      card.appendChild(category);
+
+      card.appendChild(createElement('div', 'body', thread.body || ''));
+      card.appendChild(createElement('small', 'text-muted', `From ${thread.from || 'System'}`));
+      feed.appendChild(card);
+    });
+  }
+
+  function updateMessageFilterCounts() {
+    const threads = Array.isArray(dashboardState.messaging.threads) ? dashboardState.messaging.threads : [];
+    const counts = threads.reduce((acc, thread) => {
+      const category = (thread.category || 'updates').toLowerCase();
+      acc[category] = (acc[category] || 0) + 1;
+      acc.all = (acc.all || 0) + 1;
+      return acc;
+    }, { all: threads.length });
+
+    document.querySelectorAll('[data-filter]').forEach((button) => {
+      const filter = button.getAttribute('data-filter') || 'all';
+      const label = button.getAttribute('data-label') || button.textContent;
+      const total = counts[filter] || 0;
+      button.textContent = `${label} (${total})`;
+    });
+  }
+
+  function sendQuickMessage() {
+    if (!(window.google && google.script && google.script.run)) {
+      showStatus('Server connection unavailable. Please reopen this page from the Lumina Sheets add-on.', 'danger', true);
+      return;
+    }
+
+    const bodyInput = document.getElementById('messageBody');
+    const audienceSelect = document.getElementById('messageAudience');
+    if (!bodyInput || !audienceSelect) return;
+
+    const body = bodyInput.value.trim();
+    if (!body) {
+      bodyInput.focus();
+      return;
+    }
+
+    const audience = audienceSelect.value;
+    const sendButton = document.getElementById('sendMessage');
+    const originalLabel = sendButton ? sendButton.innerHTML : '';
+    if (sendButton) {
+      sendButton.disabled = true;
+      sendButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Sending';
+    }
+
+    google.script.run
+      .withSuccessHandler(() => {
+        if (sendButton) {
+          sendButton.disabled = false;
+          sendButton.innerHTML = originalLabel;
+        }
+        bodyInput.value = '';
+        showStatus('Message sent successfully.', 'success');
+        fetchDashboard(false);
+      })
+      .withFailureHandler((error) => {
+        if (sendButton) {
+          sendButton.disabled = false;
+          sendButton.innerHTML = originalLabel;
+        }
+        const message = error && error.message ? error.message : 'Unable to send message.';
+        showStatus(message, 'danger', true);
+      })
+      .clientSubmitAgentExperienceMessage(audience, body);
+  }
+
+  function handleCoachingAcknowledgement(coachingId, button) {
+    if (!(window.google && google.script && google.script.run)) {
+      showStatus('Server connection unavailable. Please reopen this page from the Lumina Sheets add-on.', 'danger', true);
+      return;
+    }
+
+    const note = window.prompt('Add an acknowledgement note (optional):', '');
+    if (note === null) return;
+
+    const originalLabel = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving';
+
+    google.script.run
+      .withSuccessHandler(() => {
+        showStatus('Coaching acknowledgement recorded.', 'success');
+        fetchDashboard(false);
+      })
+      .withFailureHandler((error) => {
+        const message = error && error.message ? error.message : 'Unable to acknowledge coaching record.';
+        showStatus(message, 'danger', true);
+        button.disabled = false;
+        button.innerHTML = originalLabel;
+      })
+      .clientAcknowledgeCoachingRecord(coachingId, note || '');
+  }
+
+  function showStatus(message, variant = 'info', sticky = false) {
+    const statusEl = document.getElementById('dashboardStatus');
+    if (!statusEl) return;
+
+    if (!message) {
+      statusEl.classList.add('d-none');
+      statusEl.textContent = '';
+      statusEl.dataset.persist = 'false';
+      return;
+    }
+
+    statusEl.className = `alert alert-${variant}`;
+    statusEl.textContent = message;
+    statusEl.classList.remove('d-none');
+    statusEl.dataset.persist = sticky ? 'true' : 'false';
+
+    if (!sticky) {
+      setTimeout(() => {
+        if (statusEl.dataset.persist === 'false') {
+          statusEl.classList.add('d-none');
+          statusEl.textContent = '';
+        }
+      }, 4000);
+    }
+  }
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (value === null || value === undefined) {
+      el.textContent = '--';
+    } else {
+      el.textContent = value;
+    }
+  }
+
+  function formatPercent(value) {
+    if (value === null || value === undefined || isNaN(value)) return '--';
+    const percent = value <= 1 ? value * 100 : value;
+    return `${Math.round(percent * 10) / 10}%`;
+  }
+
+  function formatDelta(value) {
+    if (value === null || value === undefined || isNaN(value)) return '';
+    const percent = value * 100;
+    const formatted = `${Math.abs(Math.round(percent * 10) / 10)} pts`;
+    return percent > 0 ? `▲ ${formatted}` : percent < 0 ? `▼ ${formatted}` : 'In line';
+  }
+
+  function formatTimeRange(start, end) {
+    if (!start || !end) return '';
+    return `${start} — ${end}`;
+  }
+
+  function formatDateShort(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function formatRelativeTimestamp(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '';
+
+    const now = new Date();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diff = date - startOfToday;
+
+    const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+    if (diff >= 0 && diff < oneDayMs) {
+      return `Today • ${time}`;
+    }
+    if (diff >= -oneDayMs && diff < 0) {
+      return `Yesterday • ${time}`;
+    }
+    return `${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} • ${time}`;
+  }
+
+  function clearElement(el) {
+    while (el.firstChild) {
+      el.removeChild(el.firstChild);
+    }
+  }
+
+  function createElement(tag, className, textContent) {
+    const el = document.createElement(tag);
+    if (className) {
+      el.className = className;
+    }
+    if (textContent !== undefined && textContent !== null) {
+      el.textContent = textContent;
+    }
+    return el;
+  }
+
+  function buildMetaItem(iconClass, text) {
+    const span = createElement('span');
+    const icon = createElement('i', iconClass);
+    span.appendChild(icon);
+    span.appendChild(document.createTextNode(` ${text}`));
+    return span;
+  }
+
+</script>
