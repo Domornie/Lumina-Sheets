@@ -367,6 +367,7 @@
 </style>
 
 <div class="collab-wrapper">
+  <div id="collabAlerts" class="mb-3"></div>
   <div class="row g-4 align-items-stretch">
     <div class="col-xxl-8">
       <div class="card section-card h-100">
@@ -376,10 +377,10 @@
             <h2 class="mt-3 mb-1">Audit Capture & Multi-role Review</h2>
             <p class="mb-0">Co-author quality reviews, track action items, and visualize cross-team QA performance in real time.</p>
           </div>
-          <div class="text-end">
-            <div class="muted-label">Rolling 30-day coverage</div>
-            <div class="display-6 fw-bold" id="qaCoverageRate">96%</div>
-          </div>
+            <div class="text-end">
+              <div class="muted-label">Rolling 30-day coverage</div>
+              <div class="display-6 fw-bold" id="qaCoverageRate">—</div>
+            </div>
         </div>
         <div class="card-body">
           <div class="qa-grid">
@@ -464,11 +465,11 @@
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
                     <div class="label text-uppercase">Average QA Score</div>
-                    <div class="value" id="qaAverageScore">94.2</div>
+                    <div class="value" id="qaAverageScore">—</div>
                   </div>
                   <div class="text-end">
                     <div class="muted-label">vs target 92%</div>
-                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">+1.8 pts</div>
+                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
                   </div>
                 </div>
                 <div class="mt-3">
@@ -479,14 +480,15 @@
                 <div class="col-md-6">
                   <div class="qa-metric-card">
                     <div class="label text-uppercase">Actionable Items</div>
-                    <div class="value" id="qaFollowUps">8</div>
+                    <div class="value" id="qaFollowUps">—</div>
+
                     <div class="muted-label">Follow-ups scheduled this week</div>
                   </div>
                 </div>
                 <div class="col-md-6">
                   <div class="qa-metric-card">
                     <div class="label text-uppercase">Collaboration Threads</div>
-                    <div class="value" id="qaThreads">26</div>
+                    <div class="value" id="qaThreads">—</div>
                     <div class="muted-label">Audits with multi-role feedback</div>
                   </div>
                 </div>
@@ -525,16 +527,17 @@
           <div class="row g-3">
             <div class="col-sm-6">
               <div class="exec-kpi-card text-center">
-                <small>Net promoter lift (QTD)</small>
-                <div class="headline" id="kpiNetPromoter">+6.4</div>
-                <div class="text-success fw-semibold">Momentum improving</div>
+                <small>Average QA score</small>
+                <div class="headline" id="kpiQualityAverage">—</div>
+                <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
               </div>
             </div>
             <div class="col-sm-6">
               <div class="exec-kpi-card text-center">
-                <small>QA compliance adherence</small>
-                <div class="headline" id="kpiCompliance">97%</div>
-                <div class="text-success fw-semibold">+2 pts vs last month</div>
+                <small>Attendance rate</small>
+                <div class="headline" id="kpiAttendanceRate">—</div>
+                <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
+
               </div>
             </div>
           </div>
@@ -545,15 +548,11 @@
                 <p class="mb-0 text-secondary">Distribution of KPI attainment vs executive targets.</p>
               </div>
               <div class="text-end">
-                <span class="badge bg-primary-subtle text-primary" id="execTimeframe">Q2, Week 3</span>
+                <span class="badge bg-primary-subtle text-primary" id="execTimeframe">—</span>
               </div>
             </div>
             <canvas id="execBlendChart" height="180"></canvas>
-            <div class="mt-3">
-              <div class="kpi-bullet"><span class="kpi-dot" style="background:#38bdf8"></span> Credit Suite – 94% target attainment</div>
-              <div class="kpi-bullet"><span class="kpi-dot" style="background:#34d399"></span> Independence – 91% target attainment</div>
-              <div class="kpi-bullet"><span class="kpi-dot" style="background:#facc15"></span> Grounding QA – 88% target attainment</div>
-            </div>
+            <div class="mt-3" id="execCampaignBullets"></div>
           </div>
           <div class="exec-kpi-card">
             <h3>Executive Brief</h3>
@@ -588,7 +587,7 @@
             <div>
               <div class="qa-metric-card">
                 <div class="label text-uppercase">Average adherence</div>
-                <div class="value" id="attendanceAverage">95%</div>
+                <div class="value" id="attendanceAverage">—</div>
                 <div class="muted-label">Across all campaigns this month</div>
               </div>
               <table class="table table-sm align-middle attendance-table">
@@ -644,496 +643,467 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // Seed datasets
-    const qaReviews = [
-      {
-        id: 'QA-2404-108',
-        agent: 'Alicia Lopez',
-        campaign: 'Credit Suite',
-        reviewer: 'Morgan Reid',
-        collaborators: ['QA Lead', 'Campaign Manager'],
-        score: 95,
-        focus: 'Rapport & Empathy',
-        status: 'Published',
-        updated: '2024-04-18T14:32:00Z',
-        highlights: 'Exceptional empathy and softening statements. Reinforce power statements for upsell pivot.',
-        channel: 'Voice',
-        nextTouch: '2024-04-24'
+    const state = {
+      qa: {
+        records: [],
+        directory: { agents: [], reviewers: [], collaborators: [], campaigns: [] },
+        metrics: {},
+        trend: { labels: [], values: [] }
       },
-      {
-        id: 'QA-2404-099',
-        agent: 'Bryce Chen',
-        campaign: 'Independence',
-        reviewer: 'Jordan Blake',
-        collaborators: ['Operations Manager'],
-        score: 91,
-        focus: 'Compliance',
-        status: 'Follow-up',
-        updated: '2024-04-17T09:18:00Z',
-        highlights: 'Verification script missed twice. Manager coordinating refresher training with compliance.',
-        channel: 'Voice',
-        nextTouch: '2024-04-21'
-      },
-      {
-        id: 'QA-2404-094',
-        agent: 'Serena Ibarra',
-        campaign: 'Grounding QA',
-        reviewer: 'Jamie Patel',
-        collaborators: ['QA Lead', 'Executive Sponsor'],
-        score: 88,
-        focus: 'Call Control',
-        status: 'Published',
-        updated: '2024-04-16T16:52:00Z',
-        highlights: 'Call pacing improved 12%. Recommend tagging manager for calibration follow-up.',
-        channel: 'Chat',
-        nextTouch: '2024-04-22'
-      },
-      {
-        id: 'QA-2404-082',
-        agent: 'Enzo Ramirez',
-        campaign: 'Credit Suite',
-        reviewer: 'Morgan Reid',
-        collaborators: ['QA Lead'],
-        score: 96,
-        focus: 'Product Knowledge',
-        status: 'Draft',
-        updated: '2024-04-15T11:05:00Z',
-        highlights: 'Product upsell coverage at 100%. Pending final sign-off from campaign manager.',
-        channel: 'Voice',
-        nextTouch: '2024-04-19'
-      }
-    ];
-
-    const qaDirectory = {
-      agents: ['Alicia Lopez', 'Bryce Chen', 'Serena Ibarra', 'Enzo Ramirez', 'Mira Sullivan', 'Declan Ortiz'],
-      reviewers: ['Morgan Reid', 'Jordan Blake', 'Jamie Patel', 'Priya Desai'],
-      campaigns: ['Credit Suite', 'Independence', 'Grounding QA'],
-      collaborators: ['QA Lead', 'Campaign Manager', 'Executive Sponsor', 'Workforce Manager', 'Client Partner']
+      attendance: { campaigns: [], history: {}, summary: {} },
+      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '' },
+      chat: { personas: [], threads: {} },
+      charts: { qaTrend: null, attendance: null, executive: null },
+      activePersona: null,
+      activeThreadId: null,
+      isLoading: false
     };
 
-    const attendanceHistory = [
-      { campaign: 'Credit Suite', week: '2024-W11', adherence: 0.93, absenteeism: 0.045, present: 398, scheduled: 428 },
-      { campaign: 'Credit Suite', week: '2024-W12', adherence: 0.948, absenteeism: 0.039, present: 404, scheduled: 426 },
-      { campaign: 'Credit Suite', week: '2024-W13', adherence: 0.955, absenteeism: 0.034, present: 411, scheduled: 430 },
-      { campaign: 'Credit Suite', week: '2024-W14', adherence: 0.962, absenteeism: 0.031, present: 420, scheduled: 436 },
-      { campaign: 'Credit Suite', week: '2024-W15', adherence: 0.968, absenteeism: 0.029, present: 424, scheduled: 438 },
-      { campaign: 'Independence', week: '2024-W11', adherence: 0.904, absenteeism: 0.062, present: 265, scheduled: 293 },
-      { campaign: 'Independence', week: '2024-W12', adherence: 0.915, absenteeism: 0.058, present: 272, scheduled: 297 },
-      { campaign: 'Independence', week: '2024-W13', adherence: 0.927, absenteeism: 0.054, present: 278, scheduled: 300 },
-      { campaign: 'Independence', week: '2024-W14', adherence: 0.936, absenteeism: 0.051, present: 284, scheduled: 303 },
-      { campaign: 'Independence', week: '2024-W15', adherence: 0.943, absenteeism: 0.047, present: 289, scheduled: 306 },
-      { campaign: 'Grounding QA', week: '2024-W11', adherence: 0.887, absenteeism: 0.071, present: 192, scheduled: 216 },
-      { campaign: 'Grounding QA', week: '2024-W12', adherence: 0.901, absenteeism: 0.067, present: 198, scheduled: 220 },
-      { campaign: 'Grounding QA', week: '2024-W13', adherence: 0.914, absenteeism: 0.063, present: 205, scheduled: 224 },
-      { campaign: 'Grounding QA', week: '2024-W14', adherence: 0.922, absenteeism: 0.059, present: 211, scheduled: 229 },
-      { campaign: 'Grounding QA', week: '2024-W15', adherence: 0.931, absenteeism: 0.055, present: 216, scheduled: 232 }
-    ];
-
-    const executiveSignals = [
-      {
-        title: 'Credit Suite',
-        qa: 94,
-        attendance: 96,
-        csat: 4.6,
-        alerts: ['Upsell conversion +11% QoQ', 'QA calibration complete – 3% tighter variance']
-      },
-      {
-        title: 'Independence',
-        qa: 91,
-        attendance: 94,
-        csat: 4.4,
-        alerts: ['Adherence +2 pts week-over-week', 'Compliance retraining closing by Apr 21']
-      },
-      {
-        title: 'Grounding QA',
-        qa: 89,
-        attendance: 92,
-        csat: 4.2,
-        alerts: ['Chat pilot launching May 2', 'Agent tenure improving – attrition down 4%']
-      }
-    ];
-
-    const chatThreads = {
-      executive: [
-        {
-          id: 'exec-forecast',
-          title: 'Q3 KPI Forecast Readout',
-          updated: '09:24',
-          audience: 'Executives & Directors',
-          messages: [
-            { author: 'COO Martin', persona: 'Executive', time: '08:55', text: 'Reminder: cross-campaign revenue KPIs trending +6.4 vs plan. Need readiness check for scaling credit suite staffing by mid-May.', tags: ['KPIs', 'Staffing'] },
-            { author: 'CFO Liza', persona: 'Executive', time: '09:12', text: 'Finance is aligned. Workforce modeling indicates 12 FTE headroom with current adherence uplift.', tags: ['Finance'] }
-          ]
-        },
-        {
-          id: 'exec-client',
-          title: 'Client Advisory Board Prep',
-          updated: 'Yesterday',
-          audience: 'Execs & Client Partners',
-          messages: [
-            { author: 'Client Partner Jae', persona: 'Executive', time: 'Yesterday 16:18', text: 'Agenda drafted. Need QA highlights for Independence and new adherence actions to highlight.', tags: ['Client', 'QA'] },
-            { author: 'VP Operations Tori', persona: 'Executive', time: 'Yesterday 16:31', text: 'Uploading slides with latest QA win stories + adherence graph overlays.', tags: ['Operations'] }
-          ]
-        }
-      ],
-      manager: [
-        {
-          id: 'mgr-adherence',
-          title: 'Morning Standup - Adherence',
-          updated: '07:45',
-          audience: 'Managers & Workforce',
-          messages: [
-            { author: 'WF Manager Alina', persona: 'Manager', time: '07:32', text: 'Credit Suite adherence at 96.8%. Grounding QA trending up 0.9 pts after shift bid changes.', tags: ['Adherence'] },
-            { author: 'Operations Lead Theo', persona: 'Manager', time: '07:45', text: 'Requesting coaching follow-up for agents below 85% adherence. Tag QA for rapid calibrations.', tags: ['Coaching', 'QA'] }
-          ]
-        },
-        {
-          id: 'mgr-quality',
-          title: 'QA Action Queue',
-          updated: 'Mon',
-          audience: 'Managers & QA Leads',
-          messages: [
-            { author: 'QA Lead Priya', persona: 'Manager', time: 'Mon 14:08', text: 'Eight follow-ups scheduled this week. Need executive sponsor to join Serena Ibarra review.', tags: ['QA', 'Follow-up'] }
-          ]
-        }
-      ],
-      agent: [
-        {
-          id: 'agent-coaching',
-          title: 'Coaching Huddle – Credit Suite',
-          updated: 'Today',
-          audience: 'Agents & Coaches',
-          messages: [
-            { author: 'Coach Daniel', persona: 'Coach', time: 'Today 10:03', text: 'Uploading new objection handling playbook. Let me know which sections you want deeper support on.', tags: ['Coaching'] },
-            { author: 'Agent Alicia', persona: 'Agent', time: 'Today 10:18', text: 'Appreciate the new script! Requesting quick review of call QA-2404-108 before next shift.', tags: ['QA Review'] }
-          ]
-        },
-        {
-          id: 'agent-announcements',
-          title: 'Announcements & Recognitions',
-          updated: 'Yesterday',
-          audience: 'All Agents',
-          messages: [
-            { author: 'Manager Reese', persona: 'Manager', time: 'Yesterday 17:10', text: 'Shoutout to Bryce for 4.9 QA average this week! Keep the energy going.', tags: ['Recognition'] }
-          ]
-        }
-      ]
-    };
-
-    // Utility helpers
     const qaTableBody = document.querySelector('#qaReviewTable tbody');
     const qaAgentSelect = document.getElementById('qaAgent');
     const qaCampaignSelect = document.getElementById('qaCampaign');
     const qaReviewerSelect = document.getElementById('qaReviewer');
     const qaCollaboratorSelect = document.getElementById('qaCollaborators');
-    const qaForm = document.getElementById('qaCollaborationForm');
+    const qaScoreInput = document.getElementById('qaScore');
+    const qaFocusAreaSelect = document.getElementById('qaFocusArea');
+    const qaStatusSelect = document.getElementById('qaStatus');
     const qaHighlightsField = document.getElementById('qaHighlights');
-    const qaStatusField = document.getElementById('qaStatus');
-    const qaChannelField = document.getElementById('qaChannel');
+    const qaNextTouchInput = document.getElementById('qaNextTouch');
+    const qaChannelSelect = document.getElementById('qaChannel');
+    const qaForm = document.getElementById('qaCollaborationForm');
+    const qaSubmitButton = qaForm.querySelector('button[type="submit"]');
+    const qaResetButton = document.getElementById('qaResetBtn');
+    const qaTrendChartCanvas = document.getElementById('qaTrendChart');
 
-    const formatDate = (isoString) => {
-      const dt = new Date(isoString);
-      return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    };
+    const attendanceCampaignSelect = document.getElementById('attendanceCampaignFilter');
+    const attendanceTableBody = document.getElementById('attendanceTableBody');
+    const attendanceChartCanvas = document.getElementById('attendanceTrendChart');
 
-    const statusClass = (status) => {
-      if (!status) return 'status-pill status-draft';
-      const normalized = status.toLowerCase();
-      if (normalized.includes('follow')) return 'status-pill status-followup';
-      if (normalized.includes('publish')) return 'status-pill status-published';
+    const execBlendChartCanvas = document.getElementById('execBlendChart');
+    const execCampaignBullets = document.getElementById('execCampaignBullets');
+    const execBriefList = document.getElementById('executiveBrief');
+    const execTimeframeEl = document.getElementById('execTimeframe');
+
+    const kpiQualityAverage = document.getElementById('kpiQualityAverage');
+    const kpiQualityTrend = document.getElementById('kpiQualityTrend');
+    const kpiAttendanceRate = document.getElementById('kpiAttendanceRate');
+    const kpiAttendanceTrend = document.getElementById('kpiAttendanceTrend');
+    const qaAverageEl = document.getElementById('qaAverageScore');
+    const qaFollowUpsEl = document.getElementById('qaFollowUps');
+    const qaThreadsEl = document.getElementById('qaThreads');
+    const qaCoverageEl = document.getElementById('qaCoverageRate');
+    const qaScoreTrendEl = document.getElementById('qaScoreTrend');
+    const attendanceAverageEl = document.getElementById('attendanceAverage');
+
+    const personaFiltersContainer = document.getElementById('chatPersonaFilters');
+    const chatThreadList = document.getElementById('chatThreadList');
+    const chatStream = document.getElementById('chatMessageStream');
+    const chatComposer = document.getElementById('chatComposer');
+    const chatMessageInput = document.getElementById('chatMessageInput');
+    const chatAudienceLabel = document.getElementById('chatAudienceLabel');
+    const chatSubmitButton = chatComposer.querySelector('button[type="submit"]');
+
+    const alertsContainer = document.getElementById('collabAlerts');
+    const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
+    const chartColors = ['#38bdf8', '#34d399', '#facc15', '#f97316', '#8b5cf6', '#f472b6'];
+
+    function clearAlerts() {
+      alertsContainer.innerHTML = '';
+    }
+
+    function showAlert(message, type) {
+      const alert = document.createElement('div');
+      const tone = type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'danger' ? 'danger' : 'info';
+      alert.className = 'alert alert-' + tone + ' alert-dismissible fade show';
+      alert.role = 'alert';
+      alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      `;
+      alertsContainer.appendChild(alert);
+    }
+
+    function formatPercent(value, decimals) {
+      if (value === null || value === undefined || value === '') return '—';
+      const num = Number(value);
+      if (isNaN(num)) return '—';
+      const fixed = num.toFixed(decimals != null ? decimals : 1);
+      return fixed + '%';
+    }
+
+    function formatNumber(value, decimals) {
+      if (value === null || value === undefined || value === '') return '—';
+      const num = Number(value);
+      if (isNaN(num)) return '—';
+      return num.toFixed(decimals != null ? decimals : 0);
+    }
+
+    function formatDateTime(isoString) {
+      if (!isoString) return '—';
+      const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) return '—';
+      return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatRelativeTime(isoString) {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) return '';
+      const diffMs = Date.now() - date.getTime();
+      const diffMinutes = Math.round(diffMs / 60000);
+      if (diffMinutes < 1) return 'just now';
+      if (diffMinutes < 60) return diffMinutes + 'm ago';
+      const diffHours = Math.round(diffMinutes / 60);
+      if (diffHours < 24) return diffHours + 'h ago';
+      const diffDays = Math.round(diffHours / 24);
+      if (diffDays < 7) return diffDays + 'd ago';
+      return date.toLocaleDateString();
+    }
+
+    function statusClass(status) {
+      const normalized = (status || '').toLowerCase();
+      if (normalized.indexOf('follow') >= 0) return 'status-pill status-followup';
+      if (normalized.indexOf('publish') >= 0) return 'status-pill status-published';
       return 'status-pill status-draft';
-    };
-
-    function populateSelect(select, items) {
-      select.innerHTML = '<option value="">' + (select === qaCollaboratorSelect ? 'Select collaborators' : 'Choose') + '</option>';
-      items.forEach((item) => {
-        const opt = document.createElement('option');
-        opt.value = item;
-        opt.textContent = item;
-        select.appendChild(opt);
-      });
     }
 
-    function populateMultiSelect(select, items) {
+    function populateSelectOptions(select, items, placeholder, isMultiple) {
       select.innerHTML = '';
-      items.forEach((item) => {
+      if (!isMultiple) {
         const opt = document.createElement('option');
-        opt.value = item;
-        opt.textContent = item;
+        opt.value = '';
+        opt.textContent = placeholder || 'Select';
         select.appendChild(opt);
+      }
+      (items || []).forEach(function (item) {
+        const option = document.createElement('option');
+        const id = item && typeof item === 'object' ? (item.id || item.value || item.name) : item;
+        const name = item && typeof item === 'object' ? (item.name || item.label || item.id) : item;
+        option.value = id || '';
+        option.textContent = name || id || '';
+        select.appendChild(option);
       });
     }
 
-    populateSelect(qaAgentSelect, qaDirectory.agents);
-    populateSelect(qaCampaignSelect, qaDirectory.campaigns);
-    populateSelect(qaReviewerSelect, qaDirectory.reviewers);
-    populateMultiSelect(qaCollaboratorSelect, qaDirectory.collaborators);
+    function ensureEmptyState(container, message) {
+      let placeholder = container.querySelector('.chart-empty');
+      if (!message) {
+        if (placeholder) placeholder.remove();
+        return;
+      }
+      if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'chart-empty text-secondary small text-center py-4';
+        container.appendChild(placeholder);
+      }
+      placeholder.textContent = message;
+    }
+
+    function setFormSubmitting(submitting) {
+      qaSubmitButton.disabled = submitting;
+      qaResetButton.disabled = submitting;
+    }
+
+    function setChatComposerEnabled(enabled) {
+      chatMessageInput.disabled = !enabled;
+      chatSubmitButton.disabled = !enabled;
+    }
+
+    function renderQADirectory() {
+      populateSelectOptions(qaAgentSelect, state.qa.directory.agents, 'Select an agent');
+      populateSelectOptions(qaCampaignSelect, state.qa.directory.campaigns, 'Choose campaign');
+      populateSelectOptions(qaReviewerSelect, state.qa.directory.reviewers, 'Assign reviewer');
+      populateSelectOptions(qaCollaboratorSelect, state.qa.directory.collaborators, '', true);
+    }
 
     function renderQATable() {
+      const records = state.qa.records || [];
+      if (!records.length) {
+        qaTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary py-4">No QA collaboration records found.</td></tr>';
+        return;
+      }
       qaTableBody.innerHTML = '';
-      qaReviews
-        .slice()
-        .sort((a, b) => new Date(b.updated) - new Date(a.updated))
-        .forEach((review) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="fw-semibold">${review.id}</td>
-            <td>
-              <div class="fw-semibold">${review.agent}</div>
-              <small class="text-secondary">${review.reviewer}</small>
-            </td>
-            <td>${review.campaign}</td>
-            <td><span class="fw-bold">${review.score}</span></td>
-            <td>${review.focus}</td>
-            <td>${review.collaborators.map((c) => `<span class="collaborator"><i class="fas fa-user-circle"></i>${c}</span>`).join('')}</td>
-            <td><span class="${statusClass(review.status)}">${review.status}</span></td>
-            <td>${formatDate(review.updated)}</td>
-          `;
-          qaTableBody.appendChild(tr);
-        });
-    }
-
-    function computeQAMetrics() {
-      if (!qaReviews.length) return { avg: 0, followUps: 0, coverage: '0%', threads: 0 };
-      const avgScore = qaReviews.reduce((acc, r) => acc + r.score, 0) / qaReviews.length;
-      const followUps = qaReviews.filter((r) => /follow/i.test(r.status)).length;
-      const multiThreads = qaReviews.filter((r) => (r.collaborators || []).length > 1).length;
-      const coverage = Math.min(100, 90 + qaReviews.length * 1.5);
-      return {
-        avg: avgScore.toFixed(1),
-        followUps,
-        threads: multiThreads,
-        coverage: coverage + '%'
-      };
+      records.forEach(function (record) {
+        const tr = document.createElement('tr');
+        const collaborators = (record.collaborators || []).map(function (name) {
+          return `<span class="collaborator"><i class="fas fa-user-circle"></i>${name}</span>`;
+        }).join('');
+        tr.innerHTML = `
+          <td class="fw-semibold">${record.id || '—'}</td>
+          <td>
+            <div class="fw-semibold">${record.agent || '—'}</div>
+            <small class="text-secondary">${record.reviewer || ''}</small>
+          </td>
+          <td>${record.campaignName || '—'}</td>
+          <td><span class="fw-bold">${record.score != null ? formatNumber(record.score, 1) : '—'}</span></td>
+          <td>${record.focus || '—'}</td>
+          <td>${collaborators}</td>
+          <td><span class="${statusClass(record.status)}">${record.status || 'Draft'}</span></td>
+          <td>${formatDateTime(record.updated)}</td>
+        `;
+        qaTableBody.appendChild(tr);
+      });
     }
 
     function renderQAMetrics() {
-      const metrics = computeQAMetrics();
-      document.getElementById('qaAverageScore').textContent = metrics.avg;
-      document.getElementById('qaFollowUps').textContent = metrics.followUps;
-      document.getElementById('qaThreads').textContent = metrics.threads;
-      document.getElementById('qaCoverageRate').textContent = metrics.coverage;
-      const diff = (metrics.avg - 92).toFixed(1);
-      const trendEl = document.getElementById('qaScoreTrend');
-      trendEl.textContent = (diff >= 0 ? '+' : '') + diff + ' pts';
-      trendEl.classList.toggle('bg-success', diff >= 0);
-      trendEl.classList.toggle('bg-danger', diff < 0);
+      const metrics = state.qa.metrics || {};
+      qaAverageEl.textContent = metrics.averageScore != null ? formatNumber(metrics.averageScore, 1) : '—';
+      qaFollowUpsEl.textContent = metrics.followUps != null ? metrics.followUps : '0';
+      qaThreadsEl.textContent = metrics.collaborativeThreads != null ? metrics.collaborativeThreads : '0';
+      qaCoverageEl.textContent = metrics.coverageRate != null ? formatPercent(metrics.coverageRate, 1) : '—';
+      const delta = metrics.deltaVsTarget;
+      if (delta != null && !Number.isNaN(delta)) {
+        qaScoreTrendEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' pts';
+        qaScoreTrendEl.classList.toggle('bg-success', delta >= 0);
+        qaScoreTrendEl.classList.toggle('bg-danger', delta < 0);
+      } else {
+        qaScoreTrendEl.textContent = '—';
+        qaScoreTrendEl.classList.remove('bg-success', 'bg-danger');
+      }
     }
 
-    function computeTrendDataset() {
-      const buckets = {};
-      qaReviews.forEach((review) => {
-        const date = new Date(review.updated);
-        const week = `${date.getFullYear()}-W${String(Math.ceil((date.getDate() + 6 - date.getDay()) / 7)).padStart(2, '0')}`;
-        if (!buckets[week]) {
-          buckets[week] = { total: 0, count: 0 };
-        }
-        buckets[week].total += review.score;
-        buckets[week].count += 1;
+    function renderQaTrendChart() {
+      const labels = state.qa.trend.labels || [];
+      const values = (state.qa.trend.values || []).map(function (value) {
+        return value == null ? null : Number(value);
       });
-      const weeks = Object.keys(buckets)
-        .sort()
-        .slice(-6);
-      return {
-        labels: weeks,
-        data: weeks.map((week) => (buckets[week].total / buckets[week].count).toFixed(1))
-      };
-    }
-
-    const qaTrendCtx = document.getElementById('qaTrendChart');
-    const qaTrendData = computeTrendDataset();
-    const qaTrendChart = new Chart(qaTrendCtx, {
-      type: 'line',
-      data: {
-        labels: qaTrendData.labels,
-        datasets: [
-          {
-            label: 'Average QA Score',
-            data: qaTrendData.data,
-            fill: true,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.16)',
-            tension: 0.35,
-            borderWidth: 3,
-            pointBackgroundColor: '#1d4ed8'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            suggestedMin: 70,
-            suggestedMax: 100,
-            ticks: {
-              callback: (value) => value + '%'
+      const container = qaTrendChartCanvas.parentElement;
+      const hasData = labels.length && values.some(function (v) { return v != null; });
+      if (!hasData) {
+        if (state.charts.qaTrend) {
+          state.charts.qaTrend.destroy();
+          state.charts.qaTrend = null;
+        }
+        qaTrendChartCanvas.classList.add('d-none');
+        ensureEmptyState(container, 'No QA trend data available yet.');
+        return;
+      }
+      ensureEmptyState(container, '');
+      qaTrendChartCanvas.classList.remove('d-none');
+      const dataset = values.map(function (value) {
+        return value == null ? null : Number(value.toFixed(1));
+      });
+      if (state.charts.qaTrend) {
+        state.charts.qaTrend.data.labels = labels;
+        state.charts.qaTrend.data.datasets[0].data = dataset;
+        state.charts.qaTrend.update();
+      } else {
+        state.charts.qaTrend = new Chart(qaTrendChartCanvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'QA Score',
+                data: dataset,
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                tension: 0.35,
+                borderWidth: 3,
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: {
+                ticks: {
+                  callback: function (value) { return value + '%'; }
+                }
+              }
             }
           }
-        },
-        plugins: {
-          legend: { display: false }
-        }
+        });
       }
-    });
-
-    function refreshTrendChart() {
-      const updated = computeTrendDataset();
-      qaTrendChart.data.labels = updated.labels;
-      qaTrendChart.data.datasets[0].data = updated.data;
-      qaTrendChart.update();
     }
 
-    qaForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      const formData = new FormData(qaForm);
-      const now = new Date();
-      const id = 'QA-' + now.getFullYear().toString().slice(-2) + (now.getMonth() + 1).toString().padStart(2, '0') + '-' + Math.floor(100 + Math.random() * 900);
-      const collaborators = Array.from(qaCollaboratorSelect.selectedOptions).map((opt) => opt.value);
-      qaReviews.push({
-        id,
-        agent: formData.get('qaAgent') || qaAgentSelect.value,
-        campaign: formData.get('qaCampaign') || qaCampaignSelect.value,
-        reviewer: formData.get('qaReviewer') || qaReviewerSelect.value,
-        collaborators,
-        score: parseFloat(formData.get('qaScore') || 0),
-        focus: formData.get('qaFocusArea') || '',
-        status: formData.get('qaStatus') || qaStatusField.value,
-        updated: now.toISOString(),
-        highlights: formData.get('qaHighlights') || qaHighlightsField.value,
-        channel: formData.get('qaChannel') || qaChannelField.value || 'Voice',
-        nextTouch: formData.get('qaNextTouch') || ""
-      });
+    function renderExecutiveSection() {
+      const summary = state.executive.summary || {};
+      kpiQualityAverage.textContent = summary.qaAverage != null ? formatPercent(summary.qaAverage, 1) : '—';
+      const qualityDelta = state.qa.metrics && state.qa.metrics.deltaVsTarget != null ? state.qa.metrics.deltaVsTarget : null;
+      if (qualityDelta != null && !Number.isNaN(qualityDelta)) {
+        kpiQualityTrend.textContent = (qualityDelta >= 0 ? '+' : '') + qualityDelta.toFixed(1) + ' pts vs target';
+        kpiQualityTrend.classList.toggle('text-success', qualityDelta >= 0);
+        kpiQualityTrend.classList.toggle('text-danger', qualityDelta < 0);
+      } else {
+        kpiQualityTrend.textContent = 'Target comparison unavailable';
+        kpiQualityTrend.classList.remove('text-success', 'text-danger');
+      }
 
-      renderQATable();
-      renderQAMetrics();
-      refreshTrendChart();
-      qaForm.reset();
-    });
+      const attendanceRate = summary.attendanceAverage != null ? summary.attendanceAverage : state.attendance.summary.attendanceRate;
+      kpiAttendanceRate.textContent = attendanceRate != null ? formatPercent(attendanceRate, 1) : '—';
+      if (state.attendance.summary.absenceRate != null) {
+        const absence = state.attendance.summary.absenceRate;
+        kpiAttendanceTrend.textContent = 'Absence ' + formatPercent(absence, 1);
+        kpiAttendanceTrend.classList.toggle('text-success', absence <= 5);
+        kpiAttendanceTrend.classList.toggle('text-danger', absence > 5);
+      } else {
+        kpiAttendanceTrend.textContent = 'Attendance variance unavailable';
+        kpiAttendanceTrend.classList.remove('text-success', 'text-danger');
+      }
 
-    document.getElementById('qaResetBtn').addEventListener('click', () => {
-      qaHighlightsField.value = '';
-    });
+      execTimeframeEl.textContent = state.executive.timeframeLabel || '—';
 
-    renderQATable();
-    renderQAMetrics();
+      execCampaignBullets.innerHTML = '';
+      const campaigns = state.executive.campaigns || [];
+      if (!campaigns.length) {
+        execCampaignBullets.innerHTML = '<div class="text-secondary small">No campaign mix data available.</div>';
+      } else {
+        campaigns.forEach(function (campaign, index) {
+          const color = chartColors[index % chartColors.length];
+          const qaText = campaign.qa != null ? 'QA ' + campaign.qa + '%' : 'QA n/a';
+          const attText = campaign.attendance != null ? 'Attendance ' + campaign.attendance + '%' : 'Attendance n/a';
+          const wrapper = document.createElement('div');
+          wrapper.className = 'kpi-bullet';
+          wrapper.innerHTML = `<span class="kpi-dot" style="background:${color}"></span> ${campaign.title || 'Campaign'} – ${qaText}, ${attText}`;
+          execCampaignBullets.appendChild(wrapper);
+        });
+      }
 
-    // Executive summary rendering
-    const execBriefList = document.getElementById('executiveBrief');
-    function renderExecutiveBrief() {
       execBriefList.innerHTML = '';
-      executiveSignals.forEach((signal) => {
-        const li = document.createElement('li');
-        li.className = 'mb-3';
-        li.innerHTML = `
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <div class="fw-bold">${signal.title}</div>
-              <div class="text-secondary">QA ${signal.qa}% · Attendance ${signal.attendance}% · CSAT ${signal.csat.toFixed(1)}</div>
+      if (!state.executive.brief || !state.executive.brief.length) {
+        execBriefList.innerHTML = '<li class="text-secondary">No executive brief notes available.</li>';
+      } else {
+        state.executive.brief.forEach(function (item) {
+          const li = document.createElement('li');
+          li.className = 'mb-3';
+          li.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-bold">${item.title || 'Campaign'}</div>
+                <div class="text-secondary">${item.metrics || ''}</div>
+              </div>
             </div>
-            <span class="badge rounded-pill ${signal.qa >= 92 ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'}">${signal.qa >= 92 ? 'On Track' : 'Monitor'}</span>
-          </div>
-          <ul class="mt-2 mb-0">
-            ${signal.alerts.map((note) => `<li class="small text-secondary">${note}</li>`).join('')}
-          </ul>
-        `;
-        execBriefList.appendChild(li);
-      });
-    }
+            ${item.note ? `<div class="small text-secondary mt-1">${item.note}</div>` : ''}
+          `;
+          execBriefList.appendChild(li);
+        });
+      }
 
-    const execBlendCtx = document.getElementById('execBlendChart');
-    const execBlendChart = new Chart(execBlendCtx, {
-      type: 'doughnut',
-      data: {
-        labels: executiveSignals.map((s) => s.title),
-        datasets: [
-          {
-            data: executiveSignals.map((s) => Math.round((s.qa + s.attendance) / 2)),
-            backgroundColor: ['#38bdf8', '#34d399', '#facc15'],
-            borderWidth: 0,
-            hoverOffset: 8
-          }
-        ]
-      },
-      options: {
-        cutout: '68%',
-        plugins: {
-          legend: {
-            display: false
-          }
+      const labels = campaigns.map(function (campaign) { return campaign.title || 'Campaign'; });
+      const values = campaigns.map(function (campaign) {
+        const qa = campaign.qa != null ? campaign.qa : null;
+        const att = campaign.attendance != null ? campaign.attendance : null;
+        if (qa == null && att == null) return 0;
+        if (qa != null && att != null) return Number(((qa + att) / 2).toFixed(1));
+        return qa != null ? Number(qa.toFixed(1)) : Number(att.toFixed(1));
+      });
+      if (!labels.length) {
+        if (state.charts.executive) {
+          state.charts.executive.destroy();
+          state.charts.executive = null;
+        }
+        ensureEmptyState(execBlendChartCanvas.parentElement, 'No executive campaign blend data available.');
+      } else {
+        ensureEmptyState(execBlendChartCanvas.parentElement, '');
+        if (state.charts.executive) {
+          state.charts.executive.data.labels = labels;
+          state.charts.executive.data.datasets[0].data = values;
+          state.charts.executive.data.datasets[0].backgroundColor = labels.map(function (_, index) {
+            return chartColors[index % chartColors.length];
+          });
+          state.charts.executive.update();
+        } else {
+          state.charts.executive = new Chart(execBlendChartCanvas, {
+            type: 'doughnut',
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  data: values,
+                  backgroundColor: labels.map(function (_, index) {
+                    return chartColors[index % chartColors.length];
+                  }),
+                  borderWidth: 0,
+                  hoverOffset: 8
+                }
+              ]
+            },
+            options: {
+              cutout: '68%',
+              plugins: { legend: { display: false } }
+            }
+          });
         }
       }
-    });
+    }
 
-    renderExecutiveBrief();
+    function renderAttendanceOptions() {
+      populateSelectOptions(attendanceCampaignSelect, state.attendance.campaigns, 'Select campaign');
+      if (state.attendance.campaigns.length) {
+        attendanceCampaignSelect.value = state.attendance.campaigns[0].id || state.attendance.campaigns[0].name;
+      }
+    }
 
-    // Attendance rendering
-    const attendanceCampaignSelect = document.getElementById('attendanceCampaignFilter');
-    const attendanceTableBody = document.getElementById('attendanceTableBody');
+    function renderAttendanceAverage() {
+      if (state.attendance.summary.averageAdherence != null) {
+        attendanceAverageEl.textContent = formatPercent(state.attendance.summary.averageAdherence, 1);
+      } else if (state.attendance.summary.attendanceRate != null) {
+        attendanceAverageEl.textContent = formatPercent(state.attendance.summary.attendanceRate, 1);
+      } else {
+        attendanceAverageEl.textContent = '—';
+      }
+    }
 
-    const campaigns = [...new Set(attendanceHistory.map((item) => item.campaign))];
-    campaigns.forEach((campaign) => {
-      const opt = document.createElement('option');
-      opt.value = campaign;
-      opt.textContent = campaign;
-      attendanceCampaignSelect.appendChild(opt);
-    });
-    attendanceCampaignSelect.value = campaigns[0];
-
-    function renderAttendanceTable(campaign) {
-      const filtered = attendanceHistory.filter((row) => row.campaign === campaign).slice(-6);
+    function renderAttendanceTable(campaignId) {
+      const history = state.attendance.history[campaignId] || [];
+      if (!history.length) {
+        attendanceTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary py-3">No attendance records for this campaign.</td></tr>';
+        return;
+      }
+      const recent = history.slice(-6);
       attendanceTableBody.innerHTML = '';
-      filtered.forEach((row) => {
+      recent.forEach(function (entry) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="fw-semibold">${row.week}</td>
+          <td class="fw-semibold">${entry.week}</td>
           <td>
-            <div class="fw-semibold">${(row.adherence * 100).toFixed(1)}%</div>
+            <div class="fw-semibold">${entry.adherence != null ? entry.adherence.toFixed(1) + '%' : '—'}</div>
             <div class="progress" style="height:6px;">
-              <div class="progress-bar bg-primary" style="width:${row.adherence * 100}%"></div>
+              <div class="progress-bar bg-primary" style="width:${entry.adherence != null ? entry.adherence : 0}%"></div>
             </div>
           </td>
-          <td class="text-danger">${(row.absenteeism * 100).toFixed(1)}%</td>
+          <td class="text-danger">${entry.absenteeism != null ? entry.absenteeism.toFixed(1) + '%' : '—'}</td>
         `;
         attendanceTableBody.appendChild(tr);
       });
     }
 
-    function computeAttendanceAverage() {
-      const avg = attendanceHistory.reduce((acc, row) => acc + row.adherence, 0) / attendanceHistory.length;
-      return (avg * 100).toFixed(1) + '%';
-    }
-
-    document.getElementById('attendanceAverage').textContent = computeAttendanceAverage();
-
-    const attendanceCtx = document.getElementById('attendanceTrendChart');
-    function buildAttendanceDataset(campaign) {
-      const filtered = attendanceHistory.filter((row) => row.campaign === campaign).slice(-6);
-      return {
-        labels: filtered.map((row) => row.week),
-        adherence: filtered.map((row) => (row.adherence * 100).toFixed(1)),
-        absenteeism: filtered.map((row) => (row.absenteeism * 100).toFixed(1))
-      };
-    }
-
-    let attendanceChart;
-
-    function renderAttendanceChart(campaign) {
-      const dataset = buildAttendanceDataset(campaign);
-      if (attendanceChart) {
-        attendanceChart.data.labels = dataset.labels;
-        attendanceChart.data.datasets[0].data = dataset.adherence;
-        attendanceChart.data.datasets[1].data = dataset.absenteeism;
-        attendanceChart.update();
+    function renderAttendanceChart(campaignId) {
+      const history = state.attendance.history[campaignId] || [];
+      const labels = history.slice(-6).map(function (entry) { return entry.week; });
+      const adherence = history.slice(-6).map(function (entry) { return entry.adherence != null ? Number(entry.adherence.toFixed(1)) : null; });
+      const absenteeism = history.slice(-6).map(function (entry) { return entry.absenteeism != null ? Number(entry.absenteeism.toFixed(1)) : null; });
+      const hasData = labels.length && adherence.some(function (v) { return v != null; });
+      const container = attendanceChartCanvas.parentElement;
+      if (!hasData) {
+        if (state.charts.attendance) {
+          state.charts.attendance.destroy();
+          state.charts.attendance = null;
+        }
+        ensureEmptyState(container, 'No adherence trend data available for this campaign.');
+        return;
+      }
+      ensureEmptyState(container, '');
+      const adherenceData = adherence.map(function (value) { return value == null ? null : value; });
+      const absenteeismData = absenteeism.map(function (value) { return value == null ? null : value; });
+      if (state.charts.attendance) {
+        state.charts.attendance.data.labels = labels;
+        state.charts.attendance.data.datasets[0].data = adherenceData;
+        state.charts.attendance.data.datasets[1].data = absenteeismData;
+        state.charts.attendance.update();
       } else {
-        attendanceChart = new Chart(attendanceCtx, {
+        state.charts.attendance = new Chart(attendanceChartCanvas.getContext('2d'), {
           type: 'line',
           data: {
-            labels: dataset.labels,
+            labels: labels,
             datasets: [
               {
                 label: 'Adherence %',
-                data: dataset.adherence,
+                data: adherenceData,
                 borderColor: '#10b981',
                 backgroundColor: 'rgba(16, 185, 129, 0.12)',
                 tension: 0.35,
@@ -1142,7 +1112,7 @@
               },
               {
                 label: 'Absenteeism %',
-                data: dataset.absenteeism,
+                data: absenteeismData,
                 borderColor: '#ef4444',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 tension: 0.35,
@@ -1163,7 +1133,7 @@
             scales: {
               y: {
                 ticks: {
-                  callback: (value) => value + '%'
+                  callback: function (value) { return value + '%'; }
                 }
               }
             }
@@ -1172,65 +1142,67 @@
       }
     }
 
-    attendanceCampaignSelect.addEventListener('change', (event) => {
-      renderAttendanceChart(event.target.value);
-      renderAttendanceTable(event.target.value);
-    });
+    function renderAttendanceSection() {
+      renderAttendanceOptions();
+      renderAttendanceAverage();
+      const selected = attendanceCampaignSelect.value || (state.attendance.campaigns[0] && (state.attendance.campaigns[0].id || state.attendance.campaigns[0].name));
+      if (selected) {
+        renderAttendanceTable(selected);
+        renderAttendanceChart(selected);
+      } else {
+        attendanceTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary py-3">No attendance data available.</td></tr>';
+        if (state.charts.attendance) {
+          state.charts.attendance.destroy();
+          state.charts.attendance = null;
+        }
+        ensureEmptyState(attendanceChartCanvas.parentElement, 'No adherence trend data available.');
+      }
+    }
 
-    renderAttendanceChart(attendanceCampaignSelect.value);
-    renderAttendanceTable(attendanceCampaignSelect.value);
-
-    // Chat collaboration rendering
-    const personaFiltersContainer = document.getElementById('chatPersonaFilters');
-    const chatThreadList = document.getElementById('chatThreadList');
-    const chatStream = document.getElementById('chatMessageStream');
-    const chatComposer = document.getElementById('chatComposer');
-    const chatAudienceLabel = document.getElementById('chatAudienceLabel');
-    const chatMessageInput = document.getElementById('chatMessageInput');
-
-    const personaConfig = [
-      { key: 'executive', label: 'Executive Signals', icon: 'fa-chess-queen' },
-      { key: 'manager', label: 'Manager War Room', icon: 'fa-user-tie' },
-      { key: 'agent', label: 'Agent Huddles', icon: 'fa-headset' }
-    ];
-
-    let activePersona = 'executive';
-    let activeThreadId = chatThreads[activePersona][0]?.id;
-
-    function renderPersonaFilters() {
+    function renderChatPersonaFilters() {
       personaFiltersContainer.innerHTML = '';
-      personaConfig.forEach((persona) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'persona-chip btn btn-link text-start ' + (activePersona === persona.key ? 'active' : '');
-        btn.innerHTML = `<i class="fas ${persona.icon}"></i> ${persona.label}`;
-        btn.addEventListener('click', () => {
-          activePersona = persona.key;
-          activeThreadId = chatThreads[activePersona][0]?.id;
-          renderPersonaFilters();
-          renderThreads();
+      const personas = state.chat.personas || [];
+      if (!personas.length) {
+        personaFiltersContainer.innerHTML = '<div class="text-secondary small">No collaboration personas available.</div>';
+        return;
+      }
+      personas.forEach(function (persona) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'persona-chip btn btn-link text-start ' + (state.activePersona === persona.key ? 'active' : '');
+        button.innerHTML = `<i class="fas ${persona.icon || 'fa-comments'}"></i> ${persona.label || persona.key}`;
+        button.addEventListener('click', function () {
+          state.activePersona = persona.key;
+          const threads = state.chat.threads[state.activePersona] || [];
+          state.activeThreadId = threads.length ? threads[0].id : null;
+          renderChatPersonaFilters();
+          renderChatThreads();
           renderActiveThread();
         });
-        personaFiltersContainer.appendChild(btn);
+        personaFiltersContainer.appendChild(button);
       });
     }
 
-    function renderThreads() {
+    function renderChatThreads() {
       chatThreadList.innerHTML = '';
-      const threads = chatThreads[activePersona];
-      threads.forEach((thread) => {
+      const threads = state.chat.threads[state.activePersona] || [];
+      if (!threads.length) {
+        chatThreadList.innerHTML = '<div class="text-secondary small">No threads available for this audience.</div>';
+        return;
+      }
+      threads.forEach(function (thread) {
         const card = document.createElement('div');
-        card.className = 'thread-card ' + (thread.id === activeThreadId ? 'active' : '');
+        card.className = 'thread-card ' + (thread.id === state.activeThreadId ? 'active' : '');
         card.innerHTML = `
-          <div class="title">${thread.title}</div>
+          <div class="title">${thread.title || 'Thread'}</div>
           <div class="thread-meta mt-2">
-            <span><i class="fas fa-users"></i> ${thread.audience}</span>
-            <span><i class="fas fa-clock"></i> ${thread.updated}</span>
+            <span><i class="fas fa-users"></i> ${thread.audience || 'Team'}</span>
+            <span><i class="fas fa-clock"></i> ${formatRelativeTime(thread.updated)}</span>
           </div>
         `;
-        card.addEventListener('click', () => {
-          activeThreadId = thread.id;
-          renderThreads();
+        card.addEventListener('click', function () {
+          state.activeThreadId = thread.id;
+          renderChatThreads();
           renderActiveThread();
         });
         chatThreadList.appendChild(card);
@@ -1239,54 +1211,204 @@
 
     function renderActiveThread() {
       chatStream.innerHTML = '';
-      const thread = chatThreads[activePersona].find((t) => t.id === activeThreadId);
+      const threads = state.chat.threads[state.activePersona] || [];
+      const thread = threads.find(function (entry) { return entry.id === state.activeThreadId; });
       if (!thread) {
         chatAudienceLabel.textContent = 'selected participants';
+        chatStream.innerHTML = '<div class="text-secondary small text-center py-4">Select a thread to view messages.</div>';
+        setChatComposerEnabled(false);
         return;
       }
-      chatAudienceLabel.textContent = thread.audience;
-      thread.messages.forEach((message) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'chat-message';
-        wrapper.innerHTML = `
-          <div class="avatar">${(message.author || 'U').charAt(0)}</div>
-          <div class="bubble">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="author">${message.author}</div>
-              <div class="timestamp">${message.time}</div>
+      chatAudienceLabel.textContent = thread.audience || 'participants';
+      if (!thread.messages || !thread.messages.length) {
+        chatStream.innerHTML = '<div class="text-secondary small text-center py-4">No messages yet.</div>';
+      } else {
+        thread.messages.forEach(function (message) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'chat-message';
+          wrapper.innerHTML = `
+            <div class="avatar">${(message.author || 'U').charAt(0)}</div>
+            <div class="bubble">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="author">${message.author || 'Team'}</div>
+                <div class="timestamp">${formatRelativeTime(message.time)}</div>
+              </div>
+              <div class="mt-1">${message.text || ''}</div>
+              <div class="tags">${(message.tags || []).map(function (tag) {
+                return `<span class="chat-tag"><i class="fas fa-tag"></i> ${tag}</span>`;
+              }).join('')}</div>
             </div>
-            <div class="mt-1">${message.text}</div>
-            <div class="tags">${(message.tags || []).map((tag) => `<span class="chat-tag"><i class="fas fa-tag"></i> ${tag}</span>`).join('')}</div>
-          </div>
-        `;
-        chatStream.appendChild(wrapper);
-      });
-      chatStream.scrollTop = chatStream.scrollHeight;
+          `;
+          chatStream.appendChild(wrapper);
+        });
+        chatStream.scrollTop = chatStream.scrollHeight;
+      }
+      setChatComposerEnabled(!!thread.channelId);
     }
 
-    chatComposer.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const value = chatMessageInput.value.trim();
-      if (!value) return;
-      const thread = chatThreads[activePersona].find((t) => t.id === activeThreadId);
-      if (!thread) return;
-      const now = new Date();
-      const timestamp = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      thread.messages.push({
-        author: currentUser?.FullName || 'You',
-        persona: 'User',
-        time: timestamp,
-        text: value,
-        tags: ['Update']
-      });
-      thread.updated = 'Just now';
-      chatMessageInput.value = '';
-      renderThreads();
+    function refreshChatUI() {
+      const personas = state.chat.personas || [];
+      if (!state.activePersona && personas.length) {
+        state.activePersona = personas[0].key;
+      }
+      const threads = state.chat.threads[state.activePersona] || [];
+      if (!state.activeThreadId && threads.length) {
+        state.activeThreadId = threads[0].id;
+      }
+      renderChatPersonaFilters();
+      renderChatThreads();
       renderActiveThread();
+    }
+
+    function applyQaData(data) {
+      state.qa.records = (data.records || []).slice();
+      state.qa.directory = data.directory || state.qa.directory;
+      state.qa.metrics = data.metrics || {};
+      state.qa.trend = data.trend || { labels: [], values: [] };
+      renderQADirectory();
+      renderQATable();
+      renderQAMetrics();
+      renderQaTrendChart();
+    }
+
+    function applyAttendanceData(data) {
+      state.attendance.campaigns = data.campaigns || [];
+      state.attendance.history = data.history || {};
+      state.attendance.summary = data.summary || {};
+      renderAttendanceSection();
+    }
+
+    function applyExecutiveData(data) {
+      state.executive.summary = data.summary || null;
+      state.executive.campaigns = data.campaigns || [];
+      state.executive.brief = data.brief || [];
+      state.executive.timeframeLabel = data.timeframeLabel || '';
+      renderExecutiveSection();
+    }
+
+    function applyChatData(data) {
+      state.chat.personas = data.personas || [];
+      state.chat.threads = data.threads || {};
+      state.activePersona = null;
+      state.activeThreadId = null;
+      refreshChatUI();
+    }
+
+    function loadCollaborationData(force) {
+      if (state.isLoading && !force) return;
+      state.isLoading = true;
+      clearAlerts();
+      qaTableBody.innerHTML = '<tr><td colspan="8">' + loadingMessage + '</td></tr>';
+      attendanceTableBody.innerHTML = '<tr><td colspan="3">' + loadingMessage + '</td></tr>';
+      chatThreadList.innerHTML = loadingMessage;
+      chatStream.innerHTML = loadingMessage;
+      setChatComposerEnabled(false);
+
+      google.script.run
+        .withSuccessHandler(function (response) {
+          state.isLoading = false;
+          response = response || {};
+          if (response.qa) applyQaData(response.qa);
+          if (response.attendance) applyAttendanceData(response.attendance);
+          if (response.executive) applyExecutiveData(response.executive);
+          if (response.chat) applyChatData(response.chat);
+        })
+        .withFailureHandler(function (err) {
+          state.isLoading = false;
+          console.error(err);
+          showAlert(err && err.message ? err.message : 'Unable to load collaboration reporting data.', 'danger');
+        })
+        .clientGetCollaborationReportingData({});
+    }
+
+    attendanceCampaignSelect.addEventListener('change', function (event) {
+      const campaignId = event.target.value;
+      renderAttendanceTable(campaignId);
+      renderAttendanceChart(campaignId);
     });
 
-    renderPersonaFilters();
-    renderThreads();
-    renderActiveThread();
+    qaForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!qaForm.checkValidity()) {
+        qaForm.classList.add('was-validated');
+        return;
+      }
+      qaForm.classList.remove('was-validated');
+      setFormSubmitting(true);
+      const collaborators = Array.from(qaCollaboratorSelect.selectedOptions).map(function (opt) { return opt.value; }).filter(Boolean);
+      const campaignOption = qaCampaignSelect.selectedOptions[0];
+      const payload = {
+        agent: qaAgentSelect.value,
+        campaignId: qaCampaignSelect.value,
+        campaignName: campaignOption ? campaignOption.textContent : qaCampaignSelect.value,
+        reviewer: qaReviewerSelect.value,
+        collaborators: collaborators,
+        score: qaScoreInput.value ? Number(qaScoreInput.value) : '',
+        focusArea: qaFocusAreaSelect.value,
+        status: qaStatusSelect.value,
+        highlights: qaHighlightsField.value,
+        nextTouch: qaNextTouchInput.value,
+        channel: qaChannelSelect.value
+      };
+      google.script.run
+        .withSuccessHandler(function () {
+          setFormSubmitting(false);
+          qaForm.reset();
+          showAlert('Collaboration note shared with the QA channel.', 'success');
+        })
+        .withFailureHandler(function (err) {
+          setFormSubmitting(false);
+          console.error(err);
+          showAlert(err && err.message ? err.message : 'Unable to log the collaboration note.', 'danger');
+        })
+        .clientSubmitCollaborationNote(payload);
+    });
+
+    qaResetButton.addEventListener('click', function () {
+      qaForm.classList.remove('was-validated');
+      qaHighlightsField.value = '';
+    });
+
+    chatComposer.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const threads = state.chat.threads[state.activePersona] || [];
+      const thread = threads.find(function (entry) { return entry.id === state.activeThreadId; });
+      const message = chatMessageInput.value.trim();
+      if (!thread || !thread.channelId || !message) {
+        return;
+      }
+      setChatComposerEnabled(false);
+      google.script.run
+        .withSuccessHandler(function () {
+          setChatComposerEnabled(true);
+          chatMessageInput.value = '';
+          const nowIso = new Date().toISOString();
+          thread.messages = thread.messages || [];
+          thread.messages.push({
+            author: (currentUser && currentUser.FullName) || 'You',
+            time: nowIso,
+            text: message,
+            tags: ['Update']
+          });
+          thread.updated = nowIso;
+          renderChatThreads();
+          renderActiveThread();
+          setTimeout(function () { loadCollaborationData(true); }, 500);
+        })
+        .withFailureHandler(function (err) {
+          setChatComposerEnabled(true);
+          console.error(err);
+          showAlert(err && err.message ? err.message : 'Unable to post collaboration message.', 'danger');
+        })
+        .clientPostCollaborationThreadMessage({
+          channelId: thread.channelId,
+          campaignId: thread.campaignId || '',
+          message: message
+        });
+    });
+
+    loadCollaborationData(false);
   });
 </script>
+
+
