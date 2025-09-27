@@ -34,6 +34,38 @@ const SEED_ADMIN_PROFILE = {
   roleNames: ['Super Admin', 'Administrator']
 };
 
+const PASSWORD_UTILS = (function ensurePasswordUtilities() {
+  if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+    return PasswordUtilities;
+  }
+
+  function normalizePasswordInput(raw) {
+    return raw == null ? '' : String(raw);
+  }
+
+  function digestToHex(digest) {
+    if (!digest || typeof digest.map !== 'function') return '';
+    return digest
+      .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
+      .join('');
+  }
+
+  function hashPassword(raw) {
+    var normalized = normalizePasswordInput(raw);
+    var digest = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      normalized,
+      Utilities.Charset.UTF_8
+    );
+    return digestToHex(digest);
+  }
+
+  return {
+    hashPassword: hashPassword,
+    createPasswordHash: hashPassword
+  };
+})();
+
 /**
  * Public entry point. Returns a structured summary of what was ensured.
  */
@@ -377,7 +409,7 @@ function setUserPasswordDirect(userId, password) {
   const resetIdx = headers.indexOf('ResetRequired');
   const updatedIdx = headers.indexOf('UpdatedAt');
 
-  const hash = hashPassword(password);
+  const hash = PASSWORD_UTILS.hashPassword(password);
   const now = new Date();
 
   for (let r = 1; r < data.length; r++) {
@@ -393,10 +425,4 @@ function setUserPasswordDirect(userId, password) {
   if (typeof invalidateCache === 'function') {
     invalidateCache(USERS_SHEET);
   }
-}
-
-function hashPassword(raw) {
-  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw)
-    .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2))
-    .join('');
 }
