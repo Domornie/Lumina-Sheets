@@ -34,6 +34,32 @@ const SEED_ADMIN_PROFILE = {
   roleNames: ['Super Admin', 'Administrator']
 };
 
+const PASSWORD_UTILS = (function resolvePasswordUtilities() {
+  if (typeof ensurePasswordUtilities === 'function') {
+    return ensurePasswordUtilities();
+  }
+
+  if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+    return PasswordUtilities;
+  }
+
+  if (typeof __createPasswordUtilitiesModule === 'function') {
+    const utils = __createPasswordUtilitiesModule();
+
+    if (typeof PasswordUtilities === 'undefined' || !PasswordUtilities) {
+      PasswordUtilities = utils;
+    }
+
+    if (typeof ensurePasswordUtilities !== 'function') {
+      ensurePasswordUtilities = function ensurePasswordUtilities() { return utils; };
+    }
+
+    return utils;
+  }
+
+  throw new Error('PasswordUtilities module is not available.');
+})();
+
 /**
  * Public entry point. Returns a structured summary of what was ensured.
  */
@@ -377,7 +403,7 @@ function setUserPasswordDirect(userId, password) {
   const resetIdx = headers.indexOf('ResetRequired');
   const updatedIdx = headers.indexOf('UpdatedAt');
 
-  const hash = hashPassword(password);
+  const hash = PASSWORD_UTILS.hashPassword(password);
   const now = new Date();
 
   for (let r = 1; r < data.length; r++) {
@@ -393,10 +419,4 @@ function setUserPasswordDirect(userId, password) {
   if (typeof invalidateCache === 'function') {
     invalidateCache(USERS_SHEET);
   }
-}
-
-function hashPassword(raw) {
-  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw)
-    .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2))
-    .join('');
 }
