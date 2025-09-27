@@ -105,6 +105,17 @@ Legacy helpers such as `dbSelect` and `dbCreate` accept an optional tenant conte
 their final argument, while dedicated helpers (`dbTenantSelect`, `dbTenantCreate`,
 etc.) provide a more explicit API.
 
+### Authentication & campaign-scoped sessions
+
+`AuthenticationService.gs` now persists sessions through `DatabaseManager`, upgrading
+the `Sessions` sheet to track remember-me flags, user agents, IP addresses, and a
+serialized tenant scope. Every login computes a tenant access profile via
+`TenantSecurityService`, blocks accounts that are not assigned to at least one
+campaign (unless they are global administrators), and returns the full list of
+allowed/managed/admin campaigns to the client. Session renewals automatically refresh
+the campaign scope so managers cannot switch to unauthorized tenants mid-session.
+
+
 ## End-to-end call center workflows
 
 `CallCenterWorkflowService.gs` stitches together authentication, scheduling,

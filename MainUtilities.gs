@@ -62,7 +62,16 @@ if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
 if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = ["ID", "Name", "NormalizedName", "CreatedAt", "UpdatedAt"];
 if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = ["UserId", "RoleId", "CreatedAt", "UpdatedAt"];
 if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ["ID", "UserId", "ClaimType", "CreatedAt", "UpdatedAt"];
-if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = ["Token", "UserId", "CreatedAt", "ExpiresAt"];
+if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
+  "Token",
+  "UserId",
+  "CreatedAt",
+  "ExpiresAt",
+  "RememberMe",
+  "CampaignScope",
+  "UserAgent",
+  "IpAddress"
+];
 
 if (typeof CHAT_GROUPS_HEADERS === 'undefined') var CHAT_GROUPS_HEADERS = ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
 if (typeof CHAT_CHANNELS_HEADERS === 'undefined') var CHAT_CHANNELS_HEADERS = ['ID', 'GroupId', 'Name', 'Description', 'IsPrivate', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
@@ -502,7 +511,6 @@ const __ensureSheetWithHeaders = (function () {
         const range = sh.getRange(1, 1, 1, headers.length);
         const existing = range.getValues()[0] || [];
         if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) {
-
           if (typeof registerTableSchema === 'function') {
             try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
           }
@@ -579,7 +587,6 @@ const __ensureSheetWithHeaders = (function () {
     }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
-
 
 // ────────────────────────────────────────────────────────────────────────────
 // Error / Debug logging
@@ -740,7 +747,6 @@ const __invalidateCache = (function () {
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
-
 function _normalizeReadSheetOptions_(optionsOrCache) {
   let options = {};
   let useCache = true;
@@ -787,7 +793,6 @@ function _normalizeReadSheetOptions_(optionsOrCache) {
     : null;
 
   return { useCache, allowScriptCache, queryOptions, tenantContext, campaignId, userId };
-
 }
 
 function _legacyReadSheet_(sheetName) {

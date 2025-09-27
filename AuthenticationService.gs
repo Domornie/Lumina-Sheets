@@ -42,51 +42,218 @@ var AuthenticationService = (function () {
     return sh;
   }
 
-  function readTable(sheetName) {
-    const sh = getOrCreateSheet(sheetName, []);
+  function hasDatabaseManager() {
+    return typeof DatabaseManager !== 'undefined'
+      && DatabaseManager
+      && typeof DatabaseManager.table === 'function';
+  }
+
+  function getDbTable(sheetName) {
+    if (!hasDatabaseManager()) return null;
+    try {
+      return DatabaseManager.table(sheetName);
+    } catch (err) {
+      console.warn('DatabaseManager.table failed for ' + sheetName + ':', err);
+      return null;
+    }
+  }
+
+  function toStr(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    if (value instanceof Date) return value.toISOString();
+    return String(value).trim();
+  }
+
+  function toBool(value) {
+    if (value === true) return true;
+    if (value === false) return false;
+    const str = toStr(value).toLowerCase();
+    return str === 'true' || str === '1' || str === 'yes' || str === 'y';
+  }
+
+  function dedupeStrings(values) {
+    const set = {};
+    const out = [];
+    (values || []).forEach(val => {
+      const key = toStr(val);
+      if (key && !set[key]) {
+        set[key] = true;
+        out.push(key);
+      }
+    });
+    return out;
+  }
+
+  function readTable(sheetName, options = {}) {
+    const table = getDbTable(sheetName);
+    if (table) {
+      try {
+        const results = table.find(options) || [];
+        if (Array.isArray(results)) {
+          return results;
+        }
+      } catch (err) {
+        console.warn('DatabaseManager read failed for ' + sheetName + ':', err);
+      }
+    }
+
+    const sh = getOrCreateSheet(sheetName, options.headers || []);
     const vals = sh.getDataRange().getValues();
     if (vals.length < 2) return [];
     const hdrs = vals.shift();
-    return vals.map(row => {
+    let rows = vals.map(row => {
       const obj = {};
-      hdrs.forEach((h, i) => obj[h] = row[i]);
+      hdrs.forEach((h, i) => {
+        if (h) obj[h] = row[i];
+      });
       return obj;
     });
+
+    if (options.where && typeof options.where === 'object') {
+      rows = rows.filter(r => Object.keys(options.where).every(key => toStr(r[key]) === toStr(options.where[key])));
+    }
+
+    if (typeof options.limit === 'number') {
+      rows = rows.slice(0, Math.max(0, options.limit));
+    }
+
+    return rows;
   }
 
-  function writeRow(sheetName, rowArr) {
-    getOrCreateSheet(sheetName, []).appendRow(rowArr);
+  function getUserById(userId) {
+    if (!userId && userId !== 0) return null;
+    try {
+      const table = getDbTable(USERS_SHEET);
+      if (table && typeof table.findById === 'function') {
+        const found = table.findById(userId);
+        if (found) return found;
+      }
+    } catch (err) {
+      console.warn('getUserById DatabaseManager lookup failed:', err);
+    }
+
+    return readTable(USERS_SHEET)
+      .find(u => String(u.ID) === String(userId)) || null;
   }
 
-  function updateRowByToken(sheetName, token, columnIndex, newValue) {
-    const sh = getOrCreateSheet(sheetName, []);
+  function buildSessionScope(userId, userRecord) {
+    let profile = null;
+    try {
+      if (typeof TenantSecurity !== 'undefined'
+        && TenantSecurity
+        && typeof TenantSecurity.getAccessProfile === 'function') {
+        profile = TenantSecurity.getAccessProfile(userId);
+      }
+    } catch (err) {
+      console.warn('buildSessionScope: tenant profile lookup failed', err);
+    }
+
+    const user = userRecord || getUserById(userId) || {};
+    const defaultCampaignId = profile && profile.defaultCampaignId
+      ? toStr(profile.defaultCampaignId)
+      : toStr(user.CampaignID || user.CampaignId);
+
+    const allowedCampaignIds = dedupeStrings(profile ? profile.allowedCampaignIds : [defaultCampaignId]);
+    if (!allowedCampaignIds.length && defaultCampaignId) {
+      allowedCampaignIds.push(defaultCampaignId);
+    }
+
+    return {
+      defaultCampaignId,
+      allowedCampaignIds,
+      managedCampaignIds: dedupeStrings(profile ? profile.managedCampaignIds : []),
+      adminCampaignIds: dedupeStrings(profile ? profile.adminCampaignIds : []),
+      isGlobalAdmin: profile ? !!profile.isGlobalAdmin : toBool(user.IsAdmin)
+    };
+  }
+
+  function updateSessionRecord(sessionToken, updates) {
+    if (!sessionToken || !updates || typeof updates !== 'object') return false;
+    const table = getDbTable(SESSIONS_SHEET);
+    if (table) {
+      try {
+        table.update(sessionToken, updates);
+        return true;
+      } catch (err) {
+        console.warn('updateSessionRecord: DatabaseManager update failed', err);
+      }
+    }
+
+    const sh = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
     const data = sh.getDataRange().getValues();
-    
+    if (data.length < 2) return false;
+    let headers = data[0].map(h => toStr(h));
+    let mutated = false;
+
+    Object.keys(updates).forEach(key => {
+      if (headers.indexOf(key) === -1) {
+        headers.push(key);
+        mutated = true;
+      }
+    });
+
+    if (mutated) {
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sh.setFrozenRows(1);
+    }
+
+    const tokenIdx = headers.indexOf('Token') !== -1 ? headers.indexOf('Token') : headers.indexOf('SessionToken');
+    if (tokenIdx === -1) return false;
+
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(token)) {
-        sh.getRange(i + 1, columnIndex + 1).setValue(newValue);
+      if (toStr(data[i][tokenIdx]) === toStr(sessionToken)) {
+        Object.keys(updates).forEach(key => {
+          const colIndex = headers.indexOf(key);
+          if (colIndex !== -1) {
+            sh.getRange(i + 1, colIndex + 1).setValue(updates[key]);
+          }
+        });
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function removeSessionByToken(sessionToken) {
+    if (!sessionToken) return false;
+    const table = getDbTable(SESSIONS_SHEET);
+    if (table) {
+      try {
+        return !!table.delete(sessionToken);
+      } catch (err) {
+        console.warn('removeSessionByToken: DatabaseManager delete failed', err);
+      }
+    }
+
+    const sh = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return false;
+    const headers = data[0].map(h => toStr(h));
+    const tokenIdx = headers.indexOf('Token') !== -1 ? headers.indexOf('Token') : headers.indexOf('SessionToken');
+    if (tokenIdx === -1) return false;
+
+    for (let i = 1; i < data.length; i++) {
+      if (toStr(data[i][tokenIdx]) === toStr(sessionToken)) {
+        sh.deleteRow(i + 1);
         return true;
       }
     }
     return false;
   }
 
-  function deleteSessionRow(idx) {
-    getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS).deleteRow(idx + 2);
-  }
-
   function cleanExpiredSessions() {
     const now = Date.now();
     const sessions = readTable(SESSIONS_SHEET);
-    sessions.forEach((s, i) => {
+    sessions.forEach((s) => {
       try {
         const expiry = new Date(s.ExpiresAt).getTime();
-        if (expiry < now) {
-          deleteSessionRow(i);
+        if (!isNaN(expiry) && expiry < now) {
+          removeSessionByToken(s.Token || s.SessionToken);
         }
       } catch (e) {
         console.warn('Error cleaning expired session:', e);
-        deleteSessionRow(i);
+        removeSessionByToken(s.Token || s.SessionToken);
       }
     });
   }
@@ -110,7 +277,43 @@ var AuthenticationService = (function () {
       getOrCreateSheet(ROLES_SHEET, ROLES_HEADER);
       getOrCreateSheet(USER_ROLES_SHEET, USER_ROLES_HEADER);
       getOrCreateSheet(USER_CLAIMS_SHEET, CLAIMS_HEADERS);
-      getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
+      const sessionsSheet = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
+      if (sessionsSheet) {
+        const lastColumn = Math.max(sessionsSheet.getLastColumn(), SESSIONS_HEADERS.length, 1);
+        const headerRange = sessionsSheet.getRange(1, 1, 1, lastColumn);
+        let existing = headerRange.getValues()[0].map(h => toStr(h));
+        let mutated = false;
+
+        if (existing.indexOf('Token') === -1) {
+          const legacyIdx = existing.indexOf('SessionToken');
+          if (legacyIdx !== -1) {
+            existing[legacyIdx] = 'Token';
+            mutated = true;
+          }
+        }
+
+        SESSIONS_HEADERS.forEach(header => {
+          if (existing.indexOf(header) === -1) {
+            existing.push(header);
+            mutated = true;
+          }
+        });
+
+        const beforeFilterLength = existing.length;
+        existing = existing.filter(Boolean);
+        if (existing.length !== beforeFilterLength) {
+          mutated = true;
+        }
+        if (!existing.length) {
+          existing = SESSIONS_HEADERS.slice();
+          mutated = true;
+        }
+
+        if (mutated) {
+          sessionsSheet.getRange(1, 1, 1, existing.length).setValues([existing]);
+          sessionsSheet.setFrozenRows(1);
+        }
+      }
       console.log('Authentication sheets initialized successfully');
     } catch (error) {
       console.error('Error ensuring authentication sheets:', error);
@@ -131,26 +334,57 @@ var AuthenticationService = (function () {
   }
 
   /** Create a new session for a user ID, returning the session token */
-  function createSessionFor(userId, existingToken = null, rememberMe = false) {
+  function createSessionFor(userId, existingToken = null, rememberMe = false, options) {
     try {
       const token = existingToken || generateSecureToken();
       const now = new Date();
       const ttl = rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
       const expiresAt = new Date(now.getTime() + ttl);
 
-      // Get user agent and IP (limited in Apps Script environment)
-      const userAgent = 'Google Apps Script';
-      const ipAddress = 'N/A';
+      const scope = (options && options.scope) || buildSessionScope(userId, options && options.user);
+      const sessionRecord = {
+        Token: token,
+        UserId: userId,
+        CreatedAt: now.toISOString(),
+        ExpiresAt: expiresAt.toISOString(),
+        RememberMe: rememberMe ? 'TRUE' : 'FALSE',
+        CampaignScope: scope ? JSON.stringify(scope) : '',
+        UserAgent: (options && options.userAgent) || 'Google Apps Script',
+        IpAddress: (options && options.ipAddress) || 'N/A'
+      };
 
-      writeRow(SESSIONS_SHEET, [
-        token,
-        userId,
-        now.toISOString(),
-        expiresAt.toISOString(),
-        rememberMe,
-        userAgent,
-        ipAddress
-      ]);
+      const table = getDbTable(SESSIONS_SHEET);
+      if (table) {
+        if (existingToken && typeof table.findById === 'function' && table.findById(token)) {
+          table.update(token, sessionRecord);
+        } else {
+          table.insert(sessionRecord);
+        }
+      } else {
+        if (existingToken) {
+          updateSessionRecord(token, sessionRecord);
+        } else {
+          const headers = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS))
+            ? SESSIONS_HEADERS
+            : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress'];
+          ensureSheets();
+          const sheet = getOrCreateSheet(SESSIONS_SHEET, headers);
+          const lastColumn = Math.max(sheet.getLastColumn(), headers.length, 1);
+          let headerRow = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(h => toStr(h));
+          if (headerRow.indexOf('Token') === -1) {
+            const legacyIdx = headerRow.indexOf('SessionToken');
+            if (legacyIdx !== -1) headerRow[legacyIdx] = 'Token';
+          }
+          headers.forEach(h => {
+            if (headerRow.indexOf(h) === -1) headerRow.push(h);
+          });
+          headerRow = headerRow.filter(Boolean);
+          sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
+          sheet.setFrozenRows(1);
+          const rowValues = headerRow.map(h => typeof sessionRecord[h] !== 'undefined' ? sessionRecord[h] : '');
+          sheet.appendRow(rowValues);
+        }
+      }
 
       console.log(`Session created for user ${userId}, expires: ${expiresAt.toISOString()}`);
       return token;
@@ -232,11 +466,22 @@ var AuthenticationService = (function () {
         };
       }
 
+      const tenantScope = buildSessionScope(user.ID, user);
+      if (!tenantScope.isGlobalAdmin && (!tenantScope.allowedCampaignIds || tenantScope.allowedCampaignIds.length === 0)) {
+        return {
+          success: false,
+          error: 'No campaign assignments were found for your account. Please contact your administrator.',
+          errorCode: 'NO_CAMPAIGN_ACCESS'
+        };
+      }
+
+      const sessionOptions = { scope: tenantScope, user };
+
       // Check if password reset is required
       const resetRequired = String(user.ResetRequired).toUpperCase() === 'TRUE';
       if (resetRequired) {
         // Create a temporary session for password reset
-        const resetToken = createSessionFor(user.ID, null, false);
+        const resetToken = createSessionFor(user.ID, null, false, sessionOptions);
         return {
           success: false,
           error: 'You must change your password before continuing.',
@@ -247,7 +492,7 @@ var AuthenticationService = (function () {
       }
 
       // Create session
-      const token = createSessionFor(user.ID, null, rememberMe);
+      const token = createSessionFor(user.ID, null, rememberMe, sessionOptions);
       if (!token) {
         return {
           success: false,
@@ -263,6 +508,13 @@ var AuthenticationService = (function () {
       const userRoles = getUserRoles(user.ID);
       const userClaims = getUserClaims(user.ID);
 
+      const allowedCampaignIds = tenantScope.allowedCampaignIds ? tenantScope.allowedCampaignIds.slice() : [];
+      const effectiveCampaignId = tenantScope.defaultCampaignId
+        || (allowedCampaignIds.length ? allowedCampaignIds[0] : user.CampaignID);
+
+      const managedCampaignIds = tenantScope.managedCampaignIds ? tenantScope.managedCampaignIds.slice() : [];
+      const adminCampaignIds = tenantScope.adminCampaignIds ? tenantScope.adminCampaignIds.slice() : [];
+
       return {
         success: true,
         sessionToken: token,
@@ -271,11 +523,17 @@ var AuthenticationService = (function () {
           UserName: user.UserName,
           FullName: user.FullName,
           Email: user.Email,
-          IsAdmin: user.IsAdmin,
-          CampaignID: user.CampaignID,
+          IsAdmin: toBool(user.IsAdmin),
+          IsGlobalAdmin: !!tenantScope.isGlobalAdmin,
+          CampaignID: effectiveCampaignId,
+          DefaultCampaignId: tenantScope.defaultCampaignId || '',
+          AllowedCampaignIds: allowedCampaignIds,
+          ManagedCampaignIds: managedCampaignIds,
+          AdminCampaignIds: adminCampaignIds,
+          TenantScope: tenantScope,
           roles: userRoles,
           claims: userClaims,
-          pages: getUserCampaignPages(user.ID, user.CampaignID)
+          pages: getUserCampaignPages(user.ID, effectiveCampaignId)
         },
         message: 'Login successful'
       };
@@ -364,9 +622,22 @@ var AuthenticationService = (function () {
       }
 
       cleanExpiredSessions();
-      const sessions = readTable(SESSIONS_SHEET);
-      const sessionRec = sessions.find(s => s.SessionToken === sessionToken);
-      
+
+      let sessionRec = null;
+      const sessionTable = getDbTable(SESSIONS_SHEET);
+      if (sessionTable && typeof sessionTable.findById === 'function') {
+        try {
+          sessionRec = sessionTable.findById(sessionToken);
+        } catch (err) {
+          console.warn('Session lookup via DatabaseManager failed:', err);
+        }
+      }
+
+      if (!sessionRec) {
+        sessionRec = readTable(SESSIONS_SHEET)
+          .find(s => toStr(s.Token || s.SessionToken) === toStr(sessionToken));
+      }
+
       if (!sessionRec) {
         console.log('Session not found for token:', sessionToken.substring(0, 8) + '...');
         return null;
@@ -375,27 +646,40 @@ var AuthenticationService = (function () {
       // Check if session is expired
       const expiryTime = new Date(sessionRec.ExpiresAt).getTime();
       const now = Date.now();
-      
-      if (expiryTime < now) {
+
+      if (!expiryTime || isNaN(expiryTime) || expiryTime < now) {
         console.log('Session expired for token:', sessionToken.substring(0, 8) + '...');
         _invalidateSessionByToken(sessionToken);
         return null;
       }
 
       // Extend session expiry (sliding expiration)
-      const isRememberMe = String(sessionRec.RememberMe).toUpperCase() === 'TRUE';
+      const isRememberMe = toBool(sessionRec.RememberMe);
       const ttl = isRememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
       const newExpiry = new Date(now + ttl);
-      
-      // Update session expiry
-      updateRowByToken(SESSIONS_SHEET, sessionToken, 3, newExpiry.toISOString());
 
-      // Load user record
-      const userRow = readTable(USERS_SHEET).find(u => u.ID === sessionRec.UserId);
+      const sessionUserId = sessionRec.UserId || sessionRec.UserID || sessionRec.userid || sessionRec.userId;
+      const userRow = getUserById(sessionUserId);
       if (!userRow) {
         console.warn('User not found for session:', sessionRec.UserId);
         _invalidateSessionByToken(sessionToken);
         return null;
+      }
+
+      const tenantScope = buildSessionScope(userRow.ID, userRow);
+      const allowedCampaignIds = tenantScope.allowedCampaignIds ? tenantScope.allowedCampaignIds.slice() : [];
+      const managedCampaignIds = tenantScope.managedCampaignIds ? tenantScope.managedCampaignIds.slice() : [];
+      const adminCampaignIds = tenantScope.adminCampaignIds ? tenantScope.adminCampaignIds.slice() : [];
+      const effectiveCampaignId = tenantScope.defaultCampaignId
+        || (allowedCampaignIds.length ? allowedCampaignIds[0] : userRow.CampaignID);
+
+      try {
+        updateSessionRecord(sessionToken, {
+          ExpiresAt: newExpiry.toISOString(),
+          CampaignScope: JSON.stringify(tenantScope)
+        });
+      } catch (updateErr) {
+        console.warn('Failed to update session metadata:', updateErr);
       }
 
       // Parse roles and pages (handle both JSON and CSV formats)
@@ -409,6 +693,10 @@ var AuthenticationService = (function () {
         userRow.roles = [];
       }
 
+      if (typeof getUserRoles === 'function') {
+        try { userRow.roles = getUserRoles(userRow.ID); } catch (roleErr) { console.warn('Failed to refresh user roles:', roleErr); }
+      }
+
       try {
         userRow.pages = userRow.Pages ?
           (userRow.Pages.startsWith('[') ?
@@ -419,8 +707,22 @@ var AuthenticationService = (function () {
         userRow.pages = [];
       }
 
+      if (typeof getUserClaims === 'function') {
+        try { userRow.claims = getUserClaims(userRow.ID); } catch (claimErr) { console.warn('Failed to refresh user claims:', claimErr); }
+      }
+
       // Check if password reset is required
       userRow.needsReset = String(userRow.ResetRequired).toUpperCase() === 'TRUE';
+
+      userRow.IsAdmin = toBool(userRow.IsAdmin);
+      userRow.IsGlobalAdmin = !!tenantScope.isGlobalAdmin;
+      userRow.CampaignID = effectiveCampaignId;
+      userRow.DefaultCampaignId = tenantScope.defaultCampaignId || '';
+      userRow.AllowedCampaignIds = allowedCampaignIds;
+      userRow.ManagedCampaignIds = managedCampaignIds;
+      userRow.AdminCampaignIds = adminCampaignIds;
+      userRow.TenantScope = tenantScope;
+      userRow.pages = getUserCampaignPages(userRow.ID, effectiveCampaignId);
 
       // Add session info
       userRow.sessionToken = sessionToken;
@@ -600,11 +902,35 @@ var AuthenticationService = (function () {
     const maybe = requireAuth(e);
     if (maybe.getContent) return maybe;
     const user = maybe;
-    const cid = String(e.parameter.campaignId || '');
-    if (!cid || cid !== String(user.CampaignID)) {
-      throw new Error('Not authorized for campaign: ' + cid);
+    const cid = toStr(e.parameter.campaignId || e.parameter.campaignID || e.parameter.campaign || '');
+    if (!cid) {
+      return user;
     }
-    return user;
+
+    try {
+      if (typeof TenantSecurity !== 'undefined'
+        && TenantSecurity
+        && typeof TenantSecurity.assertCampaignAccess === 'function') {
+        TenantSecurity.assertCampaignAccess(user.ID, cid);
+      } else {
+        const allowed = Array.isArray(user.AllowedCampaignIds)
+          ? user.AllowedCampaignIds.map(toStr)
+          : [];
+        if (!user.IsGlobalAdmin && allowed.indexOf(cid) === -1 && toStr(user.CampaignID) !== cid) {
+          throw new Error('Not authorized for campaign: ' + cid);
+        }
+      }
+      return user;
+    } catch (err) {
+      console.warn('Campaign authorization failed:', err);
+      const tpl = HtmlService.createTemplateFromFile('AccessDenied');
+      tpl.baseUrl = ScriptApp.getService().getUrl();
+      return tpl
+        .evaluate()
+        .setTitle('Access Denied')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
   }
 
   /**
@@ -921,28 +1247,14 @@ var AuthenticationService = (function () {
   function _invalidateSessionByToken(sessionToken) {
     try {
       if (!sessionToken) return false;
-      
-      const sh = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
-      const data = sh.getDataRange().getValues();
-      if (data.length < 2) return false;
-
-      const headers = data[0];
-      const tokenIdx = headers.indexOf('SessionToken');
-      if (tokenIdx === -1) {
-        console.error('SessionToken column not found in SESSIONS sheet');
+      const removed = removeSessionByToken(sessionToken);
+      if (!removed) {
+        console.log('Session not found for invalidation:', sessionToken.substring(0, 8) + '...');
         return false;
       }
 
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][tokenIdx]) === String(sessionToken)) {
-          sh.deleteRow(i + 1);
-          console.log('Session invalidated:', sessionToken.substring(0, 8) + '...');
-          return true;
-        }
-      }
-      
-      console.log('Session not found for invalidation:', sessionToken.substring(0, 8) + '...');
-      return false;
+      console.log('Session invalidated:', sessionToken.substring(0, 8) + '...');
+      return true;
     } catch (error) {
       console.error('Error invalidating session:', error);
       return false;
@@ -1171,11 +1483,16 @@ function getCurrentUser() {
       UserName: user.UserName,
       CampaignID: user.CampaignID,
       IsAdmin: String(user.IsAdmin).toUpperCase() === 'TRUE',
+      IsGlobalAdmin: tenantProfile ? !!tenantProfile.isGlobalAdmin : String(user.IsAdmin).toUpperCase() === 'TRUE',
+
       CanLogin: String(user.CanLogin).toUpperCase() === 'TRUE',
       EmailConfirmed: String(user.EmailConfirmed).toUpperCase() === 'TRUE',
       ResetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE',
       AllowedCampaignIds: allowedCampaigns,
       ManagedCampaignIds: tenantProfile ? tenantProfile.managedCampaignIds.slice() : [],
+      AdminCampaignIds: tenantProfile ? tenantProfile.adminCampaignIds.slice() : [],
+      DefaultCampaignId: tenantProfile ? tenantProfile.defaultCampaignId : toStr(user.CampaignID),
+
       TenantAccess: tenantProfile
     };
   } catch (error) {
