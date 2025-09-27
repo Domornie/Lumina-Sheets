@@ -36,13 +36,13 @@ function seedDefaultData() {
     // 2) Ensure roles and capture IDs  (ROLES: ID,Name,NormalizedName,CreatedAt,UpdatedAt)
     console.log('👥 Creating roles...');
     const roleNames = [
-        'Super Admin',           // ✅ ADDED - needed for admin user
-        'Administrator',         // ✅ ADDED - needed for admin user  
         'CEO','COO','CFO','CTO','Agent', 'Director','Operations Manager',
         'Account Manager','Workforce Manager','Quality Assurance Manager',
         'Training Manager','Team Supervisor','Floor Supervisor',
         'Escalations Manager','Client Success Manager','Compliance Manager',
-        'IT Support Manager','Reporting Analyst', 'Client'
+        'IT Support Manager','Reporting Analyst', 'Guest', 'Human Resource Manager',
+        'Trainer', 'Manager', 'Quality Assurance Lead', 'Quality Assurance', 'Human Resource',
+        'IT Support'
     ];
     const roleIdsByName = ensureRoles(roleNames); // returns map { 'Super Admin': <id>, ... }
 
@@ -639,4 +639,5 @@ function sha256(raw){
     return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw)
         .map(b => ('0'+(b&0xff).toString(16)).slice(-2)).join('');
 }
+
 
