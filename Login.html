@@ -875,15 +875,61 @@
       redirectDelay: 3000 // 3 seconds
     };
 
-    CONFIG.baseUrl = (CONFIG.baseUrl || '').trim();
-    if (!CONFIG.baseUrl || CONFIG.baseUrl.toLowerCase() === 'undefined') {
-      const scriptUrl = (CONFIG.scriptUrl || '').trim();
-      if (scriptUrl && scriptUrl.toLowerCase() !== 'undefined') {
-        CONFIG.baseUrl = scriptUrl;
-      } else {
-        const current = new URL(window.location.href);
-        CONFIG.baseUrl = current.origin + current.pathname;
+    function sanitizeBaseUrl(candidate, fallback) {
+      const invalidPattern = /usercodeapppanel/i;
+
+      const normalize = value => {
+        if (value === null || value === undefined) return '';
+        const trimmed = String(value).trim();
+        if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+          return '';
+        }
+        return trimmed;
+      };
+
+      const ensureNotPanel = value => {
+        if (!value) return '';
+        if (!invalidPattern.test(value)) {
+          return value;
+        }
+        return value.replace(/\/userCodeAppPanel.*$/i, '/exec');
+      };
+
+      const isInvalid = value => {
+        return !value || invalidPattern.test(value);
+      };
+
+      const primary = ensureNotPanel(normalize(candidate));
+      if (!isInvalid(primary)) {
+        return primary;
       }
+
+      const secondary = ensureNotPanel(normalize(fallback));
+      if (!isInvalid(secondary)) {
+        return secondary;
+      }
+
+      try {
+        const current = new URL(window.location.href);
+        current.search = '';
+        current.hash = '';
+        const derived = ensureNotPanel(current.origin + current.pathname);
+        if (!isInvalid(derived)) {
+          return derived;
+        }
+      } catch (err) {
+        console.warn('Unable to derive base URL from current location', err);
+      }
+
+      return secondary || primary || '';
+    }
+
+    CONFIG.baseUrl = sanitizeBaseUrl(CONFIG.baseUrl, CONFIG.scriptUrl);
+    CONFIG.scriptUrl = sanitizeBaseUrl(CONFIG.scriptUrl, CONFIG.baseUrl);
+
+    if (!CONFIG.baseUrl) {
+      const current = new URL(window.location.href);
+      CONFIG.baseUrl = current.origin + current.pathname;
     }
 
     const SUPPORT_EMAIL = 'support@vlbpo.com';

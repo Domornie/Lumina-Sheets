@@ -18,6 +18,47 @@
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+function __sanitizeScriptUrl(candidate, fallback) {
+  function normalize(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    const str = String(value).trim();
+    if (!str || str.toLowerCase() === 'undefined') return '';
+    return str;
+  }
+
+  function stripUserCodePanel(value) {
+    if (!value) return '';
+    return value.replace(/\/userCodeAppPanel.*$/i, '/exec');
+  }
+
+  function isInvalid(value) {
+    if (!value) return true;
+    return /usercodeapppanel/i.test(value);
+  }
+
+  const normalizedCandidate = normalize(candidate);
+  if (normalizedCandidate && !isInvalid(normalizedCandidate)) {
+    return normalizedCandidate;
+  }
+
+  const strippedCandidate = stripUserCodePanel(normalizedCandidate);
+  if (strippedCandidate && !isInvalid(strippedCandidate)) {
+    return strippedCandidate;
+  }
+
+  const normalizedFallback = normalize(fallback);
+  if (normalizedFallback && !isInvalid(normalizedFallback)) {
+    return normalizedFallback;
+  }
+
+  const strippedFallback = stripUserCodePanel(normalizedFallback);
+  if (strippedFallback && !isInvalid(strippedFallback)) {
+    return strippedFallback;
+  }
+
+  return strippedFallback || strippedCandidate || '';
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // GUARDED GLOBAL DEFAULTS (supports standalone deployments)
 // ───────────────────────────────────────────────────────────────────────────────
@@ -47,16 +88,19 @@ if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
 ];
 
 function resolveScriptUrl() {
-  if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
-    return SCRIPT_URL;
-  }
+  const configured = (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) ? SCRIPT_URL : '';
 
   try {
-    return ScriptApp.getService().getUrl();
+    const runtimeUrl = ScriptApp.getService().getUrl();
+    const sanitizedRuntime = __sanitizeScriptUrl(runtimeUrl, configured);
+    if (sanitizedRuntime) {
+      return sanitizedRuntime;
+    }
   } catch (error) {
     console.warn('resolveScriptUrl: unable to determine script URL', error);
-    return '';
   }
+
+  return __sanitizeScriptUrl(configured, '');
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
