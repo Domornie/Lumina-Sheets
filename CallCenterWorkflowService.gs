@@ -17,6 +17,8 @@
   var WorkflowService = {};
   var initialized = false;
   var tableRegistry = {};
+  var CAMPAIGN_BROADCAST_TYPE = 'CampaignBroadcast';
+  var DEFAULT_COMMUNICATION_SEVERITY = 'Info';
 
   // ───────────────────────────────────────────────────────────────────────────────
   // Table registration helpers
@@ -75,6 +77,20 @@
       if (key) set[key] = true;
     });
     return set;
+  }
+
+  function dedupeList(values) {
+    var seen = {};
+    var out = [];
+    (values || []).forEach(function (value) {
+      var key = toStr(value);
+      if (!key) return;
+      if (!seen[key]) {
+        seen[key] = true;
+        out.push(key);
+      }
+    });
+    return out;
   }
 
   function pickFirst(values) {
@@ -591,6 +607,53 @@
     };
   }
 
+  function loadCampaignCommunications(profile, context, userIndex, options) {
+    options = options || {};
+    var typeFilter = toStr(options.type) || CAMPAIGN_BROADCAST_TYPE;
+    var preferredLimit = typeof options.limit === 'number' ? options.limit : options.maxMessages;
+    var limit = typeof preferredLimit === 'number' && preferredLimit > 0 ? preferredLimit : 25;
+    var rows = filterByProfile(safeSelect('notifications', context, {}), profile, userIndex);
+    rows = rows.filter(function (row) {
+      var type = toStr(row.Type || row.NotificationType);
+      return !typeFilter || type === typeFilter;
+    });
+    rows.sort(function (a, b) {
+      var ta = toDate(a.CreatedAt || a.Timestamp || a.SentAt) || new Date(0);
+      var tb = toDate(b.CreatedAt || b.Timestamp || b.SentAt) || new Date(0);
+      return tb.getTime() - ta.getTime();
+    });
+    return {
+      records: rows.slice(0, limit),
+      total: rows.length
+    };
+  }
+
+  function buildCampaignSnapshot(profile, context, options) {
+    options = options || {};
+    var users = loadUsers(profile, context, { activeOnly: !!options.activeOnly });
+    var userIndex = buildUserIndex(users);
+    var scheduling = loadScheduling(profile, context, userIndex, options);
+    var performance = loadPerformance(profile, context, userIndex);
+    var coaching = loadCoaching(profile, context, userIndex);
+    var communications = loadCampaignCommunications(profile, context, userIndex, options);
+    var reporting = buildReporting(profile, context, userIndex, {
+      scheduling: scheduling,
+      performance: performance,
+      coaching: coaching
+    });
+    return {
+      roster: {
+        total: users.length,
+        records: options.includeRoster ? users : undefined
+      },
+      scheduling: scheduling,
+      performance: performance,
+      coaching: coaching,
+      communications: communications,
+      reporting: reporting
+    };
+  }
+
   function buildReporting(profile, context, userIndex, aggregates) {
     var scheduling = aggregates.scheduling;
     var performance = aggregates.performance;
@@ -626,6 +689,45 @@
       var cid = toStr(campaign.ID || campaign.Id || campaign.id);
       return cid && allowed[cid];
     });
+  }
+
+  function buildCampaignAccess(profile) {
+    var campaigns = safeSelect('campaigns', { allowAllTenants: true }, {});
+    if (!profile) {
+      return campaigns.map(function (campaign) {
+        return {
+          id: toStr(campaign.ID || campaign.Id || campaign.id),
+          name: campaign.Name || campaign.name || '',
+          description: campaign.Description || campaign.description || '',
+          isManaged: false,
+          isAdmin: false,
+          isDefault: false
+        };
+      });
+    }
+
+    var managed = buildValueSet(profile.managedCampaignIds || []);
+    var admin = buildValueSet(profile.adminCampaignIds || []);
+    var allowed = buildValueSet(profile.allowedCampaignIds || []);
+    var defaultCampaign = toStr(profile.defaultCampaignId);
+
+    return campaigns
+      .filter(function (campaign) {
+        if (profile.isGlobalAdmin) return true;
+        var cid = toStr(campaign.ID || campaign.Id || campaign.id);
+        return cid && allowed[cid];
+      })
+      .map(function (campaign) {
+        var cid = toStr(campaign.ID || campaign.Id || campaign.id);
+        return {
+          id: cid,
+          name: campaign.Name || campaign.name || '',
+          description: campaign.Description || campaign.description || '',
+          isManaged: !!managed[cid],
+          isAdmin: profile.isGlobalAdmin || !!admin[cid],
+          isDefault: !!(cid && defaultCampaign && cid === defaultCampaign)
+        };
+      });
   }
 
   // ───────────────────────────────────────────────────────────────────────────────
@@ -676,6 +778,167 @@
       coaching: coaching,
       collaboration: collaboration,
       reporting: reporting
+    };
+  };
+
+  WorkflowService.listCampaignAccess = function (userId) {
+    ensureInitialized();
+    var ctxInfo = getTenantTools(userId, null, {});
+    return buildCampaignAccess(ctxInfo.profile || null);
+  };
+
+  WorkflowService.getManagerCampaignDashboard = function (managerId, campaignId, options) {
+    ensureInitialized();
+    if (!campaignId) throw new Error('getManagerCampaignDashboard requires a campaignId');
+    var ctxInfo = getTenantTools(managerId, campaignId, { requireManager: true });
+    var profile = ctxInfo.profile;
+    var context = ctxInfo.context;
+    var snapshot = buildCampaignSnapshot(profile, context, Object.assign({}, options, { includeRoster: true }));
+    snapshot.campaign = (typeof csGetCampaignById === 'function') ? csGetCampaignById(campaignId) : { id: campaignId };
+    return snapshot;
+  };
+
+  WorkflowService.sendCampaignCommunication = function (managerId, campaignId, payload) {
+    ensureInitialized();
+    if (!campaignId) throw new Error('sendCampaignCommunication requires a campaignId');
+    payload = payload || {};
+    var message = toStr(payload.message || payload.Message);
+    if (!message) throw new Error('sendCampaignCommunication requires a message');
+    var title = toStr(payload.title || payload.Title) || 'Campaign Update';
+    var severity = toStr(payload.severity || payload.Severity) || DEFAULT_COMMUNICATION_SEVERITY;
+    var ctxInfo = getTenantTools(managerId, campaignId, { requireManager: true });
+    var profile = ctxInfo.profile;
+    var context = ctxInfo.context;
+    var table = getTable('notifications');
+    if (!table) throw new Error('Notifications table is not registered');
+
+    var roster = loadUsers(profile, context, {});
+    var rosterIndex = buildUserIndex(roster);
+    var allowedSet = rosterIndex.allowedSet;
+
+    var recipients = [];
+    var explicitIds = payload.userIds || payload.UserIds;
+    if (Array.isArray(explicitIds) && explicitIds.length) {
+      explicitIds.forEach(function (id) {
+        var key = toStr(id);
+        if (key && allowedSet[key]) recipients.push(key);
+      });
+    } else {
+      recipients = rosterIndex.allowedIds.slice();
+    }
+
+    recipients = dedupeList(recipients);
+    if (!recipients.length) {
+      return { success: false, error: 'No eligible recipients for campaign communication' };
+    }
+
+    var now = nowIso();
+    var createdIds = [];
+    var metadata = payload.metadata || payload.data || null;
+
+    recipients.forEach(function (userId) {
+      var record = {
+        ID: newUuid(),
+        UserId: userId,
+        Type: payload.type || payload.Type || CAMPAIGN_BROADCAST_TYPE,
+        Severity: severity,
+        Title: title,
+        Message: message,
+        Read: false,
+        ActionTaken: '',
+        CreatedAt: now,
+        ReadAt: '',
+        ExpiresAt: payload.expiresAt || payload.ExpiresAt || ''
+      };
+      if (metadata) {
+        try {
+          record.Data = typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
+        } catch (_) {
+          record.Data = '';
+        }
+      } else {
+        record.Data = '';
+      }
+      assignTenant(record, table, context, campaignId);
+      var result = safeCreate('notifications', context, record);
+      createdIds.push(result && result.ID ? result.ID : record.ID);
+    });
+
+    return {
+      success: true,
+      recipients: createdIds.length,
+      notificationIds: createdIds
+    };
+  };
+
+  WorkflowService.getExecutiveAnalytics = function (executiveId, options) {
+    ensureInitialized();
+    options = options || {};
+    var ctxInfo = getTenantTools(executiveId, null, {});
+    var profile = ctxInfo.profile;
+    if (!profile) throw new Error('User not found for executive analytics');
+
+    var campaigns = buildCampaignAccess(profile);
+    if (!campaigns.length) {
+      return { campaigns: [], summary: { totalCampaigns: 0, totalAgents: 0 } };
+    }
+
+    var snapshots = [];
+    campaigns.forEach(function (campaign) {
+      var cid = campaign.id;
+      if (!cid) return;
+      try {
+        var ctx = getTenantTools(executiveId, cid, {});
+        var snapshot = buildCampaignSnapshot(ctx.profile || profile, ctx.context, options);
+        snapshots.push({
+          campaign: campaign,
+          snapshot: snapshot
+        });
+      } catch (err) {
+        logError('getExecutiveAnalytics:' + cid, err);
+      }
+    });
+
+    var totals = {
+      totalCampaigns: snapshots.length,
+      totalAgents: 0,
+      qaEvaluations: 0,
+      qaScoreSum: 0,
+      qaScoreCount: 0,
+      attendanceEvents: 0,
+      attendanceRateSum: 0,
+      attendanceRateCount: 0
+    };
+
+    snapshots.forEach(function (entry) {
+      var snapshot = entry.snapshot;
+      totals.totalAgents += snapshot.roster.total;
+      var qaSummary = snapshot.performance.qa.summary;
+      totals.qaEvaluations += qaSummary.totalEvaluations;
+      if (qaSummary.averageScore !== null && !isNaN(qaSummary.averageScore)) {
+        totals.qaScoreSum += qaSummary.averageScore;
+        totals.qaScoreCount += 1;
+      }
+      var attendanceSummary = snapshot.performance.attendance.summary;
+      totals.attendanceEvents += attendanceSummary.totalEvents;
+      if (attendanceSummary.attendanceRate !== null && !isNaN(attendanceSummary.attendanceRate)) {
+        totals.attendanceRateSum += attendanceSummary.attendanceRate;
+        totals.attendanceRateCount += 1;
+      }
+    });
+
+    var summary = {
+      totalCampaigns: totals.totalCampaigns,
+      totalAgents: totals.totalAgents,
+      averageQaScore: totals.qaScoreCount ? Math.round((totals.qaScoreSum / totals.qaScoreCount) * 100) / 100 : null,
+      averageAttendanceRate: totals.attendanceRateCount ? Math.round((totals.attendanceRateSum / totals.attendanceRateCount) * 100) / 100 : null,
+      totalQaEvaluations: totals.qaEvaluations,
+      totalAttendanceEvents: totals.attendanceEvents
+    };
+
+    return {
+      campaigns: snapshots,
+      summary: summary
     };
   };
 
