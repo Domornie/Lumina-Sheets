@@ -163,6 +163,21 @@ CallCenterWorkflowService.acknowledgeCoaching(agentId, coaching.ID, {
   Notes: 'Reviewed and will implement feedback',
 });
 
+// Campaign-specific manager dashboard and communications
+const managerDashboard = CallCenterWorkflowService.getManagerCampaignDashboard(managerId, activeCampaignId, {
+  includeRoster: true,
+  maxMessages: 10,
+});
+
+CallCenterWorkflowService.sendCampaignCommunication(managerId, activeCampaignId, {
+  title: 'Script refresh',
+  message: 'Please review the updated talk track before tomorrow\'s shift.',
+  userIds: [agentId],
+});
+
+// Executive view across campaigns
+const executiveOverview = CallCenterWorkflowService.getExecutiveAnalytics(executiveId);
+
 // Post tenant-scoped collaboration updates
 CallCenterWorkflowService.postCollaborationMessage(agentId, channelId, 'QA review completed', {
   campaignId: activeCampaignId,
