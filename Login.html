@@ -1272,26 +1272,88 @@
       return true;
     }
 
-    function buildPageUrl(page, params = {}) {
-      const base = CONFIG.baseUrl || window.location.href;
-      let url;
+    function alignUrlToCurrentContext(url) {
+      const current = new URL(window.location.href);
 
-      try {
-        url = new URL(base, window.location.origin);
-      } catch (err) {
-        console.warn('Unable to construct base URL. Falling back to window location.', err);
-        url = new URL(window.location.href);
+      if (!(url instanceof URL)) {
+        return new URL(current.toString());
       }
 
-      const searchParams = new URLSearchParams({ page });
+      if (url.host === current.host && url.pathname === current.pathname) {
+        return url;
+      }
+
+      const normalized = new URL(current.origin + current.pathname);
+      url.searchParams.forEach((value, key) => {
+        normalized.searchParams.set(key, value);
+      });
+
+      if (url.hash) {
+        normalized.hash = url.hash;
+      }
+
+      return normalized;
+    }
+
+    function buildPageUrl(page, params = {}) {
+      const current = new URL(window.location.href);
+      let baseUrl = null;
+
+      const configuredBase = (CONFIG.baseUrl || '').trim();
+      if (configuredBase) {
+        try {
+          baseUrl = new URL(configuredBase, current);
+        } catch (err) {
+          console.warn('Unable to parse configured base URL. Falling back to current location.', err);
+        }
+      }
+
+      if (!baseUrl) {
+        baseUrl = new URL(current.toString());
+      }
+
+      baseUrl = alignUrlToCurrentContext(baseUrl);
+
+      const keysToRemove = new Set(['page']);
+      Object.keys(params || {}).forEach(key => keysToRemove.add(key));
+      keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
+
+      baseUrl.searchParams.set('page', page);
+
       Object.keys(params || {}).forEach(key => {
-        if (params[key] !== undefined && params[key] !== null) {
-          searchParams.set(key, params[key]);
+        const value = params[key];
+        if (value === undefined || value === null) {
+          baseUrl.searchParams.delete(key);
+        } else {
+          baseUrl.searchParams.set(key, value);
         }
       });
 
-      url.search = searchParams.toString();
-      return url.toString();
+      return baseUrl.toString();
+    }
+
+    function normalizeRedirectUrl(serverUrl, sessionToken) {
+      let page = 'dashboard';
+      const params = {};
+
+      if (serverUrl) {
+        try {
+          const parsed = new URL(serverUrl, window.location.href);
+          page = parsed.searchParams.get('page') || page;
+          parsed.searchParams.forEach((value, key) => {
+            if (key === 'page') return;
+            params[key] = value;
+          });
+        } catch (err) {
+          console.warn('Unable to parse server redirect URL. Falling back to local page builder.', err);
+        }
+      }
+
+      if (sessionToken && !params.token) {
+        params.token = sessionToken;
+      }
+
+      return buildPageUrl(page, params);
     }
 
     function openPage(page, params = {}) {
@@ -1758,25 +1820,40 @@
     }
 
     function buildPageUrl(page, params = {}) {
-      const base = CONFIG.baseUrl || window.location.href;
-      let url;
+      const current = new URL(window.location.href);
+      let baseUrl = null;
 
-      try {
-        url = new URL(base, window.location.origin);
-      } catch (err) {
-        console.warn('Unable to construct base URL. Falling back to window location.', err);
-        url = new URL(window.location.href);
+      const configuredBase = (CONFIG.baseUrl || '').trim();
+      if (configuredBase) {
+        try {
+          baseUrl = new URL(configuredBase, current);
+        } catch (err) {
+          console.warn('Unable to parse configured base URL. Falling back to current location.', err);
+        }
       }
 
-      const searchParams = new URLSearchParams({ page });
+      if (!baseUrl) {
+        baseUrl = new URL(current.toString());
+      }
+
+      baseUrl = alignUrlToCurrentContext(baseUrl);
+
+      const keysToRemove = new Set(['page']);
+      Object.keys(params || {}).forEach(key => keysToRemove.add(key));
+      keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
+
+      baseUrl.searchParams.set('page', page);
+
       Object.keys(params || {}).forEach(key => {
-        if (params[key] !== undefined && params[key] !== null) {
-          searchParams.set(key, params[key]);
+        const value = params[key];
+        if (value === undefined || value === null) {
+          baseUrl.searchParams.delete(key);
+        } else {
+          baseUrl.searchParams.set(key, value);
         }
       });
 
-      url.search = searchParams.toString();
-      return url.toString();
+      return baseUrl.toString();
     }
 
     function openPage(page, params = {}) {
@@ -2246,7 +2323,8 @@
             );
 
             // Setup redirect with token in URL
-            setupRedirect(response.redirectUrl, response.user);
+            const destinationUrl = normalizeRedirectUrl(response.redirectUrl, response.sessionToken);
+            setupRedirect(destinationUrl, response.user);
 
             hideNextSteps();
 
