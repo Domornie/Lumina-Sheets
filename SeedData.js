@@ -58,6 +58,7 @@ const PASSWORD_UTILS = (function resolvePasswordUtilities() {
   }
 
   throw new Error('PasswordUtilities module is not available.');
+
 })();
 
 /**

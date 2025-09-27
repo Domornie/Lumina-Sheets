@@ -69,7 +69,7 @@ var AuthenticationService = (function () {
     if (typeof ensurePasswordUtilities === 'function') {
       return ensurePasswordUtilities();
     }
-
+    
     if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
       return PasswordUtilities;
     }
@@ -97,6 +97,7 @@ var AuthenticationService = (function () {
     }
 
     throw new Error('PasswordUtilities module is not available.');
+    
   })();
 
   function normalizeHashValue(hash) {
