@@ -1107,27 +1107,54 @@
 
   // Real-time triggerized updates
   function _ensureRealtimeTrigger() {
+    var lock;
     try {
+      try {
+        lock = LockService.getScriptLock();
+        lock.waitLock(5000);
+      } catch (lockError) {
+        logError('_ensureRealtimeTrigger:lock', lockError);
+        return;
+      }
+
       var TRIGGER_FUNC = 'checkRealtimeUpdatesJob';
       var triggers = ScriptApp.getProjectTriggers() || [];
       var matching = [];
       for (var i = 0; i < triggers.length; i++) {
-        var t = triggers[i];
-        if (t.getHandlerFunction && t.getHandlerFunction() === TRIGGER_FUNC) {
-          matching.push(t);
+        var trigger = triggers[i];
+        if (trigger.getHandlerFunction && trigger.getHandlerFunction() === TRIGGER_FUNC) {
+          matching.push(trigger);
         }
+      }
+
+      var removed = 0;
+      if (matching.length > 1) {
+        for (var j = 0; j < matching.length; j++) {
+          try {
+            ScriptApp.deleteTrigger(matching[j]);
+            removed++;
+          } catch (deleteError) {
+            logError('_ensureRealtimeTrigger:delete', deleteError);
+          }
+        }
+        matching = [];
       }
 
       if (matching.length === 0) {
         ScriptApp.newTrigger(TRIGGER_FUNC).timeBased().everyMinutes(1).create();
-        console.log('Realtime trigger created (every 1 minute).');
-      } else if (matching.length > 1) {
-        for (var j = 1; j < matching.length; j++) {
-          ScriptApp.deleteTrigger(matching[j]);
+        if (removed > 0) {
+          console.log('Realtime trigger recreated after removing ' + removed + ' duplicate trigger(s).');
+        } else {
+          console.log('Realtime trigger created (every 1 minute).');
         }
-        console.log('Duplicate realtime triggers removed: ' + (matching.length - 1));
+      } else {
+        console.log('Realtime trigger already singular; no changes needed.');
       }
-    } catch (e) { logError('_ensureRealtimeTrigger', e); }
+    } catch (e) {
+      logError('_ensureRealtimeTrigger', e);
+    } finally {
+      try { if (lock) lock.releaseLock(); } catch (_) {}
+    }
   }
 
   if (typeof G.checkForScheduleUpdates !== 'function') G.checkForScheduleUpdates = function (){};
