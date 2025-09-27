@@ -4,8 +4,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Replace with your actual CSE engine ID (the "cx=" value) and your API key.
-const CSE_ID  = '130aba31c8a2d439c';
-const API_KEY = 'AIzaSyAg-puM5l9iQpjz_NplMJaKbUNRH7ld7sY';
+// Use var with a guard so the identifiers aren't redeclared if this file is
+// loaded alongside other scripts that define the same configuration (e.g.
+// Code.js). Google Apps Script evaluates all top-level statements, so
+// re-declaring a const would raise "Identifier has already been declared".
+// eslint-disable-next-line no-var
+var CSE_ID = typeof CSE_ID !== 'undefined' ? CSE_ID : '130aba31c8a2d439c';
+// eslint-disable-next-line no-var
+var API_KEY = typeof API_KEY !== 'undefined' ? API_KEY : 'AIzaSyAg-puM5l9iQpjz_NplMJaKbUNRH7ld7sY';
 
 /**
  * Performs a web search via Google Custom Search JSON API.
