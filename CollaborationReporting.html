@@ -1,0 +1,1292 @@
+<!-- CollaborationReporting.html -->
+<?!= include('header', {
+  baseUrl: baseUrl || '',
+  user: user || {},
+  currentPage: currentPage || 'Collaboration Reporting',
+  pageTitle: 'Collaboration & Reporting Hub',
+  pageDescription: 'Unify quality, attendance, executive intelligence, and collaboration workflows in one command center.'
+}) ?>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIpp0hKBR6hO2l4QmF0k0s1Xv1JQnF6YJ7N2drF6wW5w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<style>
+  body {
+    background: linear-gradient(180deg, #f6f8fc 0%, #eef2ff 100%);
+  }
+
+  .collab-wrapper {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 4rem;
+  }
+
+  .section-card {
+    border-radius: 22px;
+    border: none;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  .section-card .card-header {
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    color: #ffffff;
+    padding: 1.75rem 2rem 1.5rem;
+  }
+
+  .section-card .card-header h2 {
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+
+  .section-card .card-body {
+    padding: 2rem 2rem 2.5rem;
+  }
+
+  .muted-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+
+  .insight-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(14, 165, 233, 0.12);
+    color: #0369a1;
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+
+  .qa-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 1.2fr) minmax(320px, 1fr);
+    gap: 2rem;
+  }
+
+  @media (max-width: 1200px) {
+    .qa-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .qa-form label {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .qa-form .form-control,
+  .qa-form .form-select {
+    border-radius: 14px;
+    border: 1px solid #d8dee9;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .qa-form textarea.form-control {
+    min-height: 110px;
+  }
+
+  .qa-form .btn-primary {
+    border-radius: 999px;
+    padding: 0.8rem 1.6rem;
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    border: none;
+    font-weight: 600;
+  }
+
+  .qa-metric-card {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border-radius: 18px;
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .qa-metric-card .value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #1d4ed8;
+  }
+
+  .qa-metric-card .label {
+    font-size: 0.9rem;
+    color: #1f2937;
+    opacity: 0.8;
+  }
+
+  .qa-table thead {
+    background: #f1f5f9;
+  }
+
+  .qa-table tbody tr td {
+    vertical-align: middle;
+  }
+
+  .qa-table .collaborator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+    margin-right: 0.25rem;
+  }
+
+  .qa-table .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .status-published {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+  }
+
+  .status-draft {
+    background: rgba(249, 115, 22, 0.18);
+    color: #c2410c;
+  }
+
+  .status-followup {
+    background: rgba(239, 68, 68, 0.15);
+    color: #b91c1c;
+  }
+
+  .attendance-grid {
+    display: grid;
+    grid-template-columns: minmax(380px, 1.3fr) minmax(280px, 1fr);
+    gap: 2rem;
+  }
+
+  @media (max-width: 1200px) {
+    .attendance-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .attendance-table tbody tr td {
+    vertical-align: middle;
+  }
+
+  .progress-bar {
+    border-radius: 999px;
+  }
+
+  .exec-kpi-card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 1.4rem 1.6rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+    height: 100%;
+  }
+
+  .exec-kpi-card h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+  }
+
+  .exec-kpi-card .headline {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .exec-kpi-card small {
+    color: #64748b;
+  }
+
+  .persona-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.6rem 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    color: #0f172a;
+    background: rgba(14, 165, 233, 0.08);
+  }
+
+  .persona-chip.active {
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+  }
+
+  .persona-chip i {
+    font-size: 1.1rem;
+  }
+
+  .thread-card {
+    border-radius: 18px;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(255, 255, 255, 0.9);
+    margin-bottom: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .thread-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  }
+
+  .thread-card.active {
+    border-color: rgba(37, 99, 235, 0.6);
+    box-shadow: 0 20px 40px rgba(37, 99, 235, 0.18);
+  }
+
+  .thread-card .title {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .thread-meta {
+    font-size: 0.75rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .chat-stream {
+    background: rgba(248, 250, 252, 0.8);
+    border-radius: 18px;
+    padding: 1.2rem 1.4rem;
+    height: 100%;
+    overflow-y: auto;
+    min-height: 420px;
+    max-height: 520px;
+  }
+
+  .chat-message {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.9rem;
+  }
+
+  .chat-message .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+  }
+
+  .chat-message .bubble {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    flex: 1;
+  }
+
+  .chat-message .bubble .author {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .chat-message .bubble .timestamp {
+    font-size: 0.75rem;
+    color: #94a3b8;
+  }
+
+  .chat-message .bubble .tags {
+    margin-top: 0.5rem;
+  }
+
+  .chat-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    margin-right: 0.4rem;
+  }
+
+  .chat-composer .form-control {
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+  }
+
+  .chat-composer .btn-primary {
+    border-radius: 12px;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    border: none;
+  }
+
+  .kpi-trend-card {
+    border-radius: 18px;
+    background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.95));
+    color: #e2e8f0;
+    padding: 1.5rem;
+  }
+
+  .kpi-trend-card h3 {
+    color: #ffffff;
+  }
+
+  .kpi-bullet {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.9rem;
+  }
+
+  .kpi-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+</style>
+
+<div class="collab-wrapper">
+  <div class="row g-4 align-items-stretch">
+    <div class="col-xxl-8">
+      <div class="card section-card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <div class="insight-pill"><i class="fas fa-star"></i> QA Collaboration Studio</div>
+            <h2 class="mt-3 mb-1">Audit Capture & Multi-role Review</h2>
+            <p class="mb-0">Co-author quality reviews, track action items, and visualize cross-team QA performance in real time.</p>
+          </div>
+          <div class="text-end">
+            <div class="muted-label">Rolling 30-day coverage</div>
+            <div class="display-6 fw-bold" id="qaCoverageRate">96%</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="qa-grid">
+            <form class="qa-form" id="qaCollaborationForm">
+              <div class="row g-3">
+                <div class="col-sm-6">
+                  <label for="qaAgent" class="form-label">Agent</label>
+                  <select class="form-select" id="qaAgent" name="qaAgent" required>
+                    <option value="">Select an agent</option>
+                  </select>
+                </div>
+                <div class="col-sm-6">
+                  <label for="qaCampaign" class="form-label">Campaign</label>
+                  <select class="form-select" id="qaCampaign" name="qaCampaign" required>
+                    <option value="">Choose campaign</option>
+                  </select>
+                </div>
+                <div class="col-sm-6">
+                  <label for="qaReviewer" class="form-label">Reviewer</label>
+                  <select class="form-select" id="qaReviewer" name="qaReviewer" required>
+                    <option value="">Assign reviewer</option>
+                  </select>
+                </div>
+                <div class="col-sm-6">
+                  <label for="qaCollaborators" class="form-label">Collaborators</label>
+                  <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple>
+                  </select>
+                  <div class="form-text">Loop in managers, QA leads, or executives who need visibility.</div>
+                </div>
+                <div class="col-sm-4">
+                  <label for="qaScore" class="form-label">Score</label>
+                  <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.5" value="92" required>
+                </div>
+                <div class="col-sm-4">
+                  <label for="qaFocusArea" class="form-label">Focus Area</label>
+                  <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
+                    <option value="">Select focus</option>
+                    <option>Call Control</option>
+                    <option>Compliance</option>
+                    <option>Rapport &amp; Empathy</option>
+                    <option>Product Knowledge</option>
+                    <option>Objection Handling</option>
+                  </select>
+                </div>
+                <div class="col-sm-4">
+                  <label for="qaStatus" class="form-label">Status</label>
+                  <select class="form-select" id="qaStatus" name="qaStatus" required>
+                    <option value="Published">Published</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Follow-up">Follow-up Scheduled</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label for="qaHighlights" class="form-label">Highlights &amp; Coaching Actions</label>
+                  <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
+                </div>
+                <div class="col-md-6">
+                  <label for="qaNextTouch" class="form-label">Next touchpoint</label>
+                  <input type="date" class="form-control" id="qaNextTouch" name="qaNextTouch">
+                </div>
+                <div class="col-md-6">
+                  <label for="qaChannel" class="form-label">Channel</label>
+                  <select class="form-select" id="qaChannel" name="qaChannel" required>
+                    <option>Voice</option>
+                    <option>Email</option>
+                    <option>Chat</option>
+                    <option>Social</option>
+                  </select>
+                </div>
+                <div class="col-12 d-flex gap-3 mt-2">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-2"></i>Log QA Collaboration
+                  </button>
+                  <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn">
+                    <i class="fas fa-rotate-left me-1"></i>Reset
+                  </button>
+                </div>
+              </div>
+            </form>
+            <div>
+              <div class="qa-metric-card">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="label text-uppercase">Average QA Score</div>
+                    <div class="value" id="qaAverageScore">94.2</div>
+                  </div>
+                  <div class="text-end">
+                    <div class="muted-label">vs target 92%</div>
+                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">+1.8 pts</div>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <canvas id="qaTrendChart" height="160"></canvas>
+                </div>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="qa-metric-card">
+                    <div class="label text-uppercase">Actionable Items</div>
+                    <div class="value" id="qaFollowUps">8</div>
+                    <div class="muted-label">Follow-ups scheduled this week</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="qa-metric-card">
+                    <div class="label text-uppercase">Collaboration Threads</div>
+                    <div class="value" id="qaThreads">26</div>
+                    <div class="muted-label">Audits with multi-role feedback</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive mt-4">
+            <table class="table table-hover align-middle qa-table" id="qaReviewTable">
+              <thead>
+                <tr>
+                  <th>Audit ID</th>
+                  <th>Agent</th>
+                  <th>Campaign</th>
+                  <th>Score</th>
+                  <th>Focus</th>
+                  <th>Collaborators</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-4">
+      <div class="card section-card h-100">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-chart-line"></i> Executive KPI Pulse</div>
+          <h2 class="mt-3">Multi-campaign Leadership Summary</h2>
+          <p class="mb-0">Blended KPIs across every managed campaign, with proactive signals for strategic decision making.</p>
+        </div>
+        <div class="card-body d-flex flex-column gap-3">
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <div class="exec-kpi-card text-center">
+                <small>Net promoter lift (QTD)</small>
+                <div class="headline" id="kpiNetPromoter">+6.4</div>
+                <div class="text-success fw-semibold">Momentum improving</div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="exec-kpi-card text-center">
+                <small>QA compliance adherence</small>
+                <div class="headline" id="kpiCompliance">97%</div>
+                <div class="text-success fw-semibold">+2 pts vs last month</div>
+              </div>
+            </div>
+          </div>
+          <div class="kpi-trend-card">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h3 class="h5 mb-1">Campaign Health Mix</h3>
+                <p class="mb-0 text-secondary">Distribution of KPI attainment vs executive targets.</p>
+              </div>
+              <div class="text-end">
+                <span class="badge bg-primary-subtle text-primary" id="execTimeframe">Q2, Week 3</span>
+              </div>
+            </div>
+            <canvas id="execBlendChart" height="180"></canvas>
+            <div class="mt-3">
+              <div class="kpi-bullet"><span class="kpi-dot" style="background:#38bdf8"></span> Credit Suite – 94% target attainment</div>
+              <div class="kpi-bullet"><span class="kpi-dot" style="background:#34d399"></span> Independence – 91% target attainment</div>
+              <div class="kpi-bullet"><span class="kpi-dot" style="background:#facc15"></span> Grounding QA – 88% target attainment</div>
+            </div>
+          </div>
+          <div class="exec-kpi-card">
+            <h3>Executive Brief</h3>
+            <ul class="list-unstyled mb-0" id="executiveBrief">
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-2 align-items-stretch">
+    <div class="col-xl-7">
+      <div class="card section-card h-100">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-user-check"></i> Attendance &amp; Adherence</div>
+          <h2 class="mt-3">Shift coverage &amp; schedule fidelity</h2>
+          <p class="mb-0">Track live adherence, shrinkage trends, and campaign-level coverage gaps.</p>
+        </div>
+        <div class="card-body">
+          <div class="attendance-grid">
+            <div>
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h3 class="h5 mb-0">Adherence trend</h3>
+                  <small class="text-secondary">Rolling six weeks</small>
+                </div>
+                <select class="form-select form-select-sm" style="width:auto" id="attendanceCampaignFilter"></select>
+              </div>
+              <canvas id="attendanceTrendChart" height="220"></canvas>
+            </div>
+            <div>
+              <div class="qa-metric-card">
+                <div class="label text-uppercase">Average adherence</div>
+                <div class="value" id="attendanceAverage">95%</div>
+                <div class="muted-label">Across all campaigns this month</div>
+              </div>
+              <table class="table table-sm align-middle attendance-table">
+                <thead>
+                  <tr>
+                    <th>Week</th>
+                    <th>Adherence</th>
+                    <th>Absenteeism</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="card section-card h-100">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
+          <h2 class="mt-3">Precision chat for leadership huddles</h2>
+          <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 align-items-stretch">
+            <div class="col-lg-4">
+              <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+            </div>
+            <div class="col-lg-4">
+              <div id="chatThreadList" class="overflow-auto" style="max-height:460px;"></div>
+            </div>
+            <div class="col-lg-4 d-flex flex-column">
+              <div class="chat-stream mb-3" id="chatMessageStream"></div>
+              <form id="chatComposer" class="chat-composer">
+                <div class="input-group">
+                  <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
+                  <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const currentUser = <?!= JSON.stringify(user || {}) ?>;
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Seed datasets
+    const qaReviews = [
+      {
+        id: 'QA-2404-108',
+        agent: 'Alicia Lopez',
+        campaign: 'Credit Suite',
+        reviewer: 'Morgan Reid',
+        collaborators: ['QA Lead', 'Campaign Manager'],
+        score: 95,
+        focus: 'Rapport & Empathy',
+        status: 'Published',
+        updated: '2024-04-18T14:32:00Z',
+        highlights: 'Exceptional empathy and softening statements. Reinforce power statements for upsell pivot.',
+        channel: 'Voice',
+        nextTouch: '2024-04-24'
+      },
+      {
+        id: 'QA-2404-099',
+        agent: 'Bryce Chen',
+        campaign: 'Independence',
+        reviewer: 'Jordan Blake',
+        collaborators: ['Operations Manager'],
+        score: 91,
+        focus: 'Compliance',
+        status: 'Follow-up',
+        updated: '2024-04-17T09:18:00Z',
+        highlights: 'Verification script missed twice. Manager coordinating refresher training with compliance.',
+        channel: 'Voice',
+        nextTouch: '2024-04-21'
+      },
+      {
+        id: 'QA-2404-094',
+        agent: 'Serena Ibarra',
+        campaign: 'Grounding QA',
+        reviewer: 'Jamie Patel',
+        collaborators: ['QA Lead', 'Executive Sponsor'],
+        score: 88,
+        focus: 'Call Control',
+        status: 'Published',
+        updated: '2024-04-16T16:52:00Z',
+        highlights: 'Call pacing improved 12%. Recommend tagging manager for calibration follow-up.',
+        channel: 'Chat',
+        nextTouch: '2024-04-22'
+      },
+      {
+        id: 'QA-2404-082',
+        agent: 'Enzo Ramirez',
+        campaign: 'Credit Suite',
+        reviewer: 'Morgan Reid',
+        collaborators: ['QA Lead'],
+        score: 96,
+        focus: 'Product Knowledge',
+        status: 'Draft',
+        updated: '2024-04-15T11:05:00Z',
+        highlights: 'Product upsell coverage at 100%. Pending final sign-off from campaign manager.',
+        channel: 'Voice',
+        nextTouch: '2024-04-19'
+      }
+    ];
+
+    const qaDirectory = {
+      agents: ['Alicia Lopez', 'Bryce Chen', 'Serena Ibarra', 'Enzo Ramirez', 'Mira Sullivan', 'Declan Ortiz'],
+      reviewers: ['Morgan Reid', 'Jordan Blake', 'Jamie Patel', 'Priya Desai'],
+      campaigns: ['Credit Suite', 'Independence', 'Grounding QA'],
+      collaborators: ['QA Lead', 'Campaign Manager', 'Executive Sponsor', 'Workforce Manager', 'Client Partner']
+    };
+
+    const attendanceHistory = [
+      { campaign: 'Credit Suite', week: '2024-W11', adherence: 0.93, absenteeism: 0.045, present: 398, scheduled: 428 },
+      { campaign: 'Credit Suite', week: '2024-W12', adherence: 0.948, absenteeism: 0.039, present: 404, scheduled: 426 },
+      { campaign: 'Credit Suite', week: '2024-W13', adherence: 0.955, absenteeism: 0.034, present: 411, scheduled: 430 },
+      { campaign: 'Credit Suite', week: '2024-W14', adherence: 0.962, absenteeism: 0.031, present: 420, scheduled: 436 },
+      { campaign: 'Credit Suite', week: '2024-W15', adherence: 0.968, absenteeism: 0.029, present: 424, scheduled: 438 },
+      { campaign: 'Independence', week: '2024-W11', adherence: 0.904, absenteeism: 0.062, present: 265, scheduled: 293 },
+      { campaign: 'Independence', week: '2024-W12', adherence: 0.915, absenteeism: 0.058, present: 272, scheduled: 297 },
+      { campaign: 'Independence', week: '2024-W13', adherence: 0.927, absenteeism: 0.054, present: 278, scheduled: 300 },
+      { campaign: 'Independence', week: '2024-W14', adherence: 0.936, absenteeism: 0.051, present: 284, scheduled: 303 },
+      { campaign: 'Independence', week: '2024-W15', adherence: 0.943, absenteeism: 0.047, present: 289, scheduled: 306 },
+      { campaign: 'Grounding QA', week: '2024-W11', adherence: 0.887, absenteeism: 0.071, present: 192, scheduled: 216 },
+      { campaign: 'Grounding QA', week: '2024-W12', adherence: 0.901, absenteeism: 0.067, present: 198, scheduled: 220 },
+      { campaign: 'Grounding QA', week: '2024-W13', adherence: 0.914, absenteeism: 0.063, present: 205, scheduled: 224 },
+      { campaign: 'Grounding QA', week: '2024-W14', adherence: 0.922, absenteeism: 0.059, present: 211, scheduled: 229 },
+      { campaign: 'Grounding QA', week: '2024-W15', adherence: 0.931, absenteeism: 0.055, present: 216, scheduled: 232 }
+    ];
+
+    const executiveSignals = [
+      {
+        title: 'Credit Suite',
+        qa: 94,
+        attendance: 96,
+        csat: 4.6,
+        alerts: ['Upsell conversion +11% QoQ', 'QA calibration complete – 3% tighter variance']
+      },
+      {
+        title: 'Independence',
+        qa: 91,
+        attendance: 94,
+        csat: 4.4,
+        alerts: ['Adherence +2 pts week-over-week', 'Compliance retraining closing by Apr 21']
+      },
+      {
+        title: 'Grounding QA',
+        qa: 89,
+        attendance: 92,
+        csat: 4.2,
+        alerts: ['Chat pilot launching May 2', 'Agent tenure improving – attrition down 4%']
+      }
+    ];
+
+    const chatThreads = {
+      executive: [
+        {
+          id: 'exec-forecast',
+          title: 'Q3 KPI Forecast Readout',
+          updated: '09:24',
+          audience: 'Executives & Directors',
+          messages: [
+            { author: 'COO Martin', persona: 'Executive', time: '08:55', text: 'Reminder: cross-campaign revenue KPIs trending +6.4 vs plan. Need readiness check for scaling credit suite staffing by mid-May.', tags: ['KPIs', 'Staffing'] },
+            { author: 'CFO Liza', persona: 'Executive', time: '09:12', text: 'Finance is aligned. Workforce modeling indicates 12 FTE headroom with current adherence uplift.', tags: ['Finance'] }
+          ]
+        },
+        {
+          id: 'exec-client',
+          title: 'Client Advisory Board Prep',
+          updated: 'Yesterday',
+          audience: 'Execs & Client Partners',
+          messages: [
+            { author: 'Client Partner Jae', persona: 'Executive', time: 'Yesterday 16:18', text: 'Agenda drafted. Need QA highlights for Independence and new adherence actions to highlight.', tags: ['Client', 'QA'] },
+            { author: 'VP Operations Tori', persona: 'Executive', time: 'Yesterday 16:31', text: 'Uploading slides with latest QA win stories + adherence graph overlays.', tags: ['Operations'] }
+          ]
+        }
+      ],
+      manager: [
+        {
+          id: 'mgr-adherence',
+          title: 'Morning Standup - Adherence',
+          updated: '07:45',
+          audience: 'Managers & Workforce',
+          messages: [
+            { author: 'WF Manager Alina', persona: 'Manager', time: '07:32', text: 'Credit Suite adherence at 96.8%. Grounding QA trending up 0.9 pts after shift bid changes.', tags: ['Adherence'] },
+            { author: 'Operations Lead Theo', persona: 'Manager', time: '07:45', text: 'Requesting coaching follow-up for agents below 85% adherence. Tag QA for rapid calibrations.', tags: ['Coaching', 'QA'] }
+          ]
+        },
+        {
+          id: 'mgr-quality',
+          title: 'QA Action Queue',
+          updated: 'Mon',
+          audience: 'Managers & QA Leads',
+          messages: [
+            { author: 'QA Lead Priya', persona: 'Manager', time: 'Mon 14:08', text: 'Eight follow-ups scheduled this week. Need executive sponsor to join Serena Ibarra review.', tags: ['QA', 'Follow-up'] }
+          ]
+        }
+      ],
+      agent: [
+        {
+          id: 'agent-coaching',
+          title: 'Coaching Huddle – Credit Suite',
+          updated: 'Today',
+          audience: 'Agents & Coaches',
+          messages: [
+            { author: 'Coach Daniel', persona: 'Coach', time: 'Today 10:03', text: 'Uploading new objection handling playbook. Let me know which sections you want deeper support on.', tags: ['Coaching'] },
+            { author: 'Agent Alicia', persona: 'Agent', time: 'Today 10:18', text: 'Appreciate the new script! Requesting quick review of call QA-2404-108 before next shift.', tags: ['QA Review'] }
+          ]
+        },
+        {
+          id: 'agent-announcements',
+          title: 'Announcements & Recognitions',
+          updated: 'Yesterday',
+          audience: 'All Agents',
+          messages: [
+            { author: 'Manager Reese', persona: 'Manager', time: 'Yesterday 17:10', text: 'Shoutout to Bryce for 4.9 QA average this week! Keep the energy going.', tags: ['Recognition'] }
+          ]
+        }
+      ]
+    };
+
+    // Utility helpers
+    const qaTableBody = document.querySelector('#qaReviewTable tbody');
+    const qaAgentSelect = document.getElementById('qaAgent');
+    const qaCampaignSelect = document.getElementById('qaCampaign');
+    const qaReviewerSelect = document.getElementById('qaReviewer');
+    const qaCollaboratorSelect = document.getElementById('qaCollaborators');
+    const qaForm = document.getElementById('qaCollaborationForm');
+    const qaHighlightsField = document.getElementById('qaHighlights');
+    const qaStatusField = document.getElementById('qaStatus');
+    const qaChannelField = document.getElementById('qaChannel');
+
+    const formatDate = (isoString) => {
+      const dt = new Date(isoString);
+      return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const statusClass = (status) => {
+      if (!status) return 'status-pill status-draft';
+      const normalized = status.toLowerCase();
+      if (normalized.includes('follow')) return 'status-pill status-followup';
+      if (normalized.includes('publish')) return 'status-pill status-published';
+      return 'status-pill status-draft';
+    };
+
+    function populateSelect(select, items) {
+      select.innerHTML = '<option value="">' + (select === qaCollaboratorSelect ? 'Select collaborators' : 'Choose') + '</option>';
+      items.forEach((item) => {
+        const opt = document.createElement('option');
+        opt.value = item;
+        opt.textContent = item;
+        select.appendChild(opt);
+      });
+    }
+
+    function populateMultiSelect(select, items) {
+      select.innerHTML = '';
+      items.forEach((item) => {
+        const opt = document.createElement('option');
+        opt.value = item;
+        opt.textContent = item;
+        select.appendChild(opt);
+      });
+    }
+
+    populateSelect(qaAgentSelect, qaDirectory.agents);
+    populateSelect(qaCampaignSelect, qaDirectory.campaigns);
+    populateSelect(qaReviewerSelect, qaDirectory.reviewers);
+    populateMultiSelect(qaCollaboratorSelect, qaDirectory.collaborators);
+
+    function renderQATable() {
+      qaTableBody.innerHTML = '';
+      qaReviews
+        .slice()
+        .sort((a, b) => new Date(b.updated) - new Date(a.updated))
+        .forEach((review) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="fw-semibold">${review.id}</td>
+            <td>
+              <div class="fw-semibold">${review.agent}</div>
+              <small class="text-secondary">${review.reviewer}</small>
+            </td>
+            <td>${review.campaign}</td>
+            <td><span class="fw-bold">${review.score}</span></td>
+            <td>${review.focus}</td>
+            <td>${review.collaborators.map((c) => `<span class="collaborator"><i class="fas fa-user-circle"></i>${c}</span>`).join('')}</td>
+            <td><span class="${statusClass(review.status)}">${review.status}</span></td>
+            <td>${formatDate(review.updated)}</td>
+          `;
+          qaTableBody.appendChild(tr);
+        });
+    }
+
+    function computeQAMetrics() {
+      if (!qaReviews.length) return { avg: 0, followUps: 0, coverage: '0%', threads: 0 };
+      const avgScore = qaReviews.reduce((acc, r) => acc + r.score, 0) / qaReviews.length;
+      const followUps = qaReviews.filter((r) => /follow/i.test(r.status)).length;
+      const multiThreads = qaReviews.filter((r) => (r.collaborators || []).length > 1).length;
+      const coverage = Math.min(100, 90 + qaReviews.length * 1.5);
+      return {
+        avg: avgScore.toFixed(1),
+        followUps,
+        threads: multiThreads,
+        coverage: coverage + '%'
+      };
+    }
+
+    function renderQAMetrics() {
+      const metrics = computeQAMetrics();
+      document.getElementById('qaAverageScore').textContent = metrics.avg;
+      document.getElementById('qaFollowUps').textContent = metrics.followUps;
+      document.getElementById('qaThreads').textContent = metrics.threads;
+      document.getElementById('qaCoverageRate').textContent = metrics.coverage;
+      const diff = (metrics.avg - 92).toFixed(1);
+      const trendEl = document.getElementById('qaScoreTrend');
+      trendEl.textContent = (diff >= 0 ? '+' : '') + diff + ' pts';
+      trendEl.classList.toggle('bg-success', diff >= 0);
+      trendEl.classList.toggle('bg-danger', diff < 0);
+    }
+
+    function computeTrendDataset() {
+      const buckets = {};
+      qaReviews.forEach((review) => {
+        const date = new Date(review.updated);
+        const week = `${date.getFullYear()}-W${String(Math.ceil((date.getDate() + 6 - date.getDay()) / 7)).padStart(2, '0')}`;
+        if (!buckets[week]) {
+          buckets[week] = { total: 0, count: 0 };
+        }
+        buckets[week].total += review.score;
+        buckets[week].count += 1;
+      });
+      const weeks = Object.keys(buckets)
+        .sort()
+        .slice(-6);
+      return {
+        labels: weeks,
+        data: weeks.map((week) => (buckets[week].total / buckets[week].count).toFixed(1))
+      };
+    }
+
+    const qaTrendCtx = document.getElementById('qaTrendChart');
+    const qaTrendData = computeTrendDataset();
+    const qaTrendChart = new Chart(qaTrendCtx, {
+      type: 'line',
+      data: {
+        labels: qaTrendData.labels,
+        datasets: [
+          {
+            label: 'Average QA Score',
+            data: qaTrendData.data,
+            fill: true,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.16)',
+            tension: 0.35,
+            borderWidth: 3,
+            pointBackgroundColor: '#1d4ed8'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            suggestedMin: 70,
+            suggestedMax: 100,
+            ticks: {
+              callback: (value) => value + '%'
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    function refreshTrendChart() {
+      const updated = computeTrendDataset();
+      qaTrendChart.data.labels = updated.labels;
+      qaTrendChart.data.datasets[0].data = updated.data;
+      qaTrendChart.update();
+    }
+
+    qaForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const formData = new FormData(qaForm);
+      const now = new Date();
+      const id = 'QA-' + now.getFullYear().toString().slice(-2) + (now.getMonth() + 1).toString().padStart(2, '0') + '-' + Math.floor(100 + Math.random() * 900);
+      const collaborators = Array.from(qaCollaboratorSelect.selectedOptions).map((opt) => opt.value);
+      qaReviews.push({
+        id,
+        agent: formData.get('qaAgent') || qaAgentSelect.value,
+        campaign: formData.get('qaCampaign') || qaCampaignSelect.value,
+        reviewer: formData.get('qaReviewer') || qaReviewerSelect.value,
+        collaborators,
+        score: parseFloat(formData.get('qaScore') || 0),
+        focus: formData.get('qaFocusArea') || '',
+        status: formData.get('qaStatus') || qaStatusField.value,
+        updated: now.toISOString(),
+        highlights: formData.get('qaHighlights') || qaHighlightsField.value,
+        channel: formData.get('qaChannel') || qaChannelField.value || 'Voice',
+        nextTouch: formData.get('qaNextTouch') || ""
+      });
+
+      renderQATable();
+      renderQAMetrics();
+      refreshTrendChart();
+      qaForm.reset();
+    });
+
+    document.getElementById('qaResetBtn').addEventListener('click', () => {
+      qaHighlightsField.value = '';
+    });
+
+    renderQATable();
+    renderQAMetrics();
+
+    // Executive summary rendering
+    const execBriefList = document.getElementById('executiveBrief');
+    function renderExecutiveBrief() {
+      execBriefList.innerHTML = '';
+      executiveSignals.forEach((signal) => {
+        const li = document.createElement('li');
+        li.className = 'mb-3';
+        li.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-bold">${signal.title}</div>
+              <div class="text-secondary">QA ${signal.qa}% · Attendance ${signal.attendance}% · CSAT ${signal.csat.toFixed(1)}</div>
+            </div>
+            <span class="badge rounded-pill ${signal.qa >= 92 ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'}">${signal.qa >= 92 ? 'On Track' : 'Monitor'}</span>
+          </div>
+          <ul class="mt-2 mb-0">
+            ${signal.alerts.map((note) => `<li class="small text-secondary">${note}</li>`).join('')}
+          </ul>
+        `;
+        execBriefList.appendChild(li);
+      });
+    }
+
+    const execBlendCtx = document.getElementById('execBlendChart');
+    const execBlendChart = new Chart(execBlendCtx, {
+      type: 'doughnut',
+      data: {
+        labels: executiveSignals.map((s) => s.title),
+        datasets: [
+          {
+            data: executiveSignals.map((s) => Math.round((s.qa + s.attendance) / 2)),
+            backgroundColor: ['#38bdf8', '#34d399', '#facc15'],
+            borderWidth: 0,
+            hoverOffset: 8
+          }
+        ]
+      },
+      options: {
+        cutout: '68%',
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+
+    renderExecutiveBrief();
+
+    // Attendance rendering
+    const attendanceCampaignSelect = document.getElementById('attendanceCampaignFilter');
+    const attendanceTableBody = document.getElementById('attendanceTableBody');
+
+    const campaigns = [...new Set(attendanceHistory.map((item) => item.campaign))];
+    campaigns.forEach((campaign) => {
+      const opt = document.createElement('option');
+      opt.value = campaign;
+      opt.textContent = campaign;
+      attendanceCampaignSelect.appendChild(opt);
+    });
+    attendanceCampaignSelect.value = campaigns[0];
+
+    function renderAttendanceTable(campaign) {
+      const filtered = attendanceHistory.filter((row) => row.campaign === campaign).slice(-6);
+      attendanceTableBody.innerHTML = '';
+      filtered.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="fw-semibold">${row.week}</td>
+          <td>
+            <div class="fw-semibold">${(row.adherence * 100).toFixed(1)}%</div>
+            <div class="progress" style="height:6px;">
+              <div class="progress-bar bg-primary" style="width:${row.adherence * 100}%"></div>
+            </div>
+          </td>
+          <td class="text-danger">${(row.absenteeism * 100).toFixed(1)}%</td>
+        `;
+        attendanceTableBody.appendChild(tr);
+      });
+    }
+
+    function computeAttendanceAverage() {
+      const avg = attendanceHistory.reduce((acc, row) => acc + row.adherence, 0) / attendanceHistory.length;
+      return (avg * 100).toFixed(1) + '%';
+    }
+
+    document.getElementById('attendanceAverage').textContent = computeAttendanceAverage();
+
+    const attendanceCtx = document.getElementById('attendanceTrendChart');
+    function buildAttendanceDataset(campaign) {
+      const filtered = attendanceHistory.filter((row) => row.campaign === campaign).slice(-6);
+      return {
+        labels: filtered.map((row) => row.week),
+        adherence: filtered.map((row) => (row.adherence * 100).toFixed(1)),
+        absenteeism: filtered.map((row) => (row.absenteeism * 100).toFixed(1))
+      };
+    }
+
+    let attendanceChart;
+
+    function renderAttendanceChart(campaign) {
+      const dataset = buildAttendanceDataset(campaign);
+      if (attendanceChart) {
+        attendanceChart.data.labels = dataset.labels;
+        attendanceChart.data.datasets[0].data = dataset.adherence;
+        attendanceChart.data.datasets[1].data = dataset.absenteeism;
+        attendanceChart.update();
+      } else {
+        attendanceChart = new Chart(attendanceCtx, {
+          type: 'line',
+          data: {
+            labels: dataset.labels,
+            datasets: [
+              {
+                label: 'Adherence %',
+                data: dataset.adherence,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                tension: 0.35,
+                borderWidth: 3,
+                fill: true
+              },
+              {
+                label: 'Absenteeism %',
+                data: dataset.absenteeism,
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                tension: 0.35,
+                borderWidth: 2,
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'bottom'
+              }
+            },
+            scales: {
+              y: {
+                ticks: {
+                  callback: (value) => value + '%'
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    attendanceCampaignSelect.addEventListener('change', (event) => {
+      renderAttendanceChart(event.target.value);
+      renderAttendanceTable(event.target.value);
+    });
+
+    renderAttendanceChart(attendanceCampaignSelect.value);
+    renderAttendanceTable(attendanceCampaignSelect.value);
+
+    // Chat collaboration rendering
+    const personaFiltersContainer = document.getElementById('chatPersonaFilters');
+    const chatThreadList = document.getElementById('chatThreadList');
+    const chatStream = document.getElementById('chatMessageStream');
+    const chatComposer = document.getElementById('chatComposer');
+    const chatAudienceLabel = document.getElementById('chatAudienceLabel');
+    const chatMessageInput = document.getElementById('chatMessageInput');
+
+    const personaConfig = [
+      { key: 'executive', label: 'Executive Signals', icon: 'fa-chess-queen' },
+      { key: 'manager', label: 'Manager War Room', icon: 'fa-user-tie' },
+      { key: 'agent', label: 'Agent Huddles', icon: 'fa-headset' }
+    ];
+
+    let activePersona = 'executive';
+    let activeThreadId = chatThreads[activePersona][0]?.id;
+
+    function renderPersonaFilters() {
+      personaFiltersContainer.innerHTML = '';
+      personaConfig.forEach((persona) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'persona-chip btn btn-link text-start ' + (activePersona === persona.key ? 'active' : '');
+        btn.innerHTML = `<i class="fas ${persona.icon}"></i> ${persona.label}`;
+        btn.addEventListener('click', () => {
+          activePersona = persona.key;
+          activeThreadId = chatThreads[activePersona][0]?.id;
+          renderPersonaFilters();
+          renderThreads();
+          renderActiveThread();
+        });
+        personaFiltersContainer.appendChild(btn);
+      });
+    }
+
+    function renderThreads() {
+      chatThreadList.innerHTML = '';
+      const threads = chatThreads[activePersona];
+      threads.forEach((thread) => {
+        const card = document.createElement('div');
+        card.className = 'thread-card ' + (thread.id === activeThreadId ? 'active' : '');
+        card.innerHTML = `
+          <div class="title">${thread.title}</div>
+          <div class="thread-meta mt-2">
+            <span><i class="fas fa-users"></i> ${thread.audience}</span>
+            <span><i class="fas fa-clock"></i> ${thread.updated}</span>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          activeThreadId = thread.id;
+          renderThreads();
+          renderActiveThread();
+        });
+        chatThreadList.appendChild(card);
+      });
+    }
+
+    function renderActiveThread() {
+      chatStream.innerHTML = '';
+      const thread = chatThreads[activePersona].find((t) => t.id === activeThreadId);
+      if (!thread) {
+        chatAudienceLabel.textContent = 'selected participants';
+        return;
+      }
+      chatAudienceLabel.textContent = thread.audience;
+      thread.messages.forEach((message) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chat-message';
+        wrapper.innerHTML = `
+          <div class="avatar">${(message.author || 'U').charAt(0)}</div>
+          <div class="bubble">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="author">${message.author}</div>
+              <div class="timestamp">${message.time}</div>
+            </div>
+            <div class="mt-1">${message.text}</div>
+            <div class="tags">${(message.tags || []).map((tag) => `<span class="chat-tag"><i class="fas fa-tag"></i> ${tag}</span>`).join('')}</div>
+          </div>
+        `;
+        chatStream.appendChild(wrapper);
+      });
+      chatStream.scrollTop = chatStream.scrollHeight;
+    }
+
+    chatComposer.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const value = chatMessageInput.value.trim();
+      if (!value) return;
+      const thread = chatThreads[activePersona].find((t) => t.id === activeThreadId);
+      if (!thread) return;
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      thread.messages.push({
+        author: currentUser?.FullName || 'You',
+        persona: 'User',
+        time: timestamp,
+        text: value,
+        tags: ['Update']
+      });
+      thread.updated = 'Just now';
+      chatMessageInput.value = '';
+      renderThreads();
+      renderActiveThread();
+    });
+
+    renderPersonaFilters();
+    renderThreads();
+    renderActiveThread();
+  });
+</script>
