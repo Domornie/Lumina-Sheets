@@ -64,7 +64,81 @@ function resolveScriptUrl() {
 // ───────────────────────────────────────────────────────────────────────────────
 
 var AuthenticationService = (function () {
-  
+
+  const passwordUtils = (function ensurePasswordUtilities() {
+    if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+      return PasswordUtilities;
+    }
+
+    function normalizePasswordInput(raw) {
+      return raw == null ? '' : String(raw);
+    }
+
+    function normalizeHash(hash) {
+      if (hash === null || typeof hash === 'undefined') return '';
+      if (hash instanceof Date) return hash.toISOString();
+      return String(hash).trim().toLowerCase();
+    }
+
+    function digestToHex(digest) {
+      if (!digest || typeof digest.map !== 'function') return '';
+      return digest
+        .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
+        .join('');
+    }
+
+    function hashPassword(raw) {
+      const normalized = normalizePasswordInput(raw);
+      const digest = Utilities.computeDigest(
+        Utilities.DigestAlgorithm.SHA_256,
+        normalized,
+        Utilities.Charset.UTF_8
+      );
+      return digestToHex(digest);
+    }
+
+    function constantTimeEquals(a, b) {
+      if (a == null || b == null) return false;
+      const strA = String(a);
+      const strB = String(b);
+      if (strA.length !== strB.length) return false;
+      let diff = 0;
+      for (let i = 0; i < strA.length; i++) {
+        diff |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
+      }
+      return diff === 0;
+    }
+
+    function verifyPassword(raw, expectedHash) {
+      const normalizedExpected = normalizeHash(expectedHash);
+      if (!normalizedExpected) return false;
+      const hashed = hashPassword(raw);
+      return constantTimeEquals(hashed, normalizedExpected);
+    }
+
+    return {
+      normalizePasswordInput,
+      normalizeHash,
+      decodePasswordHash: normalizeHash,
+      digestToHex,
+      hashPassword,
+      createPasswordHash: hashPassword,
+      verifyPassword,
+      comparePassword: verifyPassword,
+      constantTimeEquals
+    };
+  })();
+
+  function normalizeHashValue(hash) {
+    if (passwordUtils && typeof passwordUtils.normalizeHash === 'function') {
+      return passwordUtils.normalizeHash(hash);
+    }
+    if (passwordUtils && typeof passwordUtils.decodePasswordHash === 'function') {
+      return passwordUtils.decodePasswordHash(hash);
+    }
+    return toStr(hash).toLowerCase();
+  }
+
   // ─── Internal helpers ─────────────────────────────────────────────────────
 
   function getSS() {
@@ -472,16 +546,7 @@ var AuthenticationService = (function () {
   }
 
   function hashPwd(raw) {
-    const normalized = raw == null ? '' : String(raw);
-    const digest = Utilities.computeDigest(
-      Utilities.DigestAlgorithm.SHA_256,
-      normalized,
-      Utilities.Charset.UTF_8
-    );
-
-    return digest
-      .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2))
-      .join('');
+    return passwordUtils.hashPassword(raw);
   }
 
   function generateSecureToken() {
@@ -718,7 +783,7 @@ var AuthenticationService = (function () {
       }
 
       // Check if password has been set
-      const storedHash = toStr(user.PasswordHash).toLowerCase();
+      const storedHash = normalizeHashValue(user.PasswordHash);
       const hasPassword = storedHash.length > 0;
       if (!hasPassword) {
         return {
@@ -730,9 +795,7 @@ var AuthenticationService = (function () {
       }
 
       // Verify password
-      const providedHash = hashPwd(passwordInput).toLowerCase();
-
-      if (storedHash !== providedHash) {
+      if (!passwordUtils.verifyPassword(passwordInput, user.PasswordHash)) {
         return {
           success: false,
           error: 'Invalid email or password',
@@ -1279,8 +1342,6 @@ var AuthenticationService = (function () {
       const data = sh.getDataRange().getValues();
       const headers = data[0];
 
-      const oldHash = hashPwd(oldPassword);
-      const newHash = hashPwd(newPassword);
       const now = new Date();
 
       for (let i = 1; i < data.length; i++) {
@@ -1289,11 +1350,12 @@ var AuthenticationService = (function () {
           const resetColIndex = headers.indexOf('ResetRequired');
           const updatedAtIndex = headers.indexOf('UpdatedAt');
 
-          if (String(data[i][pwdColIndex]) !== oldHash) {
+          if (!passwordUtils.verifyPassword(oldPassword, data[i][pwdColIndex])) {
             return { success: false, message: 'Current password is incorrect.' };
           }
 
           const rowNum = i + 1;
+          const newHash = passwordUtils.hashPassword(newPassword);
           sh.getRange(rowNum, pwdColIndex + 1).setValue(newHash);
           sh.getRange(rowNum, resetColIndex + 1).setValue(false);
           if (updatedAtIndex >= 0) {
@@ -1351,7 +1413,6 @@ var AuthenticationService = (function () {
       const data = sh.getDataRange().getValues();
       const headers = data[0];
 
-      const newHash = hashPwd(newPassword);
       const now = new Date();
 
       for (let i = 1; i < data.length; i++) {
@@ -1362,6 +1423,7 @@ var AuthenticationService = (function () {
           const email = data[i][headers.indexOf('Email')];
 
           // Set password and update status
+          const newHash = passwordUtils.hashPassword(newPassword);
           sh.getRange(rowNum, headers.indexOf('PasswordHash') + 1).setValue(newHash);
           sh.getRange(rowNum, headers.indexOf('ResetRequired') + 1).setValue('FALSE');
           sh.getRange(rowNum, headers.indexOf('EmailConfirmation') + 1).setValue(''); // Clear token
@@ -1406,7 +1468,7 @@ var AuthenticationService = (function () {
       }
 
       // Check if user has a password set
-      if (!user.PasswordHash) {
+      if (!normalizeHashValue(user.PasswordHash)) {
         return {
           success: false,
           error: 'This account needs initial password setup. Check your welcome email.'
@@ -1465,7 +1527,8 @@ var AuthenticationService = (function () {
       }
 
       // Check if user needs password setup
-      const needsSetup = !user.PasswordHash || String(user.ResetRequired).toUpperCase() === 'TRUE';
+      const needsSetup = !normalizeHashValue(user.PasswordHash)
+        || String(user.ResetRequired).toUpperCase() === 'TRUE';
       if (!needsSetup) {
         return {
           success: false,
