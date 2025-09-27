@@ -2417,16 +2417,20 @@
         }
 
         try {
-          window.location.href = state.redirectUrl;
+          if (
+            typeof google !== 'undefined' &&
+            google.script &&
+            google.script.host &&
+            typeof google.script.host.setLocation === 'function'
+          ) {
+            google.script.host.setLocation(state.redirectUrl);
+          } else {
+            window.location.href = state.redirectUrl;
 
-          setTimeout(() => {
-            window.location.assign(state.redirectUrl);
-          }, 100);
-          
-          setTimeout(() => {
-            window.top.location.href = state.redirectUrl;
-          }, 500);
-          
+            setTimeout(() => {
+              window.location.assign(state.redirectUrl);
+            }, 100);
+          }
         } catch (error) {
           console.error('Redirect failed:', error);
           showAlert('error', 'Redirect failed. Please click the button below to continue.');
