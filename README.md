@@ -201,3 +201,17 @@ Each write helper (`scheduleAgentShift`, `recordAttendanceEvent`,
 `TenantSecurityService`, assigns the correct tenant column, and preserves the sheet
 schemas registered with `DatabaseManager`.
 
+## Extensibility considerations
+
+- **Modular HTML views.** Dashboard panels such as Top Performers, QA rollups, and
+  Coaching lists should be implemented as self-contained widgets that communicate
+  through shared events and data loaders instead of directly depending on each
+  other. This keeps the UI flexible so new KPIs or workflows can be introduced
+  without breaking existing modules.
+- **Service-level CRUD contracts.** Google Apps Script services (for example
+  `UserService.gs`, `ScheduleService.gs`, `QAService.gs`, and `CoachingService.gs`)
+  should expose consistent create/read/update/delete helpers for their
+  corresponding sheets. Keeping these interfaces explicit enables automation,
+  scheduled jobs, and future integrations to reuse the same endpoints instead of
+  duplicating business logic.
+
