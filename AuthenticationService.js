@@ -861,7 +861,7 @@ var AuthenticationService = (function () {
       }
 
       // Fall back to current user via Google session
-      const user = getCurrentUser();
+      const user = getCurrentUserProfile_();
       if (!user || !user.ID) {
         return HtmlService
           .createTemplateFromFile('Login')
@@ -1442,7 +1442,7 @@ function writeError(functionName, error) {
  * Get current user without requiring token
  * Uses Google Apps Script's built-in session management
  */
-function getCurrentUser() {
+function getCurrentUserProfile_() {
   try {
     // Use Google's built-in user session
     const email = String(
@@ -1467,7 +1467,7 @@ function getCurrentUser() {
         tenantProfile = TenantSecurity.getAccessProfile(user.ID);
       }
     } catch (ctxErr) {
-      console.warn('getCurrentUser: tenant profile load failed', ctxErr);
+      console.warn('getCurrentUserProfile_: tenant profile load failed', ctxErr);
     }
 
     var allowedCampaigns = tenantProfile ? tenantProfile.allowedCampaignIds.slice() : [];
@@ -1500,6 +1500,23 @@ function getCurrentUser() {
     return null;
   }
 }
+
+// Provide a fallback global getCurrentUser implementation when another module
+// (for example Code.js) has not already registered one. This ensures
+// authentication-dependent modules can resolve the active user consistently.
+(function ensureGlobalGetCurrentUser() {
+  const root = (typeof globalThis !== 'undefined')
+    ? globalThis
+    : (typeof self !== 'undefined')
+      ? self
+      : this;
+
+  if (root && typeof root.getCurrentUser !== 'function') {
+    root.getCurrentUser = function () {
+      return getCurrentUserProfile_();
+    };
+  }
+}).call(this);
 
 // ───────────────────────────────────────────────────────────────────────────────
 // INITIALIZATION LOG

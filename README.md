@@ -215,3 +215,20 @@ schemas registered with `DatabaseManager`.
   scheduled jobs, and future integrations to reuse the same endpoints instead of
   duplicating business logic.
 
+## Deployment & security checklist
+
+- **Manifest alignment.** The repository now ships the canonical
+  [`appsscript.json`](./appsscript.json) manifest so deployments inherit the
+  correct V8 runtime, advanced service enablement, and OAuth scopes. Ensure this
+  file is committed with any future scope or dependency changes so the Apps
+  Script project stays in sync across environments.
+- **Web app execution context.** Web deployments execute as the signed-in user
+  (`executeAs: USER_ACCESSING`) and require authentication (`access: ANYONE`).
+  This configuration enforces the tenant-aware permission checks implemented in
+  `AuthenticationService.gs` and `TenantSecurityService.gs` while still allowing
+  external client stakeholders to authenticate with Google accounts.
+- **Operational documentation.** See [`docs/implementation-map.md`](./docs/implementation-map.md)
+  for a cross-reference between the requirements, HTML front-end modules, and
+  Apps Script services that fulfill them. Update this document whenever new
+  modules are introduced so auditors can validate coverage quickly.
+
