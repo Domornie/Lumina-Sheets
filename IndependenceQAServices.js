@@ -380,58 +380,9 @@ function generateIndependenceQAId() {
     return `IND_QA_${ts}_${rnd}`;
 }
 
-function stripHtmlTags(html) {
-    if (!html) return '';
-    return html
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-function extractAreasForImprovement(formData) {
-    const out = [];
-    if (INDEPENDENCE_QA_CONFIG && INDEPENDENCE_QA_CONFIG.categories) {
-        Object.values(INDEPENDENCE_QA_CONFIG.categories).forEach(cat => {
-            (cat.questions || []).forEach(q => {
-                const ans = formData[q.id];
-                const cmt = formData[q.id + '_Comments'];
-                if (ans === 'No' && cmt) out.push(`${q.text}: ${cmt}`);
-            });
-        });
-    }
-    return out.join('; ');
-}
-
-function extractStrengths(formData) {
-    const out = [];
-    if (INDEPENDENCE_QA_CONFIG && INDEPENDENCE_QA_CONFIG.categories) {
-        Object.values(INDEPENDENCE_QA_CONFIG.categories).forEach(cat => {
-            (cat.questions || []).forEach(q => {
-                const ans = formData[q.id];
-                const cmt = formData[q.id + '_Comments'];
-                if (ans === 'Yes' && cmt) out.push(`${q.text}: ${cmt}`);
-            });
-        });
-    }
-    return out.join('; ');
-}
-
-function extractActionItems(formData) {
-    const feedback = stripHtmlTags(formData.overallFeedbackHtml || formData.overallFeedback || '');
-    const actionWords = ['should', 'must', 'need', 'recommend', 'suggest', 'improve', 'focus'];
-    const sentences = feedback.split(/[.!?]+/);
-    return sentences
-        .filter(s => actionWords.some(w => s.toLowerCase().includes(w)))
-        .map(s => s.trim())
-        .filter(s => s.length > 10)
-        .join('; ');
-}
+// Shared data-preparation helpers (e.g., stripHtmlTags, extractAreasForImprovement,
+// prepareIndependenceQAData) are defined in IndependenceQAUtilities.js to avoid
+// duplicating logic across service files.
 
 /* =========================
    SCORING
@@ -639,97 +590,6 @@ function getImprovementAreas(categoryScores, questionScores) {
 /* =========================
    DATA PREP & SHEET WRITE
    ========================= */
-
-function prepareIndependenceQAData(formData, scoreResults, assessmentId, audioUrl) {
-    const now = new Date();
-    const overallFeedbackHtml = formData.overallFeedbackHtml || formData.overallFeedback || '';
-    const overallFeedbackText = stripHtmlTags(overallFeedbackHtml);
-
-    const qaData = {
-        ID: assessmentId,
-        Timestamp: now,
-        CallerName: formData.callerName || '',
-        AgentName: formData.agentName || '',
-        AgentEmail: formData.agentEmail || '',
-        CallDate: formData.callDate || '',
-        AuditorName: formData.auditorName || '',
-        AuditDate: Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd'),
-        CallType: formData.callType || '',
-        AudioURL: audioUrl || '',
-        TotalPointsEarned: scoreResults.totalEarned || 0,
-        TotalPointsPossible: scoreResults.totalPossible || 0,
-        PercentageScore: scoreResults.overallPercentage || 0,
-        PassStatus: scoreResults.passStatus || 'Unknown',
-        OverallFeedback: overallFeedbackText,
-        OverallFeedbackHtml: overallFeedbackHtml,
-        AreasForImprovement: extractAreasForImprovement(formData),
-        Strengths: extractStrengths(formData),
-        ActionItems: extractActionItems(formData),
-        FeedbackShared: false,
-        AgentAcknowledgment: false,
-        CreatedAt: now,
-        UpdatedAt: now
-    };
-
-    // Attach per-question fields matching headers
-    if (INDEPENDENCE_QA_CONFIG?.categories) {
-        Object.values(INDEPENDENCE_QA_CONFIG.categories).forEach(cat => {
-            (cat.questions || []).forEach(q => {
-                const qid = q.id;
-                qaData[qid] = formData[qid] || 'NA';
-                qaData[qid + '_Comments'] = formData[qid + '_Comments'] || '';
-                qaData[qid + '_MaxPoints'] = q.maxPoints || 0;
-            });
-        });
-    }
-    return qaData;
-}
-
-function saveIndependenceQAToSheet(qaData) {
-    try {
-        const ss = SpreadsheetApp.openById(INDEPENDENCE_SHEET_ID);
-        let sh = ss.getSheetByName(INDEPENDENCE_QA_SHEET);
-        if (!sh) {
-            sh = ss.insertSheet(INDEPENDENCE_QA_SHEET);
-            sh.getRange(1, 1, 1, INDEPENDENCE_QA_HEADERS.length)
-                .setValues([INDEPENDENCE_QA_HEADERS])
-                .setFontWeight('bold').setBackground('#003177').setFontColor('white');
-            sh.setFrozenRows(1);
-        }
-
-        const row = INDEPENDENCE_QA_HEADERS.map(h => qaData[h] ?? '');
-        sh.appendRow(row);
-
-        const r = sh.getLastRow();
-        formatIndependenceQARow(sh, r, qaData);
-        return {success: true, row: r};
-    } catch (err) {
-        safeWriteError('saveIndependenceQAToSheet', err);
-        return {success: false, error: err.message};
-    }
-}
-
-function formatIndependenceQARow(sheet, rowNumber, qaData) {
-    try {
-        const ps = qaData.PassStatus || 'Fail';
-        let bg = '#fafafa';
-        if (ps.includes('Critical Failure')) bg = '#ffebee';
-        else if (ps === 'Excellent Performance') bg = '#e8f5e8';
-        else if (ps === 'Meets Standards') bg = '#fff3e0';
-
-        const rng = sheet.getRange(rowNumber, 1, 1, INDEPENDENCE_QA_HEADERS.length);
-        rng.setBackground(bg);
-
-        const idCol = INDEPENDENCE_QA_HEADERS.indexOf('ID') + 1;
-        const scoreCol = INDEPENDENCE_QA_HEADERS.indexOf('PercentageScore') + 1;
-        const statusCol = INDEPENDENCE_QA_HEADERS.indexOf('PassStatus') + 1;
-        if (idCol > 0) sheet.getRange(rowNumber, idCol).setFontWeight('bold');
-        if (scoreCol > 0) sheet.getRange(rowNumber, scoreCol).setFontWeight('bold');
-        if (statusCol > 0) sheet.getRange(rowNumber, statusCol).setFontWeight('bold');
-    } catch (err) {
-        safeWriteError('formatIndependenceQARow', err);
-    }
-}
 
 /* =========================
    DRIVE (FOLDERS & AUDIO)
