@@ -1110,14 +1110,22 @@
     try {
       var TRIGGER_FUNC = 'checkRealtimeUpdatesJob';
       var triggers = ScriptApp.getProjectTriggers() || [];
-      var exists = false;
-      for (var i=0;i<triggers.length;i++){
+      var matching = [];
+      for (var i = 0; i < triggers.length; i++) {
         var t = triggers[i];
-        if (t.getHandlerFunction && t.getHandlerFunction() === TRIGGER_FUNC) { exists = true; break; }
+        if (t.getHandlerFunction && t.getHandlerFunction() === TRIGGER_FUNC) {
+          matching.push(t);
+        }
       }
-      if (!exists) {
+
+      if (matching.length === 0) {
         ScriptApp.newTrigger(TRIGGER_FUNC).timeBased().everyMinutes(1).create();
         console.log('Realtime trigger created (every 1 minute).');
+      } else if (matching.length > 1) {
+        for (var j = 1; j < matching.length; j++) {
+          ScriptApp.deleteTrigger(matching[j]);
+        }
+        console.log('Duplicate realtime triggers removed: ' + (matching.length - 1));
       }
     } catch (e) { logError('_ensureRealtimeTrigger', e); }
   }
