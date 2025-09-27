@@ -1149,6 +1149,20 @@ function getCurrentUser() {
       return null;
     }
 
+    var tenantProfile = null;
+    try {
+      if (typeof TenantSecurity !== 'undefined' && TenantSecurity && typeof TenantSecurity.getAccessProfile === 'function') {
+        tenantProfile = TenantSecurity.getAccessProfile(user.ID);
+      }
+    } catch (ctxErr) {
+      console.warn('getCurrentUser: tenant profile load failed', ctxErr);
+    }
+
+    var allowedCampaigns = tenantProfile ? tenantProfile.allowedCampaignIds.slice() : [];
+    if (!allowedCampaigns.length && user.CampaignID) {
+      allowedCampaigns.push(String(user.CampaignID));
+    }
+
     // Return user in expected format
     return {
       ID: user.ID,
@@ -1159,7 +1173,10 @@ function getCurrentUser() {
       IsAdmin: String(user.IsAdmin).toUpperCase() === 'TRUE',
       CanLogin: String(user.CanLogin).toUpperCase() === 'TRUE',
       EmailConfirmed: String(user.EmailConfirmed).toUpperCase() === 'TRUE',
-      ResetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE'
+      ResetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE',
+      AllowedCampaignIds: allowedCampaigns,
+      ManagedCampaignIds: tenantProfile ? tenantProfile.managedCampaignIds.slice() : [],
+      TenantAccess: tenantProfile
     };
   } catch (error) {
     console.error('Error getting current user:', error);

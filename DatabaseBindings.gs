@@ -58,11 +58,11 @@
     registerIfDefined(global.SESSIONS_SHEET || 'Sessions', global.SESSIONS_HEADERS, 'Token');
     registerIfDefined(global.CAMPAIGNS_SHEET || 'Campaigns', global.CAMPAIGNS_HEADERS, 'ID');
     registerIfDefined(global.PAGES_SHEET || 'Pages', global.PAGES_HEADERS, 'PageKey');
-    registerIfDefined(global.CAMPAIGN_PAGES_SHEET || 'CampaignPages', global.CAMPAIGN_PAGES_HEADERS, 'ID');
-    registerIfDefined(global.PAGE_CATEGORIES_SHEET || 'PageCategories', global.PAGE_CATEGORIES_HEADERS, 'ID');
-    registerIfDefined(global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', global.CAMPAIGN_USER_PERMISSIONS_HEADERS, 'ID');
-    registerIfDefined(global.USER_MANAGERS_SHEET || 'UserManagers', global.USER_MANAGERS_HEADERS, 'ID');
-    registerIfDefined(global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', global.USER_CAMPAIGNS_HEADERS, 'ID');
+    registerIfDefined(global.CAMPAIGN_PAGES_SHEET || 'CampaignPages', global.CAMPAIGN_PAGES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
+    registerIfDefined(global.PAGE_CATEGORIES_SHEET || 'PageCategories', global.PAGE_CATEGORIES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
+    registerIfDefined(global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', global.CAMPAIGN_USER_PERMISSIONS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
+    registerIfDefined(global.USER_MANAGERS_SHEET || 'UserManagers', global.USER_MANAGERS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
+    registerIfDefined(global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', global.USER_CAMPAIGNS_HEADERS, 'ID', { tenantColumn: 'CampaignId', requireTenant: true });
     registerIfDefined(global.NOTIFICATIONS_SHEET || 'Notifications', global.NOTIFICATIONS_HEADERS, 'ID');
     registerIfDefined(global.DEBUG_LOGS_SHEET || 'DebugLogs', global.DEBUG_LOGS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
     registerIfDefined(global.ERROR_LOGS_SHEET || 'ErrorLogs', global.ERROR_LOGS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
@@ -129,35 +129,130 @@
     return schema;
   }
 
-  function dbTable(name) {
+  function normalizeContext(context) {
+    var manager = getManager();
+    if (manager && typeof manager.normalizeContext === 'function') {
+      return manager.normalizeContext(context);
+    }
+    if (!context && context !== 0) return null;
+    if (typeof context === 'string' || typeof context === 'number') {
+      return { tenantId: String(context) };
+    }
+    if (typeof context === 'object') {
+      var copy = {};
+      Object.keys(context).forEach(function (key) { copy[key] = context[key]; });
+      if (copy.campaignId && !copy.tenantId) {
+        copy.tenantId = copy.campaignId;
+      }
+      if (copy.campaignIds && !copy.tenantIds) {
+        copy.tenantIds = Array.isArray(copy.campaignIds) ? copy.campaignIds.slice() : copy.campaignIds;
+      }
+      return copy;
+    }
+    return null;
+  }
+
+  function resolveContextForSchema(name, schema, context, allowGlobal) {
+    var normalized = normalizeContext(context) || {};
+    if (!schema || !schema.tenantColumn) {
+      return { context: normalized, enforce: false, allowed: [] };
+    }
+    if (normalized.allowAllTenants || normalized.globalTenantAccess) {
+      return { context: normalized, enforce: false, allowed: [] };
+    }
+    var all = [];
+    if (normalized.tenantId) all.push(String(normalized.tenantId));
+    if (Array.isArray(normalized.tenantIds)) all = all.concat(normalized.tenantIds.map(String));
+    if (Array.isArray(normalized.allowedTenants)) all = all.concat(normalized.allowedTenants.map(String));
+    if (Array.isArray(normalized.allowedTenantIds)) all = all.concat(normalized.allowedTenantIds.map(String));
+    if (normalized.campaignId) all.push(String(normalized.campaignId));
+    if (Array.isArray(normalized.campaignIds)) all = all.concat(normalized.campaignIds.map(String));
+
+    var seen = {};
+    var allowed = [];
+    for (var i = 0; i < all.length; i++) {
+      var key = String(all[i]);
+      if (!key) continue;
+      if (!seen[key]) {
+        seen[key] = true;
+        allowed.push(key);
+      }
+    }
+
+    if (!allowed.length && schema.requireTenant && !allowGlobal) {
+      throw new Error('Tenant context required for table ' + name);
+    }
+
+    return { context: normalized, enforce: allowed.length > 0, allowed: allowed };
+  }
+
+  function filterRowsByAllowed(rows, columnName, allowed) {
+    if (!Array.isArray(rows)) return [];
+    var allowedSet = {};
+    for (var i = 0; i < allowed.length; i++) {
+      allowedSet[String(allowed[i])] = true;
+    }
+    return rows.filter(function (row) {
+      var value = row[columnName];
+      return allowedSet[String(value)] === true;
+    });
+  }
+
+  function dbTable(name, context) {
     if (!name) throw new Error('Sheet name is required');
     var manager = getManager();
     ensureSchema(name);
     if (!manager) return null;
+    if (typeof context !== 'undefined' && context !== null) {
+      return manager.table(name, context);
+    }
     return manager.table(name);
   }
 
-  function dbSelect(name, options) {
+  function dbSelect(name, options, context) {
     var manager = getManager();
     ensureSchema(name);
     var query = options ? Object.assign({}, options) : {};
+    var schema = schemaRegistry[name];
+    var resolved = resolveContextForSchema(name, schema, context, true);
+    var ctx = resolved.context;
     if (manager) {
       try {
-        return manager.table(name).find(query);
+        return manager.table(name, ctx).find(query, ctx);
       } catch (err) {
         if (global.safeWriteError) {
           try { global.safeWriteError('dbSelect', err); } catch (_) { }
         }
       }
     }
-    return applyQueryOptions(legacyReadSheetData(name), query);
+    var rows = applyQueryOptions(legacyReadSheetData(name), query);
+    if (resolved.enforce && schema && schema.tenantColumn) {
+      rows = filterRowsByAllowed(rows, schema.tenantColumn, resolved.allowed);
+    }
+    return rows;
   }
 
-  function dbCreate(name, record) {
+  function dbCreate(name, record, context) {
     if (!record || typeof record !== 'object') return null;
-    var table = dbTable(name);
+    var schema = schemaRegistry[name];
+    var resolved = resolveContextForSchema(name, schema, context, false);
+    var ctx = resolved.context;
+    if (schema && schema.tenantColumn && resolved.enforce) {
+      var tenantValue = record[schema.tenantColumn];
+      if (!tenantValue) {
+        if (resolved.allowed.length === 1) {
+          record = Object.assign({}, record);
+          record[schema.tenantColumn] = resolved.allowed[0];
+        } else {
+          throw new Error('Tenant column ' + schema.tenantColumn + ' must be provided for table ' + name);
+        }
+      } else if (resolved.allowed.indexOf(String(tenantValue)) === -1) {
+        throw new Error('Tenant access denied for campaign ' + tenantValue + ' on table ' + name);
+      }
+    }
+    var table = dbTable(name, ctx);
     if (table) {
-      return table.insert(record);
+      return table.insert(record, ctx);
     }
     return legacyInsert(name, record);
   }
@@ -171,60 +266,73 @@
     return where;
   }
 
-  function dbUpdate(name, identifier, updates) {
+  function dbUpdate(name, identifier, updates, context) {
     if (!updates || typeof updates !== 'object') return null;
-    var table = dbTable(name);
+    var schema = schemaRegistry[name];
+    var resolved = resolveContextForSchema(name, schema, context, false);
+    var ctx = resolved.context;
+    var table = dbTable(name, ctx);
     if (table) {
       if (table.idColumn && typeof identifier !== 'object') {
-        return table.update(identifier, updates);
+        return table.update(identifier, updates, ctx);
       }
       var whereClause = buildWhereFromIdentifier(table, identifier) || (identifier && typeof identifier === 'object' ? identifier : null);
       if (!whereClause) throw new Error('Update requires an ID or where clause');
-      var existing = table.findOne(whereClause);
+      var existing = table.findOne(whereClause, ctx);
       if (existing && table.idColumn && existing[table.idColumn]) {
-        return table.update(existing[table.idColumn], updates);
+        return table.update(existing[table.idColumn], updates, ctx);
       }
       if (existing) {
-        return legacyUpdate(name, whereClause, updates);
+        return legacyUpdate(name, whereClause, updates, resolved);
       }
       return null;
     }
     var where = identifier && typeof identifier === 'object' ? identifier : null;
     if (!where) throw new Error('Update requires an ID or where clause');
-    return legacyUpdate(name, where, updates);
+    return legacyUpdate(name, where, updates, resolved);
   }
 
-  function dbUpsert(name, where, updates) {
-    var table = dbTable(name);
+  function dbUpsert(name, where, updates, context) {
+    var schema = schemaRegistry[name];
+    var resolved = resolveContextForSchema(name, schema, context, false);
+    var ctx = resolved.context;
+    var table = dbTable(name, ctx);
     if (table) {
-      return table.upsert(where || {}, updates || {});
+      return table.upsert(where || {}, updates || {}, ctx);
     }
     var existing = applyQueryOptions(legacyReadSheetData(name), { where: where, limit: 1 });
-    if (existing.length) {
-      return legacyUpdate(name, where, updates || {});
+    if (resolved.enforce && schema && schema.tenantColumn) {
+      existing = filterRowsByAllowed(existing, schema.tenantColumn, resolved.allowed);
     }
-    return legacyInsert(name, Object.assign({}, where || {}, updates || {}));
+    if (existing.length) {
+      return legacyUpdate(name, where, updates || {}, resolved);
+    }
+    var payload = Object.assign({}, where || {}, updates || {});
+    return dbCreate(name, payload, ctx);
   }
 
-  function dbDelete(name, identifier) {
-    var table = dbTable(name);
+  function dbDelete(name, identifier, context) {
+    var schema = schemaRegistry[name];
+    var resolved = resolveContextForSchema(name, schema, context, false);
+    var ctx = resolved.context;
+    var table = dbTable(name, ctx);
     if (table) {
       if (table.idColumn && typeof identifier !== 'object') {
-        return table.delete(identifier);
+        return table.delete(identifier, ctx);
       }
       var whereClause = buildWhereFromIdentifier(table, identifier) || (identifier && typeof identifier === 'object' ? identifier : null);
       if (!whereClause) throw new Error('Delete requires an ID or where clause');
       if (table.idColumn) {
-        var existing = table.findOne(whereClause);
+        var existing = table.findOne(whereClause, ctx);
         if (existing && existing[table.idColumn]) {
-          return table.delete(existing[table.idColumn]);
+          return table.delete(existing[table.idColumn], ctx);
         }
       }
-      return legacyDelete(name, whereClause);
+      return legacyDelete(name, whereClause, resolved);
     }
     var where = identifier && typeof identifier === 'object' ? identifier : null;
     if (!where) throw new Error('Delete requires an ID or where clause');
-    return legacyDelete(name, where);
+    return legacyDelete(name, where, resolved);
   }
 
   function legacyInsert(name, record) {
@@ -261,7 +369,7 @@
     return record;
   }
 
-  function legacyUpdate(name, where, updates) {
+  function legacyUpdate(name, where, updates, resolved) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) return null;
     var sh = ss.getSheetByName(name);
@@ -278,6 +386,14 @@
         rowObj[headers[j]] = values[i][j];
       }
       if (!matchesWhere(rowObj, where)) continue;
+      if (resolved && resolved.enforce && schemaRegistry[name] && schemaRegistry[name].tenantColumn) {
+        var tenantColumn = schemaRegistry[name].tenantColumn;
+        var tenantValue = rowObj[tenantColumn];
+        if (resolved.allowed.indexOf(String(tenantValue)) === -1) {
+          continue;
+        }
+      }
+
       Object.keys(updates || {}).forEach(function (key) {
         rowObj[key] = updates[key];
       });
@@ -288,7 +404,7 @@
     return null;
   }
 
-  function legacyDelete(name, where) {
+  function legacyDelete(name, where, resolved) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) return false;
     var sh = ss.getSheetByName(name);
@@ -305,6 +421,13 @@
         rowObj[headers[j]] = values[i][j];
       }
       if (!matchesWhere(rowObj, where)) continue;
+      if (resolved && resolved.enforce && schemaRegistry[name] && schemaRegistry[name].tenantColumn) {
+        var tenantColumn = schemaRegistry[name].tenantColumn;
+        var tenantValue = rowObj[tenantColumn];
+        if (resolved.allowed.indexOf(String(tenantValue)) === -1) {
+          continue;
+        }
+      }
       sh.deleteRow(i + 2);
       return true;
     }
@@ -436,13 +559,67 @@
     return true;
   }
 
-  global.registerTableSchema = registerTableSchema;
-  global.dbTable = dbTable;
-  global.dbSelect = dbSelect;
-  global.dbCreate = dbCreate;
-  global.dbUpdate = dbUpdate;
-  global.dbUpsert = dbUpsert;
-  global.dbDelete = dbDelete;
-  global.__dbApplyQueryOptions = applyQueryOptions;
+  function dbTenantSelect(name, context, options) {
+    return dbSelect(name, options || {}, context);
+  }
+
+  function dbTenantCreate(name, context, record) {
+    return dbCreate(name, record, context);
+  }
+
+  function dbTenantUpdate(name, context, identifier, updates) {
+    return dbUpdate(name, identifier, updates, context);
+  }
+
+  function dbTenantUpsert(name, context, where, updates) {
+    return dbUpsert(name, where, updates, context);
+  }
+
+  function dbTenantDelete(name, context, identifier) {
+    return dbDelete(name, identifier, context);
+  }
+
+  function expose(name, fn) {
+    var previous = (typeof global[name] === 'function') ? global[name].bind(global) : null;
+    var wrapped = function () {
+      try {
+        return fn.apply(this, arguments);
+      } catch (err) {
+        if (previous) {
+          try { return previous.apply(this, arguments); } catch (fallbackErr) { if (global.safeWriteError) { try { global.safeWriteError(name + 'Fallback', fallbackErr); } catch (_) { } } }
+        }
+        throw err;
+      }
+    };
+    wrapped.previous = previous;
+    global[name] = wrapped;
+  }
+
+  expose('registerTableSchema', registerTableSchema);
+  expose('dbTable', dbTable);
+  expose('dbSelect', dbSelect);
+  expose('dbCreate', dbCreate);
+  expose('dbUpdate', dbUpdate);
+  expose('dbUpsert', dbUpsert);
+  expose('dbDelete', dbDelete);
+  expose('dbTenantSelect', dbTenantSelect);
+  expose('dbTenantCreate', dbTenantCreate);
+  expose('dbTenantUpdate', dbTenantUpdate);
+  expose('dbTenantUpsert', dbTenantUpsert);
+  expose('dbTenantDelete', dbTenantDelete);
+  expose('dbWithContext', function (context) {
+    var manager = getManager();
+    if (manager) {
+      return manager.tenant(context);
+    }
+    return {
+      select: function (name, options) { return dbSelect(name, options, context); },
+      create: function (name, record) { return dbCreate(name, record, context); },
+      update: function (name, identifier, updates) { return dbUpdate(name, identifier, updates, context); },
+      upsert: function (name, where, updates) { return dbUpsert(name, where, updates, context); },
+      delete: function (name, identifier) { return dbDelete(name, identifier, context); }
+    };
+  });
+  expose('__dbApplyQueryOptions', applyQueryOptions);
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);

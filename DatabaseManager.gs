@@ -87,6 +87,46 @@
     sheet.deleteRow(rowIndex);
   };
 
+  function toStringValue(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    return String(value);
+  }
+
+  function dedupeValues(values) {
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < values.length; i++) {
+      var v = toStringValue(values[i]);
+      if (!v) continue;
+      if (!seen[v]) {
+        seen[v] = true;
+        out.push(v);
+      }
+    }
+    return out;
+  }
+
+  function normalizeTenantContext(context) {
+    if (!context && context !== 0) return null;
+    if (typeof context === 'string' || typeof context === 'number') {
+      return { tenantId: toStringValue(context) };
+    }
+    if (!isObject(context)) return null;
+    var normalized = {};
+    Object.keys(context).forEach(function (key) {
+      normalized[key] = context[key];
+    });
+    if (normalized.campaignId && !normalized.tenantId) {
+      normalized.tenantId = normalized.campaignId;
+    }
+    if (normalized.campaignIds && !normalized.tenantIds) {
+      normalized.tenantIds = Array.isArray(normalized.campaignIds)
+        ? normalized.campaignIds.slice()
+        : normalized.campaignIds;
+    }
+    return normalized;
+  }
+
   function Table(name, config) {
     this.name = name;
     if (config && Object.prototype.hasOwnProperty.call(config, 'idColumn')) {
@@ -110,6 +150,17 @@
     }
     this.defaults = (config && config.defaults) || {};
     this.validators = (config && config.validators) || {};
+    this.tenantColumn = (config && config.tenantColumn) || null;
+    if (this.tenantColumn) {
+      if (config && Object.prototype.hasOwnProperty.call(config, 'requireTenant')) {
+        this.requireTenant = !!config.requireTenant;
+      } else {
+        this.requireTenant = true;
+      }
+    } else {
+      this.requireTenant = false;
+    }
+    this.allowGlobalTenantBypass = !!(config && config.allowGlobalTenantBypass);
     this.cacheKey = 'DB_TABLE_' + name;
 
     var providedHeaders = [];
@@ -122,6 +173,165 @@
     this.headers = normalizeHeaders(this, providedHeaders);
     this.sheetHandle = new SpreadsheetHandle(this);
   }
+
+  Table.prototype.withContext = function (context) {
+    return new ScopedTable(this, context || null);
+  };
+
+  Table.prototype.normalizeContext = function (context) {
+    return normalizeTenantContext(context);
+  };
+
+  Table.prototype.getTenantAccess = function (context, allowGlobal) {
+    if (!this.tenantColumn) {
+      return { enforce: false, allowed: null };
+    }
+
+    var ctx = this.normalizeContext(context) || {};
+    if (ctx.allowAllTenants || ctx.globalTenantAccess || this.allowGlobalTenantBypass) {
+      return { enforce: false, allowed: null };
+    }
+
+    var all = [];
+    if (Object.prototype.hasOwnProperty.call(ctx, 'tenantId')) {
+      all.push(ctx.tenantId);
+    }
+    if (Array.isArray(ctx.tenantIds)) {
+      all = all.concat(ctx.tenantIds);
+    }
+    if (Array.isArray(ctx.allowedTenants)) {
+      all = all.concat(ctx.allowedTenants);
+    }
+    if (Array.isArray(ctx.allowedTenantIds)) {
+      all = all.concat(ctx.allowedTenantIds);
+    }
+    if (ctx.campaignId) {
+      all.push(ctx.campaignId);
+    }
+    if (Array.isArray(ctx.campaignIds)) {
+      all = all.concat(ctx.campaignIds);
+    }
+
+    var allowed = dedupeValues(all);
+    if (!allowed.length) {
+      if (this.requireTenant && !allowGlobal) {
+        throw new Error('Tenant context required for table ' + this.name);
+      }
+      return { enforce: false, allowed: null };
+    }
+
+    return { enforce: true, allowed: allowed, context: ctx };
+  };
+
+  Table.prototype.ensureTenantConditionAllowed = function (condition, allowedSet) {
+    if (!condition) return;
+    if (condition instanceof RegExp) {
+      throw new Error('Regex filters are not permitted on tenant column ' + this.tenantColumn + ' for table ' + this.name);
+    }
+
+    function hasAllowed(value) {
+      return allowedSet[toStringValue(value)] === true;
+    }
+
+    if (isObject(condition)) {
+      var keys = Object.keys(condition);
+      if (!keys.length) return;
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        var value = condition[key];
+        if (Array.isArray(value)) {
+          for (var j = 0; j < value.length; j++) {
+            if (!hasAllowed(value[j])) {
+              throw new Error('Tenant filter includes unauthorized campaign for table ' + this.name);
+            }
+          }
+        } else if (!hasAllowed(value)) {
+          throw new Error('Tenant filter includes unauthorized campaign for table ' + this.name);
+        }
+      }
+      return;
+    }
+
+    if (!hasAllowed(condition)) {
+      throw new Error('Tenant filter includes unauthorized campaign for table ' + this.name);
+    }
+  };
+
+  Table.prototype.prepareTenantOptions = function (options, context, allowGlobal) {
+    var cfg = this.getTenantAccess(context, allowGlobal);
+    if (!cfg.enforce) {
+      return { options: options || {}, tenantAccess: cfg };
+    }
+
+    var finalOptions = options ? Object.assign({}, options) : {};
+    var allowedSet = {};
+    for (var i = 0; i < cfg.allowed.length; i++) {
+      allowedSet[toStringValue(cfg.allowed[i])] = true;
+    }
+
+    if (finalOptions.where && Object.prototype.hasOwnProperty.call(finalOptions.where, this.tenantColumn)) {
+      this.ensureTenantConditionAllowed(finalOptions.where[this.tenantColumn], allowedSet);
+    }
+
+    var baseFilter = finalOptions.filter;
+    var column = this.tenantColumn;
+    var tenantFilter = function (row) {
+      return allowedSet[toStringValue(row[column])];
+    };
+    if (typeof baseFilter === 'function') {
+      finalOptions.filter = function (row) {
+        return baseFilter(row) && tenantFilter(row);
+      };
+    } else {
+      finalOptions.filter = tenantFilter;
+    }
+
+    return { options: finalOptions, tenantAccess: cfg };
+  };
+
+  Table.prototype.enforceTenantOnRecord = function (record, tenantAccess) {
+    if (!this.tenantColumn) return record;
+    if (!tenantAccess.enforce) {
+      if (this.requireTenant && (record[this.tenantColumn] === null || typeof record[this.tenantColumn] === 'undefined' || record[this.tenantColumn] === '')) {
+        throw new Error('Tenant column "' + this.tenantColumn + '" must be provided for table ' + this.name);
+      }
+      return record;
+    }
+
+    var allowed = {};
+    for (var i = 0; i < tenantAccess.allowed.length; i++) {
+      allowed[toStringValue(tenantAccess.allowed[i])] = true;
+    }
+
+    var value = toStringValue(record[this.tenantColumn]);
+    if (!value) {
+      if (tenantAccess.allowed.length === 1) {
+        record[this.tenantColumn] = tenantAccess.allowed[0];
+      } else {
+        throw new Error('Tenant column "' + this.tenantColumn + '" must be specified when multiple campaigns are available for table ' + this.name);
+      }
+    } else if (!allowed[value]) {
+      throw new Error('Tenant access denied for campaign ' + value + ' on table ' + this.name);
+    }
+
+    return record;
+  };
+
+  Table.prototype.ensureExistingTenantAllowed = function (existingRecord, tenantAccess) {
+    if (!this.tenantColumn || !existingRecord) return;
+    if (!tenantAccess.enforce) return;
+    var currentTenant = toStringValue(existingRecord[this.tenantColumn]);
+    if (!currentTenant) {
+      throw new Error('Existing record missing tenant column "' + this.tenantColumn + '" in table ' + this.name);
+    }
+    var allowed = tenantAccess.allowed;
+    for (var i = 0; i < allowed.length; i++) {
+      if (toStringValue(allowed[i]) === currentTenant) {
+        return;
+      }
+    }
+    throw new Error('Tenant access denied for existing record in table ' + this.name);
+  };
 
   Table.prototype.ensureHeaders = function (sheet) {
     var desiredHeaders = this.headers.slice();
@@ -236,9 +446,12 @@
     }
   };
 
-  Table.prototype.read = function (options) {
+  Table.prototype.read = function (options, context) {
     options = options || {};
-    var useCache = options.cache !== false;
+    var prepared = this.prepareTenantOptions(options, context, true);
+    var finalOptions = prepared.options;
+    var useCache = finalOptions.cache !== false;
+
     var cache = CacheService.getScriptCache();
     var headers = this.headers;
 
@@ -247,7 +460,8 @@
       if (cached) {
         try {
           var parsed = JSON.parse(cached);
-          return applyQueryOptions(parsed, headers, options);
+          return applyQueryOptions(parsed, headers, finalOptions);
+
         } catch (err) {
           logger.warn('Cache parse failed for table ' + this.name + ': ' + err);
         }
@@ -265,29 +479,33 @@
       }
     }
 
-    return applyQueryOptions(objects, headers, options);
+    return applyQueryOptions(objects, headers, finalOptions);
   };
 
-  Table.prototype.find = function (options) {
-    return this.read(options || {});
+  Table.prototype.find = function (options, context) {
+    return this.read(options || {}, context);
   };
 
-  Table.prototype.findOne = function (where) {
+  Table.prototype.findOne = function (where, context) {
     var options = { where: where, limit: 1 };
-    var results = this.read(options);
+    var results = this.read(options, context);
     return results.length ? results[0] : null;
   };
 
-  Table.prototype.findById = function (id) {
+  Table.prototype.findById = function (id, context) {
     if (!this.idColumn) return null;
-    return this.findOne(createWhereClause(this.idColumn, id));
+    return this.findOne(createWhereClause(this.idColumn, id), context);
   };
 
-  Table.prototype.insert = function (record) {
+  Table.prototype.insert = function (record, context) {
+
     if (!record || typeof record !== 'object') {
       throw new Error('Record must be an object for insert');
     }
     var copy = clone(record);
+    var tenantAccess = this.getTenantAccess(context, false);
+    this.enforceTenantOnRecord(copy, tenantAccess);
+
     this.ensureId(copy);
     this.applyDefaults(copy, true);
     this.touchTimestamps(copy, true);
@@ -299,16 +517,20 @@
     return copy;
   };
 
-  Table.prototype.batchInsert = function (records) {
+  Table.prototype.batchInsert = function (records, context) {
+
     if (!Array.isArray(records) || records.length === 0) {
       return [];
     }
     var sheet = this.sheetHandle.getSheet();
     var processed = [];
     var rows = [];
+    var tenantAccess = this.getTenantAccess(context, false);
 
     for (var i = 0; i < records.length; i++) {
       var copy = clone(records[i]);
+      this.enforceTenantOnRecord(copy, tenantAccess);
+
       this.ensureId(copy);
       this.applyDefaults(copy, true);
       this.touchTimestamps(copy, true);
@@ -346,6 +568,8 @@
     var values = range.getValues();
 
     var updatedRecord = null;
+    var tenantAccess = this.getTenantAccess(context, false);
+
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
         var record = {};
@@ -353,9 +577,15 @@
           record[headers[j]] = values[i][j];
         }
 
+        var existingRecord = clone(record);
+        this.ensureExistingTenantAllowed(existingRecord, tenantAccess);
+
         Object.keys(updates || {}).forEach(function (key) {
           record[key] = updates[key];
         });
+
+        this.enforceTenantOnRecord(record, tenantAccess);
+
 
         this.touchTimestamps(record, false);
         this.validateRecord(record);
@@ -372,27 +602,28 @@
     return updatedRecord;
   };
 
-  Table.prototype.upsert = function (where, updates) {
-    var existing = this.findOne(where);
+  Table.prototype.upsert = function (where, updates, context) {
+    var existing = this.findOne(where, context);
     if (existing) {
       var id = this.idColumn ? existing[this.idColumn] : null;
       if (id) {
-        return this.update(id, updates);
+        return this.update(id, updates, context);
       }
       var merged = clone(existing);
       Object.keys(updates || {}).forEach(function (key) {
         merged[key] = updates[key];
       });
-      return this.insert(merged);
+      return this.insert(merged, context);
     }
     var insertRecord = clone(where || {});
     Object.keys(updates || {}).forEach(function (key) {
       insertRecord[key] = updates[key];
     });
-    return this.insert(insertRecord);
+    return this.insert(insertRecord, context);
   };
 
-  Table.prototype.delete = function (id) {
+  Table.prototype.delete = function (id, context) {
+
     if (!this.idColumn) {
       throw new Error('Cannot delete without idColumn configuration');
     }
@@ -411,8 +642,16 @@
     var range = sheet.getRange(2, 1, lastRow - 1, headers.length);
     var values = range.getValues();
 
+    var tenantAccess = this.getTenantAccess(context, false);
+
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
+        var record = {};
+        for (var j = 0; j < headers.length; j++) {
+          record[headers[j]] = values[i][j];
+        }
+        this.ensureExistingTenantAllowed(record, tenantAccess);
+
         sheet.deleteRow(i + 2);
         this.invalidateCache();
         return true;
@@ -432,9 +671,10 @@
     this.invalidateCache();
   };
 
-  Table.prototype.count = function (where) {
+  Table.prototype.count = function (where, context) {
     var options = where ? { where: where } : {};
-    return this.read(options).length;
+    return this.read(options, context).length;
+
   };
 
   Table.prototype.listColumns = function () {
@@ -598,7 +838,16 @@
       defaults: Object.assign({}, existingTable.defaults || {}, config.defaults || {}),
       validators: Object.assign({}, existingTable.validators || {}, config.validators || {}),
       headers: config.headers || existingTable.headers,
-      columns: config.columns || existingTable.headers
+      columns: config.columns || existingTable.headers,
+      tenantColumn: Object.prototype.hasOwnProperty.call(config, 'tenantColumn')
+        ? config.tenantColumn
+        : existingTable.tenantColumn,
+      requireTenant: Object.prototype.hasOwnProperty.call(config, 'requireTenant')
+        ? config.requireTenant
+        : existingTable.requireTenant,
+      allowGlobalTenantBypass: Object.prototype.hasOwnProperty.call(config, 'allowGlobalTenantBypass')
+        ? config.allowGlobalTenantBypass
+        : existingTable.allowGlobalTenantBypass
     };
 
     if (Object.prototype.hasOwnProperty.call(config, 'idColumn')) {
@@ -614,6 +863,56 @@
     return merged;
   }
 
+  function mergeContextObjects(base, extra) {
+    var result = {};
+    Object.keys(base || {}).forEach(function (key) {
+      result[key] = base[key];
+    });
+    Object.keys(extra || {}).forEach(function (key) {
+      if (Array.isArray(extra[key])) {
+        result[key] = extra[key].slice();
+      } else {
+        result[key] = extra[key];
+      }
+    });
+    return result;
+  }
+
+  function ScopedTable(table, context) {
+    this.table = table;
+    this.context = table && typeof table.normalizeContext === 'function'
+      ? table.normalizeContext(context)
+      : normalizeTenantContext(context);
+  }
+
+  ScopedTable.prototype.getContext = function () {
+    return this.context || null;
+  };
+
+  ScopedTable.prototype.withContext = function (extraContext) {
+    var normalized = normalizeTenantContext(extraContext) || {};
+    var merged = mergeContextObjects(this.context || {}, normalized);
+    return new ScopedTable(this.table, merged);
+  };
+
+  var PROXIED_METHODS = ['read', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count'];
+  PROXIED_METHODS.forEach(function (method) {
+    if (typeof Table.prototype[method] !== 'function') return;
+    ScopedTable.prototype[method] = function () {
+      var args = Array.prototype.slice.call(arguments);
+      args.push(this.context);
+      return this.table[method].apply(this.table, args);
+    };
+  });
+
+  ScopedTable.prototype.clear = function () {
+    return this.table.clear.apply(this.table, arguments);
+  };
+
+  ScopedTable.prototype.listColumns = function () {
+    return this.table.listColumns();
+  };
+
   var DatabaseManager = {
     defineTable: function (name, config) {
       if (!name) {
@@ -621,11 +920,16 @@
       }
       return ensureTable(name, config || {});
     },
-    table: function (name) {
+    table: function (name, context) {
       if (!name) {
         throw new Error('Table name is required');
       }
-      return ensureTable(name);
+      var table = ensureTable(name);
+      if (typeof context !== 'undefined' && context !== null) {
+        return table.withContext(context);
+      }
+      return table;
+
     },
     listTables: function () {
       return Object.keys(tables);
@@ -634,11 +938,50 @@
       if (tables[name]) {
         tables[name].invalidateCache();
       }
-    }
+    },
+    tenant: function (context) {
+      var normalized = normalizeTenantContext(context) || context || null;
+      return {
+        context: normalized,
+        table: function (name) {
+          return DatabaseManager.table(name, normalized);
+        },
+        withContext: function (extra) {
+          var merged = mergeContextObjects(normalized || {}, normalizeTenantContext(extra) || extra || {});
+          return DatabaseManager.tenant(merged);
+        }
+      };
+    },
+    withContext: function (context) {
+      return this.tenant(context);
+    },
+    normalizeContext: normalizeTenantContext
   };
 
   global.DatabaseManager = DatabaseManager;
-  global.defineTable = DatabaseManager.defineTable;
-  global.getTable = DatabaseManager.table;
+
+  function exposeHelper(name, fn) {
+    var previous = (typeof global[name] === 'function') ? global[name].bind(global) : null;
+    var wrapped = function () {
+      try {
+        return fn.apply(this, arguments);
+      } catch (err) {
+        if (previous) {
+          try { return previous.apply(this, arguments); } catch (fallbackErr) {
+            if (typeof safeWriteError === 'function') {
+              try { safeWriteError(name + 'Fallback', fallbackErr); } catch (_) { }
+            }
+          }
+        }
+        throw err;
+      }
+    };
+    wrapped.previous = previous;
+    global[name] = wrapped;
+  }
+
+  exposeHelper('defineTable', DatabaseManager.defineTable);
+  exposeHelper('getTable', DatabaseManager.table);
+
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);
