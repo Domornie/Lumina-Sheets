@@ -459,7 +459,27 @@ function getAuthenticatedUrl(page, campaignId, additionalParams = {}) {
 }
 
 function getBaseUrl() {
-  return SCRIPT_URL;
+  try {
+    if (typeof resolveScriptUrl === 'function') {
+      const resolved = resolveScriptUrl();
+      if (resolved) {
+        return resolved;
+      }
+    }
+  } catch (err) {
+    console.warn('getBaseUrl: resolveScriptUrl failed', err);
+  }
+
+  if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
+    return SCRIPT_URL;
+  }
+
+  try {
+    return ScriptApp.getService().getUrl();
+  } catch (error) {
+    console.warn('getBaseUrl: unable to determine script URL', error);
+    return '';
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────────

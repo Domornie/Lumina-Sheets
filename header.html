@@ -29,14 +29,46 @@
 
   <script>
     // Base URLs for navigation
-    const BASE_URL = '<?= baseUrl ?>';
-    const SCRIPT_URL = '<?= SCRIPT_URL ?>';
+    let BASE_URL = '<?= baseUrl ?>';
+    let SCRIPT_URL = '<?= scriptUrl || baseUrl ?>';
+
+    const __invalidPanelPattern = /usercodeapppanel/i;
+
+    function sanitizeNavigationUrl(url, fallback) {
+      const normalize = value => {
+        if (value === null || typeof value === 'undefined') return '';
+        const trimmed = String(value).trim();
+        if (!trimmed || trimmed.toLowerCase() === 'undefined') return '';
+        return trimmed;
+      };
+
+      const fixPanel = value => {
+        if (!value) return '';
+        if (!__invalidPanelPattern.test(value)) {
+          return value;
+        }
+        return value.replace(/\/userCodeAppPanel.*$/i, '/exec');
+      };
+
+      const primary = fixPanel(normalize(url));
+      if (primary) {
+        return primary;
+      }
+
+      return fixPanel(normalize(fallback));
+    }
+
+    const __BASE_URL = sanitizeNavigationUrl(BASE_URL, SCRIPT_URL);
+    const __SCRIPT_URL = sanitizeNavigationUrl(SCRIPT_URL, BASE_URL);
+
+    BASE_URL = __BASE_URL || __SCRIPT_URL || BASE_URL;
+    SCRIPT_URL = __SCRIPT_URL || __BASE_URL || SCRIPT_URL;
 
     /**
      * Generate URLs for navigation
      */
     function generateUrl(page, campaign = null, additionalParams = {}) {
-      let url = BASE_URL;
+      let url = BASE_URL || SCRIPT_URL;
       const params = new URLSearchParams();
       
       if (page) {
