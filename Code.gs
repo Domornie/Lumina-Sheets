@@ -727,6 +727,9 @@ function canonicalizePageKey(k) {
       return 'global.search';
     case 'bookmarks':
       return 'global.bookmarks';
+    case 'collaboration-reporting':
+    case 'collaborationreporting':
+      return 'global.collaboration-reporting';
 
     // Schedule Management (Default Page)
     case 'schedule':
@@ -1059,6 +1062,10 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
 
       case "eodreport":
         return serveGlobalPage('EODReport', e, baseUrl, user);
+
+      case "collaboration-reporting":
+      case "collaborationreporting":
+        return serveGlobalPage('CollaborationReporting', e, baseUrl, user);
 
       case "attendancecalendar":
         return serveCampaignPage('Calendar', e, baseUrl, user, campaignIdFromCaller);
