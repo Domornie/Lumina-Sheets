@@ -1933,10 +1933,32 @@
   }
 
   // ---------- Globals ----------
+  const DEFAULT_EMPLOYMENT_STATUSES = [
+    'Active',
+    'Inactive',
+    'Terminated',
+    'On Leave',
+    'Pending',
+    'Probation',
+    'Contract',
+    'Contractor',
+    'Full Time',
+    'Part Time',
+    'Seasonal',
+    'Temporary',
+    'Suspended',
+    'Retired',
+    'Intern',
+    'Consultant'
+  ];
+
   let allUsers = [];
   let allPages = [];
   let campaigns = [];
   let roles = [];
+  let employmentStatuses = DEFAULT_EMPLOYMENT_STATUSES.slice();
+  let employmentStatusAliases = {};
+  let employmentStatusLookup = new Map(DEFAULT_EMPLOYMENT_STATUSES.map(status => [status.toLowerCase(), status]));
   let currentEditingUserId = null;
   let currentEditingManagerId = null;
   let availableUsersForManager = [];
@@ -1945,6 +1967,95 @@
   let usersPage = 1;
   let usersPerPage = 12;
   let filteredUsers = [];
+
+  // ---------- Employment status utilities ----------
+  function updateEmploymentStatusLookup(statuses, aliases) {
+    const lookup = new Map();
+    (statuses || []).forEach(status => {
+      const label = (status || '').toString().trim();
+      if (!label) return;
+      lookup.set(label.toLowerCase(), label);
+    });
+    const aliasEntries = (aliases && typeof aliases === 'object') ? Object.entries(aliases) : [];
+    aliasEntries.forEach(([alias, canonical]) => {
+      const aliasKey = (alias || '').toString().trim().toLowerCase();
+      if (!aliasKey) return;
+      const canonicalLabel = (canonical || '').toString().trim();
+      if (!canonicalLabel) return;
+      const resolved = lookup.get(canonicalLabel.toLowerCase()) || canonicalLabel;
+      lookup.set(aliasKey, resolved);
+    });
+    employmentStatusLookup = lookup;
+  }
+
+  function normalizeEmploymentStatusClient(status) {
+    const raw = (status || '').toString().trim();
+    if (!raw) return '';
+    return employmentStatusLookup.get(raw.toLowerCase()) || raw;
+  }
+
+  function populateEmploymentStatusOptions() {
+    const statuses = (employmentStatuses && employmentStatuses.length)
+      ? employmentStatuses.slice()
+      : DEFAULT_EMPLOYMENT_STATUSES.slice();
+    const sorted = statuses.sort((a, b) => a.localeCompare(b));
+
+    const employmentSelect = document.getElementById('employmentStatus');
+    if (employmentSelect) {
+      const current = employmentSelect.value;
+      employmentSelect.innerHTML = ['<option value="">Select Status</option>',
+        ...sorted.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`)
+      ].join('');
+      if (current && sorted.includes(current)) {
+        employmentSelect.value = current;
+      } else if (current) {
+        employmentSelect.value = '';
+      }
+    }
+
+    const filterSelect = document.getElementById('filterEmploymentStatus');
+    if (filterSelect) {
+      const currentFilter = filterSelect.value;
+      filterSelect.innerHTML = ['<option value="">Any status</option>',
+        ...sorted.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`)
+      ].join('');
+      if (currentFilter && sorted.includes(currentFilter)) {
+        filterSelect.value = currentFilter;
+      } else if (currentFilter) {
+        filterSelect.value = '';
+        userFilters.employmentStatus = '';
+      }
+    }
+  }
+
+  function handleEmploymentStatusesLoaded(response) {
+    try {
+      employmentStatusAliases = (response && response.aliases && typeof response.aliases === 'object')
+        ? response.aliases
+        : {};
+
+      let statuses = DEFAULT_EMPLOYMENT_STATUSES.slice();
+      if (response && response.success && Array.isArray(response.statuses) && response.statuses.length) {
+        statuses = response.statuses
+          .map(status => (status || '').toString().trim())
+          .filter(Boolean);
+      }
+
+      if (!statuses.length) {
+        statuses = DEFAULT_EMPLOYMENT_STATUSES.slice();
+      }
+
+      employmentStatuses = Array.from(new Set(statuses)).sort((a, b) => a.localeCompare(b));
+      updateEmploymentStatusLookup(employmentStatuses, employmentStatusAliases);
+      populateEmploymentStatusOptions();
+    } catch (err) {
+      console.warn('handleEmploymentStatusesLoaded failed:', err);
+      employmentStatuses = DEFAULT_EMPLOYMENT_STATUSES.slice();
+      employmentStatusAliases = {};
+      updateEmploymentStatusLookup(employmentStatuses, employmentStatusAliases);
+      populateEmploymentStatusOptions();
+    }
+  }
 
   // ---------- Clock (12h + DST) ----------
   function startLiveClock() {
@@ -1984,6 +2095,8 @@
   function initializeApp() {
     try {
       setupEventListeners();
+      updateEmploymentStatusLookup(employmentStatuses, employmentStatusAliases);
+      populateEmploymentStatusOptions();
       loadAllData();
     } catch (err) {
       console.error('Init failed:', err);
@@ -2078,13 +2191,15 @@
       callGoogleScript('clientGetAllUsers').catch(() => []),
       callGoogleScript('clientGetAvailablePages').catch(() => []),
       callGoogleScript('getAllCampaigns').catch(() => []),
-      callGoogleScript('getAllRoles').catch(() => [])
+      callGoogleScript('getAllRoles').catch(() => []),
+      callGoogleScript('clientGetValidEmploymentStatuses').catch(() => ({ success: false }))
     ])
-      .then(([usersData, pagesData, campaignsData, rolesData]) => {
+      .then(([usersData, pagesData, campaignsData, rolesData, employmentRes]) => {
         handleUsersLoaded(usersData || []);
         handlePagesLoaded(pagesData || []);
         handleCampaignsLoaded(campaignsData || []);
         handleRolesLoaded(rolesData || []);
+        handleEmploymentStatusesLoaded(employmentRes || null);
         initializeUsersFiltersUI();
         applyUserFilters();
       })
@@ -2358,7 +2473,7 @@
 
   // ---------- Utilities for user card ----------
   function renderEmploymentInfo(user) {
-    const employmentStatus = user.EmploymentStatus || '';
+    const employmentStatus = normalizeEmploymentStatusClient(user.EmploymentStatus);
     const hireDate = user.HireDate || '';
     const country = user.Country || '';
     const terminationDate = user.TerminationDate || '';
@@ -2500,7 +2615,7 @@
     const roleVals = (userFilters.roles || []).map(s => s.toLowerCase());
     const campaignId = (userFilters.campaignId || '').toString();
     const perm = (userFilters.permission || '').toUpperCase();
-    const empStatus = (userFilters.employmentStatus || '').toString();
+    const empStatus = (userFilters.employmentStatus || '').toString().toLowerCase();
 
     let filtered = (allUsers || []).filter(u => {
       if (term) {
@@ -2520,7 +2635,8 @@
         if (!levels.includes(perm)) return false;
       }
       if (empStatus) {
-        if (String(u.EmploymentStatus || '') !== empStatus) return false;
+        const userStatus = normalizeEmploymentStatusClient(u.EmploymentStatus).toLowerCase();
+        if (userStatus !== empStatus) return false;
       }
       return true;
     });
@@ -2618,7 +2734,7 @@
     document.getElementById('isAdmin').checked = !!(u.isAdminBool || u.IsAdmin === true || u.IsAdmin === 'TRUE');
 
     // Employment fields
-    document.getElementById('employmentStatus').value = u.EmploymentStatus || '';
+    document.getElementById('employmentStatus').value = normalizeEmploymentStatusClient(u.EmploymentStatus);
     document.getElementById('hireDate').value = formatDateForInput(u.HireDate);
     document.getElementById('country').value = u.Country || '';
 
@@ -2702,13 +2818,17 @@
     return element.value || defaultValue;
   }
 
-  function saveUserWithPages() {
+  async function saveUserWithPages() {
     const form = document.getElementById('userForm');
     form.classList.add('was-validated');
 
-    // Get and validate username
     const userNameField = document.getElementById('userName');
+    const emailField = document.getElementById('email');
+    if (userNameField) userNameField.classList.remove('is-invalid');
+    if (emailField) emailField.classList.remove('is-invalid');
+
     const userName = userNameField ? userNameField.value.trim() : '';
+    const email = emailField ? emailField.value.trim() : '';
 
     console.log('Saving user with username:', userName); // Debug log
 
@@ -2719,8 +2839,6 @@
         userNameField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         userNameField.classList.add('is-invalid');
       }
-
-      // Switch to basic tab if not already there
       const basicTab = new bootstrap.Tab(document.getElementById('basic-tab'));
       basicTab.show();
       return;
@@ -2735,9 +2853,6 @@
       return;
     }
 
-    // Validate email
-    const emailField = document.getElementById('email');
-    const email = emailField ? emailField.value.trim() : '';
     if (!email) {
       showAlert('error', 'Email address is required');
       if (emailField) {
@@ -2748,7 +2863,6 @@
       return;
     }
 
-    // Check basic form validity
     if (!form.checkValidity()) {
       const firstInvalid = form.querySelector(':invalid');
       if (firstInvalid) {
@@ -2758,7 +2872,6 @@
       return;
     }
 
-    // Validate campaign selection
     const selectedCampaigns = Array.from(document.querySelectorAll('.campaign-checkbox:checked')).map(cb => cb.value);
     if (!selectedCampaigns.length) {
       showAlert('error', 'Please select at least one campaign');
@@ -2767,27 +2880,24 @@
       return;
     }
 
-    // Get selected pages
     const selectedPages = Array.from(document.querySelectorAll('.page-checkbox:checked')).map(cb => cb.value);
 
-    // Helper functions for safe field access
     const getFieldValue = (id, defaultValue = '') => {
       const element = document.getElementById(id);
       return element ? (element.value || defaultValue) : defaultValue;
     };
-
     const getFieldChecked = (id, defaultValue = false) => {
       const element = document.getElementById(id);
       return element ? element.checked : defaultValue;
     };
 
-    // Build payload with all field mappings
     const insuranceEligibilityDate = getFieldValue('insuranceEligibilityDate');
     const insuranceEligible = insuranceEligibilityDate ? (new Date() >= new Date(insuranceEligibilityDate)) : false;
+    const normalizedStatus = normalizeEmploymentStatusClient(getFieldValue('employmentStatus').trim());
 
     const payload = {
       userName: userName,
-      UserName: userName, // Also include PascalCase version for backend compatibility
+      UserName: userName,
       fullName: getFieldValue('fullName').trim(),
       email: email,
       phoneNumber: getFieldValue('phoneNumber').trim(),
@@ -2799,9 +2909,7 @@
       permissionLevel: getFieldValue('permissionLevel'),
       canManageUsers: getFieldChecked('canManageUsers'),
       canManagePages: getFieldChecked('canManagePages'),
-
-      // Employment & Benefits
-      employmentStatus: getFieldValue('employmentStatus').trim(),
+      employmentStatus: normalizedStatus,
       hireDate: getFieldValue('hireDate'),
       country: getFieldValue('country').trim(),
       terminationDate: getFieldValue('terminationDate'),
@@ -2822,66 +2930,105 @@
 
     const isEditing = !!currentEditingUserId;
     let targetUserId = currentEditingUserId;
-    let savePromise;
 
-    if (isEditing) {
-      // Update existing user
-      savePromise = callGoogleScript('clientUpdateUser', targetUserId, payload)
-        .then(res => {
-          if (!res || !res.success) return res;
-
-          // Set permissions
-          return callGoogleScript('clientSetUserPermissions', targetUserId, selectedCampaigns[0],
-            payload.permissionLevel, payload.canManageUsers, payload.canManagePages)
-            .then(permRes => (permRes && permRes.success) ? res : permRes);
-        })
-        .then(res => {
-          if (!res || !res.success) return res;
-
-          // Assign pages
-          return callGoogleScript('clientAssignPagesToUser', targetUserId, selectedPages);
-        });
-    } else {
-      // Create new user
-      savePromise = callGoogleScript('clientRegisterUser', payload)
-        .then(res => {
-          if (!res || !res.success || !res.userId) return res;
-          targetUserId = res.userId;
-
-          // Set permissions
-          return callGoogleScript('clientSetUserPermissions', targetUserId, selectedCampaigns[0],
-            payload.permissionLevel, payload.canManageUsers, payload.canManagePages)
-            .then(permRes => (permRes && permRes.success) ? res : permRes);
-        })
-        .then(res => {
-          if (!res || !res.success || !targetUserId) return res;
-
-          // Assign pages
-          return callGoogleScript('clientAssignPagesToUser', targetUserId, selectedPages);
-        });
-    }
-
-    savePromise
-      .then(res => {
-        if (res && res.success) {
-          const statusMsg = payload.employmentStatus ? ` (${payload.employmentStatus})` : '';
-          showAlert('success', `User ${isEditing ? 'updated' : 'created'} successfully${statusMsg} with username "${payload.userName}"`);
-
-          // Hide modal and refresh data
-          bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
-          loadAllData();
-        } else {
-          console.error('Save failed:', res);
-          showAlert('error', res?.error || res?.message || 'Operation failed');
-        }
-      })
-      .catch(err => {
-        console.error('Save error:', err);
-        showAlert('error', 'Failed to save user: ' + (err.message || String(err)));
-      })
-      .finally(() => {
-        showLoading(false);
+    try {
+      const normalizedUserKey = userName.toLowerCase();
+      const localConflict = (allUsers || []).find(u => {
+        if (!u) return false;
+        const candidate = (u.UserName || u.userName || u.username || '').toLowerCase();
+        if (!candidate || candidate !== normalizedUserKey) return false;
+        return !isEditing || String(u.ID) !== String(targetUserId);
       });
+
+      if (localConflict) {
+        const conflictLabel = localConflict.FullName || localConflict.Email || localConflict.UserName || 'another user';
+        showAlert('error', `Username is already in use by ${conflictLabel}.`);
+        if (userNameField) userNameField.classList.add('is-invalid');
+        return;
+      }
+
+      let conflictRes = null;
+      try {
+        conflictRes = await callGoogleScript('clientCheckUserConflicts', {
+          email,
+          userName,
+          excludeUserId: isEditing ? targetUserId : ''
+        });
+      } catch (conflictErr) {
+        console.warn('clientCheckUserConflicts failed:', conflictErr);
+      }
+
+      if (conflictRes && conflictRes.success && conflictRes.hasConflicts) {
+        const messages = [];
+        const conflicts = conflictRes.conflicts || {};
+
+        if (conflicts.emailConflict && (!isEditing || String(conflicts.emailConflict.id) !== String(targetUserId))) {
+          const detail = conflicts.emailConflict;
+          const label = detail.userName || detail.email || 'another user';
+          messages.push(`Email is already associated with ${label}.`);
+          if (emailField) emailField.classList.add('is-invalid');
+        }
+
+        if (conflicts.userNameConflict && (!isEditing || String(conflicts.userNameConflict.id) !== String(targetUserId))) {
+          const detail = conflicts.userNameConflict;
+          const label = detail.userName || detail.email || 'another user';
+          messages.push(`Username is already in use by ${label}.`);
+          if (userNameField) userNameField.classList.add('is-invalid');
+        }
+
+        if (messages.length) {
+          showAlert('error', messages.join(' '));
+          return;
+        }
+      } else if (conflictRes && conflictRes.success === false && conflictRes.error) {
+        showAlert('warning', 'Unable to perform duplicate check: ' + conflictRes.error);
+      }
+
+      let saveResult;
+      if (isEditing) {
+        saveResult = await callGoogleScript('clientUpdateUser', targetUserId, payload);
+      } else {
+        saveResult = await callGoogleScript('clientRegisterUser', payload);
+        if (saveResult && saveResult.userId) {
+          targetUserId = saveResult.userId;
+        }
+      }
+
+      if (!saveResult || !saveResult.success) {
+        const message = saveResult?.error || saveResult?.message || 'Operation failed';
+        showAlert(saveResult?.alreadyExisted ? 'warning' : 'error', message);
+        return;
+      }
+
+      if (!targetUserId) {
+        showAlert('error', 'User ID was not returned from the service.');
+        return;
+      }
+
+      if (payload.permissionLevel) {
+        const permResult = await callGoogleScript('clientSetUserPermissions', targetUserId, selectedCampaigns[0],
+          payload.permissionLevel, payload.canManageUsers, payload.canManagePages);
+        if (!permResult || permResult.success === false) {
+          throw new Error((permResult && (permResult.error || permResult.message)) || 'Failed to save campaign permissions');
+        }
+      }
+
+      const pageResult = await callGoogleScript('clientAssignPagesToUser', targetUserId, selectedPages);
+      if (!pageResult || pageResult.success === false) {
+        throw new Error((pageResult && (pageResult.error || pageResult.message)) || 'Failed to assign pages');
+      }
+
+      const statusMsg = payload.employmentStatus ? ` (${payload.employmentStatus})` : '';
+      showAlert('success', `User ${isEditing ? 'updated' : 'created'} successfully${statusMsg} with username "${payload.userName}"`);
+
+      bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+      loadAllData();
+    } catch (err) {
+      console.error('Save error:', err);
+      showAlert('error', 'Failed to save user: ' + (err.message || String(err)));
+    } finally {
+      showLoading(false);
+    }
   }
 
   function deleteUser(userId) {
@@ -3014,9 +3161,19 @@
     const statusCounts = data.statusCounts || {};
     const totalUsers = data.totalUsers || 0;
 
-    const statusData = Object.entries(statusCounts).map(([status, count]) => ({
-      status, count, percentage: totalUsers > 0 ? ((count / totalUsers) * 100).toFixed(1) : '0.0'
-    })).sort((a, b) => b.count - a.count);
+    const validList = Array.isArray(data.validStatuses) && data.validStatuses.length
+      ? data.validStatuses.slice()
+      : Object.keys(statusCounts || {});
+
+    if (!validList.includes('Unspecified') && typeof statusCounts['Unspecified'] === 'number') {
+      validList.push('Unspecified');
+    }
+
+    const statusData = validList.map(status => {
+      const count = statusCounts[status] || 0;
+      const percentage = totalUsers > 0 ? ((count / totalUsers) * 100).toFixed(1) : '0.0';
+      return { status, count, percentage };
+    }).sort((a, b) => b.count - a.count);
 
     content.innerHTML = `
     <div class="row">
@@ -3076,11 +3233,20 @@
   }
   function getStatusColorClass(status) {
     const s = (status || '').toLowerCase();
+    if (!s) return 'bg-secondary';
     if (s.includes('active')) return 'bg-success';
+    if (s.includes('inactive')) return 'bg-secondary';
     if (s.includes('term')) return 'bg-danger';
-    if (s.includes('probation')) return 'bg-warning';
-    if (s.includes('leave')) return 'bg-info';
     if (s.includes('suspend')) return 'bg-danger';
+    if (s.includes('leave')) return 'bg-info';
+    if (s.includes('probation')) return 'bg-warning';
+    if (s.includes('pending')) return 'bg-warning';
+    if (s.includes('contract') || s.includes('consult')) return 'bg-primary';
+    if (s.includes('full')) return 'bg-success';
+    if (s.includes('part')) return 'bg-primary';
+    if (s.includes('seasonal') || s.includes('temporary') || s.includes('temp')) return 'bg-warning';
+    if (s.includes('retired')) return 'bg-secondary';
+    if (s.includes('intern')) return 'bg-info';
     return 'bg-secondary';
   }
 
