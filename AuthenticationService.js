@@ -19,6 +19,47 @@ const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ───────────────────────────────────────────────────────────────────────────────
+// GUARDED GLOBAL DEFAULTS (supports standalone deployments)
+// ───────────────────────────────────────────────────────────────────────────────
+if (typeof USERS_SHEET === 'undefined') var USERS_SHEET = 'Users';
+if (typeof ROLES_SHEET === 'undefined') var ROLES_SHEET = 'Roles';
+if (typeof USER_ROLES_SHEET === 'undefined') var USER_ROLES_SHEET = 'UserRoles';
+if (typeof USER_CLAIMS_SHEET === 'undefined') var USER_CLAIMS_SHEET = 'UserClaims';
+if (typeof SESSIONS_SHEET === 'undefined') var SESSIONS_SHEET = 'Sessions';
+
+if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
+  'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
+  'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
+  'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
+];
+if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = ['ID', 'Name', 'NormalizedName', 'CreatedAt', 'UpdatedAt'];
+if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = ['UserId', 'RoleId', 'CreatedAt', 'UpdatedAt'];
+if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ['ID', 'UserId', 'ClaimType', 'CreatedAt', 'UpdatedAt'];
+if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
+  'Token',
+  'UserId',
+  'CreatedAt',
+  'ExpiresAt',
+  'RememberMe',
+  'CampaignScope',
+  'UserAgent',
+  'IpAddress'
+];
+
+function resolveScriptUrl() {
+  if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
+    return SCRIPT_URL;
+  }
+
+  try {
+    return ScriptApp.getService().getUrl();
+  } catch (error) {
+    console.warn('resolveScriptUrl: unable to determine script URL', error);
+    return '';
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 // AUTHENTICATION SERVICE IMPLEMENTATION
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -403,6 +444,8 @@ var AuthenticationService = (function () {
    */
   function login(email, rawPwd, rememberMe = false) {
     try {
+      ensureSheets();
+
       if (!email || !rawPwd) {
         return {
           success: false,
@@ -1294,19 +1337,23 @@ var AuthenticationService = (function () {
 function loginUser(email, password, rememberMe = false) {
   try {
     console.log('Server-side login for:', email);
-    
+
     // Use AuthenticationService
     const result = AuthenticationService.login(email, password, rememberMe);
-    
+
     if (!result.success) {
       return result;
     }
 
     // Create response with redirect URL including token
+    const baseScriptUrl = resolveScriptUrl();
+
     const response = {
       success: true,
       message: 'Login successful',
-      redirectUrl: SCRIPT_URL + '?page=dashboard&token=' + encodeURIComponent(result.sessionToken),
+      redirectUrl: baseScriptUrl
+        ? (baseScriptUrl + '?page=dashboard&token=' + encodeURIComponent(result.sessionToken))
+        : ('?page=dashboard&token=' + encodeURIComponent(result.sessionToken)),
       sessionToken: result.sessionToken,
       user: result.user
     };
@@ -1335,7 +1382,7 @@ function logoutUser(sessionToken) {
     return {
       success: true,
       message: 'Logout successful',
-      redirectUrl: SCRIPT_URL
+      redirectUrl: resolveScriptUrl()
     };
   } catch (error) {
     console.error('Server logout error:', error);
@@ -1343,7 +1390,7 @@ function logoutUser(sessionToken) {
     return {
       success: false,
       error: error.message,
-      redirectUrl: SCRIPT_URL
+      redirectUrl: resolveScriptUrl()
     };
   }
 }
