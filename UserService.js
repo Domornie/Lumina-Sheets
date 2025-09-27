@@ -46,6 +46,55 @@ const OPTIONAL_USER_COLUMNS = [
   'InsuranceCardReceivedDate'
 ];
 
+const EMPLOYMENT_STATUS_CANONICAL = [
+  'Active',
+  'Inactive',
+  'Terminated',
+  'On Leave',
+  'Pending',
+  'Probation',
+  'Contract',
+  'Contractor',
+  'Full Time',
+  'Part Time',
+  'Seasonal',
+  'Temporary',
+  'Suspended',
+  'Retired',
+  'Intern',
+  'Consultant'
+];
+
+const EMPLOYMENT_STATUS_ALIAS_MAP = {
+  'active': 'Active',
+  'inactive': 'Inactive',
+  'terminated': 'Terminated',
+  'leave': 'On Leave',
+  'on leave': 'On Leave',
+  'leave of absence': 'On Leave',
+  'pending': 'Pending',
+  'probation': 'Probation',
+  'probationary': 'Probation',
+  'probationary period': 'Probation',
+  'contract': 'Contract',
+  'contract employee': 'Contract',
+  'contractor': 'Contractor',
+  'consultant': 'Consultant',
+  'full time': 'Full Time',
+  'full-time': 'Full Time',
+  'fulltime': 'Full Time',
+  'part time': 'Part Time',
+  'part-time': 'Part Time',
+  'parttime': 'Part Time',
+  'seasonal': 'Seasonal',
+  'temporary': 'Temporary',
+  'temp': 'Temporary',
+  'suspended': 'Suspended',
+  'retired': 'Retired',
+  'intern': 'Intern',
+  'consultant/contractor': 'Consultant'
+};
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Safe fallbacks for common helpers (no-ops if you already defined them)
 // ───────────────────────────────────────────────────────────────────────────────
@@ -96,11 +145,23 @@ if (typeof readSheet !== 'function') {
 // Validators (only if you don’t already have them)
 if (typeof getValidEmploymentStatuses !== 'function') {
   function getValidEmploymentStatuses() {
-    return ['Active', 'Leave', 'Terminated', 'Pending', 'Probation', 'Contractor', 'Intern'];
+    return EMPLOYMENT_STATUS_CANONICAL.slice();
+  }
+}
+if (typeof normalizeEmploymentStatus !== 'function') {
+  function normalizeEmploymentStatus(status) {
+    const raw = String(status || '').trim();
+    if (!raw) return '';
+    const lower = raw.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(EMPLOYMENT_STATUS_ALIAS_MAP, lower)) {
+      return EMPLOYMENT_STATUS_ALIAS_MAP[lower];
+    }
+    const canonical = EMPLOYMENT_STATUS_CANONICAL.find(s => s.toLowerCase() === lower);
+    return canonical || '';
   }
 }
 if (typeof validateEmploymentStatus !== 'function') {
-  function validateEmploymentStatus(s) { return !s || getValidEmploymentStatuses().indexOf(String(s).trim()) !== -1; }
+  function validateEmploymentStatus(s) { return !s || normalizeEmploymentStatus(s) !== ''; }
 }
 if (typeof validateHireDate !== 'function') {
   function validateHireDate(d) {
@@ -241,6 +302,65 @@ function checkEmailExists(email) {
   } catch (error) {
     writeError('checkEmailExists', error);
     return { exists: false, error: error.message };
+  }
+}
+
+function clientCheckUserConflicts(payload) {
+  try {
+    const email = payload && (payload.email || payload.Email) ? String(payload.email || payload.Email).trim() : '';
+    const userName = payload && (payload.userName || payload.UserName) ? String(payload.userName || payload.UserName).trim() : '';
+    const excludeId = payload && (payload.excludeUserId || payload.excludeId || payload.userId || payload.ID || payload.id)
+      ? String(payload.excludeUserId || payload.excludeId || payload.userId || payload.ID || payload.id)
+      : '';
+
+    const emailKey = _normEmail_(email);
+    const userKey = _normUser_(userName);
+
+    const conflicts = {
+      emailConflict: null,
+      userNameConflict: null
+    };
+
+    if (!emailKey && !userKey) {
+      return { success: true, hasConflicts: false, conflicts };
+    }
+
+    const users = _readUsersAsObjects_();
+    users.forEach(u => {
+      if (!u || !u.ID) return;
+      if (excludeId && String(u.ID) === excludeId) return;
+
+      if (emailKey && !conflicts.emailConflict) {
+        if (_normEmail_(u.Email || u.email) === emailKey) {
+          conflicts.emailConflict = {
+            id: u.ID,
+            email: u.Email || u.email || '',
+            userName: u.UserName || u.userName || '',
+            campaignId: u.CampaignID || u.campaignId || ''
+          };
+        }
+      }
+
+      if (userKey && !conflicts.userNameConflict) {
+        if (_normUser_(u.UserName || u.userName || u.username) === userKey) {
+          conflicts.userNameConflict = {
+            id: u.ID,
+            email: u.Email || u.email || '',
+            userName: u.UserName || u.userName || '',
+            campaignId: u.CampaignID || u.campaignId || ''
+          };
+        }
+      }
+    });
+
+    return {
+      success: true,
+      hasConflicts: !!(conflicts.emailConflict || conflicts.userNameConflict),
+      conflicts
+    };
+  } catch (error) {
+    writeError && writeError('clientCheckUserConflicts', error);
+    return { success: false, error: error.message || String(error) };
   }
 }
 
@@ -447,7 +567,7 @@ function createSafeUserObject(user) {
     Email: user.Email || user.email || '',
     PhoneNumber: user.PhoneNumber || user.phoneNumber || '',
     CampaignID: user.CampaignID || user.campaignID || '',
-    EmploymentStatus: user.EmploymentStatus || '',
+    EmploymentStatus: normalizeEmploymentStatus(user.EmploymentStatus) || (user.EmploymentStatus || ''),
     HireDate: user.HireDate || '',
     Country: user.Country || '',
     // HR/Benefits raw
@@ -681,7 +801,7 @@ function clientRegisterUser(userData) {
           EmailConfirmation: values[rowIndex][idx['EmailConfirmation']],
           EmailConfirmed: 'TRUE',
           PhoneNumber: data.phoneNumber || existing.PhoneNumber,
-          EmploymentStatus: data.employmentStatus || existing.EmploymentStatus,
+          EmploymentStatus: data.employmentStatus || normalizeEmploymentStatus(existing.EmploymentStatus) || existing.EmploymentStatus,
           HireDate: hire || '',
           Country: data.country || existing.Country,
           LockoutEnd: values[rowIndex][idx['LockoutEnd']],
@@ -711,7 +831,18 @@ function clientRegisterUser(userData) {
         try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
         return { success: true, alreadyExisted: true, merged: true, userId: existing.ID, message: 'Existing user merged safely (roles/pages/fields updated).' };
       } else {
-        return { success: true, alreadyExisted: true, userId: existing.ID, message: 'User already exists; no changes made.' };
+        return {
+          success: false,
+          alreadyExisted: true,
+          userId: existing.ID,
+          error: 'A user with this email already exists.',
+          conflict: {
+            email: existing.Email || '',
+            userId: existing.ID,
+            userName: existing.UserName || '',
+            campaignId: existing.CampaignID || ''
+          }
+        };
       }
     }
 
@@ -1679,8 +1810,11 @@ function _validateUserInput_(userData) {
   const email = String(userData && userData.email || '').trim();
   if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) errors.push('Email appears invalid');
 
-  if (userData.employmentStatus && !validateEmploymentStatus(userData.employmentStatus)) {
-    errors.push('Invalid employment status. Valid options: ' + getValidEmploymentStatuses().join(', '));
+  if (userData.employmentStatus) {
+    const normalizedStatus = normalizeEmploymentStatus(userData.employmentStatus);
+    if (!normalizedStatus) {
+      errors.push('Invalid employment status. Valid options: ' + getValidEmploymentStatuses().join(', '));
+    }
   }
   if (userData.hireDate && !validateHireDate(userData.hireDate)) {
     errors.push('Invalid hire date. Must be a valid date not in the future');
@@ -1710,7 +1844,7 @@ function _normalizeIncoming_(userData) {
   out.phoneNumber = String(out.phoneNumber || '').trim();
   out.campaignId = String(out.campaignId || '').trim();
 
-  out.employmentStatus = String(out.employmentStatus || '').trim();
+  out.employmentStatus = normalizeEmploymentStatus(out.employmentStatus);
   out.country = String(out.country || '').trim();
 
   if (out.insuranceEnrolled != null && out.insuranceSignedUp == null) {
@@ -1897,8 +2031,18 @@ function getSystemAdminsEmails_() {
 // Public: Employment status helpers
 // ───────────────────────────────────────────────────────────────────────────────
 function clientGetValidEmploymentStatuses() {
-  try { return { success: true, statuses: getValidEmploymentStatuses(), message: 'Valid employment statuses retrieved' }; }
-  catch (e) { writeError && writeError('clientGetValidEmploymentStatuses', e); return { success: false, error: e.message, statuses: [] }; }
+  try {
+    return {
+      success: true,
+      statuses: getValidEmploymentStatuses(),
+      aliases: Object.assign({}, EMPLOYMENT_STATUS_ALIAS_MAP),
+      message: 'Valid employment statuses retrieved'
+    };
+  }
+  catch (e) {
+    writeError && writeError('clientGetValidEmploymentStatuses', e);
+    return { success: false, error: e.message, statuses: [] };
+  }
 }
 function clientGetEmploymentStatusReport(campaignId) {
   try {
@@ -1906,14 +2050,28 @@ function clientGetEmploymentStatusReport(campaignId) {
     let filtered = users;
     if (campaignId) filtered = users.filter(u => u.CampaignID === campaignId);
 
-    const statusCounts = {}; const valid = getValidEmploymentStatuses();
-    valid.forEach(s => statusCounts[s] = 0); statusCounts['Unspecified'] = 0;
+    const statusCounts = {};
+    const valid = getValidEmploymentStatuses();
+    valid.forEach(s => statusCounts[s] = 0);
+    statusCounts['Unspecified'] = 0;
 
     filtered.forEach(u => {
-      const s = String(u.EmploymentStatus || '').trim();
-      if (s && valid.includes(s)) statusCounts[s]++; else statusCounts['Unspecified']++;
+      const normalized = normalizeEmploymentStatus(u && (u.EmploymentStatus || u.employmentStatus));
+      if (normalized) {
+        if (typeof statusCounts[normalized] !== 'number') statusCounts[normalized] = 0;
+        statusCounts[normalized]++;
+      } else {
+        statusCounts['Unspecified']++;
+      }
     });
-    return { success: true, campaignId, totalUsers: filtered.length, statusCounts, message: `Employment status report for ${filtered.length} users` };
+    return {
+      success: true,
+      campaignId,
+      totalUsers: filtered.length,
+      statusCounts,
+      validStatuses: valid,
+      message: `Employment status report for ${filtered.length} users`
+    };
   } catch (e) { writeError && writeError('clientGetEmploymentStatusReport', e); return { success: false, error: e.message }; }
 }
 

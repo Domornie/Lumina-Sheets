@@ -1107,19 +1107,111 @@
 
   // Real-time triggerized updates
   function _ensureRealtimeTrigger() {
+    var lock;
+    var props;
+    var keptTriggerId = '';
+    var removedCount = 0;
     try {
+      try {
+        lock = LockService.getScriptLock();
+        lock.waitLock(5000);
+      } catch (lockError) {
+        logError('_ensureRealtimeTrigger:lock', lockError);
+        return;
+      }
+
+      props = PropertiesService.getScriptProperties();
       var TRIGGER_FUNC = 'checkRealtimeUpdatesJob';
+      var TRIGGER_ID_KEY = 'REALTIME_TRIGGER_UNIQUE_ID';
+      var storedId = props.getProperty(TRIGGER_ID_KEY) || '';
+
       var triggers = ScriptApp.getProjectTriggers() || [];
-      var exists = false;
-      for (var i=0;i<triggers.length;i++){
-        var t = triggers[i];
-        if (t.getHandlerFunction && t.getHandlerFunction() === TRIGGER_FUNC) { exists = true; break; }
+      var matching = [];
+      for (var i = 0; i < triggers.length; i++) {
+        var trigger = triggers[i];
+        if (trigger && trigger.getHandlerFunction && trigger.getHandlerFunction() === TRIGGER_FUNC) {
+          var triggerId = '';
+          try {
+            if (typeof trigger.getUniqueId === 'function') {
+              triggerId = trigger.getUniqueId() || '';
+            }
+          } catch (idError) {
+            logError('_ensureRealtimeTrigger:getUniqueId', idError);
+          }
+          matching.push({ trigger: trigger, id: triggerId });
+        }
       }
-      if (!exists) {
-        ScriptApp.newTrigger(TRIGGER_FUNC).timeBased().everyMinutes(1).create();
-        console.log('Realtime trigger created (every 1 minute).');
+
+      var active = null;
+      if (storedId) {
+        for (var j = 0; j < matching.length; j++) {
+          if (matching[j].id && matching[j].id === storedId) {
+            active = matching[j];
+            break;
+          }
+        }
       }
-    } catch (e) { logError('_ensureRealtimeTrigger', e); }
+
+      if (!active && matching.length > 0) {
+        active = matching[0];
+      }
+
+      for (var k = 0; k < matching.length; k++) {
+        var entry = matching[k];
+        if (!active || entry.trigger !== active.trigger) {
+          try {
+            ScriptApp.deleteTrigger(entry.trigger);
+            removedCount++;
+          } catch (deleteError) {
+            logError('_ensureRealtimeTrigger:delete', deleteError);
+          }
+        }
+      }
+
+      if (active) {
+        if (active.id) {
+          if (storedId !== active.id) {
+            props.setProperty(TRIGGER_ID_KEY, active.id);
+          }
+          keptTriggerId = active.id;
+        } else {
+          props.deleteProperty(TRIGGER_ID_KEY);
+        }
+      } else {
+        try {
+          var newTrigger = ScriptApp.newTrigger(TRIGGER_FUNC).timeBased().everyMinutes(1).create();
+          var newId = '';
+          try {
+            if (newTrigger && typeof newTrigger.getUniqueId === 'function') {
+              newId = newTrigger.getUniqueId() || '';
+            }
+          } catch (newIdError) {
+            logError('_ensureRealtimeTrigger:newId', newIdError);
+          }
+          if (newId) {
+            props.setProperty(TRIGGER_ID_KEY, newId);
+            keptTriggerId = newId;
+          } else {
+            props.deleteProperty(TRIGGER_ID_KEY);
+          }
+          console.log('Realtime trigger created (every 1 minute).');
+        } catch (createError) {
+          logError('_ensureRealtimeTrigger:create', createError);
+        }
+      }
+
+      if (!keptTriggerId && storedId) {
+        props.deleteProperty(TRIGGER_ID_KEY);
+      }
+
+      if (removedCount > 0) {
+        console.log('Realtime trigger clean-up removed ' + removedCount + ' duplicate trigger(s).');
+      }
+    } catch (e) {
+      logError('_ensureRealtimeTrigger', e);
+    } finally {
+      try { if (lock) lock.releaseLock(); } catch (_) {}
+    }
   }
 
   if (typeof G.checkForScheduleUpdates !== 'function') G.checkForScheduleUpdates = function (){};
@@ -1127,9 +1219,53 @@
   if (typeof G.checkForSystemAlerts !== 'function') G.checkForSystemAlerts = function (){};
   if (typeof G.checkRealtimeUpdatesJob !== 'function') {
     G.checkRealtimeUpdatesJob = function checkRealtimeUpdatesJob() {
-      try { checkForScheduleUpdates(); } catch (e) { logError('checkRealtimeUpdatesJob:checkForScheduleUpdates', e); }
-      try { checkForSwapUpdates(); } catch (e) { logError('checkRealtimeUpdatesJob:checkForSwapUpdates', e); }
-      try { checkForSystemAlerts(); } catch (e) { logError('checkRealtimeUpdatesJob:checkForSystemAlerts', e); }
+      var lock;
+      var props;
+      var shouldReleaseLock = false;
+      try {
+        try {
+          lock = LockService.getScriptLock();
+          if (!lock.tryLock(1000)) {
+            console.log('Realtime job already running; skipping this invocation.');
+            return;
+          }
+          shouldReleaseLock = true;
+        } catch (lockError) {
+          logError('checkRealtimeUpdatesJob:lock', lockError);
+          return;
+        }
+
+        props = PropertiesService.getScriptProperties();
+        var LAST_RUN_KEY = 'REALTIME_JOB_LAST_RUN_MS';
+        var MIN_INTERVAL_MS = 45 * 1000;
+        var now = Date.now();
+        var lastRunRaw = props.getProperty(LAST_RUN_KEY);
+        var lastRunMs = lastRunRaw ? parseInt(lastRunRaw, 10) : 0;
+        if (lastRunMs && !isNaN(lastRunMs)) {
+          var delta = now - lastRunMs;
+          if (delta < MIN_INTERVAL_MS) {
+            console.log('Realtime job invoked ' + delta + 'ms after the previous run; skipping to avoid overlap.');
+            return;
+          }
+        }
+
+        props.setProperty(LAST_RUN_KEY, String(now));
+
+        try { checkForScheduleUpdates(); } catch (e1) { logError('checkRealtimeUpdatesJob:checkForScheduleUpdates', e1); }
+        try { checkForSwapUpdates(); } catch (e2) { logError('checkRealtimeUpdatesJob:checkForSwapUpdates', e2); }
+        try { checkForSystemAlerts(); } catch (e3) { logError('checkRealtimeUpdatesJob:checkForSystemAlerts', e3); }
+      } catch (e) {
+        logError('checkRealtimeUpdatesJob', e);
+      } finally {
+        if (shouldReleaseLock) {
+          try { lock.releaseLock(); } catch (_) {}
+        }
+        try {
+          _ensureRealtimeTrigger();
+        } catch (ensureError) {
+          logError('checkRealtimeUpdatesJob:ensureRealtimeTrigger', ensureError);
+        }
+      }
     };
   }
   if (typeof G.initializeRealTimeUpdates !== 'function') {

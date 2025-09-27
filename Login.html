@@ -399,6 +399,88 @@
       }
     }
 
+    .next-steps-card {
+      border-radius: var(--border-radius-lg);
+      border: 1px solid rgba(0, 174, 239, 0.18);
+      background: linear-gradient(135deg, #f6fbff, #ffffff);
+      box-shadow: var(--shadow-md);
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+      transition: var(--transition);
+    }
+
+    .next-steps-card[data-tone="warning"] {
+      border-color: rgba(255, 193, 7, 0.35);
+      background: linear-gradient(135deg, #fff8e1, #fff3cd);
+    }
+
+    .next-steps-card[data-tone="success"] {
+      border-color: rgba(40, 167, 69, 0.3);
+      background: linear-gradient(135deg, #ecfdf3, #ffffff);
+    }
+
+    .next-steps-card[data-tone="danger"] {
+      border-color: rgba(220, 53, 69, 0.35);
+      background: linear-gradient(135deg, #fef2f2, #ffffff);
+    }
+
+    .next-steps-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .next-steps-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: var(--primary-blue);
+      background: rgba(0, 174, 239, 0.12);
+      transition: var(--transition);
+    }
+
+    .next-steps-icon[data-tone="warning"] {
+      background: rgba(255, 193, 7, 0.18);
+      color: #b68400;
+    }
+
+    .next-steps-icon[data-tone="success"] {
+      background: rgba(40, 167, 69, 0.18);
+      color: #1b7d3e;
+    }
+
+    .next-steps-icon[data-tone="danger"] {
+      background: rgba(220, 53, 69, 0.18);
+      color: #b22534;
+    }
+
+    .next-steps-body {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .next-steps-card .btn {
+      border-radius: var(--border-radius-sm);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .next-steps-card .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    @media (max-width: 575.98px) {
+      .next-steps-card .btn {
+        width: 100%;
+      }
+    }
+
     @keyframes slideInUp {
       from {
         opacity: 0;
@@ -793,8 +875,70 @@
       redirectDelay: 3000 // 3 seconds
     };
 
+    const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
+
+    function sanitizeBaseUrl(candidate, fallback) {
+      const invalidPattern = /usercodeapppanel/i;
+
+      const normalize = value => {
+        if (value === null || value === undefined) return '';
+        const trimmed = String(value).trim();
+        if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+          return '';
+        }
+        return trimmed;
+      };
+
+      const ensureNotPanel = value => {
+        if (!value) return '';
+        if (!invalidPattern.test(value)) {
+          return value;
+        }
+        return value.replace(/\/userCodeAppPanel.*$/i, '/exec');
+      };
+
+      const isInvalid = value => {
+        return !value || invalidPattern.test(value);
+      };
+
+      const primary = ensureNotPanel(normalize(candidate));
+      if (!isInvalid(primary)) {
+        return primary;
+      }
+
+      const secondary = ensureNotPanel(normalize(fallback));
+      if (!isInvalid(secondary)) {
+        return secondary;
+      }
+
+      try {
+        const current = new URL(window.location.href);
+        current.search = '';
+        current.hash = '';
+        const derived = ensureNotPanel(current.origin + current.pathname);
+        if (!isInvalid(derived)) {
+          return derived;
+        }
+      } catch (err) {
+        console.warn('Unable to derive base URL from current location', err);
+      }
+
+      return secondary || primary || '';
+    }
+
+    CONFIG.baseUrl = sanitizeBaseUrl(CONFIG.baseUrl, CONFIG.scriptUrl);
+    CONFIG.scriptUrl = sanitizeBaseUrl(CONFIG.scriptUrl, CONFIG.baseUrl);
+
+    if (!CONFIG.baseUrl) {
+      const current = new URL(window.location.href);
+      CONFIG.baseUrl = current.origin + current.pathname;
+    }
+
     const SUPPORT_EMAIL = 'support@vlbpo.com';
     const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
+    const AUTH_COOKIE_NAME = 'authToken';
+    const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
+    const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
     const STORAGE_KEYS = {
       rememberedEmail: 'lumina.auth.rememberedEmail',
       rememberExpiry: 'lumina.auth.rememberExpiry',
@@ -830,7 +974,15 @@
       redirectTimer: null,
       isRedirecting: false,
       redirectUrl: '',
-      countdownValue: 3
+      countdownValue: 3,
+      authToken: '',
+      hasAttemptedResume: false,
+      loginRequestTimer: null,
+      loginRequestActive: false,
+      loginTimeoutFired: false,
+      pendingLogin: null,
+      autoRetryCount: 0,
+      isAutoRetrying: false
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -845,7 +997,9 @@
         if (alert) alert.classList.add('d-none');
       });
       
-      elements.feedback.textContent = '';
+      if (elements.feedback) {
+        elements.feedback.textContent = '';
+      }
       
       // Show the specific alert
       const messageEl = document.getElementById(type + 'Message');
@@ -871,7 +1025,9 @@
         const alert = document.getElementById(t + 'Alert');
         if (alert) alert.classList.add('d-none');
       });
-      elements.feedback.textContent = '';
+      if (elements.feedback) {
+        elements.feedback.textContent = '';
+      }
       hideNextSteps();
     }
 
@@ -879,15 +1035,788 @@
     // ENHANCED LOADING STATE
     // ───────────────────────────────────────────────────────────────────────────────
     function setLoading(isLoading) {
-      elements.loader.classList.toggle('d-none', !isLoading);
-      elements.loginBtn.disabled = isLoading;
-      
-      if (isLoading) {
-        elements.loginBtn.classList.add('btn-loading');
-        elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>SIGNING IN…';
-      } else {
-        elements.loginBtn.classList.remove('btn-loading');
-        elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>SIGN IN';
+      if (elements.loader) {
+        elements.loader.classList.toggle('d-none', !isLoading);
+      }
+
+      if (elements.loginBtn) {
+        elements.loginBtn.disabled = isLoading;
+
+        if (isLoading) {
+          elements.loginBtn.classList.add('btn-loading');
+          elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>SIGNING IN…';
+        } else {
+          elements.loginBtn.classList.remove('btn-loading');
+          elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>SIGN IN';
+        }
+      }
+    }
+
+    function clearLoginRequestTimer() {
+      if (state.loginRequestTimer) {
+        clearTimeout(state.loginRequestTimer);
+        state.loginRequestTimer = null;
+      }
+    }
+
+    function finalizeLoginRequest() {
+      clearLoginRequestTimer();
+      state.loginRequestActive = false;
+      state.loginTimeoutFired = false;
+      state.pendingLogin = null;
+      state.autoRetryCount = 0;
+      state.isAutoRetrying = false;
+    }
+
+    function monitorLoginRequest(email, rememberMe) {
+      clearLoginRequestTimer();
+      if (!state.isAutoRetrying) {
+        state.autoRetryCount = 0;
+      }
+      state.isAutoRetrying = false;
+
+      state.loginRequestActive = true;
+      state.loginTimeoutFired = false;
+      state.pendingLogin = { email, rememberMe, autoRetried: false };
+
+      state.loginRequestTimer = setTimeout(() => {
+        state.loginRequestTimer = null;
+        state.loginTimeoutFired = true;
+        state.loginRequestActive = false;
+
+        setLoading(false);
+
+        showAlert('warning', 'Login is taking longer than expected. We refreshed your sign-in timer—please try again.');
+
+        const retryLogin = () => {
+          hideAllAlerts();
+
+          const pending = state.pendingLogin || {};
+          if (elements.emailInput && pending.email && !elements.emailInput.value.trim()) {
+            elements.emailInput.value = pending.email;
+          }
+          if (elements.rememberMeCheckbox && typeof pending.rememberMe === 'boolean') {
+            elements.rememberMeCheckbox.checked = pending.rememberMe;
+          }
+
+          if (elements.loginForm) {
+            const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+            elements.loginForm.dispatchEvent(retryEvent);
+          }
+        };
+
+        showNextSteps({
+          title: 'Still signing you in…',
+          subtitle: 'The server is taking longer than normal to respond.',
+          body: 'We renewed your sign-in session timer so you can try again immediately. If this continues, please contact support.',
+          tone: 'warning',
+          icon: 'fa-hourglass-half',
+          actions: [
+            {
+              type: 'button',
+              label: 'Try Again Now',
+              icon: 'fa-rotate',
+              variant: 'primary',
+              onClick: retryLogin
+            },
+            {
+              type: 'link',
+              label: 'Email Support',
+              icon: 'fa-headset',
+              variant: 'outline-secondary',
+              href: `mailto:${SUPPORT_EMAIL}`,
+              target: '_blank',
+              rel: 'noopener'
+            }
+          ]
+        });
+
+        const pending = state.pendingLogin;
+        if (pending && !pending.autoRetried && state.autoRetryCount < 2) {
+          pending.autoRetried = true;
+          state.autoRetryCount += 1;
+          state.isAutoRetrying = true;
+          setTimeout(() => {
+            retryLogin();
+          }, 200);
+        }
+      }, LOGIN_REQUEST_TIMEOUT_MS);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // NEXT STEPS / GUIDANCE PANEL
+    // ───────────────────────────────────────────────────────────────────────────────
+    function hideNextSteps() {
+      if (!elements.nextStepsCard) return;
+      elements.nextStepsCard.classList.add('d-none');
+      elements.nextStepsCard.dataset.tone = 'info';
+      if (elements.nextStepsIcon) {
+        elements.nextStepsIcon.dataset.tone = 'info';
+        elements.nextStepsIcon.innerHTML = '<i class="fas fa-lightbulb"></i>';
+      }
+      if (elements.nextStepsSubtitle) {
+        elements.nextStepsSubtitle.textContent = '';
+        elements.nextStepsSubtitle.classList.add('d-none');
+      }
+      if (elements.nextStepsBody) {
+        elements.nextStepsBody.textContent = '';
+      }
+      if (elements.nextStepsActions) {
+        elements.nextStepsActions.innerHTML = '';
+      }
+    }
+
+    function showNextSteps(options = {}) {
+      if (!elements.nextStepsCard) return;
+
+      const {
+        title = 'Need help signing in?',
+        subtitle = '',
+        body = '',
+        tone = 'info',
+        icon = 'fa-lightbulb',
+        actions = []
+      } = options;
+
+      elements.nextStepsCard.dataset.tone = tone;
+
+      if (elements.nextStepsTitle) {
+        elements.nextStepsTitle.textContent = title;
+      }
+
+      if (elements.nextStepsSubtitle) {
+        if (subtitle) {
+          elements.nextStepsSubtitle.textContent = subtitle;
+          elements.nextStepsSubtitle.classList.remove('d-none');
+        } else {
+          elements.nextStepsSubtitle.textContent = '';
+          elements.nextStepsSubtitle.classList.add('d-none');
+        }
+      }
+
+      if (elements.nextStepsBody) {
+        elements.nextStepsBody.innerHTML = body;
+      }
+
+      if (elements.nextStepsIcon) {
+        elements.nextStepsIcon.dataset.tone = tone;
+        elements.nextStepsIcon.innerHTML = `<i class="fas ${icon}"></i>`;
+      }
+
+      if (elements.nextStepsActions) {
+        elements.nextStepsActions.innerHTML = '';
+        actions.forEach(action => {
+          if (!action) return;
+          const btn = createNextStepAction(action);
+          if (btn) {
+            elements.nextStepsActions.appendChild(btn);
+          }
+        });
+      }
+
+      elements.nextStepsCard.classList.remove('d-none');
+    }
+
+    function createNextStepAction(action) {
+      const variant = action.variant || 'primary';
+      const iconHtml = action.icon ? `<i class="fas ${action.icon} me-2"></i>` : '';
+
+      if (action.type === 'link') {
+        const anchor = document.createElement('a');
+        anchor.className = `btn btn-${variant}`;
+        anchor.href = action.href || '#';
+        anchor.target = action.target || '_top';
+        anchor.rel = action.rel || 'noopener';
+        anchor.innerHTML = `${iconHtml}${action.label || 'Continue'}`;
+        if (typeof action.onClick === 'function') {
+          anchor.addEventListener('click', evt => {
+            evt.preventDefault();
+            action.onClick(evt);
+          });
+        }
+        return anchor;
+      }
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `btn btn-${variant}`;
+      button.innerHTML = `${iconHtml}${action.label || 'Continue'}`;
+
+      if (typeof action.onClick === 'function') {
+        button.addEventListener('click', action.onClick);
+      }
+
+      return button;
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // STORAGE HELPERS FOR REMEMBER ME
+    // ───────────────────────────────────────────────────────────────────────────────
+    function persistEmailState(email, remember) {
+      const normalizedEmail = (email || '').trim();
+      state.lastEmail = normalizedEmail;
+
+      try {
+        sessionStorage.setItem(STORAGE_KEYS.lastEmail, normalizedEmail);
+      } catch (err) {
+        console.warn('Unable to persist last email in session storage', err);
+      }
+
+      try {
+        if (remember && normalizedEmail) {
+          localStorage.setItem(STORAGE_KEYS.rememberedEmail, normalizedEmail);
+          localStorage.setItem(STORAGE_KEYS.rememberExpiry, String(Date.now() + REMEMBER_DURATION_MS));
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+          localStorage.removeItem(STORAGE_KEYS.rememberExpiry);
+        }
+      } catch (err) {
+        console.warn('Unable to persist remember me preference', err);
+      }
+    }
+
+    function restoreEmailFromStorage() {
+      let rememberedEmail = '';
+      let remember = false;
+
+      try {
+        const expiry = parseInt(localStorage.getItem(STORAGE_KEYS.rememberExpiry), 10);
+        if (expiry && expiry > Date.now()) {
+          rememberedEmail = localStorage.getItem(STORAGE_KEYS.rememberedEmail) || '';
+          remember = rememberedEmail.trim().length > 0;
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+          localStorage.removeItem(STORAGE_KEYS.rememberExpiry);
+        }
+      } catch (err) {
+        console.warn('Unable to read remember me preference', err);
+      }
+
+      if (!rememberedEmail) {
+        try {
+          rememberedEmail = sessionStorage.getItem(STORAGE_KEYS.lastEmail) || '';
+        } catch (err) {
+          console.warn('Unable to read last email from session storage', err);
+        }
+      }
+
+      if (rememberedEmail && elements.emailInput) {
+        elements.emailInput.value = rememberedEmail;
+      }
+
+      if (elements.rememberMeCheckbox) {
+        elements.rememberMeCheckbox.checked = remember;
+      }
+
+      state.lastEmail = rememberedEmail;
+    }
+
+    function readAuthCookie() {
+      try {
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < cookies.length; i++) {
+          const part = cookies[i].trim();
+          if (!part) continue;
+          if (part.startsWith(`${AUTH_COOKIE_NAME}=`)) {
+            return decodeURIComponent(part.substring(AUTH_COOKIE_NAME.length + 1));
+          }
+        }
+      } catch (err) {
+        console.warn('Unable to read auth cookie', err);
+      }
+      return '';
+    }
+
+    function clearAuthCookie() {
+      try {
+        document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+      } catch (err) {
+        console.warn('Unable to clear auth cookie', err);
+      }
+      state.authToken = '';
+    }
+
+    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds) {
+      if (!token) {
+        clearAuthCookie();
+        return;
+      }
+
+      state.authToken = token;
+
+      let maxAgeSeconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0)
+        ? Math.floor(ttlSeconds)
+        : (rememberMe ? REMEMBER_COOKIE_MAX_AGE : SESSION_COOKIE_MAX_AGE);
+
+      if (expiresAtIso) {
+        const expiryTime = Date.parse(expiresAtIso);
+        if (!isNaN(expiryTime)) {
+          const delta = Math.floor((expiryTime - Date.now()) / 1000);
+          if (delta > 0) {
+            maxAgeSeconds = delta;
+          }
+        }
+      }
+
+      maxAgeSeconds = Math.max(300, maxAgeSeconds); // ensure at least 5 minutes
+
+      const expiresDate = new Date(Date.now() + maxAgeSeconds * 1000);
+      const cookieParts = [
+        `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
+        'path=/',
+        `max-age=${maxAgeSeconds}`,
+        `expires=${expiresDate.toUTCString()}`,
+        'SameSite=Lax'
+      ];
+
+      try {
+        document.cookie = cookieParts.join('; ');
+      } catch (err) {
+        console.warn('Unable to persist auth cookie', err);
+      }
+    }
+
+    function attemptSessionResume() {
+      if (state.hasAttemptedResume) {
+        return false;
+      }
+
+      state.hasAttemptedResume = true;
+      const cookieToken = readAuthCookie();
+
+      if (!cookieToken) {
+        return false;
+      }
+
+      console.log('Attempting to resume session from cookie');
+      setLoading(true);
+
+      google.script.run
+        .withSuccessHandler(result => {
+          if (!result || !result.success) {
+            setLoading(false);
+            if (result && result.expired) {
+              clearAuthCookie();
+              showAlert('info', 'Your previous session has expired. Please sign in again.');
+            }
+            return;
+          }
+
+          const resolvedToken = result.sessionToken || cookieToken;
+          const rememberFlag = result.rememberMe !== undefined ? !!result.rememberMe : true;
+
+          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds);
+
+          const resumedUser = result.user || {};
+          const resumedEmail = (resumedUser.Email || resumedUser.email || '').trim();
+          if (resumedEmail) {
+            persistEmailState(resumedEmail, true);
+            if (elements.emailInput) {
+              elements.emailInput.value = resumedEmail;
+            }
+          }
+
+          hideAllAlerts();
+          setLoading(false);
+          setupRedirect(buildPageUrl('dashboard', { token: resolvedToken }), resumedUser);
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Session resume validation failed:', error);
+        })
+        .keepAlive(cookieToken);
+
+      return true;
+    }
+
+    function alignUrlToCurrentContext(url) {
+      const current = new URL(window.location.href);
+
+      if (!(url instanceof URL)) {
+        return new URL(current.toString());
+      }
+
+      if (url.host === current.host && url.pathname === current.pathname) {
+        return url;
+      }
+
+      const normalized = new URL(current.origin + current.pathname);
+      url.searchParams.forEach((value, key) => {
+        normalized.searchParams.set(key, value);
+      });
+
+      if (url.hash) {
+        normalized.hash = url.hash;
+      }
+
+      return normalized;
+    }
+
+    function buildPageUrl(page, params = {}) {
+      const current = new URL(window.location.href);
+      let baseUrl = null;
+
+      const configuredBase = (CONFIG.baseUrl || '').trim();
+      const hasConfiguredBase = !!configuredBase;
+      if (hasConfiguredBase) {
+        try {
+          baseUrl = new URL(configuredBase, current);
+        } catch (err) {
+          console.warn('Unable to parse configured base URL. Falling back to current location.', err);
+        }
+      }
+
+      if (!baseUrl) {
+        baseUrl = new URL(current.toString());
+      }
+
+      if (!hasConfiguredBase) {
+        baseUrl = alignUrlToCurrentContext(baseUrl);
+      }
+
+      const keysToRemove = new Set(['page']);
+      Object.keys(params || {}).forEach(key => keysToRemove.add(key));
+      keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
+
+      const orderedParams = [];
+      if (params && Object.prototype.hasOwnProperty.call(params, 'token')) {
+        orderedParams.push(['token', params.token]);
+      }
+
+      Object.keys(params || {}).forEach(key => {
+        if (key === 'token') return;
+        orderedParams.push([key, params[key]]);
+      });
+
+      orderedParams.forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+          baseUrl.searchParams.delete(key);
+        } else {
+          baseUrl.searchParams.set(key, value);
+        }
+      });
+
+      baseUrl.searchParams.set('page', page);
+
+      return baseUrl.toString();
+    }
+
+    function normalizeRedirectUrl(serverUrl, sessionToken) {
+      let page = 'dashboard';
+      const params = {};
+
+      if (serverUrl) {
+        try {
+          const parsed = new URL(serverUrl, window.location.href);
+          page = parsed.searchParams.get('page') || page;
+          parsed.searchParams.forEach((value, key) => {
+            if (key === 'page') return;
+            params[key] = value;
+          });
+        } catch (err) {
+          console.warn('Unable to parse server redirect URL. Falling back to local page builder.', err);
+        }
+      }
+
+      if (sessionToken && !params.token) {
+        params.token = sessionToken;
+      }
+
+      return buildPageUrl(page, params);
+    }
+
+    function openPage(page, params = {}) {
+      const url = buildPageUrl(page, params);
+      window.open(url, '_top');
+    }
+
+    function requestPasswordSetupLink(email) {
+      const normalizedEmail = (email || '').trim();
+      if (!normalizedEmail) {
+        showAlert('info', 'Enter your email address first so we know where to send the setup link.');
+        elements.emailInput.focus();
+        return;
+      }
+
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoading(false);
+          if (result && result.success) {
+            showAlert('success', result.message || 'Password setup email sent successfully.');
+          } else {
+            showAlert('error', (result && result.error) || 'Unable to send the password setup email.');
+          }
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Password setup email request failed:', error);
+          showAlert('error', 'Unable to send the password setup email. Please try again.');
+        })
+        .resendPasswordSetupEmail(normalizedEmail.toLowerCase());
+    }
+
+    function requestPasswordResetEmail(email) {
+      const normalizedEmail = (email || '').trim();
+      if (!normalizedEmail) {
+        showAlert('info', 'Enter your email address first so we can send the reset link.');
+        elements.emailInput.focus();
+        return;
+      }
+
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoading(false);
+          if (result && result.success) {
+            showAlert('success', result.message || 'If that account exists, a reset link is on its way.');
+          } else {
+            showAlert('error', (result && result.error) || 'Unable to send the password reset email.');
+          }
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Password reset email request failed:', error);
+          showAlert('error', 'Unable to send the password reset email. Please try again.');
+        })
+        .requestPasswordReset(normalizedEmail.toLowerCase());
+    }
+
+    function handleLoginFailure(response, email) {
+      clearAuthCookie();
+
+      const normalizedEmail = (email || '').trim();
+      const displayEmail = normalizedEmail || 'your email address';
+
+      const errorMessage = response && response.error
+        ? response.error
+        : 'Login failed. Please check your credentials and try again.';
+      const errorCode = response && response.errorCode
+        ? String(response.errorCode).toUpperCase()
+        : '';
+
+      switch (errorCode) {
+        case 'PASSWORD_RESET_REQUIRED': {
+          showAlert('warning', errorMessage);
+
+          const actions = [];
+          if (response && response.resetToken) {
+            actions.push({
+              type: 'link',
+              label: 'Update Password Now',
+              icon: 'fa-lock',
+              variant: 'success',
+              href: buildPageUrl('setpassword', { token: response.resetToken })
+            });
+          }
+
+          actions.push({
+            type: 'button',
+            label: 'Email Me a Reset Link',
+            icon: 'fa-envelope',
+            variant: 'outline-primary',
+            onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+          });
+
+          actions.push({
+            type: 'link',
+            label: 'Contact Support',
+            icon: 'fa-headset',
+            variant: 'outline-secondary',
+            href: `mailto:${SUPPORT_EMAIL}`,
+            target: '_blank',
+            rel: 'noopener'
+          });
+
+          showNextSteps({
+            title: 'Change your password to continue',
+            subtitle: 'We found your account, but a password update is required.',
+            body: 'For your security, you must set a new password before accessing LuminaHQ. Use the options below to update your password now.',
+            tone: 'warning',
+            icon: 'fa-lock',
+            actions
+          });
+          break;
+        }
+
+        case 'PASSWORD_NOT_SET': {
+          showAlert('info', errorMessage);
+          showNextSteps({
+            title: 'Activate your account',
+            subtitle: 'Looks like you have not set up a password yet.',
+            body: 'Send yourself a fresh welcome email so you can set a password, or contact support if you need help accessing your invitation.',
+            tone: 'info',
+            icon: 'fa-key',
+            actions: [
+              {
+                type: 'button',
+                label: 'Resend Setup Email',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                onClick: () => requestPasswordSetupLink(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Contact Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'EMAIL_NOT_CONFIRMED': {
+          showAlert('warning', errorMessage);
+          showNextSteps({
+            title: 'Confirm your email address',
+            subtitle: 'Check your inbox for the verification email.',
+            body: `We sent a verification link to <strong>${displayEmail}</strong>. If you can\'t find it, request another confirmation email or reach out to support.`,
+            tone: 'warning',
+            icon: 'fa-envelope-open',
+            actions: [
+              {
+                type: 'link',
+                label: 'Resend Verification Email',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                href: buildPageUrl('resend-verification', normalizedEmail ? { email: normalizedEmail } : {})
+              },
+              {
+                type: 'link',
+                label: 'Contact Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'ACCOUNT_DISABLED':
+        case 'NO_CAMPAIGN_ACCESS': {
+          showAlert('warning', errorMessage);
+          showNextSteps({
+            title: 'We need to unlock your access',
+            subtitle: 'Your account requires assistance from an administrator.',
+            body: 'Please reach out to your LuminaHQ administrator or our support team so we can restore your access.',
+            tone: 'danger',
+            icon: 'fa-user-slash',
+            actions: [
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'INVALID_CREDENTIALS': {
+          showAlert('error', errorMessage);
+          showNextSteps({
+            title: 'Trouble remembering your password?',
+            subtitle: 'Reset it in just a few seconds.',
+            body: 'Request a password reset email or double-check that you entered the correct email address for your LuminaHQ account.',
+            tone: 'info',
+            icon: 'fa-circle-question',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send Password Reset Email',
+                icon: 'fa-key',
+                variant: 'primary',
+                onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Forgot Password Page',
+                icon: 'fa-arrow-up-right-from-square',
+                variant: 'outline-primary',
+                href: buildPageUrl('forgotpassword', normalizedEmail ? { email: normalizedEmail } : {})
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'NO_RESPONSE':
+        case 'SESSION_TOKEN_MISSING': {
+          showAlert('error', errorMessage || 'We could not complete the sign-in process.');
+          showNextSteps({
+            title: 'We ran into a problem signing you in',
+            subtitle: 'The authentication service did not respond as expected.',
+            body: 'Please try again in a moment. If the issue persists, reach out to our support team so we can investigate immediately.',
+            tone: 'danger',
+            icon: 'fa-plug-circle-xmark',
+            actions: [
+              {
+                type: 'button',
+                label: 'Try Again',
+                icon: 'fa-rotate',
+                variant: 'primary',
+                onClick: () => {
+                  hideAllAlerts();
+                  if (elements.loginForm) {
+                    const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    elements.loginForm.dispatchEvent(retryEvent);
+                  }
+                }
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        default: {
+          showAlert('error', errorMessage);
+          showNextSteps({
+            title: 'Need help signing in?',
+            subtitle: 'We can send you a reset link or connect you with support.',
+            body: 'If the problem continues, request a password reset email or reach out to our support team for assistance.',
+            tone: 'info',
+            icon: 'fa-circle-info',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send Password Reset Email',
+                icon: 'fa-key',
+                variant: 'primary',
+                onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
       }
     }
 
@@ -1060,25 +1989,52 @@
     }
 
     function buildPageUrl(page, params = {}) {
-      const base = CONFIG.baseUrl || window.location.href;
-      let url;
+      const current = new URL(window.location.href);
+      let baseUrl = null;
 
-      try {
-        url = new URL(base, window.location.origin);
-      } catch (err) {
-        console.warn('Unable to construct base URL. Falling back to window location.', err);
-        url = new URL(window.location.href);
+      const configuredBase = (CONFIG.baseUrl || '').trim();
+      const hasConfiguredBase = !!configuredBase;
+      if (hasConfiguredBase) {
+        try {
+          baseUrl = new URL(configuredBase, current);
+        } catch (err) {
+          console.warn('Unable to parse configured base URL. Falling back to current location.', err);
+        }
       }
 
-      const searchParams = new URLSearchParams({ page });
+      if (!baseUrl) {
+        baseUrl = new URL(current.toString());
+      }
+
+      if (!hasConfiguredBase) {
+        baseUrl = alignUrlToCurrentContext(baseUrl);
+      }
+
+      const keysToRemove = new Set(['page']);
+      Object.keys(params || {}).forEach(key => keysToRemove.add(key));
+      keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
+
+      const orderedParams = [];
+      if (params && Object.prototype.hasOwnProperty.call(params, 'token')) {
+        orderedParams.push(['token', params.token]);
+      }
+
       Object.keys(params || {}).forEach(key => {
-        if (params[key] !== undefined && params[key] !== null) {
-          searchParams.set(key, params[key]);
+        if (key === 'token') return;
+        orderedParams.push([key, params[key]]);
+      });
+
+      orderedParams.forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+          baseUrl.searchParams.delete(key);
+        } else {
+          baseUrl.searchParams.set(key, value);
         }
       });
 
-      url.search = searchParams.toString();
-      return url.toString();
+      baseUrl.searchParams.set('page', page);
+
+      return baseUrl.toString();
     }
 
     function openPage(page, params = {}) {
@@ -1305,6 +2261,43 @@
           break;
         }
 
+        case 'NO_RESPONSE':
+        case 'SESSION_TOKEN_MISSING': {
+          showAlert('error', errorMessage || 'We could not complete the sign-in process.');
+          showNextSteps({
+            title: 'We ran into a problem signing you in',
+            subtitle: 'The authentication service did not respond as expected.',
+            body: 'Please try again in a moment. If the issue persists, reach out to our support team so we can investigate immediately.',
+            tone: 'danger',
+            icon: 'fa-plug-circle-xmark',
+            actions: [
+              {
+                type: 'button',
+                label: 'Try Again',
+                icon: 'fa-rotate',
+                variant: 'primary',
+                onClick: () => {
+                  hideAllAlerts();
+                  if (elements.loginForm) {
+                    const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    elements.loginForm.dispatchEvent(retryEvent);
+                  }
+                }
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
         default: {
           showAlert('error', errorMessage);
           showNextSteps({
@@ -1366,26 +2359,51 @@
       state.countdownValue = 3;
       
       // Update UI
-      elements.continueButton.href = url;
-      elements.loginForm.classList.add('form-slide-out');
-      
-      setTimeout(() => {
-        elements.loginForm.style.display = 'none';
-        elements.redirectSection.classList.add('show');
+      if (elements.continueButton) {
+        elements.continueButton.href = url;
+      }
+
+      if (elements.loginForm) {
+        elements.loginForm.classList.add('form-slide-out');
+
+        setTimeout(() => {
+          if (elements.loginForm) {
+            elements.loginForm.style.display = 'none';
+          }
+          if (elements.redirectSection) {
+            elements.redirectSection.classList.add('show');
+          }
+          startCountdown();
+        }, 500);
+      } else {
+        if (elements.redirectSection) {
+          elements.redirectSection.classList.add('show');
+        }
         startCountdown();
-      }, 500);
+      }
     }
 
     function startCountdown() {
-      elements.countdown.textContent = 'Redirecting to your dashboard...';
-      elements.countdownNumber.textContent = state.countdownValue;
-      
+      if (elements.countdown) {
+        elements.countdown.textContent = 'Redirecting to your dashboard...';
+      }
+      if (elements.countdownNumber) {
+        elements.countdownNumber.textContent = state.countdownValue;
+      }
+
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+      }
+
       state.redirectTimer = setInterval(() => {
         state.countdownValue--;
-        elements.countdownNumber.textContent = state.countdownValue;
-        
+        if (elements.countdownNumber) {
+          elements.countdownNumber.textContent = state.countdownValue;
+        }
+
         if (state.countdownValue <= 0) {
           clearInterval(state.redirectTimer);
+          state.redirectTimer = null;
           executeRedirect();
         }
       }, 1000);
@@ -1394,19 +2412,25 @@
     function executeRedirect() {
       if (state.redirectUrl && state.isRedirecting) {
         console.log('Executing redirect to:', state.redirectUrl);
-        elements.countdown.textContent = 'Redirecting now...';
-        
+        if (elements.countdown) {
+          elements.countdown.textContent = 'Redirecting now...';
+        }
+
         try {
-          window.location.href = state.redirectUrl;
-          
-          setTimeout(() => {
-            window.location.assign(state.redirectUrl);
-          }, 100);
-          
-          setTimeout(() => {
-            window.top.location.href = state.redirectUrl;
-          }, 500);
-          
+          if (
+            typeof google !== 'undefined' &&
+            google.script &&
+            google.script.host &&
+            typeof google.script.host.setLocation === 'function'
+          ) {
+            google.script.host.setLocation(state.redirectUrl);
+          } else {
+            window.location.href = state.redirectUrl;
+
+            setTimeout(() => {
+              window.location.assign(state.redirectUrl);
+            }, 100);
+          }
         } catch (error) {
           console.error('Redirect failed:', error);
           showAlert('error', 'Redirect failed. Please click the button below to continue.');
@@ -1420,34 +2444,48 @@
         state.redirectTimer = null;
       }
       state.isRedirecting = false;
-      elements.countdown.textContent = 'Auto-redirect cancelled. Click the button when ready.';
-      elements.countdownNumber.textContent = '∞';
+      if (elements.countdown) {
+        elements.countdown.textContent = 'Auto-redirect cancelled. Click the button when ready.';
+      }
+      if (elements.countdownNumber) {
+        elements.countdownNumber.textContent = '∞';
+      }
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
     // FORM VALIDATION
     // ───────────────────────────────────────────────────────────────────────────────
     function validateForm() {
-      const email = elements.emailInput.value.trim();
-      const password = elements.passwordInput.value;
-      
+      const email = elements.emailInput ? elements.emailInput.value.trim() : '';
+      const password = elements.passwordInput ? elements.passwordInput.value : '';
+
       if (!email || !password) {
         showAlert('error', 'Please enter both email and password.');
+        if (!email && elements.emailInput) {
+          elements.emailInput.focus();
+        }
+        if (!password && elements.passwordInput) {
+          elements.passwordInput.focus();
+        }
         return false;
       }
-      
+
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         showAlert('error', 'Please enter a valid email address.');
-        elements.emailInput.focus();
+        if (elements.emailInput) {
+          elements.emailInput.focus();
+        }
         return false;
       }
-      
+
       if (password.length < 3) {
         showAlert('error', 'Password is too short.');
-        elements.passwordInput.focus();
+        if (elements.passwordInput) {
+          elements.passwordInput.focus();
+        }
         return false;
       }
-      
+
       return true;
     }
 
@@ -1456,9 +2494,13 @@
     // ───────────────────────────────────────────────────────────────────────────────
     function handleLogin(email, password, rememberMe) {
       console.log('Attempting login for:', email);
-      
+
+      monitorLoginRequest(email, rememberMe);
+
       google.script.run
         .withSuccessHandler(response => {
+          finalizeLoginRequest();
+
           console.log('Login response:', response);
           setLoading(false);
 
@@ -1468,8 +2510,52 @@
             console.log('Login successful');
             showAlert('success', response.message || 'Login successful!');
 
+            if (!response.user) {
+              showNextSteps({
+                title: 'We signed you in, but need a moment',
+                subtitle: 'Your profile details were not returned by the server.',
+                body: 'Try again in a moment. If this message keeps appearing, please contact support so we can review your account.',
+                tone: 'warning',
+                icon: 'fa-user-clock',
+                actions: [
+                  {
+                    type: 'button',
+                    label: 'Try Again',
+                    icon: 'fa-rotate',
+                    variant: 'primary',
+                    onClick: () => {
+                      hideAllAlerts();
+                      if (elements.loginForm) {
+                        const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                        elements.loginForm.dispatchEvent(retryEvent);
+                      }
+                    }
+                  },
+                  {
+                    type: 'link',
+                    label: 'Email Support',
+                    icon: 'fa-headset',
+                    variant: 'outline-secondary',
+                    href: `mailto:${SUPPORT_EMAIL}`,
+                    target: '_blank',
+                    rel: 'noopener'
+                  }
+                ]
+              });
+              setLoading(false);
+              return;
+            }
+
+            persistSessionToken(
+              response.sessionToken,
+              response.rememberMe !== undefined ? !!response.rememberMe : rememberMe,
+              response.sessionExpiresAt,
+              response.sessionTtlSeconds
+            );
+
             // Setup redirect with token in URL
-            setupRedirect(response.redirectUrl, response.user);
+            const destinationUrl = normalizeRedirectUrl(response.redirectUrl, response.sessionToken);
+            setupRedirect(destinationUrl, response.user);
 
             hideNextSteps();
 
@@ -1480,8 +2566,11 @@
           }
         })
         .withFailureHandler(error => {
+          finalizeLoginRequest();
+
           setLoading(false);
           console.error('Login error:', error);
+          clearAuthCookie();
           persistEmailState(email, rememberMe);
           showAlert('error', 'Login request failed. Please check your connection and try again.');
           showNextSteps({
@@ -1522,26 +2611,28 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // FORM SUBMISSION HANDLER
     // ───────────────────────────────────────────────────────────────────────────────
-    elements.loginForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      
-      hideAllAlerts();
-      
-      if (!validateForm()) {
-        return;
-      }
-      
-      const email = elements.emailInput.value.trim();
-      const password = elements.passwordInput.value;
-      const rememberMe = elements.rememberMeCheckbox.checked;
+    if (elements.loginForm) {
+      elements.loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
 
-      state.lastEmail = email;
-      setLoading(true);
+        hideAllAlerts();
 
-      persistEmailState(email, rememberMe);
+        if (!validateForm()) {
+          return;
+        }
 
-      handleLogin(email, password, rememberMe);
-    });
+        const email = elements.emailInput ? elements.emailInput.value.trim() : '';
+        const password = elements.passwordInput ? elements.passwordInput.value : '';
+        const rememberMe = elements.rememberMeCheckbox ? elements.rememberMeCheckbox.checked : false;
+
+        state.lastEmail = email;
+        setLoading(true);
+
+        persistEmailState(email, rememberMe);
+
+        handleLogin(email, password, rememberMe);
+      });
+    }
 
     // ───────────────────────────────────────────────────────────────────────────────
     // PAGE INITIALIZATION
@@ -1551,8 +2642,12 @@
 
       restoreEmailFromStorage();
 
-      // Auto-focus email field
-      elements.emailInput.focus();
+      const resumed = attemptSessionResume();
+
+      // Auto-focus email field when not redirecting
+      if (!resumed && elements.emailInput) {
+        elements.emailInput.focus();
+      }
       
       // Handle URL parameters for messages/errors
       const urlParams = new URLSearchParams(window.location.search);
@@ -1593,6 +2688,7 @@
 
       console.log('Login page initialized successfully');
     });
+
 
     // ───────────────────────────────────────────────────────────────────────────────
     // CLEANUP ON PAGE UNLOAD

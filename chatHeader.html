@@ -370,46 +370,109 @@
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const AUTH_COOKIE_NAME = 'authToken';
+
+    function readAuthCookie() {
+      const cookies = document.cookie ? document.cookie.split(';') : [];
+      for (let i = 0; i < cookies.length; i++) {
+        const part = cookies[i].trim();
+        if (!part) continue;
+        if (part.startsWith(`${AUTH_COOKIE_NAME}=`)) {
+          return decodeURIComponent(part.substring(AUTH_COOKIE_NAME.length + 1));
+        }
+      }
+      return '';
+    }
+
+    function persistAuthCookie(token, ttlSeconds) {
+      if (!token) return;
+      const seconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0)
+        ? Math.floor(ttlSeconds)
+        : 60 * 60;
+      const safeSeconds = Math.max(300, seconds);
+      const expires = new Date(Date.now() + safeSeconds * 1000);
+      document.cookie = [
+        `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
+        'path=/',
+        `max-age=${safeSeconds}`,
+        `expires=${expires.toUTCString()}`,
+        'SameSite=Lax'
+      ].join('; ');
+    }
+
+    function clearAuthCookie() {
+      document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+    }
+
     // collapse toggle
     document.getElementById('sidebarToggle')
-      .addEventListener('click', ()=>
+      .addEventListener('click', () =>
         document.getElementById('sidebar').classList.toggle('collapsed')
       );
 
-    // keep token on every link
-    const rawToken = new URLSearchParams(location.search).get('token') ||
-                     document.cookie.replace(
-                       /(?:(?:^|.*;\s*)authToken\s*\=\s*([^;]*).*$)|^.*$/,
-                       "$1"
-                     );
-    document.body.addEventListener('click', e=>{
+    let rawToken = new URLSearchParams(location.search).get('token') || readAuthCookie();
+    if (rawToken) {
+      persistAuthCookie(rawToken);
+    }
+
+    document.body.addEventListener('click', e => {
       const a = e.target.closest('a[href]');
-      if(!a) return;
+      if (!a) return;
       const href = a.getAttribute('href');
-      if(href.startsWith('http')||href.includes('token=')) return;
+      if (href.startsWith('http') || href.includes('token=')) return;
       e.preventDefault();
       const next = new URL(href, location.origin + location.pathname);
-      next.searchParams.set('token', rawToken);
+      next.searchParams.set('token', rawToken || readAuthCookie());
       window.location.href = next.toString();
     });
 
-    // ping keep-alive every 10m
-    setInterval(()=>{
-      rawToken && google.script.run.keepAlive(rawToken);
-    }, 10*60*1000);
+    function scheduleKeepAlive() {
+      if (!rawToken) {
+        return;
+      }
+
+      const ping = () => {
+        const tokenForPing = rawToken || readAuthCookie();
+        if (!tokenForPing) {
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(result => {
+            if (result && result.success) {
+              rawToken = result.sessionToken || tokenForPing;
+              persistAuthCookie(rawToken, result.sessionTtlSeconds);
+            } else if (result && result.expired) {
+              clearAuthCookie();
+              const loginUrl = new URL(location.origin + location.pathname);
+              loginUrl.searchParams.set('page', 'login');
+              window.location.href = loginUrl.toString();
+            }
+          })
+          .withFailureHandler(err => {
+            console.warn('Keep-alive failed:', err);
+          })
+          .keepAlive(tokenForPing);
+      };
+
+      ping();
+      setInterval(ping, 10 * 60 * 1000);
+    }
+
+    scheduleKeepAlive();
 
     document.getElementById('logoutBtn').addEventListener('click', e => {
       e.preventDefault();
-      // call your server‐side logout, then redirect to Login
+      const tokenForLogout = rawToken || readAuthCookie();
       google.script.run
         .withSuccessHandler(() => {
-          // build a URL to the Login page (no token → shows login form)
+          clearAuthCookie();
           const loginUrl = new URL(location.origin + location.pathname);
-          loginUrl.searchParams.set('page', 'Login');
+          loginUrl.searchParams.set('page', 'login');
           window.location.href = loginUrl.toString();
         })
-        .logout(rawToken);
-    });   
+        .logout(tokenForLogout);
+    });
   </script>
   <? if (allowed.includes('chat') && currentPage.toLowerCase() !== 'chat') { ?>
     <?!= include('ChatBubble', { user, baseUrl, rawToken, currentPage }) ?>

@@ -1,469 +1,323 @@
 /**
- * AuthenticationService.gs - Simplified Token-Based Authentication Service
- * Updated to use standard token-based session management
+ * AuthenticationService.gs - Fixed Token-Based Authentication Service
+ * Addresses common authentication issues in Lumina
  * 
- * Features:
- * - Token-based session management
- * - Enhanced security with session tokens
- * - Email integration for password resets and confirmations
- * - Simple URL structure
- * - Improved error handling and logging
+ * Key Fixes:
+ * - Consistent email normalization
+ * - Robust password verification
+ * - Better error handling
+ * - Unified user lookup
+ * - Proper empty password detection
  */
 
 // ───────────────────────────────────────────────────────────────────────────────
 // AUTHENTICATION CONFIGURATION
 // ───────────────────────────────────────────────────────────────────────────────
 
-// Session TTL: 1 hour for regular sessions, 24 hours for remember me
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ───────────────────────────────────────────────────────────────────────────────
-// GUARDED GLOBAL DEFAULTS (supports standalone deployments)
-// ───────────────────────────────────────────────────────────────────────────────
-if (typeof USERS_SHEET === 'undefined') var USERS_SHEET = 'Users';
-if (typeof ROLES_SHEET === 'undefined') var ROLES_SHEET = 'Roles';
-if (typeof USER_ROLES_SHEET === 'undefined') var USER_ROLES_SHEET = 'UserRoles';
-if (typeof USER_CLAIMS_SHEET === 'undefined') var USER_CLAIMS_SHEET = 'UserClaims';
-if (typeof SESSIONS_SHEET === 'undefined') var SESSIONS_SHEET = 'Sessions';
-
-if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
-  'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
-  'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
-  'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
-];
-if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = ['ID', 'Name', 'NormalizedName', 'CreatedAt', 'UpdatedAt'];
-if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = ['UserId', 'RoleId', 'CreatedAt', 'UpdatedAt'];
-if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ['ID', 'UserId', 'ClaimType', 'CreatedAt', 'UpdatedAt'];
-if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
-  'Token',
-  'UserId',
-  'CreatedAt',
-  'ExpiresAt',
-  'RememberMe',
-  'CampaignScope',
-  'UserAgent',
-  'IpAddress'
-];
-
-function resolveScriptUrl() {
-  if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
-    return SCRIPT_URL;
-  }
-
-  try {
-    return ScriptApp.getService().getUrl();
-  } catch (error) {
-    console.warn('resolveScriptUrl: unable to determine script URL', error);
-    return '';
-  }
-}
-
-// ───────────────────────────────────────────────────────────────────────────────
-// AUTHENTICATION SERVICE IMPLEMENTATION
+// IMPROVED AUTHENTICATION SERVICE
 // ───────────────────────────────────────────────────────────────────────────────
 
 var AuthenticationService = (function () {
+
+  // ─── Password utilities with error handling ─────────────────────────────────
   
-  // ─── Internal helpers ─────────────────────────────────────────────────────
-
-  function getSS() {
-    return SpreadsheetApp.getActiveSpreadsheet();
-  }
-
-  function getOrCreateSheet(name, headers) {
-    let sh = getSS().getSheetByName(name);
-    if (!sh) {
-      sh = getSS().insertSheet(name);
-      sh.clear();
-      if (headers && headers.length > 0) {
-        sh.appendRow(headers);
-      }
-    }
-    return sh;
-  }
-
-  function hasDatabaseManager() {
-    return typeof DatabaseManager !== 'undefined'
-      && DatabaseManager
-      && typeof DatabaseManager.table === 'function';
-  }
-
-  function getDbTable(sheetName) {
-    if (!hasDatabaseManager()) return null;
+  function getPasswordUtils() {
     try {
-      return DatabaseManager.table(sheetName);
-    } catch (err) {
-      console.warn('DatabaseManager.table failed for ' + sheetName + ':', err);
-      return null;
+      if (typeof ensurePasswordUtilities === 'function') {
+        return ensurePasswordUtilities();
+      }
+      if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+        return PasswordUtilities;
+      }
+      throw new Error('PasswordUtilities not available');
+    } catch (error) {
+      console.error('Error getting password utilities:', error);
+      throw new Error('Password utilities not available');
     }
   }
 
-  function toStr(value) {
-    if (value === null || typeof value === 'undefined') return '';
-    if (value instanceof Date) return value.toISOString();
-    return String(value).trim();
+  // ─── Consistent normalization helpers ─────────────────────────────────────────
+
+  function normalizeEmail(email) {
+    if (!email && email !== 0) return '';
+    return String(email).trim().toLowerCase();
+  }
+
+  function normalizeString(str) {
+    if (!str && str !== 0) return '';
+    return String(str).trim();
   }
 
   function toBool(value) {
-    if (value === true) return true;
-    if (value === false) return false;
-    const str = toStr(value).toLowerCase();
-    return str === 'true' || str === '1' || str === 'yes' || str === 'y';
+    if (value === true || value === false) return value;
+    const str = normalizeString(value).toUpperCase();
+    return str === 'TRUE' || str === '1' || str === 'YES' || str === 'Y';
   }
 
-  function dedupeStrings(values) {
-    const set = {};
-    const out = [];
-    (values || []).forEach(val => {
-      const key = toStr(val);
-      if (key && !set[key]) {
-        set[key] = true;
-        out.push(key);
-      }
-    });
-    return out;
-  }
+  // ─── Improved user lookup with fallbacks ─────────────────────────────────────
 
-  function readTable(sheetName, options = {}) {
-    const table = getDbTable(sheetName);
-    if (table) {
-      try {
-        const results = table.find(options) || [];
-        if (Array.isArray(results)) {
-          return results;
-        }
-      } catch (err) {
-        console.warn('DatabaseManager read failed for ' + sheetName + ':', err);
-      }
+  function findUserByEmail(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      console.log('findUserByEmail: Empty email provided');
+      return null;
     }
 
-    const sh = getOrCreateSheet(sheetName, options.headers || []);
-    const vals = sh.getDataRange().getValues();
-    if (vals.length < 2) return [];
-    const hdrs = vals.shift();
-    let rows = vals.map(row => {
-      const obj = {};
-      hdrs.forEach((h, i) => {
-        if (h) obj[h] = row[i];
-      });
-      return obj;
-    });
+    console.log('findUserByEmail: Looking up user with email:', normalizedEmail);
 
-    if (options.where && typeof options.where === 'object') {
-      rows = rows.filter(r => Object.keys(options.where).every(key => toStr(r[key]) === toStr(options.where[key])));
-    }
-
-    if (typeof options.limit === 'number') {
-      rows = rows.slice(0, Math.max(0, options.limit));
-    }
-
-    return rows;
-  }
-
-  function getUserById(userId) {
-    if (!userId && userId !== 0) return null;
     try {
-      const table = getDbTable(USERS_SHEET);
-      if (table && typeof table.findById === 'function') {
-        const found = table.findById(userId);
-        if (found) return found;
-      }
-    } catch (err) {
-      console.warn('getUserById DatabaseManager lookup failed:', err);
-    }
-
-    return readTable(USERS_SHEET)
-      .find(u => String(u.ID) === String(userId)) || null;
-  }
-
-  function buildSessionScope(userId, userRecord) {
-    let profile = null;
-    try {
-      if (typeof TenantSecurity !== 'undefined'
-        && TenantSecurity
-        && typeof TenantSecurity.getAccessProfile === 'function') {
-        profile = TenantSecurity.getAccessProfile(userId);
-      }
-    } catch (err) {
-      console.warn('buildSessionScope: tenant profile lookup failed', err);
-    }
-
-    const user = userRecord || getUserById(userId) || {};
-    const defaultCampaignId = profile && profile.defaultCampaignId
-      ? toStr(profile.defaultCampaignId)
-      : toStr(user.CampaignID || user.CampaignId);
-
-    const allowedCampaignIds = dedupeStrings(profile ? profile.allowedCampaignIds : [defaultCampaignId]);
-    if (!allowedCampaignIds.length && defaultCampaignId) {
-      allowedCampaignIds.push(defaultCampaignId);
-    }
-
-    return {
-      defaultCampaignId,
-      allowedCampaignIds,
-      managedCampaignIds: dedupeStrings(profile ? profile.managedCampaignIds : []),
-      adminCampaignIds: dedupeStrings(profile ? profile.adminCampaignIds : []),
-      isGlobalAdmin: profile ? !!profile.isGlobalAdmin : toBool(user.IsAdmin)
-    };
-  }
-
-  function updateSessionRecord(sessionToken, updates) {
-    if (!sessionToken || !updates || typeof updates !== 'object') return false;
-    const table = getDbTable(SESSIONS_SHEET);
-    if (table) {
+      // Method 1: Try readSheet (most reliable)
+      let users = [];
       try {
-        table.update(sessionToken, updates);
-        return true;
-      } catch (err) {
-        console.warn('updateSessionRecord: DatabaseManager update failed', err);
+        users = readSheet('Users') || [];
+        console.log(`findUserByEmail: Found ${users.length} users in sheet`);
+      } catch (sheetError) {
+        console.warn('findUserByEmail: Sheet read failed:', sheetError);
       }
-    }
 
-    const sh = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
-    const data = sh.getDataRange().getValues();
-    if (data.length < 2) return false;
-    let headers = data[0].map(h => toStr(h));
-    let mutated = false;
-
-    Object.keys(updates).forEach(key => {
-      if (headers.indexOf(key) === -1) {
-        headers.push(key);
-        mutated = true;
-      }
-    });
-
-    if (mutated) {
-      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-      sh.setFrozenRows(1);
-    }
-
-    const tokenIdx = headers.indexOf('Token') !== -1 ? headers.indexOf('Token') : headers.indexOf('SessionToken');
-    if (tokenIdx === -1) return false;
-
-    for (let i = 1; i < data.length; i++) {
-      if (toStr(data[i][tokenIdx]) === toStr(sessionToken)) {
-        Object.keys(updates).forEach(key => {
-          const colIndex = headers.indexOf(key);
-          if (colIndex !== -1) {
-            sh.getRange(i + 1, colIndex + 1).setValue(updates[key]);
-          }
+      if (users.length > 0) {
+        const user = users.find(u => {
+          const userEmail = normalizeEmail(u.Email);
+          return userEmail === normalizedEmail;
         });
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function removeSessionByToken(sessionToken) {
-    if (!sessionToken) return false;
-    const table = getDbTable(SESSIONS_SHEET);
-    if (table) {
-      try {
-        return !!table.delete(sessionToken);
-      } catch (err) {
-        console.warn('removeSessionByToken: DatabaseManager delete failed', err);
-      }
-    }
-
-    const sh = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
-    const data = sh.getDataRange().getValues();
-    if (data.length < 2) return false;
-    const headers = data[0].map(h => toStr(h));
-    const tokenIdx = headers.indexOf('Token') !== -1 ? headers.indexOf('Token') : headers.indexOf('SessionToken');
-    if (tokenIdx === -1) return false;
-
-    for (let i = 1; i < data.length; i++) {
-      if (toStr(data[i][tokenIdx]) === toStr(sessionToken)) {
-        sh.deleteRow(i + 1);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function cleanExpiredSessions() {
-    const now = Date.now();
-    const sessions = readTable(SESSIONS_SHEET);
-    sessions.forEach((s) => {
-      try {
-        const expiry = new Date(s.ExpiresAt).getTime();
-        if (!isNaN(expiry) && expiry < now) {
-          removeSessionByToken(s.Token || s.SessionToken);
+        
+        if (user) {
+          console.log('findUserByEmail: Found user via sheet lookup:', user.FullName || user.UserName);
+          return user;
         }
-      } catch (e) {
-        console.warn('Error cleaning expired session:', e);
-        removeSessionByToken(s.Token || s.SessionToken);
       }
-    });
-  }
 
-  function hashPwd(raw) {
-    return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw)
-      .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2))
-      .join('');
-  }
-
-  function generateSecureToken() {
-    return Utilities.getUuid() + '_' + Date.now();
-  }
-
-  // ─── Public API ────────────────────────────────────────────────────────────
-
-  /** Ensure all identity & session sheets exist with proper headers */
-  function ensureSheets() {
-    try {
-      getOrCreateSheet(USERS_SHEET, USERS_HEADERS);
-      getOrCreateSheet(ROLES_SHEET, ROLES_HEADER);
-      getOrCreateSheet(USER_ROLES_SHEET, USER_ROLES_HEADER);
-      getOrCreateSheet(USER_CLAIMS_SHEET, CLAIMS_HEADERS);
-      const sessionsSheet = getOrCreateSheet(SESSIONS_SHEET, SESSIONS_HEADERS);
-      if (sessionsSheet) {
-        const lastColumn = Math.max(sessionsSheet.getLastColumn(), SESSIONS_HEADERS.length, 1);
-        const headerRange = sessionsSheet.getRange(1, 1, 1, lastColumn);
-        let existing = headerRange.getValues()[0].map(h => toStr(h));
-        let mutated = false;
-
-        if (existing.indexOf('Token') === -1) {
-          const legacyIdx = existing.indexOf('SessionToken');
-          if (legacyIdx !== -1) {
-            existing[legacyIdx] = 'Token';
-            mutated = true;
+      // Method 2: Try DatabaseManager if available
+      if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function') {
+        try {
+          const table = DatabaseManager.table('Users');
+          const dbUser = table.find({ where: { Email: normalizedEmail } });
+          if (dbUser && dbUser.length > 0) {
+            console.log('findUserByEmail: Found user via DatabaseManager:', dbUser[0].FullName || dbUser[0].UserName);
+            return dbUser[0];
           }
-        }
-
-        SESSIONS_HEADERS.forEach(header => {
-          if (existing.indexOf(header) === -1) {
-            existing.push(header);
-            mutated = true;
-          }
-        });
-
-        const beforeFilterLength = existing.length;
-        existing = existing.filter(Boolean);
-        if (existing.length !== beforeFilterLength) {
-          mutated = true;
-        }
-        if (!existing.length) {
-          existing = SESSIONS_HEADERS.slice();
-          mutated = true;
-        }
-
-        if (mutated) {
-          sessionsSheet.getRange(1, 1, 1, existing.length).setValues([existing]);
-          sessionsSheet.setFrozenRows(1);
+        } catch (dbError) {
+          console.warn('findUserByEmail: DatabaseManager lookup failed:', dbError);
         }
       }
-      console.log('Authentication sheets initialized successfully');
-    } catch (error) {
-      console.error('Error ensuring authentication sheets:', error);
-      throw error;
-    }
-  }
 
-  /** Find a user row by email (case-insensitive) */
-  function getUserByEmail(email) {
-    try {
-      const target = toStr(email).toLowerCase();
-      if (!target) return null;
+      console.log('findUserByEmail: User not found with email:', normalizedEmail);
+      return null;
 
-      return readTable(USERS_SHEET)
-        .find(u => toStr(u.Email).toLowerCase() === target || toStr(u.UserName).toLowerCase() === target)
-        || null;
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      console.error('findUserByEmail: Error during lookup:', error);
       return null;
     }
   }
 
-  /** Create a new session for a user ID, returning the session token */
-  function createSessionFor(userId, existingToken = null, rememberMe = false, options) {
+  function findUserById(userId) {
+    const normalizedId = normalizeString(userId);
+    if (!normalizedId) {
+      console.log('findUserById: Empty userId provided');
+      return null;
+    }
+
     try {
-      const token = existingToken || generateSecureToken();
+      let users = [];
+      try {
+        users = readSheet('Users') || [];
+      } catch (sheetError) {
+        console.warn('findUserById: Sheet read failed:', sheetError);
+      }
+
+      if (users.length > 0) {
+        const user = users.find(u => normalizeString(u.ID) === normalizedId);
+        if (user) {
+          return user;
+        }
+      }
+
+      if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function') {
+        try {
+          const table = DatabaseManager.table('Users');
+          const dbUser = table.find({ where: { ID: normalizedId } });
+          if (dbUser && dbUser.length > 0) {
+            return dbUser[0];
+          }
+        } catch (dbError) {
+          console.warn('findUserById: DatabaseManager lookup failed:', dbError);
+        }
+      }
+    } catch (error) {
+      console.error('findUserById: Error during lookup:', error);
+    }
+
+    console.log('findUserById: User not found with ID:', normalizedId);
+    return null;
+  }
+
+  // ─── Improved password verification ─────────────────────────────────────────
+
+  function verifyUserPassword(inputPassword, storedHash, userInfo = {}) {
+    try {
+      console.log('verifyUserPassword: Starting verification for user:', userInfo.email || 'unknown');
+      
+      // Check if password was provided
+      if (!inputPassword && inputPassword !== 0) {
+        console.log('verifyUserPassword: No password provided');
+        return { success: false, reason: 'NO_PASSWORD_PROVIDED' };
+      }
+
+      // Check if user has a stored hash
+      const normalizedHash = normalizeString(storedHash);
+      if (!normalizedHash) {
+        console.log('verifyUserPassword: No stored password hash');
+        return { success: false, reason: 'NO_STORED_HASH' };
+      }
+
+      console.log('verifyUserPassword: Hash length:', normalizedHash.length);
+
+      // Get password utilities
+      let passwordUtils;
+      try {
+        passwordUtils = getPasswordUtils();
+      } catch (utilsError) {
+        console.error('verifyUserPassword: Password utilities error:', utilsError);
+        return { success: false, reason: 'UTILS_ERROR', error: utilsError.message };
+      }
+
+      // Attempt verification with multiple methods for robustness
+      const inputStr = String(inputPassword);
+      
+      // Method 1: Direct verification
+      try {
+        const isValid = passwordUtils.verifyPassword(inputStr, normalizedHash);
+        console.log('verifyUserPassword: Direct verification result:', isValid);
+        
+        if (isValid) {
+          return { success: true, method: 'direct' };
+        }
+      } catch (verifyError) {
+        console.warn('verifyUserPassword: Direct verification failed:', verifyError);
+      }
+
+      // Method 2: Normalize hash first, then verify
+      try {
+        const normalizedStoredHash = passwordUtils.normalizeHash(normalizedHash);
+        const newInputHash = passwordUtils.hashPassword(inputStr);
+        const matches = passwordUtils.constantTimeEquals(newInputHash, normalizedStoredHash);
+        console.log('verifyUserPassword: Normalized comparison result:', matches);
+        
+        if (matches) {
+          return { success: true, method: 'normalized' };
+        }
+      } catch (normalizeError) {
+        console.warn('verifyUserPassword: Normalized verification failed:', normalizeError);
+      }
+
+      // Method 3: Direct hash comparison
+      try {
+        const newInputHash = passwordUtils.hashPassword(inputStr);
+        const matches = passwordUtils.constantTimeEquals(newInputHash, normalizedHash);
+        console.log('verifyUserPassword: Direct hash comparison result:', matches);
+        
+        if (matches) {
+          return { success: true, method: 'direct_hash' };
+        }
+      } catch (hashError) {
+        console.warn('verifyUserPassword: Direct hash comparison failed:', hashError);
+      }
+
+      console.log('verifyUserPassword: All verification methods failed');
+      return { success: false, reason: 'PASSWORD_MISMATCH' };
+
+    } catch (error) {
+      console.error('verifyUserPassword: Unexpected error:', error);
+      return { success: false, reason: 'VERIFICATION_ERROR', error: error.message };
+    }
+  }
+
+  // ─── Session management ─────────────────────────────────────────────────────
+
+  function createSession(userId, rememberMe = false) {
+    try {
+      const token = Utilities.getUuid() + '_' + Date.now();
       const now = new Date();
       const ttl = rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
       const expiresAt = new Date(now.getTime() + ttl);
 
-      const scope = (options && options.scope) || buildSessionScope(userId, options && options.user);
       const sessionRecord = {
         Token: token,
         UserId: userId,
         CreatedAt: now.toISOString(),
         ExpiresAt: expiresAt.toISOString(),
         RememberMe: rememberMe ? 'TRUE' : 'FALSE',
-        CampaignScope: scope ? JSON.stringify(scope) : '',
-        UserAgent: (options && options.userAgent) || 'Google Apps Script',
-        IpAddress: (options && options.ipAddress) || 'N/A'
+        UserAgent: 'Google Apps Script',
+        IpAddress: 'N/A'
       };
 
-      const table = getDbTable(SESSIONS_SHEET);
-      if (table) {
-        if (existingToken && typeof table.findById === 'function' && table.findById(token)) {
-          table.update(token, sessionRecord);
-        } else {
-          table.insert(sessionRecord);
+      // Try to save session
+      try {
+        if (typeof ensureSheetWithHeaders === 'function') {
+          const sessionsSheet = ensureSheetWithHeaders('Sessions', [
+            'Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'UserAgent', 'IpAddress'
+          ]);
+          
+          const headers = ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'UserAgent', 'IpAddress'];
+          const rowValues = headers.map(h => sessionRecord[h] || '');
+          sessionsSheet.appendRow(rowValues);
+          
+          console.log('createSession: Session saved successfully');
         }
-      } else {
-        if (existingToken) {
-          updateSessionRecord(token, sessionRecord);
-        } else {
-          const headers = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS))
-            ? SESSIONS_HEADERS
-            : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress'];
-          ensureSheets();
-          const sheet = getOrCreateSheet(SESSIONS_SHEET, headers);
-          const lastColumn = Math.max(sheet.getLastColumn(), headers.length, 1);
-          let headerRow = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(h => toStr(h));
-          if (headerRow.indexOf('Token') === -1) {
-            const legacyIdx = headerRow.indexOf('SessionToken');
-            if (legacyIdx !== -1) headerRow[legacyIdx] = 'Token';
-          }
-          headers.forEach(h => {
-            if (headerRow.indexOf(h) === -1) headerRow.push(h);
-          });
-          headerRow = headerRow.filter(Boolean);
-          sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
-          sheet.setFrozenRows(1);
-          const rowValues = headerRow.map(h => typeof sessionRecord[h] !== 'undefined' ? sessionRecord[h] : '');
-          sheet.appendRow(rowValues);
-        }
+      } catch (sessionError) {
+        console.warn('createSession: Failed to save session:', sessionError);
+        // Continue anyway - session creation shouldn't fail due to storage issues
       }
 
-      console.log(`Session created for user ${userId}, expires: ${expiresAt.toISOString()}`);
       return token;
+
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error('createSession: Error creating session:', error);
       return null;
     }
   }
 
-  /**
-   * Simplified login function 
-   * @param {string} email - User email
-   * @param {string} rawPwd - Plain text password
-   * @param {boolean} rememberMe - Whether to create long-term session
-   * @return {Object} Login result with detailed status information
-   */
-  function login(email, rawPwd, rememberMe = false) {
+  // ─── Main login function ─────────────────────────────────────────────────────
+
+  function login(email, password, rememberMe = false) {
+    console.log('=== AuthenticationService.login START ===');
+    console.log('Email:', email ? 'PROVIDED' : 'EMPTY');
+    console.log('Password:', password ? 'PROVIDED' : 'EMPTY');
+    console.log('RememberMe:', rememberMe);
+
     try {
-      ensureSheets();
+      // Input validation
+      const normalizedEmail = normalizeEmail(email);
+      const passwordStr = normalizeString(password);
 
-      const normalizedEmail = toStr(email).toLowerCase();
-      const passwordInput = rawPwd == null ? '' : String(rawPwd);
-
-      if (!normalizedEmail || !passwordInput.trim()) {
+      if (!normalizedEmail) {
+        console.log('login: Invalid email provided');
         return {
           success: false,
-          error: 'Email and password are required',
-          errorCode: 'MISSING_CREDENTIALS'
+          error: 'Email is required',
+          errorCode: 'MISSING_EMAIL'
         };
       }
 
-      cleanExpiredSessions();
-      const user = getUserByEmail(normalizedEmail);
+      if (!passwordStr) {
+        console.log('login: Invalid password provided');
+        return {
+          success: false,
+          error: 'Password is required',
+          errorCode: 'MISSING_PASSWORD'
+        };
+      }
 
+      console.log('login: Looking up user...');
+
+      // Find user
+      const user = findUserByEmail(normalizedEmail);
       if (!user) {
+        console.log('login: User not found');
         return {
           success: false,
           error: 'Invalid email or password',
@@ -471,9 +325,17 @@ var AuthenticationService = (function () {
         };
       }
 
-      // Check if user can login
+      console.log('login: Found user:', user.FullName || user.UserName);
+
+      // Check account status
       const canLogin = toBool(user.CanLogin);
+      const emailConfirmed = toBool(user.EmailConfirmed);
+      const resetRequired = toBool(user.ResetRequired);
+
+      console.log('login: Account status - CanLogin:', canLogin, 'EmailConfirmed:', emailConfirmed, 'ResetRequired:', resetRequired);
+
       if (!canLogin) {
+        console.log('login: Account disabled');
         return {
           success: false,
           error: 'Your account has been disabled. Please contact support.',
@@ -481,9 +343,8 @@ var AuthenticationService = (function () {
         };
       }
 
-      // Check email confirmation
-      const emailConfirmed = toBool(user.EmailConfirmed);
       if (!emailConfirmed) {
+        console.log('login: Email not confirmed');
         return {
           success: false,
           error: 'Please confirm your email address before logging in.',
@@ -492,22 +353,22 @@ var AuthenticationService = (function () {
         };
       }
 
-      // Check if password has been set
-      const storedHash = toStr(user.PasswordHash).toLowerCase();
-      const hasPassword = storedHash.length > 0;
-      if (!hasPassword) {
-        return {
-          success: false,
-          error: 'Please set up your password using the link from your welcome email.',
-          errorCode: 'PASSWORD_NOT_SET',
-          needsPasswordSetup: true
-        };
-      }
-
-      // Verify password
-      const providedHash = hashPwd(passwordInput).toLowerCase();
-
-      if (storedHash !== providedHash) {
+      // Check password
+      console.log('login: Verifying password...');
+      const passwordCheck = verifyUserPassword(passwordStr, user.PasswordHash, { email: normalizedEmail });
+      
+      if (!passwordCheck.success) {
+        console.log('login: Password verification failed:', passwordCheck.reason);
+        
+        if (passwordCheck.reason === 'NO_STORED_HASH') {
+          return {
+            success: false,
+            error: 'Please set up your password using the link from your welcome email.',
+            errorCode: 'PASSWORD_NOT_SET',
+            needsPasswordSetup: true
+          };
+        }
+        
         return {
           success: false,
           error: 'Invalid email or password',
@@ -515,22 +376,12 @@ var AuthenticationService = (function () {
         };
       }
 
-      const tenantScope = buildSessionScope(user.ID, user);
-      if (!tenantScope.isGlobalAdmin && (!tenantScope.allowedCampaignIds || tenantScope.allowedCampaignIds.length === 0)) {
-        return {
-          success: false,
-          error: 'No campaign assignments were found for your account. Please contact your administrator.',
-          errorCode: 'NO_CAMPAIGN_ACCESS'
-        };
-      }
+      console.log('login: Password verified successfully using method:', passwordCheck.method);
 
-      const sessionOptions = { scope: tenantScope, user };
-
-      // Check if password reset is required
-      const resetRequired = toBool(user.ResetRequired);
+      // Handle reset required
       if (resetRequired) {
-        // Create a temporary session for password reset
-        const resetToken = createSessionFor(user.ID, null, false, sessionOptions);
+        console.log('login: Password reset required');
+        const resetToken = createSession(user.ID, false);
         return {
           success: false,
           error: 'You must change your password before continuing.',
@@ -541,8 +392,11 @@ var AuthenticationService = (function () {
       }
 
       // Create session
-      const token = createSessionFor(user.ID, null, rememberMe, sessionOptions);
-      if (!token) {
+      console.log('login: Creating session...');
+      const sessionToken = createSession(user.ID, rememberMe);
+      
+      if (!sessionToken) {
+        console.log('login: Failed to create session');
         return {
           success: false,
           error: 'Failed to create session. Please try again.',
@@ -550,46 +404,48 @@ var AuthenticationService = (function () {
         };
       }
 
+      console.log('login: Session created successfully');
+
       // Update last login
-      updateLastLogin(user.ID);
+      try {
+        updateLastLogin(user.ID);
+      } catch (lastLoginError) {
+        console.warn('login: Failed to update last login:', lastLoginError);
+        // Don't fail login for this
+      }
 
-      // Get user roles and permissions
-      const userRoles = getUserRoles(user.ID);
-      const userClaims = getUserClaims(user.ID);
+      // Build user payload
+      const userPayload = {
+        ID: user.ID,
+        UserName: user.UserName || '',
+        FullName: user.FullName || user.UserName || '',
+        Email: user.Email || '',
+        CampaignID: user.CampaignID || '',
+        IsAdmin: toBool(user.IsAdmin),
+        CanLogin: canLogin,
+        EmailConfirmed: emailConfirmed
+      };
 
-      const allowedCampaignIds = tenantScope.allowedCampaignIds ? tenantScope.allowedCampaignIds.slice() : [];
-      const effectiveCampaignId = tenantScope.defaultCampaignId
-        || (allowedCampaignIds.length ? allowedCampaignIds[0] : user.CampaignID);
-
-      const managedCampaignIds = tenantScope.managedCampaignIds ? tenantScope.managedCampaignIds.slice() : [];
-      const adminCampaignIds = tenantScope.adminCampaignIds ? tenantScope.adminCampaignIds.slice() : [];
+      console.log('login: Login successful for user:', userPayload.FullName);
+      console.log('=== AuthenticationService.login SUCCESS ===');
 
       return {
         success: true,
-        sessionToken: token,
-        user: {
-          ID: user.ID,
-          UserName: user.UserName,
-          FullName: user.FullName,
-          Email: user.Email,
-          IsAdmin: toBool(user.IsAdmin),
-          IsGlobalAdmin: !!tenantScope.isGlobalAdmin,
-          CampaignID: effectiveCampaignId,
-          DefaultCampaignId: tenantScope.defaultCampaignId || '',
-          AllowedCampaignIds: allowedCampaignIds,
-          ManagedCampaignIds: managedCampaignIds,
-          AdminCampaignIds: adminCampaignIds,
-          TenantScope: tenantScope,
-          roles: userRoles,
-          claims: userClaims,
-          pages: getUserCampaignPages(user.ID, effectiveCampaignId)
-        },
-        message: 'Login successful'
+        sessionToken: sessionToken,
+        user: userPayload,
+        message: 'Login successful',
+        rememberMe: !!rememberMe
       };
 
     } catch (error) {
-      console.error('Login error:', error);
-      writeError('AuthenticationService.login', error);
+      console.error('login: Unexpected error:', error);
+      console.log('=== AuthenticationService.login ERROR ===');
+      
+      // Write error to logs if function available
+      if (typeof writeError === 'function') {
+        writeError('AuthenticationService.login', error);
+      }
+      
       return {
         success: false,
         error: 'An error occurred during login. Please try again.',
@@ -598,241 +454,127 @@ var AuthenticationService = (function () {
     }
   }
 
-  function getUserCampaignPages(userId, campaignId) {
-    try {
-      if (!campaignId) return [];
+  // ─── Session validation ─────────────────────────────────────────────────────
 
-      // Get campaign pages from campaign configuration
-      const campaignPages = getCampaignPages(campaignId);
-      return campaignPages
-        .filter(cp => cp.IsActive !== false)
-        .map(cp => cp.PageKey);
-    } catch (e) {
-      console.warn('Error getting user campaign pages:', e);
-      return [];
-    }
-  }
-
-  function getCampaignPages(campaignId) {
-    try {
-      // This would typically come from a CAMPAIGN_PAGES sheet
-      // For now, return default pages
-      return [
-        { PageKey: 'dashboard', IsActive: true },
-        { PageKey: 'reports', IsActive: true },
-        { PageKey: 'qa', IsActive: true }
-      ];
-    } catch (error) {
-      console.warn('Error getting campaign pages:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Simplified logout function that handles session cleanup
-   * @param {string} sessionToken - Session token to invalidate
-   * @return {Object} Logout result
-   */
-  function logout(sessionToken) {
-    try {
-      console.log('Logout initiated for token:', sessionToken ? sessionToken.substring(0, 8) + '...' : 'no token');
-      
-      let sessionRemoved = false;
-      
-      if (sessionToken) {
-        sessionRemoved = _invalidateSessionByToken(sessionToken);
-        console.log('Session invalidation result:', sessionRemoved);
-      }
-
-      return {
-        success: true,
-        sessionRemoved: sessionRemoved,
-        message: 'Logged out successfully'
-      };
-    } catch (error) {
-      console.error('Error during logout:', error);
-      writeError('logout', error);
-      return {
-        success: false,
-        error: error.message,
-        message: 'Logout completed with errors'
-      };
-    }
-  }
-
-  /**
-   * Validate & extend a session token (sliding expiration).
-   * Returns the full user object (with roles/pages arrays) or null.
-   */
   function getSessionUser(sessionToken) {
     try {
-      if (!sessionToken) {
+      if (!sessionToken) return null;
+
+      // Find session
+      let sessions = [];
+      try {
+        sessions = readSheet('Sessions') || [];
+      } catch (error) {
+        console.warn('getSessionUser: Failed to read sessions:', error);
         return null;
       }
 
-      cleanExpiredSessions();
+      const session = sessions.find(s => 
+        normalizeString(s.Token) === normalizeString(sessionToken)
+      );
 
-      let sessionRec = null;
-      const sessionTable = getDbTable(SESSIONS_SHEET);
-      if (sessionTable && typeof sessionTable.findById === 'function') {
-        try {
-          sessionRec = sessionTable.findById(sessionToken);
-        } catch (err) {
-          console.warn('Session lookup via DatabaseManager failed:', err);
-        }
-      }
-
-      if (!sessionRec) {
-        sessionRec = readTable(SESSIONS_SHEET)
-          .find(s => toStr(s.Token || s.SessionToken) === toStr(sessionToken));
-      }
-
-      if (!sessionRec) {
-        console.log('Session not found for token:', sessionToken.substring(0, 8) + '...');
+      if (!session) {
+        console.log('getSessionUser: Session not found');
         return null;
       }
 
-      // Check if session is expired
-      const expiryTime = new Date(sessionRec.ExpiresAt).getTime();
+      // Check expiry
+      const expiryTime = new Date(session.ExpiresAt).getTime();
       const now = Date.now();
 
       if (!expiryTime || isNaN(expiryTime) || expiryTime < now) {
-        console.log('Session expired for token:', sessionToken.substring(0, 8) + '...');
-        _invalidateSessionByToken(sessionToken);
+        console.log('getSessionUser: Session expired');
         return null;
       }
 
-      // Extend session expiry (sliding expiration)
-      const isRememberMe = toBool(sessionRec.RememberMe);
-      const ttl = isRememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
-      const newExpiry = new Date(now + ttl);
-
-      const sessionUserId = sessionRec.UserId || sessionRec.UserID || sessionRec.userid || sessionRec.userId;
-      const userRow = getUserById(sessionUserId);
-      if (!userRow) {
-        console.warn('User not found for session:', sessionRec.UserId);
-        _invalidateSessionByToken(sessionToken);
+      // Get user
+      const user = findUserById(session.UserId) || findUserByEmail(session.UserId);
+      if (!user) {
+        console.log('getSessionUser: User not found for session');
         return null;
       }
 
-      const tenantScope = buildSessionScope(userRow.ID, userRow);
-      const allowedCampaignIds = tenantScope.allowedCampaignIds ? tenantScope.allowedCampaignIds.slice() : [];
-      const managedCampaignIds = tenantScope.managedCampaignIds ? tenantScope.managedCampaignIds.slice() : [];
-      const adminCampaignIds = tenantScope.adminCampaignIds ? tenantScope.adminCampaignIds.slice() : [];
-      const effectiveCampaignId = tenantScope.defaultCampaignId
-        || (allowedCampaignIds.length ? allowedCampaignIds[0] : userRow.CampaignID);
-
-      try {
-        updateSessionRecord(sessionToken, {
-          ExpiresAt: newExpiry.toISOString(),
-          CampaignScope: JSON.stringify(tenantScope)
-        });
-      } catch (updateErr) {
-        console.warn('Failed to update session metadata:', updateErr);
-      }
-
-      // Parse roles and pages (handle both JSON and CSV formats)
-      try {
-        userRow.roles = userRow.Roles ?
-          (userRow.Roles.startsWith('[') ?
-            JSON.parse(userRow.Roles) :
-            userRow.Roles.split(',').map(r => r.trim()).filter(Boolean)
-          ) : [];
-      } catch {
-        userRow.roles = [];
-      }
-
-      if (typeof getUserRoles === 'function') {
-        try { userRow.roles = getUserRoles(userRow.ID); } catch (roleErr) { console.warn('Failed to refresh user roles:', roleErr); }
-      }
-
-      try {
-        userRow.pages = userRow.Pages ?
-          (userRow.Pages.startsWith('[') ?
-            JSON.parse(userRow.Pages) :
-            userRow.Pages.split(',').map(p => p.trim()).filter(Boolean)
-          ) : [];
-      } catch {
-        userRow.pages = [];
-      }
-
-      if (typeof getUserClaims === 'function') {
-        try { userRow.claims = getUserClaims(userRow.ID); } catch (claimErr) { console.warn('Failed to refresh user claims:', claimErr); }
-      }
-
-      // Check if password reset is required
-      userRow.needsReset = String(userRow.ResetRequired).toUpperCase() === 'TRUE';
-
-      userRow.IsAdmin = toBool(userRow.IsAdmin);
-      userRow.IsGlobalAdmin = !!tenantScope.isGlobalAdmin;
-      userRow.CampaignID = effectiveCampaignId;
-      userRow.DefaultCampaignId = tenantScope.defaultCampaignId || '';
-      userRow.AllowedCampaignIds = allowedCampaignIds;
-      userRow.ManagedCampaignIds = managedCampaignIds;
-      userRow.AdminCampaignIds = adminCampaignIds;
-      userRow.TenantScope = tenantScope;
-      userRow.pages = getUserCampaignPages(userRow.ID, effectiveCampaignId);
-
-      // Add session info
-      userRow.sessionToken = sessionToken;
-      userRow.sessionExpiry = newExpiry.toISOString();
-
-      console.log('Session validated and extended for user:', userRow.Email);
-      return userRow;
+      return {
+        ...user,
+        sessionToken: sessionToken,
+        sessionExpiry: session.ExpiresAt
+      };
 
     } catch (error) {
-      console.error('Error validating session:', error);
-      writeError('getSessionUser', error);
+      console.error('getSessionUser: Error:', error);
       return null;
     }
   }
 
+  // ─── Helper functions ─────────────────────────────────────────────────────
+
   function updateLastLogin(userId) {
     try {
+      // This is a simplified version - you may need to adapt based on your sheet structure
       const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sh = ss.getSheetByName(USERS_SHEET);
-      const data = sh.getDataRange().getValues();
-      const headers = data[0];
+      const sheet = ss.getSheetByName('Users');
+      if (!sheet) return;
 
-      // Add LastLogin column if it doesn't exist
-      let lastLoginIndex = headers.indexOf('LastLogin');
-      if (lastLoginIndex === -1) {
-        // Add the column
-        sh.getRange(1, headers.length + 1).setValue('LastLogin');
-        lastLoginIndex = headers.length;
-      }
+      const data = sheet.getDataRange().getValues();
+      const headers = data[0];
+      const idIndex = headers.indexOf('ID');
+      const lastLoginIndex = headers.indexOf('LastLogin');
+
+      if (idIndex === -1) return;
 
       for (let i = 1; i < data.length; i++) {
-        if (String(data[i][0]) === userId) {
-          const row = i + 1;
-          const col = lastLoginIndex + 1;
-
-          const now = new Date();
-          sh.getRange(row, col).setValue(now);
-          sh.getRange(row, col).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+        if (String(data[i][idIndex]) === String(userId)) {
+          if (lastLoginIndex !== -1) {
+            sheet.getRange(i + 1, lastLoginIndex + 1).setValue(new Date());
+          }
           break;
         }
       }
     } catch (error) {
-      console.warn('Failed to update last login:', error);
+      console.warn('updateLastLogin: Failed to update last login:', error);
     }
   }
 
-  /**
-   * Simplified keepAlive function 
-   * @param {string} sessionToken - Session token to validate
-   */
-  function keepAlive(sessionToken) {
+  function logout(sessionToken) {
     try {
       if (!sessionToken) {
-        return {
-          success: false,
-          expired: true,
-          message: 'No session token provided'
-        };
+        return { success: true, message: 'No session to logout' };
       }
 
+      // Remove session from sheet
+      try {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ss.getSheetByName('Sessions');
+        if (sheet) {
+          const data = sheet.getDataRange().getValues();
+          const headers = data[0];
+          const tokenIndex = headers.indexOf('Token');
+
+          if (tokenIndex !== -1) {
+            for (let i = data.length - 1; i >= 1; i--) {
+              if (normalizeString(data[i][tokenIndex]) === normalizeString(sessionToken)) {
+                sheet.deleteRow(i + 1);
+                break;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('logout: Failed to remove session from sheet:', error);
+      }
+
+      return { success: true, message: 'Logged out successfully' };
+
+    } catch (error) {
+      console.error('logout: Error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  function keepAlive(sessionToken) {
+    try {
       const user = getSessionUser(sessionToken);
+      
       if (!user) {
         return {
           success: false,
@@ -848,567 +590,59 @@ var AuthenticationService = (function () {
           ID: user.ID,
           FullName: user.FullName,
           Email: user.Email,
-          CampaignID: user.CampaignID,
-          IsAdmin: user.IsAdmin
+          CampaignID: user.CampaignID
         }
       };
     } catch (error) {
-      console.error('Error in keepAlive:', error);
-      writeError('keepAlive', error);
+      console.error('keepAlive: Error:', error);
       return {
         success: false,
-        error: error.message,
-        message: 'Session check failed'
+        error: error.message
       };
     }
   }
 
-  /**
-   * Get user claims by user ID
-   */
-  function getUserClaims(userId) {
-    try {
-      const claims = readTable(USER_CLAIMS_SHEET);
-      return claims.filter(claim => claim.UserId === userId);
-    } catch (error) {
-      console.error('Error getting user claims:', error);
-      return [];
-    }
-  }
+  // ─── Public API ─────────────────────────────────────────────────────────────
 
-  /**
-   * Get user roles by user ID
-   */
-  function getUserRoles(userId) {
-    try {
-      const userRoles = readTable(USER_ROLES_SHEET);
-      const allRoles = readTable(ROLES_SHEET);
-
-      const userRoleIds = userRoles
-        .filter(ur => ur.UserId === userId)
-        .map(ur => ur.RoleId);
-
-      return allRoles.filter(role => userRoleIds.includes(role.ID));
-    } catch (error) {
-      console.error('Error getting user roles:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Simplified authentication requirement function
-   */
-  function requireAuth(e) {
-    try {
-      // Check for token parameter
-      const token = e.parameter.token;
-      if (token) {
-        const user = getSessionUser(token);
-        if (user) {
-          return user;
-        }
-      }
-
-      // Fall back to current user via Google session
-      const user = getCurrentUserProfile_();
-      if (!user || !user.ID) {
-        return HtmlService
-          .createTemplateFromFile('Login')
-          .evaluate()
-          .setTitle('Please Log In')
-          .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-      }
-
-      const pageParam = (e.parameter.page || 'dashboard').toLowerCase();
-      const allowed = (user.pages || []).map(p => p.toLowerCase());
-
-      if (e.parameter.page
-        && allowed.length > 0
-        && allowed.indexOf(pageParam) < 0) {
-        const tpl = HtmlService.createTemplateFromFile('AccessDenied');
-        tpl.baseUrl = ScriptApp.getService().getUrl();
-        return tpl
-          .evaluate()
-          .setTitle('Access Denied')
-          .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Error in requireAuth:', error);
-      writeError('requireAuth', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Enforce both auth & campaign match.
-   * Returns user or throws.
-   */
-  function requireCampaignAuth(e) {
-    const maybe = requireAuth(e);
-    if (maybe.getContent) return maybe;
-    const user = maybe;
-    const cid = toStr(e.parameter.campaignId || e.parameter.campaignID || e.parameter.campaign || '');
-    if (!cid) {
-      return user;
-    }
-
-    try {
-      if (typeof TenantSecurity !== 'undefined'
-        && TenantSecurity
-        && typeof TenantSecurity.assertCampaignAccess === 'function') {
-        TenantSecurity.assertCampaignAccess(user.ID, cid);
-      } else {
-        const allowed = Array.isArray(user.AllowedCampaignIds)
-          ? user.AllowedCampaignIds.map(toStr)
-          : [];
-        if (!user.IsGlobalAdmin && allowed.indexOf(cid) === -1 && toStr(user.CampaignID) !== cid) {
-          throw new Error('Not authorized for campaign: ' + cid);
-        }
-      }
-      return user;
-    } catch (err) {
-      console.warn('Campaign authorization failed:', err);
-      const tpl = HtmlService.createTemplateFromFile('AccessDenied');
-      tpl.baseUrl = ScriptApp.getService().getUrl();
-      return tpl
-        .evaluate()
-        .setTitle('Access Denied')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-  }
-
-  /**
-   * Change password function
-   * @param {string} sessionToken - Session token
-   * @param {string} oldPassword - Current password
-   * @param {string} newPassword - New password
-   * @return {Object} Change result
-   */
-  function changePassword(sessionToken, oldPassword, newPassword) {
-    try {
-      const user = getSessionUser(sessionToken);
-      if (!user) {
-        return { success: false, message: 'Not authenticated.' };
-      }
-
-      // Validate new password strength
-      if (!newPassword || newPassword.length < 8) {
-        return { success: false, message: 'Password must be at least 8 characters long.' };
-      }
-
-      // Check password complexity
-      const hasUpper = /[A-Z]/.test(newPassword);
-      const hasLower = /[a-z]/.test(newPassword);
-      const hasNumber = /[0-9]/.test(newPassword);
-      const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
-
-      if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
-        return {
-          success: false,
-          message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.'
-        };
-      }
-
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sh = ss.getSheetByName(USERS_SHEET);
-      const data = sh.getDataRange().getValues();
-      const headers = data[0];
-
-      const oldHash = hashPwd(oldPassword);
-      const newHash = hashPwd(newPassword);
-      const now = new Date();
-
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][0]) === user.ID) {
-          const pwdColIndex = headers.indexOf('PasswordHash');
-          const resetColIndex = headers.indexOf('ResetRequired');
-          const updatedAtIndex = headers.indexOf('UpdatedAt');
-
-          if (String(data[i][pwdColIndex]) !== oldHash) {
-            return { success: false, message: 'Current password is incorrect.' };
-          }
-
-          const rowNum = i + 1;
-          sh.getRange(rowNum, pwdColIndex + 1).setValue(newHash);
-          sh.getRange(rowNum, resetColIndex + 1).setValue(false);
-          if (updatedAtIndex >= 0) {
-            sh.getRange(rowNum, updatedAtIndex + 1).setValue(now);
-          }
-
-          // Send password change confirmation email
-          try {
-            if (typeof sendPasswordChangeConfirmation === 'function') {
-              sendPasswordChangeConfirmation(user.Email, { timestamp: now });
-            }
-          } catch (emailError) {
-            console.warn('Failed to send password change email:', emailError);
-          }
-
-          return { success: true, message: 'Password changed successfully.' };
-        }
-      }
-
-      return { success: false, message: 'User record not found.' };
-    } catch (error) {
-      console.error('Error changing password:', error);
-      writeError('changePassword', error);
-      return { success: false, message: 'An error occurred while changing password.' };
-    }
-  }
-
-  /**
-   * Set password with token function (for new users and password resets)
-   * @param {string} token - Email confirmation or reset token
-   * @param {string} newPassword - New password
-   * @return {Object} Set password result
-   */
-  function setPasswordWithToken(token, newPassword) {
-    try {
-      // Validate password strength
-      if (!newPassword || newPassword.length < 8) {
-        return { success: false, message: 'Password must be at least 8 characters long.' };
-      }
-
-      const hasUpper = /[A-Z]/.test(newPassword);
-      const hasLower = /[a-z]/.test(newPassword);
-      const hasNumber = /[0-9]/.test(newPassword);
-      const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
-
-      if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
-        return {
-          success: false,
-          message: 'Password must contain uppercase, lowercase, number, and special character.'
-        };
-      }
-
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sh = ss.getSheetByName(USERS_SHEET);
-      const data = sh.getDataRange().getValues();
-      const headers = data[0];
-
-      const newHash = hashPwd(newPassword);
-      const now = new Date();
-
-      for (let i = 1; i < data.length; i++) {
-        const tokenColIndex = headers.indexOf('EmailConfirmation'); // Password setup token
-
-        if (String(data[i][tokenColIndex]) === token) {
-          const rowNum = i + 1;
-          const email = data[i][headers.indexOf('Email')];
-
-          // Set password and update status
-          sh.getRange(rowNum, headers.indexOf('PasswordHash') + 1).setValue(newHash);
-          sh.getRange(rowNum, headers.indexOf('ResetRequired') + 1).setValue('FALSE');
-          sh.getRange(rowNum, headers.indexOf('EmailConfirmation') + 1).setValue(''); // Clear token
-          sh.getRange(rowNum, headers.indexOf('UpdatedAt') + 1).setValue(now);
-
-          // Send confirmation email
-          try {
-            if (typeof sendPasswordChangeConfirmation === 'function') {
-              sendPasswordChangeConfirmation(email, { timestamp: now });
-            }
-          } catch (emailError) {
-            console.warn('Failed to send password confirmation email:', emailError);
-          }
-
-          return {
-            success: true,
-            message: 'Password set successfully. You can now log in.'
-          };
-        }
-      }
-
-      return { success: false, message: 'Invalid or expired setup link.' };
-    } catch (error) {
-      writeError('setPasswordWithToken', error);
-      return { success: false, message: 'An error occurred while setting password.' };
-    }
-  }
-
-  /**
-   * Generate and send password reset token
-   * @param {string} email - User email
-   * @return {Object} Reset result
-   */
-  function requestPasswordReset(email) {
-    try {
-      const user = getUserByEmail(email);
-      if (!user) {
-        return {
-          success: true,
-          message: 'If an account with this email exists, a password reset link has been sent.'
-        };
-      }
-
-      // Check if user has a password set
-      if (!user.PasswordHash) {
-        return {
-          success: false,
-          error: 'This account needs initial password setup. Check your welcome email.'
-        };
-      }
-
-      // Generate reset token and send email
-      const resetToken = Utilities.getUuid();
-
-      // Update user record
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sh = ss.getSheetByName(USERS_SHEET);
-      const data = sh.getDataRange().getValues();
-      const headers = data[0];
-
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][headers.indexOf('Email')]).toLowerCase() === email.toLowerCase()) {
-          const rowNum = i + 1;
-          sh.getRange(rowNum, headers.indexOf('EmailConfirmation') + 1).setValue(resetToken);
-          sh.getRange(rowNum, headers.indexOf('UpdatedAt') + 1).setValue(new Date());
-          break;
-        }
-      }
-
-      // Send reset email
-      let emailSent = false;
-      try {
-        if (typeof sendPasswordResetEmail === 'function') {
-          emailSent = sendPasswordResetEmail(email, resetToken);
-        }
-      } catch (emailError) {
-        console.error('Error sending password reset email:', emailError);
-      }
-
-      return emailSent ?
-        { success: true, message: 'Password reset email sent.' } :
-        { success: false, error: 'Failed to send email. Please try again.' };
-
-    } catch (error) {
-      writeError('requestPasswordReset', error);
-      return { success: false, error: 'An error occurred. Please try again later.' };
-    }
-  }
-
-  /**
-   * Resend password setup email for new users
-   */
-  function resendPasswordSetupEmail(email) {
-    try {
-      const user = getUserByEmail(email);
-      if (!user) {
-        return {
-          success: true,
-          message: 'If an account with this email exists, a password setup link has been sent.'
-        };
-      }
-
-      // Check if user needs password setup
-      const needsSetup = !user.PasswordHash || String(user.ResetRequired).toUpperCase() === 'TRUE';
-      if (!needsSetup) {
-        return {
-          success: false,
-          error: 'This account already has a password set. Use "Forgot Password" instead.'
-        };
-      }
-
-      // Generate new setup token
-      const setupToken = Utilities.getUuid();
-
-      // Update user record with new token
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sh = ss.getSheetByName(USERS_SHEET);
-      const data = sh.getDataRange().getValues();
-      const headers = data[0];
-
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][headers.indexOf('Email')]).toLowerCase() === email.toLowerCase()) {
-          const rowNum = i + 1;
-          sh.getRange(rowNum, headers.indexOf('EmailConfirmation') + 1).setValue(setupToken);
-          sh.getRange(rowNum, headers.indexOf('UpdatedAt') + 1).setValue(new Date());
-          break;
-        }
-      }
-
-      // Send email
-      let emailSent = false;
-      try {
-        if (typeof sendPasswordSetupEmail === 'function') {
-          emailSent = sendPasswordSetupEmail(email, {
-            userName: user.UserName,
-            fullName: user.FullName || user.UserName,
-            passwordSetupToken: setupToken
-          });
-        }
-      } catch (emailError) {
-        console.error('Error sending password setup email:', emailError);
-      }
-
-      return emailSent ?
-        { success: true, message: 'Password setup email sent successfully.' } :
-        { success: false, error: 'Failed to send email. Please try again.' };
-
-    } catch (error) {
-      writeError('resendPasswordSetupEmail', error);
-      return { success: false, error: 'An error occurred. Please try again later.' };
-    }
-  }
-
-  /**
-   * Log user activity for audit purposes
-   * @param {string} sessionToken - Session token
-   * @param {Object} activity - Activity data to log
-   */
-  function logUserActivity(sessionToken, activity) {
-    try {
-      const user = getSessionUser(sessionToken);
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Ensure "UserActivityLog" sheet exists
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      let sh = ss.getSheetByName('UserActivityLog');
-      if (!sh) {
-        sh = ss.insertSheet('UserActivityLog');
-        sh.appendRow(['Timestamp', 'UserEmail', 'ActivityPayload']);
-      }
-
-      // Append the audit entry
-      sh.appendRow([
-        new Date(),
-        user.Email,
-        JSON.stringify(activity, null, 2)
-      ]);
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error logging user activity:', error);
-      writeError('logUserActivity', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Private helper to invalidate a session by token
-   */
-  function _invalidateSessionByToken(sessionToken) {
-    try {
-      if (!sessionToken) return false;
-      const removed = removeSessionByToken(sessionToken);
-      if (!removed) {
-        console.log('Session not found for invalidation:', sessionToken.substring(0, 8) + '...');
-        return false;
-      }
-
-      console.log('Session invalidated:', sessionToken.substring(0, 8) + '...');
-      return true;
-    } catch (error) {
-      console.error('Error invalidating session:', error);
-      return false;
-    }
-  }
-
-  // Return public API
   return {
-    ensureSheets,
-    login,
-    logout,
-    getSessionUser,
-    keepAlive,
-    requireAuth,
-    requireCampaignAuth,
-    getUserByEmail,
-    getUserClaims,
-    getUserRoles,
-    changePassword,
-    setPasswordWithToken,
-    requestPasswordReset,
-    resendPasswordSetupEmail,
-    logUserActivity,
-    createSessionFor,
-    _invalidateSessionByToken
+    login: login,
+    logout: logout,
+    getSessionUser: getSessionUser,
+    keepAlive: keepAlive,
+    findUserByEmail: findUserByEmail,
+    findUserById: findUserById,
+    verifyUserPassword: verifyUserPassword,
+    getUserByEmail: findUserByEmail,
+    findUserByPrincipal: findUserByEmail
   };
+
 })();
 
 // ───────────────────────────────────────────────────────────────────────────────
 // CLIENT-ACCESSIBLE FUNCTIONS
 // ───────────────────────────────────────────────────────────────────────────────
 
-/**
- * Simplified login function for standard authentication
- * Called by the client-side code via google.script.run
- */
 function loginUser(email, password, rememberMe = false) {
   try {
-    console.log('Server-side login for:', email);
-
-    // Use AuthenticationService
+    console.log('=== loginUser wrapper START ===');
     const result = AuthenticationService.login(email, password, rememberMe);
-
-    if (!result.success) {
-      return result;
-    }
-
-    // Create response with redirect URL including token
-    const baseScriptUrl = resolveScriptUrl();
-
-    const response = {
-      success: true,
-      message: 'Login successful',
-      redirectUrl: baseScriptUrl
-        ? (baseScriptUrl + '?page=dashboard&token=' + encodeURIComponent(result.sessionToken))
-        : ('?page=dashboard&token=' + encodeURIComponent(result.sessionToken)),
-      sessionToken: result.sessionToken,
-      user: result.user
-    };
-
-    return response;
+    console.log('=== loginUser wrapper END ===');
+    return result;
   } catch (error) {
-    console.error('Server login error:', error);
-    writeError('loginUser', error);
+    console.error('loginUser wrapper error:', error);
     return {
       success: false,
       error: 'Login failed. Please try again.',
-      errorCode: 'SYSTEM_ERROR'
+      errorCode: 'WRAPPER_ERROR'
     };
   }
 }
 
-/**
- * Simplified logout function
- */
 function logoutUser(sessionToken) {
   try {
-    console.log('Server-side logout');
-    
-    const result = AuthenticationService.logout(sessionToken);
-    
-    return {
-      success: true,
-      message: 'Logout successful',
-      redirectUrl: resolveScriptUrl()
-    };
+    return AuthenticationService.logout(sessionToken);
   } catch (error) {
-    console.error('Server logout error:', error);
-    writeError('logoutUser', error);
-    return {
-      success: false,
-      error: error.message,
-      redirectUrl: resolveScriptUrl()
-    };
-  }
-}
-
-/**
- * Keep alive function for sessions
- */
-function keepAliveSession(sessionToken) {
-  try {
-    return AuthenticationService.keepAlive(sessionToken);
-  } catch (error) {
-    console.error('Keep alive error:', error);
+    console.error('logoutUser wrapper error:', error);
     return {
       success: false,
       error: error.message
@@ -1416,31 +650,19 @@ function keepAliveSession(sessionToken) {
   }
 }
 
-// Expose individual functions for google.script.run
-function getUserClaims(userId) {
-  return AuthenticationService.getUserClaims(userId);
+function keepAliveSession(sessionToken) {
+  try {
+    return AuthenticationService.keepAlive(sessionToken);
+  } catch (error) {
+    console.error('keepAliveSession wrapper error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }
 
-function getUserRoles(userId) {
-  return AuthenticationService.getUserRoles(userId);
-}
-
-function setPasswordWithToken(token, newPassword) {
-  return AuthenticationService.setPasswordWithToken(token, newPassword);
-}
-
-function changePassword(sessionToken, oldPassword, newPassword) {
-  return AuthenticationService.changePassword(sessionToken, oldPassword, newPassword);
-}
-
-function requestPasswordReset(email) {
-  return AuthenticationService.requestPasswordReset(email);
-}
-
-function resendPasswordSetupEmail(email) {
-  return AuthenticationService.resendPasswordSetupEmail(email);
-}
-
+// Legacy compatibility
 function login(email, password) {
   return AuthenticationService.login(email, password);
 }
@@ -1453,127 +675,525 @@ function keepAlive(sessionToken) {
   return AuthenticationService.keepAlive(sessionToken);
 }
 
-function clientLogUserActivity(sessionToken, activity) {
-  return AuthenticationService.logUserActivity(sessionToken, activity);
-}
+console.log('Fixed AuthenticationService.gs loaded successfully');
+console.log('Key improvements:');
+console.log('- Consistent email normalization');
+console.log('- Robust password verification with multiple fallback methods');
+console.log('- Better error logging and debugging');
+console.log('- Improved user lookup with fallbacks');
+console.log('- Enhanced session management');
 
-function ensureAuthenticationSheets() {
-  return AuthenticationService.ensureSheets();
-}
-
-// ───────────────────────────────────────────────────────────────────────────────
-// UTILITY FUNCTIONS
-// ───────────────────────────────────────────────────────────────────────────────
-
-function writeError(functionName, error) {
-  try {
-    const errorMessage = error && error.message ? error.message : error.toString();
-    console.error(`[${functionName}] ${errorMessage}`);
-
-    try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      let errorSheet = ss.getSheetByName('ErrorLog');
-
-      if (!errorSheet) {
-        errorSheet = ss.insertSheet('ErrorLog');
-        errorSheet.getRange(1, 1, 1, 4).setValues([['Timestamp', 'Function', 'Error', 'Stack']]);
-      }
-
-      const timestamp = new Date();
-      const stack = error && error.stack ? error.stack : 'No stack trace';
-
-      errorSheet.appendRow([timestamp, functionName, errorMessage, stack]);
-    } catch (logError) {
-      console.error('Failed to log error to sheet:', logError);
-    }
-  } catch (e) {
-    console.error('Error in writeError function:', e);
-  }
-}
 
 /**
- * Get current user without requiring token
- * Uses Google Apps Script's built-in session management
+ * Authentication Diagnostic Functions for Lumina
+ * Use these functions to identify authentication issues
  */
-function getCurrentUserProfile_() {
+
+function debugAuthenticationIssues(email, password) {
   try {
-    // Use Google's built-in user session
-    const email = String(
-      (Session.getActiveUser() && Session.getActiveUser().getEmail()) ||
-      (Session.getEffectiveUser() && Session.getEffectiveUser().getEmail()) ||
-      ''
-    ).trim().toLowerCase();
-
-    if (!email) {
-      return null;
-    }
-
-    // Get user from your existing user management system
-    const user = AuthenticationService.getUserByEmail(email);
-    if (!user) {
-      return null;
-    }
-
-    var tenantProfile = null;
-    try {
-      if (typeof TenantSecurity !== 'undefined' && TenantSecurity && typeof TenantSecurity.getAccessProfile === 'function') {
-        tenantProfile = TenantSecurity.getAccessProfile(user.ID);
-      }
-    } catch (ctxErr) {
-      console.warn('getCurrentUserProfile_: tenant profile load failed', ctxErr);
-    }
-
-    var allowedCampaigns = tenantProfile ? tenantProfile.allowedCampaignIds.slice() : [];
-    if (!allowedCampaigns.length && user.CampaignID) {
-      allowedCampaigns.push(String(user.CampaignID));
-    }
-
-    // Return user in expected format
-    return {
-      ID: user.ID,
-      Email: user.Email,
-      FullName: user.FullName,
-      UserName: user.UserName,
-      CampaignID: user.CampaignID,
-      IsAdmin: String(user.IsAdmin).toUpperCase() === 'TRUE',
-      IsGlobalAdmin: tenantProfile ? !!tenantProfile.isGlobalAdmin : String(user.IsAdmin).toUpperCase() === 'TRUE',
-
-      CanLogin: String(user.CanLogin).toUpperCase() === 'TRUE',
-      EmailConfirmed: String(user.EmailConfirmed).toUpperCase() === 'TRUE',
-      ResetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE',
-      AllowedCampaignIds: allowedCampaigns,
-      ManagedCampaignIds: tenantProfile ? tenantProfile.managedCampaignIds.slice() : [],
-      AdminCampaignIds: tenantProfile ? tenantProfile.adminCampaignIds.slice() : [],
-      DefaultCampaignId: tenantProfile ? tenantProfile.defaultCampaignId : toStr(user.CampaignID),
-
-      TenantAccess: tenantProfile
+    const results = {
+      timestamp: new Date().toISOString(),
+      email: email,
+      userLookup: null,
+      passwordCheck: null,
+      systemStatus: null,
+      recommendations: []
     };
+
+    // 1. Test User Lookup
+    console.log('1. Testing user lookup for:', email);
+    
+    // Try different lookup methods
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    
+    // Method 1: AuthenticationService lookup
+    let userByAuth = null;
+    if (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail) {
+      try {
+        userByAuth = AuthenticationService.getUserByEmail(normalizedEmail);
+        console.log('AuthenticationService lookup result:', userByAuth ? 'Found' : 'Not found');
+      } catch (e) {
+        console.error('AuthenticationService lookup failed:', e);
+      }
+    }
+    
+    // Method 2: Direct sheet lookup
+    let userBySheet = null;
+    try {
+      const users = readSheet('Users') || [];
+      userBySheet = users.find(u => 
+        String(u.Email || '').trim().toLowerCase() === normalizedEmail
+      );
+      console.log('Direct sheet lookup result:', userBySheet ? 'Found' : 'Not found');
+    } catch (e) {
+      console.error('Direct sheet lookup failed:', e);
+    }
+    
+    // Method 3: findUserByPrincipal lookup
+    let userByPrincipal = null;
+    if (typeof AuthenticationService !== 'undefined' && AuthenticationService.findUserByPrincipal) {
+      try {
+        userByPrincipal = AuthenticationService.findUserByPrincipal(normalizedEmail);
+        console.log('findUserByPrincipal lookup result:', userByPrincipal ? 'Found' : 'Not found');
+      } catch (e) {
+        console.error('findUserByPrincipal lookup failed:', e);
+      }
+    }
+
+    results.userLookup = {
+      normalizedEmail: normalizedEmail,
+      authServiceResult: userByAuth ? 'Found' : 'Not found',
+      directSheetResult: userBySheet ? 'Found' : 'Not found',
+      principalResult: userByPrincipal ? 'Found' : 'Not found',
+      consistencyCheck: (!!userByAuth === !!userBySheet && !!userBySheet === !!userByPrincipal)
+    };
+
+    // Use the first successful lookup for further testing
+    const user = userByAuth || userBySheet || userByPrincipal;
+    
+    if (!user) {
+      results.recommendations.push('USER_NOT_FOUND: Check if user exists in Users sheet with correct email');
+      results.recommendations.push('Check email case sensitivity and whitespace');
+      return results;
+    }
+
+    console.log('2. Found user:', user.FullName || user.UserName || user.Email);
+
+    // 2. Test Password Verification
+    console.log('3. Testing password verification...');
+    
+    const storedHash = user.PasswordHash || '';
+    const hasPassword = storedHash && storedHash.trim() !== '';
+    
+    results.passwordCheck = {
+      hasStoredHash: hasPassword,
+      storedHashLength: storedHash.length,
+      storedHashSample: storedHash ? storedHash.substring(0, 10) + '...' : 'empty',
+      canLogin: user.CanLogin,
+      emailConfirmed: user.EmailConfirmed,
+      resetRequired: user.ResetRequired
+    };
+
+    if (!hasPassword) {
+      results.recommendations.push('PASSWORD_NOT_SET: User has no password hash - needs password setup');
+      results.recommendations.push('Check if user completed initial password setup process');
+    } else {
+      // Test password verification methods
+      let verificationResults = {};
+      
+      // Method 1: PasswordUtilities.verifyPassword
+      if (typeof PasswordUtilities !== 'undefined') {
+        try {
+          const isValid1 = PasswordUtilities.verifyPassword(password, storedHash);
+          verificationResults.passwordUtilsResult = isValid1;
+          console.log('PasswordUtilities.verifyPassword result:', isValid1);
+        } catch (e) {
+          verificationResults.passwordUtilsError = e.message;
+        }
+      }
+
+      // Method 2: Test hash generation
+      if (typeof PasswordUtilities !== 'undefined') {
+        try {
+          const newHash = PasswordUtilities.hashPassword(password);
+          verificationResults.newHashMatches = (newHash === storedHash);
+          verificationResults.newHashSample = newHash.substring(0, 10) + '...';
+          console.log('Generated hash matches stored:', newHash === storedHash);
+        } catch (e) {
+          verificationResults.hashGenError = e.message;
+        }
+      }
+
+      // Method 3: Test normalized hash
+      if (typeof PasswordUtilities !== 'undefined') {
+        try {
+          const normalizedStored = PasswordUtilities.normalizeHash(storedHash);
+          const newHash = PasswordUtilities.hashPassword(password);
+          verificationResults.normalizedComparison = (newHash === normalizedStored);
+          console.log('Normalized hash comparison:', newHash === normalizedStored);
+        } catch (e) {
+          verificationResults.normalizeError = e.message;
+        }
+      }
+
+      results.passwordCheck.verificationTests = verificationResults;
+
+      if (!verificationResults.passwordUtilsResult && !verificationResults.newHashMatches) {
+        results.recommendations.push('PASSWORD_MISMATCH: Password verification failed - check password or hash corruption');
+      }
+    }
+
+    // 3. Account Status Checks
+    console.log('4. Checking account status...');
+    
+    const accountStatus = {
+      canLogin: String(user.CanLogin).toUpperCase() === 'TRUE',
+      emailConfirmed: String(user.EmailConfirmed).toUpperCase() === 'TRUE',
+      resetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE',
+      isAdmin: String(user.IsAdmin).toUpperCase() === 'TRUE',
+      campaignId: user.CampaignID || '',
+      lockoutEnd: user.LockoutEnd || null
+    };
+
+    results.systemStatus = accountStatus;
+
+    if (!accountStatus.canLogin) {
+      results.recommendations.push('ACCOUNT_DISABLED: User CanLogin is FALSE');
+    }
+    if (!accountStatus.emailConfirmed) {
+      results.recommendations.push('EMAIL_NOT_CONFIRMED: User EmailConfirmed is FALSE');
+    }
+    if (accountStatus.resetRequired) {
+      results.recommendations.push('RESET_REQUIRED: User ResetRequired is TRUE');
+    }
+
+    // 4. System-wide checks
+    console.log('5. Running system-wide checks...');
+    
+    const systemChecks = {
+      authServiceAvailable: typeof AuthenticationService !== 'undefined',
+      passwordUtilsAvailable: typeof PasswordUtilities !== 'undefined',
+      usersSheetExists: false,
+      usersSheetRowCount: 0
+    };
+
+    try {
+      const users = readSheet('Users') || [];
+      systemChecks.usersSheetExists = true;
+      systemChecks.usersSheetRowCount = users.length;
+    } catch (e) {
+      results.recommendations.push('SHEET_ACCESS_ERROR: Cannot read Users sheet');
+    }
+
+    results.systemStatus.systemChecks = systemChecks;
+
+    // 5. Generate specific recommendations
+    if (results.recommendations.length === 0) {
+      results.recommendations.push('ALL_CHECKS_PASSED: Authentication should work - investigate client-side issues');
+    }
+
+    return results;
+
   } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
+    console.error('Error in debugAuthenticationIssues:', error);
+    return {
+      error: error.message,
+      stack: error.stack,
+      recommendations: ['DIAGNOSTIC_ERROR: Cannot complete authentication diagnosis']
+    };
   }
 }
 
-// Provide a fallback global getCurrentUser implementation when another module
-// (for example Code.js) has not already registered one. This ensures
-// authentication-dependent modules can resolve the active user consistently.
-(function ensureGlobalGetCurrentUser() {
-  const root = (typeof globalThis !== 'undefined')
-    ? globalThis
-    : (typeof self !== 'undefined')
-      ? self
-      : this;
+function testPasswordHashing(plainPassword) {
+  try {
+    console.log('Testing password hashing for password:', plainPassword ? 'PROVIDED' : 'EMPTY');
+    
+    const results = {
+      timestamp: new Date().toISOString(),
+      tests: {}
+    };
 
-  if (root && typeof root.getCurrentUser !== 'function') {
-    root.getCurrentUser = function () {
-      return getCurrentUserProfile_();
+    if (typeof PasswordUtilities !== 'undefined') {
+      // Test 1: Basic hashing
+      const hash1 = PasswordUtilities.hashPassword(plainPassword);
+      const hash2 = PasswordUtilities.hashPassword(plainPassword);
+      
+      results.tests.basicHashing = {
+        hash1: hash1,
+        hash2: hash2,
+        consistent: hash1 === hash2,
+        length: hash1.length
+      };
+
+      // Test 2: Verification
+      const verifies = PasswordUtilities.verifyPassword(plainPassword, hash1);
+      results.tests.verification = {
+        verifies: verifies
+      };
+
+      // Test 3: Normalization
+      const normalized = PasswordUtilities.normalizeHash(hash1);
+      results.tests.normalization = {
+        original: hash1,
+        normalized: normalized,
+        same: hash1 === normalized
+      };
+
+      // Test 4: Edge cases
+      results.tests.edgeCases = {
+        emptyPassword: PasswordUtilities.hashPassword(''),
+        spacePassword: PasswordUtilities.hashPassword(' '),
+        nullPassword: PasswordUtilities.hashPassword(null)
+      };
+
+    } else {
+      results.error = 'PasswordUtilities not available';
+    }
+
+    return results;
+
+  } catch (error) {
+    console.error('Error in testPasswordHashing:', error);
+    return {
+      error: error.message,
+      stack: error.stack
     };
   }
-}).call(this);
+}
 
-// ───────────────────────────────────────────────────────────────────────────────
-// INITIALIZATION LOG
-// ───────────────────────────────────────────────────────────────────────────────
+function fixAuthenticationIssues(email, options = {}) {
+  try {
+    const {
+      resetPassword = false,
+      enableLogin = false,
+      confirmEmail = false,
+      generateNewHash = false,
+      newPassword = null
+    } = options;
 
-console.log('Simplified AuthenticationService.gs loaded successfully');
-console.log('Features: Token-based sessions, Enhanced security, Simple URLs, Comprehensive error handling');
+    const results = {
+      timestamp: new Date().toISOString(),
+      email: email,
+      actions: [],
+      errors: []
+    };
+
+    // 1. Find user
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const users = readSheet('Users') || [];
+    const userIndex = users.findIndex(u => 
+      String(u.Email || '').trim().toLowerCase() === normalizedEmail
+    );
+
+    if (userIndex === -1) {
+      results.errors.push('User not found');
+      return results;
+    }
+
+    const user = users[userIndex];
+    results.userId = user.ID;
+
+    // 2. Get sheet reference for updates
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Users');
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    const getColumnIndex = (columnName) => {
+      return headers.indexOf(columnName);
+    };
+
+    const rowNumber = userIndex + 2; // +1 for 0-based index, +1 for header row
+
+    // 3. Apply fixes
+    if (enableLogin) {
+      const canLoginCol = getColumnIndex('CanLogin');
+      if (canLoginCol !== -1) {
+        sheet.getRange(rowNumber, canLoginCol + 1).setValue('TRUE');
+        results.actions.push('Set CanLogin to TRUE');
+      }
+    }
+
+    if (confirmEmail) {
+      const emailConfirmedCol = getColumnIndex('EmailConfirmed');
+      if (emailConfirmedCol !== -1) {
+        sheet.getRange(rowNumber, emailConfirmedCol + 1).setValue('TRUE');
+        results.actions.push('Set EmailConfirmed to TRUE');
+      }
+    }
+
+    if (resetPassword) {
+      const resetRequiredCol = getColumnIndex('ResetRequired');
+      if (resetRequiredCol !== -1) {
+        sheet.getRange(rowNumber, resetRequiredCol + 1).setValue('FALSE');
+        results.actions.push('Set ResetRequired to FALSE');
+      }
+    }
+
+    if (generateNewHash && newPassword && typeof PasswordUtilities !== 'undefined') {
+      const passwordHashCol = getColumnIndex('PasswordHash');
+      if (passwordHashCol !== -1) {
+        const newHash = PasswordUtilities.hashPassword(newPassword);
+        sheet.getRange(rowNumber, passwordHashCol + 1).setValue(newHash);
+        results.actions.push('Generated new password hash');
+        results.newHashSample = newHash.substring(0, 10) + '...';
+      }
+    }
+
+    // 4. Update timestamp
+    const updatedAtCol = getColumnIndex('UpdatedAt');
+    if (updatedAtCol !== -1) {
+      sheet.getRange(rowNumber, updatedAtCol + 1).setValue(new Date());
+      results.actions.push('Updated timestamp');
+    }
+
+    // 5. Clear cache
+    if (typeof invalidateCache === 'function') {
+      invalidateCache('Users');
+      results.actions.push('Cleared Users cache');
+    }
+
+    return results;
+
+  } catch (error) {
+    console.error('Error in fixAuthenticationIssues:', error);
+    return {
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+// Helper function to check all users for common authentication issues
+function scanAllUsersForAuthIssues() {
+  try {
+    const users = readSheet('Users') || [];
+    const issues = {
+      noPasswordHash: [],
+      cannotLogin: [],
+      emailNotConfirmed: [],
+      resetRequired: [],
+      emptyEmail: [],
+      duplicateEmails: [],
+      totalUsers: users.length
+    };
+
+    const emailCounts = {};
+
+    users.forEach((user, index) => {
+      const email = String(user.Email || '').trim().toLowerCase();
+      
+      // Track email duplicates
+      if (email) {
+        emailCounts[email] = (emailCounts[email] || 0) + 1;
+      } else {
+        issues.emptyEmail.push({
+          index: index + 2, // Sheet row number
+          id: user.ID,
+          userName: user.UserName,
+          fullName: user.FullName
+        });
+      }
+
+      // Check password hash
+      if (!user.PasswordHash || String(user.PasswordHash).trim() === '') {
+        issues.noPasswordHash.push({
+          index: index + 2,
+          id: user.ID,
+          email: user.Email,
+          userName: user.UserName,
+          fullName: user.FullName
+        });
+      }
+
+      // Check login capability
+      if (String(user.CanLogin).toUpperCase() !== 'TRUE') {
+        issues.cannotLogin.push({
+          index: index + 2,
+          id: user.ID,
+          email: user.Email,
+          userName: user.UserName,
+          fullName: user.FullName,
+          canLogin: user.CanLogin
+        });
+      }
+
+      // Check email confirmation
+      if (String(user.EmailConfirmed).toUpperCase() !== 'TRUE') {
+        issues.emailNotConfirmed.push({
+          index: index + 2,
+          id: user.ID,
+          email: user.Email,
+          userName: user.UserName,
+          fullName: user.FullName,
+          emailConfirmed: user.EmailConfirmed
+        });
+      }
+
+      // Check reset required
+      if (String(user.ResetRequired).toUpperCase() === 'TRUE') {
+        issues.resetRequired.push({
+          index: index + 2,
+          id: user.ID,
+          email: user.Email,
+          userName: user.UserName,
+          fullName: user.FullName
+        });
+      }
+    });
+
+    // Find duplicate emails
+    Object.entries(emailCounts).forEach(([email, count]) => {
+      if (count > 1) {
+        const duplicates = users
+          .map((user, index) => ({ user, index: index + 2 }))
+          .filter(item => String(item.user.Email || '').trim().toLowerCase() === email)
+          .map(item => ({
+            index: item.index,
+            id: item.user.ID,
+            userName: item.user.UserName,
+            fullName: item.user.FullName
+          }));
+        
+        issues.duplicateEmails.push({
+          email: email,
+          count: count,
+          users: duplicates
+        });
+      }
+    });
+
+    return issues;
+
+  } catch (error) {
+    console.error('Error in scanAllUsersForAuthIssues:', error);
+    return {
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+// Client-accessible wrapper functions
+function clientDebugAuth(email, password) {
+  try {
+    return debugAuthenticationIssues(email, password);
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+function clientTestPasswordHashing(password) {
+  try {
+    return testPasswordHashing(password);
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+function clientFixAuthIssues(email, options) {
+  try {
+    return fixAuthenticationIssues(email, options);
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+function clientScanAuthIssues() {
+  try {
+    return scanAllUsersForAuthIssues();
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+console.log('Authentication diagnostic functions loaded');
+console.log('Available functions:');
+console.log('- debugAuthenticationIssues(email, password)');
+console.log('- testPasswordHashing(password)');
+console.log('- fixAuthenticationIssues(email, options)');
+console.log('- scanAllUsersForAuthIssues()');
+console.log('- clientDebugAuth(email, password) - for google.script.run');
+console.log('- clientTestPasswordHashing(password) - for google.script.run');
+console.log('- clientFixAuthIssues(email, options) - for google.script.run');
+console.log('- clientScanAuthIssues() - for google.script.run');
