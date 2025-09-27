@@ -210,6 +210,91 @@ var AuthenticationService = (function () {
     };
   }
 
+  function normalizePrincipal(value) {
+    const raw = toStr(value);
+    return {
+      raw,
+      lower: raw.toLowerCase()
+    };
+  }
+
+  function cloneScope(scope) {
+    if (!scope) {
+      return {
+        defaultCampaignId: '',
+        allowedCampaignIds: [],
+        managedCampaignIds: [],
+        adminCampaignIds: [],
+        isGlobalAdmin: false
+      };
+    }
+
+    return {
+      defaultCampaignId: toStr(scope.defaultCampaignId || scope.DefaultCampaignId),
+      allowedCampaignIds: dedupeStrings(scope.allowedCampaignIds || scope.AllowedCampaignIds),
+      managedCampaignIds: dedupeStrings(scope.managedCampaignIds || scope.ManagedCampaignIds),
+      adminCampaignIds: dedupeStrings(scope.adminCampaignIds || scope.AdminCampaignIds),
+      isGlobalAdmin: !!scope.isGlobalAdmin
+    };
+  }
+
+  function sanitizeRole(role) {
+    if (!role) return null;
+    const id = toStr(role.ID || role.Id || role.id);
+    if (!id) return null;
+
+    return {
+      ID: id,
+      Name: toStr(role.Name || role.name),
+      NormalizedName: toStr(
+        role.NormalizedName
+        || role.normalizedName
+        || (role.Name || role.name || '').toUpperCase()
+      ),
+      CreatedAt: role.CreatedAt || role.createdAt || null,
+      UpdatedAt: role.UpdatedAt || role.updatedAt || null
+    };
+  }
+
+  function sanitizeClaim(claim) {
+    if (!claim) return null;
+    const id = toStr(claim.ID || claim.Id || claim.id);
+    const userId = toStr(claim.UserId || claim.UserID || claim.userId);
+    if (!userId) return null;
+
+    return {
+      ID: id,
+      UserId: userId,
+      ClaimType: toStr(claim.ClaimType || claim.claimType),
+      CreatedAt: claim.CreatedAt || claim.createdAt || null,
+      UpdatedAt: claim.UpdatedAt || claim.updatedAt || null
+    };
+  }
+
+  function sanitizeUserForTransport(user) {
+    if (!user || typeof user !== 'object') return null;
+
+    const scope = cloneScope(user.TenantScope || user.tenantScope);
+
+    return {
+      ID: toStr(user.ID || user.Id || user.id),
+      UserName: toStr(user.UserName || user.username),
+      FullName: toStr(user.FullName || user.fullName || user.UserName || user.username),
+      Email: toStr(user.Email || user.email).toLowerCase(),
+      IsAdmin: toBool(user.IsAdmin),
+      IsGlobalAdmin: !!user.IsGlobalAdmin,
+      CampaignID: toStr(user.CampaignID || user.CampaignId || user.campaignId),
+      DefaultCampaignId: toStr(user.DefaultCampaignId || user.defaultCampaignId),
+      AllowedCampaignIds: scope.allowedCampaignIds.slice(),
+      ManagedCampaignIds: scope.managedCampaignIds.slice(),
+      AdminCampaignIds: scope.adminCampaignIds.slice(),
+      TenantScope: scope,
+      roles: (Array.isArray(user.roles) ? user.roles : []).map(sanitizeRole).filter(Boolean),
+      claims: (Array.isArray(user.claims) ? user.claims : []).map(sanitizeClaim).filter(Boolean),
+      pages: (Array.isArray(user.pages) ? user.pages : []).map(toStr).filter(Boolean)
+    };
+  }
+
   function readTable(sheetName, options = {}) {
     const table = getDbTable(sheetName);
     if (table) {
@@ -500,6 +585,7 @@ var AuthenticationService = (function () {
       const expiresAt = new Date(now.getTime() + ttl);
 
       const scope = cloneScope((options && options.scope) || buildSessionScope(userId, options && options.user));
+
       const sessionRecord = {
         Token: token,
         UserId: userId,
@@ -747,6 +833,33 @@ var AuthenticationService = (function () {
       console.warn('Error getting campaign pages:', error);
       return [];
     }
+  }
+
+  function buildClientUserPayload(userRow, scope) {
+    if (!userRow) return null;
+
+    const safeScope = cloneScope(scope || buildSessionScope(userRow.ID, userRow));
+    const allowedCampaignIds = safeScope.allowedCampaignIds.slice();
+    const effectiveCampaignId = safeScope.defaultCampaignId
+      || (allowedCampaignIds.length ? allowedCampaignIds[0] : toStr(userRow.CampaignID));
+
+    return {
+      ID: toStr(userRow.ID),
+      UserName: toStr(userRow.UserName),
+      FullName: toStr(userRow.FullName) || toStr(userRow.UserName),
+      Email: toStr(userRow.Email).toLowerCase(),
+      IsAdmin: toBool(userRow.IsAdmin),
+      IsGlobalAdmin: !!safeScope.isGlobalAdmin,
+      CampaignID: effectiveCampaignId,
+      DefaultCampaignId: safeScope.defaultCampaignId,
+      AllowedCampaignIds: allowedCampaignIds,
+      ManagedCampaignIds: safeScope.managedCampaignIds.slice(),
+      AdminCampaignIds: safeScope.adminCampaignIds.slice(),
+      TenantScope: safeScope,
+      roles: getUserRoles(userRow.ID),
+      claims: getUserClaims(userRow.ID),
+      pages: getUserCampaignPages(userRow.ID, effectiveCampaignId)
+    };
   }
 
   function buildClientUserPayload(userRow, scope) {
@@ -1556,6 +1669,7 @@ function loginUser(email, password, rememberMe = false) {
     writeError('loginUser', error);
     return {
       success: false,
+
       error: 'Login failed. Please try again.',
       errorCode: 'SYSTEM_ERROR'
     };
