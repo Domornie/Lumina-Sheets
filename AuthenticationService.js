@@ -472,7 +472,14 @@ var AuthenticationService = (function () {
   }
 
   function hashPwd(raw) {
-    return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw)
+    const normalized = raw == null ? '' : String(raw);
+    const digest = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      normalized,
+      Utilities.Charset.UTF_8
+    );
+
+    return digest
       .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2))
       .join('');
   }
