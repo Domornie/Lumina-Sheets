@@ -2639,13 +2639,33 @@ function clientGetIBTRUsers() {
 
 function getAllCampaigns() {
   try {
+    var campaigns;
     if (typeof clientGetAllCampaigns === 'function') {
-      return clientGetAllCampaigns();
+      campaigns = clientGetAllCampaigns();
     } else if (typeof readSheet === 'function') {
-      return readSheet('CAMPAIGNS') || [];
+      campaigns = readSheet('CAMPAIGNS') || [];
     } else {
-      return [];
+      campaigns = [];
     }
+
+    var currentUser = null;
+    try {
+      if (typeof getCurrentUser === 'function') {
+        currentUser = getCurrentUser();
+      }
+    } catch (err) {
+      console.warn('getAllCampaigns: failed to hydrate current user', err);
+    }
+
+    if (currentUser && currentUser.ID && typeof TenantSecurity !== 'undefined' && TenantSecurity) {
+      try {
+        return TenantSecurity.filterCampaignList(currentUser.ID, campaigns);
+      } catch (filterErr) {
+        console.warn('getAllCampaigns: tenant filter error', filterErr);
+      }
+    }
+
+    return campaigns;
   } catch (error) {
     console.error('Error getting all campaigns:', error);
     return [];
@@ -3258,6 +3278,14 @@ function initializeSystem() {
 
     initializeMainSheets();
     initializeCampaignSystems();
+
+    if (typeof CallCenterWorkflowService !== 'undefined' && CallCenterWorkflowService.initialize) {
+      try {
+        CallCenterWorkflowService.initialize();
+      } catch (err) {
+        console.warn('CallCenterWorkflowService initialization failed', err);
+      }
+    }
 
     console.log('System initialization completed successfully');
     return { success: true, message: 'System initialized' };

@@ -62,7 +62,16 @@ if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
 if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = ["ID", "Name", "NormalizedName", "CreatedAt", "UpdatedAt"];
 if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = ["UserId", "RoleId", "CreatedAt", "UpdatedAt"];
 if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ["ID", "UserId", "ClaimType", "CreatedAt", "UpdatedAt"];
-if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = ["Token", "UserId", "CreatedAt", "ExpiresAt"];
+if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
+  "Token",
+  "UserId",
+  "CreatedAt",
+  "ExpiresAt",
+  "RememberMe",
+  "CampaignScope",
+  "UserAgent",
+  "IpAddress"
+];
 
 if (typeof CHAT_GROUPS_HEADERS === 'undefined') var CHAT_GROUPS_HEADERS = ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
 if (typeof CHAT_CHANNELS_HEADERS === 'undefined') var CHAT_CHANNELS_HEADERS = ['ID', 'GroupId', 'Name', 'Description', 'IsPrivate', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
@@ -469,86 +478,115 @@ if (typeof readManagerAssignments_ !== 'function') {
 // ────────────────────────────────────────────────────────────────────────────
 // Setup: Create/Repair sheet with headers (idempotent w/ caching & retry)
 // ────────────────────────────────────────────────────────────────────────────
-function ensureSheetWithHeaders(name, headers) {
-  const MAX_RETRIES = 3, BASE_DELAY_MS = 1000;
-  const recursionGuardKey = `RECURSION_GUARD_${name}`;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+const __ensureSheetWithHeaders = (function () {
+  function ensureSheetWithHeadersImpl(name, headers) {
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 1000;
+    const recursionGuardKey = `RECURSION_GUARD_${name}`;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  function sleep(ms) { Utilities.sleep(ms); }
+    function sleep(ms) { Utilities.sleep(ms); }
 
-  try {
-    const recursionGuard = PropertiesService.getScriptProperties().getProperty(recursionGuardKey);
-    if (recursionGuard === 'active') {
-      console.log(`Recursion detected for sheet ${name}, skipping ensureSheetWithHeaders`);
-      return ss.getSheetByName(name);
-    }
-    PropertiesService.getScriptProperties().setProperty(recursionGuardKey, 'active');
+    try {
+      const recursionGuard = PropertiesService.getScriptProperties().getProperty(recursionGuardKey);
+      if (recursionGuard === 'active') {
+        console.log(`Recursion detected for sheet ${name}, skipping ensureSheetWithHeaders`);
+        return ss.getSheetByName(name);
+      }
+      PropertiesService.getScriptProperties().setProperty(recursionGuardKey, 'active');
 
-    if (!headers || !Array.isArray(headers) || headers.some(h => !h || typeof h !== 'string')) {
-      throw new Error('Invalid or empty headers provided');
-    }
-    const uniqueHeaders = new Set(headers);
-    if (uniqueHeaders.size !== headers.length) {
-      throw new Error('Duplicate headers detected');
-    }
+      if (!headers || !Array.isArray(headers) || headers.some(h => !h || typeof h !== 'string')) {
+        throw new Error('Invalid or empty headers provided');
+      }
+      const uniqueHeaders = new Set(headers);
+      if (uniqueHeaders.size !== headers.length) {
+        throw new Error('Duplicate headers detected');
+      }
 
-    const cacheKey = `SHEET_EXISTS_${name}`;
-    const cached = scriptCache.get(cacheKey);
-    let sh = ss.getSheetByName(name);
+      const cacheKey = `SHEET_EXISTS_${name}`;
+      const cached = scriptCache.get(cacheKey);
+      let sh = ss.getSheetByName(name);
 
-    // If exists with correct headers → return early
-    if (sh) {
-      const range = sh.getRange(1, 1, 1, headers.length);
-      const existing = range.getValues()[0] || [];
-      if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) return sh;
-    }
-
-    if (cached === 'true' && sh) {
-      console.log(`Cache hit: Sheet ${name} exists`);
-    } else {
-      let lastError = null;
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          sh = ss.getSheetByName(name);
-          if (!sh) {
-            sh = ss.insertSheet(name);
-            sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-            sh.setFrozenRows(1);
-            scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
-            console.log(`Created sheet ${name} with bold/frozen headers`);
-          } else {
-            const range = sh.getRange(1, 1, 1, headers.length);
-            const existing = range.getValues()[0] || [];
-            if (existing.length !== headers.length || existing.some((h, i) => h !== headers[i])) {
-              range.clearContent();
-              range.setValues([headers]).setFontWeight('bold');
-              sh.setFrozenRows(1);
-              console.log(`Updated headers for ${name}`);
-            }
-            scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+      if (sh) {
+        const range = sh.getRange(1, 1, 1, headers.length);
+        const existing = range.getValues()[0] || [];
+        if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) {
+          if (typeof registerTableSchema === 'function') {
+            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
           }
           return sh;
-        } catch (e) {
-          lastError = e;
-          if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
-            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-            console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
-            sleep(delay);
-            continue;
-          }
-          throw e;
         }
       }
-      throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
+
+      if (cached === 'true' && sh) {
+        console.log(`Cache hit: Sheet ${name} exists`);
+      } else {
+        let lastError = null;
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            sh = ss.getSheetByName(name);
+            if (!sh) {
+              sh = ss.insertSheet(name);
+              sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+              sh.setFrozenRows(1);
+              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+              console.log(`Created sheet ${name} with bold/frozen headers`);
+            } else {
+              const range = sh.getRange(1, 1, 1, headers.length);
+              const existing = range.getValues()[0] || [];
+              if (existing.length !== headers.length || existing.some((h, i) => h !== headers[i])) {
+                range.clearContent();
+                range.setValues([headers]).setFontWeight('bold');
+                sh.setFrozenRows(1);
+                console.log(`Updated headers for ${name}`);
+              }
+              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+            }
+            if (typeof registerTableSchema === 'function') {
+              try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+            }
+            return sh;
+          } catch (e) {
+            lastError = e;
+            if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
+              const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+              console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
+              sleep(delay);
+              continue;
+            }
+            throw e;
+          }
+        }
+        throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
+      }
+      if (typeof registerTableSchema === 'function') {
+        try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+      }
+      return sh;
+    } catch (e) {
+      console.error(`ensureSheetWithHeaders(${name}) failed: ${e.message}, Document ID: ${ss.getId()}`);
+      throw e;
+    } finally {
+      PropertiesService.getScriptProperties().deleteProperty(recursionGuardKey);
     }
-    return sh;
-  } catch (e) {
-    console.error(`ensureSheetWithHeaders(${name}) failed: ${e.message}, Document ID: ${ss.getId()}`);
-    throw e;
-  } finally {
-    PropertiesService.getScriptProperties().deleteProperty(recursionGuardKey);
   }
-}
+
+  return ensureSheetWithHeadersImpl;
+})();
+
+(function (global) {
+  const previous = (typeof global.ensureSheetWithHeaders === 'function') ? global.ensureSheetWithHeaders.bind(global) : null;
+  global.ensureSheetWithHeaders = function (name, headers) {
+    try {
+      return __ensureSheetWithHeaders(name, headers);
+    } catch (err) {
+      if (previous) {
+        try { return previous(name, headers); } catch (fallbackErr) { safeWriteError && safeWriteError('ensureSheetWithHeadersFallback', fallbackErr); }
+      }
+      throw err;
+    }
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
 
 // ────────────────────────────────────────────────────────────────────────────
 // Error / Debug logging
@@ -592,28 +630,189 @@ function safeWriteError(context, error) {
 // ────────────────────────────────────────────────────────────────────────────
 // Sheet read w/ caching
 // ────────────────────────────────────────────────────────────────────────────
-function readSheet(sheetName) {
-  try {
-    const cacheKey = `DATA_${sheetName}`;
-    const cached = scriptCache.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+const __readSheet = (function () {
+  function readSheetImpl(sheetName, optionsOrCache) {
+    const { useCache, allowScriptCache, queryOptions, tenantContext: explicitTenantContext, campaignId: requestedCampaignId, userId: requestedUserId } = _normalizeReadSheetOptions_(optionsOrCache);
+    const cacheKey = allowScriptCache ? `DATA_${sheetName}` : null;
 
+    if (allowScriptCache && cacheKey) {
+      try {
+        const cached = scriptCache.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch (cacheErr) {
+        console.warn(`Failed to read cache for ${sheetName}: ${cacheErr.message}`);
+      }
+    }
+
+    let data = null;
+    let usedDatabaseManager = false;
+
+    var schemaRegistry;
+    try {
+      schemaRegistry = typeof __DB_SCHEMA_REGISTRY__ !== 'undefined'
+        ? __DB_SCHEMA_REGISTRY__
+        : (typeof globalThis !== 'undefined' ? globalThis.__DB_SCHEMA_REGISTRY__ : null);
+    } catch (_) { schemaRegistry = null; }
+    var schema = schemaRegistry ? schemaRegistry[sheetName] : null;
+
+    var tenantContext = explicitTenantContext || null;
+    var currentUser = null;
+    if (!tenantContext && schema && schema.tenantColumn) {
+      var targetCampaignId = requestedCampaignId || null;
+      var targetUserId = requestedUserId || null;
+      if (!targetCampaignId && queryOptions && queryOptions.where) {
+        targetCampaignId = queryOptions.where.CampaignID || queryOptions.where.CampaignId || queryOptions.where.campaignId || null;
+      }
+      if (typeof getCurrentUser === 'function') {
+        try { currentUser = getCurrentUser(); } catch (ctxErr) { console.warn('readSheet: getCurrentUser failed', ctxErr); }
+      }
+      if (!targetUserId && currentUser && currentUser.ID) {
+        targetUserId = currentUser.ID;
+      }
+      if (typeof TenantSecurity !== 'undefined' && TenantSecurity && targetUserId) {
+        try {
+          tenantContext = TenantSecurity.getTenantContext(targetUserId, targetCampaignId).context;
+        } catch (tenantErr) {
+          console.warn(`readSheet(${sheetName}): tenant context error`, tenantErr);
+        }
+      }
+    }
+
+    if (typeof dbSelect === 'function') {
+      try {
+        const query = Object.assign({}, queryOptions);
+        if (!useCache) query.cache = false;
+        data = dbSelect(sheetName, query, tenantContext);
+        if (Array.isArray(data)) usedDatabaseManager = true;
+      } catch (dbErr) {
+        safeWriteError && safeWriteError(`readSheet(${sheetName})`, dbErr);
+        data = null;
+      }
+    }
+
+    if (!Array.isArray(data)) {
+      data = _legacyReadSheet_(sheetName);
+    }
+
+    if (allowScriptCache && cacheKey && Array.isArray(data)) {
+      try {
+        scriptCache.put(cacheKey, JSON.stringify(data), CACHE_TTL_SEC);
+      } catch (cachePutErr) {
+        console.warn(`Failed to cache ${sheetName}: ${cachePutErr.message}`);
+      }
+    }
+
+    if (!usedDatabaseManager && typeof queryOptions === 'object' && Object.keys(queryOptions).length) {
+      data = _applyQueryOptions_(data, queryOptions);
+    }
+
+    return Array.isArray(data) ? data : [];
+  }
+
+  return readSheetImpl;
+})();
+
+(function (global) {
+  const previousRead = (typeof global.readSheet === 'function') ? global.readSheet.bind(global) : null;
+  global.readSheet = function (sheetName, optionsOrCache) {
+    try {
+      return __readSheet(sheetName, optionsOrCache);
+    } catch (err) {
+      if (previousRead) {
+        try { return previousRead(sheetName, optionsOrCache); } catch (fallbackErr) { safeWriteError && safeWriteError('readSheetFallback', fallbackErr); }
+      }
+      throw err;
+    }
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+const __invalidateCache = (function () {
+  function invalidateCacheImpl(sheetName) {
+    try { scriptCache.remove(`DATA_${sheetName}`); } catch (e) { console.error('invalidateCache failed:', e); }
+    if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.dropTableCache === 'function') {
+      try { DatabaseManager.dropTableCache(sheetName); } catch (err) { console.error('DatabaseManager cache drop failed:', err); }
+    }
+  }
+
+  return invalidateCacheImpl;
+})();
+
+(function (global) {
+  const previousInvalidate = (typeof global.invalidateCache === 'function') ? global.invalidateCache.bind(global) : null;
+  global.invalidateCache = function (sheetName) {
+    __invalidateCache(sheetName);
+    if (previousInvalidate && previousInvalidate !== global.invalidateCache) {
+      try { previousInvalidate(sheetName); } catch (fallbackErr) { safeWriteError && safeWriteError('invalidateCacheFallback', fallbackErr); }
+    }
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+function _normalizeReadSheetOptions_(optionsOrCache) {
+  let options = {};
+  let useCache = true;
+  if (typeof optionsOrCache === 'boolean') {
+    useCache = optionsOrCache;
+  } else if (optionsOrCache && typeof optionsOrCache === 'object') {
+    options = optionsOrCache;
+    if (Object.prototype.hasOwnProperty.call(options, 'useCache')) {
+      useCache = options.useCache !== false;
+    } else if (Object.prototype.hasOwnProperty.call(options, 'cache')) {
+      useCache = options.cache !== false;
+    }
+  }
+
+  const queryKeys = ['where', 'filter', 'map', 'sortBy', 'sortDesc', 'offset', 'limit', 'columns'];
+  const queryOptions = {};
+  queryKeys.forEach(key => {
+    if (typeof options[key] !== 'undefined') queryOptions[key] = options[key];
+  });
+
+  const hasFunctions = typeof queryOptions.filter === 'function' || typeof queryOptions.map === 'function';
+  const allowScriptCache = useCache && !hasFunctions && Object.keys(queryOptions).length === 0;
+
+  let tenantContext = null;
+  if (options && typeof options === 'object') {
+    if (typeof options.tenantContext !== 'undefined') {
+      if (typeof options.tenantContext === 'string' || typeof options.tenantContext === 'number') {
+        tenantContext = { tenantId: String(options.tenantContext) };
+      } else if (options.tenantContext && typeof options.tenantContext === 'object') {
+        tenantContext = Object.assign({}, options.tenantContext);
+      }
+    } else if (typeof options.tenantId !== 'undefined') {
+      tenantContext = { tenantId: String(options.tenantId) };
+    } else if (typeof options.campaignId !== 'undefined') {
+      tenantContext = { tenantId: String(options.campaignId) };
+    }
+  }
+
+  const campaignId = options && typeof options === 'object' && typeof options.campaignId !== 'undefined'
+    ? String(options.campaignId)
+    : null;
+  const userId = options && typeof options === 'object' && typeof options.userId !== 'undefined'
+    ? String(options.userId)
+    : null;
+
+  return { useCache, allowScriptCache, queryOptions, tenantContext, campaignId, userId };
+}
+
+function _legacyReadSheet_(sheetName) {
+  try {
     const isCampaignSheet = sheetName === CAMPAIGNS_SHEET;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sh = ss.getSheetByName(sheetName);
-    if (!sh) { safeWriteError(`readSheet(${sheetName})`, `Sheet ${sheetName} not found`); return []; }
+    if (!sh) { safeWriteError && safeWriteError(`readSheet(${sheetName})`, `Sheet ${sheetName} not found`); return []; }
 
-    const lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    const lastRow = sh.getLastRow();
+    const lastCol = sh.getLastColumn();
     if (lastRow < 2 || lastCol < 1) return [];
 
     const vals = sh.getRange(1, 1, lastRow, lastCol).getValues();
     const headers = vals.shift().map(h => String(h).trim() || null);
     if (headers.some(h => !h)) return [];
-
     const uniqueHeaders = new Set(headers);
     if (uniqueHeaders.size !== headers.length) return [];
 
-    const data = vals.map(row => {
+    return vals.map(row => {
       const obj = {};
       let hasData = row.some(v => v !== '' && v != null);
       if (isCampaignSheet) {
@@ -629,16 +828,111 @@ function readSheet(sheetName) {
       });
       return obj;
     }).filter(Boolean);
-
-    scriptCache.put(cacheKey, JSON.stringify(data), CACHE_TTL_SEC);
-    return data;
   } catch (e) {
-    safeWriteError(`readSheet(${sheetName})`, e);
+    safeWriteError && safeWriteError(`readSheet(${sheetName})`, e);
     return [];
   }
 }
-function invalidateCache(sheetName) {
-  try { scriptCache.remove(`DATA_${sheetName}`); } catch (e) { console.error('invalidateCache failed:', e); }
+
+function _applyQueryOptions_(rows, options) {
+  if (!Array.isArray(rows) || !options) return Array.isArray(rows) ? rows : [];
+  let filtered = rows.slice();
+
+  if (options.where && typeof options.where === 'object') {
+    filtered = filtered.filter(row => _matchesWhere_(row, options.where));
+  }
+
+  if (options.filter && typeof options.filter === 'function') {
+    filtered = filtered.filter(options.filter);
+  }
+
+  if (options.map && typeof options.map === 'function') {
+    filtered = filtered.map(options.map);
+  }
+
+  if (options.sortBy) {
+    const key = options.sortBy;
+    const desc = !!options.sortDesc;
+    filtered.sort((a, b) => {
+      const av = a[key];
+      const bv = b[key];
+      if (av === bv) return 0;
+      if (av === undefined || av === null || av === '') return desc ? 1 : -1;
+      if (bv === undefined || bv === null || bv === '') return desc ? -1 : 1;
+      if (av > bv) return desc ? -1 : 1;
+      if (av < bv) return desc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const offset = options.offset || 0;
+  const limit = typeof options.limit === 'number' ? options.limit : null;
+  if (offset || limit !== null) {
+    const start = offset;
+    const end = limit !== null ? offset + limit : filtered.length;
+    filtered = filtered.slice(start, end);
+  }
+
+  if (options.columns && Array.isArray(options.columns) && options.columns.length) {
+    filtered = filtered.map(row => {
+      const projected = {};
+      options.columns.forEach(col => { projected[col] = row[col]; });
+      return projected;
+    });
+  }
+
+  return filtered;
+}
+
+function _matchesWhere_(row, where) {
+  const keys = Object.keys(where);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const expected = where[key];
+    const actual = row[key];
+    if (expected instanceof RegExp) {
+      if (!expected.test(String(actual || ''))) return false;
+    } else if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+      if (!_evaluateWhereOperator_(actual, expected)) return false;
+    } else if (String(actual) !== String(expected)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function _evaluateWhereOperator_(actual, expression) {
+  const ops = Object.keys(expression);
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i];
+    const value = expression[op];
+    switch (op) {
+      case '$gt':
+        if (!(actual > value)) return false;
+        break;
+      case '$gte':
+        if (!(actual >= value)) return false;
+        break;
+      case '$lt':
+        if (!(actual < value)) return false;
+        break;
+      case '$lte':
+        if (!(actual <= value)) return false;
+        break;
+      case '$ne':
+        if (actual === value) return false;
+        break;
+      case '$in':
+        if (!Array.isArray(value) || value.indexOf(actual) === -1) return false;
+        break;
+      case '$nin':
+        if (Array.isArray(value) && value.indexOf(actual) !== -1) return false;
+        break;
+      default:
+        if (String(actual) !== String(expression[op])) return false;
+    }
+  }
+  return true;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
