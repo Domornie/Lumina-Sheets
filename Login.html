@@ -875,6 +875,8 @@
       redirectDelay: 3000 // 3 seconds
     };
 
+    const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
+
     function sanitizeBaseUrl(candidate, fallback) {
       const invalidPattern = /usercodeapppanel/i;
 
@@ -974,7 +976,13 @@
       redirectUrl: '',
       countdownValue: 3,
       authToken: '',
-      hasAttemptedResume: false
+      hasAttemptedResume: false,
+      loginRequestTimer: null,
+      loginRequestActive: false,
+      loginTimeoutFired: false,
+      pendingLogin: null,
+      autoRetryCount: 0,
+      isAutoRetrying: false
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1042,6 +1050,97 @@
           elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>SIGN IN';
         }
       }
+    }
+
+    function clearLoginRequestTimer() {
+      if (state.loginRequestTimer) {
+        clearTimeout(state.loginRequestTimer);
+        state.loginRequestTimer = null;
+      }
+    }
+
+    function finalizeLoginRequest() {
+      clearLoginRequestTimer();
+      state.loginRequestActive = false;
+      state.loginTimeoutFired = false;
+      state.pendingLogin = null;
+      state.autoRetryCount = 0;
+      state.isAutoRetrying = false;
+    }
+
+    function monitorLoginRequest(email, rememberMe) {
+      clearLoginRequestTimer();
+      if (!state.isAutoRetrying) {
+        state.autoRetryCount = 0;
+      }
+      state.isAutoRetrying = false;
+
+      state.loginRequestActive = true;
+      state.loginTimeoutFired = false;
+      state.pendingLogin = { email, rememberMe, autoRetried: false };
+
+      state.loginRequestTimer = setTimeout(() => {
+        state.loginRequestTimer = null;
+        state.loginTimeoutFired = true;
+        state.loginRequestActive = false;
+
+        setLoading(false);
+
+        showAlert('warning', 'Login is taking longer than expected. We refreshed your sign-in timer—please try again.');
+
+        const retryLogin = () => {
+          hideAllAlerts();
+
+          const pending = state.pendingLogin || {};
+          if (elements.emailInput && pending.email && !elements.emailInput.value.trim()) {
+            elements.emailInput.value = pending.email;
+          }
+          if (elements.rememberMeCheckbox && typeof pending.rememberMe === 'boolean') {
+            elements.rememberMeCheckbox.checked = pending.rememberMe;
+          }
+
+          if (elements.loginForm) {
+            const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+            elements.loginForm.dispatchEvent(retryEvent);
+          }
+        };
+
+        showNextSteps({
+          title: 'Still signing you in…',
+          subtitle: 'The server is taking longer than normal to respond.',
+          body: 'We renewed your sign-in session timer so you can try again immediately. If this continues, please contact support.',
+          tone: 'warning',
+          icon: 'fa-hourglass-half',
+          actions: [
+            {
+              type: 'button',
+              label: 'Try Again Now',
+              icon: 'fa-rotate',
+              variant: 'primary',
+              onClick: retryLogin
+            },
+            {
+              type: 'link',
+              label: 'Email Support',
+              icon: 'fa-headset',
+              variant: 'outline-secondary',
+              href: `mailto:${SUPPORT_EMAIL}`,
+              target: '_blank',
+              rel: 'noopener'
+            }
+          ]
+        });
+
+        const pending = state.pendingLogin;
+        if (pending && !pending.autoRetried && state.autoRetryCount < 2) {
+          pending.autoRetried = true;
+          state.autoRetryCount += 1;
+          state.isAutoRetrying = true;
+          setTimeout(() => {
+            retryLogin();
+          }, 200);
+        }
+      }, LOGIN_REQUEST_TIMEOUT_MS);
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1379,16 +1478,25 @@
       Object.keys(params || {}).forEach(key => keysToRemove.add(key));
       keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
 
-      baseUrl.searchParams.set('page', page);
+      const orderedParams = [];
+      if (params && Object.prototype.hasOwnProperty.call(params, 'token')) {
+        orderedParams.push(['token', params.token]);
+      }
 
       Object.keys(params || {}).forEach(key => {
-        const value = params[key];
+        if (key === 'token') return;
+        orderedParams.push([key, params[key]]);
+      });
+
+      orderedParams.forEach(([key, value]) => {
         if (value === undefined || value === null) {
           baseUrl.searchParams.delete(key);
         } else {
           baseUrl.searchParams.set(key, value);
         }
       });
+
+      baseUrl.searchParams.set('page', page);
 
       return baseUrl.toString();
     }
@@ -1906,16 +2014,25 @@
       Object.keys(params || {}).forEach(key => keysToRemove.add(key));
       keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
 
-      baseUrl.searchParams.set('page', page);
+      const orderedParams = [];
+      if (params && Object.prototype.hasOwnProperty.call(params, 'token')) {
+        orderedParams.push(['token', params.token]);
+      }
 
       Object.keys(params || {}).forEach(key => {
-        const value = params[key];
+        if (key === 'token') return;
+        orderedParams.push([key, params[key]]);
+      });
+
+      orderedParams.forEach(([key, value]) => {
         if (value === undefined || value === null) {
           baseUrl.searchParams.delete(key);
         } else {
           baseUrl.searchParams.set(key, value);
         }
       });
+
+      baseUrl.searchParams.set('page', page);
 
       return baseUrl.toString();
     }
@@ -2300,16 +2417,20 @@
         }
 
         try {
-          window.location.href = state.redirectUrl;
+          if (
+            typeof google !== 'undefined' &&
+            google.script &&
+            google.script.host &&
+            typeof google.script.host.setLocation === 'function'
+          ) {
+            google.script.host.setLocation(state.redirectUrl);
+          } else {
+            window.location.href = state.redirectUrl;
 
-          setTimeout(() => {
-            window.location.assign(state.redirectUrl);
-          }, 100);
-          
-          setTimeout(() => {
-            window.top.location.href = state.redirectUrl;
-          }, 500);
-          
+            setTimeout(() => {
+              window.location.assign(state.redirectUrl);
+            }, 100);
+          }
         } catch (error) {
           console.error('Redirect failed:', error);
           showAlert('error', 'Redirect failed. Please click the button below to continue.');
@@ -2373,8 +2494,13 @@
     // ───────────────────────────────────────────────────────────────────────────────
     function handleLogin(email, password, rememberMe) {
       console.log('Attempting login for:', email);
-       google.script.run
+
+      monitorLoginRequest(email, rememberMe);
+
+      google.script.run
         .withSuccessHandler(response => {
+          finalizeLoginRequest();
+
           console.log('Login response:', response);
           setLoading(false);
 
@@ -2440,6 +2566,8 @@
           }
         })
         .withFailureHandler(error => {
+          finalizeLoginRequest();
+
           setLoading(false);
           console.error('Login error:', error);
           clearAuthCookie();
