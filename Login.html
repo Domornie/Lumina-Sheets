@@ -875,19 +875,22 @@
       redirectDelay: 3000 // 3 seconds
     };
 
+    CONFIG.baseUrl = (CONFIG.baseUrl || '').trim();
+    if (!CONFIG.baseUrl || CONFIG.baseUrl.toLowerCase() === 'undefined') {
+      const scriptUrl = (CONFIG.scriptUrl || '').trim();
+      if (scriptUrl && scriptUrl.toLowerCase() !== 'undefined') {
+        CONFIG.baseUrl = scriptUrl;
+      } else {
+        const current = new URL(window.location.href);
+        CONFIG.baseUrl = current.origin + current.pathname;
+      }
+    }
+
     const SUPPORT_EMAIL = 'support@vlbpo.com';
     const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
     const AUTH_COOKIE_NAME = 'authToken';
     const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
     const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
-    const STORAGE_KEYS = {
-      rememberedEmail: 'lumina.auth.rememberedEmail',
-      rememberExpiry: 'lumina.auth.rememberExpiry',
-      lastEmail: 'lumina.auth.lastEmail'
-    };
-
-    const SUPPORT_EMAIL = 'support@vlbpo.com';
-    const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
     const STORAGE_KEYS = {
       rememberedEmail: 'lumina.auth.rememberedEmail',
       rememberExpiry: 'lumina.auth.rememberExpiry',

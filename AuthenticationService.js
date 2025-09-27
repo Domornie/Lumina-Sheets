@@ -65,68 +65,39 @@ function resolveScriptUrl() {
 
 var AuthenticationService = (function () {
 
-  const passwordUtils = (function ensurePasswordUtilities() {
+  const passwordUtils = (function resolvePasswordUtilities() {
+    if (typeof ensurePasswordUtilities === 'function') {
+      return ensurePasswordUtilities();
+    }
+    
     if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
       return PasswordUtilities;
     }
 
-    function normalizePasswordInput(raw) {
-      return raw == null ? '' : String(raw);
-    }
+    if (typeof __createPasswordUtilitiesModule === 'function') {
+      const utils = __createPasswordUtilitiesModule();
 
-    function normalizeHash(hash) {
-      if (hash === null || typeof hash === 'undefined') return '';
-      if (hash instanceof Date) return hash.toISOString();
-      return String(hash).trim().toLowerCase();
-    }
-
-    function digestToHex(digest) {
-      if (!digest || typeof digest.map !== 'function') return '';
-      return digest
-        .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
-        .join('');
-    }
-
-    function hashPassword(raw) {
-      const normalized = normalizePasswordInput(raw);
-      const digest = Utilities.computeDigest(
-        Utilities.DigestAlgorithm.SHA_256,
-        normalized,
-        Utilities.Charset.UTF_8
-      );
-      return digestToHex(digest);
-    }
-
-    function constantTimeEquals(a, b) {
-      if (a == null || b == null) return false;
-      const strA = String(a);
-      const strB = String(b);
-      if (strA.length !== strB.length) return false;
-      let diff = 0;
-      for (let i = 0; i < strA.length; i++) {
-        diff |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
+      try {
+        if (typeof PasswordUtilities === 'undefined' || !PasswordUtilities) {
+          PasswordUtilities = utils;
+        }
+      } catch (assignErr) {
+        // Ignore assignment issues (e.g., strict mode) and just return the instance.
       }
-      return diff === 0;
+
+      if (typeof ensurePasswordUtilities !== 'function') {
+        try {
+          ensurePasswordUtilities = function ensurePasswordUtilities() { return utils; };
+        } catch (ensureErr) {
+          // Ignore if the global cannot be reassigned.
+        }
+      }
+
+      return utils;
     }
 
-    function verifyPassword(raw, expectedHash) {
-      const normalizedExpected = normalizeHash(expectedHash);
-      if (!normalizedExpected) return false;
-      const hashed = hashPassword(raw);
-      return constantTimeEquals(hashed, normalizedExpected);
-    }
-
-    return {
-      normalizePasswordInput,
-      normalizeHash,
-      decodePasswordHash: normalizeHash,
-      digestToHex,
-      hashPassword,
-      createPasswordHash: hashPassword,
-      verifyPassword,
-      comparePassword: verifyPassword,
-      constantTimeEquals
-    };
+    throw new Error('PasswordUtilities module is not available.');
+    
   })();
 
   function normalizeHashValue(hash) {

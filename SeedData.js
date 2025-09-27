@@ -34,36 +34,31 @@ const SEED_ADMIN_PROFILE = {
   roleNames: ['Super Admin', 'Administrator']
 };
 
-const PASSWORD_UTILS = (function ensurePasswordUtilities() {
+const PASSWORD_UTILS = (function resolvePasswordUtilities() {
+  if (typeof ensurePasswordUtilities === 'function') {
+    return ensurePasswordUtilities();
+  }
+
   if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
     return PasswordUtilities;
   }
 
-  function normalizePasswordInput(raw) {
-    return raw == null ? '' : String(raw);
+  if (typeof __createPasswordUtilitiesModule === 'function') {
+    const utils = __createPasswordUtilitiesModule();
+
+    if (typeof PasswordUtilities === 'undefined' || !PasswordUtilities) {
+      PasswordUtilities = utils;
+    }
+
+    if (typeof ensurePasswordUtilities !== 'function') {
+      ensurePasswordUtilities = function ensurePasswordUtilities() { return utils; };
+    }
+
+    return utils;
   }
 
-  function digestToHex(digest) {
-    if (!digest || typeof digest.map !== 'function') return '';
-    return digest
-      .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
-      .join('');
-  }
+  throw new Error('PasswordUtilities module is not available.');
 
-  function hashPassword(raw) {
-    var normalized = normalizePasswordInput(raw);
-    var digest = Utilities.computeDigest(
-      Utilities.DigestAlgorithm.SHA_256,
-      normalized,
-      Utilities.Charset.UTF_8
-    );
-    return digestToHex(digest);
-  }
-
-  return {
-    hashPassword: hashPassword,
-    createPasswordHash: hashPassword
-  };
 })();
 
 /**
