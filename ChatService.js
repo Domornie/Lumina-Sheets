@@ -28,18 +28,80 @@ function generateId() {
   return Utilities.getUuid();
 }
 
-/** Get the current user's email */
-function getCurrentUser() {
-  return Session.getActiveUser().getEmail();
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isTruthyFlag(value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y'].includes(normalized);
+}
+
+function getChatCurrentUser() {
+  let profile = null;
+  if (typeof getCurrentUser === 'function') {
+    try {
+      profile = getCurrentUser();
+    } catch (err) {
+      console.warn('ChatService.getChatCurrentUser: global lookup failed', err);
+    }
+  }
+
+  let email = '';
+  let displayName = '';
+
+  if (profile) {
+    if (typeof profile === 'string') {
+      email = profile;
+      displayName = profile;
+    } else if (typeof profile === 'object') {
+      email = profile.Email || profile.email || profile.UserId || profile.userId || '';
+      displayName = profile.FullName || profile.fullName || profile.UserName || profile.userName || '';
+    }
+  }
+
+  if (!email) {
+    try {
+      email = Session.getActiveUser().getEmail() || '';
+    } catch (err) {
+      console.warn('ChatService.getChatCurrentUser: Session fallback failed', err);
+    }
+  }
+
+  if (!displayName) {
+    displayName = email || displayName;
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  return {
+    email,
+    normalizedEmail,
+    displayName
+  };
+}
+
+function getCurrentUserEmail() {
+  return getChatCurrentUser().email;
+}
+
+function getCurrentUserNormalizedEmail() {
+  return getChatCurrentUser().normalizedEmail;
 }
 
 /**
  * Returns true if the given (or current) user has IsAdmin === true in the Users sheet.
  */
 function isUserAdmin(userEmail) {
-  const email = userEmail || getCurrentUser();
-  const user = readSheet(USERS_SHEET).find(u => u.Email === email);
-  return !!(user && user.IsAdmin);
+  const targetEmail = normalizeEmail(userEmail) || getCurrentUserNormalizedEmail();
+  if (!targetEmail) return false;
+
+  const user = readSheet(USERS_SHEET)
+    .find(u => normalizeEmail(u.Email) === targetEmail);
+
+  if (!user) return false;
+
+  return isTruthyFlag(user.IsAdmin);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -48,11 +110,11 @@ function isUserAdmin(userEmail) {
 /** List groups visible to the current user */
 function listMyGroups() {
   initializeChatService();
-  const me = getCurrentUser();
+  const currentUser = getChatCurrentUser();
   let groups = readSheet(CHAT_GROUPS_SHEET);
-  if (isUserAdmin(me)) return groups;
+  if (isUserAdmin(currentUser.email)) return groups;
   const memberRows = readSheet(CHAT_GROUP_MEMBERS_SHEET)
-    .filter(m => m.UserId === me && m.IsActive);
+    .filter(m => normalizeEmail(m.UserId) === currentUser.normalizedEmail && isTruthyFlag(m.IsActive));
   const ids = [...new Set(memberRows.map(m => m.GroupId))];
   return groups.filter(g => ids.includes(g.ID));
 }
@@ -61,13 +123,15 @@ function listMyGroups() {
 function createChatGroup(name, description = '') {
   initializeChatService();
   if (!name.trim()) return { success: false, error: 'Group name required' };
-  const now = new Date(), user = getCurrentUser(), id = generateId();
+  const now = new Date();
+  const currentUser = getChatCurrentUser();
+  const id = generateId();
   try {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_GROUPS_SHEET);
-    sh.appendRow([ id, name, description, user, now, now ]);
+    sh.appendRow([ id, name, description, currentUser.email, now, now ]);
     writeDebug(`group_created:${id}`);
     // auto‑add creator as admin member & default channel
-    addUserToChatGroup(id, user, 'admin');
+    addUserToChatGroup(id, currentUser.email, 'admin');
     createChatChannel(id, 'general', 'Default channel');
     return { success: true, groupId: id };
   } catch (e) {
@@ -112,10 +176,12 @@ function getChatChannels(groupId) {
 function createChatChannel(groupId, name, description = '', isPrivate = false) {
   initializeChatService();
   if (!name.trim()) return { success: false, error: 'Channel name required' };
-  const now = new Date(), user = getCurrentUser(), id = generateId();
+  const now = new Date();
+  const currentUser = getChatCurrentUser();
+  const id = generateId();
   try {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_CHANNELS_SHEET);
-    sh.appendRow([ id, groupId, name, description, isPrivate, user, now, now ]);
+    sh.appendRow([ id, groupId, name, description, isPrivate, currentUser.email, now, now ]);
     writeDebug(`channel_created:${id}`);
     return { success: true, channelId: id };
   } catch (e) {
@@ -178,12 +244,13 @@ function postChatMessage(channelId, userId, text, parentMessageId = null) {
   initializeChatService();
   if (!text.trim()) return { success: false, error: 'Message cannot be empty' };
   if (text.length > 2000) return { success: false, error: 'Message too long' };
+  const sender = userId || getCurrentUserEmail();
   const now = new Date(), id = generateId();
   try {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_MESSAGES_SHEET);
-    sh.appendRow([ id, channelId, userId, text, now, null, parentMessageId, false ]);
+    sh.appendRow([ id, channelId, sender, text, now, null, parentMessageId, false ]);
     writeDebug(`message_posted:${id}`);
-    updateUserLastSeen(userId);
+    updateUserLastSeen(sender);
     return { success: true, messageId: id };
   } catch (e) {
     writeError('postChatMessage', e);
@@ -195,7 +262,11 @@ function postChatMessage(channelId, userId, text, parentMessageId = null) {
 function deleteChatMessage(messageId, userId) {
   initializeChatService();
   const rows = readSheet(CHAT_MESSAGES_SHEET);
-  const idx  = rows.findIndex(r => r.ID === messageId && (r.UserId === userId || isUserAdmin(userId)));
+  const targetUser = userId || getCurrentUserEmail();
+  const normalizedUser = normalizeEmail(targetUser);
+  const idx  = rows.findIndex(r => r.ID === messageId && (
+    normalizeEmail(r.UserId) === normalizedUser || isUserAdmin(targetUser)
+  ));
   if (idx < 0) return { success: false, error: 'Not found or unauthorized' };
   try {
     const sh   = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_MESSAGES_SHEET);
@@ -219,14 +290,16 @@ function deleteChatMessage(messageId, userId) {
 /** Add a user to a group */
 function addUserToChatGroup(groupId, userId, role = 'member') {
   initializeChatService();
+  const normalizedUser = normalizeEmail(userId || getCurrentUserEmail());
+  const targetUserId = userId || getCurrentUserEmail();
   const exists = readSheet(CHAT_GROUP_MEMBERS_SHEET)
-    .some(m => m.GroupId === groupId && m.UserId === userId && m.IsActive);
+    .some(m => m.GroupId === groupId && normalizeEmail(m.UserId) === normalizedUser && isTruthyFlag(m.IsActive));
   if (exists) return { success: false, error: 'Already a member' };
   const now = new Date(), id = generateId();
   try {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_GROUP_MEMBERS_SHEET);
-    sh.appendRow([ id, groupId, userId, now, role, true ]);
-    writeDebug(`user_added:${groupId}|${userId}`);
+    sh.appendRow([ id, groupId, targetUserId, now, role, true ]);
+    writeDebug(`user_added:${groupId}|${targetUserId}`);
     return { success: true, memberId: id };
   } catch (e) {
     writeError('addUserToChatGroup', e);
@@ -237,8 +310,10 @@ function addUserToChatGroup(groupId, userId, role = 'member') {
 /** Remove a user from a group */
 function removeUserFromChatGroup(groupId, userId) {
   initializeChatService();
+  const targetUserId = userId || getCurrentUserEmail();
+  const normalizedUser = normalizeEmail(targetUserId);
   const rows = readSheet(CHAT_GROUP_MEMBERS_SHEET);
-  const idx  = rows.findIndex(r => r.GroupId === groupId && r.UserId === userId);
+  const idx  = rows.findIndex(r => r.GroupId === groupId && normalizeEmail(r.UserId) === normalizedUser);
   if (idx < 0) return { success: false, error: 'Membership not found' };
   try {
     const sh   = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_GROUP_MEMBERS_SHEET);
@@ -247,7 +322,7 @@ function removeUserFromChatGroup(groupId, userId) {
     data[idx][5] = false; // IsActive
     sh.clear(); sh.appendRow(hdr);
     sh.getRange(2,1,data.length,data[0].length).setValues(data);
-    writeDebug(`user_removed:${groupId}|${userId}`);
+    writeDebug(`user_removed:${groupId}|${targetUserId}`);
     return { success: true };
   } catch (e) {
     writeError('removeUserFromChatGroup', e);
@@ -261,9 +336,10 @@ function removeUserFromChatGroup(groupId, userId) {
 /** Add a reaction to a message */
 function addMessageReaction(messageId, reaction, userId) {
   initializeChatService();
-  const user = userId || getCurrentUser();
+  const user = userId || getCurrentUserEmail();
+  const normalizedUser = normalizeEmail(user);
   const exists = readSheet(CHAT_MESSAGE_REACTIONS_SHEET)
-    .some(r => r.MessageId === messageId && r.UserId === user && r.Reaction === reaction);
+    .some(r => r.MessageId === messageId && normalizeEmail(r.UserId) === normalizedUser && r.Reaction === reaction);
   if (exists) return { success: false, error: 'Already reacted' };
   const now = new Date(), id = generateId();
   try {
@@ -280,9 +356,14 @@ function addMessageReaction(messageId, reaction, userId) {
 /** Remove a reaction from a message */
 function removeMessageReaction(messageId, reaction, userId) {
   initializeChatService();
-  const user = userId || getCurrentUser();
+  const user = userId || getCurrentUserEmail();
+  const normalizedUser = normalizeEmail(user);
   const rows = readSheet(CHAT_MESSAGE_REACTIONS_SHEET);
-  const filtered = rows.filter(r => !(r.MessageId === messageId && r.UserId === user && r.Reaction === reaction));
+  const filtered = rows.filter(r => !(
+    r.MessageId === messageId &&
+    normalizeEmail(r.UserId) === normalizedUser &&
+    r.Reaction === reaction
+  ));
   try {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_MESSAGE_REACTIONS_SHEET);
     const data = sh.getDataRange().getValues();
@@ -335,7 +416,7 @@ function searchChatMessages(query, groupId, limit = 50) {
 /** Log an analytics event */
 function logChatActivity(action, details, userId) {
   try {
-    const user = userId || getCurrentUser();
+    const user = userId || getCurrentUserEmail();
     const sess = Session.getTemporaryActiveUserKey() || '';
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_ANALYTICS_SHEET);
     sh.appendRow([ new Date(), user, action, JSON.stringify(details), sess ]);
@@ -347,19 +428,20 @@ function logChatActivity(action, details, userId) {
 /** Fetch or initialize user preferences */
 function getUserPreferences(userId) {
   initializeChatService();
-  const user = userId || getCurrentUser();
+  const user = userId || getCurrentUserEmail();
+  const normalizedUser = normalizeEmail(user);
   return readSheet(CHAT_USER_PREFERENCES_SHEET)
-    .find(p => p.UserId === user)
+    .find(p => normalizeEmail(p.UserId) === normalizedUser)
   || { UserId:user, NotificationSettings:'{}', Theme:'light', LastSeen:new Date(), Status:'active' };
 }
 
 /** Update user preferences */
 function updateUserPreferences(updates, userId) {
   initializeChatService();
-  const user = userId || getCurrentUser();
+  const user = userId || getCurrentUserEmail();
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CHAT_USER_PREFERENCES_SHEET);
   const data = sh.getDataRange().getValues(), hdr = data.shift();
-  const idx = data.findIndex(r=>r[0]===user);
+  const idx = data.findIndex(r => normalizeEmail(r[0]) === normalizeEmail(user));
   const row = [
     user,
     updates.NotificationSettings || JSON.stringify({}),
@@ -391,9 +473,11 @@ function updateUserLastSeen(userId) {
 function getUserChatGroups(userId) {
   // make sure all sheets exist
   initializeChatService();
+  const targetUserId = userId || getCurrentUserEmail();
+  const normalizedUser = normalizeEmail(targetUserId);
   // get active memberships
   const memberships = readSheet(CHAT_GROUP_MEMBERS_SHEET)
-    .filter(m => m.UserId === userId && m.IsActive);
+    .filter(m => normalizeEmail(m.UserId) === normalizedUser && isTruthyFlag(m.IsActive));
   const groupIds = memberships.map(m => m.GroupId);
   if (!groupIds.length) return [];
   // fetch all groups once
