@@ -30,26 +30,29 @@ schema defaults once and re-use the same interface across every client campaign.
 ### Quick start
 
 ```javascript
-const users = DatabaseManager.defineTable('Users', {
-  headers: ['ID', 'UserName', 'Email', 'CampaignID'],
-  defaults: { CanLogin: true },
+const agentProfiles = DatabaseManager.defineTable('AgentProfiles', {
+  headers: ['id', 'tenantId', 'userId', 'status', 'primarySkillGroup'],
+  defaults: { status: 'active' },
 });
 
 // Create
-const user = users.insert({
-  UserName: 'jsmith',
-  Email: 'jsmith@example.com',
-  CampaignID: 'credit-suite'
+const agent = agentProfiles.insert({
+  tenantId: 'credit-suite',
+  userId: 'USR_000123',
+  primarySkillGroup: 'inbound-support'
 });
 
 // Read
-const perCampaign = users.find({ where: { CampaignID: 'credit-suite' } });
+const activeRoster = agentProfiles.find({
+  where: { tenantId: 'credit-suite', status: 'active' },
+  sortBy: 'primarySkillGroup'
+});
 
 // Update
-users.update(user.ID, { CanLogin: false });
+agentProfiles.update(agent.id, { status: 'onboarding' });
 
 // Delete
-users.delete(user.ID);
+agentProfiles.delete(agent.id);
 ```
 
 The manager automatically ensures each sheet exists, appends missing headers, and
@@ -64,20 +67,20 @@ database abstraction without rewriting business logic:
 
 ```javascript
 // Read data with optional filters/sorting/pagination
-const activeUsers = dbSelect(USERS_SHEET, {
-  where: { CampaignID: campaignId, CanLogin: true },
-  sortBy: 'FullName'
+const activeAgents = dbSelect('AgentProfiles', {
+  where: { tenantId: campaignId, status: 'active' },
+  sortBy: 'primarySkillGroup'
 });
 
 // Create/update/delete
-const created = dbCreate(USERS_SHEET, payload);
-const updated = dbUpdate(USERS_SHEET, created.ID, { ResetRequired: false });
-dbDelete(USERS_SHEET, created.ID);
+const created = dbCreate('AgentProfiles', payload);
+const updated = dbUpdate('AgentProfiles', created.id, { status: 'inactive' });
+dbDelete('AgentProfiles', created.id);
 
 // Upsert by any condition (automatically creates IDs when needed)
-dbUpsert(CAMPAIGN_USER_PERMISSIONS_SHEET, { UserID, CampaignID }, {
-  PermissionLevel: 'Manager',
-  CanManageUsers: true
+dbUpsert('AgentSkillAssignments', { agentId: created.id, skillName: 'Spanish' }, {
+  proficiency: 'advanced',
+  certifiedAt: new Date()
 });
 ```
 
@@ -152,38 +155,56 @@ locking, audit logging, and REST-style access on top of standard worksheets.
 ### Bootstrapping tables
 
 During `initializeSystem()` the project calls `initializeSheetsDatabase()` to define
-sample tables (`CoachingSessions`, `QualityReviews`, and `WebhooksOutbox`). Use this as a template
-for your own schemas:
+sample tables (`AgentProfiles`, `AgentSkillAssignments`, `AgentStatusEvents`, and
+`AgentPerformanceSummaries`). Use this as a template for your own schemas:
 
 ```javascript
 SheetsDB.defineTable({
-  name: 'CoachingSessions',
+  name: 'AgentProfiles',
   primaryKey: 'id',
-  idPrefix: 'COACH_',
+  idPrefix: 'AGENT_',
   columns: [
-    { name: 'id', type: 'string', primaryKey: true },
     { name: 'tenantId', type: 'string', required: true },
-    { name: 'agentId', type: 'string', required: true,
+    { name: 'userId', type: 'string', required: true,
       references: { table: 'Users', column: 'ID', allowNull: false } },
-    { name: 'coachId', type: 'string', required: true,
-      references: { table: 'Users', column: 'ID', allowNull: false } },
-    { name: 'sessionDate', type: 'timestamp', required: true },
+    { name: 'teamId', type: 'string', nullable: true },
     { name: 'status', type: 'enum', required: true,
-      allowedValues: ['scheduled', 'completed', 'cancelled'], defaultValue: 'scheduled' }
+      allowedValues: ['active', 'onboarding', 'inactive', 'terminated'], defaultValue: 'active' }
   ],
-  indexes: [{ name: 'CoachingSessions_agent', field: 'agentId' }],
-  retentionDays: 365
+  indexes: [
+    { name: 'AgentProfiles_user', field: 'userId', unique: true },
+    { name: 'AgentProfiles_status', field: 'status' }
+  ]
 });
 ```
+
+### Agent data models
+
+The SheetsDB bootstrap registers the following call-center centric tables so
+Apps Script services and REST clients share the same vocabulary:
+
+| Table | Purpose |
+| --- | --- |
+| `Users` | Canonical identity records, owned by `AuthenticationService` and mirrored into SheetsDB. |
+| `Sessions` | Active login sessions with TTL enforcement and client metadata. |
+| `AgentProfiles` | Extended roster metadata per agent (tenant, team, supervisor, employment type, etc.). |
+| `AgentSkillAssignments` | Skill inventory for each agent with proficiency and certification tracking. |
+| `AgentStatusEvents` | Chronological log of presence events (available, break, training, etc.). |
+| `AgentPerformanceSummaries` | Periodic KPI aggregates, coaching notes, and retention windows. |
+
+Use the `SheetsDB.getTable('<TableName>')` runtime helper or the REST endpoint
+(`GET ?api=db&action=tables`) to confirm the schemas that are currently
+registered in your deployment.
 
 ### REST-style access
 
 The web app exposes `/exec?api=db` for programmatic access:
 
 ```
-GET  ?api=db&table=CoachingSessions&limit=50
-GET  ?api=db&table=CoachingSessions&id=COACH_000123
-POST ?api=db (body: { "action": "create", "table": "CoachingSessions", ... })
+GET  ?api=db&table=AgentProfiles&limit=50
+GET  ?api=db&table=AgentProfiles&id=AGENT_000123
+POST ?api=db (body: { "action": "create", "table": "AgentProfiles", ... })
+
 ```
 
 Protect the endpoint with script properties:

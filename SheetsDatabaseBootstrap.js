@@ -153,71 +153,99 @@ function initializeSheetsDatabase() {
     });
 
     SheetsDB.defineTable({
-      name: 'CoachingSessions',
+      name: 'AgentProfiles',
       version: 1,
       primaryKey: 'id',
-      idPrefix: 'COACH_',
+      idPrefix: 'AGENT_',
       columns: [
         { name: 'id', type: 'string', primaryKey: true },
         { name: 'tenantId', type: 'string', required: true, index: true },
-        { name: 'agentId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
-        { name: 'coachId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
-        { name: 'sessionDate', type: 'timestamp', required: true },
-        { name: 'status', type: 'enum', required: true, allowedValues: ['scheduled', 'completed', 'cancelled'], defaultValue: 'scheduled' },
-        { name: 'durationMinutes', type: 'number', nullable: true, min: 0 },
-        { name: 'focusAreas', type: 'json', nullable: true },
+        { name: 'userId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
+        { name: 'teamId', type: 'string', nullable: true },
+        { name: 'supervisorId', type: 'string', nullable: true, references: { table: usersTableName, column: 'ID', allowNull: true } },
+        { name: 'employmentType', type: 'enum', required: true, allowedValues: ['full-time', 'part-time', 'contract'], defaultValue: 'full-time' },
+        { name: 'primarySkillGroup', type: 'string', nullable: true },
+        { name: 'status', type: 'enum', required: true, allowedValues: ['active', 'onboarding', 'inactive', 'terminated'], defaultValue: 'active' },
+        { name: 'hireDate', type: 'date', nullable: true },
+        { name: 'lastActiveAt', type: 'timestamp', nullable: true },
         { name: 'notes', type: 'string', nullable: true, maxLength: 4000 }
       ],
       indexes: [
-        { name: 'CoachingSessions_agent', field: 'agentId' },
-        { name: 'CoachingSessions_status', field: 'status' }
-      ],
-      retentionDays: 365
+        { name: 'AgentProfiles_user', field: 'userId', unique: true },
+        { name: 'AgentProfiles_team', field: 'teamId' },
+        { name: 'AgentProfiles_status', field: 'status' }
+      ]
     });
 
     SheetsDB.defineTable({
-      name: 'QualityReviews',
+      name: 'AgentSkillAssignments',
       version: 1,
       primaryKey: 'id',
-      idPrefix: 'QAR_',
+      idPrefix: 'SKILL_',
       columns: [
         { name: 'id', type: 'string', primaryKey: true },
         { name: 'tenantId', type: 'string', required: true, index: true },
-        { name: 'interactionId', type: 'string', required: true },
-        { name: 'agentId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
-        { name: 'reviewerId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
-        { name: 'score', type: 'number', required: true, min: 0, max: 100 },
-        { name: 'categoryScores', type: 'json', nullable: true },
-        { name: 'status', type: 'enum', required: true, allowedValues: ['pending', 'published', 'reopened'], defaultValue: 'pending' },
-        { name: 'reviewedAt', type: 'timestamp', required: true },
-        { name: 'followUpDueAt', type: 'timestamp', nullable: true }
+        { name: 'agentId', type: 'string', required: true, references: { table: 'AgentProfiles', column: 'id', allowNull: false } },
+        { name: 'skillName', type: 'string', required: true, maxLength: 128 },
+        { name: 'proficiency', type: 'enum', required: true, allowedValues: ['novice', 'intermediate', 'advanced', 'expert'], defaultValue: 'intermediate' },
+        { name: 'certifiedAt', type: 'timestamp', nullable: true },
+        { name: 'expiresAt', type: 'timestamp', nullable: true },
+        { name: 'notes', type: 'string', nullable: true, maxLength: 1024 }
       ],
       indexes: [
-        { name: 'QualityReviews_agent', field: 'agentId' },
-        { name: 'QualityReviews_status', field: 'status' }
-      ],
-      retentionDays: 730
+        { name: 'AgentSkillAssignments_agent', field: 'agentId' },
+        { name: 'AgentSkillAssignments_skill', field: 'skillName' }
+      ]
     });
 
     SheetsDB.defineTable({
-      name: 'WebhooksOutbox',
+      name: 'AgentStatusEvents',
       version: 1,
       primaryKey: 'id',
-      idPrefix: 'OUT_',
+      idPrefix: 'STAT_',
       columns: [
         { name: 'id', type: 'string', primaryKey: true },
-        { name: 'eventType', type: 'string', required: true },
-        { name: 'payload', type: 'json', required: true },
-        { name: 'targetUrl', type: 'string', required: true },
-        { name: 'deliveryStatus', type: 'enum', required: true, allowedValues: ['pending', 'sent', 'failed'], defaultValue: 'pending' },
-        { name: 'lastError', type: 'string', nullable: true },
-        { name: 'retryCount', type: 'number', required: true, defaultValue: 0, min: 0 },
-        { name: 'nextAttemptAt', type: 'timestamp', nullable: true }
+        { name: 'tenantId', type: 'string', required: true, index: true },
+        { name: 'agentId', type: 'string', required: true, references: { table: 'AgentProfiles', column: 'id', allowNull: false } },
+        { name: 'status', type: 'enum', required: true, allowedValues: ['available', 'after-call', 'break', 'offline', 'training', 'meeting'] },
+        { name: 'reason', type: 'string', nullable: true, maxLength: 512 },
+        { name: 'occurredAt', type: 'timestamp', required: true },
+        { name: 'expectedEndAt', type: 'timestamp', nullable: true },
+        { name: 'durationSeconds', type: 'number', nullable: true, min: 0 },
+        { name: 'metadata', type: 'json', nullable: true }
       ],
       indexes: [
-        { name: 'Outbox_status', field: 'deliveryStatus' }
+        { name: 'AgentStatusEvents_agent', field: 'agentId' },
+        { name: 'AgentStatusEvents_status', field: 'status' }
       ],
-      retentionDays: 90
+      retentionDays: 120
+    });
+
+    SheetsDB.defineTable({
+      name: 'AgentPerformanceSummaries',
+      version: 1,
+      primaryKey: 'id',
+      idPrefix: 'PERF_',
+      columns: [
+        { name: 'id', type: 'string', primaryKey: true },
+        { name: 'tenantId', type: 'string', required: true, index: true },
+        { name: 'agentId', type: 'string', required: true, references: { table: 'AgentProfiles', column: 'id', allowNull: false } },
+        { name: 'periodStart', type: 'timestamp', required: true },
+        { name: 'periodEnd', type: 'timestamp', required: true },
+        { name: 'contactsHandled', type: 'number', required: true, min: 0 },
+        { name: 'talkTimeSeconds', type: 'number', required: true, min: 0 },
+        { name: 'afterCallWorkSeconds', type: 'number', required: true, min: 0 },
+        { name: 'handleTimeSeconds', type: 'number', required: true, min: 0 },
+        { name: 'serviceLevel', type: 'number', nullable: true, min: 0, max: 100 },
+        { name: 'firstContactResolution', type: 'number', nullable: true, min: 0, max: 100 },
+        { name: 'qualityScore', type: 'number', nullable: true, min: 0, max: 100 },
+        { name: 'coachingNotes', type: 'string', nullable: true, maxLength: 4000 }
+      ],
+      indexes: [
+        { name: 'AgentPerformanceSummaries_agent', field: 'agentId' },
+        { name: 'AgentPerformanceSummaries_period', field: 'periodStart' }
+      ],
+      retentionDays: 730
     });
   } catch (err) {
     console.error('Failed to initialize Sheets database schemas', err);
