@@ -690,7 +690,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height
 </style></head>
 <body>
   <div class="header">
-    <img src="${INDEPENDENCE_COMPANY_LOGO}" class="logo"/>
+    <img src="${INDEPENDENCE_COMPANY_LOGO}" class="logo" loading="lazy"/>
     <div class="header-content">
       <h1>Independence Insurance Quality Assessment Report</h1>
       <p>Call Quality Evaluation & Performance Analysis</p>
