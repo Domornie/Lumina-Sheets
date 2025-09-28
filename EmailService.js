@@ -550,7 +550,7 @@ function renderEmail_({ headerTitle, headerGradient, logoUrl, preheader, content
 <span class="preheader">${safePreheader}</span>
 <div class="email-container">
     <div class="header" style="background:${hdrGrad};">
-        <img src="${logo}" alt="${escapeHtml_(EMAIL_CONFIG.orgName)} Logo" class="logo">
+        <img src="${logo}" alt="${escapeHtml_(EMAIL_CONFIG.orgName)} Logo" class="logo" loading="lazy">
         <h1 class="header-title">${escapeHtml_(headerTitle || EMAIL_CONFIG.brandName)}</h1>
     </div>
     <div class="content">
