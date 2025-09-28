@@ -46,6 +46,11 @@ const OPTIONAL_USER_COLUMNS = [
   'InsuranceCardReceivedDate'
 ];
 
+function _getUserName_(user) {
+  if (!user) return '';
+  return user.UserName || user.userName || user.username || user.Username || '';
+}
+
 const EMPLOYMENT_STATUS_CANONICAL = [
   'Active',
   'Inactive',
@@ -288,8 +293,8 @@ function checkEmailExists(email) {
         exists: true,
         user: {
           ID: existingUser.ID,
-          FullName: existingUser.FullName || existingUser.UserName,
-          UserName: existingUser.UserName,
+          FullName: existingUser.FullName || _getUserName_(existingUser),
+          UserName: _getUserName_(existingUser),
           Email: existingUser.Email,
           CampaignID: existingUser.CampaignID,
           campaignName: getCampaignNameSafe(existingUser.CampaignID),
@@ -335,18 +340,18 @@ function clientCheckUserConflicts(payload) {
           conflicts.emailConflict = {
             id: u.ID,
             email: u.Email || u.email || '',
-            userName: u.UserName || u.userName || '',
+            userName: _getUserName_(u),
             campaignId: u.CampaignID || u.campaignId || ''
           };
         }
       }
 
       if (userKey && !conflicts.userNameConflict) {
-        if (_normUser_(u.UserName || u.userName || u.username) === userKey) {
+        if (_normUser_(_getUserName_(u)) === userKey) {
           conflicts.userNameConflict = {
             id: u.ID,
             email: u.Email || u.email || '',
-            userName: u.UserName || u.userName || '',
+            userName: _getUserName_(u),
             campaignId: u.CampaignID || u.campaignId || ''
           };
         }
@@ -562,7 +567,7 @@ function clientGetAllUsers(requestingUserId) {
 function createSafeUserObject(user) {
   const safe = {
     ID: user.ID || '',
-    UserName: user.UserName || user.userName || user.username || '', // Fix: Check all variations
+    UserName: _getUserName_(user), // Fix: Check all variations
     FullName: user.FullName || user.fullName || '',
     Email: user.Email || user.email || '',
     PhoneNumber: user.PhoneNumber || user.phoneNumber || '',
@@ -582,6 +587,7 @@ function createSafeUserObject(user) {
 
   // Add convenience aliases
   safe.userName = safe.UserName; // Add camelCase alias for frontend
+  safe.username = safe.UserName; // Add lowercase alias for robustness
   safe.fullName = safe.FullName;
   safe.email = safe.Email;
 
@@ -646,7 +652,7 @@ function createSafeUserObject(user) {
 function createMinimalUserObject(user) {
   return {
     ID: user.ID || '',
-    UserName: user.UserName || '',
+    UserName: _getUserName_(user),
     FullName: user.FullName || '',
     Email: user.Email || '',
     PhoneNumber: user.PhoneNumber || '',
@@ -730,7 +736,7 @@ if (typeof _buildUniqIndexes_ !== 'function') {
     const byUser = new Map();
     (users || []).forEach(u => {
       const e = _normEmail_(u && u.Email);
-      const n = _normUser_(u && u.UserName);
+      const n = _normUser_(_getUserName_(u));
       // Prefer first occurrence per key
       if (e && !byEmail.has(e)) byEmail.set(e, u);
       if (n && !byUser.has(n)) byUser.set(n, u);
@@ -778,7 +784,7 @@ function clientRegisterUser(userData) {
         const rowIndex = _findRowIndexById_(values, idx, existing.ID);
         if (rowIndex === -1) return { success: false, error: 'Existing user not found in sheet for merge' };
 
-        if (data.userName && _normUser_(data.userName) !== _normUser_(existing.UserName)) {
+        if (data.userName && _normUser_(data.userName) !== _normUser_(_getUserName_(existing))) {
           const taken = uniq.byUser.has(_normUser_(data.userName));
           if (taken) return { success: false, error: 'Username already exists' };
         }
@@ -792,7 +798,7 @@ function clientRegisterUser(userData) {
 
         const merged = {
           ID: existing.ID,
-          UserName: data.userName || existing.UserName,
+          UserName: data.userName || _getUserName_(existing),
           FullName: data.fullName || existing.FullName,
           Email: existing.Email,
           CampaignID: data.campaignId || existing.CampaignID,
@@ -839,7 +845,7 @@ function clientRegisterUser(userData) {
           conflict: {
             email: existing.Email || '',
             userId: existing.ID,
-            userName: existing.UserName || '',
+            userName: _getUserName_(existing) || '',
             campaignId: existing.CampaignID || ''
           }
         };
@@ -1632,8 +1638,12 @@ function clientGetAvailableUsersForManager(managerUserId) {
         return uCamps.some(cid => allowed.has(cid));
       })
       .map(u => ({
-        ID: u.ID, UserName: u.UserName, FullName: u.FullName, Email: u.Email,
-        CampaignID: u.CampaignID, campaignName: getCampaignNameSafe(u.CampaignID),
+        ID: u.ID,
+        UserName: _getUserName_(u),
+        FullName: u.FullName || _getUserName_(u),
+        Email: u.Email,
+        CampaignID: u.CampaignID,
+        campaignName: getCampaignNameSafe(u.CampaignID),
         roleNames: getUserRolesSafe(u.ID).map(r => r.name)
       }));
 
@@ -1647,11 +1657,37 @@ function clientGetManagedUsers(managerUserId) {
     const data = sh.getDataRange().getValues();
     const headers = data[0] || [];
     const midx = { ManagerUserID: headers.indexOf('ManagerUserID'), UserID: headers.indexOf('UserID') };
-    const users = [];
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][midx.ManagerUserID]) === String(managerUserId)) users.push({ ID: data[i][midx.UserID] });
+    if (midx.ManagerUserID < 0 || midx.UserID < 0) {
+      return { success: true, users: [] };
     }
-    return { success: true, users };
+
+    const managedIds = [];
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][midx.ManagerUserID]) === String(managerUserId)) {
+        managedIds.push(String(data[i][midx.UserID]));
+      }
+    }
+    if (!managedIds.length) return { success: true, users: [] };
+
+    const allUsers = readSheet(G.USERS_SHEET) || [];
+    const managedUsers = managedIds.map(id => {
+      const match = allUsers.find(u => String(u.ID) === id);
+      if (match) {
+        const basic = createSafeUserObject(match);
+        return {
+          ID: basic.ID,
+          UserName: basic.UserName,
+          FullName: basic.FullName,
+          Email: basic.Email,
+          CampaignID: basic.CampaignID,
+          campaignName: basic.campaignName,
+          roleNames: basic.roleNames || []
+        };
+      }
+      return { ID: id };
+    });
+
+    return { success: true, users: managedUsers };
   } catch (e) { writeError && writeError('clientGetManagedUsers', e); return { success: false, error: e.message }; }
 }
 function clientAssignUsersToManager(managerUserId, userIds) {
@@ -1716,7 +1752,7 @@ function notifyOnManagerAssignment_(managerUserId, userIds) {
     const users = readSheet(G.USERS_SHEET) || [];
     const mgr = users.find(u => String(u.ID) === String(managerUserId));
     if (!mgr) return;
-    const managerName = mgr.FullName || mgr.UserName || 'Your manager';
+    const managerName = mgr.FullName || _getUserName_(mgr) || 'Your manager';
     const html = buildHtmlEmail_('Manager Assigned', 'You have been assigned a manager.', '<p>You have been assigned to <strong>' + managerName + '</strong>.</p>');
     userIds.forEach(uid => {
       const u = users.find(x => String(x.ID) === String(uid));
@@ -2188,14 +2224,14 @@ function _buildUniqIndexes_(users) {
     try {
       const e = _normEmail_(u && (u.Email || u.email));
       // Fix: Check all possible username field variations
-      const n = _normUser_(u && (u.UserName || u.userName || u.username));
+      const n = _normUser_(_getUserName_(u));
       
       // Log problematic entries
       if (!e && u && (u.Email || u.email)) {
         console.warn('Failed to normalize email for user at index', index, ':', u.Email || u.email);
       }
-      if (!n && u && (u.UserName || u.userName || u.username)) {
-        console.warn('Failed to normalize username for user at index', index, ':', u.UserName || u.userName || u.username);
+      if (!n && _getUserName_(u)) {
+        console.warn('Failed to normalize username for user at index', index, ':', _getUserName_(u));
       }
       
       // Prefer first occurrence per key
