@@ -67,7 +67,7 @@
   function attemptRegisterKnownSchemas() {
     registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID');
     registerIfDefined(global.ROLES_SHEET || 'Roles', global.ROLES_HEADER, 'ID');
-    registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'UserId');
+    registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'ID');
     registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID');
     registerIfDefined(global.SESSIONS_SHEET || 'Sessions', global.SESSIONS_HEADERS, 'Token');
     registerIfDefined(global.CAMPAIGNS_SHEET || 'Campaigns', global.CAMPAIGNS_HEADERS, 'ID');

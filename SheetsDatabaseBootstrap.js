@@ -247,6 +247,241 @@ function initializeSheetsDatabase() {
       ],
       retentionDays: 730
     });
+
+    const campaignsTableName = (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns';
+    const userCampaignsTableName = (typeof USER_CAMPAIGNS_SHEET === 'string' && USER_CAMPAIGNS_SHEET) ? USER_CAMPAIGNS_SHEET : 'UserCampaigns';
+    const rolesTableName = (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles';
+    const userRolesTableName = (typeof USER_ROLES_SHEET === 'string' && USER_ROLES_SHEET) ? USER_ROLES_SHEET : 'UserRoles';
+    const campaignPermissionsTableName = (typeof CAMPAIGN_USER_PERMISSIONS_SHEET === 'string' && CAMPAIGN_USER_PERMISSIONS_SHEET)
+      ? CAMPAIGN_USER_PERMISSIONS_SHEET
+      : 'CampaignUserPermissions';
+
+    function resolveHeaders(preferred, fallback) {
+      if (Array.isArray(preferred) && preferred.length) {
+        return preferred.slice();
+      }
+      return fallback.slice();
+    }
+
+    function ensureHeader(headers, name) {
+      if (headers.indexOf(name) === -1) {
+        headers.push(name);
+      }
+    }
+
+    const campaignHeaders = resolveHeaders(typeof CAMPAIGNS_HEADERS !== 'undefined' ? CAMPAIGNS_HEADERS : null, [
+      'ID', 'Name', 'Description', 'ClientName', 'Status', 'Channel', 'Timezone', 'SlaTier', 'CreatedAt', 'UpdatedAt', 'DeletedAt'
+    ]);
+    ensureHeader(campaignHeaders, 'DeletedAt');
+
+    function mapCampaignColumn(header) {
+      switch (header) {
+        case 'ID':
+          return { name: header, type: 'string', primaryKey: true };
+        case 'Name':
+          return { name: header, type: 'string', required: true, maxLength: 160 };
+        case 'Description':
+          return { name: header, type: 'string', nullable: true, maxLength: 1024 };
+        case 'ClientName':
+          return { name: header, type: 'string', nullable: true, maxLength: 160 };
+        case 'Status':
+          return { name: header, type: 'enum', required: true, allowedValues: ['draft', 'active', 'paused', 'retired'], defaultValue: 'active' };
+        case 'Channel':
+          return { name: header, type: 'enum', nullable: true, allowedValues: ['voice', 'email', 'chat', 'back-office', 'omnichannel'] };
+        case 'Timezone':
+          return { name: header, type: 'string', nullable: true, maxLength: 64 };
+        case 'SlaTier':
+          return { name: header, type: 'string', nullable: true, maxLength: 64 };
+        case 'CreatedAt':
+        case 'UpdatedAt':
+          return { name: header, type: 'timestamp', required: true };
+        case 'DeletedAt':
+          return { name: header, type: 'timestamp', nullable: true };
+        default:
+          return { name: header, type: 'string', nullable: true };
+      }
+    }
+
+    SheetsDB.defineTable({
+      name: campaignsTableName,
+      version: 1,
+      primaryKey: 'ID',
+      idPrefix: 'CMP_',
+      columns: campaignHeaders.map(mapCampaignColumn),
+      indexes: [
+        { name: campaignsTableName + '_Status_idx', field: 'Status' },
+        { name: campaignsTableName + '_Client_idx', field: 'ClientName' }
+      ]
+    });
+
+    const userCampaignHeaders = resolveHeaders(typeof USER_CAMPAIGNS_HEADERS !== 'undefined' ? USER_CAMPAIGNS_HEADERS : null, [
+      'ID', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'CreatedAt', 'UpdatedAt', 'DeletedAt'
+    ]);
+    ensureHeader(userCampaignHeaders, 'DeletedAt');
+
+    function mapUserCampaignColumn(header) {
+      switch (header) {
+        case 'ID':
+          return { name: header, type: 'string', primaryKey: true };
+        case 'UserId':
+        case 'UserID':
+          return { name: header, type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } };
+        case 'CampaignId':
+        case 'CampaignID':
+          return { name: header, type: 'string', required: true, references: { table: campaignsTableName, column: 'ID', allowNull: false } };
+        case 'Role':
+          return { name: header, type: 'enum', nullable: true, allowedValues: ['agent', 'lead', 'qa', 'supervisor', 'trainer', 'support'], defaultValue: 'agent' };
+        case 'IsPrimary':
+          return { name: header, type: 'boolean', defaultValue: false };
+        case 'CreatedAt':
+        case 'UpdatedAt':
+          return { name: header, type: 'timestamp', required: true };
+        case 'DeletedAt':
+          return { name: header, type: 'timestamp', nullable: true };
+        default:
+          return { name: header, type: 'string', nullable: true };
+      }
+    }
+
+    SheetsDB.defineTable({
+      name: userCampaignsTableName,
+      version: 1,
+      primaryKey: 'ID',
+      idPrefix: 'UCAMP_',
+      columns: userCampaignHeaders.map(mapUserCampaignColumn),
+      indexes: [
+        { name: userCampaignsTableName + '_User_idx', field: 'UserId' },
+        { name: userCampaignsTableName + '_Campaign_idx', field: 'CampaignId' }
+      ]
+    });
+
+    const roleHeaders = resolveHeaders(typeof ROLES_HEADER !== 'undefined' ? ROLES_HEADER : null, [
+      'ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt', 'DeletedAt'
+    ]);
+    ensureHeader(roleHeaders, 'DeletedAt');
+
+    function mapRoleColumn(header) {
+      switch (header) {
+        case 'ID':
+          return { name: header, type: 'string', primaryKey: true };
+        case 'Name':
+          return { name: header, type: 'string', required: true, maxLength: 80 };
+        case 'NormalizedName':
+          return { name: header, type: 'string', required: true, maxLength: 80 };
+        case 'Scope':
+          return { name: header, type: 'enum', required: true, allowedValues: ['global', 'campaign', 'team'], defaultValue: 'global' };
+        case 'Description':
+          return { name: header, type: 'string', nullable: true, maxLength: 512 };
+        case 'CreatedAt':
+        case 'UpdatedAt':
+          return { name: header, type: 'timestamp', required: true };
+        case 'DeletedAt':
+          return { name: header, type: 'timestamp', nullable: true };
+        default:
+          return { name: header, type: 'string', nullable: true };
+      }
+    }
+
+    SheetsDB.defineTable({
+      name: rolesTableName,
+      version: 1,
+      primaryKey: 'ID',
+      idPrefix: 'ROLE_',
+      columns: roleHeaders.map(mapRoleColumn),
+      indexes: [
+        { name: rolesTableName + '_Name_idx', field: 'NormalizedName', unique: true },
+        { name: rolesTableName + '_Scope_idx', field: 'Scope' }
+      ]
+    });
+
+    const userRoleHeaders = resolveHeaders(typeof USER_ROLES_HEADER !== 'undefined' ? USER_ROLES_HEADER : null, [
+      'ID', 'UserId', 'RoleId', 'Scope', 'AssignedBy', 'CreatedAt', 'UpdatedAt', 'DeletedAt'
+    ]);
+    ensureHeader(userRoleHeaders, 'DeletedAt');
+
+    function mapUserRoleColumn(header) {
+      switch (header) {
+        case 'ID':
+          return { name: header, type: 'string', primaryKey: true };
+        case 'UserId':
+        case 'UserID':
+          return { name: header, type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } };
+        case 'RoleId':
+        case 'RoleID':
+          return { name: header, type: 'string', required: true, references: { table: rolesTableName, column: 'ID', allowNull: false } };
+        case 'Scope':
+          return { name: header, type: 'enum', nullable: true, allowedValues: ['global', 'campaign', 'team'] };
+        case 'AssignedBy':
+          return { name: header, type: 'string', nullable: true, references: { table: usersTableName, column: 'ID', allowNull: true } };
+        case 'CreatedAt':
+        case 'UpdatedAt':
+          return { name: header, type: 'timestamp', required: true };
+        case 'DeletedAt':
+          return { name: header, type: 'timestamp', nullable: true };
+        default:
+          return { name: header, type: 'string', nullable: true };
+      }
+    }
+
+    SheetsDB.defineTable({
+      name: userRolesTableName,
+      version: 1,
+      primaryKey: 'ID',
+      idPrefix: 'UROLE_',
+      columns: userRoleHeaders.map(mapUserRoleColumn),
+      indexes: [
+        { name: userRolesTableName + '_User_idx', field: 'UserId' },
+        { name: userRolesTableName + '_Role_idx', field: 'RoleId' }
+      ]
+    });
+
+    const campaignPermissionHeaders = resolveHeaders(
+      typeof CAMPAIGN_USER_PERMISSIONS_HEADERS !== 'undefined' ? CAMPAIGN_USER_PERMISSIONS_HEADERS : null,
+      ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'Role', 'CanManageUsers', 'CanManagePages', 'Notes', 'CreatedAt', 'UpdatedAt', 'DeletedAt']
+    );
+    ensureHeader(campaignPermissionHeaders, 'DeletedAt');
+
+    function mapCampaignPermissionColumn(header) {
+      switch (header) {
+        case 'ID':
+          return { name: header, type: 'string', primaryKey: true };
+        case 'CampaignID':
+        case 'CampaignId':
+          return { name: header, type: 'string', required: true, references: { table: campaignsTableName, column: 'ID', allowNull: false } };
+        case 'UserID':
+        case 'UserId':
+          return { name: header, type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } };
+        case 'PermissionLevel':
+          return { name: header, type: 'enum', required: true, allowedValues: ['viewer', 'editor', 'manager', 'owner'], defaultValue: 'viewer' };
+        case 'Role':
+          return { name: header, type: 'string', nullable: true, maxLength: 120 };
+        case 'CanManageUsers':
+        case 'CanManagePages':
+          return { name: header, type: 'boolean', defaultValue: false };
+        case 'Notes':
+          return { name: header, type: 'string', nullable: true, maxLength: 1024 };
+        case 'CreatedAt':
+        case 'UpdatedAt':
+          return { name: header, type: 'timestamp', required: true };
+        case 'DeletedAt':
+          return { name: header, type: 'timestamp', nullable: true };
+        default:
+          return { name: header, type: 'string', nullable: true };
+      }
+    }
+
+    SheetsDB.defineTable({
+      name: campaignPermissionsTableName,
+      version: 1,
+      primaryKey: 'ID',
+      idPrefix: 'CPERM_',
+      columns: campaignPermissionHeaders.map(mapCampaignPermissionColumn),
+      indexes: [
+        { name: campaignPermissionsTableName + '_Campaign_idx', field: 'CampaignID' },
+        { name: campaignPermissionsTableName + '_User_idx', field: 'UserID' }
+      ]
+    });
+
   } catch (err) {
     console.error('Failed to initialize Sheets database schemas', err);
     throw err;
