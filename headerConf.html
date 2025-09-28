@@ -272,9 +272,9 @@
       <div class="sidebar-group">
       <!-- Home -->
       <? if (allowed.indexOf('dashboard') >= 0) { ?>
-        <a href="<?= baseUrl ?>&page=dashboard&campaign=<?= campaignId ?>"
+        <a href="<?= baseUrl ?>&page=dashboard"
            class="<?=
-             currentPage==='Dashboard' && e.parameter.campaign===campaignId
+             currentPage==='Dashboard'
              ? 'active' : '' ?>">
           <i class="fas fa-gauge"></i><span>Dashboard</span>
         </a>
@@ -285,25 +285,25 @@
       <div class="sidebar-section">Reports</div>
       <div class="sidebar-group">
       <? if (allowed.indexOf('callreports') >= 0) { ?>
-        <a href="<?= baseUrl ?>&page=callreports&campaign=<?= campaignId ?>"
+        <a href="<?= baseUrl ?>&page=callreports"
            class="<?=
-             currentPage==='CallReports' && e.parameter.campaign===campaignId
+             currentPage==='CallReports'
              ? 'active' : '' ?>">
           <i class="fas fa-square-phone-flip"></i><span>Call Reports</span>
         </a>
       <? } ?>
       <? if (allowed.indexOf('attendance') >= 0 || allowed.indexOf('attendancereports') >= 0) { ?>
-        <a href="<?= baseUrl ?>&page=attendance&campaign=<?= campaignId ?>"
+        <a href="<?= baseUrl ?>&page=attendance"
            class="<?=
-             currentPage==='Attendance' && e.parameter.campaign===campaignId
+             currentPage==='Attendance'
              ? 'active' : '' ?>">
           <i class="fas fa-business-time"></i><span>Attendance</span>
         </a>
       <? } ?>
       <? if (allowed.indexOf('qadashboard') >= 0) { ?>
-        <a href="<?= baseUrl ?>&page=qadashboard&campaign=<?= campaignId ?>"
+        <a href="<?= baseUrl ?>&page=qadashboard"
            class="<?=
-             currentPage==='Quality' && e.parameter.campaign===campaignId
+             currentPage==='Quality'
              ? 'active' : '' ?>">
           <i class="fas fa-chart-column"></i><span>QA Dashboard</span>
         </a>
@@ -314,33 +314,33 @@
       <div class="sidebar-section">MANAGEMENT</div>
       <div class="sidebar-group">
         <? if (allowed.indexOf('coachingdashboard') >= 0) { ?>
-          <a href="<?= baseUrl ?>&page=coachingdashboard&campaign=<?= campaignId ?>"
+          <a href="<?= baseUrl ?>&page=coachingdashboard"
             class="<?=
-              currentPage==='Coaching' && e.parameter.campaign===campaignId
+              currentPage==='Coaching'
               ? 'active' : '' ?>">
             <i class="fas fa-chart-line"></i><span>Coaching</span>
           </a>
         <? } ?>
         <? if (allowed.indexOf('schedulemanagement') >= 0) { ?>
-          <a href="<?= baseUrl ?>&page=schedulemanagement&campaign=<?= campaignId ?>"
+          <a href="<?= baseUrl ?>&page=schedulemanagement"
             class="<?=
-              currentPage==='Schedule' && e.parameter.campaign===campaignId
+              currentPage==='Schedule'
               ? 'active' : '' ?>">
             <i class="fas fa-calendar-week"></i><span>Schedule</span>
           </a>
         <? } ?>
         <? if (allowed.indexOf('tasklist') >= 0) { ?>
-          <a href="<?= baseUrl ?>&page=taskboard&campaign=<?= campaignId ?>"
+          <a href="<?= baseUrl ?>&page=taskboard"
             class="<?=
-              currentPage==='Task' && e.parameter.campaign===campaignId
+              currentPage==='Task'
               ? 'active' : '' ?>">
             <i class="fas fa-tasks"></i><span>Tasks</span>
           </a>
         <? } ?>
         <? if (allowed.indexOf('calendar') >= 0) { ?>
-          <a href="<?= baseUrl ?>&page=calendar&campaign=<?= campaignId ?>"
+          <a href="<?= baseUrl ?>&page=calendar"
             class="<?=
-              currentPage==='Calendar' && e.parameter.campaign===campaignId
+              currentPage==='Calendar'
               ? 'active' : '' ?>">
             <i class="fas fa-calendar-alt"></i><span>Calendar</span>
           </a>
@@ -351,18 +351,18 @@
       <div class="sidebar-section">OTHER</div>   
       <div class="sidebar-group">
         <? if (allowed.indexOf('escalations') >= 0) { ?>
-          <a href="<?= baseUrl ?>&page=escalations&campaign=<?= campaignId ?>"
+          <a href="<?= baseUrl ?>&page=escalations"
             class="<?=
-              currentPage==='Escalations' && e.parameter.campaign===campaignId
+              currentPage==='Escalations'
               ? 'active' : '' ?>">
             <i class="fas fa-exclamation-triangle"></i><span>Escalations</span>
           </a>
         <? } ?>
         <? if (allowed.indexOf('settings') >= 0) { ?>
-          <a href="<?= baseUrl ?>&page=settings&campaign=<?= campaignId ?>"
-            class="<?=
-              currentPage==='Settings' && e.parameter.campaign===campaignId
-              ? 'active' : '' ?>">
+          <a href="<?= baseUrl ?>&page=settings"
+             class="<?=
+               currentPage==='Settings'
+               ? 'active' : '' ?>">
             <i class="fas fa-cog"></i><span>Settings</span>
           </a>
         <? } ?>
