@@ -151,7 +151,6 @@ function initializeSheetsDatabase() {
     authSchemas.forEach(function (schema) {
       SheetsDB.defineTable(schema);
     });
-
     SheetsDB.defineTable({
       name: 'Customers',
       version: 1,
