@@ -30,6 +30,52 @@ const ACCESS = {
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
 
+/**
+ * Utility helpers for managing time-driven triggers that may have become
+ * orphaned after refactors. These are meant to be run manually from the Apps
+ * Script editor when cleaning up legacy jobs such as the removed
+ * `checkRealtimeUpdatesJob` trigger.
+ */
+
+/**
+ * Returns a summary of all project triggers and logs it to Stackdriver.
+ * Useful for debugging lingering time-driven triggers.
+ */
+function listProjectTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var summary = triggers.map(function (t) {
+    var details = null;
+    try {
+      details = t.getTriggerSourceId ? t.getTriggerSourceId() : null;
+    } catch (e) {
+      details = null;
+    }
+    return {
+      handler: t.getHandlerFunction(),
+      type: t.getEventType(),
+      details: details
+    };
+  });
+  console.log('[listProjectTriggers] ' + JSON.stringify(summary));
+  return summary;
+}
+
+/**
+ * Removes the legacy `checkRealtimeUpdatesJob` trigger if it still exists.
+ * Invoke this once from the Script Editor to stop Apps Script from trying to
+ * run the deleted function.
+ */
+function removeLegacyRealtimeTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    var trigger = triggers[i];
+    if (trigger.getHandlerFunction && trigger.getHandlerFunction() === 'checkRealtimeUpdatesJob') {
+      ScriptApp.deleteTrigger(trigger);
+      console.log('[removeLegacyRealtimeTrigger] Deleted trigger for checkRealtimeUpdatesJob');
+    }
+  }
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // CAMPAIGN-SCOPED ROUTING SYSTEM
 // ───────────────────────────────────────────────────────────────────────────────
