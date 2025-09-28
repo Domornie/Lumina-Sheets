@@ -16,6 +16,20 @@
     return typeof global.DatabaseManager !== 'undefined' ? global.DatabaseManager : null;
   }
 
+  function getSheetsDbTable(name) {
+    if (typeof global.SheetsDB === 'undefined' || !global.SheetsDB || typeof global.SheetsDB.getTable !== 'function') {
+      return null;
+    }
+    try {
+      return global.SheetsDB.getTable(name) || null;
+    } catch (err) {
+      if (global.console && typeof global.console.warn === 'function') {
+        global.console.warn('SheetsDB.getTable failed for ' + name + ': ' + err);
+      }
+      return null;
+    }
+  }
+
   function inferIdFromHeaders(headers) {
     if (!Array.isArray(headers) || headers.length === 0) return null;
     var normalized = headers.map(function (h) { return String(h || '').trim(); });
@@ -110,7 +124,17 @@
 
   function ensureSchema(name) {
     attemptRegisterKnownSchemas();
-    if (!schemaRegistry[name]) {
+    var sheetsTable = getSheetsDbTable(name);
+    if (sheetsTable) {
+      var existing = schemaRegistry[name] || {};
+      var typedHeaders = Array.isArray(sheetsTable.headers) ? sheetsTable.headers.slice() : (existing.headers || []);
+      var typedSchema = {
+        headers: typedHeaders,
+        idColumn: sheetsTable.primaryKey || existing.idColumn,
+        managedBy: 'SheetsDB'
+      };
+      schemaRegistry[name] = Object.assign({}, existing, typedSchema);
+    } else if (!schemaRegistry[name]) {
       schemaRegistry[name] = inferSchemaFromSheet(name);
     }
     applySchemaToManager(name);
@@ -121,6 +145,15 @@
     if (!name) return null;
     var schema = options ? Object.assign({}, options) : {};
     if (schema.headers) schema.headers = cloneHeaders(schema.headers);
+    var sheetsTable = getSheetsDbTable(name);
+    if (sheetsTable) {
+      var typedHeaders = Array.isArray(sheetsTable.headers) ? sheetsTable.headers.slice() : [];
+      if (typedHeaders.length) {
+        schema.headers = typedHeaders;
+      }
+      schema.idColumn = sheetsTable.primaryKey || schema.idColumn;
+      schema.managedBy = 'SheetsDB';
+    }
     if (!Object.prototype.hasOwnProperty.call(schema, 'idColumn')) {
       schema.idColumn = inferIdFromHeaders(schema.headers);
     }
