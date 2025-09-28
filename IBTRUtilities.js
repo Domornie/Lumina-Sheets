@@ -1105,40 +1105,7 @@
     };
   }
 
-  // Real-time triggerized updates
-  function _ensureRealtimeTrigger() {
-    try {
-      var TRIGGER_FUNC = 'checkRealtimeUpdatesJob';
-      var triggers = ScriptApp.getProjectTriggers() || [];
-      var exists = false;
-      for (var i=0;i<triggers.length;i++){
-        var t = triggers[i];
-        if (t.getHandlerFunction && t.getHandlerFunction() === TRIGGER_FUNC) { exists = true; break; }
-      }
-      if (!exists) {
-        ScriptApp.newTrigger(TRIGGER_FUNC).timeBased().everyMinutes(1).create();
-        console.log('Realtime trigger created (every 1 minute).');
-      }
-    } catch (e) { logError('_ensureRealtimeTrigger', e); }
-  }
-
-  if (typeof G.checkForScheduleUpdates !== 'function') G.checkForScheduleUpdates = function (){};
-  if (typeof G.checkForSwapUpdates !== 'function') G.checkForSwapUpdates = function (){};
-  if (typeof G.checkForSystemAlerts !== 'function') G.checkForSystemAlerts = function (){};
-  if (typeof G.checkRealtimeUpdatesJob !== 'function') {
-    G.checkRealtimeUpdatesJob = function checkRealtimeUpdatesJob() {
-      try { checkForScheduleUpdates(); } catch (e) { logError('checkRealtimeUpdatesJob:checkForScheduleUpdates', e); }
-      try { checkForSwapUpdates(); } catch (e) { logError('checkRealtimeUpdatesJob:checkForSwapUpdates', e); }
-      try { checkForSystemAlerts(); } catch (e) { logError('checkRealtimeUpdatesJob:checkForSystemAlerts', e); }
-    };
-  }
-  if (typeof G.initializeRealTimeUpdates !== 'function') {
-    G.initializeRealTimeUpdates = function initializeRealTimeUpdates() {
-      _ensureRealtimeTrigger();
-      return { success: true, message: 'Time-driven realtime updates initialized' };
-    };
-  }
-
+  // Realtime trigger job removed to avoid redundant checkRealtimeUpdatesJob execution.
   // ────────────────────────────────────────────────────────────────────────────
   // Integration Utilities (Calendar/HR)
   // ────────────────────────────────────────────────────────────────────────────
@@ -1333,7 +1300,7 @@
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Initialization (daily) + realtime trigger
+  // Initialization (daily)
   // ────────────────────────────────────────────────────────────────────────────
   if (typeof G.initializeAIEngine !== 'function') G.initializeAIEngine = function (){ return {}; };
   if (typeof G.initializePredictiveEngine !== 'function') G.initializePredictiveEngine = function (){ return {}; };
@@ -1346,7 +1313,6 @@
         initializeAIEngine();
         initializePredictiveEngine();
         initializeIntelligentAutomation();
-        initializeRealTimeUpdates(); // ensures 1-min trigger exists
         initializeCoachingSystem(); // Initialize enhanced coaching system
         var healthCheck = performSystemHealthCheck();
         console.log('✅ Advanced Schedule System initialized successfully');
@@ -1366,8 +1332,6 @@
       initializeAdvancedScheduleSystem();
       prop.setProperty('ADVANCED_SCHEDULE_LAST_INIT', String(now));
     }
-    // Always ensure realtime trigger exists
-    _ensureRealtimeTrigger();
   } catch (error) {
     try { console.warn('Advanced auto-initialization failed: '+ error); } catch (_){}
   }
