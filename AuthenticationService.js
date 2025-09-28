@@ -429,6 +429,7 @@ var AuthenticationService = (function () {
       clientPayload: fallbackPayload,
       warnings: Array.isArray(fallbackScope.warnings) ? fallbackScope.warnings.slice() : [],
       needsCampaignAssignment: !!fallbackScope.needsCampaignAssignment
+
     };
   }
 
@@ -511,6 +512,7 @@ var AuthenticationService = (function () {
       payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
       payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
+
     }
 
     return payload;
