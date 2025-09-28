@@ -2,6 +2,14 @@
 
 Call center management system built on Google Apps Script + Google Sheets.
 
+## Trigger maintenance
+
+- Run `listProjectTriggers()` from the Apps Script editor if you suspect a
+  legacy time-driven job is still active. The helper logs every trigger and the
+  handler function it tries to invoke.
+- Execute `removeLegacyRealtimeTrigger()` once to delete the deprecated
+  `checkRealtimeUpdatesJob` trigger if it still appears under project triggers.
+
 ## Google Sheets database manager
 
 The `DatabaseManager.gs` module turns any worksheet into a CRUD-ready table. Define
