@@ -1,0 +1,153 @@
+<script>
+  (function (global) {
+    const COOKIE_NAME = 'authToken';
+    const MIN_MAX_AGE_SECONDS = 300;
+    const DEFAULT_SESSION_SECONDS = 60 * 60; // 1 hour fallback
+    const DEFAULT_REMEMBER_SECONDS = 24 * 60 * 60; // 24 hours fallback
+
+    function safeParseDate(input) {
+      if (!input) return null;
+      const value = (typeof input === 'string' || input instanceof String) ? input : String(input);
+      const timestamp = Date.parse(value);
+      return Number.isNaN(timestamp) ? null : timestamp;
+    }
+
+    function resolveMaxAgeSeconds(options = {}) {
+      const { ttlSeconds, maxAgeSeconds, expiresAt, rememberMe } = options;
+      let resolved = null;
+
+      if (typeof ttlSeconds === 'number' && Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
+        resolved = Math.floor(ttlSeconds);
+      } else if (typeof maxAgeSeconds === 'number' && Number.isFinite(maxAgeSeconds) && maxAgeSeconds > 0) {
+        resolved = Math.floor(maxAgeSeconds);
+      } else {
+        const expiresAtTimestamp = safeParseDate(expiresAt);
+        if (expiresAtTimestamp && expiresAtTimestamp > Date.now()) {
+          resolved = Math.floor((expiresAtTimestamp - Date.now()) / 1000);
+        }
+      }
+
+      if (resolved === null) {
+        resolved = rememberMe ? DEFAULT_REMEMBER_SECONDS : DEFAULT_SESSION_SECONDS;
+      }
+
+      return Math.max(MIN_MAX_AGE_SECONDS, resolved);
+    }
+
+    function readCookieValue(name) {
+      try {
+        const cookies = typeof document !== 'undefined' && document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < cookies.length; i += 1) {
+          const part = cookies[i] ? cookies[i].trim() : '';
+          if (!part) continue;
+          if (part.startsWith(`${name}=`)) {
+            return decodeURIComponent(part.substring(name.length + 1));
+          }
+        }
+      } catch (err) {
+        console.warn('CookieHandler: unable to read cookie', name, err);
+      }
+      return '';
+    }
+
+    function writeCookie(name, value, options = {}) {
+      if (typeof document === 'undefined') return '';
+
+      const maxAgeSeconds = resolveMaxAgeSeconds(options);
+      const expiresDate = new Date(Date.now() + maxAgeSeconds * 1000);
+      const attributes = {
+        path: '/',
+        sameSite: 'Lax',
+        secure: false,
+        ...options.attributes
+      };
+
+      const parts = [
+        `${name}=${encodeURIComponent(value)}`,
+        `path=${attributes.path || '/'}`,
+        `max-age=${maxAgeSeconds}`,
+        `expires=${expiresDate.toUTCString()}`,
+        `SameSite=${attributes.sameSite || 'Lax'}`
+      ];
+
+      if (attributes.domain) {
+        parts.push(`domain=${attributes.domain}`);
+      }
+      if (attributes.secure) {
+        parts.push('Secure');
+      }
+
+      try {
+        document.cookie = parts.join('; ');
+      } catch (err) {
+        console.warn('CookieHandler: unable to write cookie', name, err);
+      }
+
+      return value;
+    }
+
+    function clearCookie(name, options = {}) {
+      if (typeof document === 'undefined') return;
+
+      const attributes = {
+        path: '/',
+        sameSite: 'Lax',
+        secure: false,
+        ...options.attributes
+      };
+
+      const parts = [
+        `${name}=`,
+        `path=${attributes.path || '/'}`,
+        'max-age=0',
+        'expires=Thu, 01 Jan 1970 00:00:00 GMT',
+        `SameSite=${attributes.sameSite || 'Lax'}`
+      ];
+
+      if (attributes.domain) {
+        parts.push(`domain=${attributes.domain}`);
+      }
+      if (attributes.secure) {
+        parts.push('Secure');
+      }
+
+      try {
+        document.cookie = parts.join('; ');
+      } catch (err) {
+        console.warn('CookieHandler: unable to clear cookie', name, err);
+      }
+    }
+
+    function readAuthToken() {
+      return readCookieValue(COOKIE_NAME);
+    }
+
+    function persistAuthToken(token, options = {}) {
+      if (!token) {
+        clearCookie(COOKIE_NAME, options);
+        return '';
+      }
+      return writeCookie(COOKIE_NAME, token, options);
+    }
+
+    function clearAuthToken(options = {}) {
+      clearCookie(COOKIE_NAME, options);
+    }
+
+    const api = {
+      AUTH_COOKIE_NAME: COOKIE_NAME,
+      readCookieValue,
+      writeCookie,
+      clearCookie,
+      readAuthToken,
+      persistAuthToken,
+      clearAuthToken,
+      resolveMaxAgeSeconds
+    };
+
+    global.CookieHandler = api;
+    global.readAuthCookie = readAuthToken;
+    global.persistAuthCookie = persistAuthToken;
+    global.clearAuthCookie = clearAuthToken;
+  })(typeof window !== 'undefined' ? window : this);
+</script>
