@@ -5,6 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <base target="_top">
+
+  <?!= includeOnce('CookieHandler') ?>
  <link rel="icon" 
         href="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754586751/vlbpo/lumina/4_mdomle.png" 
         type="image/x-icon" />
@@ -397,38 +399,45 @@
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const AUTH_COOKIE_NAME = 'authToken';
-
     function readAuthCookie() {
-      const cookies = document.cookie ? document.cookie.split(';') : [];
-      for (let i = 0; i < cookies.length; i++) {
-        const part = cookies[i].trim();
-        if (!part) continue;
-        if (part.startsWith(`${AUTH_COOKIE_NAME}=`)) {
-          return decodeURIComponent(part.substring(AUTH_COOKIE_NAME.length + 1));
+      try {
+        if (window.CookieHandler && typeof CookieHandler.readAuthToken === 'function') {
+          return CookieHandler.readAuthToken();
         }
+      } catch (err) {
+        console.warn('Unable to read auth cookie', err);
       }
       return '';
     }
 
     function persistAuthCookie(token, ttlSeconds) {
-      if (!token) return;
-      const seconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0)
-        ? Math.floor(ttlSeconds)
-        : 60 * 60;
-      const safeSeconds = Math.max(300, seconds);
-      const expires = new Date(Date.now() + safeSeconds * 1000);
-      document.cookie = [
-        `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
-        'path=/',
-        `max-age=${safeSeconds}`,
-        `expires=${expires.toUTCString()}`,
-        'SameSite=Lax'
-      ].join('; ');
+      if (!token) {
+        clearAuthCookie();
+        return;
+      }
+
+      const options = {};
+      if (typeof ttlSeconds === 'number' && ttlSeconds > 0) {
+        options.ttlSeconds = ttlSeconds;
+      }
+
+      try {
+        if (window.CookieHandler && typeof CookieHandler.persistAuthToken === 'function') {
+          CookieHandler.persistAuthToken(token, options);
+        }
+      } catch (err) {
+        console.warn('Unable to persist auth cookie', err);
+      }
     }
 
     function clearAuthCookie() {
-      document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+      try {
+        if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+          CookieHandler.clearAuthToken();
+        }
+      } catch (err) {
+        console.warn('Unable to clear auth cookie', err);
+      }
     }
 
     // collapse toggle
@@ -437,21 +446,20 @@
         document.getElementById('sidebar').classList.toggle('collapsed')
       );
 
-    let rawToken = new URLSearchParams(location.search).get('token') || readAuthCookie();
-    if (rawToken) {
+    const currentUrl = new URL(window.location.href);
+    const urlToken = currentUrl.searchParams.get('token');
+    let rawToken = readAuthCookie();
+
+    if (urlToken) {
+      rawToken = urlToken;
+      persistAuthCookie(urlToken);
+      currentUrl.searchParams.delete('token');
+      const updatedSearch = currentUrl.searchParams.toString();
+      const cleanedUrl = `${currentUrl.pathname}${updatedSearch ? `?${updatedSearch}` : ''}${currentUrl.hash || ''}`;
+      window.history.replaceState({}, document.title, cleanedUrl);
+    } else if (rawToken) {
       persistAuthCookie(rawToken);
     }
-
-    document.body.addEventListener('click', e => {
-      const a = e.target.closest('a[href]');
-      if (!a) return;
-      const href = a.getAttribute('href');
-      if (href.startsWith('http') || href.includes('token=')) return;
-      e.preventDefault();
-      const next = new URL(href, location.origin + location.pathname);
-      next.searchParams.set('token', rawToken || readAuthCookie());
-      window.location.href = next.toString();
-    });
 
     function scheduleKeepAlive() {
       if (!rawToken) {

@@ -7,6 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login – LuminaHQ</title>
 
+  <?!= includeOnce('CookieHandler') ?>
+
   <!-- Bootstrap 5 & FontAwesome -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
@@ -936,7 +938,6 @@
 
     const SUPPORT_EMAIL = 'support@vlbpo.com';
     const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
-    const AUTH_COOKIE_NAME = 'authToken';
     const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
     const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
     const STORAGE_KEYS = {
@@ -1313,13 +1314,8 @@
 
     function readAuthCookie() {
       try {
-        const cookies = document.cookie ? document.cookie.split(';') : [];
-        for (let i = 0; i < cookies.length; i++) {
-          const part = cookies[i].trim();
-          if (!part) continue;
-          if (part.startsWith(`${AUTH_COOKIE_NAME}=`)) {
-            return decodeURIComponent(part.substring(AUTH_COOKIE_NAME.length + 1));
-          }
+        if (window.CookieHandler && typeof CookieHandler.readAuthToken === 'function') {
+          return CookieHandler.readAuthToken();
         }
       } catch (err) {
         console.warn('Unable to read auth cookie', err);
@@ -1329,7 +1325,9 @@
 
     function clearAuthCookie() {
       try {
-        document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+        if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+          CookieHandler.clearAuthToken();
+        }
       } catch (err) {
         console.warn('Unable to clear auth cookie', err);
       }
@@ -1360,17 +1358,10 @@
 
       maxAgeSeconds = Math.max(300, maxAgeSeconds); // ensure at least 5 minutes
 
-      const expiresDate = new Date(Date.now() + maxAgeSeconds * 1000);
-      const cookieParts = [
-        `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
-        'path=/',
-        `max-age=${maxAgeSeconds}`,
-        `expires=${expiresDate.toUTCString()}`,
-        'SameSite=Lax'
-      ];
-
       try {
-        document.cookie = cookieParts.join('; ');
+        if (window.CookieHandler && typeof CookieHandler.persistAuthToken === 'function') {
+          CookieHandler.persistAuthToken(token, { maxAgeSeconds });
+        }
       } catch (err) {
         console.warn('Unable to persist auth cookie', err);
       }
@@ -1418,7 +1409,7 @@
 
           hideAllAlerts();
           setLoading(false);
-          setupRedirect(buildPageUrl('dashboard', { token: resolvedToken }), resumedUser);
+          setupRedirect(buildPageUrl('dashboard'), resumedUser);
         })
         .withFailureHandler(error => {
           setLoading(false);
@@ -1450,6 +1441,24 @@
       }
 
       return normalized;
+    }
+
+    function stripTokenFromUrl(url) {
+      if (!url) {
+        return url;
+      }
+
+      try {
+        const parsed = new URL(url, window.location.href);
+        if (parsed.searchParams.has('token')) {
+          parsed.searchParams.delete('token');
+        }
+        return parsed.toString();
+      } catch (err) {
+        console.warn('Unable to sanitize redirect URL.', err);
+      }
+
+      return url;
     }
 
     function buildPageUrl(page, params = {}) {
@@ -1501,7 +1510,7 @@
       return baseUrl.toString();
     }
 
-    function normalizeRedirectUrl(serverUrl, sessionToken) {
+    function normalizeRedirectUrl(serverUrl) {
       let page = 'dashboard';
       const params = {};
 
@@ -1511,6 +1520,7 @@
           page = parsed.searchParams.get('page') || page;
           parsed.searchParams.forEach((value, key) => {
             if (key === 'page') return;
+            if (key === 'token') return;
             params[key] = value;
           });
         } catch (err) {
@@ -1518,11 +1528,7 @@
         }
       }
 
-      if (sessionToken && !params.token) {
-        params.token = sessionToken;
-      }
-
-      return buildPageUrl(page, params);
+      return stripTokenFromUrl(buildPageUrl(page, params));
     }
 
     function openPage(page, params = {}) {
@@ -2352,15 +2358,16 @@
     // REDIRECT MANAGEMENT
     // ───────────────────────────────────────────────────────────────────────────────
     function setupRedirect(url, userInfo = {}) {
-      console.log('Setting up redirect to:', url);
-      
-      state.redirectUrl = url;
+      const safeUrl = stripTokenFromUrl(url);
+      console.log('Setting up redirect to:', safeUrl);
+
+      state.redirectUrl = safeUrl;
       state.isRedirecting = true;
       state.countdownValue = 3;
-      
+
       // Update UI
       if (elements.continueButton) {
-        elements.continueButton.href = url;
+        elements.continueButton.href = safeUrl;
       }
 
       if (elements.loginForm) {
@@ -2553,8 +2560,8 @@
               response.sessionTtlSeconds
             );
 
-            // Setup redirect with token in URL
-            const destinationUrl = normalizeRedirectUrl(response.redirectUrl, response.sessionToken);
+            // Setup redirect using a sanitized destination URL
+            const destinationUrl = normalizeRedirectUrl(response.redirectUrl);
             setupRedirect(destinationUrl, response.user);
 
             hideNextSteps();
@@ -2653,6 +2660,14 @@
       const urlParams = new URLSearchParams(window.location.search);
       const message = urlParams.get('message');
       const error = urlParams.get('error');
+
+      if (urlParams.has('token')) {
+        const sanitizedParams = new URLSearchParams(urlParams);
+        sanitizedParams.delete('token');
+        const newQuery = sanitizedParams.toString();
+        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, newUrl);
+      }
       
       if (error) {
         showAlert('error', decodeURIComponent(error));
