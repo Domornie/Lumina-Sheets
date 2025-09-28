@@ -196,84 +196,6 @@
     });
   }
 
-  }
-
-  function isValidEmploymentStatus(value) {
-    if (!value && value !== 0) {
-      return true;
-    }
-    var normalized = normalizeString(value).toLowerCase();
-    if (!normalized) {
-      return true;
-    }
-    return EMPLOYMENT_STATUS.some(function (status) {
-      return status.toLowerCase() === normalized;
-    });
-  }
-
-  function ensureArray(value) {
-    if (!value && value !== 0) return [];
-    if (Array.isArray(value)) return value.slice();
-    return [value];
-  }
-
-  function ensureDateValue(value) {
-    if (!value && value !== 0) {
-      return '';
-    }
-    if (value instanceof Date) {
-      return value;
-    }
-    var asNumber = Number(value);
-    if (!isNaN(asNumber)) {
-      return new Date(asNumber);
-    }
-    var parsed = new Date(String(value));
-    if (isNaN(parsed)) {
-      return '';
-    }
-    return parsed;
-  }
-
-  function getUuid() {
-    return (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function')
-      ? Utilities.getUuid()
-      : String(Math.random()).slice(2) + String(new Date().getTime());
-  }
-
-  function getNow() {
-    return new Date();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Database table lookups
-  // ---------------------------------------------------------------------------
-
-  function getUsersTable() {
-    if (!hasDatabaseManager()) {
-      throw new Error('DatabaseManager is required for UserDirectory operations');
-    }
-    return global.DatabaseManager.defineTable(USERS_TABLE_NAME, {
-      headers: DEFAULT_USER_HEADERS.concat(OPTIONAL_USER_HEADERS),
-      idColumn: 'ID',
-      timestamps: { created: 'CreatedAt', updated: 'UpdatedAt' },
-      defaults: {
-        ResetRequired: false,
-        EmailConfirmed: false,
-        CanLogin: true,
-        TwoFactorEnabled: false,
-        Roles: '',
-        Pages: '',
-        IsAdmin: false,
-        DeletedAt: ''
-      },
-      validators: {
-        Email: function (value) { return normalizeEmail(value).length > 0; },
-        EmploymentStatus: function (value) { return isValidEmploymentStatus(value); }
-      }
-    });
-  }
-
   function getUserRolesTable() {
     if (!hasDatabaseManager()) {
       throw new Error('DatabaseManager is required for UserDirectory operations');
@@ -347,6 +269,25 @@
       } catch (err) {
         logError('resolveRoleIds:getUserRoleIds', err);
       }
+      return record;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Role helpers
+  // ---------------------------------------------------------------------------
+
+  function resolveRoleIds(userId, fallbackColumn) {
+    var ids = [];
+    if (typeof global.getUserRoleIds === 'function') {
+      try {
+        ids = global.getUserRoleIds(userId) || [];
+      } catch (err) {
+        logError('resolveRoleIds:getUserRoleIds', err);
+      }
+    }
+    if ((!ids || !ids.length) && fallbackColumn) {
+      ids = parseList(fallbackColumn);
     }
     if ((!ids || !ids.length) && fallbackColumn) {
       ids = parseList(fallbackColumn);
@@ -387,6 +328,7 @@
       } catch (err) {
         logError('syncRoles:deleteUserRoles', err);
       }
+
     }
 
     if (typeof global.addUserRole === 'function') {

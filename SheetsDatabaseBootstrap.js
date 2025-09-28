@@ -481,7 +481,6 @@ function initializeSheetsDatabase() {
         { name: campaignPermissionsTableName + '_User_idx', field: 'UserID' }
       ]
     });
-
   } catch (err) {
     console.error('Failed to initialize Sheets database schemas', err);
     throw err;
