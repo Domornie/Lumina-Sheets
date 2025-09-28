@@ -85,39 +85,26 @@ The existing `readSheet`/`ensureSheetWithHeaders` helpers now rely on these bind
 so all services automatically share cached queries and schema registration through
 `DatabaseManager`.
 
-### Multi-tenant SaaS safeguards
+### Unified campaign workspace
 
-Every campaign operates as an isolated tenant. Tables that contain campaign data are
-now registered with a `tenantColumn`, so `DatabaseManager` automatically blocks reads
-and writes that target campaigns outside the active tenant context.
-
-```javascript
-// Create a tenant-scoped CRUD context for the signed-in manager
-const { context } = getTenantContextForUser(currentUserId, 'credit-suite');
-const campaignPages = DatabaseManager.table(CAMPAIGN_PAGES_SHEET, context);
-
-// All queries will be transparently filtered to the campaigns in `context`
-const navigation = campaignPages.find({ sortBy: 'SortOrder' });
-```
-
-Use `TenantSecurityService.gs` to calculate per-user access profiles, enforce
-manager/admin permissions, and obtain reusable CRUD contexts:
+The database bindings now treat Google Sheets as a single shared workspace. When a
+table schema is registered, it is available to every feature through
+`DatabaseManager` without requiring tenant-specific configuration. All reads and
+writes execute against the canonical sheet so new components can rely on a unified
+data source.
 
 ```javascript
-const { profile, context } = TenantSecurity.getTenantContext(userId, campaignId);
-// Throws if the user cannot access the campaign
+// Direct access to the Campaigns sheet from any service
+const campaigns = DatabaseManager.table(CAMPAIGNS_SHEET).find({ sortBy: 'Name' });
 
-// One-line helpers for Apps Script services
-const db = dbWithContext(context);
-const notifications = db.select(NOTIFICATIONS_SHEET, { where: { UserId: userId } });
-
-// When you need a DatabaseManager table instance:
-const scopedUsers = TenantSecurity.getScopedTable(userId, campaignId, USERS_SHEET);
+// Legacy helpers transparently bridge through the DatabaseManager bindings
+const pages = dbSelect(PAGES_SHEET, { where: { Visible: true } });
 ```
 
-Legacy helpers such as `dbSelect` and `dbCreate` accept an optional tenant context as
-their final argument, while dedicated helpers (`dbTenantSelect`, `dbTenantCreate`,
-etc.) provide a more explicit API.
+The former tenant-scoped helpers (`dbTenantSelect`, `dbTenantCreate`, etc.) remain as
+aliases for backward compatibility, but they now simply forward to the unified CRUD
+operations so existing calls continue to work while new code can ignore tenant
+concerns entirely.
 
 ### Authentication & campaign-scoped sessions
 

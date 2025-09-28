@@ -22,7 +22,19 @@ const SEED_ROLE_NAMES = [
 
 const SEED_CAMPAIGNS = [
   { name: 'Lumina HQ', description: 'Lumina internal operations workspace' },
-  { name: 'Credit Suite', description: 'Credit Suite client workspace' }
+  { name: 'MultiCampaign(System Admin)', description: 'Unified system administration workspace' },
+  { name: 'Credit Suite', description: 'Credit Suite client workspace' },
+  { name: 'HiyaCar', description: 'HiyaCar partner program workspace' },
+  { name: 'Benefits Resource Center (iBTR)', description: 'Benefits Resource Center collaboration space' },
+  { name: 'Independence Insurance Agency', description: 'Independence Insurance Agency enablement hub' },
+  { name: 'JSC', description: 'JSC campaign operations workspace' },
+  { name: 'Kids in the Game', description: 'Kids in the Game program management workspace' },
+  { name: 'Kofi Group', description: 'Kofi Group talent operations workspace' },
+  { name: 'PAW LAW FIRM', description: 'PAW Law Firm legal services workspace' },
+  { name: 'Pro House Photos', description: 'Pro House Photos production workspace' },
+  { name: 'Independence Agency & Credit Suite', description: 'Shared Independence Agency and Credit Suite workspace' },
+  { name: 'Proozy', description: 'Proozy retail operations workspace' },
+  { name: 'The Grounding', description: 'The Grounding community workspace' }
 ];
 
 const SEED_ADMIN_PROFILE = {
