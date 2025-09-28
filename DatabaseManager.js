@@ -32,6 +32,19 @@
     error: function () { }
   };
 
+  function getSheetsDbTable(name) {
+    if (typeof SheetsDB === 'undefined' || !SheetsDB || typeof SheetsDB.getTable !== 'function') {
+      return null;
+    }
+    try {
+      var table = SheetsDB.getTable(name);
+      return table || null;
+    } catch (err) {
+      try { logger.warn('SheetsDB.getTable failed for ' + name + ': ' + err); } catch (_) { }
+      return null;
+    }
+  }
+
   function isObject(value) {
     return value && typeof value === 'object' && !Array.isArray(value);
   }
@@ -173,6 +186,245 @@
     this.headers = normalizeHeaders(this, providedHeaders);
     this.sheetHandle = new SpreadsheetHandle(this);
   }
+
+  function inferTimestampColumns(headers) {
+    var normalized = (headers || []).map(function (header) { return String(header || '').toLowerCase(); });
+    var createdAt = null;
+    var updatedAt = null;
+    for (var i = 0; i < normalized.length; i++) {
+      if (!createdAt && (normalized[i] === 'createdat' || normalized[i] === 'created_at')) {
+        createdAt = headers[i];
+      }
+      if (!updatedAt && (normalized[i] === 'updatedat' || normalized[i] === 'updated_at')) {
+        updatedAt = headers[i];
+      }
+    }
+    return {
+      created: createdAt,
+      updated: updatedAt
+    };
+  }
+
+  function SheetsDbTableAdapter(table) {
+    this.name = table && table.name ? table.name : '';
+    this.table = table;
+    this.headers = table && Array.isArray(table.headers) ? table.headers.slice() : [];
+    this.idColumn = table && table.primaryKey ? table.primaryKey : 'id';
+    this.cacheTTL = 0;
+    this.defaults = {};
+    this.validators = {};
+    this.tenantColumn = null;
+    this.requireTenant = false;
+    this.allowGlobalTenantBypass = true;
+    this.isSheetsDbAdapter = true;
+    this.timestamps = inferTimestampColumns(this.headers);
+  }
+
+  SheetsDbTableAdapter.prototype.normalizeContext = function (context) {
+    return normalizeTenantContext(context);
+  };
+
+  SheetsDbTableAdapter.prototype.withContext = function (context) {
+    return new ScopedTable(this, context || null);
+  };
+
+  SheetsDbTableAdapter.prototype.refreshFromSheetsDb = function (table) {
+    if (!table) return;
+    this.table = table;
+    if (Array.isArray(table.headers)) {
+      this.headers = table.headers.slice();
+      this.timestamps = inferTimestampColumns(this.headers);
+    }
+    if (table.primaryKey) {
+      this.idColumn = table.primaryKey;
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.invalidateCache = function () {
+    if (this.table && typeof this.table.refresh === 'function') {
+      try { this.table.refresh(); } catch (err) { logger.warn('SheetsDbTableAdapter.refresh failed: ' + err); }
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.listColumns = function () {
+    return this.headers.slice();
+  };
+
+  function cloneOptions(options) {
+    if (!options || typeof options !== 'object') return {};
+    var copy = {};
+    Object.keys(options).forEach(function (key) {
+      copy[key] = options[key];
+    });
+    return copy;
+  }
+
+  function buildSheetsDbActionOptions(context) {
+    var options = {};
+    if (context && typeof context === 'object') {
+      if (Object.prototype.hasOwnProperty.call(context, 'actor')) {
+        options.actor = context.actor;
+      }
+      if (Object.prototype.hasOwnProperty.call(context, 'expectedUpdatedAt')) {
+        options.expectedUpdatedAt = context.expectedUpdatedAt;
+      }
+      if (Object.prototype.hasOwnProperty.call(context, 'idempotencyKey')) {
+        options.idempotencyKey = context.idempotencyKey;
+      }
+      if (Object.prototype.hasOwnProperty.call(context, 'metadata')) {
+        options.metadata = context.metadata;
+      }
+    }
+    return options;
+  }
+
+  SheetsDbTableAdapter.prototype.read = function (options) {
+    options = cloneOptions(options);
+    var includeDeleted = !!options.includeDeleted;
+    var cursor = options.cursor || null;
+    var rows = [];
+    var guard = 0;
+    do {
+      var listOptions = {
+        includeDeleted: includeDeleted,
+        limit: 500
+      };
+      if (cursor) {
+        listOptions.cursor = cursor;
+      }
+      try {
+        var response = this.table.list(listOptions);
+        if (response && Array.isArray(response.records)) {
+          rows = rows.concat(response.records);
+        }
+        cursor = response && response.nextCursor ? response.nextCursor : null;
+      } catch (err) {
+        logger.error('SheetsDbTableAdapter.list failed for ' + this.name + ': ' + err);
+        break;
+      }
+      guard++;
+    } while (cursor && guard < 200);
+
+    delete options.cursor;
+    delete options.cache;
+
+    return applyQueryOptions(rows, this.headers, options);
+  };
+
+  SheetsDbTableAdapter.prototype.find = function (options) {
+    return this.read(options || {});
+  };
+
+  SheetsDbTableAdapter.prototype.findOne = function (where) {
+    if (!where || typeof where !== 'object') {
+      return null;
+    }
+    var results = this.read({ where: where, limit: 1 });
+    return results.length ? results[0] : null;
+  };
+
+  SheetsDbTableAdapter.prototype.findById = function (id) {
+    if (!this.table || !this.idColumn) return null;
+    try {
+      var record = this.table.get(id, { includeDeleted: true });
+      return record || null;
+    } catch (err) {
+      logger.warn('SheetsDbTableAdapter.get failed for ' + this.name + ': ' + err);
+      return null;
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.insert = function (record, context) {
+    if (!record || typeof record !== 'object') {
+      throw new Error('Record must be an object for insert');
+    }
+    var options = buildSheetsDbActionOptions(context);
+    try {
+      var result = this.table.create(record, options);
+      return result && result.record ? result.record : record;
+    } catch (err) {
+      logger.error('SheetsDbTableAdapter.insert failed for ' + this.name + ': ' + err);
+      throw err;
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.batchInsert = function (records, context) {
+    if (!Array.isArray(records) || !records.length) {
+      return [];
+    }
+    var inserted = [];
+    for (var i = 0; i < records.length; i++) {
+      inserted.push(this.insert(records[i], context));
+    }
+    return inserted;
+  };
+
+  SheetsDbTableAdapter.prototype.update = function (id, updates, context) {
+    if (!updates || typeof updates !== 'object') {
+      throw new Error('Updates must be an object for update');
+    }
+    var options = buildSheetsDbActionOptions(context);
+    try {
+      var result = this.table.update(id, updates, options);
+      return result && result.record ? result.record : null;
+    } catch (err) {
+      logger.error('SheetsDbTableAdapter.update failed for ' + this.name + ': ' + err);
+      throw err;
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.upsert = function (where, updates, context) {
+    var existing = where && typeof where === 'object' ? this.findOne(where) : null;
+    if (existing && this.idColumn && existing[this.idColumn]) {
+      return this.update(existing[this.idColumn], updates || {}, context);
+    }
+    var payload = {};
+    Object.keys(where || {}).forEach(function (key) { payload[key] = where[key]; });
+    Object.keys(updates || {}).forEach(function (key) { payload[key] = updates[key]; });
+    return this.insert(payload, context);
+  };
+
+  SheetsDbTableAdapter.prototype.delete = function (id, context) {
+    var options = buildSheetsDbActionOptions(context);
+    try {
+      this.table.hardDelete(id, options);
+      return true;
+    } catch (err) {
+      logger.error('SheetsDbTableAdapter.delete failed for ' + this.name + ': ' + err);
+      throw err;
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.count = function (where) {
+    return this.read({ where: where || {} }).length;
+  };
+
+  SheetsDbTableAdapter.prototype.clear = function () {
+    if (!this.table || typeof this.table.getSheet !== 'function') {
+      return false;
+    }
+    try {
+      var sheet = this.table.getSheet();
+      sheet.clearContents();
+      if (this.headers.length) {
+        sheet.getRange(1, 1, 1, this.headers.length).setValues([this.headers]);
+        sheet.setFrozenRows(1);
+      }
+      this.invalidateCache();
+      return true;
+    } catch (err) {
+      logger.warn('SheetsDbTableAdapter.clear failed for ' + this.name + ': ' + err);
+      return false;
+    }
+  };
+
+  SheetsDbTableAdapter.prototype.getTenantAccess = function () {
+    return { enforce: false, allowed: null };
+  };
+
+  SheetsDbTableAdapter.prototype.enforceTenantOnRecord = function () { };
+
+  SheetsDbTableAdapter.prototype.ensureExistingTenantAllowed = function () { };
 
   Table.prototype.withContext = function (context) {
     return new ScopedTable(this, context || null);
@@ -543,7 +795,7 @@
     return processed;
   };
 
-  Table.prototype.update = function (id, updates) {
+  Table.prototype.update = function (id, updates, context) {
     if (!this.idColumn) {
       throw new Error('Cannot update without idColumn configuration');
     }
@@ -812,7 +1064,16 @@
   }
 
   function ensureTable(name, config) {
-    if (!tables[name]) {
+    var sheetsDbTable = getSheetsDbTable(name);
+    if (sheetsDbTable) {
+      if (!tables[name] || !tables[name].isSheetsDbAdapter) {
+        tables[name] = new SheetsDbTableAdapter(sheetsDbTable);
+      } else {
+        tables[name].refreshFromSheetsDb(sheetsDbTable);
+      }
+      return tables[name];
+    }
+    if (!tables[name] || tables[name].isSheetsDbAdapter) {
       tables[name] = new Table(name, config || {});
     } else if (config) {
       tables[name] = new Table(name, mergeConfigs(tables[name], config));

@@ -1134,6 +1134,13 @@ function canonicalizePageKey(k) {
 
 function doGet(e) {
   try {
+    if (e && e.parameter && e.parameter.api === 'db') {
+      if (typeof SheetsDbApi === 'undefined') {
+        return ContentService.createTextOutput(JSON.stringify({ error: 'SheetsDbApi unavailable' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return SheetsDbApi.handleGet(e);
+    }
     const baseUrl = getBaseUrl();
 
     // Initialize system
@@ -1243,6 +1250,18 @@ function doGet(e) {
     writeError('doGet', error);
     return createErrorPage('System Error', `An error occurred: ${error.message}`);
   }
+}
+
+function doPost(e) {
+  if (e && e.parameter && e.parameter.api === 'db') {
+    if (typeof SheetsDbApi === 'undefined') {
+      return ContentService.createTextOutput(JSON.stringify({ error: 'SheetsDbApi unavailable' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return SheetsDbApi.handlePost(e);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ error: 'Unsupported route' }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -3627,6 +3646,14 @@ function initializeSystem() {
         CallCenterWorkflowService.initialize();
       } catch (err) {
         console.warn('CallCenterWorkflowService initialization failed', err);
+      }
+    }
+
+    if (typeof initializeSheetsDatabase === 'function') {
+      try {
+        initializeSheetsDatabase();
+      } catch (dbErr) {
+        console.warn('initializeSheetsDatabase failed', dbErr);
       }
     }
 
