@@ -1420,6 +1420,43 @@
       return true;
     }
 
+    function collectClientMetadata() {
+      try {
+        const nav = window.navigator || {};
+        const screen = window.screen || {};
+        const metadata = {
+          userAgent: nav.userAgent || '',
+          platform: nav.platform || '',
+          language: nav.language || (Array.isArray(nav.languages) && nav.languages.length ? nav.languages[0] : ''),
+          timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+          originHost: window.location && window.location.host ? window.location.host : ''
+        };
+
+        if (Array.isArray(nav.languages) && nav.languages.length) {
+          metadata.languages = nav.languages.slice(0, 5);
+        }
+        if (typeof screen.width === 'number') {
+          metadata.screenWidth = screen.width;
+        }
+        if (typeof screen.height === 'number') {
+          metadata.screenHeight = screen.height;
+        }
+        if (typeof nav.deviceMemory === 'number') {
+          metadata.deviceMemory = nav.deviceMemory;
+        }
+        if (typeof nav.hardwareConcurrency === 'number') {
+          metadata.hardwareConcurrency = nav.hardwareConcurrency;
+        }
+        return metadata;
+      } catch (err) {
+        console.warn('collectClientMetadata: Unable to gather client details', err);
+        return {
+          userAgent: (window.navigator && window.navigator.userAgent) || '',
+          timezoneOffsetMinutes: new Date().getTimezoneOffset()
+        };
+      }
+    }
+
     function alignUrlToCurrentContext(url) {
       const current = new URL(window.location.href);
 
@@ -2612,7 +2649,7 @@
             ]
           });
         })
-        .loginUser(email, password, rememberMe);
+        .loginUser(email, password, rememberMe, collectClientMetadata());
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
