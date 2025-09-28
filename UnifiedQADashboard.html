@@ -1099,12 +1099,12 @@
         
         if (currentCampaign === 'independence') {
             // Use the correct page names for Independence Insurance
-            newQABtn.href = `${baseUrl}&page=independencequality${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
-            qaListBtn.href = `${baseUrl}&page=qalist${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
+            newQABtn.href = `${baseUrl}&page=independencequality`;
+            qaListBtn.href = `${baseUrl}&page=qalist`;
         } else {
             // Use the correct page names for Credit Suite
-            newQABtn.href = `${baseUrl}&creditsuiteqa${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
-            qaListBtn.href = `${baseUrl}&page=qalist${campaignId ? '&campaign=' + encodeURIComponent(campaignId) : ''}`;
+            newQABtn.href = `${baseUrl}&creditsuiteqa`;
+            qaListBtn.href = `${baseUrl}&page=qalist`;
         }
         
         console.log('Updated button URLs:', {

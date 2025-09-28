@@ -67,18 +67,15 @@
     /**
      * Generate URLs for navigation
      */
-    function generateUrl(page, campaign = null, additionalParams = {}) {
+    function generateUrl(page, _campaign = null, additionalParams = {}) {
+      // _campaign is kept for backward compatibility but intentionally unused to avoid exposing it in URLs
       let url = BASE_URL || SCRIPT_URL;
       const params = new URLSearchParams();
-      
+
       if (page) {
         params.set('page', page);
       }
-      
-      if (campaign) {
-        params.set('campaign', campaign);
-      }
-      
+
       // Add any additional parameters
       Object.entries(additionalParams).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
@@ -93,8 +90,8 @@
     /**
      * Navigate to a page
      */
-    function navigateToPage(page, campaign = null, additionalParams = {}) {
-      const url = generateUrl(page, campaign, additionalParams);
+    function navigateToPage(page, _campaign = null, additionalParams = {}) {
+      const url = generateUrl(page, _campaign, additionalParams);
       window.location.href = url;
     }
 
@@ -1096,12 +1093,8 @@
         }
         
         // Helper function to generate URLs in server-side template
-        function generateLink(page, campaign) {
-          var url = baseUrl + '?page=' + encodeURIComponent(page);
-          if (campaign) {
-            url += '&campaign=' + encodeURIComponent(campaign);
-          }
-          return url;
+        function generateLink(page) {
+          return baseUrl + '?page=' + encodeURIComponent(page);
         }
         ?>
 
@@ -1133,7 +1126,7 @@
         <div class="sidebar-group">
           <? category.pages.forEach(function(page) { ?>
           <? if (page && page.PageKey && page.PageTitle) { ?>
-          <a href="<?= generateLink(page.PageKey, campaignId) ?>"
+          <a href="<?= generateLink(page.PageKey) ?>"
             class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
             data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
             <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
@@ -1157,7 +1150,7 @@
         <div class="sidebar-group">
           <? navigation.uncategorizedPages.forEach(function(page) { ?>
           <? if (page && page.PageKey && page.PageTitle) { ?>
-          <a href="<?= generateLink(page.PageKey, campaignId) ?>"
+          <a href="<?= generateLink(page.PageKey) ?>"
             class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
             data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
             <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
@@ -1177,19 +1170,19 @@
             <span>Global</span>
           </div>
           <div class="sidebar-group">
-            <a href="<?= generateLink('chat', null) ?>" class="<?= currentPage==='Chat'?'active':'' ?>" data-bs-toggle="tooltip"
+            <a href="<?= generateLink('chat') ?>" class="<?= currentPage==='Chat'?'active':'' ?>" data-bs-toggle="tooltip"
               data-bs-placement="right" title="Team Chat">
               <i class="fas fa-comments"></i><span>Chat</span>
             </a>
-            <a href="<?= generateLink('collaboration-reporting', null) ?>" class="<?= currentPage==='Collaboration Reporting'?'active':'' ?>"
+            <a href="<?= generateLink('collaboration-reporting') ?>" class="<?= currentPage==='Collaboration Reporting'?'active':'' ?>"
               data-bs-toggle="tooltip" data-bs-placement="right" title="Collaboration &amp; Reporting Hub">
               <i class="fas fa-diagram-project"></i><span>Collab &amp; Reporting</span>
             </a>
-            <a href="<?= generateLink('search', null) ?>" class="<?= currentPage==='Search'?'active':'' ?>"
+            <a href="<?= generateLink('search') ?>" class="<?= currentPage==='Search'?'active':'' ?>"
               data-bs-toggle="tooltip" data-bs-placement="right" title="Web Search">
               <i class="fas fa-search"></i><span>Search</span>
             </a>
-            <a href="<?= generateLink('bookmarks', null) ?>" class="<?= currentPage==='Bookmarks'?'active':'' ?>"
+            <a href="<?= generateLink('bookmarks') ?>" class="<?= currentPage==='Bookmarks'?'active':'' ?>"
               data-bs-toggle="tooltip" data-bs-placement="right" title="Bookmarks">
               <i class="fas fa-bookmark"></i><span>Bookmarks</span>
             </a>
@@ -1204,15 +1197,15 @@
             <span>Administration</span>
           </div>
           <div class="sidebar-group">
-            <a href="<?= generateLink('manageuser', null) ?>" class="<?= currentPage==='Users'?'active':'' ?>"
+            <a href="<?= generateLink('manageuser') ?>" class="<?= currentPage==='Users'?'active':'' ?>"
               data-bs-toggle="tooltip" data-bs-placement="right" title="User Management">
               <i class="fas fa-users"></i><span>Users</span>
             </a>
-            <a href="<?= generateLink('manageroles', null) ?>" class="<?= currentPage==='Settings'?'active':'' ?>"
+            <a href="<?= generateLink('manageroles') ?>" class="<?= currentPage==='Settings'?'active':'' ?>"
               data-bs-toggle="tooltip" data-bs-placement="right" title="Role Management">
               <i class="fas fa-user-shield"></i><span>Roles</span>
             </a>
-            <a href="<?= generateLink('managecampaign', null) ?>" class="<?= currentPage==='Campaigns'?'active':'' ?>"
+            <a href="<?= generateLink('managecampaign') ?>" class="<?= currentPage==='Campaigns'?'active':'' ?>"
               data-bs-toggle="tooltip" data-bs-placement="right" title="Campaign Management">
               <i class="fas fa-bullhorn"></i><span>Campaigns</span>
             </a>
@@ -1276,13 +1269,13 @@
             <div class="notification-badge"></div>
         </button>
 
-      <a href="<?= generateLink('search', null) ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
+      <a href="<?= generateLink('search') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
         <i class="fas fa-search"></i>
       </a>
 
       <!-- Employment Report Link for Admins -->
       <? if (isAdmin) { ?>
-      <a href="<?= generateLink('manageuser', null) ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
+      <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
         title="Employment Report">
         <i class="fas fa-chart-bar"></i>
       </a>

@@ -865,13 +865,9 @@
 <!-- Modern Action Buttons -->
 <div class="modern-actions fade-in">
   <? 
-        // Build clean URLs with campaign context using cookie-based auth
+        // Build clean URLs without exposing campaign context
         function buildUrl(page) {
-          var url = baseUrl + '?page=' + page;
-          if (typeof campaignId !== 'undefined' && campaignId) {
-            url += '&campaign=' + encodeURIComponent(campaignId);
-          }
-          return url;
+          return baseUrl + '?page=' + page;
         }
       ?>
   <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
@@ -1702,12 +1698,8 @@
           if (reportTypeSelect) {
             reportTypeSelect.addEventListener('change', function(e) {
               const baseUrl = '<?= baseUrl ?>';
-              const campaignId = '<?= typeof campaignId !== "undefined" ? campaignId : "" ?>';
-              let url = `${baseUrl}?page=${e.target.value}`;
-              if (campaignId) {
-                url += `&campaign=${encodeURIComponent(campaignId)}`;
-              }
-              window.location.href = url;
+              const nextPage = e.target.value;
+              window.location.href = `${baseUrl}?page=${nextPage}`;
             });
           } else {
             console.warn('reportTypeSelect not found');
