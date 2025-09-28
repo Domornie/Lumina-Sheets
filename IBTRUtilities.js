@@ -1106,6 +1106,7 @@
   }
 
   // Realtime trigger job removed to avoid redundant checkRealtimeUpdatesJob execution.
+
   // ────────────────────────────────────────────────────────────────────────────
   // Integration Utilities (Calendar/HR)
   // ────────────────────────────────────────────────────────────────────────────
