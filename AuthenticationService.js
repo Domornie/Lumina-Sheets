@@ -16,6 +16,9 @@
 
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_COLUMNS = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length)
+  ? SESSIONS_HEADERS.slice()
+  : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress'];
 
 // ───────────────────────────────────────────────────────────────────────────────
 // IMPROVED AUTHENTICATION SERVICE
@@ -50,6 +53,54 @@ var AuthenticationService = (function () {
   function normalizeString(str) {
     if (!str && str !== 0) return '';
     return String(str).trim();
+  }
+
+  function normalizeCampaignId(value) {
+    return normalizeString(value);
+  }
+
+  function cleanCampaignList(list) {
+    if (!Array.isArray(list)) return [];
+    var seen = {};
+    var result = [];
+    for (var i = 0; i < list.length; i++) {
+      var key = normalizeCampaignId(list[i]);
+      if (!key || seen[key]) continue;
+      seen[key] = true;
+      result.push(key);
+    }
+    return result;
+  }
+
+  function parseCampaignScope(rawScope) {
+    if (!rawScope && rawScope !== 0) return null;
+    if (typeof rawScope === 'object') {
+      return rawScope;
+    }
+    if (typeof rawScope === 'string') {
+      try {
+        return JSON.parse(rawScope);
+      } catch (parseError) {
+        console.warn('parseCampaignScope: Failed to parse scope JSON', parseError);
+      }
+    }
+    return null;
+  }
+
+  function serializeCampaignScope(scope) {
+    if (!scope || typeof scope !== 'object') return '';
+    try {
+      return JSON.stringify(scope);
+    } catch (err) {
+      console.warn('serializeCampaignScope: Failed to stringify scope', err);
+      return '';
+    }
+  }
+
+  function tenantSecurityAvailable() {
+    return typeof TenantSecurity !== 'undefined'
+      && TenantSecurity
+      && typeof TenantSecurity.getAccessProfile === 'function';
   }
 
   function toBool(value) {
@@ -155,6 +206,316 @@ var AuthenticationService = (function () {
     return null;
   }
 
+  function buildTenantScopePayload(scope) {
+    if (!scope || typeof scope !== 'object') {
+      return {
+        isGlobalAdmin: false,
+        defaultCampaignId: '',
+        activeCampaignId: '',
+        allowedCampaignIds: [],
+        managedCampaignIds: [],
+        adminCampaignIds: [],
+        assignments: [],
+        permissions: [],
+        warnings: [],
+        needsCampaignAssignment: false
+      };
+    }
+    return {
+      isGlobalAdmin: !!scope.isGlobalAdmin,
+      defaultCampaignId: normalizeCampaignId(scope.defaultCampaignId),
+      activeCampaignId: normalizeCampaignId(scope.activeCampaignId),
+      allowedCampaignIds: cleanCampaignList(scope.allowedCampaignIds || []),
+      managedCampaignIds: cleanCampaignList(scope.managedCampaignIds || []),
+      adminCampaignIds: cleanCampaignList(scope.adminCampaignIds || []),
+      assignments: Array.isArray(scope.assignments) ? scope.assignments.slice() : [],
+      permissions: Array.isArray(scope.permissions) ? scope.permissions.slice() : [],
+      warnings: Array.isArray(scope.warnings) ? scope.warnings.slice() : [],
+      needsCampaignAssignment: !!scope.needsCampaignAssignment
+    };
+  }
+
+  function buildUnassignedTenantScope(options) {
+    const scopeOptions = options || {};
+    const assignments = Array.isArray(scopeOptions.assignments) ? scopeOptions.assignments.slice() : [];
+    const permissions = Array.isArray(scopeOptions.permissions) ? scopeOptions.permissions.slice() : [];
+    const defaultCampaignId = normalizeCampaignId(scopeOptions.defaultCampaignId);
+
+    const warnings = ['NO_CAMPAIGN_ASSIGNMENTS'];
+
+    return {
+      isGlobalAdmin: !!scopeOptions.isGlobalAdmin,
+      defaultCampaignId: defaultCampaignId,
+      activeCampaignId: '',
+      allowedCampaignIds: [],
+      managedCampaignIds: [],
+      adminCampaignIds: [],
+      tenantContext: {
+        tenantIds: [],
+        allowedTenantIds: [],
+        limitedAccess: true,
+        requireAssignment: true,
+        defaultTenantId: defaultCampaignId || ''
+      },
+      assignments: assignments,
+      permissions: permissions,
+      warnings: warnings,
+      needsCampaignAssignment: true
+    };
+  }
+
+  function resolveTenantAccess(user, requestedCampaignId) {
+    const userId = normalizeString(user && (user.ID || user.Id));
+    if (!userId) {
+      return { success: false, reason: 'INVALID_USER' };
+    }
+
+    const requestedId = normalizeCampaignId(requestedCampaignId);
+    const fallbackCampaignId = normalizeCampaignId(user && (user.CampaignID || user.campaignId || user.CampaignId));
+    const isAdmin = toBool(user && user.IsAdmin);
+
+    if (tenantSecurityAvailable()) {
+      try {
+        const profile = TenantSecurity.getAccessProfile(userId);
+        if (!profile) {
+          throw new Error('Access profile not returned');
+        }
+
+        const allowed = cleanCampaignList(profile.allowedCampaignIds || []);
+        const managed = cleanCampaignList(profile.managedCampaignIds || []);
+        const admin = cleanCampaignList(profile.adminCampaignIds || []);
+        const defaultCampaignId = normalizeCampaignId(profile.defaultCampaignId) || fallbackCampaignId || (allowed[0] || '');
+        let activeCampaignId = '';
+
+        if (requestedId) {
+          if (!profile.isGlobalAdmin && allowed.indexOf(requestedId) === -1) {
+            return { success: false, reason: 'CAMPAIGN_ACCESS_DENIED', campaignId: requestedId };
+          }
+          activeCampaignId = requestedId;
+        } else if (defaultCampaignId && (profile.isGlobalAdmin || allowed.indexOf(defaultCampaignId) !== -1)) {
+          activeCampaignId = defaultCampaignId;
+        }
+
+        if (!activeCampaignId && allowed.length) {
+          activeCampaignId = allowed[0];
+        }
+
+        if (!profile.isGlobalAdmin && allowed.length === 0) {
+          const unassignedScope = buildUnassignedTenantScope({
+            assignments: profile.assignments,
+            permissions: profile.permissions,
+            defaultCampaignId: defaultCampaignId,
+            isGlobalAdmin: !!profile.isGlobalAdmin
+          });
+          const clientPayload = buildTenantScopePayload(unassignedScope);
+          return {
+            success: true,
+            profile: profile,
+            sessionScope: unassignedScope,
+            clientPayload: clientPayload,
+            warnings: unassignedScope.warnings.slice(),
+            needsCampaignAssignment: true
+          };
+        }
+
+        const tenantContext = profile.isGlobalAdmin
+          ? (activeCampaignId
+            ? { tenantId: activeCampaignId, campaignId: activeCampaignId, allowAllTenants: true }
+            : { allowAllTenants: true })
+          : (function () {
+              const ctx = {
+                tenantIds: allowed.slice(),
+                allowedTenantIds: allowed.slice()
+              };
+              if (activeCampaignId) {
+                ctx.tenantId = activeCampaignId;
+                ctx.campaignId = activeCampaignId;
+              }
+              if (defaultCampaignId) {
+                ctx.defaultTenantId = defaultCampaignId;
+              }
+              return ctx;
+            })();
+
+        const sessionScope = {
+          isGlobalAdmin: !!profile.isGlobalAdmin,
+          defaultCampaignId: defaultCampaignId || '',
+          activeCampaignId: activeCampaignId || '',
+          allowedCampaignIds: allowed.slice(),
+          managedCampaignIds: managed.slice(),
+          adminCampaignIds: admin.slice(),
+          tenantContext: tenantContext,
+          assignments: Array.isArray(profile.assignments) ? profile.assignments : [],
+          permissions: Array.isArray(profile.permissions) ? profile.permissions : []
+        };
+
+        const clientPayload = buildTenantScopePayload(sessionScope);
+        clientPayload.assignments = Array.isArray(profile.assignments) ? profile.assignments : [];
+        clientPayload.permissions = Array.isArray(profile.permissions) ? profile.permissions : [];
+
+        return {
+          success: true,
+          profile: profile,
+          sessionScope: sessionScope,
+          clientPayload: clientPayload,
+          warnings: Array.isArray(sessionScope.warnings) ? sessionScope.warnings.slice() : [],
+          needsCampaignAssignment: !!sessionScope.needsCampaignAssignment
+        };
+      } catch (err) {
+        console.error('resolveTenantAccess: Failed to compute tenant scope for user', userId, err);
+        return { success: false, reason: 'TENANT_PROFILE_ERROR', error: err };
+      }
+    }
+
+    const fallbackAllowed = cleanCampaignList([
+      fallbackCampaignId,
+      requestedId
+    ]);
+    const activeFallback = requestedId || fallbackCampaignId || (fallbackAllowed[0] || '');
+
+    if (!isAdmin && fallbackAllowed.length === 0) {
+      const unassignedFallback = buildUnassignedTenantScope({
+        defaultCampaignId: fallbackCampaignId,
+        isGlobalAdmin: !!isAdmin
+      });
+      const unassignedPayload = buildTenantScopePayload(unassignedFallback);
+      return {
+        success: true,
+        profile: null,
+        sessionScope: unassignedFallback,
+        clientPayload: unassignedPayload,
+        warnings: unassignedFallback.warnings.slice(),
+        needsCampaignAssignment: true
+      };
+    }
+
+    const fallbackContext = isAdmin
+      ? { allowAllTenants: true }
+      : (function () {
+          const ctx = {
+            tenantIds: fallbackAllowed.slice(),
+            allowedTenantIds: fallbackAllowed.slice()
+          };
+          if (activeFallback) {
+            ctx.tenantId = activeFallback;
+            ctx.campaignId = activeFallback;
+          }
+          if (fallbackCampaignId) {
+            ctx.defaultTenantId = fallbackCampaignId;
+          }
+          return ctx;
+        })();
+
+    const fallbackScope = {
+      isGlobalAdmin: !!isAdmin,
+      defaultCampaignId: fallbackCampaignId || '',
+      activeCampaignId: activeFallback || '',
+      allowedCampaignIds: fallbackAllowed.slice(),
+      managedCampaignIds: [],
+      adminCampaignIds: isAdmin ? fallbackAllowed.slice() : [],
+      tenantContext: fallbackContext,
+      assignments: [],
+      permissions: [],
+      warnings: [],
+      needsCampaignAssignment: false
+    };
+
+    const fallbackPayload = buildTenantScopePayload(fallbackScope);
+
+    return {
+      success: true,
+      profile: null,
+      sessionScope: fallbackScope,
+      clientPayload: fallbackPayload,
+      warnings: Array.isArray(fallbackScope.warnings) ? fallbackScope.warnings.slice() : [],
+      needsCampaignAssignment: !!fallbackScope.needsCampaignAssignment
+    };
+  }
+
+  function formatTenantAccessError(tenantAccess) {
+    const defaultResponse = {
+      error: 'We could not determine your campaign access. Please contact support.',
+      errorCode: 'TENANT_SCOPE_ERROR'
+    };
+
+    if (!tenantAccess || tenantAccess.success) {
+      return defaultResponse;
+    }
+
+    switch (tenantAccess.reason) {
+      case 'NO_CAMPAIGN_ASSIGNMENTS':
+        return {
+          error: 'Your account is not assigned to any campaigns. Please contact your administrator.',
+          errorCode: 'NO_CAMPAIGN_ACCESS'
+        };
+      case 'CAMPAIGN_ACCESS_DENIED':
+        return {
+          error: 'You do not have access to the requested campaign.',
+          errorCode: 'CAMPAIGN_ACCESS_DENIED'
+        };
+      case 'INVALID_USER':
+        return {
+          error: 'Unable to verify your account. Please contact support.',
+          errorCode: 'INVALID_USER'
+        };
+      case 'TENANT_PROFILE_ERROR':
+        return {
+          error: 'A configuration error prevented loading your campaign permissions. Please try again later or contact support.',
+          errorCode: 'TENANT_PROFILE_ERROR'
+        };
+      default:
+        return defaultResponse;
+    }
+  }
+
+  function buildUserPayload(user, tenantPayload) {
+    if (!user) return null;
+
+    const payload = {
+      ID: user.ID,
+      UserName: user.UserName || '',
+      FullName: user.FullName || user.UserName || '',
+      Email: user.Email || '',
+      CampaignID: user.CampaignID || '',
+      IsAdmin: toBool(user.IsAdmin),
+      CanLogin: toBool(user.CanLogin),
+      EmailConfirmed: toBool(user.EmailConfirmed)
+    };
+
+    if (tenantPayload && typeof tenantPayload === 'object') {
+      payload.CampaignScope = {
+        isGlobalAdmin: !!tenantPayload.isGlobalAdmin,
+        defaultCampaignId: tenantPayload.defaultCampaignId || '',
+        activeCampaignId: tenantPayload.activeCampaignId || '',
+        allowedCampaignIds: (tenantPayload.allowedCampaignIds || []).slice(),
+        managedCampaignIds: (tenantPayload.managedCampaignIds || []).slice(),
+        adminCampaignIds: (tenantPayload.adminCampaignIds || []).slice(),
+        assignments: Array.isArray(tenantPayload.assignments) ? tenantPayload.assignments : [],
+        permissions: Array.isArray(tenantPayload.permissions) ? tenantPayload.permissions : [],
+        warnings: Array.isArray(tenantPayload.warnings) ? tenantPayload.warnings.slice() : [],
+        needsCampaignAssignment: !!tenantPayload.needsCampaignAssignment
+      };
+      payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
+      payload.ActiveCampaignId = payload.CampaignScope.activeCampaignId;
+      payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
+      payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
+      payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
+      payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin;
+      payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
+    } else {
+      payload.CampaignScope = buildTenantScopePayload(null);
+      payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
+      payload.ActiveCampaignId = payload.CampaignScope.activeCampaignId;
+      payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
+      payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
+      payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
+      payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
+      payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
+    }
+
+    return payload;
+  }
+
   // ─── Improved password verification ─────────────────────────────────────────
 
   function verifyUserPassword(inputPassword, storedHash, userInfo = {}) {
@@ -238,12 +599,16 @@ var AuthenticationService = (function () {
 
   // ─── Session management ─────────────────────────────────────────────────────
 
-  function createSession(userId, rememberMe = false) {
+  function createSession(userId, rememberMe = false, campaignScope, metadata) {
     try {
       const token = Utilities.getUuid() + '_' + Date.now();
       const now = new Date();
       const ttl = rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
       const expiresAt = new Date(now.getTime() + ttl);
+
+      const scopeData = campaignScope && typeof campaignScope === 'object'
+        ? campaignScope
+        : null;
 
       const sessionRecord = {
         Token: token,
@@ -251,29 +616,82 @@ var AuthenticationService = (function () {
         CreatedAt: now.toISOString(),
         ExpiresAt: expiresAt.toISOString(),
         RememberMe: rememberMe ? 'TRUE' : 'FALSE',
-        UserAgent: 'Google Apps Script',
-        IpAddress: 'N/A'
+        CampaignScope: serializeCampaignScope(scopeData),
+        UserAgent: metadata && metadata.userAgent ? metadata.userAgent : 'Google Apps Script',
+        IpAddress: metadata && metadata.ipAddress ? metadata.ipAddress : 'N/A'
       };
 
-      // Try to save session
-      try {
-        if (typeof ensureSheetWithHeaders === 'function') {
-          const sessionsSheet = ensureSheetWithHeaders('Sessions', [
-            'Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'UserAgent', 'IpAddress'
-          ]);
-          
-          const headers = ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'UserAgent', 'IpAddress'];
-          const rowValues = headers.map(h => sessionRecord[h] || '');
-          sessionsSheet.appendRow(rowValues);
-          
-          console.log('createSession: Session saved successfully');
+      const tableName = (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions';
+      let persisted = false;
+
+      if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function') {
+        try {
+          DatabaseManager.table(tableName).insert(sessionRecord);
+          persisted = true;
+        } catch (dbError) {
+          console.warn('createSession: DatabaseManager insert failed:', dbError);
         }
-      } catch (sessionError) {
-        console.warn('createSession: Failed to save session:', sessionError);
-        // Continue anyway - session creation shouldn't fail due to storage issues
       }
 
-      return token;
+      if (!persisted && typeof dbCreate === 'function') {
+        try {
+          dbCreate(tableName, sessionRecord);
+          persisted = true;
+        } catch (legacyError) {
+          console.warn('createSession: dbCreate fallback failed:', legacyError);
+        }
+      }
+
+      if (!persisted && typeof ensureSheetWithHeaders === 'function') {
+        try {
+          const sessionsSheet = ensureSheetWithHeaders(tableName, SESSION_COLUMNS);
+          const rowValues = SESSION_COLUMNS.map(function (column) {
+            return Object.prototype.hasOwnProperty.call(sessionRecord, column)
+              ? sessionRecord[column]
+              : '';
+          });
+          sessionsSheet.appendRow(rowValues);
+          persisted = true;
+        } catch (sheetError) {
+          console.warn('createSession: ensureSheetWithHeaders fallback failed:', sheetError);
+        }
+      }
+
+      if (!persisted && typeof SpreadsheetApp !== 'undefined') {
+        try {
+          const ss = SpreadsheetApp.getActiveSpreadsheet();
+          if (ss) {
+            let sheet = ss.getSheetByName(tableName);
+            if (!sheet) {
+              sheet = ss.insertSheet(tableName);
+              sheet.getRange(1, 1, 1, SESSION_COLUMNS.length).setValues([SESSION_COLUMNS]);
+            }
+            const headersRange = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+            const normalizedHeaders = headersRange.map(function (value) { return String(value || '').trim(); });
+            const row = normalizedHeaders.map(function (column) {
+              return Object.prototype.hasOwnProperty.call(sessionRecord, column)
+                ? sessionRecord[column]
+                : '';
+            });
+            sheet.appendRow(row);
+            persisted = true;
+          }
+        } catch (spreadsheetError) {
+          console.warn('createSession: Spreadsheet fallback failed:', spreadsheetError);
+        }
+      }
+
+      if (persisted && typeof invalidateCache === 'function') {
+        try { invalidateCache(tableName); } catch (cacheError) { console.warn('createSession: Cache invalidation failed:', cacheError); }
+      }
+
+      return {
+        token: token,
+        record: sessionRecord,
+        expiresAt: sessionRecord.ExpiresAt,
+        ttlSeconds: Math.max(60, Math.floor(ttl / 1000)),
+        campaignScope: scopeData
+      };
 
     } catch (error) {
       console.error('createSession: Error creating session:', error);
@@ -378,24 +796,49 @@ var AuthenticationService = (function () {
 
       console.log('login: Password verified successfully using method:', passwordCheck.method);
 
+      const tenantAccess = resolveTenantAccess(user, null);
+      if (!tenantAccess || !tenantAccess.success) {
+        console.log('login: Tenant access check failed:', tenantAccess ? tenantAccess.reason : 'unknown');
+        const tenantError = formatTenantAccessError(tenantAccess);
+        return {
+          success: false,
+          error: tenantError.error,
+          errorCode: tenantError.errorCode
+        };
+      }
+
+      const tenantSummary = Object.assign({}, tenantAccess.clientPayload, {
+        tenantContext: tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+          ? tenantAccess.sessionScope.tenantContext
+          : null
+      });
+      if (Array.isArray(tenantAccess.warnings)) {
+        tenantSummary.warnings = tenantAccess.warnings.slice();
+      }
+      tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
       // Handle reset required
       if (resetRequired) {
         console.log('login: Password reset required');
-        const resetToken = createSession(user.ID, false);
+        const resetSession = createSession(user.ID, false, tenantAccess.sessionScope);
         return {
           success: false,
           error: 'You must change your password before continuing.',
           errorCode: 'PASSWORD_RESET_REQUIRED',
-          resetToken: resetToken,
-          needsPasswordReset: true
+          resetToken: resetSession && resetSession.token ? resetSession.token : null,
+          needsPasswordReset: true,
+          tenant: tenantSummary,
+          campaignScope: tenantSummary,
+          warnings: Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [],
+          needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true
         };
       }
 
       // Create session
       console.log('login: Creating session...');
-      const sessionToken = createSession(user.ID, rememberMe);
-      
-      if (!sessionToken) {
+      const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope);
+
+      if (!sessionResult || !sessionResult.token) {
         console.log('login: Failed to create session');
         return {
           success: false,
@@ -415,16 +858,28 @@ var AuthenticationService = (function () {
       }
 
       // Build user payload
-      const userPayload = {
-        ID: user.ID,
-        UserName: user.UserName || '',
-        FullName: user.FullName || user.UserName || '',
-        Email: user.Email || '',
-        CampaignID: user.CampaignID || '',
-        IsAdmin: toBool(user.IsAdmin),
-        CanLogin: canLogin,
-        EmailConfirmed: emailConfirmed
-      };
+      const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+
+      if (userPayload && userPayload.CampaignScope) {
+        userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+          ? tenantAccess.sessionScope.tenantContext
+          : null;
+        if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.assignments) && !userPayload.CampaignScope.assignments.length) {
+          userPayload.CampaignScope.assignments = tenantAccess.sessionScope.assignments.slice();
+        }
+        if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.permissions) && !userPayload.CampaignScope.permissions.length) {
+          userPayload.CampaignScope.permissions = tenantAccess.sessionScope.permissions.slice();
+        }
+      }
+
+      const sessionToken = sessionResult.token;
+
+      const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+      const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+      const loginMessage = needsCampaignAssignment
+        ? 'Login successful, but your account is not yet assigned to any campaigns. You may have limited access until an administrator completes the assignment.'
+        : 'Login successful';
 
       console.log('login: Login successful for user:', userPayload.FullName);
       console.log('=== AuthenticationService.login SUCCESS ===');
@@ -433,8 +888,14 @@ var AuthenticationService = (function () {
         success: true,
         sessionToken: sessionToken,
         user: userPayload,
-        message: 'Login successful',
-        rememberMe: !!rememberMe
+        message: loginMessage,
+        rememberMe: !!rememberMe,
+        sessionExpiresAt: sessionResult.expiresAt,
+        sessionTtlSeconds: sessionResult.ttlSeconds,
+        tenant: tenantSummary,
+        campaignScope: userPayload ? userPayload.CampaignScope : null,
+        warnings: warnings,
+        needsCampaignAssignment: needsCampaignAssignment
       };
 
     } catch (error) {
@@ -455,6 +916,81 @@ var AuthenticationService = (function () {
   }
 
   // ─── Session validation ─────────────────────────────────────────────────────
+
+  function createSessionFor(userId, campaignId, rememberMe = false, metadata) {
+    try {
+      const user = findUserById(userId);
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found',
+          errorCode: 'USER_NOT_FOUND'
+        };
+      }
+
+      const tenantAccess = resolveTenantAccess(user, campaignId);
+      if (!tenantAccess || !tenantAccess.success) {
+        const tenantError = formatTenantAccessError(tenantAccess);
+        return Object.assign({ success: false }, tenantError);
+      }
+
+      const sessionResult = createSession(user.ID || userId, rememberMe, tenantAccess.sessionScope, metadata);
+      if (!sessionResult || !sessionResult.token) {
+        return {
+          success: false,
+          error: 'Failed to create session. Please try again.',
+          errorCode: 'SESSION_CREATION_FAILED'
+        };
+      }
+
+      const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+
+      if (userPayload && userPayload.CampaignScope) {
+        userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+          ? tenantAccess.sessionScope.tenantContext
+          : null;
+        if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.assignments) && !userPayload.CampaignScope.assignments.length) {
+          userPayload.CampaignScope.assignments = tenantAccess.sessionScope.assignments.slice();
+        }
+        if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.permissions) && !userPayload.CampaignScope.permissions.length) {
+          userPayload.CampaignScope.permissions = tenantAccess.sessionScope.permissions.slice();
+        }
+      }
+
+      const tenantSummary = Object.assign({}, tenantAccess.clientPayload, {
+        tenantContext: tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+          ? tenantAccess.sessionScope.tenantContext
+          : null
+      });
+      if (Array.isArray(tenantAccess.warnings)) {
+        tenantSummary.warnings = tenantAccess.warnings.slice();
+      }
+      tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+      const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+      const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+      return {
+        success: true,
+        sessionToken: sessionResult.token,
+        sessionExpiresAt: sessionResult.expiresAt,
+        sessionTtlSeconds: sessionResult.ttlSeconds,
+        user: userPayload,
+        tenant: tenantSummary,
+        campaignScope: userPayload ? userPayload.CampaignScope : null,
+        warnings: warnings,
+        needsCampaignAssignment: needsCampaignAssignment
+      };
+
+    } catch (error) {
+      console.error('createSessionFor: Error creating session for user', userId, error);
+      return {
+        success: false,
+        error: error.message || 'Failed to create session',
+        errorCode: 'SESSION_CREATION_ERROR'
+      };
+    }
+  }
 
   function getSessionUser(sessionToken) {
     try {
@@ -494,11 +1030,31 @@ var AuthenticationService = (function () {
         return null;
       }
 
-      return {
-        ...user,
-        sessionToken: sessionToken,
-        sessionExpiry: session.ExpiresAt
-      };
+      const rawScope = parseCampaignScope(session.CampaignScope || session.campaignScope);
+      const tenantPayload = buildTenantScopePayload(rawScope);
+      const userPayload = buildUserPayload(user, tenantPayload);
+
+      if (userPayload && userPayload.CampaignScope) {
+        userPayload.CampaignScope.tenantContext = rawScope && rawScope.tenantContext ? rawScope.tenantContext : null;
+      }
+
+      if (rawScope && Array.isArray(rawScope.assignments) && userPayload && userPayload.CampaignScope) {
+        userPayload.CampaignScope.assignments = rawScope.assignments.slice();
+      }
+
+      if (rawScope && Array.isArray(rawScope.permissions) && userPayload && userPayload.CampaignScope) {
+        userPayload.CampaignScope.permissions = rawScope.permissions.slice();
+      }
+
+      if (userPayload) {
+        userPayload.sessionToken = sessionToken;
+        userPayload.sessionExpiry = session.ExpiresAt;
+        userPayload.sessionExpiresAt = session.ExpiresAt;
+        userPayload.sessionScope = rawScope || null;
+        userPayload.NeedsCampaignAssignment = userPayload.CampaignScope ? !!userPayload.CampaignScope.needsCampaignAssignment : false;
+      }
+
+      return userPayload;
 
     } catch (error) {
       console.error('getSessionUser: Error:', error);
@@ -583,15 +1139,25 @@ var AuthenticationService = (function () {
         };
       }
 
+      let ttlSeconds = null;
+      if (user.sessionExpiresAt) {
+        const expiryTime = Date.parse(user.sessionExpiresAt);
+        if (!isNaN(expiryTime)) {
+          ttlSeconds = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
+        }
+      }
+
       return {
         success: true,
         message: 'Session active',
-        user: {
-          ID: user.ID,
-          FullName: user.FullName,
-          Email: user.Email,
-          CampaignID: user.CampaignID
-        }
+        user: user,
+        sessionToken: user.sessionToken,
+        sessionExpiresAt: user.sessionExpiresAt || user.sessionExpiry || null,
+        sessionTtlSeconds: ttlSeconds,
+        tenant: user.CampaignScope || null,
+        campaignScope: user.CampaignScope || null,
+        warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
+        needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false
       };
     } catch (error) {
       console.error('keepAlive: Error:', error);
@@ -607,6 +1173,7 @@ var AuthenticationService = (function () {
   return {
     login: login,
     logout: logout,
+    createSessionFor: createSessionFor,
     getSessionUser: getSessionUser,
     keepAlive: keepAlive,
     findUserByEmail: findUserByEmail,
