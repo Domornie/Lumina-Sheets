@@ -2429,8 +2429,8 @@
   }
 
   function renderUserCardWithPages(user) {
-    const name = user.FullName || user.UserName || 'Unknown User';
-    const username = user.UserName || 'unknown';
+    const name = user.FullName || user.UserName || user.userName || user.username || user.Username || 'Unknown User';
+    const username = user.UserName || user.userName || user.username || user.Username || 'unknown';
     const initials = getInitials(name);
     const userId = user.ID || '';
 
@@ -2619,7 +2619,15 @@
 
     let filtered = (allUsers || []).filter(u => {
       if (term) {
-        const hay = [u.FullName, u.UserName, u.Email, (u.campaignName || ''), (u.roleNames || []).join(' '), u.EmploymentStatus, u.Country]
+        const hay = [
+          u.FullName,
+          u.UserName || u.userName || u.username || u.Username,
+          u.Email,
+          (u.campaignName || ''),
+          (u.roleNames || []).join(' '),
+          u.EmploymentStatus,
+          u.Country
+        ]
           .join(' ').toLowerCase();
         if (!hay.includes(term)) return false;
       }
@@ -2713,7 +2721,7 @@
     const userNameField = document.getElementById('userName');
     let mappedUserName = '';
     if (userNameField) {
-      mappedUserName = u.UserName || u.userName || u.username || '';
+      mappedUserName = u.UserName || u.userName || u.username || u.Username || '';
       console.log('Setting username:', mappedUserName); // Debug log
       userNameField.value = mappedUserName;
 
@@ -2791,7 +2799,7 @@
         const btn = document.getElementById('saveManagerBtn');
         if (can) {
           tab.style.display = 'block';
-          const name = (u.FullName || u.UserName || 'Manager');
+          const name = (u.FullName || u.UserName || u.userName || u.username || u.Username || 'Manager');
           document.getElementById('currentManagerName').textContent = name;
           document.getElementById('summaryManagerName').textContent = name;
         } else {
@@ -2935,13 +2943,13 @@
       const normalizedUserKey = userName.toLowerCase();
       const localConflict = (allUsers || []).find(u => {
         if (!u) return false;
-        const candidate = (u.UserName || u.userName || u.username || '').toLowerCase();
+        const candidate = (u.UserName || u.userName || u.username || u.Username || '').toLowerCase();
         if (!candidate || candidate !== normalizedUserKey) return false;
         return !isEditing || String(u.ID) !== String(targetUserId);
       });
 
       if (localConflict) {
-        const conflictLabel = localConflict.FullName || localConflict.Email || localConflict.UserName || 'another user';
+        const conflictLabel = localConflict.FullName || localConflict.Email || localConflict.UserName || localConflict.userName || localConflict.username || 'another user';
         showAlert('error', `Username is already in use by ${conflictLabel}.`);
         if (userNameField) userNameField.classList.add('is-invalid');
         return;
@@ -3050,7 +3058,7 @@
   function adminResetPassword(userId) {
     const u = allUsers.find(x => String(x.ID) === String(userId));
     if (!u) return showAlert('error', 'User not found');
-    const label = u.Email || u.UserName || u.FullName || userId;
+    const label = u.Email || u.UserName || u.userName || u.username || u.Username || u.FullName || userId;
     if (!confirm(`Send password reset to ${label}?`)) return;
     showLoading(true);
     callGoogleScript('clientAdminResetPasswordById', userId)
@@ -3062,7 +3070,7 @@
   function resendFirstLogin(userId) {
     const u = allUsers.find(x => String(x.ID) === String(userId));
     if (!u) return showAlert('error', 'User not found');
-    const label = u.Email || u.UserName || u.FullName || userId;
+    const label = u.Email || u.UserName || u.userName || u.username || u.Username || u.FullName || userId;
     if (!confirm(`Resend first-login email to ${label}?`)) return;
     showLoading(true);
     callGoogleScript('clientResendFirstLoginEmail', userId)
@@ -3302,6 +3310,17 @@
       const managedList = (managedRes && managedRes.success && Array.isArray(managedRes.users)) ? managedRes.users : [];
       managedAssignments = new Set(managedList.map(u => String(u.ID)).filter(Boolean));
 
+      if (managedList.length) {
+        const existingIds = new Set(availableUsersForManager.map(u => String(u.ID)));
+        managedList.forEach(mu => {
+          const id = String(mu.ID);
+          if (!existingIds.has(id)) {
+            availableUsersForManager.push(mu);
+            existingIds.add(id);
+          }
+        });
+      }
+
       renderManagerUserList(availableUsersForManager, managedAssignments);
       updateManagedUserStats();
     }).catch(err => {
@@ -3327,7 +3346,7 @@
       <div class="user-option d-flex align-items-start gap-2">
         <input type="checkbox" class="form-check-input user-checkbox mt-1" value="${escapeHtml(String(u.ID))}" ${checked} />
         <div class="flex-grow-1">
-          <div class="fw-semibold">${escapeHtml(u.FullName || u.UserName || 'User')}</div>
+          <div class="fw-semibold">${escapeHtml(u.FullName || u.UserName || u.userName || u.username || u.Username || 'User')}</div>
           <div class="small text-muted">
             ${u.Email ? `<i class="fas fa-envelope me-1"></i>${escapeHtml(u.Email)} · ` : ''}
             ${rolesTxt ? `<i class="fas fa-id-badge me-1"></i>${escapeHtml(rolesTxt)} · ` : ''}
