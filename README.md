@@ -130,7 +130,7 @@ locking, audit logging, and REST-style access on top of standard worksheets.
 - **Typed schema & validation** – declare column types (`string`, `number`,
   `timestamp`, `enum`, `json`), required fields, allowed values, numeric ranges,
   and regex-based constraints. Unknown fields are rejected automatically.
-- **Primary keys & timestamps** – string IDs (e.g., `CUS_000123`) are generated on
+- **Primary keys & timestamps** – string IDs (e.g., `COACH_000123`) are generated on
   insert alongside `createdAt`, `updatedAt`, and `deletedAt` columns.
 - **Soft delete & retention** – `deletedAt` powers soft deletes, while automatic
   archive helpers move aged rows into partitioned archive sheets.
@@ -152,21 +152,26 @@ locking, audit logging, and REST-style access on top of standard worksheets.
 ### Bootstrapping tables
 
 During `initializeSystem()` the project calls `initializeSheetsDatabase()` to define
-sample tables (`Customers`, `Orders`, and `WebhooksOutbox`). Use this as a template
+sample tables (`CoachingSessions`, `QualityReviews`, and `WebhooksOutbox`). Use this as a template
 for your own schemas:
 
 ```javascript
 SheetsDB.defineTable({
-  name: 'Customers',
+  name: 'CoachingSessions',
   primaryKey: 'id',
-  idPrefix: 'CUS_',
+  idPrefix: 'COACH_',
   columns: [
     { name: 'id', type: 'string', primaryKey: true },
     { name: 'tenantId', type: 'string', required: true },
-    { name: 'email', type: 'string', required: true, unique: true,
-      pattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' }
+    { name: 'agentId', type: 'string', required: true,
+      references: { table: 'Users', column: 'ID', allowNull: false } },
+    { name: 'coachId', type: 'string', required: true,
+      references: { table: 'Users', column: 'ID', allowNull: false } },
+    { name: 'sessionDate', type: 'timestamp', required: true },
+    { name: 'status', type: 'enum', required: true,
+      allowedValues: ['scheduled', 'completed', 'cancelled'], defaultValue: 'scheduled' }
   ],
-  indexes: [{ name: 'Customers_email', field: 'email' }],
+  indexes: [{ name: 'CoachingSessions_agent', field: 'agentId' }],
   retentionDays: 365
 });
 ```
@@ -176,9 +181,9 @@ SheetsDB.defineTable({
 The web app exposes `/exec?api=db` for programmatic access:
 
 ```
-GET  ?api=db&table=Customers&limit=50
-GET  ?api=db&table=Customers&id=CUS_000123
-POST ?api=db (body: { "action": "create", "table": "Customers", ... })
+GET  ?api=db&table=CoachingSessions&limit=50
+GET  ?api=db&table=CoachingSessions&id=COACH_000123
+POST ?api=db (body: { "action": "create", "table": "CoachingSessions", ... })
 ```
 
 Protect the endpoint with script properties:

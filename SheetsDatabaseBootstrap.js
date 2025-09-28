@@ -151,46 +151,50 @@ function initializeSheetsDatabase() {
     authSchemas.forEach(function (schema) {
       SheetsDB.defineTable(schema);
     });
+
     SheetsDB.defineTable({
-      name: 'Customers',
+      name: 'CoachingSessions',
       version: 1,
       primaryKey: 'id',
-      idPrefix: 'CUS_',
+      idPrefix: 'COACH_',
       columns: [
         { name: 'id', type: 'string', primaryKey: true },
         { name: 'tenantId', type: 'string', required: true, index: true },
-        { name: 'email', type: 'string', required: true, unique: true, index: true, pattern: '^[^@\s]+@[^@\s]+\\.[^@\s]+$' },
-        { name: 'firstName', type: 'string', required: true, minLength: 1, maxLength: 100 },
-        { name: 'lastName', type: 'string', required: true, minLength: 1, maxLength: 100 },
-        { name: 'phone', type: 'string', nullable: true, maxLength: 32 },
-        { name: 'status', type: 'enum', required: true, allowedValues: ['prospect', 'active', 'inactive'], defaultValue: 'prospect' },
-        { name: 'notes', type: 'json', nullable: true }
+        { name: 'agentId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
+        { name: 'coachId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
+        { name: 'sessionDate', type: 'timestamp', required: true },
+        { name: 'status', type: 'enum', required: true, allowedValues: ['scheduled', 'completed', 'cancelled'], defaultValue: 'scheduled' },
+        { name: 'durationMinutes', type: 'number', nullable: true, min: 0 },
+        { name: 'focusAreas', type: 'json', nullable: true },
+        { name: 'notes', type: 'string', nullable: true, maxLength: 4000 }
       ],
       indexes: [
-        { name: 'Customers_email', field: 'email' },
-        { name: 'Customers_tenant', field: 'tenantId' }
+        { name: 'CoachingSessions_agent', field: 'agentId' },
+        { name: 'CoachingSessions_status', field: 'status' }
       ],
       retentionDays: 365
     });
 
     SheetsDB.defineTable({
-      name: 'Orders',
+      name: 'QualityReviews',
       version: 1,
       primaryKey: 'id',
-      idPrefix: 'ORD_',
+      idPrefix: 'QAR_',
       columns: [
         { name: 'id', type: 'string', primaryKey: true },
         { name: 'tenantId', type: 'string', required: true, index: true },
-        { name: 'customerId', type: 'string', required: true, references: { table: 'Customers', column: 'id', allowNull: false } },
-        { name: 'orderTotal', type: 'number', required: true, min: 0 },
-        { name: 'currency', type: 'enum', required: true, allowedValues: ['USD', 'EUR', 'GBP', 'PHP'], defaultValue: 'USD' },
-        { name: 'status', type: 'enum', required: true, allowedValues: ['open', 'processing', 'closed', 'cancelled'], defaultValue: 'open' },
-        { name: 'orderDate', type: 'timestamp', required: true },
-        { name: 'fulfilledAt', type: 'timestamp', nullable: true }
+        { name: 'interactionId', type: 'string', required: true },
+        { name: 'agentId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
+        { name: 'reviewerId', type: 'string', required: true, references: { table: usersTableName, column: 'ID', allowNull: false } },
+        { name: 'score', type: 'number', required: true, min: 0, max: 100 },
+        { name: 'categoryScores', type: 'json', nullable: true },
+        { name: 'status', type: 'enum', required: true, allowedValues: ['pending', 'published', 'reopened'], defaultValue: 'pending' },
+        { name: 'reviewedAt', type: 'timestamp', required: true },
+        { name: 'followUpDueAt', type: 'timestamp', nullable: true }
       ],
       indexes: [
-        { name: 'Orders_customer', field: 'customerId' },
-        { name: 'Orders_status', field: 'status' }
+        { name: 'QualityReviews_agent', field: 'agentId' },
+        { name: 'QualityReviews_status', field: 'status' }
       ],
       retentionDays: 730
     });
