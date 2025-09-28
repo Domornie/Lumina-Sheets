@@ -14,9 +14,9 @@
     schemaVersionProperty: 'schemaVersion',
     timezone: 'Etc/UTC',
     defaultPrimaryKey: 'id',
-    createdAtColumn: 'createdAt',
-    updatedAtColumn: 'updatedAt',
-    deletedAtColumn: 'deletedAt'
+    createdAtColumn: 'CreatedAt',
+    updatedAtColumn: 'UpdatedAt',
+    deletedAtColumn: 'DeletedAt'
   };
 
   function nowIsoString() {
@@ -182,7 +182,7 @@
       'action',
       'recordId',
       'response',
-      'createdAt'
+      'CreatedAt'
     ]);
     var data = sheet.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) {
@@ -210,7 +210,7 @@
       'action',
       'recordId',
       'response',
-      'createdAt'
+      'CreatedAt'
     ]);
     var data = sheet.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) {
@@ -910,7 +910,7 @@
     ensureSupportStructures: function () {
       ensureSupportSheet(CONFIG.auditSheetName, ['timestamp', 'action', 'table', 'recordId', 'actor', 'before', 'after', 'metadata']);
       ensureSupportSheet(CONFIG.migrationSheetName, ['timestamp', 'table', 'fromVersion', 'toVersion', 'description']);
-      ensureSupportSheet(CONFIG.idempotencySheetName, ['key', 'table', 'action', 'recordId', 'response', 'createdAt']);
+      ensureSupportSheet(CONFIG.idempotencySheetName, ['key', 'table', 'action', 'recordId', 'response', 'CreatedAt']);
     },
     backupTables: function (names) {
       var results = [];
