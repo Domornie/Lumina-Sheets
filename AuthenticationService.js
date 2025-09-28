@@ -216,7 +216,9 @@ var AuthenticationService = (function () {
         managedCampaignIds: [],
         adminCampaignIds: [],
         assignments: [],
-        permissions: []
+        permissions: [],
+        warnings: [],
+        needsCampaignAssignment: false
       };
     }
     return {
@@ -227,7 +229,38 @@ var AuthenticationService = (function () {
       managedCampaignIds: cleanCampaignList(scope.managedCampaignIds || []),
       adminCampaignIds: cleanCampaignList(scope.adminCampaignIds || []),
       assignments: Array.isArray(scope.assignments) ? scope.assignments.slice() : [],
-      permissions: Array.isArray(scope.permissions) ? scope.permissions.slice() : []
+      permissions: Array.isArray(scope.permissions) ? scope.permissions.slice() : [],
+      warnings: Array.isArray(scope.warnings) ? scope.warnings.slice() : [],
+      needsCampaignAssignment: !!scope.needsCampaignAssignment
+    };
+  }
+
+  function buildUnassignedTenantScope(options) {
+    const scopeOptions = options || {};
+    const assignments = Array.isArray(scopeOptions.assignments) ? scopeOptions.assignments.slice() : [];
+    const permissions = Array.isArray(scopeOptions.permissions) ? scopeOptions.permissions.slice() : [];
+    const defaultCampaignId = normalizeCampaignId(scopeOptions.defaultCampaignId);
+
+    const warnings = ['NO_CAMPAIGN_ASSIGNMENTS'];
+
+    return {
+      isGlobalAdmin: !!scopeOptions.isGlobalAdmin,
+      defaultCampaignId: defaultCampaignId,
+      activeCampaignId: '',
+      allowedCampaignIds: [],
+      managedCampaignIds: [],
+      adminCampaignIds: [],
+      tenantContext: {
+        tenantIds: [],
+        allowedTenantIds: [],
+        limitedAccess: true,
+        requireAssignment: true,
+        defaultTenantId: defaultCampaignId || ''
+      },
+      assignments: assignments,
+      permissions: permissions,
+      warnings: warnings,
+      needsCampaignAssignment: true
     };
   }
 
@@ -268,7 +301,21 @@ var AuthenticationService = (function () {
         }
 
         if (!profile.isGlobalAdmin && allowed.length === 0) {
-          return { success: false, reason: 'NO_CAMPAIGN_ASSIGNMENTS' };
+          const unassignedScope = buildUnassignedTenantScope({
+            assignments: profile.assignments,
+            permissions: profile.permissions,
+            defaultCampaignId: defaultCampaignId,
+            isGlobalAdmin: !!profile.isGlobalAdmin
+          });
+          const clientPayload = buildTenantScopePayload(unassignedScope);
+          return {
+            success: true,
+            profile: profile,
+            sessionScope: unassignedScope,
+            clientPayload: clientPayload,
+            warnings: unassignedScope.warnings.slice(),
+            needsCampaignAssignment: true
+          };
         }
 
         const tenantContext = profile.isGlobalAdmin
@@ -310,7 +357,9 @@ var AuthenticationService = (function () {
           success: true,
           profile: profile,
           sessionScope: sessionScope,
-          clientPayload: clientPayload
+          clientPayload: clientPayload,
+          warnings: Array.isArray(sessionScope.warnings) ? sessionScope.warnings.slice() : [],
+          needsCampaignAssignment: !!sessionScope.needsCampaignAssignment
         };
       } catch (err) {
         console.error('resolveTenantAccess: Failed to compute tenant scope for user', userId, err);
@@ -325,7 +374,19 @@ var AuthenticationService = (function () {
     const activeFallback = requestedId || fallbackCampaignId || (fallbackAllowed[0] || '');
 
     if (!isAdmin && fallbackAllowed.length === 0) {
-      return { success: false, reason: 'NO_CAMPAIGN_ASSIGNMENTS' };
+      const unassignedFallback = buildUnassignedTenantScope({
+        defaultCampaignId: fallbackCampaignId,
+        isGlobalAdmin: !!isAdmin
+      });
+      const unassignedPayload = buildTenantScopePayload(unassignedFallback);
+      return {
+        success: true,
+        profile: null,
+        sessionScope: unassignedFallback,
+        clientPayload: unassignedPayload,
+        warnings: unassignedFallback.warnings.slice(),
+        needsCampaignAssignment: true
+      };
     }
 
     const fallbackContext = isAdmin
@@ -354,7 +415,9 @@ var AuthenticationService = (function () {
       adminCampaignIds: isAdmin ? fallbackAllowed.slice() : [],
       tenantContext: fallbackContext,
       assignments: [],
-      permissions: []
+      permissions: [],
+      warnings: [],
+      needsCampaignAssignment: false
     };
 
     const fallbackPayload = buildTenantScopePayload(fallbackScope);
@@ -363,7 +426,10 @@ var AuthenticationService = (function () {
       success: true,
       profile: null,
       sessionScope: fallbackScope,
-      clientPayload: fallbackPayload
+      clientPayload: fallbackPayload,
+      warnings: Array.isArray(fallbackScope.warnings) ? fallbackScope.warnings.slice() : [],
+      needsCampaignAssignment: !!fallbackScope.needsCampaignAssignment
+
     };
   }
 
@@ -426,7 +492,9 @@ var AuthenticationService = (function () {
         managedCampaignIds: (tenantPayload.managedCampaignIds || []).slice(),
         adminCampaignIds: (tenantPayload.adminCampaignIds || []).slice(),
         assignments: Array.isArray(tenantPayload.assignments) ? tenantPayload.assignments : [],
-        permissions: Array.isArray(tenantPayload.permissions) ? tenantPayload.permissions : []
+        permissions: Array.isArray(tenantPayload.permissions) ? tenantPayload.permissions : [],
+        warnings: Array.isArray(tenantPayload.warnings) ? tenantPayload.warnings.slice() : [],
+        needsCampaignAssignment: !!tenantPayload.needsCampaignAssignment
       };
       payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
       payload.ActiveCampaignId = payload.CampaignScope.activeCampaignId;
@@ -434,6 +502,7 @@ var AuthenticationService = (function () {
       payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
       payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin;
+      payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
     } else {
       payload.CampaignScope = buildTenantScopePayload(null);
       payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
@@ -442,6 +511,8 @@ var AuthenticationService = (function () {
       payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
       payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
+      payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
+
     }
 
     return payload;
@@ -743,6 +814,10 @@ var AuthenticationService = (function () {
           ? tenantAccess.sessionScope.tenantContext
           : null
       });
+      if (Array.isArray(tenantAccess.warnings)) {
+        tenantSummary.warnings = tenantAccess.warnings.slice();
+      }
+      tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
       // Handle reset required
       if (resetRequired) {
@@ -755,7 +830,9 @@ var AuthenticationService = (function () {
           resetToken: resetSession && resetSession.token ? resetSession.token : null,
           needsPasswordReset: true,
           tenant: tenantSummary,
-          campaignScope: tenantSummary
+          campaignScope: tenantSummary,
+          warnings: Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [],
+          needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true
         };
       }
 
@@ -799,6 +876,13 @@ var AuthenticationService = (function () {
 
       const sessionToken = sessionResult.token;
 
+      const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+      const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+      const loginMessage = needsCampaignAssignment
+        ? 'Login successful, but your account is not yet assigned to any campaigns. You may have limited access until an administrator completes the assignment.'
+        : 'Login successful';
+
       console.log('login: Login successful for user:', userPayload.FullName);
       console.log('=== AuthenticationService.login SUCCESS ===');
 
@@ -806,12 +890,14 @@ var AuthenticationService = (function () {
         success: true,
         sessionToken: sessionToken,
         user: userPayload,
-        message: 'Login successful',
+        message: loginMessage,
         rememberMe: !!rememberMe,
         sessionExpiresAt: sessionResult.expiresAt,
         sessionTtlSeconds: sessionResult.ttlSeconds,
         tenant: tenantSummary,
-        campaignScope: userPayload ? userPayload.CampaignScope : null
+        campaignScope: userPayload ? userPayload.CampaignScope : null,
+        warnings: warnings,
+        needsCampaignAssignment: needsCampaignAssignment
       };
 
     } catch (error) {
@@ -878,6 +964,13 @@ var AuthenticationService = (function () {
           ? tenantAccess.sessionScope.tenantContext
           : null
       });
+      if (Array.isArray(tenantAccess.warnings)) {
+        tenantSummary.warnings = tenantAccess.warnings.slice();
+      }
+      tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+      const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+      const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
       return {
         success: true,
@@ -886,7 +979,9 @@ var AuthenticationService = (function () {
         sessionTtlSeconds: sessionResult.ttlSeconds,
         user: userPayload,
         tenant: tenantSummary,
-        campaignScope: userPayload ? userPayload.CampaignScope : null
+        campaignScope: userPayload ? userPayload.CampaignScope : null,
+        warnings: warnings,
+        needsCampaignAssignment: needsCampaignAssignment
       };
 
     } catch (error) {
@@ -958,6 +1053,7 @@ var AuthenticationService = (function () {
         userPayload.sessionExpiry = session.ExpiresAt;
         userPayload.sessionExpiresAt = session.ExpiresAt;
         userPayload.sessionScope = rawScope || null;
+        userPayload.NeedsCampaignAssignment = userPayload.CampaignScope ? !!userPayload.CampaignScope.needsCampaignAssignment : false;
       }
 
       return userPayload;
@@ -1061,7 +1157,9 @@ var AuthenticationService = (function () {
         sessionExpiresAt: user.sessionExpiresAt || user.sessionExpiry || null,
         sessionTtlSeconds: ttlSeconds,
         tenant: user.CampaignScope || null,
-        campaignScope: user.CampaignScope || null
+        campaignScope: user.CampaignScope || null,
+        warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
+        needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false
       };
     } catch (error) {
       console.error('keepAlive: Error:', error);
