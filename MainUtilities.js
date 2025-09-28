@@ -59,8 +59,26 @@ if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
   "LockoutEnd", "TwoFactorEnabled", "CanLogin", "Roles", "Pages", "CreatedAt", "UpdatedAt", "IsAdmin"
 ];
 
-if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = ["ID", "Name", "NormalizedName", "CreatedAt", "UpdatedAt"];
-if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = ["UserId", "RoleId", "CreatedAt", "UpdatedAt"];
+if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = [
+  "ID",
+  "Name",
+  "NormalizedName",
+  "Scope",
+  "Description",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
+if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = [
+  "ID",
+  "UserId",
+  "RoleId",
+  "Scope",
+  "AssignedBy",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
 if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ["ID", "UserId", "ClaimType", "CreatedAt", "UpdatedAt"];
 if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
   "Token",
@@ -82,14 +100,47 @@ if (typeof CHAT_USER_PREFERENCES_HEADERS === 'undefined') var CHAT_USER_PREFEREN
 if (typeof CHAT_ANALYTICS_HEADERS === 'undefined') var CHAT_ANALYTICS_HEADERS = ['Timestamp', 'UserId', 'Action', 'Details', 'SessionId'];
 if (typeof CHAT_CHANNEL_MEMBERS_HEADERS === 'undefined') var CHAT_CHANNEL_MEMBERS_HEADERS = ["ID", "ChannelId", "UserId", "JoinedAt", "Role", "IsActive"];
 
-if (typeof CAMPAIGNS_HEADERS === 'undefined') var CAMPAIGNS_HEADERS = ["ID", "Name", "Description", "CreatedAt", "UpdatedAt"];
+if (typeof CAMPAIGNS_HEADERS === 'undefined') var CAMPAIGNS_HEADERS = [
+  "ID",
+  "Name",
+  "Description",
+  "ClientName",
+  "Status",
+  "Channel",
+  "Timezone",
+  "SlaTier",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
 if (typeof PAGES_HEADERS === 'undefined') var PAGES_HEADERS = ["PageKey", "PageTitle", "PageIcon", "Description", "IsSystemPage", "RequiresAdmin", "CreatedAt", "UpdatedAt"];
 if (typeof CAMPAIGN_PAGES_HEADERS === 'undefined') var CAMPAIGN_PAGES_HEADERS = ["ID", "CampaignID", "PageKey", "PageTitle", "PageIcon", "CategoryID", "SortOrder", "IsActive", "CreatedAt", "UpdatedAt"];
 if (typeof PAGE_CATEGORIES_HEADERS === 'undefined') var PAGE_CATEGORIES_HEADERS = ["ID", "CampaignID", "CategoryName", "CategoryIcon", "SortOrder", "IsActive", "CreatedAt", "UpdatedAt"];
-if (typeof CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') var CAMPAIGN_USER_PERMISSIONS_HEADERS = ["ID", "CampaignID", "UserID", "PermissionLevel", "CanManageUsers", "CanManagePages", "CreatedAt", "UpdatedAt"];
+if (typeof CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') var CAMPAIGN_USER_PERMISSIONS_HEADERS = [
+  "ID",
+  "CampaignID",
+  "UserID",
+  "PermissionLevel",
+  "Role",
+  "CanManageUsers",
+  "CanManagePages",
+  "Notes",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
 if (typeof USER_MANAGERS_HEADERS === 'undefined') var USER_MANAGERS_HEADERS = ["ID", "ManagerUserID", "ManagedUserID", "CampaignID", "CreatedAt", "UpdatedAt"];
 if (typeof ATTENDANCE_LOG_HEADERS === 'undefined') var ATTENDANCE_LOG_HEADERS = ["ID", "Timestamp", "User", "DurationMin", "State", "Date", "UserID", "CreatedAt", "UpdatedAt"];
-if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') var USER_CAMPAIGNS_HEADERS = ["ID", "UserId", "CampaignId", "CreatedAt", "UpdatedAt"];
+if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') var USER_CAMPAIGNS_HEADERS = [
+  "ID",
+  "UserId",
+  "CampaignId",
+  "Role",
+  "IsPrimary",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
 
 if (typeof DEBUG_LOGS_HEADERS === 'undefined') var DEBUG_LOGS_HEADERS = ["Timestamp", "Message"];
 if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timestamp", "Error", "Stack"];
