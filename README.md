@@ -2,6 +2,20 @@
 
 Call center management system built on Google Apps Script + Google Sheets.
 
+## Trigger maintenance
+
+- `checkRealtimeUpdatesJob()` now self-throttles by default, limiting each run to
+  one minute and pausing at least five minutes between executions. Adjust the
+  cadence by setting script properties such as
+  `REALTIME_JOB_MAX_RUNTIME_MS`, `REALTIME_JOB_MIN_INTERVAL_MS`, or
+  `REALTIME_JOB_SLEEP_MS`.
+- Run `listProjectTriggers()` from the Apps Script editor if you suspect a
+  legacy time-driven job is still active. The helper logs every trigger and the
+  handler function it tries to invoke.
+- Use `removeLegacyRealtimeTrigger()` only when you intentionally want to delete
+  the realtime job trigger (for example, before replacing it with a new
+  schedule).
+
 ## Google Sheets database manager
 
 The `DatabaseManager.gs` module turns any worksheet into a CRUD-ready table. Define

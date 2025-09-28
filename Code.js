@@ -31,6 +31,276 @@ const ACCESS = {
 };
 
 // ───────────────────────────────────────────────────────────────────────────────
+// REALTIME UPDATE JOB CONFIGURATION
+// ───────────────────────────────────────────────────────────────────────────────
+
+const REALTIME_JOB_DEFAULT_MAX_RUNTIME_MS = 60 * 1000; // 1 minute safety window
+const REALTIME_JOB_DEFAULT_MIN_INTERVAL_MS = 5 * 60 * 1000; // Do not run more than every 5 minutes
+const REALTIME_JOB_DEFAULT_SLEEP_MS = 250; // Pause between handler batches
+const REALTIME_JOB_LOCK_WAIT_MS = 5000; // Wait up to 5 seconds to acquire the script lock
+const REALTIME_JOB_LAST_RUN_PROP = 'REALTIME_JOB_LAST_RUN_AT';
+const REALTIME_JOB_LAST_SUCCESS_PROP = 'REALTIME_JOB_LAST_SUCCESS_AT';
+const REALTIME_JOB_STATUS_PROP = 'REALTIME_JOB_STATUS';
+
+/**
+ * Utility helpers for managing time-driven triggers that may have become
+ * orphaned after refactors. These are meant to be run manually from the Apps
+ * Script editor when cleaning up or rescheduling jobs such as
+ * `checkRealtimeUpdatesJob`.
+ */
+
+/**
+ * Returns a summary of all project triggers and logs it to Stackdriver.
+ * Useful for debugging lingering time-driven triggers.
+ */
+function listProjectTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var summary = triggers.map(function (t) {
+    var details = null;
+    try {
+      details = t.getTriggerSourceId ? t.getTriggerSourceId() : null;
+    } catch (e) {
+      details = null;
+    }
+    return {
+      handler: t.getHandlerFunction(),
+      type: t.getEventType(),
+      details: details
+    };
+  });
+  console.log('[listProjectTriggers] ' + JSON.stringify(summary));
+  return summary;
+}
+
+/**
+ * Removes the legacy `checkRealtimeUpdatesJob` trigger if it still exists.
+ * Invoke this once from the Script Editor to stop Apps Script from trying to
+ * run the deleted function.
+ */
+function removeLegacyRealtimeTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    var trigger = triggers[i];
+    if (trigger.getHandlerFunction && trigger.getHandlerFunction() === 'checkRealtimeUpdatesJob') {
+      ScriptApp.deleteTrigger(trigger);
+      console.log('[removeLegacyRealtimeTrigger] Deleted trigger for checkRealtimeUpdatesJob');
+    }
+  }
+}
+
+/**
+ * Time-driven job that checks for realtime updates without exceeding the
+ * configured execution window. The job self-throttles by tracking its own
+ * runtime in Script Properties so repeated triggers cannot overlap or hog the
+ * Apps Script runtime.
+ */
+function checkRealtimeUpdatesJob() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(REALTIME_JOB_LOCK_WAIT_MS)) {
+    console.log('[checkRealtimeUpdatesJob] Another run is already in progress; skipping.');
+    return;
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var config = getRealtimeJobConfig(props);
+  var now = Date.now();
+  var lastRun = Number(props.getProperty(REALTIME_JOB_LAST_RUN_PROP)) || 0;
+  if (lastRun && now - lastRun < config.minIntervalMs) {
+    console.log('[checkRealtimeUpdatesJob] Last run was ' + Math.round((now - lastRun) / 1000) + 's ago; waiting ' + Math.round(config.minIntervalMs / 1000) + 's between executions.');
+    lock.releaseLock();
+    return;
+  }
+
+  props.setProperty(REALTIME_JOB_LAST_RUN_PROP, String(now));
+  props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
+
+  try {
+    var handlers = getRealtimeUpdateHandlers();
+    if (!handlers.length) {
+      console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
+      props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+      props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+      return;
+    }
+
+    var start = now;
+    var iteration = 0;
+    var hasMoreWork = true;
+    var workPerformed = false;
+    while (hasMoreWork && Date.now() - start < config.maxRuntimeMs) {
+      hasMoreWork = false;
+      for (var i = 0; i < handlers.length; i++) {
+        var handler = handlers[i];
+        var handlerHasMore = false;
+        try {
+          handlerHasMore = runRealtimeUpdateHandler(handler, iteration, config);
+        } catch (handlerError) {
+          if (typeof logError === 'function') {
+            logError('checkRealtimeUpdatesJob.handler', handlerError);
+          } else {
+            console.error('[checkRealtimeUpdatesJob] Handler error', handlerError);
+          }
+        }
+        if (handlerHasMore) {
+          hasMoreWork = true;
+          workPerformed = true;
+        }
+      }
+      iteration++;
+      if (hasMoreWork && config.sleepMs > 0) {
+        Utilities.sleep(config.sleepMs);
+      }
+    }
+
+    if (!workPerformed) {
+      console.log('[checkRealtimeUpdatesJob] No realtime updates were processed during this window.');
+    } else if (hasMoreWork) {
+      console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
+    }
+
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+    props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
+  } catch (error) {
+    var message = (error && error.message) ? error.message : String(error);
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'error:' + message);
+    if (typeof logError === 'function') {
+      logError('checkRealtimeUpdatesJob', error);
+    } else {
+      console.error('[checkRealtimeUpdatesJob] ' + message, error);
+    }
+    throw error;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Reads realtime job configuration from Script Properties, falling back to the
+ * defaults defined above.
+ */
+function getRealtimeJobConfig(props) {
+  if (!props) {
+    props = PropertiesService.getScriptProperties();
+  }
+
+  var config = {
+    maxRuntimeMs: REALTIME_JOB_DEFAULT_MAX_RUNTIME_MS,
+    minIntervalMs: REALTIME_JOB_DEFAULT_MIN_INTERVAL_MS,
+    sleepMs: REALTIME_JOB_DEFAULT_SLEEP_MS
+  };
+
+  try {
+    var customRuntime = Number(props.getProperty('REALTIME_JOB_MAX_RUNTIME_MS'));
+    if (customRuntime && customRuntime > 0) {
+      config.maxRuntimeMs = customRuntime;
+    }
+  } catch (e) {}
+
+  try {
+    var customInterval = Number(props.getProperty('REALTIME_JOB_MIN_INTERVAL_MS'));
+    if (customInterval && customInterval > 0) {
+      config.minIntervalMs = customInterval;
+    }
+  } catch (e2) {}
+
+  try {
+    var customSleep = Number(props.getProperty('REALTIME_JOB_SLEEP_MS'));
+    if (customSleep || customSleep === 0) {
+      if (customSleep >= 0) {
+        config.sleepMs = customSleep;
+      }
+    }
+  } catch (e3) {}
+
+  return config;
+}
+
+/**
+ * Collects realtime update handlers registered globally within the Apps Script
+ * project. Handlers should return a truthy value when additional work remains.
+ */
+function getRealtimeUpdateHandlers() {
+  var handlers = [];
+
+  try {
+    if (typeof globalThis !== 'undefined' && globalThis.REALTIME_UPDATE_HANDLERS && globalThis.REALTIME_UPDATE_HANDLERS.length) {
+      for (var i = 0; i < globalThis.REALTIME_UPDATE_HANDLERS.length; i++) {
+        if (typeof globalThis.REALTIME_UPDATE_HANDLERS[i] === 'function') {
+          handlers.push(globalThis.REALTIME_UPDATE_HANDLERS[i]);
+        }
+      }
+    }
+  } catch (e) {}
+
+  if (typeof processRealtimeUpdateQueue === 'function') {
+    handlers.push(processRealtimeUpdateQueue);
+  }
+
+  if (typeof synchronizeRealtimeUpdates === 'function') {
+    handlers.push(synchronizeRealtimeUpdates);
+  }
+
+  if (typeof pullRealtimeUpdates === 'function') {
+    handlers.push(pullRealtimeUpdates);
+  }
+
+  if (typeof flushCampaignDirtyRows === 'function') {
+    handlers.push(function () {
+      flushCampaignDirtyRows();
+      return false;
+    });
+  }
+
+  return handlers;
+}
+
+/**
+ * Executes a realtime handler and normalizes the response to a boolean
+ * indicating whether additional work remains.
+ */
+function runRealtimeUpdateHandler(handler, iteration, config) {
+  var state = {
+    iteration: iteration,
+    maxRuntimeMs: config.maxRuntimeMs,
+    minIntervalMs: config.minIntervalMs
+  };
+
+  var result = handler(state);
+  if (!result) {
+    return false;
+  }
+
+  if (result === true) {
+    return true;
+  }
+
+  if (typeof result === 'number') {
+    return result > 0;
+  }
+
+  if (typeof result === 'object') {
+    if (typeof result.hasMore === 'boolean') {
+      return result.hasMore;
+    }
+    if (typeof result.more === 'boolean') {
+      return result.more;
+    }
+    if (typeof result.pending === 'number') {
+      return result.pending > 0;
+    }
+    if (typeof result.remaining === 'number') {
+      return result.remaining > 0;
+    }
+    if (typeof result.length === 'number') {
+      return result.length > 0;
+    }
+  }
+
+  return false;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 // CAMPAIGN-SCOPED ROUTING SYSTEM
 // ───────────────────────────────────────────────────────────────────────────────
 
