@@ -437,21 +437,20 @@
         document.getElementById('sidebar').classList.toggle('collapsed')
       );
 
-    let rawToken = new URLSearchParams(location.search).get('token') || readAuthCookie();
-    if (rawToken) {
+    const currentUrl = new URL(window.location.href);
+    const urlToken = currentUrl.searchParams.get('token');
+    let rawToken = readAuthCookie();
+
+    if (urlToken) {
+      rawToken = urlToken;
+      persistAuthCookie(urlToken);
+      currentUrl.searchParams.delete('token');
+      const updatedSearch = currentUrl.searchParams.toString();
+      const cleanedUrl = `${currentUrl.pathname}${updatedSearch ? `?${updatedSearch}` : ''}${currentUrl.hash || ''}`;
+      window.history.replaceState({}, document.title, cleanedUrl);
+    } else if (rawToken) {
       persistAuthCookie(rawToken);
     }
-
-    document.body.addEventListener('click', e => {
-      const a = e.target.closest('a[href]');
-      if (!a) return;
-      const href = a.getAttribute('href');
-      if (href.startsWith('http') || href.includes('token=')) return;
-      e.preventDefault();
-      const next = new URL(href, location.origin + location.pathname);
-      next.searchParams.set('token', rawToken || readAuthCookie());
-      window.location.href = next.toString();
-    });
 
     function scheduleKeepAlive() {
       if (!rawToken) {
