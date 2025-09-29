@@ -1,0 +1,46 @@
+<?
+  var baseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var currentPageValue = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'Home';
+  var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
+  var isAdminValue = Boolean(isAdmin);
+
+  function generateLink(page) {
+    return baseUrl + '?page=' + encodeURIComponent(page);
+  }
+?>
+
+<div id="topbar">
+  <button class="topbar-toggle d-md-none" id="mobileToggle">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <div class="breadcrumb-nav">
+    <? if (campaignNameValue) { ?>
+    <span class="current-campaign"><?= campaignNameValue ?></span>
+    <? } ?>
+    <i class="fas fa-chevron-right"></i>
+    <span class="current-page"><?= currentPageValue ?></span>
+  </div>
+
+  <div class="top-actions">
+    <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
+      <i class="fas fa-bell"></i>
+      <div class="notification-badge"></div>
+    </button>
+
+    <a href="<?= generateLink('search') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
+      <i class="fas fa-search"></i>
+    </a>
+
+    <? if (isAdminValue) { ?>
+    <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
+      title="Employment Report">
+      <i class="fas fa-chart-bar"></i>
+    </a>
+    <? } ?>
+
+    <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
+      <i class="fas fa-sign-out-alt"></i>
+    </button>
+  </div>
+</div>
