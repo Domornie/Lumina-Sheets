@@ -1298,6 +1298,7 @@
 
   <?!= include('navigationSidebar', {
         baseUrl: (typeof baseUrl !== 'undefined') ? baseUrl : '',
+        scriptUrl: (typeof scriptUrl !== 'undefined') ? scriptUrl : ((typeof baseUrl !== 'undefined') ? baseUrl : ''),
         currentPage: typeof currentPage !== 'undefined' ? currentPage : '',
         user: __layoutUser || {},
         isAdmin: __layoutIsAdmin,
@@ -1310,6 +1311,7 @@
 
   <?!= include('navigationTopbar', {
         baseUrl: (typeof baseUrl !== 'undefined') ? baseUrl : '',
+        scriptUrl: (typeof scriptUrl !== 'undefined') ? scriptUrl : ((typeof baseUrl !== 'undefined') ? baseUrl : ''),
         currentPage: typeof currentPage !== 'undefined' ? currentPage : '',
         campaignName: __layoutCampaignName,
         isAdmin: __layoutIsAdmin

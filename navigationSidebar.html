@@ -1,5 +1,49 @@
 <?
-  var baseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var __navInvalidPanelPattern = /usercodeapppanel/i;
+
+  function __navNormalizeUrlValue(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var trimmed = String(value).trim();
+    if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+      return '';
+    }
+
+    return trimmed;
+  }
+
+  function __navFixPanelUrl(value) {
+    var normalized = __navNormalizeUrlValue(value);
+    if (!normalized) {
+      return '';
+    }
+
+    if (!__navInvalidPanelPattern.test(normalized)) {
+      return normalized;
+    }
+
+    return normalized.replace(/\/userCodeAppPanel.*$/i, '/exec');
+  }
+
+  function __navSanitizeNavigationUrl(url, fallback) {
+    var primary = __navFixPanelUrl(url);
+    if (primary) {
+      return primary;
+    }
+
+    return __navFixPanelUrl(fallback);
+  }
+
+  var __navRawBaseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var __navRawScriptUrl = (typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : __navRawBaseUrl;
+
+  var __navSanitizedBaseUrl = __navSanitizeNavigationUrl(__navRawBaseUrl, __navRawScriptUrl);
+  var __navSanitizedScriptUrl = __navSanitizeNavigationUrl(__navRawScriptUrl, __navRawBaseUrl);
+
+  var baseUrl = __navSanitizedBaseUrl || __navSanitizedScriptUrl || __navRawBaseUrl;
+  var __navLinkBase = baseUrl || __navSanitizedScriptUrl || '';
   var currentPage = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : '';
   var sidebarUser = (typeof user !== 'undefined' && user) ? user : {};
   var isAdminUser = Boolean(isAdmin);
@@ -73,7 +117,14 @@
   }
 
   function generateLink(page) {
-    return baseUrl + '?page=' + encodeURIComponent(page);
+    var target = __navLinkBase;
+    if (!target) {
+      return '?page=' + encodeURIComponent(page);
+    }
+
+    var hasQuery = target.indexOf('?') !== -1;
+    var separator = hasQuery ? (/[?&]$/.test(target) ? '' : '&') : '?';
+    return target + separator + 'page=' + encodeURIComponent(page);
   }
 ?>
 
