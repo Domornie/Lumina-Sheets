@@ -440,32 +440,29 @@
         return;
       }
 
-      const ping = () => {
-        const tokenForPing = rawToken || readAuthCookie();
-        if (!tokenForPing) {
-          return;
-        }
+      const tokenForPing = rawToken || readAuthCookie();
+      if (!tokenForPing) {
+        return;
+      }
 
-        google.script.run
-          .withSuccessHandler(result => {
-            if (result && result.success) {
-              rawToken = result.sessionToken || tokenForPing;
-              persistAuthCookie(rawToken, result.sessionTtlSeconds);
-            } else if (result && result.expired) {
-              clearAuthCookie();
-              const loginUrl = new URL(location.origin + location.pathname);
-              loginUrl.searchParams.set('page', 'login');
-              window.location.href = loginUrl.toString();
-            }
-          })
-          .withFailureHandler(err => {
-            console.warn('Keep-alive failed:', err);
-          })
-          .keepAlive(tokenForPing);
-      };
-
-      ping();
-      setInterval(ping, 10 * 60 * 1000);
+      // Only perform a one-time keep-alive call so the chat header no longer
+      // schedules repeated background requests that slowed navigation.
+      google.script.run
+        .withSuccessHandler(result => {
+          if (result && result.success) {
+            rawToken = result.sessionToken || tokenForPing;
+            persistAuthCookie(rawToken, result.sessionTtlSeconds);
+          } else if (result && result.expired) {
+            clearAuthCookie();
+            const loginUrl = new URL(location.origin + location.pathname);
+            loginUrl.searchParams.set('page', 'login');
+            window.location.href = loginUrl.toString();
+          }
+        })
+        .withFailureHandler(err => {
+          console.warn('Keep-alive failed:', err);
+        })
+        .keepAlive(tokenForPing);
     }
 
     scheduleKeepAlive();
