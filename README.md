@@ -30,29 +30,26 @@ schema defaults once and re-use the same interface across every client campaign.
 ### Quick start
 
 ```javascript
-const agentProfiles = DatabaseManager.defineTable('AgentProfiles', {
-  headers: ['id', 'tenantId', 'userId', 'status', 'primarySkillGroup'],
-  defaults: { status: 'active' },
+const users = DatabaseManager.defineTable('Users', {
+  headers: ['ID', 'UserName', 'Email', 'CampaignID'],
+  defaults: { CanLogin: true },
 });
 
 // Create
-const agent = agentProfiles.insert({
-  tenantId: 'credit-suite',
-  userId: 'USR_000123',
-  primarySkillGroup: 'inbound-support'
+const user = users.insert({
+  UserName: 'jsmith',
+  Email: 'jsmith@example.com',
+  CampaignID: 'credit-suite'
 });
 
 // Read
-const activeRoster = agentProfiles.find({
-  where: { tenantId: 'credit-suite', status: 'active' },
-  sortBy: 'primarySkillGroup'
-});
+const perCampaign = users.find({ where: { CampaignID: 'credit-suite' } });
 
 // Update
-agentProfiles.update(agent.id, { status: 'onboarding' });
+users.update(user.ID, { CanLogin: false });
 
 // Delete
-agentProfiles.delete(agent.id);
+users.delete(user.ID);
 ```
 
 The manager automatically ensures each sheet exists, appends missing headers, and
@@ -67,20 +64,20 @@ database abstraction without rewriting business logic:
 
 ```javascript
 // Read data with optional filters/sorting/pagination
-const activeAgents = dbSelect('AgentProfiles', {
-  where: { tenantId: campaignId, status: 'active' },
-  sortBy: 'primarySkillGroup'
+const activeUsers = dbSelect(USERS_SHEET, {
+  where: { CampaignID: campaignId, CanLogin: true },
+  sortBy: 'FullName'
 });
 
 // Create/update/delete
-const created = dbCreate('AgentProfiles', payload);
-const updated = dbUpdate('AgentProfiles', created.id, { status: 'inactive' });
-dbDelete('AgentProfiles', created.id);
+const created = dbCreate(USERS_SHEET, payload);
+const updated = dbUpdate(USERS_SHEET, created.ID, { ResetRequired: false });
+dbDelete(USERS_SHEET, created.ID);
 
 // Upsert by any condition (automatically creates IDs when needed)
-dbUpsert('AgentSkillAssignments', { agentId: created.id, skillName: 'Spanish' }, {
-  proficiency: 'advanced',
-  certifiedAt: new Date()
+dbUpsert(CAMPAIGN_USER_PERMISSIONS_SHEET, { UserID, CampaignID }, {
+  PermissionLevel: 'Manager',
+  CanManageUsers: true
 });
 ```
 
@@ -121,104 +118,6 @@ const scopedUsers = TenantSecurity.getScopedTable(userId, campaignId, USERS_SHEE
 Legacy helpers such as `dbSelect` and `dbCreate` accept an optional tenant context as
 their final argument, while dedicated helpers (`dbTenantSelect`, `dbTenantCreate`,
 etc.) provide a more explicit API.
-
-## Structured Google Sheets datastore (SheetsDB)
-
-For APIs that require stronger guarantees than the legacy helpers provide, use the
-`SheetsDatabase.js` datastore. It layers a typed schema, validation, optimistic
-locking, audit logging, and REST-style access on top of standard worksheets.
-
-### Key capabilities
-
-- **Typed schema & validation** – declare column types (`string`, `number`,
-  `timestamp`, `enum`, `json`), required fields, allowed values, numeric ranges,
-  and regex-based constraints. Unknown fields are rejected automatically.
-- **Primary keys & timestamps** – string IDs (e.g., `COACH_000123`) are generated on
-  insert alongside `createdAt`, `updatedAt`, and `deletedAt` columns.
-- **Soft delete & retention** – `deletedAt` powers soft deletes, while automatic
-  archive helpers move aged rows into partitioned archive sheets.
-- **Uniqueness & foreign keys** – mark columns as `unique` or attach
-  `{ table, column }` references. Writes fail if the constraints are violated.
-- **Indexes & derived sheets** – opt-in indexes (`__idx_*` helper sheets) keep
-  frequent lookups fast. Audit logs and an outbox table support downstream
-  integrations.
-- **Idempotent writes** – pass an `idempotencyKey` to `create` requests to guard
-  against duplicate inserts when clients retry.
-- **Optimistic concurrency** – updates may include `expectedUpdatedAt` to ensure
-  records have not changed between reads and writes.
-- **Pagination & filtering** – cursor-based pagination (`updatedAt` + ID), offset
-  pagination, and whitelisted operators (`=`, `contains`, `<`, `>`, `<=`, `>=`) are
-  available through the API layer.
-- **Backups & maintenance** – `SheetsDB.runMaintenance()` snapshots active tables
-  and purges archived data according to retention policies.
-
-### Bootstrapping tables
-
-During `initializeSystem()` the project calls `initializeSheetsDatabase()` to define
-sample tables (`AgentProfiles`, `AgentSkillAssignments`, `AgentStatusEvents`, and
-`AgentPerformanceSummaries`). Use this as a template for your own schemas:
-
-```javascript
-SheetsDB.defineTable({
-  name: 'AgentProfiles',
-  primaryKey: 'id',
-  idPrefix: 'AGENT_',
-  columns: [
-    { name: 'tenantId', type: 'string', required: true },
-    { name: 'userId', type: 'string', required: true,
-      references: { table: 'Users', column: 'ID', allowNull: false } },
-    { name: 'teamId', type: 'string', nullable: true },
-    { name: 'status', type: 'enum', required: true,
-      allowedValues: ['active', 'onboarding', 'inactive', 'terminated'], defaultValue: 'active' }
-  ],
-  indexes: [
-    { name: 'AgentProfiles_user', field: 'userId', unique: true },
-    { name: 'AgentProfiles_status', field: 'status' }
-  ]
-});
-```
-
-### Agent data models
-
-The SheetsDB bootstrap registers the following call-center centric tables so
-Apps Script services and REST clients share the same vocabulary:
-
-| Table | Purpose |
-| --- | --- |
-| `Users` | Canonical identity records, owned by `AuthenticationService` and mirrored into SheetsDB. |
-| `Sessions` | Active login sessions with TTL enforcement and client metadata. |
-| `AgentProfiles` | Extended roster metadata per agent (tenant, team, supervisor, employment type, etc.). |
-| `AgentSkillAssignments` | Skill inventory for each agent with proficiency and certification tracking. |
-| `AgentStatusEvents` | Chronological log of presence events (available, break, training, etc.). |
-| `AgentPerformanceSummaries` | Periodic KPI aggregates, coaching notes, and retention windows. |
-
-Use the `SheetsDB.getTable('<TableName>')` runtime helper or the REST endpoint
-(`GET ?api=db&action=tables`) to confirm the schemas that are currently
-registered in your deployment.
-
-### REST-style access
-
-The web app exposes `/exec?api=db` for programmatic access:
-
-```
-GET  ?api=db&table=AgentProfiles&limit=50
-GET  ?api=db&table=AgentProfiles&id=AGENT_000123
-POST ?api=db (body: { "action": "create", "table": "AgentProfiles", ... })
-```
-
-Protect the endpoint with script properties:
-
-```javascript
-PropertiesService.getScriptProperties().setProperty('SHEETS_DB_API_KEYS', JSON.stringify({
-  'prod-reader-key': 'reader',
-  'prod-writer-key': 'writer',
-  'prod-admin-key': 'admin'
-}));
-```
-
-Roles map to permissions (`reader`, `writer`, `admin`). Requests without a matching
-API key are rejected with standardized JSON errors. Responses include `records`,
-`total`, and optional `nextCursor` tokens for pagination.
 
 ### Authentication & campaign-scoped sessions
 

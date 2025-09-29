@@ -1,1236 +1,2276 @@
-/**
- * UserService.js
- * -----------------------------------------------------------------------------
- * Centralised call-centre user directory backed by the DatabaseManager/SheetsDB
- * tables introduced in the authentication + campaign refactors.  The goal is to
- * expose predictable CRUD helpers that work against the `Users`, `UserRoles`,
- * `CampaignUserPermissions`, and manager mapping sheets while remaining friendly
- * to legacy Google Apps Script clients.
- *
- * The module exposes a small `UserDirectory` facade internally and then
- * re-exports the most commonly used global functions (clientGetAllUsers,
- * clientRegisterUser, etc.) so existing HTML service front-ends continue to
- * operate without modification.
- */
-(function (global) {
-  'use strict';
+/******************************************************************************* 
+ * UserService.gs — Complete Campaign-aware User Management + HR/Benefits
+ * - FIXED globals: safe constant pattern (no block-scoped const in if)
+ * - Adds HR/Benefits columns & logic:
+ *     TerminationDate, ProbationMonths, ProbationEndDate,
+ *     InsuranceQualifiedDate, InsuranceEligible, InsuranceSignedUp,
+ *     InsuranceCardReceivedDate
+ *   Insurance eligibility = 3 months AFTER probation ends (configurable)
+ * - Safe fallbacks for readSheet/ensureSheetWithHeaders/writeError/etc.
+ * - User CRUD, Page assignment, Roles, Campaign permissions, Manager mapping
+ *******************************************************************************/
 
-  if (global.UserDirectory) {
-    return;
-  }
+// ───────────────────────────────────────────────────────────────────────────────
+// Global guard (Apps Script V8-safe)
+// ───────────────────────────────────────────────────────────────────────────────
+const G = (typeof globalThis !== 'undefined') ? globalThis : (typeof this !== 'undefined' ? this : {});
 
-  // ---------------------------------------------------------------------------
-  // Configuration & constants
-  // ---------------------------------------------------------------------------
+// Sheets
+if (typeof G.USERS_SHEET === 'undefined') G.USERS_SHEET = 'Users';
+if (typeof G.ROLES_SHEET === 'undefined') G.ROLES_SHEET = 'Roles';
+if (typeof G.PAGES_SHEET === 'undefined') G.PAGES_SHEET = 'Pages';
+if (typeof G.CAMPAIGNS_SHEET === 'undefined') G.CAMPAIGNS_SHEET = 'Campaigns';
+if (typeof G.USER_ROLES_SHEET === 'undefined') G.USER_ROLES_SHEET = 'UserRoles';
+if (typeof G.CAMPAIGN_USER_PERMISSIONS_SHEET === 'undefined') G.CAMPAIGN_USER_PERMISSIONS_SHEET = 'CampaignUserPermissions';
+if (typeof G.MANAGER_USERS_SHEET === 'undefined') G.MANAGER_USERS_SHEET = 'MANAGER_USERS';
+if (typeof G.MANAGER_USERS_HEADER === 'undefined') G.MANAGER_USERS_HEADER = ['ID', 'ManagerUserID', 'UserID', 'CreatedAt', 'UpdatedAt'];
 
-  var USERS_TABLE_NAME = (typeof global.USERS_SHEET === 'string' && global.USERS_SHEET)
-    ? global.USERS_SHEET
-    : 'Users';
-  var USER_ROLES_TABLE_NAME = (typeof global.USER_ROLES_SHEET === 'string' && global.USER_ROLES_SHEET)
-    ? global.USER_ROLES_SHEET
-    : 'UserRoles';
-  var MANAGER_USERS_TABLE_NAME = (typeof global.MANAGER_USERS_SHEET === 'string' && global.MANAGER_USERS_SHEET)
-    ? global.MANAGER_USERS_SHEET
-    : 'ManagerUsers';
-  var CAMPAIGN_PERMISSIONS_TABLE_NAME = (typeof global.CAMPAIGN_USER_PERMISSIONS_SHEET === 'string'
-    && global.CAMPAIGN_USER_PERMISSIONS_SHEET)
-    ? global.CAMPAIGN_USER_PERMISSIONS_SHEET
-    : 'CampaignUserPermissions';
-  var PAGES_TABLE_NAME = (typeof global.PAGES_SHEET === 'string' && global.PAGES_SHEET)
-    ? global.PAGES_SHEET
-    : 'Pages';
+// Campaign user permissions headers
+if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
+  G.CAMPAIGN_USER_PERMISSIONS_HEADERS = [
+    'ID', 'CampaignID', 'UserID', 'PermissionLevel', 'CanManageUsers', 'CanManagePages', 'CreatedAt', 'UpdatedAt'
+  ];
+}
 
-  var DEFAULT_USER_HEADERS = ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
-    'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
-    'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'LastLogin',
-    'DeletedAt', 'IsAdmin'];
+// HR/Benefits config
+if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTHS_AFTER_PROBATION = 3;
 
-  var OPTIONAL_USER_HEADERS = ['TerminationDate', 'ProbationMonths', 'ProbationEndDate', 'InsuranceQualifiedDate',
-    'InsuranceEligible', 'InsuranceSignedUp', 'InsuranceCardReceivedDate'];
+// Optional extra columns we’ll ensure on Users sheet if missing
+const OPTIONAL_USER_COLUMNS = [
+  'TerminationDate',
+  'ProbationMonths',
+  'ProbationEndDate',
+  'InsuranceQualifiedDate',
+  'InsuranceEligible',
+  'InsuranceSignedUp',
+  'InsuranceCardReceivedDate'
+];
 
-  var EMPLOYMENT_STATUS = ['Active', 'Inactive', 'Terminated', 'On Leave', 'Pending', 'Probation', 'Contract',
-    'Contractor', 'Full Time', 'Part Time', 'Seasonal', 'Temporary', 'Suspended', 'Retired', 'Intern', 'Consultant'];
+function _getUserName_(user) {
+  if (!user) return '';
+  return user.UserName || user.userName || user.username || user.Username || '';
+}
 
-  // ---------------------------------------------------------------------------
-  // Guards & helpers
-  // ---------------------------------------------------------------------------
+const EMPLOYMENT_STATUS_CANONICAL = [
+  'Active',
+  'Inactive',
+  'Terminated',
+  'On Leave',
+  'Pending',
+  'Probation',
+  'Contract',
+  'Contractor',
+  'Full Time',
+  'Part Time',
+  'Seasonal',
+  'Temporary',
+  'Suspended',
+  'Retired',
+  'Intern',
+  'Consultant'
+];
 
-  function hasDatabaseManager() {
-    return typeof global.DatabaseManager !== 'undefined'
-      && global.DatabaseManager
-      && typeof global.DatabaseManager.defineTable === 'function';
-  }
+const EMPLOYMENT_STATUS_ALIAS_MAP = {
+  'active': 'Active',
+  'inactive': 'Inactive',
+  'terminated': 'Terminated',
+  'leave': 'On Leave',
+  'on leave': 'On Leave',
+  'leave of absence': 'On Leave',
+  'pending': 'Pending',
+  'probation': 'Probation',
+  'probationary': 'Probation',
+  'probationary period': 'Probation',
+  'contract': 'Contract',
+  'contract employee': 'Contract',
+  'contractor': 'Contractor',
+  'consultant': 'Consultant',
+  'full time': 'Full Time',
+  'full-time': 'Full Time',
+  'fulltime': 'Full Time',
+  'part time': 'Part Time',
+  'part-time': 'Part Time',
+  'parttime': 'Part Time',
+  'seasonal': 'Seasonal',
+  'temporary': 'Temporary',
+  'temp': 'Temporary',
+  'suspended': 'Suspended',
+  'retired': 'Retired',
+  'intern': 'Intern',
+  'consultant/contractor': 'Consultant'
+};
 
-  function normalizeString(value) {
-    if (value === null || typeof value === 'undefined') {
-      return '';
-    }
-    return String(value).trim();
-  }
-
-  function normalizeEmail(value) {
-    return normalizeString(value).toLowerCase();
-  }
-
-  function normalizeUserName(value) {
-    return normalizeString(value).toLowerCase();
-  }
-
-  function toBoolean(value) {
-    if (value === true || value === false) {
-      return value;
-    }
-    var normalized = normalizeString(value).toLowerCase();
-    if (!normalized) return false;
-    return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'y';
-  }
-
-  function parseList(value) {
-    if (!value && value !== 0) {
-      return [];
-    }
-    if (Array.isArray(value)) {
-      return value.filter(function (entry) { return normalizeString(entry); }).map(function (entry) {
-        return normalizeString(entry);
+// ───────────────────────────────────────────────────────────────────────────────
+// Safe fallbacks for common helpers (no-ops if you already defined them)
+// ───────────────────────────────────────────────────────────────────────────────
+if (typeof writeError !== 'function') {
+  function writeError(where, err) { try { console.error('[ERROR]', where, err && (err.stack || err)); } catch (_) { Logger.log(where + ': ' + err); } }
+}
+if (typeof invalidateCache !== 'function') {
+  function invalidateCache() { /* no-op fallback */ }
+}
+if (typeof ensureSheetWithHeaders !== 'function') {
+  function ensureSheetWithHeaders(name, headers) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sh = ss.getSheetByName(name);
+    if (!sh) {
+      sh = ss.insertSheet(name);
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sh.setFrozenRows(1);
+    } else {
+      const lastCol = sh.getLastColumn();
+      const row = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+      const hdrs = row.map(String);
+      // append any missing headers
+      let changed = false;
+      headers.forEach(h => {
+        if (hdrs.indexOf(h) === -1) { hdrs.push(h); changed = true; }
       });
+      if (changed) sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
     }
-    return String(value).split(',').map(function (part) { return normalizeString(part); }).filter(function (part) {
-      return part.length > 0;
+    return sh;
+  }
+}
+if (typeof readSheet !== 'function') {
+  function readSheet(name) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sh = ss.getSheetByName(name);
+    if (!sh) return [];
+    const vals = sh.getDataRange().getValues();
+    if (vals.length < 2) return [];
+    const headers = vals[0].map(String);
+    return vals.slice(1).map(r => {
+      const o = {};
+      headers.forEach((h, i) => o[h] = (typeof r[i] !== 'undefined') ? r[i] : '');
+      return o;
     });
   }
+}
 
-  function joinList(values) {
-    if (!Array.isArray(values) || !values.length) {
-      return '';
-    }
-    var trimmed = values.map(function (entry) { return normalizeString(entry); }).filter(function (entry) {
-      return entry.length > 0;
-    });
-    return trimmed.join(',');
+// Validators (only if you don’t already have them)
+if (typeof getValidEmploymentStatuses !== 'function') {
+  function getValidEmploymentStatuses() {
+    return EMPLOYMENT_STATUS_CANONICAL.slice();
   }
-
-  function isSoftDeleted(row) {
-    if (!row) {
-      return false;
+}
+if (typeof normalizeEmploymentStatus !== 'function') {
+  function normalizeEmploymentStatus(status) {
+    const raw = String(status || '').trim();
+    if (!raw) return '';
+    const lower = raw.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(EMPLOYMENT_STATUS_ALIAS_MAP, lower)) {
+      return EMPLOYMENT_STATUS_ALIAS_MAP[lower];
     }
-    var marker = row.DeletedAt || row.deletedAt || row.deleted_at;
-    if (marker === null || typeof marker === 'undefined') {
-      return false;
-    }
-    return normalizeString(marker).length > 0;
+    const canonical = EMPLOYMENT_STATUS_CANONICAL.find(s => s.toLowerCase() === lower);
+    return canonical || '';
   }
-
-  function isValidEmploymentStatus(value) {
-    if (!value && value !== 0) {
-      return true;
-    }
-    var normalized = normalizeString(value).toLowerCase();
-    if (!normalized) {
-      return true;
-    }
-    return EMPLOYMENT_STATUS.some(function (status) {
-      return status.toLowerCase() === normalized;
-    });
+}
+if (typeof validateEmploymentStatus !== 'function') {
+  function validateEmploymentStatus(s) { return !s || normalizeEmploymentStatus(s) !== ''; }
+}
+if (typeof validateHireDate !== 'function') {
+  function validateHireDate(d) {
+    if (!d) return true;
+    const dt = new Date(d);
+    if (isNaN(dt)) return false;
+    const now = new Date();
+    return dt <= now;
   }
-
-  function ensureArray(value) {
-    if (!value && value !== 0) return [];
-    if (Array.isArray(value)) return value.slice();
-    return [value];
+}
+if (typeof validateCountry !== 'function') {
+  function validateCountry(c) {
+    const s = String(c || '').trim();
+    return s.length === 0 || (s.length >= 2 && s.length <= 100);
   }
+}
 
-  function ensureDateValue(value) {
-    if (!value && value !== 0) {
-      return '';
-    }
-    if (value instanceof Date) {
-      return value;
-    }
-    var asNumber = Number(value);
-    if (!isNaN(asNumber)) {
-      return new Date(asNumber);
-    }
-    var parsed = new Date(String(value));
-    if (isNaN(parsed)) {
-      return '';
-    }
-    return parsed;
+// ───────────────────────────────────────────────────────────────────────────────
+// Date helpers + Benefits calculators
+// ───────────────────────────────────────────────────────────────────────────────
+function _toIsoDateOnly_(d) {
+  if (!d) return '';
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  return new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate())).toISOString().slice(0, 10);
+}
+function _addMonths_(dateStr, months) {
+  if (!dateStr) return '';
+  const dt = new Date(dateStr);
+  if (isNaN(dt)) return '';
+  const d = new Date(dt);
+  const targetMonth = d.getMonth() + Number(months || 0);
+  d.setMonth(targetMonth);
+  // normalize end-of-month issues
+  if (d.getDate() !== dt.getDate()) d.setDate(0);
+  return _toIsoDateOnly_(d);
+}
+function calcProbationEndDate_(hireDateStr, probationMonths) {
+  if (!hireDateStr || !probationMonths) return '';
+  return _addMonths_(hireDateStr, Number(probationMonths || 0));
+}
+function calcInsuranceQualifiedDate_(probationEndStr, monthsAfter) {
+  if (!probationEndStr) return '';
+  const m = (typeof monthsAfter === 'number') ? monthsAfter : G.INSURANCE_MONTHS_AFTER_PROBATION;
+  return _addMonths_(probationEndStr, m);
+}
+function isInsuranceEligibleNow_(qualifiedDateStr, terminationDateStr) {
+  if (!qualifiedDateStr) return false;
+  const q = new Date(qualifiedDateStr);
+  if (isNaN(q)) return false;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (q > today) return false;
+  if (terminationDateStr) {
+    const t = new Date(terminationDateStr);
+    if (!isNaN(t) && t <= today) return false;
   }
+  return true;
+}
+function _boolToStr_(v) { return (v === true || String(v).trim().toUpperCase() === 'TRUE' || String(v).trim().toUpperCase() === 'YES' || String(v).trim() === '1') ? 'TRUE' : 'FALSE'; }
+function _strToBool_(v) { return (v === true || String(v).trim().toUpperCase() === 'TRUE'); }
 
-  function getUuid() {
-    return (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function')
-      ? Utilities.getUuid()
-      : String(Math.random()).slice(2) + String(new Date().getTime());
+// ───────────────────────────────────────────────────────────────────────────────
+// Sheet utils (local)
+// ───────────────────────────────────────────────────────────────────────────────
+function _getSheet_(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(name);
+  if (!sh) throw new Error('Sheet not found: ' + name);
+  return sh;
+}
+function _scanSheet_(sheet) {
+  const values = sheet.getDataRange().getValues();
+  if (!values.length) throw new Error('Sheet has no header row: ' + sheet.getName());
+  const headers = values[0].map(String);
+  const idx = {}; headers.forEach((h, i) => idx[h] = i);
+  return { headers, values, idx };
+}
+function ensureOptionalUserColumns_(sh, headers, idx) {
+  let changed = false;
+  const hdrs = headers.slice();
+  OPTIONAL_USER_COLUMNS.forEach(h => {
+    if (hdrs.indexOf(h) === -1) { hdrs.push(h); changed = true; }
+  });
+  if (changed) {
+    sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
+    const lastCol = sh.getLastColumn();
+    const newHeaders = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+    const newIdx = {}; newHeaders.forEach((h, i) => newIdx[h] = i);
+    return { headers: newHeaders, idx: newIdx, changed: true };
   }
+  return { headers, idx, changed: false };
+}
 
-  function getNow() {
-    return new Date();
+// Base required columns we always expect on Users sheet
+const REQUIRED_USER_COLUMNS = [
+  'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
+  'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
+  'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
+];
+
+function _ensureUserHeaders_(idx) {
+  // Throw only for the base minimal set; optional benefits columns are handled separately
+  for (let i = 0; i < REQUIRED_USER_COLUMNS.length; i++) {
+    const h = REQUIRED_USER_COLUMNS[i];
+    if (typeof idx[h] !== 'number' || idx[h] < 0) {
+      throw new Error('USERS sheet missing column: ' + h);
+    }
   }
+}
 
-  // ---------------------------------------------------------------------------
-  // Database table lookups
-  // ---------------------------------------------------------------------------
+function checkEmailExists(email) {
+  try {
+    if (!email) return { exists: false };
 
-  function getUsersTable() {
-    if (!hasDatabaseManager()) {
-      throw new Error('DatabaseManager is required for UserDirectory operations');
-    }
-    return global.DatabaseManager.defineTable(USERS_TABLE_NAME, {
-      headers: DEFAULT_USER_HEADERS.concat(OPTIONAL_USER_HEADERS),
-      idColumn: 'ID',
-      timestamps: { created: 'CreatedAt', updated: 'UpdatedAt' },
-      defaults: {
-        ResetRequired: false,
-        EmailConfirmed: false,
-        CanLogin: true,
-        TwoFactorEnabled: false,
-        Roles: '',
-        Pages: '',
-        IsAdmin: false,
-        DeletedAt: ''
-      },
-      validators: {
-        Email: function (value) { return normalizeEmail(value).length > 0; },
-        EmploymentStatus: function (value) { return isValidEmploymentStatus(value); }
-      }
-    });
-  }
+    const users = readSheet('Users') || [];
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-  function getUserRolesTable() {
-    if (!hasDatabaseManager()) {
-      throw new Error('DatabaseManager is required for UserDirectory operations');
-    }
-    return global.DatabaseManager.defineTable(USER_ROLES_TABLE_NAME, {
-      headers: ['ID', 'UserId', 'RoleId', 'Scope', 'AssignedBy', 'CreatedAt', 'UpdatedAt', 'DeletedAt'],
-      idColumn: 'ID',
-      timestamps: { created: 'CreatedAt', updated: 'UpdatedAt' },
-      defaults: { Scope: 'global', AssignedBy: '', DeletedAt: '' }
-    });
-  }
+    const existingUser = users.find(user =>
+      user.Email && String(user.Email).trim().toLowerCase() === normalizedEmail
+    );
 
-  function getCampaignPermissionsTable(context) {
-    if (!hasDatabaseManager()) {
-      throw new Error('DatabaseManager is required for UserDirectory operations');
-    }
-    var table = global.DatabaseManager.defineTable(CAMPAIGN_PERMISSIONS_TABLE_NAME, {
-      headers: ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'Role', 'CanManageUsers', 'CanManagePages', 'Notes',
-        'CreatedAt', 'UpdatedAt', 'DeletedAt'],
-      idColumn: 'ID',
-      timestamps: { created: 'CreatedAt', updated: 'UpdatedAt' },
-      defaults: { PermissionLevel: 'USER', Role: '', CanManageUsers: false, CanManagePages: false, Notes: '', DeletedAt: '' }
-    });
-    if (context) {
-      return table.withContext(context);
-    }
-    return table;
-  }
-
-  function getManagerAssignmentsTable() {
-    if (!hasDatabaseManager()) {
-      throw new Error('DatabaseManager is required for UserDirectory operations');
-    }
-    return global.DatabaseManager.defineTable(MANAGER_USERS_TABLE_NAME, {
-      headers: ['ID', 'ManagerUserID', 'UserID', 'CreatedAt', 'UpdatedAt', 'DeletedAt'],
-      idColumn: 'ID',
-      timestamps: { created: 'CreatedAt', updated: 'UpdatedAt' },
-      defaults: { DeletedAt: '' }
-    });
-  }
-
-  // Page definitions are frequently customised, so fall back to a readSheet helper
-  function readPagesSheet() {
-    if (typeof global.readSheet === 'function') {
-      return global.readSheet(PAGES_TABLE_NAME) || [];
-    }
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(PAGES_TABLE_NAME);
-    if (!sheet) {
-      return [];
-    }
-    var values = sheet.getDataRange().getValues();
-    if (!values.length) {
-      return [];
-    }
-    var headers = values[0];
-    return values.slice(1).map(function (row) {
-      var record = {};
-      for (var i = 0; i < headers.length; i++) {
-        record[String(headers[i])] = row[i];
-      }
-      return record;
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Role helpers
-  // ---------------------------------------------------------------------------
-
-  function resolveRoleIds(userId, fallbackColumn) {
-    var ids = [];
-    if (typeof global.getUserRoleIds === 'function') {
-      try {
-        ids = global.getUserRoleIds(userId) || [];
-      } catch (err) {
-        logError('resolveRoleIds:getUserRoleIds', err);
-      }
-    }
-    if (!ids || !ids.length) {
-      if (fallbackColumn) {
-        ids = parseList(fallbackColumn);
-      }
-    }
-    return ids;
-  }
-
-  function resolveRoleNames(roleIds) {
-    if (!roleIds || !roleIds.length) {
-      return [];
-    }
-    if (typeof global.getUserRoleNames === 'function') {
-      try {
-        return global.getUserRoleNames(roleIds) || [];
-      } catch (err) {
-        logError('resolveRoleNames:getUserRoleNames', err);
-      }
-    }
-    return roleIds.slice();
-  }
-
-  function syncRoles(userId, desiredRoleIds) {
-    var targetRoles = ensureArray(desiredRoleIds).map(function (roleId) {
-      return normalizeString(roleId);
-    }).filter(function (roleId) { return roleId.length > 0; });
-
-    if (!targetRoles.length) {
-      if (typeof global.deleteUserRoles === 'function') {
-        global.deleteUserRoles(userId);
-      }
-      updateRolesColumn(userId, '');
-      return;
-    }
-
-    if (typeof global.deleteUserRoles === 'function') {
-      try {
-        global.deleteUserRoles(userId);
-      } catch (err) {
-        logError('syncRoles:deleteUserRoles', err);
-      }
-    }
-
-    if (typeof global.addUserRole === 'function') {
-      targetRoles.forEach(function (roleId) {
-        try {
-          global.addUserRole(userId, roleId);
-        } catch (err) {
-          logError('syncRoles:addUserRole:' + roleId, err);
+    if (existingUser) {
+      return {
+        exists: true,
+        user: {
+          ID: existingUser.ID,
+          FullName: existingUser.FullName || _getUserName_(existingUser),
+          UserName: _getUserName_(existingUser),
+          Email: existingUser.Email,
+          CampaignID: existingUser.CampaignID,
+          campaignName: getCampaignNameSafe(existingUser.CampaignID),
+          canLoginBool: (existingUser.CanLogin === true || String(existingUser.CanLogin).toUpperCase() === 'TRUE')
         }
-      });
+      };
     }
 
-    updateRolesColumn(userId, joinList(targetRoles));
+    return { exists: false };
+  } catch (error) {
+    writeError('checkEmailExists', error);
+    return { exists: false, error: error.message };
   }
+}
 
-  function updateRolesColumn(userId, joinedRoles) {
-    try {
-      var table = getUsersTable();
-      table.update(userId, { Roles: joinedRoles || '' });
-    } catch (err) {
-      logError('updateRolesColumn', err);
-    }
-  }
+function clientCheckUserConflicts(payload) {
+  try {
+    const email = payload && (payload.email || payload.Email) ? String(payload.email || payload.Email).trim() : '';
+    const userName = payload && (payload.userName || payload.UserName) ? String(payload.userName || payload.UserName).trim() : '';
+    const excludeId = payload && (payload.excludeUserId || payload.excludeId || payload.userId || payload.ID || payload.id)
+      ? String(payload.excludeUserId || payload.excludeId || payload.userId || payload.ID || payload.id)
+      : '';
 
-  // ---------------------------------------------------------------------------
-  // Logging helper
-  // ---------------------------------------------------------------------------
+    const emailKey = _normEmail_(email);
+    const userKey = _normUser_(userName);
 
-  function logError(where, err) {
-    if (typeof global.safeWriteError === 'function') {
-      try { global.safeWriteError(where, err); } catch (_) { }
-      return;
-    }
-    if (typeof global.writeError === 'function') {
-      try { global.writeError(where, err); } catch (_) { }
-      return;
-    }
-    try {
-      console.error('[UserService:' + where + ']', err && (err.stack || err));
-    } catch (_) {
-      if (typeof Logger !== 'undefined' && Logger && typeof Logger.log === 'function') {
-        Logger.log('UserService.' + where + ': ' + (err && err.message ? err.message : err));
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Mapping helpers
-  // ---------------------------------------------------------------------------
-
-  function createSafeUserObject(record) {
-    if (!record) {
-      return null;
-    }
-    var obj = {
-      id: record.ID || record.Id || record.id || '',
-      userName: record.UserName || record.userName || record.Username || '',
-      fullName: record.FullName || record.fullName || '',
-      email: record.Email || record.email || '',
-      campaignId: record.CampaignID || record.CampaignId || record.campaignId || '',
-      phoneNumber: record.PhoneNumber || record.phoneNumber || '',
-      employmentStatus: record.EmploymentStatus || record.employmentStatus || '',
-      hireDate: record.HireDate || record.hireDate || '',
-      country: record.Country || record.country || '',
-      canLogin: toBoolean(record.CanLogin),
-      isAdmin: toBoolean(record.IsAdmin),
-      twoFactorEnabled: toBoolean(record.TwoFactorEnabled),
-      lockoutEnd: record.LockoutEnd || '',
-      lastLogin: record.LastLogin || '',
-      createdAt: record.CreatedAt || record.createdAt || '',
-      updatedAt: record.UpdatedAt || record.updatedAt || '',
-      deletedAt: record.DeletedAt || record.deletedAt || '',
-      rolesCsv: record.Roles || '',
-      pages: parseList(record.Pages || record.pages || ''),
-      metadata: {}
+    const conflicts = {
+      emailConflict: null,
+      userNameConflict: null
     };
 
-    obj.roleIds = resolveRoleIds(obj.id, record.Roles || record.roles || '');
-    obj.roleNames = resolveRoleNames(obj.roleIds);
-
-    return obj;
-  }
-
-  function mapUsers(records) {
-    return (records || []).map(function (record) { return createSafeUserObject(record); }).filter(function (entry) {
-      return !!entry;
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Query helpers
-  // ---------------------------------------------------------------------------
-
-  function listUsers(options) {
-    options = options || {};
-    var includeDeleted = options.includeDeleted === true;
-    var campaignFilter = normalizeString(options.campaignId || options.campaignID || '');
-    var search = normalizeString(options.search || options.query || '');
-
-    var table = getUsersTable();
-    var rows = table.find({
-      filter: function (row) {
-        if (!includeDeleted && isSoftDeleted(row)) {
-          return false;
-        }
-        if (campaignFilter) {
-          var rowCampaign = normalizeString(row.CampaignID || row.CampaignId || row.campaignId);
-          if (rowCampaign !== campaignFilter) {
-            return false;
-          }
-        }
-        if (search) {
-          var haystack = [row.UserName, row.FullName, row.Email, row.PhoneNumber]
-            .map(function (value) { return normalizeString(value).toLowerCase(); })
-            .join(' ');
-          if (haystack.indexOf(search.toLowerCase()) === -1) {
-            return false;
-          }
-        }
-        return true;
-      },
-      sortBy: 'FullName'
-    });
-    return mapUsers(rows);
-  }
-
-  function findUserById(userId) {
-    if (!userId && userId !== 0) {
-      return null;
+    if (!emailKey && !userKey) {
+      return { success: true, hasConflicts: false, conflicts };
     }
-    var table = getUsersTable();
-    var record = table.findById(String(userId));
-    return record ? createSafeUserObject(record) : null;
-  }
 
-  function findRawUserById(userId) {
-    if (!userId && userId !== 0) {
-      return null;
-    }
-    var table = getUsersTable();
-    return table.findById(String(userId));
-  }
+    const users = _readUsersAsObjects_();
+    users.forEach(u => {
+      if (!u || !u.ID) return;
+      if (excludeId && String(u.ID) === excludeId) return;
 
-  function findUserByEmail(email) {
-    var normalized = normalizeEmail(email);
-    if (!normalized) {
-      return null;
-    }
-    var table = getUsersTable();
-    var results = table.find({
-      filter: function (row) {
-        if (isSoftDeleted(row)) {
-          return false;
+      if (emailKey && !conflicts.emailConflict) {
+        if (_normEmail_(u.Email || u.email) === emailKey) {
+          conflicts.emailConflict = {
+            id: u.ID,
+            email: u.Email || u.email || '',
+            userName: _getUserName_(u),
+            campaignId: u.CampaignID || u.campaignId || ''
+          };
         }
-        return normalizeEmail(row.Email || row.email) === normalized;
-      },
-      limit: 1
-    });
-    return results && results.length ? createSafeUserObject(results[0]) : null;
-  }
-
-  function checkUserConflicts(email, userName, excludeId) {
-    var conflicts = { emailConflict: null, userNameConflict: null };
-    var normalizedEmail = normalizeEmail(email);
-    var normalizedUser = normalizeUserName(userName);
-    var table = getUsersTable();
-
-    if (normalizedEmail) {
-      var emailMatches = table.find({
-        filter: function (row) {
-          if (isSoftDeleted(row)) return false;
-          if (excludeId && String(row.ID) === String(excludeId)) return false;
-          return normalizeEmail(row.Email || row.email) === normalizedEmail;
-        },
-        limit: 1
-      });
-      if (emailMatches && emailMatches.length) {
-        conflicts.emailConflict = createSafeUserObject(emailMatches[0]);
       }
-    }
 
-    if (normalizedUser) {
-      var userMatches = table.find({
-        filter: function (row) {
-          if (isSoftDeleted(row)) return false;
-          if (excludeId && String(row.ID) === String(excludeId)) return false;
-          return normalizeUserName(row.UserName || row.userName || row.Username) === normalizedUser;
-        },
-        limit: 1
-      });
-      if (userMatches && userMatches.length) {
-        conflicts.userNameConflict = createSafeUserObject(userMatches[0]);
+      if (userKey && !conflicts.userNameConflict) {
+        if (_normUser_(_getUserName_(u)) === userKey) {
+          conflicts.userNameConflict = {
+            id: u.ID,
+            email: u.Email || u.email || '',
+            userName: _getUserName_(u),
+            campaignId: u.CampaignID || u.campaignId || ''
+          };
+        }
       }
-    }
+    });
 
-    conflicts.hasConflicts = !!(conflicts.emailConflict || conflicts.userNameConflict);
-    return conflicts;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Mutations
-  // ---------------------------------------------------------------------------
-
-  function buildUserInsertPayload(input) {
-    var userName = normalizeString(input.userName || input.UserName || input.username || '');
-    var email = normalizeString(input.email || input.Email || '');
-    if (!userName) {
-      throw new Error('User name is required');
-    }
-    if (!email) {
-      throw new Error('Email is required');
-    }
-    var employmentStatus = normalizeString(input.employmentStatus || input.EmploymentStatus || '');
-    if (!isValidEmploymentStatus(employmentStatus)) {
-      throw new Error('Invalid employment status value');
-    }
-
-    var payload = {
-      UserName: userName,
-      FullName: normalizeString(input.fullName || input.FullName || userName),
-      Email: email,
-      CampaignID: normalizeString(input.campaignId || input.CampaignID || input.campaignID || ''),
-      PhoneNumber: normalizeString(input.phoneNumber || input.PhoneNumber || ''),
-      EmploymentStatus: employmentStatus,
-      HireDate: ensureDateValue(input.hireDate || input.HireDate || ''),
-      Country: normalizeString(input.country || input.Country || ''),
-      LockoutEnd: ensureDateValue(input.lockoutEnd || input.LockoutEnd || ''),
-      TwoFactorEnabled: toBoolean(input.twoFactorEnabled || input.TwoFactorEnabled),
-      CanLogin: toBoolean(input.canLogin != null ? input.canLogin : true),
-      IsAdmin: toBoolean(input.isAdmin || input.IsAdmin),
-      Roles: joinList(parseList(input.roles || input.Roles || [])),
-      Pages: joinList(parseList(input.pages || input.Pages || [])),
-      ResetRequired: toBoolean(input.resetRequired != null ? input.resetRequired : true),
-      EmailConfirmation: normalizeString(input.emailConfirmation || input.EmailConfirmation || getUuid()),
-      EmailConfirmed: toBoolean(input.emailConfirmed || input.EmailConfirmed),
-      PasswordHash: normalizeString(input.passwordHash || input.PasswordHash || ''),
-      DeletedAt: ''
+    return {
+      success: true,
+      hasConflicts: !!(conflicts.emailConflict || conflicts.userNameConflict),
+      conflicts
     };
-
-    return payload;
+  } catch (error) {
+    writeError && writeError('clientCheckUserConflicts', error);
+    return { success: false, error: error.message || String(error) };
   }
+}
 
-  function createUser(input) {
-    var table = getUsersTable();
-    var payload = buildUserInsertPayload(input);
-    var conflicts = checkUserConflicts(payload.Email, payload.UserName);
-    if (conflicts.hasConflicts) {
-      var parts = [];
-      if (conflicts.emailConflict) parts.push('email already in use');
-      if (conflicts.userNameConflict) parts.push('username already in use');
-      throw new Error('Cannot create user: ' + parts.join(', '));
-    }
+// ───────────────────────────────────────────────────────────────────────────────
+// Admin detection (global + role + campaign permissions)
+// ───────────────────────────────────────────────────────────────────────────────
+function isUserAdmin(uOrId) {
+  if (!uOrId) return false;
+  const user = (typeof uOrId === 'string')
+    ? (readSheet(G.USERS_SHEET) || []).find(x => String(x.ID) === String(uOrId))
+    : uOrId;
 
-    var inserted = table.insert(payload);
+  if (!user) return false;
+  const flag = (user.IsAdmin === true || String(user.IsAdmin).toUpperCase() === 'TRUE');
+  if (flag) return true;
 
-    if (input.roles) {
-      try { syncRoles(inserted.ID, parseList(input.roles)); } catch (err) { logError('createUser:syncRoles', err); }
-    }
+  try {
+    const roleNames = getUserRolesSafe(user.ID).map(r => String(r.name || '').toLowerCase());
+    if (roleNames.some(n => /\b(system\s*admin|super\s*admin|administrator|admin)\b/.test(n))) return true;
+  } catch (_) { }
 
-    if (input.permissionLevel && input.campaignId) {
-      try {
-        setCampaignUserPermissions(input.campaignId, inserted.ID, input.permissionLevel, input.canManageUsers, input.canManagePages);
-      } catch (err) {
-        logError('createUser:setCampaignUserPermissions', err);
-      }
-    }
+  try {
+    const perms = readCampaignPermsSafely_();
+    if (perms.some(p => String(p.UserID) === String(user.ID) &&
+      String(p.PermissionLevel || '').toUpperCase() === 'ADMIN')) return true;
+  } catch (_) { }
 
-    if (payload.CanLogin && typeof global.sendPasswordSetupEmail === 'function') {
-      try {
-        global.sendPasswordSetupEmail(payload.Email, {
-          userName: payload.UserName,
-          fullName: payload.FullName,
-          passwordSetupToken: payload.EmailConfirmation
-        });
-      } catch (err) {
-        logError('createUser:sendPasswordSetupEmail', err);
-      }
-    }
+  return false;
+}
 
-    return createSafeUserObject(inserted);
-  }
+// ───────────────────────────────────────────────────────────────────────────────
+// Campaign permissions CRUD
+// ───────────────────────────────────────────────────────────────────────────────
+function _hasSheet_(name) { try { return !!SpreadsheetApp.getActive().getSheetByName(name); } catch (_) { return false; } }
 
-  function updateUser(userId, updates) {
-    if (!userId && userId !== 0) {
-      throw new Error('User ID is required');
-    }
-    var table = getUsersTable();
-    var existing = table.findById(String(userId));
-    if (!existing) {
-      throw new Error('User not found');
-    }
+function _permsSheetReady_() {
+  if (!_hasSheet_(G.CAMPAIGN_USER_PERMISSIONS_SHEET)) return false;
+  const sh = SpreadsheetApp.getActive().getSheetByName(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+  const lastCol = sh.getLastColumn(); if (!lastCol) return false;
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  return G.CAMPAIGN_USER_PERMISSIONS_HEADERS.every(h => headers.indexOf(h) !== -1);
+}
+function readCampaignPermsSafely_() {
+  try {
+    if (!_permsSheetReady_()) return [];
+    const rows = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
+    if (!Array.isArray(rows) || !rows.length) return [];
+    return rows.map(p => ({
+      ID: p.ID,
+      CampaignID: String(p.CampaignID || ''),
+      UserID: String(p.UserID || ''),
+      PermissionLevel: String(p.PermissionLevel || '').toUpperCase(),
+      CanManageUsers: (p.CanManageUsers === true || String(p.CanManageUsers).toUpperCase() === 'TRUE'),
+      CanManagePages: (p.CanManagePages === true || String(p.CanManagePages).toUpperCase() === 'TRUE'),
+      CreatedAt: p.CreatedAt || null,
+      UpdatedAt: p.UpdatedAt || null
+    }));
+  } catch (e) { writeError && writeError('readCampaignPermsSafely_', e); return []; }
+}
+function debugCampaignPerms() {
+  const ready = _permsSheetReady_();
+  return {
+    sheetName: G.CAMPAIGN_USER_PERMISSIONS_SHEET,
+    ready,
+    note: ready ? 'Permissions sheet looks OK.' :
+      'Sheet missing or headers not complete. Expected headers: ' + G.CAMPAIGN_USER_PERMISSIONS_HEADERS.join(', ')
+  };
+}
 
-    var payload = {};
-    if (Object.prototype.hasOwnProperty.call(updates, 'userName') || Object.prototype.hasOwnProperty.call(updates, 'UserName')) {
-      payload.UserName = normalizeString(updates.userName || updates.UserName);
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'fullName') || Object.prototype.hasOwnProperty.call(updates, 'FullName')) {
-      payload.FullName = normalizeString(updates.fullName || updates.FullName);
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'email') || Object.prototype.hasOwnProperty.call(updates, 'Email')) {
-      payload.Email = normalizeString(updates.email || updates.Email);
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'campaignId') || Object.prototype.hasOwnProperty.call(updates, 'CampaignID')) {
-      payload.CampaignID = normalizeString(updates.campaignId || updates.CampaignID || updates.campaignID || '');
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'phoneNumber') || Object.prototype.hasOwnProperty.call(updates, 'PhoneNumber')) {
-      payload.PhoneNumber = normalizeString(updates.phoneNumber || updates.PhoneNumber || '');
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'employmentStatus') || Object.prototype.hasOwnProperty.call(updates, 'EmploymentStatus')) {
-      var status = normalizeString(updates.employmentStatus || updates.EmploymentStatus || '');
-      if (!isValidEmploymentStatus(status)) {
-        throw new Error('Invalid employment status value');
-      }
-      payload.EmploymentStatus = status;
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'hireDate') || Object.prototype.hasOwnProperty.call(updates, 'HireDate')) {
-      payload.HireDate = ensureDateValue(updates.hireDate || updates.HireDate || '');
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'country') || Object.prototype.hasOwnProperty.call(updates, 'Country')) {
-      payload.Country = normalizeString(updates.country || updates.Country || '');
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'canLogin') || Object.prototype.hasOwnProperty.call(updates, 'CanLogin')) {
-      payload.CanLogin = toBoolean(updates.canLogin != null ? updates.canLogin : updates.CanLogin);
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'isAdmin') || Object.prototype.hasOwnProperty.call(updates, 'IsAdmin')) {
-      payload.IsAdmin = toBoolean(updates.isAdmin != null ? updates.isAdmin : updates.IsAdmin);
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'pages') || Object.prototype.hasOwnProperty.call(updates, 'Pages')) {
-      payload.Pages = joinList(parseList(updates.pages || updates.Pages || []));
-    }
-    if (Object.prototype.hasOwnProperty.call(updates, 'roles') || Object.prototype.hasOwnProperty.call(updates, 'Roles')) {
-      payload.Roles = joinList(parseList(updates.roles || updates.Roles || []));
-    }
-
-    if (payload.Email || payload.UserName) {
-      var conflicts = checkUserConflicts(payload.Email || existing.Email, payload.UserName || existing.UserName, userId);
-      if (conflicts.emailConflict || conflicts.userNameConflict) {
-        throw new Error('Cannot update user: conflicts detected');
-      }
-    }
-
-    if (Object.keys(payload).length) {
-      table.update(String(userId), payload);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, 'roles') || Object.prototype.hasOwnProperty.call(updates, 'Roles')) {
-      syncRoles(String(userId), parseList(updates.roles || updates.Roles || []));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, 'permissionLevel') || Object.prototype.hasOwnProperty.call(updates, 'canManageUsers')
-      || Object.prototype.hasOwnProperty.call(updates, 'canManagePages')) {
-      setCampaignUserPermissions(updates.campaignId || updates.CampaignID || existing.CampaignID,
-        String(userId),
-        updates.permissionLevel || (existing.PermissionLevel || 'USER'),
-        updates.canManageUsers,
-        updates.canManagePages);
-    }
-
-    var refreshed = table.findById(String(userId));
-    return createSafeUserObject(refreshed);
-  }
-
-  function deleteUser(userId) {
-    if (!userId && userId !== 0) {
-      throw new Error('User ID is required');
-    }
-    var table = getUsersTable();
-    var existing = table.findById(String(userId));
-    if (!existing) {
-      throw new Error('User not found');
-    }
-    if (isSoftDeleted(existing)) {
-      return createSafeUserObject(existing);
-    }
-    table.update(String(userId), { DeletedAt: getNow() });
-    return createSafeUserObject(table.findById(String(userId)));
-  }
-
-  function restoreUser(userId) {
-    if (!userId && userId !== 0) {
-      throw new Error('User ID is required');
-    }
-    var table = getUsersTable();
-    var existing = table.findById(String(userId));
-    if (!existing) {
-      throw new Error('User not found');
-    }
-    table.update(String(userId), { DeletedAt: '' });
-    return createSafeUserObject(table.findById(String(userId)));
-  }
-
-  function assignPagesToUser(userId, pages) {
-    var table = getUsersTable();
-    var existing = table.findById(String(userId));
-    if (!existing) {
-      throw new Error('User not found');
-    }
-    var joined = joinList(parseList(pages));
-    table.update(String(userId), { Pages: joined });
-    return createSafeUserObject(table.findById(String(userId)));
-  }
-
-  function getUserPages(userId) {
-    var user = findRawUserById(userId);
-    if (!user) {
-      return [];
-    }
-    return parseList(user.Pages || user.pages || '');
-  }
-
-  // ---------------------------------------------------------------------------
-  // Campaign permission helpers
-  // ---------------------------------------------------------------------------
-
-  function getCampaignUserPermissions(campaignId, userId) {
-    var normalizedCampaign = normalizeString(campaignId);
-    var normalizedUser = normalizeString(userId);
-    if (!normalizedCampaign || !normalizedUser) {
-      return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
-    }
-    var table = getCampaignPermissionsTable({ tenantId: normalizedCampaign });
-    var match = table.find({
-      filter: function (row) {
-        if (isSoftDeleted(row)) return false;
-        return normalizeString(row.CampaignID || row.CampaignId) === normalizedCampaign
-          && normalizeString(row.UserID || row.UserId) === normalizedUser;
-      },
-      limit: 1
-    });
-    if (!match || !match.length) {
-      return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
-    }
-    var row = match[0];
+function getCampaignUserPermissions(campaignId, userId) {
+  try {
+    const rows = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
+    const row = rows.find(r => String(r.CampaignID) === String(campaignId) && String(r.UserID) === String(userId));
+    const toBool = v => v === true || String(v).toUpperCase() === 'TRUE';
+    if (!row) return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
     return {
       permissionLevel: String(row.PermissionLevel || 'USER').toUpperCase(),
-      canManageUsers: toBoolean(row.CanManageUsers),
-      canManagePages: toBoolean(row.CanManagePages),
-      notes: row.Notes || ''
+      canManageUsers: toBool(row.CanManageUsers),
+      canManagePages: toBool(row.CanManagePages)
     };
+  } catch (e) { writeError && writeError('getCampaignUserPermissions', e); return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false }; }
+}
+
+function getCampaignPermsHeaders_() { return G.CAMPAIGN_USER_PERMISSIONS_HEADERS; }
+function getOrCreateCampaignPermsSheet_() {
+  if (typeof ensureSheetWithHeaders === 'function')
+    return ensureSheetWithHeaders(G.CAMPAIGN_USER_PERMISSIONS_SHEET, getCampaignPermsHeaders_());
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+    sh.getRange(1, 1, 1, getCampaignPermsHeaders_().length).setValues([getCampaignPermsHeaders_()]);
+    sh.setFrozenRows(1);
   }
+  return sh;
+}
+function setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages) {
+  try {
+    if (!campaignId || !userId) return { success: false, error: 'campaignId and userId are required' };
+    const lvl = String(permissionLevel || 'VIEWER').toUpperCase();
+    const cmu = (canManageUsers === true || String(canManageUsers).toLowerCase() === 'true');
+    const cmp = (canManagePages === true || String(canManagePages).toLowerCase() === 'true');
 
-  function setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages) {
-    var normalizedCampaign = normalizeString(campaignId);
-    var normalizedUser = normalizeString(userId);
-    if (!normalizedCampaign || !normalizedUser) {
-      return { success: false, error: 'Campaign ID and User ID are required' };
+    const sh = getOrCreateCampaignPermsSheet_();
+    const data = sh.getDataRange().getValues();
+    const headers = data[0] || G.CAMPAIGN_USER_PERMISSIONS_HEADERS;
+    const idx = {}; headers.forEach((h, i) => idx[String(h)] = i);
+
+    ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'CanManageUsers', 'CanManagePages', 'CreatedAt', 'UpdatedAt']
+      .forEach(h => { if (!(h in idx)) throw new Error('Campaign permissions sheet is missing header: ' + h); });
+
+    let rowIndex = -1;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][idx.CampaignID]) === String(campaignId) && String(data[r][idx.UserID]) === String(userId)) {
+        rowIndex = r; break;
+      }
     }
-    var level = normalizeString(permissionLevel || 'USER').toUpperCase();
-    var table = getCampaignPermissionsTable({ tenantId: normalizedCampaign });
-    var existing = table.find({
-      filter: function (row) {
-        return normalizeString(row.CampaignID || row.CampaignId) === normalizedCampaign
-          && normalizeString(row.UserID || row.UserId) === normalizedUser;
-      },
-      limit: 1
-    });
-
-    var payload = {
-      CampaignID: normalizedCampaign,
-      UserID: normalizedUser,
-      PermissionLevel: level,
-      CanManageUsers: toBoolean(canManageUsers),
-      CanManagePages: toBoolean(canManagePages),
-      DeletedAt: ''
-    };
-
-    if (existing && existing.length) {
-      table.update(existing[0].ID, payload);
+    const nowIso = new Date().toISOString();
+    if (rowIndex === -1) {
+      const row = [];
+      row[idx.ID] = Utilities.getUuid();
+      row[idx.CampaignID] = campaignId;
+      row[idx.UserID] = userId;
+      row[idx.PermissionLevel] = lvl;
+      row[idx.CanManageUsers] = cmu ? 'TRUE' : 'FALSE';
+      row[idx.CanManagePages] = cmp ? 'TRUE' : 'FALSE';
+      row[idx.CreatedAt] = nowIso;
+      row[idx.UpdatedAt] = nowIso;
+      for (let c = 0; c < headers.length; c++) if (typeof row[c] === 'undefined') row[c] = '';
+      sh.appendRow(row);
+      if (typeof invalidateCache === 'function') invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+      return { success: true, created: true, message: 'Permissions saved', campaignId, userId, permissionLevel: lvl, canManageUsers: cmu, canManagePages: cmp };
     } else {
-      table.insert(payload);
+      const r = rowIndex + 1;
+      if (idx.PermissionLevel >= 0) sh.getRange(r, idx.PermissionLevel + 1).setValue(lvl);
+      if (idx.CanManageUsers >= 0) sh.getRange(r, idx.CanManageUsers + 1).setValue(cmu ? 'TRUE' : 'FALSE');
+      if (idx.CanManagePages >= 0) sh.getRange(r, idx.CanManagePages + 1).setValue(cmp ? 'TRUE' : 'FALSE');
+      if (idx.UpdatedAt >= 0) sh.getRange(r, idx.UpdatedAt + 1).setValue(nowIso);
+      if (typeof invalidateCache === 'function') invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+      return { success: true, updated: true, message: 'Permissions saved', campaignId, userId, permissionLevel: lvl, canManageUsers: cmu, canManagePages: cmp };
     }
-    return { success: true };
-  }
+  } catch (e) { writeError && writeError('setCampaignUserPermissions', e); return { success: false, error: e.message }; }
+}
 
-  // ---------------------------------------------------------------------------
-  // Manager assignments
-  // ---------------------------------------------------------------------------
+// ───────────────────────────────────────────────────────────────────────────────
+// Users: get all (campaign-aware) + safe mappers
+// ───────────────────────────────────────────────────────────────────────────────
+function clientGetAllUsers(requestingUserId) {
+  try {
+    let users = [];
+    try { users = readSheet(G.USERS_SHEET); } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
+    if (!Array.isArray(users) || users.length === 0) return [];
 
-  function getManagedUsers(managerUserId) {
-    var managerId = normalizeString(managerUserId);
-    if (!managerId) {
-      return { success: true, managerUserId: managerUserId, users: [] };
-    }
-    var assignmentsTable = getManagerAssignmentsTable();
-    var assignments = assignmentsTable.find({
-      filter: function (row) {
-        if (isSoftDeleted(row)) return false;
-        return normalizeString(row.ManagerUserID || row.ManagerId) === managerId;
+    const enhancedUsers = [];
+    for (let i = 0; i < users.length; i++) {
+      try {
+        const u = users[i];
+        if (!u || !u.ID) continue;
+        enhancedUsers.push(createSafeUserObject(u));
+      } catch (userErr) {
+        enhancedUsers.push(createMinimalUserObject(users[i]));
       }
-    });
-    var userIds = assignments.map(function (row) { return String(row.UserID || row.UserId); });
-    var users = listUsers({ includeDeleted: false }).filter(function (user) {
-      return userIds.indexOf(String(user.id)) !== -1;
-    });
-    return { success: true, managerUserId: managerUserId, users: users };
-  }
-
-  function getAvailableUsersForManager(managerUserId) {
-    var assigned = getManagedUsers(managerUserId).users || [];
-    var assignedIds = assigned.map(function (user) { return String(user.id); });
-    var allUsers = listUsers({ includeDeleted: false });
-    var available = allUsers.filter(function (user) {
-      return assignedIds.indexOf(String(user.id)) === -1;
-    });
-    return { success: true, managerUserId: managerUserId, users: available };
-  }
-
-  function assignUsersToManager(managerUserId, userIds) {
-    var managerId = normalizeString(managerUserId);
-    if (!managerId) {
-      throw new Error('Manager ID is required');
     }
-    var assignmentsTable = getManagerAssignmentsTable();
-    var existing = assignmentsTable.find({
-      filter: function (row) {
-        return normalizeString(row.ManagerUserID || row.ManagerId) === managerId;
-      }
-    });
-    (existing || []).forEach(function (row) {
-      if (row && row.ID) {
-        assignmentsTable.delete(row.ID);
-      }
-    });
 
-    var targetIds = ensureArray(userIds).map(function (id) { return normalizeString(id); }).filter(function (id) { return id; });
-    targetIds.forEach(function (userId) {
-      assignmentsTable.insert({ ManagerUserID: managerId, UserID: userId });
-    });
-
-    return getManagedUsers(managerId);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Password administration
-  // ---------------------------------------------------------------------------
-
-  function adminResetPassword(userId, requestingUserId) {
-    var target = findRawUserById(userId);
-    if (!target) {
-      return { success: false, error: 'User not found' };
-    }
-    if (!toBoolean(target.CanLogin)) {
-      return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
-    }
+    let filteredUsers = enhancedUsers;
     if (requestingUserId) {
-      var requester = findRawUserById(requestingUserId);
-      if (!requester || !toBoolean(requester.IsAdmin)) {
-        return { success: false, error: 'Only administrators can perform this action' };
-      }
-    }
-    var token = getUuid();
-    var table = getUsersTable();
-    table.update(String(userId), { EmailConfirmation: token, ResetRequired: true });
-
-    try {
-      if (typeof global.sendAdminPasswordResetEmail === 'function') {
-        global.sendAdminPasswordResetEmail(target.Email, { resetToken: token });
-      } else if (typeof global.sendPasswordResetEmail === 'function') {
-        global.sendPasswordResetEmail(target.Email, token);
-      }
-    } catch (err) {
-      logError('adminResetPassword:sendEmail', err);
-      return { success: false, error: 'Token saved, but failed to send email: ' + err };
-    }
-
-    return { success: true, message: 'Password reset email sent' };
-  }
-
-  function resendFirstLoginEmail(userId, requestingUserId) {
-    var target = findRawUserById(userId);
-    if (!target) {
-      return { success: false, error: 'User not found' };
-    }
-    if (!toBoolean(target.CanLogin)) {
-      return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
-    }
-    if (requestingUserId) {
-      var requester = findRawUserById(requestingUserId);
-      if (!requester || !toBoolean(requester.IsAdmin)) {
-        return { success: false, error: 'Only administrators can perform this action' };
-      }
-    }
-    var token = getUuid();
-    var table = getUsersTable();
-    table.update(String(userId), { EmailConfirmation: token, ResetRequired: true });
-
-    try {
-      if (typeof global.sendFirstLoginResendEmail === 'function') {
-        global.sendFirstLoginResendEmail(target.Email, {
-          userName: target.UserName,
-          fullName: target.FullName || target.UserName,
-          passwordSetupToken: token
-        });
-      } else if (typeof global.sendPasswordSetupEmail === 'function') {
-        global.sendPasswordSetupEmail(target.Email, {
-          userName: target.UserName,
-          fullName: target.FullName || target.UserName,
-          passwordSetupToken: token
-        });
-      }
-    } catch (err) {
-      logError('resendFirstLoginEmail:sendEmail', err);
-      return { success: false, error: 'Token saved, but failed to send email: ' + err };
-    }
-
-    return { success: true, message: 'First login email sent' };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Diagnostics & utilities
-  // ---------------------------------------------------------------------------
-
-  function runEnhancedDiscovery() {
-    try {
-      var users = listUsers({ includeDeleted: true });
-      var duplicateEmails = {};
-      var duplicateUserNames = {};
-      var emailMap = {};
-      var userMap = {};
-      users.forEach(function (user) {
-        var emailKey = normalizeEmail(user.email);
-        if (emailKey) {
-          if (!emailMap[emailKey]) {
-            emailMap[emailKey] = [];
+      try {
+        const requestingUser = users.find(u => String(u.ID) === String(requestingUserId));
+        if (requestingUser) {
+          if (isUserAdmin(requestingUser)) {
+            filteredUsers = enhancedUsers;
+          } else {
+            const managedCampaigns = getUserManagedCampaigns(requestingUserId) || [];
+            const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
+            if (managedSet.size > 0) {
+              const managedIds = new Set(Array.from(managedSet).map(String));
+              filteredUsers = enhancedUsers.filter(u => {
+                if (String(u.ID) === String(requestingUserId)) return true;
+                const uCamps = (typeof getUserCampaignsSafe === 'function')
+                  ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
+                  : (u.CampaignID ? [String(u.CampaignID)] : []);
+                return uCamps.some(cid => managedIds.has(cid));
+              });
+            } else {
+              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(requestingUserId));
+            }
           }
-          emailMap[emailKey].push(user.id);
+        } else {
+          filteredUsers = [];
         }
-        var userKey = normalizeUserName(user.userName);
-        if (userKey) {
-          if (!userMap[userKey]) {
-            userMap[userKey] = [];
-          }
-          userMap[userKey].push(user.id);
-        }
-      });
-      Object.keys(emailMap).forEach(function (key) {
-        if (emailMap[key].length > 1) {
-          duplicateEmails[key] = emailMap[key];
-        }
-      });
-      Object.keys(userMap).forEach(function (key) {
-        if (userMap[key].length > 1) {
-          duplicateUserNames[key] = userMap[key];
-        }
-      });
-      return {
-        success: true,
-        totalUsers: users.length,
-        duplicateEmails: duplicateEmails,
-        duplicateUserNames: duplicateUserNames
-      };
-    } catch (err) {
-      logError('runEnhancedDiscovery', err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  function getAvailablePages() {
-    try {
-      var rows = readPagesSheet();
-      if (!rows.length) {
-        return [];
+      } catch (permissionError) {
+        filteredUsers = enhancedUsers;
       }
-      return rows.map(function (row) {
-        return {
-          key: row.Key || row.key || row.PageKey || row.pageKey || row.ID || row.Id || row.id || '',
-          label: row.Label || row.label || row.Name || row.name || '',
-          category: row.Category || row.category || row.Section || row.section || '',
-          description: row.Description || row.description || ''
-        };
-      }).filter(function (page) { return page.key; });
-    } catch (err) {
-      logError('getAvailablePages', err);
-      return [];
     }
-  }
+    return filteredUsers;
+  } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
+}
 
-  // ---------------------------------------------------------------------------
-  // Public facade
-  // ---------------------------------------------------------------------------
-
-  var UserDirectory = {
-    list: listUsers,
-    findById: findUserById,
-    findByEmail: findUserByEmail,
-    create: createUser,
-    update: updateUser,
-    remove: deleteUser,
-    restore: restoreUser,
-    assignPages: assignPagesToUser,
-    getUserPages: getUserPages,
-    getCampaignUserPermissions: getCampaignUserPermissions,
-    setCampaignUserPermissions: setCampaignUserPermissions,
-    getManagedUsers: getManagedUsers,
-    getAvailableUsersForManager: getAvailableUsersForManager,
-    assignUsersToManager: assignUsersToManager,
-    adminResetPassword: adminResetPassword,
-    resendFirstLoginEmail: resendFirstLoginEmail,
-    runEnhancedDiscovery: runEnhancedDiscovery,
-    getAvailablePages: getAvailablePages,
-    createSafeUserObject: createSafeUserObject,
-    checkConflicts: checkUserConflicts
+function createSafeUserObject(user) {
+  const safe = {
+    ID: user.ID || '',
+    UserName: _getUserName_(user), // Fix: Check all variations
+    FullName: user.FullName || user.fullName || '',
+    Email: user.Email || user.email || '',
+    PhoneNumber: user.PhoneNumber || user.phoneNumber || '',
+    CampaignID: user.CampaignID || user.campaignID || '',
+    EmploymentStatus: normalizeEmploymentStatus(user.EmploymentStatus) || (user.EmploymentStatus || ''),
+    HireDate: user.HireDate || '',
+    Country: user.Country || '',
+    // HR/Benefits raw
+    TerminationDate: user.TerminationDate || '',
+    ProbationMonths: (user.ProbationMonths !== '' && user.ProbationMonths != null) ? Number(user.ProbationMonths) : '',
+    ProbationEndDate: user.ProbationEndDate || '',
+    InsuranceQualifiedDate: user.InsuranceQualifiedDate || '',
+    InsuranceEligible: _strToBool_(user.InsuranceEligible || false),
+    InsuranceSignedUp: _strToBool_(user.InsuranceSignedUp || false),
+    InsuranceCardReceivedDate: user.InsuranceCardReceivedDate || ''
   };
 
-  global.UserDirectory = UserDirectory;
+  // Add convenience aliases
+  safe.userName = safe.UserName; // Add camelCase alias for frontend
+  safe.username = safe.UserName; // Add lowercase alias for robustness
+  safe.fullName = safe.FullName;
+  safe.email = safe.Email;
 
-  // ---------------------------------------------------------------------------
-  // Legacy global wrappers (HTML Service expects these names)
-  // ---------------------------------------------------------------------------
+  safe.InsuranceEligibilityDate = safe.InsuranceQualifiedDate;  // alias for UI
+  safe.InsuranceEnrolled = safe.InsuranceSignedUp;              // alias for UI
+  safe.InsuranceEnrolledBool = !!safe.InsuranceSignedUp;        // convenience
+  safe.InsuranceQualifiedBool = !!safe.InsuranceEligible;       // convenience
 
-  function clientGetAllUsers() {
-    try {
-      return UserDirectory.list({ includeDeleted: false });
-    } catch (err) {
-      logError('clientGetAllUsers', err);
-      return [];
+  try {
+    safe.canLoginBool = _strToBool_(user.CanLogin);
+    safe.isAdminBool = _strToBool_(user.IsAdmin);
+    safe.emailConfirmedBool = _strToBool_(user.EmailConfirmed);
+    safe.needsPasswordSetup = !user.PasswordHash || _strToBool_(user.ResetRequired);
+  } catch (e) {
+    safe.canLoginBool = false; safe.isAdminBool = false; safe.emailConfirmedBool = false; safe.needsPasswordSetup = true;
+  }
+
+  try {
+    safe.CreatedAt = user.CreatedAt ? new Date(user.CreatedAt).toISOString() : new Date().toISOString();
+    safe.UpdatedAt = user.UpdatedAt ? new Date(user.UpdatedAt).toISOString() : new Date().toISOString();
+    safe.LastLogin = user.LastLogin ? new Date(user.LastLogin).toISOString() : null;
+
+    // nice formats
+    safe.hireDateFormatted = user.HireDate ? new Date(user.HireDate).toLocaleDateString() : '';
+    safe.terminationDateFormatted = user.TerminationDate ? new Date(user.TerminationDate).toLocaleDateString() : '';
+    safe.probationEndDateFormatted = user.ProbationEndDate ? new Date(user.ProbationEndDate).toLocaleDateString() : '';
+    safe.insuranceQualifiedDateFormatted = user.InsuranceQualifiedDate ? new Date(user.InsuranceQualifiedDate).toLocaleDateString() : '';
+    safe.insuranceCardReceivedDateFormatted = user.InsuranceCardReceivedDate ? new Date(user.InsuranceCardReceivedDate).toLocaleDateString() : '';
+  } catch (_) { }
+
+  try { safe.campaignName = user.CampaignID ? getCampaignNameSafe(user.CampaignID) : ''; } catch (_) { safe.campaignName = ''; }
+
+  try {
+    const userRoleIds = getUserRoleIdsSafe(user.ID);
+    const userRoles = getUserRolesSafe(user.ID);
+    safe.roleIds = userRoleIds;
+    safe.roles = userRoles.map(r => r.id);
+    safe.roleNames = userRoles.map(r => r.name);
+    if (safe.roleNames.length === 0 && user.Roles) {
+      const csvRoles = String(user.Roles).split(',').filter(Boolean);
+      safe.csvRoles = csvRoles;
+      safe.roleNames = csvRoles.map(roleId => getRoleNameSafe(roleId));
+    } else {
+      safe.csvRoles = user.Roles ? String(user.Roles).split(',').filter(Boolean) : [];
     }
+  } catch (_) {
+    safe.roleIds = []; safe.roles = []; safe.roleNames = []; safe.csvRoles = [];
   }
 
-  function clientRegisterUser(userData) {
-    var lock = LockService.getScriptLock();
-    try {
-      lock.waitLock(20000);
-    } catch (err) {
-      return { success: false, error: 'System is busy. Please try again.' };
+  try { safe.pages = getUserPagesSafe(user.ID); } catch (_) { safe.pages = []; }
+  try { safe.campaignPermissions = getUserCampaignPermissionsSafe(user.ID); } catch (_) { safe.campaignPermissions = []; }
+
+  // Derived: InsuranceEligible recompute if needed
+  try {
+    const eligible = isInsuranceEligibleNow_(safe.InsuranceQualifiedDate, safe.TerminationDate);
+    safe.InsuranceEligible = !!eligible;
+  } catch (_) { }
+
+  return safe;
+}
+
+function createMinimalUserObject(user) {
+  return {
+    ID: user.ID || '',
+    UserName: _getUserName_(user),
+    FullName: user.FullName || '',
+    Email: user.Email || '',
+    PhoneNumber: user.PhoneNumber || '',
+    EmploymentStatus: user.EmploymentStatus || '',
+    HireDate: user.HireDate || null,
+    Country: user.Country || '',
+    canLoginBool: _strToBool_(user.CanLogin),
+    isAdminBool: _strToBool_(user.IsAdmin),
+    campaignName: '',
+    roleNames: [],
+    campaignPermissions: [],
+    pages: [],
+    CreatedAt: new Date().toISOString(),
+    UpdatedAt: new Date().toISOString()
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Safe helpers
+// ───────────────────────────────────────────────────────────────────────────────
+function getCampaignNameSafe(campaignId) {
+  try {
+    if (!campaignId) return '';
+    const campaigns = readSheet(G.CAMPAIGNS_SHEET) || [];
+    const c = campaigns.find(x => String(x.ID) === String(campaignId));
+    return c ? c.Name : '';
+  } catch (e) { return ''; }
+}
+function getUserRoleIdsSafe(userId) {
+  try {
+    if (!userId) return [];
+    const userRoles = readSheet(G.USER_ROLES_SHEET) || [];
+    return userRoles
+      .filter(ur => String(ur.UserId || ur.UserID) === String(userId))
+      .map(ur => ur.RoleId || ur.RoleID)
+      .filter(Boolean);
+  } catch (e) { return []; }
+}
+function getUserRolesSafe(userId) {
+  try {
+    if (!userId) return [];
+    const roleIds = getUserRoleIdsSafe(userId);
+    if (roleIds.length === 0) return [];
+    const allRoles = readSheet(G.ROLES_SHEET) || [];
+    return roleIds.map(roleId => {
+      const role = allRoles.find(r => r.ID === roleId);
+      return role ? { id: role.ID, name: role.Name } : null;
+    }).filter(Boolean);
+  } catch (e) { return []; }
+}
+function getRoleNameSafe(roleId) {
+  try {
+    if (!roleId) return '';
+    const roles = readSheet(G.ROLES_SHEET) || [];
+    const role = roles.find(r => r.ID === roleId);
+    return role ? role.Name : roleId;
+  } catch (e) { return roleId; }
+}
+function getUserPagesSafe(userId) {
+  try {
+    if (!userId) return [];
+    const users = readSheet(G.USERS_SHEET) || [];
+    const user = users.find(u => u.ID === userId);
+    if (!user || !user.Pages) return [];
+    return String(user.Pages).split(',').map(p => p.trim()).filter(p => p);
+  } catch (e) { return []; }
+}
+function getUserCampaignPermissionsSafe(userId) {
+  try {
+    if (!userId) return [];
+    return readCampaignPermsSafely_().filter(p => String(p.UserID) === String(userId));
+  } catch (e) { return []; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Register / Update user (enhanced with benefits)
+// ───────────────────────────────────────────────────────────────────────────────
+if (typeof _buildUniqIndexes_ !== 'function') {
+  function _buildUniqIndexes_(users) {
+    const byEmail = new Map();
+    const byUser = new Map();
+    (users || []).forEach(u => {
+      const e = _normEmail_(u && u.Email);
+      const n = _normUser_(_getUserName_(u));
+      // Prefer first occurrence per key
+      if (e && !byEmail.has(e)) byEmail.set(e, u);
+      if (n && !byUser.has(n)) byUser.set(n, u);
+    });
+    return { byEmail, byUser };
+  }
+}
+
+
+if (typeof _findRowIndexById_ !== 'function') {
+  function _findRowIndexById_(values, idx, userId) {
+    if (!values || !values.length) return -1;
+    // Fallback to column 0 if idx.ID missing
+    const col = (idx && typeof idx.ID === 'number') ? idx.ID : 0;
+    for (var r = 1; r < values.length; r++) {
+      if (String(values[r][col]) === String(userId)) return r;
     }
-    try {
-      var user = UserDirectory.create(userData || {});
-      return { success: true, userId: user.id, user: user, message: 'User created successfully' };
-    } catch (err) {
-      logError('clientRegisterUser', err);
-      return { success: false, error: err.message };
-    } finally {
-      try { lock.releaseLock(); } catch (_) { }
-    }
+    return -1;
   }
+}
 
-  function clientUpdateUser(userId, updates) {
-    var lock = LockService.getScriptLock();
-    try {
-      lock.waitLock(20000);
-    } catch (err) {
-      return { success: false, error: 'System is busy. Please try again.' };
-    }
-    try {
-      var user = UserDirectory.update(userId, updates || {});
-      return { success: true, userId: userId, user: user, message: 'User updated successfully' };
-    } catch (err) {
-      logError('clientUpdateUser', err);
-      return { success: false, error: err.message };
-    } finally {
-      try { lock.releaseLock(); } catch (_) { }
-    }
-  }
+function clientRegisterUser(userData) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (e) { return { success: false, error: 'System is busy. Please try again.' }; }
 
-  function clientDeleteUser(userId) {
-    var lock = LockService.getScriptLock();
-    try {
-      lock.waitLock(20000);
-    } catch (err) {
-      return { success: false, error: 'System is busy. Please try again.' };
-    }
-    try {
-      var result = UserDirectory.remove(userId);
-      return { success: true, userId: userId, user: result, message: 'User deactivated' };
-    } catch (err) {
-      logError('clientDeleteUser', err);
-      return { success: false, error: err.message };
-    } finally {
-      try { lock.releaseLock(); } catch (_) { }
-    }
-  }
+  try {
+    const v = _validateUserInput_(userData);
+    if (!v.ok) return { success: false, error: v.errors.join('; ') };
+    const data = _normalizeIncoming_(userData);
 
-  function clientCheckUserConflicts(payload) {
-    try {
-      payload = payload || {};
-      var conflicts = UserDirectory.checkConflicts(payload.email || payload.Email, payload.userName || payload.UserName, payload.excludeId || payload.excludeUserId || payload.userId || payload.ID);
-      return { success: true, hasConflicts: conflicts.hasConflicts, conflicts: conflicts };
-    } catch (err) {
-      logError('clientCheckUserConflicts', err);
-      return { success: false, error: err.message, conflicts: { emailConflict: null, userNameConflict: null } };
-    }
-  }
+    const sh = _getSheet_(G.USERS_SHEET);
+    let { headers, values, idx } = _scanSheet_(sh);
+    _ensureUserHeaders_(idx);
+    const ensured = ensureOptionalUserColumns_(sh, headers, idx);
+    headers = ensured.headers; idx = ensured.idx;
 
-  function clientGetAvailablePages() {
-    return UserDirectory.getAvailablePages();
-  }
+    const users = _readUsersAsObjects_();
+    const uniq = _buildUniqIndexes_(users);
 
-  function clientGetUserPages(userId) {
-    try {
-      return UserDirectory.getUserPages(userId);
-    } catch (err) {
-      logError('clientGetUserPages', err);
-      return [];
-    }
-  }
+    const emailKey = _normEmail_(data.email);
+    const existing = emailKey ? uniq.byEmail.get(emailKey) : null;
 
-  function clientAssignPagesToUser(userId, pageKeys) {
-    try {
-      var user = UserDirectory.assignPages(userId, pageKeys);
-      return { success: true, user: user };
-    } catch (err) {
-      logError('clientAssignPagesToUser', err);
-      return { success: false, error: err.message };
-    }
-  }
+    if (existing) {
+      if (data.mergeIfExists === true || String(data.mergeIfExists).toLowerCase() === 'true') {
+        const rowIndex = _findRowIndexById_(values, idx, existing.ID);
+        if (rowIndex === -1) return { success: false, error: 'Existing user not found in sheet for merge' };
 
-  function clientGetUserPermissions(userId, campaignId) {
-    try {
-      return UserDirectory.getCampaignUserPermissions(campaignId, userId);
-    } catch (err) {
-      logError('clientGetUserPermissions', err);
-      return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
-    }
-  }
-
-  function clientSetUserPermissions(userId, campaignId, permissionLevel, canManageUsers, canManagePages) {
-    try {
-      return UserDirectory.setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages);
-    } catch (err) {
-      logError('clientSetUserPermissions', err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  function clientGetAvailableUsersForManager(managerUserId) {
-    try {
-      return UserDirectory.getAvailableUsersForManager(managerUserId);
-    } catch (err) {
-      logError('clientGetAvailableUsersForManager', err);
-      return { success: false, error: err.message, users: [] };
-    }
-  }
-
-  function clientGetManagedUsers(managerUserId) {
-    try {
-      return UserDirectory.getManagedUsers(managerUserId);
-    } catch (err) {
-      logError('clientGetManagedUsers', err);
-      return { success: false, error: err.message, users: [] };
-    }
-  }
-
-  function clientAssignUsersToManager(managerUserId, userIds) {
-    try {
-      return UserDirectory.assignUsersToManager(managerUserId, userIds);
-    } catch (err) {
-      logError('clientAssignUsersToManager', err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  function clientAdminResetPassword(userId, requestingUserId) {
-    return UserDirectory.adminResetPassword(userId, requestingUserId);
-  }
-
-  function clientAdminResetPasswordById(userId, requestingUserId) {
-    return clientAdminResetPassword(userId, requestingUserId);
-  }
-
-  function clientResendFirstLoginEmail(userId, requestingUserId) {
-    return UserDirectory.resendFirstLoginEmail(userId, requestingUserId);
-  }
-
-  function clientRunEnhancedDiscovery() {
-    return UserDirectory.runEnhancedDiscovery();
-  }
-
-  function clientGetValidEmploymentStatuses() {
-    return { success: true, statuses: EMPLOYMENT_STATUS.slice() };
-  }
-
-  function clientGetEmploymentStatusReport(campaignId) {
-    try {
-      var users = UserDirectory.list({ includeDeleted: false, campaignId: campaignId });
-      var counts = {};
-      EMPLOYMENT_STATUS.forEach(function (status) { counts[status] = 0; });
-      counts.Unspecified = 0;
-      users.forEach(function (user) {
-        var status = normalizeString(user.employmentStatus);
-        if (!status) {
-          counts.Unspecified++;
-        } else if (counts.hasOwnProperty(status)) {
-          counts[status]++;
-        } else {
-          counts.Unspecified++;
+        if (data.userName && _normUser_(data.userName) !== _normUser_(_getUserName_(existing))) {
+          const taken = uniq.byUser.has(_normUser_(data.userName));
+          if (taken) return { success: false, error: 'Username already exists' };
         }
-      });
-      return { success: true, campaignId: campaignId || '', totalUsers: users.length, statusCounts: counts };
-    } catch (err) {
-      logError('clientGetEmploymentStatusReport', err);
-      return { success: false, error: err.message };
+
+        // recompute benefits if needed
+        const hire = data.hireDate || existing.HireDate || '';
+        const probMonths = (data.probationMonths != null) ? data.probationMonths : (existing.ProbationMonths || '');
+        const probEnd = data.probationEndDate || calcProbationEndDate_(hire, probMonths);
+        const insQual = data.insuranceQualifiedDate || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+        const insEligible = isInsuranceEligibleNow_(insQual, data.terminationDate || existing.TerminationDate);
+
+        const merged = {
+          ID: existing.ID,
+          UserName: data.userName || _getUserName_(existing),
+          FullName: data.fullName || existing.FullName,
+          Email: existing.Email,
+          CampaignID: data.campaignId || existing.CampaignID,
+          PasswordHash: values[rowIndex][idx['PasswordHash']],
+          ResetRequired: values[rowIndex][idx['ResetRequired']],
+          EmailConfirmation: values[rowIndex][idx['EmailConfirmation']],
+          EmailConfirmed: 'TRUE',
+          PhoneNumber: data.phoneNumber || existing.PhoneNumber,
+          EmploymentStatus: data.employmentStatus || normalizeEmploymentStatus(existing.EmploymentStatus) || existing.EmploymentStatus,
+          HireDate: hire || '',
+          Country: data.country || existing.Country,
+          LockoutEnd: values[rowIndex][idx['LockoutEnd']],
+          TwoFactorEnabled: values[rowIndex][idx['TwoFactorEnabled']],
+          CanLogin: _boolToStr_((data.canLogin != null) ? data.canLogin : _strToBool_(existing.CanLogin)),
+          Roles: _csvUnion_(_splitCsv_(existing.Roles), data.roles).join(','),
+          Pages: _csvUnion_(_splitCsv_(existing.Pages), data.pages).join(','),
+          CreatedAt: values[rowIndex][idx['CreatedAt']],
+          UpdatedAt: _now_(),
+          IsAdmin: _boolToStr_((data.isAdmin != null) ? data.isAdmin : _strToBool_(existing.IsAdmin)),
+          // Benefits
+          TerminationDate: _toIsoDateOnly_(data.terminationDate || existing.TerminationDate || ''),
+          ProbationMonths: (probMonths === '' ? '' : Number(probMonths)),
+          ProbationEndDate: _toIsoDateOnly_(probEnd),
+          InsuranceQualifiedDate: _toIsoDateOnly_(insQual),
+          InsuranceEligible: _boolToStr_(insEligible),
+          InsuranceSignedUp: _boolToStr_(data.insuranceSignedUp != null ? data.insuranceSignedUp : existing.InsuranceSignedUp),
+          InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || existing.InsuranceCardReceivedDate || '')
+        };
+
+        const row = [];
+        Object.keys(idx).forEach(header => {
+          row[idx[header]] = (typeof merged[header] !== 'undefined') ? merged[header] : values[rowIndex][idx[header]];
+        });
+        sh.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
+
+        try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
+        return { success: true, alreadyExisted: true, merged: true, userId: existing.ID, message: 'Existing user merged safely (roles/pages/fields updated).' };
+      } else {
+        return {
+          success: false,
+          alreadyExisted: true,
+          userId: existing.ID,
+          error: 'A user with this email already exists.',
+          conflict: {
+            email: existing.Email || '',
+            userId: existing.ID,
+            userName: _getUserName_(existing) || '',
+            campaignId: existing.CampaignID || ''
+          }
+        };
+      }
     }
+
+    const userKey = _normUser_(data.userName);
+    if (userKey && uniq.byUser.has(userKey)) return { success: false, error: 'Username already exists' };
+
+    const id = Utilities.getUuid();
+    const createdAt = _now_();
+    const setupToken = Utilities.getUuid();
+
+    // Benefits compute
+    const probEnd = calcProbationEndDate_(data.hireDate || '', data.probationMonths || '');
+    const insQual = calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+    const insEligible = isInsuranceEligibleNow_(insQual, data.terminationDate);
+
+    const newUser = {
+      ID: id,
+      UserName: data.userName,
+      FullName: data.fullName || '',
+      Email: data.email,
+      CampaignID: data.campaignId || '',
+      PasswordHash: '',
+      ResetRequired: _boolToStr_(data.canLogin),
+      EmailConfirmation: setupToken,
+      EmailConfirmed: 'TRUE',
+      PhoneNumber: data.phoneNumber || '',
+      EmploymentStatus: data.employmentStatus || '',
+      HireDate: data.hireDate || '',
+      Country: data.country || '',
+      LockoutEnd: '',
+      TwoFactorEnabled: 'FALSE',
+      CanLogin: _boolToStr_(data.canLogin),
+      Roles: (data.roles || []).join(','),
+      Pages: (data.pages || []).join(','),
+      CreatedAt: createdAt,
+      UpdatedAt: createdAt,
+      IsAdmin: _boolToStr_(data.isAdmin),
+      // Benefits fields
+      TerminationDate: _toIsoDateOnly_(data.terminationDate || ''),
+      ProbationMonths: (data.probationMonths === '' || data.probationMonths == null) ? '' : Number(data.probationMonths),
+      ProbationEndDate: _toIsoDateOnly_(data.probationEndDate || probEnd),
+      InsuranceQualifiedDate: _toIsoDateOnly_(data.insuranceQualifiedDate || insQual),
+      InsuranceEligible: _boolToStr_(data.insuranceEligible != null ? data.insuranceEligible : insEligible),
+      InsuranceSignedUp: _boolToStr_(data.insuranceSignedUp),
+      InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || '')
+    };
+
+    const row = [];
+    Object.keys(idx).forEach(header => { row[idx[header]] = (typeof newUser[header] !== 'undefined') ? newUser[header] : ''; });
+    sh.appendRow(row);
+
+    try {
+      if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
+        setCampaignUserPermissions(data.campaignId, id, String(data.permissionLevel).toUpperCase(),
+          _strToBool_(data.canManageUsers), _strToBool_(data.canManagePages));
+      }
+      if (Array.isArray(data.roles) && typeof addUserRole === 'function') {
+        data.roles.forEach(rid => addUserRole(id, rid));
+      }
+    } catch (pe) { writeError && writeError('clientRegisterUser:perms/roles', pe); }
+
+    try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
+
+    if (data.canLogin && typeof sendPasswordSetupEmail === 'function') {
+      try {
+        sendPasswordSetupEmail(data.email, {
+          userName: data.userName,
+          fullName: data.fullName || data.userName,
+          passwordSetupToken: setupToken
+        });
+      } catch (mailErr) { writeError && writeError('clientRegisterUser:sendPasswordSetupEmail', mailErr); }
+    }
+
+    try {
+      notifyOnUserRegistered_ && notifyOnUserRegistered_({
+        id, userName: data.userName, fullName: data.fullName || '', email: data.email,
+        phoneNumber: data.phoneNumber || '', campaignId: data.campaignId || '',
+        employmentStatus: data.employmentStatus || '', hireDate: data.hireDate || '',
+        country: data.country || '', pages: data.pages || [], roles: data.roles || [],
+        isAdmin: !!data.isAdmin, canLogin: !!data.canLogin, createdAt: createdAt
+      });
+    } catch (nerr) { writeError && writeError('clientRegisterUser:notify', nerr); }
+
+    return {
+      success: true,
+      userId: id,
+      message: (data.canLogin
+        ? `User created. ${(data.pages || []).length} page(s) assigned. Password setup email sent.`
+        : `User created. ${(data.pages || []).length} page(s) assigned. Login disabled.`)
+    };
+
+  } catch (e) {
+    writeError && writeError('clientRegisterUser', e);
+    return { success: false, error: e.message || String(e) };
+  } finally {
+    try { lock.releaseLock(); } catch (_) { }
+  }
+}
+
+function clientUpdateUser(userId, userData) {
+  console.log('Updating user', userId, 'with data:', userData); // Debug log
+  
+  if (!userId) return { success: false, error: 'User ID is required' };
+  
+  const lock = LockService.getScriptLock();
+  try { 
+    lock.waitLock(20000); 
+  } catch (e) { 
+    return { success: false, error: 'System is busy. Please try again.' }; 
   }
 
-  // Re-export key helpers
-  global.createSafeUserObject = createSafeUserObject;
-  global.clientGetAllUsers = clientGetAllUsers;
-  global.clientRegisterUser = clientRegisterUser;
-  global.clientUpdateUser = clientUpdateUser;
-  global.clientDeleteUser = clientDeleteUser;
-  global.clientCheckUserConflicts = clientCheckUserConflicts;
-  global.clientGetAvailablePages = clientGetAvailablePages;
-  global.clientGetUserPages = clientGetUserPages;
-  global.clientAssignPagesToUser = clientAssignPagesToUser;
-  global.clientGetUserPermissions = clientGetUserPermissions;
-  global.clientSetUserPermissions = clientSetUserPermissions;
-  global.clientGetAvailableUsersForManager = clientGetAvailableUsersForManager;
-  global.clientGetManagedUsers = clientGetManagedUsers;
-  global.clientAssignUsersToManager = clientAssignUsersToManager;
-  global.clientAdminResetPassword = clientAdminResetPassword;
-  global.clientAdminResetPasswordById = clientAdminResetPasswordById;
-  global.clientResendFirstLoginEmail = clientResendFirstLoginEmail;
-  global.clientRunEnhancedDiscovery = clientRunEnhancedDiscovery;
-  global.clientGetValidEmploymentStatuses = clientGetValidEmploymentStatuses;
-  global.clientGetEmploymentStatusReport = clientGetEmploymentStatusReport;
+  try {
+    // Fix: Ensure userName is properly mapped from all possible field names
+    if (!userData.userName && userData.UserName) {
+      userData.userName = userData.UserName;
+    }
+    if (!userData.userName && userData.username) {
+      userData.userName = userData.username;
+    }
+    
+    console.log('userName after mapping:', userData.userName); // Debug log
+    
+    const v = _validateUserInput_(userData);
+    if (!v.ok) {
+      console.error('Update validation failed:', v.errors);
+      return { success: false, error: v.errors.join('; ') };
+    }
+    
+    const data = _normalizeIncoming_(userData);
+    
+    // Additional check for userName after normalization
+    if (!data.userName) {
+      return { success: false, error: 'Username is required for update' };
+    }
 
-})(this);
+    const sh = _getSheet_(G.USERS_SHEET);
+    let { headers, values, idx } = _scanSheet_(sh);
+    _ensureUserHeaders_(idx);
+    const ensured = ensureOptionalUserColumns_(sh, headers, idx);
+    headers = ensured.headers; 
+    idx = ensured.idx;
 
+    const users = _readUsersAsObjects_();
+    const uniq = _buildUniqIndexes_(users);
+
+    const rowIndex = _findRowIndexById_(values, idx, userId);
+    if (rowIndex === -1) {
+      return { success: false, error: 'User not found in sheet' };
+    }
+
+    const current = {}; 
+    headers.forEach((h, i) => current[h] = values[rowIndex][i]);
+    
+    console.log('Current user data:', current); // Debug log
+
+    const desiredEmailKey = _normEmail_(data.email);
+    const desiredUserKey = _normUser_(data.userName);
+
+    // Check for email conflicts
+    if (desiredEmailKey) {
+      const hit = uniq.byEmail.get(desiredEmailKey);
+      if (hit && String(hit.ID) !== String(userId)) {
+        return { success: false, error: 'Email already exists for another user' };
+      }
+    }
+    
+    // Check for username conflicts
+    if (desiredUserKey) {
+      const hitU = uniq.byUser.get(desiredUserKey);
+      if (hitU && String(hitU.ID) !== String(userId)) {
+        return { success: false, error: 'Username already exists for another user' };
+      }
+    }
+
+    // Benefits recomputation
+    const hire = data.hireDate || current['HireDate'] || '';
+    const probMonths = (data.probationMonths != null) ? data.probationMonths : (current['ProbationMonths'] || '');
+    const probEnd = data.probationEndDate || calcProbationEndDate_(hire, probMonths);
+    const term = data.terminationDate || current['TerminationDate'] || '';
+    const insQual = data.insuranceQualifiedDate || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+    const insEligible = (data.insuranceEligible != null) ? data.insuranceEligible : isInsuranceEligibleNow_(insQual, term);
+
+    const updated = {
+      ID: userId,
+      UserName: data.userName, // This should now be properly set
+      FullName: data.fullName || '',
+      Email: String(data.email).trim(),
+      CampaignID: data.campaignId || '',
+      PasswordHash: current['PasswordHash'],
+      ResetRequired: current['ResetRequired'],
+      EmailConfirmation: current['EmailConfirmation'],
+      EmailConfirmed: 'TRUE',
+      PhoneNumber: data.phoneNumber || '',
+      EmploymentStatus: data.employmentStatus || '',
+      HireDate: hire || '',
+      Country: data.country || '',
+      LockoutEnd: current['LockoutEnd'],
+      TwoFactorEnabled: current['TwoFactorEnabled'],
+      CanLogin: _boolToStr_(data.canLogin),
+      Roles: (data.roles || []).join(','),
+      Pages: (data.pages || []).join(','),
+      CreatedAt: current['CreatedAt'],
+      UpdatedAt: _now_(),
+      IsAdmin: _boolToStr_(data.isAdmin),
+      // Benefits
+      TerminationDate: _toIsoDateOnly_(term),
+      ProbationMonths: (probMonths === '' ? '' : Number(probMonths)),
+      ProbationEndDate: _toIsoDateOnly_(probEnd),
+      InsuranceQualifiedDate: _toIsoDateOnly_(insQual),
+      InsuranceEligible: _boolToStr_(insEligible),
+      InsuranceSignedUp: _boolToStr_(data.insuranceSignedUp != null ? data.insuranceSignedUp : current['InsuranceSignedUp']),
+      InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || current['InsuranceCardReceivedDate'] || '')
+    };
+
+    console.log('Updated user object:', updated); // Debug log
+
+    const row = [];
+    Object.keys(idx).forEach(header => {
+      row[idx[header]] = (typeof updated[header] !== 'undefined') ? updated[header] : current[header];
+    });
+    
+    sh.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
+
+    console.log('User updated successfully with userName:', data.userName);
+
+    try {
+      if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
+        setCampaignUserPermissions(data.campaignId, userId, String(data.permissionLevel).toUpperCase(),
+          _strToBool_(data.canManageUsers), _strToBool_(data.canManagePages));
+      }
+    } catch (pe) { 
+      writeError && writeError('clientUpdateUser:perms', pe); 
+    }
+
+    try {
+      invalidateCache && invalidateCache(G.USERS_SHEET);
+      invalidateCache && invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+    } catch (_) { }
+
+    return { 
+      success: true, 
+      message: `User updated successfully with username "${data.userName}". ${(data.pages || []).length} page(s) assigned.` 
+    };
+
+  } catch (e) {
+    console.error('clientUpdateUser error:', e);
+    writeError && writeError('clientUpdateUser', e);
+    return { success: false, error: e.message || String(e) };
+  } finally {
+    try { 
+      lock.releaseLock(); 
+    } catch (_) { }
+  }
+}
+
+function debugUsernameIssues(userId = null) {
+  try {
+    const results = {
+      sheetStatus: null,
+      userSample: null,
+      specificUser: null,
+      headerMapping: null,
+      recommendations: []
+    };
+
+    // Check sheet structure
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(G.USERS_SHEET);
+    
+    if (!sheet) {
+      results.sheetStatus = { error: 'Users sheet not found' };
+      results.recommendations.push('Create Users sheet with proper headers');
+      return results;
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    
+    if (lastRow < 2) {
+      results.sheetStatus = { error: 'No user data found', dimensions: { rows: lastRow, cols: lastCol } };
+      results.recommendations.push('Add at least one user to the sheet');
+      return results;
+    }
+
+    // Get headers and check UserName column
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const userNameIndex = headers.indexOf('UserName');
+    
+    results.headerMapping = {
+      allHeaders: headers,
+      userNameIndex: userNameIndex,
+      userNameExists: userNameIndex !== -1
+    };
+
+    if (userNameIndex === -1) {
+      results.recommendations.push('Add UserName column to Users sheet headers');
+      return results;
+    }
+
+    // Get sample data
+    const sampleRows = Math.min(5, lastRow - 1);
+    const sampleData = sheet.getRange(2, 1, sampleRows, lastCol).getValues();
+    
+    results.userSample = {
+      count: sampleRows,
+      data: sampleData.map((row, index) => ({
+        rowNumber: index + 2,
+        ID: row[0],
+        UserName: row[userNameIndex],
+        FullName: row[headers.indexOf('FullName')],
+        Email: row[headers.indexOf('Email')]
+      }))
+    };
+
+    // Check for empty usernames in sample
+    const emptyUsernames = results.userSample.data.filter(user => !user.UserName || user.UserName === '');
+    if (emptyUsernames.length > 0) {
+      results.recommendations.push(`Found ${emptyUsernames.length} users with empty usernames in sample`);
+    }
+
+    // Check specific user if provided
+    if (userId) {
+      const userData = sheet.getDataRange().getValues();
+      const userRow = userData.find((row, index) => index > 0 && String(row[0]) === String(userId));
+      
+      if (userRow) {
+        results.specificUser = {
+          found: true,
+          ID: userRow[0],
+          UserName: userRow[userNameIndex],
+          FullName: userRow[headers.indexOf('FullName')],
+          Email: userRow[headers.indexOf('Email')],
+          rawRow: userRow
+        };
+        
+        if (!results.specificUser.UserName || results.specificUser.UserName === '') {
+          results.recommendations.push(`Specific user ${userId} has empty UserName field`);
+        }
+      } else {
+        results.specificUser = { found: false, searchedId: userId };
+        results.recommendations.push(`User with ID ${userId} not found in sheet`);
+      }
+    }
+
+    // Test createSafeUserObject function
+    if (results.userSample.data.length > 0) {
+      try {
+        const firstUser = results.userSample.data[0];
+        const rawUserData = {};
+        headers.forEach((header, index) => {
+          rawUserData[header] = sampleData[0][index];
+        });
+        
+        const safeUser = createSafeUserObject(rawUserData);
+        results.createSafeUserTest = {
+          success: true,
+          input: rawUserData,
+          output: safeUser,
+          userNameMapped: !!safeUser.UserName
+        };
+        
+        if (!safeUser.UserName) {
+          results.recommendations.push('createSafeUserObject is not properly mapping UserName field');
+        }
+      } catch (error) {
+        results.createSafeUserTest = {
+          success: false,
+          error: error.message
+        };
+        results.recommendations.push('createSafeUserObject function has errors');
+      }
+    }
+
+    results.sheetStatus = { 
+      success: true, 
+      dimensions: { rows: lastRow, cols: lastCol },
+      userNameColumn: userNameIndex + 1 // 1-based for sheet reference
+    };
+
+    if (results.recommendations.length === 0) {
+      results.recommendations.push('No issues detected in username handling');
+    }
+
+    return results;
+
+  } catch (error) {
+    return {
+      error: error.message,
+      stack: error.stack,
+      recommendations: ['Contact system administrator - unexpected error occurred']
+    };
+  }
+}
+
+function repairUsernamesInSheet() {
+  try {
+    const results = {
+      processed: 0,
+      repaired: 0,
+      errors: [],
+      details: []
+    };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(G.USERS_SHEET);
+    
+    if (!sheet) {
+      return { success: false, error: 'Users sheet not found' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) {
+      return { success: false, error: 'No user data to process' };
+    }
+
+    const headers = data[0];
+    const userNameIndex = headers.indexOf('UserName');
+    const fullNameIndex = headers.indexOf('FullName');
+    const emailIndex = headers.indexOf('Email');
+    const updatedAtIndex = headers.indexOf('UpdatedAt');
+
+    if (userNameIndex === -1) {
+      return { success: false, error: 'UserName column not found' };
+    }
+
+    // Process each user row
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowNumber = i + 1;
+      
+      results.processed++;
+      
+      try {
+        let userName = row[userNameIndex];
+        let needsRepair = false;
+        
+        // Check if username is empty or invalid
+        if (!userName || userName === '' || typeof userName !== 'string') {
+          needsRepair = true;
+          
+          // Try to generate username from email or fullname
+          const email = row[emailIndex];
+          const fullName = row[fullNameIndex];
+          
+          if (email && typeof email === 'string') {
+            userName = email.split('@')[0]; // Use part before @ as username
+          } else if (fullName && typeof fullName === 'string') {
+            userName = fullName.toLowerCase().replace(/\s+/g, ''); // Remove spaces from full name
+          } else {
+            userName = `user${Date.now()}_${Math.floor(Math.random() * 1000)}`; // Generate random username
+          }
+          
+          // Ensure username is valid
+          userName = userName.substring(0, 50); // Limit length
+          
+          results.details.push({
+            rowNumber: rowNumber,
+            oldUserName: row[userNameIndex],
+            newUserName: userName,
+            method: email ? 'email' : (fullName ? 'fullname' : 'generated')
+          });
+        }
+        
+        if (needsRepair) {
+          // Update the username in the sheet
+          sheet.getRange(rowNumber, userNameIndex + 1).setValue(userName);
+          
+          // Update the UpdatedAt timestamp if column exists
+          if (updatedAtIndex !== -1) {
+            sheet.getRange(rowNumber, updatedAtIndex + 1).setValue(new Date());
+          }
+          
+          results.repaired++;
+        }
+        
+      } catch (error) {
+        results.errors.push({
+          rowNumber: rowNumber,
+          error: error.message
+        });
+      }
+    }
+
+    // Clear cache after repairs
+    try {
+      invalidateCache && invalidateCache(G.USERS_SHEET);
+    } catch (_) {}
+
+    return {
+      success: true,
+      ...results,
+      message: `Processed ${results.processed} users, repaired ${results.repaired} usernames`
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+function clientDebugUsernameIssues(userId = null) {
+  try {
+    return debugUsernameIssues(userId);
+  } catch (error) {
+    writeError && writeError('clientDebugUsernameIssues', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function clientRepairUsernames() {
+  try {
+    return repairUsernamesInSheet();
+  } catch (error) {
+    writeError && writeError('clientRepairUsernames', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Password / email utilities (admin paths)
+// ───────────────────────────────────────────────────────────────────────────────
+function clientAdminResetPassword(userId, requestingUserId) {
+  try {
+    if (!userId) return { success: false, error: 'User ID is required' };
+    if (requestingUserId) {
+      const allUsers = readSheet(G.USERS_SHEET) || [];
+      const requester = allUsers.find(u => String(u.ID) === String(requestingUserId));
+      if (!requester || !_strToBool_(requester.IsAdmin)) return { success: false, error: 'Only administrators can perform this action' };
+    }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(G.USERS_SHEET);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0]; const idx = {}; headers.forEach((h, i) => idx[String(h)] = i);
+
+    let rowIndex = -1, row;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(userId)) { rowIndex = i; row = data[i]; break; }
+    }
+    if (rowIndex === -1) return { success: false, error: 'User not found' };
+
+    const email = row[idx['Email']] || '';
+    if (!email) return { success: false, error: 'User has no email on file' };
+
+    const canLogin = _strToBool_(row[idx['CanLogin']]);
+    if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
+
+    const token = Utilities.getUuid();
+    if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
+    if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
+    if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
+
+    invalidateCache && invalidateCache(G.USERS_SHEET);
+
+    try {
+      if (typeof sendAdminPasswordResetEmail === 'function') {
+        sendAdminPasswordResetEmail(email, { resetToken: token });
+      } else if (typeof sendPasswordResetEmail === 'function') {
+        sendPasswordResetEmail(email, token);
+      } else {
+        throw new Error('No email template available (sendAdminPasswordResetEmail/sendPasswordResetEmail)');
+      }
+    } catch (mailErr) {
+      writeError && writeError('clientAdminResetPassword:send', mailErr);
+      return { success: false, error: 'Token saved, but failed to send email: ' + mailErr };
+    }
+    return { success: true, message: 'Password reset email sent' };
+  } catch (e) { writeError && writeError('clientAdminResetPassword', e); return { success: false, error: e.message }; }
+}
+function clientAdminResetPasswordById(userId, requestingUserId) { return clientAdminResetPassword(userId, requestingUserId); }
+
+function clientResendFirstLoginEmail(userId, requestingUserId) {
+  try {
+    if (!userId) return { success: false, error: 'User ID is required' };
+    if (requestingUserId) {
+      const allUsers = readSheet(G.USERS_SHEET) || [];
+      const requester = allUsers.find(u => String(u.ID) === String(requestingUserId));
+      if (!requester || !_strToBool_(requester.IsAdmin)) return { success: false, error: 'Only administrators can perform this action' };
+    }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(G.USERS_SHEET);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0]; const idx = {}; headers.forEach((h, i) => idx[String(h)] = i);
+
+    let rowIndex = -1, row;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(userId)) { rowIndex = i; row = data[i]; break; }
+    }
+    if (rowIndex === -1) return { success: false, error: 'User not found' };
+
+    const email = row[idx['Email']] || '';
+    const userName = row[idx['UserName']] || '';
+    const fullName = row[idx['FullName']] || '';
+    if (!email) return { success: false, error: 'User has no email on file' };
+
+    const canLogin = _strToBool_(row[idx['CanLogin']]);
+    if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
+
+    const token = Utilities.getUuid();
+    if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
+    if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
+    if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
+
+    invalidateCache && invalidateCache(G.USERS_SHEET);
+
+    try {
+      if (typeof sendFirstLoginResendEmail === 'function') {
+        sendFirstLoginResendEmail(email, { userName, fullName, passwordSetupToken: token });
+      } else if (typeof sendPasswordSetupEmail === 'function') {
+        sendPasswordSetupEmail(email, { userName, fullName, passwordSetupToken: token });
+      } else {
+        throw new Error('No email template available (sendFirstLoginResendEmail/sendPasswordSetupEmail)');
+      }
+    } catch (mailErr) {
+      writeError && writeError('clientResendFirstLoginEmail:send', mailErr);
+      return { success: false, error: 'Token saved, but failed to send email: ' + mailErr };
+    }
+    return { success: true, message: 'First-login/setup email resent' };
+  } catch (e) { writeError && writeError('clientResendFirstLoginEmail', e); return { success: false, error: e.message }; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Delete user (also clears campaign perms, roles, manager links)
+// ───────────────────────────────────────────────────────────────────────────────
+function clientDeleteUser(userId) {
+  try {
+    if (!userId) return { success: false, error: 'User ID is required' };
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(G.USERS_SHEET);
+    if (!sheet) return { success: false, error: 'Users sheet not found' };
+
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1; let userName = '';
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(userId)) { rowIndex = i; userName = data[i][1] || data[i][2] || 'Unknown User'; break; }
+    }
+    if (rowIndex === -1) return { success: false, error: 'User not found in database' };
+
+    const permissionsSheet = ss.getSheetByName(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+    if (permissionsSheet) {
+      const permissionsData = permissionsSheet.getDataRange().getValues();
+      for (let i = permissionsData.length - 1; i >= 1; i--) {
+        if (String(permissionsData[i][2]) === String(userId)) permissionsSheet.deleteRow(i + 1);
+      }
+    }
+
+    deleteUserRoles(userId);
+
+    try {
+      const muSheet = getOrCreateManagerUsersSheet_();
+      const muData = muSheet.getDataRange().getValues();
+      const headers = muData[0] || [];
+      const midx = { ManagerUserID: headers.indexOf('ManagerUserID'), UserID: headers.indexOf('UserID') };
+      for (let i = muData.length - 1; i >= 1; i--) {
+        if (String(muData[i][midx.ManagerUserID]) === String(userId) || String(muData[i][midx.UserID]) === String(userId)) {
+          muSheet.deleteRow(i + 1);
+        }
+      }
+      invalidateCache && invalidateCache(getManagerUsersSheetName_());
+    } catch (e) { }
+
+    sheet.deleteRow(rowIndex + 1);
+
+    try {
+      invalidateCache && invalidateCache(G.USERS_SHEET);
+      invalidateCache && invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+      invalidateCache && invalidateCache(G.USER_ROLES_SHEET);
+    } catch (_) { }
+
+    return { success: true, message: `User "${userName}" has been deleted successfully`, deletedUserId: userId };
+  } catch (e) {
+    writeError && writeError('clientDeleteUser', e);
+    return { success: false, error: 'Failed to delete user: ' + e.message };
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Available pages / discovery / assign pages
+// ───────────────────────────────────────────────────────────────────────────────
+function clientGetAvailablePages() {
+  try {
+    if (typeof enhancedAutoDiscoverAndSavePages === 'function') enhancedAutoDiscoverAndSavePages({ minIntervalSec: 300 });
+    const pages = readSheet(G.PAGES_SHEET) || [];
+    return pages.map(p => ({
+      key: p.PageKey,
+      title: p.PageTitle || p.Name,
+      icon: p.PageIcon || p.Icon,
+      description: p.Description,
+      isSystem: (p.IsSystemPage === true || String(p.IsSystemPage).toUpperCase() === 'TRUE'),
+      requiresAdmin: (p.RequiresAdmin === true || String(p.RequiresAdmin).toUpperCase() === 'TRUE')
+    })).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  } catch (e) { writeError && writeError('clientGetAvailablePages', e); return []; }
+}
+function clientRunEnhancedDiscovery() {
+  try {
+    let res = {};
+    if (typeof enhancedAutoDiscoverAndSavePages === 'function') {
+      res = enhancedAutoDiscoverAndSavePages({ force: true }) || {};
+    }
+    const pages = readSheet(G.PAGES_SHEET) || [];
+    const out = { success: true, total: pages.length };
+    if (res && typeof res === 'object') {
+      out.added = res.added || 0; out.updated = res.updated || 0;
+      out.newPages = res.newPages || []; out.categories = res.categories || {};
+      out.message = res.message || 'Discovery completed.';
+    } else {
+      out.added = 0; out.updated = 0; out.newPages = []; out.categories = {}; out.message = 'Discovery completed.';
+    }
+    return out;
+  } catch (e) { writeError && writeError('clientRunEnhancedDiscovery', e); return { success: false, error: e.message }; }
+}
+function clientGetUserPages(userId) {
+  try {
+    if (!userId) return [];
+    const users = readSheet(G.USERS_SHEET) || [];
+    const user = users.find(u => u.ID === userId);
+    if (!user || !user.Pages) return [];
+    return String(user.Pages).split(',').map(p => p.trim()).filter(Boolean);
+  } catch (e) { writeError && writeError('clientGetUserPages', e); return []; }
+}
+function clientAssignPagesToUser(userId, pageKeys) {
+  try {
+    if (!userId || !Array.isArray(pageKeys)) return { success: false, error: 'Invalid parameters' };
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(G.USERS_SHEET);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const pagesIndex = headers.indexOf('Pages');
+    const updatedAtIndex = headers.indexOf('UpdatedAt');
+    if (pagesIndex === -1) return { success: false, error: 'Pages column not found' };
+
+    let userRowIndex = -1;
+    for (let i = 1; i < data.length; i++) if (String(data[i][0]) === String(userId)) { userRowIndex = i; break; }
+    if (userRowIndex === -1) return { success: false, error: 'User not found' };
+
+    const pagesString = pageKeys.join(',');
+    sheet.getRange(userRowIndex + 1, pagesIndex + 1).setValue(pagesString);
+    if (updatedAtIndex !== -1) sheet.getRange(userRowIndex + 1, updatedAtIndex + 1).setValue(new Date());
+    try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
+    return { success: true, message: `Assigned ${pageKeys.length} pages to user` };
+  } catch (e) { writeError && writeError('clientAssignPagesToUser', e); return { success: false, error: 'Failed to assign pages: ' + e.message }; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Manager assignments
+// ───────────────────────────────────────────────────────────────────────────────
+function clientGetUserPermissions(userId, campaignId) { return getCampaignUserPermissions(campaignId, userId); }
+function clientSetUserPermissions(userId, campaignId, permissionLevel, canManageUsers, canManagePages) {
+  return setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages);
+}
+function canUserManageOthers(userId) {
+  try {
+    const users = readSheet(G.USERS_SHEET) || [];
+    const u = users.find(x => x.ID === userId);
+    if (u && _strToBool_(u.IsAdmin)) return true;
+    const perms = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
+    const userPerms = perms.filter(p => String(p.UserID) === String(userId));
+    const toBool = v => v === true || String(v).toUpperCase() === 'TRUE';
+    return userPerms.some(p =>
+      ['MANAGER', 'ADMIN'].includes(String(p.PermissionLevel).toUpperCase()) || toBool(p.CanManageUsers)
+    );
+  } catch (e) { writeError && writeError('canUserManageOthers', e); return false; }
+}
+function clientGetAvailableUsersForManager(managerUserId) {
+  try {
+    if (!managerUserId) return { success: false, error: 'Manager ID is required' };
+    const users = readSheet(G.USERS_SHEET) || [];
+    const manager = users.find(u => String(u.ID) === String(managerUserId));
+    if (!manager) return { success: false, error: 'Manager not found' };
+
+    const admin = _strToBool_(manager.IsAdmin);
+    let allowedCampaignIds = [];
+    if (admin) {
+      allowedCampaignIds = (readSheet(G.CAMPAIGNS_SHEET) || []).map(c => c.ID);
+    } else {
+      allowedCampaignIds = getManagedCampaignIdsForUser_(managerUserId);
+    }
+    const list = users
+      .filter(u => String(u.ID) !== String(managerUserId))
+      .filter(u => {
+        const allowed = new Set((allowedCampaignIds || []).map(String));
+        if (!allowed.size) return true;
+        const uCamps = (typeof getUserCampaignsSafe === 'function')
+          ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
+          : (u.CampaignID ? [String(u.CampaignID)] : []);
+        return uCamps.some(cid => allowed.has(cid));
+      })
+      .map(u => ({
+        ID: u.ID,
+        UserName: _getUserName_(u),
+        FullName: u.FullName || _getUserName_(u),
+        Email: u.Email,
+        CampaignID: u.CampaignID,
+        campaignName: getCampaignNameSafe(u.CampaignID),
+        roleNames: getUserRolesSafe(u.ID).map(r => r.name)
+      }));
+
+    return { success: true, users: list };
+  } catch (e) { writeError && writeError('clientGetAvailableUsersForManager', e); return { success: false, error: e.message }; }
+}
+function clientGetManagedUsers(managerUserId) {
+  try {
+    if (!managerUserId) return { success: false, error: 'Manager ID is required' };
+    const sh = getOrCreateManagerUsersSheet_();
+    const data = sh.getDataRange().getValues();
+    const headers = data[0] || [];
+    const midx = { ManagerUserID: headers.indexOf('ManagerUserID'), UserID: headers.indexOf('UserID') };
+    if (midx.ManagerUserID < 0 || midx.UserID < 0) {
+      return { success: true, users: [] };
+    }
+
+    const managedIds = [];
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][midx.ManagerUserID]) === String(managerUserId)) {
+        managedIds.push(String(data[i][midx.UserID]));
+      }
+    }
+    if (!managedIds.length) return { success: true, users: [] };
+
+    const allUsers = readSheet(G.USERS_SHEET) || [];
+    const managedUsers = managedIds.map(id => {
+      const match = allUsers.find(u => String(u.ID) === id);
+      if (match) {
+        const basic = createSafeUserObject(match);
+        return {
+          ID: basic.ID,
+          UserName: basic.UserName,
+          FullName: basic.FullName,
+          Email: basic.Email,
+          CampaignID: basic.CampaignID,
+          campaignName: basic.campaignName,
+          roleNames: basic.roleNames || []
+        };
+      }
+      return { ID: id };
+    });
+
+    return { success: true, users: managedUsers };
+  } catch (e) { writeError && writeError('clientGetManagedUsers', e); return { success: false, error: e.message }; }
+}
+function clientAssignUsersToManager(managerUserId, userIds) {
+  try {
+    if (!managerUserId || !Array.isArray(userIds)) return { success: false, error: 'Invalid parameters' };
+    const users = readSheet(G.USERS_SHEET) || [];
+    const manager = users.find(u => String(u.ID) === String(managerUserId));
+    if (!manager) return { success: false, error: 'Manager not found' };
+
+    const admin = _strToBool_(manager.IsAdmin);
+    const allowedCampaignIds = admin ? (readSheet(G.CAMPAIGNS_SHEET) || []).map(c => c.ID)
+      : getManagedCampaignIdsForUser_(managerUserId);
+    const allowedSet = new Set((allowedCampaignIds || []).map(String));
+    const eligible = userIds.filter(id => {
+      const u = users.find(x => String(x.ID) === String(id));
+      if (!u) return false;
+      if (admin || !allowedSet.size) return true;
+      const uCamps = (typeof getUserCampaignsSafe === 'function')
+        ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
+        : (u.CampaignID ? [String(u.CampaignID)] : []);
+      return uCamps.some(cid => allowedSet.has(cid));
+    });
+
+    const sh = getOrCreateManagerUsersSheet_();
+    const data = sh.getDataRange().getValues();
+    const headers = data[0] || [];
+    const idx = { ID: headers.indexOf('ID'), ManagerUserID: headers.indexOf('ManagerUserID'), UserID: headers.indexOf('UserID') };
+
+    const current = new Set();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idx.ManagerUserID]) === String(managerUserId)) current.add(String(data[i][idx.UserID]));
+    }
+
+    const target = new Set(eligible.map(String));
+    const toAdd = [...target].filter(id => !current.has(id));
+    const toRemove = [...current].filter(id => !target.has(id));
+
+    for (let r = data.length - 1; r >= 1; r--) {
+      const row = data[r];
+      if (String(row[idx.ManagerUserID]) === String(managerUserId) && toRemove.includes(String(row[idx.UserID]))) {
+        sh.deleteRow(r + 1);
+      }
+    }
+    const now = new Date();
+    toAdd.forEach(uid => { sh.appendRow([Utilities.getUuid(), managerUserId, uid, now, now]); });
+
+    invalidateCache && invalidateCache(getManagerUsersSheetName_());
+    try { notifyOnManagerAssignment_(managerUserId, toAdd); } catch (_) { }
+
+    return { success: true, message: `Assigned ${target.size} user(s) to manager`, added: toAdd.length, removed: toRemove.length };
+  } catch (e) { writeError && writeError('clientAssignUsersToManager', e); return { success: false, error: e.message }; }
+}
+function getManagedCampaignIdsForUser_(userId) {
+  const perms = readCampaignPermsSafely_();
+  return perms
+    .filter(p => String(p.UserID) === String(userId) && ['MANAGER', 'ADMIN'].includes(String(p.PermissionLevel || '').toUpperCase()))
+    .map(p => p.CampaignID);
+}
+function notifyOnManagerAssignment_(managerUserId, userIds) {
+  if (!userIds || !userIds.length) return;
+  try {
+    const users = readSheet(G.USERS_SHEET) || [];
+    const mgr = users.find(u => String(u.ID) === String(managerUserId));
+    if (!mgr) return;
+    const managerName = mgr.FullName || _getUserName_(mgr) || 'Your manager';
+    const html = buildHtmlEmail_('Manager Assigned', 'You have been assigned a manager.', '<p>You have been assigned to <strong>' + managerName + '</strong>.</p>');
+    userIds.forEach(uid => {
+      const u = users.find(x => String(x.ID) === String(uid));
+      if (u && u.Email) safeSendHtmlEmail_(u.Email, 'You have a new manager', html);
+    });
+  } catch (e) { writeError && writeError('notifyOnManagerAssignment_', e); }
+}
+function getManagerUsersSheetName_() { return G.MANAGER_USERS_SHEET; }
+function getManagerUsersHeaders_() { return G.MANAGER_USERS_HEADER; }
+function getOrCreateManagerUsersSheet_() {
+  if (typeof ensureSheetWithHeaders === 'function') return ensureSheetWithHeaders(getManagerUsersSheetName_(), getManagerUsersHeaders_());
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const name = getManagerUsersSheetName_();
+  let sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); sh.appendRow(getManagerUsersHeaders_()); }
+  return sh;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+/** Roles **/
+// ───────────────────────────────────────────────────────────────────────────────
+function getAllRoles() {
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName(G.ROLES_SHEET);
+    if (!sheet) return [];
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+    const rows = data.slice(1);
+    return rows.map(r => ({ ID: r[0], Name: r[1], normalizedName: r[2] }));
+  } catch (e) { writeError && writeError('getAllRoles', e); return []; }
+}
+function addUserRole(userId, roleId) {
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName(G.USER_ROLES_SHEET);
+    if (!sheet) return;
+    const id = Utilities.getUuid(); const now = new Date();
+    sheet.appendRow([id, userId, roleId, now, now]);
+    invalidateCache && invalidateCache(G.USER_ROLES_SHEET);
+  } catch (e) { writeError && writeError('addUserRole', e); }
+}
+function deleteUserRoles(userId) {
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName(G.USER_ROLES_SHEET);
+    if (!sheet) return;
+    const data = sheet.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][1]) === String(userId)) sheet.deleteRow(i + 1);
+    }
+    invalidateCache && invalidateCache(G.USER_ROLES_SHEET);
+  } catch (e) { writeError && writeError('deleteUserRoles', e); }
+}
+function getRolesMapping() {
+  try {
+    const roles = getAllRoles();
+    const mapping = {}; roles.forEach(r => mapping[r.ID] = r.Name);
+    return mapping;
+  } catch (error) { writeError && writeError('getRolesMapping', error); return {}; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+/** Utilities, validation, emails **/
+// ───────────────────────────────────────────────────────────────────────────────
+function getAllCampaigns() { try { return readSheet(G.CAMPAIGNS_SHEET) || []; } catch (e) { writeError && writeError('getAllCampaigns', e); return []; } }
+function getCampaignName(campaignId) {
+  try {
+    const campaigns = readSheet(G.CAMPAIGNS_SHEET) || []; const campaign = campaigns.find(c => c.ID === campaignId);
+    return campaign ? campaign.Name : '';
+  } catch (e) { writeError && writeError('getCampaignName', e); return ''; }
+}
+
+function _normEmail_(e) { return String(e || '').trim().toLowerCase(); }
+function _normUser_(u) { return String(u || '').trim().toLowerCase(); }
+function _splitCsv_(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
+function _csvUnion_(a1, a2) { const set = new Set([...(a1 || []), ...(a2 || [])].map(x => String(x).trim()).filter(Boolean)); return Array.from(set); }
+function _now_() { return new Date(); }
+
+function _readUsersAsObjects_() {
+  try { if (typeof readSheet === 'function') return readSheet(G.USERS_SHEET) || []; } catch (e) { writeError && writeError('_readUsersAsObjects_', e); }
+  const sh = _getSheet_(G.USERS_SHEET);
+  const { headers, values } = _scanSheet_(sh);
+  const out = []; for (let r = 1; r < values.length; r++) { const row = values[r]; const o = {}; headers.forEach((h, i) => o[h] = row[i]); out.push(o); }
+  return out;
+}
+function _logErr_(where, err) { try { writeError && writeError(where, err); } catch (_) { } }
+
+function _validateUserInput_(userData) {
+  const errors = [];
+  if (!userData || !String(userData.userName).trim()) errors.push('Username is required');
+  if (!userData || !String(userData.email).trim()) errors.push('Email is required');
+
+  const email = String(userData && userData.email || '').trim();
+  if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) errors.push('Email appears invalid');
+
+  if (userData.employmentStatus) {
+    const normalizedStatus = normalizeEmploymentStatus(userData.employmentStatus);
+    if (!normalizedStatus) {
+      errors.push('Invalid employment status. Valid options: ' + getValidEmploymentStatuses().join(', '));
+    }
+  }
+  if (userData.hireDate && !validateHireDate(userData.hireDate)) {
+    errors.push('Invalid hire date. Must be a valid date not in the future');
+  }
+  if (userData.country && !validateCountry(userData.country)) {
+    errors.push('Country must be between 2 and 100 characters');
+  }
+  // dates sanity (optional)
+  ['terminationDate', 'probationEndDate', 'insuranceQualifiedDate', 'insuranceCardReceivedDate'].forEach(k => {
+    if (userData[k]) {
+      const d = new Date(userData[k]);
+      if (isNaN(d)) errors.push(`${k} is not a valid date`);
+    }
+  });
+  if (userData.probationMonths != null && userData.probationMonths !== '') {
+    const n = Number(userData.probationMonths);
+    if (isNaN(n) || n < 0 || n > 24) errors.push('probationMonths must be 0..24');
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+function _normalizeIncoming_(userData) {
+  const out = Object.assign({}, userData || {});
+  out.userName = String(out.userName || '').trim();
+  out.fullName = String(out.fullName || '').trim();
+  out.email = String(out.email || '').trim();
+  out.phoneNumber = String(out.phoneNumber || '').trim();
+  out.campaignId = String(out.campaignId || '').trim();
+
+  out.employmentStatus = normalizeEmploymentStatus(out.employmentStatus);
+  out.country = String(out.country || '').trim();
+
+  if (out.insuranceEnrolled != null && out.insuranceSignedUp == null) {
+    out.insuranceSignedUp = out.insuranceEnrolled;
+  }
+  if (out.insuranceEligibilityDate && !out.insuranceQualifiedDate) {
+    out.insuranceQualifiedDate = out.insuranceEligibilityDate;
+  }
+  if (out.insuranceQualified != null && out.insuranceEligible == null) {
+    out.insuranceEligible = out.insuranceQualified;
+  }
+
+  // Normalize date-only strings (keep after alias mapping)
+  out.hireDate = out.hireDate ? _toIsoDateOnly_(out.hireDate) : '';
+  out.terminationDate = out.terminationDate ? _toIsoDateOnly_(out.terminationDate) : '';
+  out.probationEndDate = out.probationEndDate ? _toIsoDateOnly_(out.probationEndDate) : '';
+  out.insuranceQualifiedDate = out.insuranceQualifiedDate ? _toIsoDateOnly_(out.insuranceQualifiedDate) : '';
+  out.insuranceCardReceivedDate = out.insuranceCardReceivedDate ? _toIsoDateOnly_(out.insuranceCardReceivedDate) : '';
+
+  // Normalize booleans
+  out.isAdmin = _strToBool_(out.isAdmin);
+  out.canLogin = _strToBool_(out.canLogin);
+  out.insuranceEligible = (out.insuranceEligible == null) ? null : _strToBool_(out.insuranceEligible);
+  out.insuranceSignedUp = _strToBool_(out.insuranceSignedUp);
+
+  // Normalize numbers
+  if (out.probationMonths === '' || out.probationMonths == null) {
+    // leave as '' to avoid forcing a value
+  } else {
+    out.probationMonths = Number(out.probationMonths);
+    if (isNaN(out.probationMonths)) out.probationMonths = '';
+  }
+
+  const pages = Array.isArray(out.pages) ? out.pages : _splitCsv_(out.pages);
+  const roles = Array.isArray(out.roles) ? out.roles : _splitCsv_(out.roles);
+  out.pages = pages; out.roles = roles;
+
+  return out;
+}
+
+// Email helpers
+function buildHtmlEmail_(title, preheader, innerHtml) {
+  try {
+    if (typeof renderEmail_ === 'function') {
+      return renderEmail_({
+        headerTitle: title,
+        headerGradient: 'linear-gradient(135deg, #0ea5e9 0%, #0891b2 100%)',
+        logoUrl: (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG.logoUrl) ? EMAIL_CONFIG.logoUrl : '',
+        preheader: preheader,
+        contentHtml: innerHtml
+      });
+    }
+  } catch (_) { }
+  return '<html><body style="font-family:Arial,sans-serif;"><h2>' + title + '</h2>' + innerHtml + '<hr><small>Automated notification</small></body></html>';
+}
+
+function safeSendHtmlEmail_(to, subject, html) {
+  try {
+    const prefix = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG.subjectPrefix) ? EMAIL_CONFIG.subjectPrefix : '';
+    const fromName = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG.fromName) ? EMAIL_CONFIG.fromName : 'System';
+    if (typeof sendEmail_ === 'function') {
+      sendEmail_({ to, subject: prefix + subject, htmlBody: html });
+      return;
+    }
+    MailApp.sendEmail({ to, subject: prefix + subject, htmlBody: html, body: 'This message contains HTML content.', name: fromName });
+  } catch (e) { writeError && writeError('safeSendHtmlEmail_', e); }
+}
+
+/** Return the user row (object from Users sheet) for the direct manager of a user, if any. */
+function getDirectManagerUser_(userId) {
+  try {
+    if (!userId) return null;
+    const muSheet = getOrCreateManagerUsersSheet_();
+    const data = muSheet.getDataRange().getValues();
+    if (!data || data.length < 2) return null;
+    const headers = data[0] || [];
+    const midx = { ManagerUserID: headers.indexOf('ManagerUserID'), UserID: headers.indexOf('UserID') };
+    if (midx.ManagerUserID === -1 || midx.UserID === -1) return null;
+    let managerUserId = null;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][midx.UserID]) === String(userId)) {
+        managerUserId = data[r][midx.ManagerUserID];
+        break;
+      }
+    }
+    if (!managerUserId) return null;
+    const users = readSheet(G.USERS_SHEET) || [];
+    return users.find(u => String(u.ID) === String(managerUserId)) || null;
+  } catch (e) { writeError && writeError('getDirectManagerUser_', e); return null; }
+}
+
+/** Pick ONE primary manager for a campaign from CampaignUserPermissions (PermissionLevel MANAGER). */
+function getPrimaryCampaignManagerUser_(campaignId) {
+  try {
+    if (!campaignId) return null;
+    const perms = readCampaignPermsSafely_() || [];
+    // Only MANAGER level for the campaign
+    const managers = perms.filter(p => String(p.CampaignID) === String(campaignId) && String(p.PermissionLevel).toUpperCase() === 'MANAGER');
+    if (!managers.length) return null;
+    // Choose the most recently updated (fallback to created)
+    const toTime = v => (v ? new Date(v).getTime() : 0);
+    managers.sort((a, b) => (toTime(b.UpdatedAt) || toTime(b.CreatedAt)) - (toTime(a.UpdatedAt) || toTime(a.CreatedAt)));
+    const chosen = managers[0];
+    const users = readSheet(G.USERS_SHEET) || [];
+    return users.find(u => String(u.ID) === String(chosen.UserID)) || null;
+  } catch (e) { writeError && writeError('getPrimaryCampaignManagerUser_', e); return null; }
+}
+
+/** Extract a sendable email from a user row, only if CanLogin is TRUE. */
+function _emailIfActive_(u) {
+  if (!u) return '';
+  const canLogin = _strToBool_(u.CanLogin);
+  const email = (u.Email || '').trim();
+  return (canLogin && email) ? email : '';
+}
+
+function notifyOnUserRegistered_(newUser) {
+  try {
+    // Resolve a single recipient in this order:
+    // 1) Direct manager assigned to this user (MANAGER_USERS mapping)
+    // 2) Primary campaign manager for the user's campaign (CampaignUserPermissions MANAGER)
+    // No more emailing every campaign manager or system admins.
+    let recipient = '';
+
+    // 1) Direct manager (if mapping already exists)
+    const directMgr = getDirectManagerUser_(newUser && newUser.id);
+    recipient = _emailIfActive_(directMgr);
+
+    // 2) Fallback to primary campaign manager
+    if (!recipient && newUser && newUser.campaignId) {
+      const campMgr = getPrimaryCampaignManagerUser_(newUser.campaignId);
+      recipient = _emailIfActive_(campMgr);
+    }
+
+    if (!recipient) return; // nothing to notify
+
+    const rolesList = (newUser.roles || []).join(', ') || '—';
+    const pagesList = (newUser.pages || []).join(', ') || '—';
+
+    let campaignName = '';
+    try { campaignName = getCampaignNameSafe ? getCampaignNameSafe(newUser.campaignId) : getCampaignName(newUser.campaignId); } catch (_) { }
+
+    const html = buildHtmlEmail_(
+      'New User Registered', 'A new user account was created.',
+      '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:16px;">'
+      + '<p><strong>User Name:</strong> ' + (newUser.userName || '') + '</p>'
+      + '<p><strong>Full Name:</strong> ' + (newUser.fullName || '') + '</p>'
+      + '<p><strong>Email:</strong> ' + (newUser.email || '') + '</p>'
+      + '<p><strong>Phone:</strong> ' + (newUser.phoneNumber || '') + '</p>'
+      + '<p><strong>Campaign:</strong> ' + (campaignName || newUser.campaignId || '—') + '</p>'
+      + '<p><strong>Roles:</strong> ' + rolesList + '</p>'
+      + '<p><strong>Pages:</strong> ' + pagesList + '</p>'
+      + '<p><strong>Can Login:</strong> ' + (newUser.canLogin ? 'Yes' : 'No') + '</p>'
+      + '<p><strong>Is Admin:</strong> ' + (newUser.isAdmin ? 'Yes' : 'No') + '</p>'
+      + '<p><strong>Created:</strong> ' + new Date(newUser.createdAt).toLocaleString() + '</p>'
+      + '</div>'
+    );
+
+
+    safeSendHtmlEmail_(recipient, 'New User Registered: ' + (newUser.userName || newUser.email || newUser.id), html);
+  } catch (e) { writeError && writeError('notifyOnUserRegistered_', e); }
+}
+
+function getEmailsForCampaignManagers_(campaignId) {
+  try {
+    if (!campaignId) return [];
+    const perms = readCampaignPermsSafely_() || [];
+    const managers = perms.filter(p => String(p.CampaignID) === String(campaignId) && ['MANAGER', 'ADMIN'].includes(String(p.PermissionLevel || '').toUpperCase()));
+    if (!managers.length) return [];
+    const users = readSheet(G.USERS_SHEET) || [];
+    const emails = managers.map(m => { const u = users.find(x => String(x.ID) === String(m.UserID)); return u && u.Email; }).filter(Boolean);
+    return Array.from(new Set(emails));
+  } catch (e) { writeError && writeError('getEmailsForCampaignManagers_', e); return []; }
+}
+function getSystemAdminsEmails_() {
+  try {
+    const users = readSheet(G.USERS_SHEET) || [];
+    const emails = users.filter(u => _strToBool_(u.IsAdmin) && _strToBool_(u.CanLogin)).map(u => u.Email).filter(Boolean);
+    return Array.from(new Set(emails));
+  } catch (e) { writeError && writeError('getSystemAdminsEmails_', e); return []; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Public: Employment status helpers
+// ───────────────────────────────────────────────────────────────────────────────
+function clientGetValidEmploymentStatuses() {
+  try {
+    return {
+      success: true,
+      statuses: getValidEmploymentStatuses(),
+      aliases: Object.assign({}, EMPLOYMENT_STATUS_ALIAS_MAP),
+      message: 'Valid employment statuses retrieved'
+    };
+  }
+  catch (e) {
+    writeError && writeError('clientGetValidEmploymentStatuses', e);
+    return { success: false, error: e.message, statuses: [] };
+  }
+}
+function clientGetEmploymentStatusReport(campaignId) {
+  try {
+    const users = readSheet(G.USERS_SHEET) || [];
+    let filtered = users;
+    if (campaignId) filtered = users.filter(u => u.CampaignID === campaignId);
+
+    const statusCounts = {};
+    const valid = getValidEmploymentStatuses();
+    valid.forEach(s => statusCounts[s] = 0);
+    statusCounts['Unspecified'] = 0;
+
+    filtered.forEach(u => {
+      const normalized = normalizeEmploymentStatus(u && (u.EmploymentStatus || u.employmentStatus));
+      if (normalized) {
+        if (typeof statusCounts[normalized] !== 'number') statusCounts[normalized] = 0;
+        statusCounts[normalized]++;
+      } else {
+        statusCounts['Unspecified']++;
+      }
+    });
+    return {
+      success: true,
+      campaignId,
+      totalUsers: filtered.length,
+      statusCounts,
+      validStatuses: valid,
+      message: `Employment status report for ${filtered.length} users`
+    };
+  } catch (e) { writeError && writeError('clientGetEmploymentStatusReport', e); return { success: false, error: e.message }; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Benefits: snapshots + batch normalize/write
+// ───────────────────────────────────────────────────────────────────────────────
+function clientGetBenefitsSnapshot(userId) {
+  try {
+    const users = readSheet(G.USERS_SHEET) || [];
+    const u = users.find(x => String(x.ID) === String(userId));
+    if (!u) return { success: false, error: 'User not found' };
+    const hire = u.HireDate || '';
+    const probMonths = (u.ProbationMonths !== '' && u.ProbationMonths != null) ? Number(u.ProbationMonths) : '';
+    const probEnd = u.ProbationEndDate || calcProbationEndDate_(hire, probMonths);
+    const insQual = u.InsuranceQualifiedDate || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+    const eligible = isInsuranceEligibleNow_(insQual, u.TerminationDate || '');
+    return {
+      success: true,
+      userId,
+      hireDate: hire || '',
+      probationMonths: probMonths === '' ? '' : Number(probMonths),
+      probationEndDate: _toIsoDateOnly_(probEnd),
+      insuranceQualifiedDate: _toIsoDateOnly_(insQual),
+      insuranceEligible: !!eligible,
+      insuranceSignedUp: _strToBool_(u.InsuranceSignedUp),
+      insuranceCardReceivedDate: _toIsoDateOnly_(u.InsuranceCardReceivedDate || '')
+    };
+  } catch (e) { writeError && writeError('clientGetBenefitsSnapshot', e); return { success: false, error: e.message }; }
+}
+
+function clientBatchNormalizeBenefits() {
+  try {
+    const sh = _getSheet_(G.USERS_SHEET);
+    let { headers, values, idx } = _scanSheet_(sh);
+    _ensureUserHeaders_(idx);
+    const ensured = ensureOptionalUserColumns_(sh, headers, idx);
+    headers = ensured.headers; idx = ensured.idx;
+
+    let updated = 0;
+    for (let r = 1; r < values.length; r++) {
+      const row = values[r];
+      const hire = row[idx['HireDate']] || '';
+      const term = row[idx['TerminationDate']] || '';
+      let probMonths = row[idx['ProbationMonths']];
+      probMonths = (probMonths === '' || probMonths == null) ? '' : Number(probMonths);
+      const curProbEnd = row[idx['ProbationEndDate']] || '';
+      const curInsQual = row[idx['InsuranceQualifiedDate']] || '';
+      const curEligible = row[idx['InsuranceEligible']];
+      const curCard = row[idx['InsuranceCardReceivedDate']] || '';
+
+      const probEnd = curProbEnd || calcProbationEndDate_(hire, probMonths);
+      const insQual = curInsQual || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+      const eligible = isInsuranceEligibleNow_(insQual, term);
+
+      const newProbEnd = _toIsoDateOnly_(probEnd);
+      const newInsQual = _toIsoDateOnly_(insQual);
+      const newEligibleStr = _boolToStr_(eligible);
+
+      let changed = false;
+      function setIfDiff(colName, val) {
+        if (typeof idx[colName] !== 'number') return;
+        const col = idx[colName] + 1;
+        const cur = row[idx[colName]];
+        if (String(cur) !== String(val)) { sh.getRange(r + 1, col).setValue(val); row[idx[colName]] = val; changed = true; }
+      }
+      setIfDiff('ProbationEndDate', newProbEnd);
+      setIfDiff('InsuranceQualifiedDate', newInsQual);
+      setIfDiff('InsuranceEligible', newEligibleStr);
+
+      if (changed) {
+        if (typeof idx['UpdatedAt'] === 'number') sh.getRange(r + 1, idx['UpdatedAt'] + 1).setValue(new Date());
+        updated++;
+      }
+    }
+    try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
+    return { success: true, updated, message: `Benefits normalized for ${updated} user(s)` };
+  } catch (e) { writeError && writeError('clientBatchNormalizeBenefits', e); return { success: false, error: e.message }; }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Debug
+// ───────────────────────────────────────────────────────────────────────────────
+function testConnection() { return { success: true, timestamp: new Date().toISOString(), message: 'Connection successful' }; }
+
+function debugUsersSheet() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(G.USERS_SHEET);
+    if (!sheet) {
+      return { error: 'USERS_SHEET not found', sheetName: G.USERS_SHEET, availableSheets: ss.getSheets().map(s => s.getName()) };
+    }
+    const lastRow = sheet.getLastRow(); const lastCol = sheet.getLastColumn();
+    if (lastRow < 2) {
+      return {
+        error: 'No data rows in sheet',
+        dimensions: { rows: lastRow, cols: lastCol },
+        sheetName: G.USERS_SHEET,
+        headers: lastRow > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : []
+      };
+    }
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const sampleData = sheet.getRange(2, 1, Math.min(2, lastRow - 1), lastCol).getValues();
+    return { success: true, sheetName: G.USERS_SHEET, dimensions: { rows: lastRow, cols: lastCol }, headers, sampleDataCount: sampleData.length, sampleData };
+  } catch (e) { return { error: 'Error reading sheet: ' + e.message }; }
+}
+
+function _buildUniqIndexes_(users) {
+  console.log('Building unique indexes for', users.length, 'users'); // Debug log
+  
+  const byEmail = new Map();
+  const byUser = new Map();
+  
+  (users || []).forEach((u, index) => {
+    try {
+      const e = _normEmail_(u && (u.Email || u.email));
+      // Fix: Check all possible username field variations
+      const n = _normUser_(_getUserName_(u));
+      
+      // Log problematic entries
+      if (!e && u && (u.Email || u.email)) {
+        console.warn('Failed to normalize email for user at index', index, ':', u.Email || u.email);
+      }
+      if (!n && _getUserName_(u)) {
+        console.warn('Failed to normalize username for user at index', index, ':', _getUserName_(u));
+      }
+      
+      // Prefer first occurrence per key
+      if (e && !byEmail.has(e)) byEmail.set(e, u);
+      if (n && !byUser.has(n)) byUser.set(n, u);
+      
+    } catch (error) {
+      console.error('Error processing user at index', index, ':', error, u);
+    }
+  });
+  
+  console.log('Built indexes:', { emailEntries: byEmail.size, userEntries: byUser.size }); // Debug log
+  
+  return { byEmail, byUser };
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Optional: quick dry-run logger (does not send mail)
+// ───────────────────────────────────────────────────────────────────────────────
+function debugNotifyResolution_(userIdOrNewUser) {
+  try {
+    const users = readSheet(G.USERS_SHEET) || [];
+    const newUser = (userIdOrNewUser && typeof userIdOrNewUser === 'object')
+      ? userIdOrNewUser
+      : (users.find(u => String(u.ID) === String(userIdOrNewUser)) || null);
+    if (!newUser) return { success: false, error: 'User not found' };
+
+
+    const directMgr = getDirectManagerUser_(newUser.id || newUser.ID);
+    const directEmail = _emailIfActive_(directMgr);
+
+
+    const campMgr = getPrimaryCampaignManagerUser_(newUser.campaignId || newUser.CampaignID);
+    const campEmail = _emailIfActive_(campMgr);
+
+
+    return { success: true, directMgr: directMgr && directMgr.Email, directEmail, campMgr: campMgr && campMgr.Email, campEmail };
+  } catch (e) { return { success: false, error: String(e) }; }
+}
+
+console.log('✅ UserService.gs loaded');
+console.log('📦 Features: User CRUD, Roles, Pages, Campaign perms, Manager mapping, HR/Benefits (probation + insurance)');
