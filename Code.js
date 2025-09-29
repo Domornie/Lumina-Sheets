@@ -3630,7 +3630,64 @@ function getEmptyQAAnalytics() {
 // SYSTEM INITIALIZATION
 // ───────────────────────────────────────────────────────────────────────────────
 
-function initializeSystem() {
+const SYSTEM_INIT_CACHE_KEY = 'SYSTEM_INIT_V1';
+const SYSTEM_INIT_CACHE_TTL_SECONDS = 15 * 60; // Cache successful init state for 15 minutes
+const SYSTEM_INIT_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000; // At most once every 6 hours
+const SYSTEM_INIT_LOCK_WAIT_MS = 1500; // Wait up to 1.5s for the init lock
+const SYSTEM_INIT_LAST_RUN_PROP = 'SYSTEM_INIT_LAST_RUN_AT';
+const CAMPAIGN_SYSTEMS_LAST_INIT_PROP = 'CAMPAIGN_SYSTEMS_LAST_INIT_AT';
+const CAMPAIGN_SYSTEMS_MIN_INTERVAL_MS = 60 * 60 * 1000; // Rebuild campaign assets at most hourly
+
+function initializeSystem(options) {
+  options = options || {};
+  var force = options.force === true;
+
+  var cache = (typeof CacheService !== 'undefined' && CacheService.getScriptCache)
+    ? CacheService.getScriptCache()
+    : null;
+
+  if (!force && cache) {
+    var cached = cache.get(SYSTEM_INIT_CACHE_KEY);
+    if (cached) {
+      return { success: true, message: 'System initialization skipped (cached)' };
+    }
+  }
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(SYSTEM_INIT_LOCK_WAIT_MS)) {
+    console.log('initializeSystem: another initialization is already running; skipping.');
+    return { success: true, message: 'Initialization already in progress' };
+  }
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var now = Date.now();
+    var lastRun = Number(props.getProperty(SYSTEM_INIT_LAST_RUN_PROP)) || 0;
+
+    if (!force && lastRun && now - lastRun < SYSTEM_INIT_MIN_INTERVAL_MS) {
+      if (cache) {
+        cache.put(SYSTEM_INIT_CACHE_KEY, '1', SYSTEM_INIT_CACHE_TTL_SECONDS);
+      }
+      console.log('initializeSystem: throttled; last run ' + Math.round((now - lastRun) / 1000) + 's ago.');
+      return { success: true, message: 'Initialization throttled' };
+    }
+
+    var result = runSystemInitialization_(options);
+    if (result && result.success) {
+      props.setProperty(SYSTEM_INIT_LAST_RUN_PROP, String(now));
+      if (cache) {
+        cache.put(SYSTEM_INIT_CACHE_KEY, '1', SYSTEM_INIT_CACHE_TTL_SECONDS);
+      }
+    }
+
+    return result;
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function runSystemInitialization_(options) {
   try {
     console.log('Initializing system...');
 
@@ -3639,7 +3696,7 @@ function initializeSystem() {
     }
 
     initializeMainSheets();
-    initializeCampaignSystems();
+    initializeCampaignSystems(options);
 
     if (typeof CallCenterWorkflowService !== 'undefined' && CallCenterWorkflowService.initialize) {
       try {
@@ -3726,8 +3783,20 @@ function initializeSheetHeaders(sheet, sheetName) {
   }
 }
 
-function initializeCampaignSystems() {
+function initializeCampaignSystems(options) {
+  options = options || {};
+  var force = options.force === true;
+
   try {
+    var props = PropertiesService.getScriptProperties();
+    var now = Date.now();
+    var lastRun = Number(props.getProperty(CAMPAIGN_SYSTEMS_LAST_INIT_PROP)) || 0;
+
+    if (!force && lastRun && now - lastRun < CAMPAIGN_SYSTEMS_MIN_INTERVAL_MS) {
+      console.log('initializeCampaignSystems: recently initialized; skipping.');
+      return;
+    }
+
     if (typeof initializeIndependenceQASystem === 'function') {
       try {
         initializeIndependenceQASystem();
@@ -3753,6 +3822,7 @@ function initializeCampaignSystems() {
       }
     }
 
+    props.setProperty(CAMPAIGN_SYSTEMS_LAST_INIT_PROP, String(now));
     console.log('Campaign systems initialization completed');
 
   } catch (error) {
