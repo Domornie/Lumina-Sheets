@@ -10,79 +10,241 @@ const CACHE_TTL_MINUTES = 5;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
 
+const USER_CAMPAIGN_DEFAULT_ROLE = 'agent';
+const USER_CAMPAIGN_ALLOWED_ROLES = ['agent', 'lead', 'qa', 'supervisor', 'trainer', 'support', 'analyst'];
+
+function canUseDatabaseManager() {
+  return typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.defineTable === 'function';
+}
+
+function normalizeIdValue(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).trim();
+}
+
+function toBooleanFlag(value) {
+  if (value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'boolean') return value;
+  var str = String(value).trim().toLowerCase();
+  return str === 'true' || str === '1' || str === 'yes' || str === 'y';
+}
+
+function toCampaignRole(role) {
+  if (!role && role !== 0) {
+    return USER_CAMPAIGN_DEFAULT_ROLE;
+  }
+  var normalized = String(role).trim();
+  if (!normalized) {
+    return USER_CAMPAIGN_DEFAULT_ROLE;
+  }
+  var lower = normalized.toLowerCase();
+  if (USER_CAMPAIGN_ALLOWED_ROLES.indexOf(lower) !== -1) {
+    return lower;
+  }
+  return normalized;
+}
+
+function isSoftDeletedValue(value) {
+  if (!value && value !== 0) return false;
+  var str = String(value).trim();
+  if (!str) return false;
+  if (str === '0') return false;
+  return true;
+}
+
+function getUserCampaignsTable() {
+  return DatabaseManager.defineTable(USER_CAMPAIGNS_SHEET || 'UserCampaigns', {
+    headers: Array.isArray(USER_CAMPAIGNS_HEADERS) && USER_CAMPAIGNS_HEADERS.length
+      ? USER_CAMPAIGNS_HEADERS
+      : ['ID', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'CreatedAt', 'UpdatedAt', 'DeletedAt'],
+    idColumn: 'ID',
+    defaults: {
+      Role: USER_CAMPAIGN_DEFAULT_ROLE,
+      IsPrimary: false,
+      DeletedAt: ''
+    },
+    validators: {
+      Role: function (value) {
+        if (!value && value !== 0) return true;
+        var str = String(value);
+        return str.length <= 120;
+      }
+    }
+  });
+}
+
+function getCampaignsTable() {
+  return DatabaseManager.defineTable(CAMPAIGNS_SHEET || 'Campaigns', {
+    headers: Array.isArray(CAMPAIGNS_HEADERS) && CAMPAIGNS_HEADERS.length
+      ? CAMPAIGNS_HEADERS
+      : ['ID', 'Name', 'Description', 'ClientName', 'Status', 'Channel', 'Timezone', 'SlaTier', 'CreatedAt', 'UpdatedAt', 'DeletedAt'],
+    idColumn: 'ID'
+  });
+}
+
+function legacyAddUserToCampaign(userId, campaignId, options) {
+  const roleValue = options && options.role ? toCampaignRole(options.role) : USER_CAMPAIGN_DEFAULT_ROLE;
+  const isPrimary = options && Object.prototype.hasOwnProperty.call(options, 'isPrimary')
+    ? toBooleanFlag(options.isPrimary)
+    : false;
+
+  const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
+  const data = sh.getDataRange().getValues();
+  const headers = data[0] || [];
+  const idx = {
+    ID: headers.indexOf('ID'),
+    UserID: headers.indexOf('UserId') !== -1 ? headers.indexOf('UserId') : headers.indexOf('UserID'),
+    CampaignID: headers.indexOf('CampaignId') !== -1 ? headers.indexOf('CampaignId') : headers.indexOf('CampaignID'),
+    Role: headers.indexOf('Role'),
+    IsPrimary: headers.indexOf('IsPrimary'),
+    CreatedAt: headers.indexOf('CreatedAt'),
+    UpdatedAt: headers.indexOf('UpdatedAt'),
+    DeletedAt: headers.indexOf('DeletedAt')
+  };
+
+  let exists = false;
+  for (let r = 1; r < data.length; r++) {
+    const rowUser = idx.UserID >= 0 ? normalizeIdValue(data[r][idx.UserID]) : '';
+    const rowCampaign = idx.CampaignID >= 0 ? normalizeIdValue(data[r][idx.CampaignID]) : '';
+    if (rowUser === normalizeIdValue(userId) && rowCampaign === normalizeIdValue(campaignId)) {
+      exists = true;
+      if (idx.Role >= 0) sh.getRange(r + 1, idx.Role + 1).setValue(roleValue);
+      if (idx.IsPrimary >= 0) sh.getRange(r + 1, idx.IsPrimary + 1).setValue(isPrimary);
+      if (idx.DeletedAt >= 0) sh.getRange(r + 1, idx.DeletedAt + 1).setValue('');
+      if (idx.UpdatedAt >= 0) sh.getRange(r + 1, idx.UpdatedAt + 1).setValue(new Date());
+      commitChanges();
+      return true;
+    }
+  }
+
+  const now = new Date();
+  const row = [];
+  if (idx.ID >= 0) row[idx.ID] = Utilities.getUuid();
+  if (idx.UserID >= 0) row[idx.UserID] = userId;
+  if (idx.CampaignID >= 0) row[idx.CampaignID] = campaignId;
+  if (idx.Role >= 0) row[idx.Role] = roleValue;
+  if (idx.IsPrimary >= 0) row[idx.IsPrimary] = isPrimary;
+  if (idx.CreatedAt >= 0) row[idx.CreatedAt] = now;
+  if (idx.UpdatedAt >= 0) row[idx.UpdatedAt] = now;
+  if (idx.DeletedAt >= 0) row[idx.DeletedAt] = '';
+
+  for (let c = 0; c < headers.length; c++) if (typeof row[c] === 'undefined') row[c] = '';
+  sh.appendRow(row);
+
+  commitChanges();
+  invalidateSheetCache(USER_CAMPAIGNS_SHEET);
+  return true;
+}
+
+function legacyRemoveUserFromCampaign(userId, campaignId) {
+  const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
+  const data = sh.getDataRange().getValues();
+  const headers = data[0] || [];
+  const idx = {
+    UserID: headers.indexOf('UserId') !== -1 ? headers.indexOf('UserId') : headers.indexOf('UserID'),
+    CampaignID: headers.indexOf('CampaignId') !== -1 ? headers.indexOf('CampaignId') : headers.indexOf('CampaignID')
+  };
+  let removed = 0;
+  for (let r = data.length - 1; r >= 1; r--) {
+    const rowUser = idx.UserID >= 0 ? normalizeIdValue(data[r][idx.UserID]) : '';
+    const rowCampaign = idx.CampaignID >= 0 ? normalizeIdValue(data[r][idx.CampaignID]) : '';
+    if (rowUser === normalizeIdValue(userId) && rowCampaign === normalizeIdValue(campaignId)) {
+      sh.deleteRow(r + 1);
+      removed++;
+    }
+  }
+  if (removed) {
+    commitChanges();
+    invalidateSheetCache(USER_CAMPAIGNS_SHEET);
+  }
+  return removed;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // UTILITY FUNCTIONS
 // ────────────────────────────────────────────────────────────────────────────
-// REPLACE your current addUserToCampaign with this:
-function addUserToCampaign(userId, campaignId) {
+function addUserToCampaign(userId, campaignId, options) {
   try {
     if (!userId || !campaignId) return false;
 
-    const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
-    const data = sh.getDataRange().getValues();
-    const headers = data[0] || [];
-    const idx = {
-      ID: headers.indexOf('ID'),
-      UserID: headers.indexOf('UserID'),
-      CampaignID: headers.indexOf('CampaignID'),
-      CreatedAt: headers.indexOf('CreatedAt'),
-      UpdatedAt: headers.indexOf('UpdatedAt')
-    };
-
-    // If columns missing, just append safely
-    let exists = false;
-    for (let r = 1; r < data.length; r++) {
-      if (String(data[r][idx.UserID]) === String(userId) &&
-        String(data[r][idx.CampaignID]) === String(campaignId)) {
-        exists = true;
-        // Touch UpdatedAt for existing relationship
-        if (idx.UpdatedAt >= 0) sh.getRange(r + 1, idx.UpdatedAt + 1).setValue(new Date());
-        commitChanges();
-        return true;
+    if (canUseDatabaseManager()) {
+      try {
+        const added = addUserToCampaignDb(userId, campaignId, options || {});
+        invalidateSheetCache(USER_CAMPAIGNS_SHEET);
+        return added;
+      } catch (err) {
+        safeWriteError('addUserToCampaignDb', err);
       }
     }
 
-    // Append new relation
-    const now = new Date();
-    const row = [];
-    if (idx.ID >= 0) row[idx.ID] = Utilities.getUuid();
-    if (idx.UserID >= 0) row[idx.UserID] = userId;
-    if (idx.CampaignID >= 0) row[idx.CampaignID] = campaignId;
-    if (idx.CreatedAt >= 0) row[idx.CreatedAt] = now;
-    if (idx.UpdatedAt >= 0) row[idx.UpdatedAt] = now;
-
-    // Fill any undefined cells to preserve width
-    for (let c = 0; c < headers.length; c++) if (typeof row[c] === 'undefined') row[c] = '';
-    sh.appendRow(row);
-
-    commitChanges();
-    invalidateSheetCache(USER_CAMPAIGNS_SHEET);
-    return true;
+    return legacyAddUserToCampaign(userId, campaignId, options || {});
   } catch (e) {
     safeWriteError('addUserToCampaign', e);
     return false;
   }
 }
 
+function addUserToCampaignDb(userId, campaignId, options) {
+  const normalizedUserId = normalizeIdValue(userId);
+  const normalizedCampaignId = normalizeIdValue(campaignId);
+  if (!normalizedUserId || !normalizedCampaignId) return false;
+
+  const table = getUserCampaignsTable();
+  const existing = table.find({
+    filter: function (row) {
+      if (isSoftDeletedValue(row.DeletedAt)) return false;
+      const rowUser = normalizeIdValue(row.UserId || row.UserID);
+      const rowCampaign = normalizeIdValue(row.CampaignId || row.CampaignID);
+      return rowUser === normalizedUserId && rowCampaign === normalizedCampaignId;
+    },
+    limit: 1
+  }) || [];
+
+  const assignmentRole = toCampaignRole(options && options.role);
+  const isPrimary = options && Object.prototype.hasOwnProperty.call(options, 'isPrimary')
+    ? toBooleanFlag(options.isPrimary)
+    : false;
+
+  if (existing.length) {
+    const record = existing[0];
+    if (record && record.ID) {
+      table.update(record.ID, {
+        Role: assignmentRole,
+        IsPrimary: isPrimary,
+        DeletedAt: ''
+      });
+      return true;
+    }
+    return legacyAddUserToCampaign(userId, campaignId, options || {});
+  }
+
+  table.insert({
+    UserId: normalizedUserId,
+    UserID: normalizedUserId,
+    CampaignId: normalizedCampaignId,
+    CampaignID: normalizedCampaignId,
+    Role: assignmentRole,
+    IsPrimary: isPrimary,
+    DeletedAt: ''
+  });
+  return true;
+}
+
 function removeUserFromCampaign(userId, campaignId) {
   try {
     if (!userId || !campaignId) return { success: false, error: 'userId and campaignId required' };
-    const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
-    const data = sh.getDataRange().getValues();
-    const headers = data[0] || [];
-    const idx = {
-      UserID: headers.indexOf('UserID'),
-      CampaignID: headers.indexOf('CampaignID')
-    };
-    let removed = 0;
-    for (let r = data.length - 1; r >= 1; r--) {
-      if (String(data[r][idx.UserID]) === String(userId) &&
-        String(data[r][idx.CampaignID]) === String(campaignId)) {
-        sh.deleteRow(r + 1);
-        removed++;
+
+    if (canUseDatabaseManager()) {
+      try {
+        const result = removeUserFromCampaignDb(userId, campaignId);
+        invalidateSheetCache(USER_CAMPAIGNS_SHEET);
+        return result;
+      } catch (err) {
+        safeWriteError('removeUserFromCampaignDb', err);
       }
     }
-    if (removed) { commitChanges(); invalidateSheetCache(USER_CAMPAIGNS_SHEET); }
+
+    const removed = legacyRemoveUserFromCampaign(userId, campaignId);
     return { success: true, removed };
   } catch (e) {
     safeWriteError('removeUserFromCampaign', e);
@@ -90,14 +252,72 @@ function removeUserFromCampaign(userId, campaignId) {
   }
 }
 
+function removeUserFromCampaignDb(userId, campaignId) {
+  const normalizedUserId = normalizeIdValue(userId);
+  const normalizedCampaignId = normalizeIdValue(campaignId);
+  if (!normalizedUserId || !normalizedCampaignId) {
+    return { success: false, error: 'userId and campaignId required' };
+  }
+
+  const table = getUserCampaignsTable();
+  const matches = table.find({
+    filter: function (row) {
+      const rowUser = normalizeIdValue(row.UserId || row.UserID);
+      const rowCampaign = normalizeIdValue(row.CampaignId || row.CampaignID);
+      return rowUser === normalizedUserId && rowCampaign === normalizedCampaignId;
+    }
+  }) || [];
+
+  if (!matches.length) {
+    return { success: true, removed: 0 };
+  }
+
+  const missingId = matches.some(function (item) { return !item || !item.ID; });
+  if (missingId) {
+    const removed = legacyRemoveUserFromCampaign(userId, campaignId);
+    return { success: true, removed };
+  }
+
+  let removed = 0;
+  matches.forEach(function (assignment) {
+    if (assignment && assignment.ID) {
+      table.delete(assignment.ID);
+      removed++;
+    }
+  });
+  return { success: true, removed };
+}
+
 function csGetUserCampaignIds(userId) {
   try {
     if (!userId) return [];
+
+    if (canUseDatabaseManager()) {
+      try {
+        const normalizedUserId = normalizeIdValue(userId);
+        const table = getUserCampaignsTable();
+        const assignments = table.find({
+          filter: function (row) {
+            if (isSoftDeletedValue(row.DeletedAt)) return false;
+            return normalizeIdValue(row.UserId || row.UserID) === normalizedUserId;
+          }
+        }) || [];
+        const set = new Set();
+        assignments.forEach(function (record) {
+          const id = normalizeIdValue(record.CampaignId || record.CampaignID);
+          if (id) set.add(id);
+        });
+        return Array.from(set);
+      } catch (err) {
+        safeWriteError('csGetUserCampaignIdsDb', err);
+      }
+    }
+
     const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
     const data = sh.getDataRange().getValues();
     const headers = data[0] || [];
-    const uIdx = headers.indexOf('UserID');
-    const cIdx = headers.indexOf('CampaignID');
+    const uIdx = headers.indexOf('UserID') !== -1 ? headers.indexOf('UserID') : headers.indexOf('UserId');
+    const cIdx = headers.indexOf('CampaignID') !== -1 ? headers.indexOf('CampaignID') : headers.indexOf('CampaignId');
     const out = new Set();
     for (let r = 1; r < data.length; r++) {
       if (String(data[r][uIdx]) === String(userId)) out.add(String(data[r][cIdx]));
@@ -111,6 +331,64 @@ function csGetUserCampaignIds(userId) {
 
 function csGetUserCampaigns(userId) {
   try {
+    if (!userId) return [];
+
+    if (canUseDatabaseManager()) {
+      try {
+        const normalizedUserId = normalizeIdValue(userId);
+        const table = getUserCampaignsTable();
+        const assignments = table.find({
+          filter: function (row) {
+            if (isSoftDeletedValue(row.DeletedAt)) return false;
+            return normalizeIdValue(row.UserId || row.UserID) === normalizedUserId;
+          }
+        }) || [];
+
+        if (!assignments.length) {
+          return [];
+        }
+
+        const ids = assignments
+          .map(function (record) { return normalizeIdValue(record.CampaignId || record.CampaignID); })
+          .filter(function (id) { return !!id; });
+
+        if (!ids.length) {
+          return [];
+        }
+
+        const campaignsTable = getCampaignsTable();
+        const campaigns = campaignsTable.find({
+          filter: function (row) {
+            const id = normalizeIdValue(row.ID || row.Id);
+            return ids.indexOf(id) !== -1;
+          }
+        }) || [];
+
+        const campaignIndex = {};
+        campaigns.forEach(function (campaign) {
+          const id = normalizeIdValue(campaign.ID || campaign.Id);
+          if (id) {
+            campaignIndex[id] = campaign;
+          }
+        });
+
+        return assignments.map(function (assignment) {
+          const campaignId = normalizeIdValue(assignment.CampaignId || assignment.CampaignID);
+          const campaign = campaignIndex[campaignId] || {};
+          return {
+            id: campaignId,
+            name: campaign.Name || '',
+            description: campaign.Description || '',
+            status: campaign.Status || '',
+            role: assignment.Role || USER_CAMPAIGN_DEFAULT_ROLE,
+            isPrimary: toBooleanFlag(assignment.IsPrimary)
+          };
+        });
+      } catch (err) {
+        safeWriteError('csGetUserCampaignsDb', err);
+      }
+    }
+
     const ids = csGetUserCampaignIds(userId);
     if (!ids.length) return [];
     const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
