@@ -208,17 +208,21 @@
     });
   }
 
-  function getCampaignPermissionsTable() {
+  function getCampaignPermissionsTable(context) {
     if (!hasDatabaseManager()) {
       throw new Error('DatabaseManager is required for UserDirectory operations');
     }
-    return global.DatabaseManager.defineTable(CAMPAIGN_PERMISSIONS_TABLE_NAME, {
+    var table = global.DatabaseManager.defineTable(CAMPAIGN_PERMISSIONS_TABLE_NAME, {
       headers: ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'Role', 'CanManageUsers', 'CanManagePages', 'Notes',
         'CreatedAt', 'UpdatedAt', 'DeletedAt'],
       idColumn: 'ID',
       timestamps: { created: 'CreatedAt', updated: 'UpdatedAt' },
       defaults: { PermissionLevel: 'USER', Role: '', CanManageUsers: false, CanManagePages: false, Notes: '', DeletedAt: '' }
     });
+    if (context) {
+      return table.withContext(context);
+    }
+    return table;
   }
 
   function getManagerAssignmentsTable() {
@@ -731,7 +735,7 @@
     if (!normalizedCampaign || !normalizedUser) {
       return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
     }
-    var table = getCampaignPermissionsTable();
+    var table = getCampaignPermissionsTable({ tenantId: normalizedCampaign });
     var match = table.find({
       filter: function (row) {
         if (isSoftDeleted(row)) return false;
@@ -759,7 +763,7 @@
       return { success: false, error: 'Campaign ID and User ID are required' };
     }
     var level = normalizeString(permissionLevel || 'USER').toUpperCase();
-    var table = getCampaignPermissionsTable();
+    var table = getCampaignPermissionsTable({ tenantId: normalizedCampaign });
     var existing = table.find({
       filter: function (row) {
         return normalizeString(row.CampaignID || row.CampaignId) === normalizedCampaign
