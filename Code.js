@@ -1137,7 +1137,7 @@ function doGet(e) {
     const baseUrl = getBaseUrl();
 
     // Initialize system
-    initializeSystem();
+    // initializeSystem();
 
     // Handle special actions
     if (e.parameter.page === 'proxy') {
