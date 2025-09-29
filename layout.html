@@ -61,6 +61,55 @@
     ];
 
     var __layoutRawReturnUrl = (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '';
+
+    var __layoutInvalidPanelPattern = /usercodeapppanel/i;
+
+    function __layoutNormalizeUrlValue(value) {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+
+      var trimmed = String(value).trim();
+      if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+        return '';
+      }
+
+      return trimmed;
+    }
+
+    function __layoutFixPanelUrl(value) {
+      var normalized = __layoutNormalizeUrlValue(value);
+      if (!normalized) {
+        return '';
+      }
+
+      if (!__layoutInvalidPanelPattern.test(normalized)) {
+        return normalized;
+      }
+
+      return normalized.replace(/\/userCodeAppPanel.*$/i, '/exec');
+    }
+
+    function __layoutSanitizeNavigationUrl(url, fallback) {
+      var primary = __layoutFixPanelUrl(url);
+      if (primary) {
+        return primary;
+      }
+
+      return __layoutFixPanelUrl(fallback);
+    }
+
+    var __layoutRawBaseUrl = (typeof baseUrl !== 'undefined') ? baseUrl : '';
+    var __layoutRawScriptUrl = (typeof scriptUrl !== 'undefined') ? scriptUrl : __layoutRawBaseUrl;
+
+    var __layoutSanitizedBaseUrl = __layoutSanitizeNavigationUrl(__layoutRawBaseUrl, __layoutRawScriptUrl);
+    var __layoutSanitizedScriptUrl = __layoutSanitizeNavigationUrl(__layoutRawScriptUrl, __layoutRawBaseUrl);
+
+    baseUrl = __layoutSanitizedBaseUrl || __layoutSanitizedScriptUrl || baseUrl;
+
+    if (typeof scriptUrl !== 'undefined') {
+      scriptUrl = __layoutSanitizedScriptUrl || __layoutSanitizedBaseUrl || scriptUrl;
+    }
   ?>
 
   <style>
