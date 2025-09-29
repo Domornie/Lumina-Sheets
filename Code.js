@@ -87,8 +87,6 @@ const REALTIME_JOB_LOCK_WAIT_MS = 5000; // Wait up to 5 seconds to acquire the s
 const REALTIME_JOB_LAST_RUN_PROP = 'REALTIME_JOB_LAST_RUN_AT';
 const REALTIME_JOB_LAST_SUCCESS_PROP = 'REALTIME_JOB_LAST_SUCCESS_AT';
 const REALTIME_JOB_STATUS_PROP = 'REALTIME_JOB_STATUS';
-const REALTIME_JOB_ENABLED_PROP = 'REALTIME_JOB_ENABLED';
-const REALTIME_JOB_DEFAULT_ENABLED = false;
 
 /**
  * Utility helpers for managing time-driven triggers that may have become
@@ -143,72 +141,31 @@ function removeLegacyRealtimeTrigger() {
  * Apps Script runtime.
  */
 function checkRealtimeUpdatesJob() {
-  var props = null;
-  try {
-    props = PropertiesService.getScriptProperties();
-  } catch (propInitError) {
-    console.warn('[checkRealtimeUpdatesJob] PropertiesService unavailable; treating realtime job as disabled.', propInitError);
-  }
-  if (!isRealtimeJobEnabled_(props)) {
-    if (props) {
-      try {
-        props.setProperty(REALTIME_JOB_STATUS_PROP, 'disabled');
-      } catch (statusError) {
-        console.warn('[checkRealtimeUpdatesJob] Failed to persist disabled status.', statusError);
-      }
-    }
-    console.log('[checkRealtimeUpdatesJob] Job disabled via script properties; skipping run.');
-    return;
-  }
-
-  if (typeof LockService === 'undefined' || !LockService.getScriptLock) {
-    console.warn('[checkRealtimeUpdatesJob] LockService unavailable; skipping execution to avoid overlapping runs.');
-    return;
-  }
-
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(REALTIME_JOB_LOCK_WAIT_MS)) {
     console.log('[checkRealtimeUpdatesJob] Another run is already in progress; skipping.');
     return;
   }
 
+  var props = PropertiesService.getScriptProperties();
   var config = getRealtimeJobConfig(props);
   var now = Date.now();
-  var lastRun = 0;
-  if (props) {
-    try {
-      lastRun = Number(props.getProperty(REALTIME_JOB_LAST_RUN_PROP)) || 0;
-    } catch (lastRunError) {
-      console.warn('[checkRealtimeUpdatesJob] Failed to read last run timestamp.', lastRunError);
-    }
-  }
+  var lastRun = Number(props.getProperty(REALTIME_JOB_LAST_RUN_PROP)) || 0;
   if (lastRun && now - lastRun < config.minIntervalMs) {
     console.log('[checkRealtimeUpdatesJob] Last run was ' + Math.round((now - lastRun) / 1000) + 's ago; waiting ' + Math.round(config.minIntervalMs / 1000) + 's between executions.');
     lock.releaseLock();
     return;
   }
 
-  if (props) {
-    try {
-      props.setProperty(REALTIME_JOB_LAST_RUN_PROP, String(now));
-      props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
-    } catch (statusPersistError) {
-      console.warn('[checkRealtimeUpdatesJob] Failed to persist running status.', statusPersistError);
-    }
-  }
+  props.setProperty(REALTIME_JOB_LAST_RUN_PROP, String(now));
+  props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
 
   try {
     var handlers = getRealtimeUpdateHandlers();
     if (!handlers.length) {
       console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
-      if (props) {
-        try {
-          props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-          props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-        } catch (idlePersistError) {
-          console.warn('[checkRealtimeUpdatesJob] Failed to persist idle status.', idlePersistError);
-        }
-      }
+      props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+      props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
       return;
     }
 
@@ -247,24 +204,12 @@ function checkRealtimeUpdatesJob() {
       console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
     }
 
-    if (props) {
-      try {
-        props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-        props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-        props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
-      } catch (finalStatusError) {
-        console.warn('[checkRealtimeUpdatesJob] Failed to persist final job status.', finalStatusError);
-      }
-    }
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+    props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
   } catch (error) {
     var message = (error && error.message) ? error.message : String(error);
-    if (props) {
-      try {
-        props.setProperty(REALTIME_JOB_STATUS_PROP, 'error:' + message);
-      } catch (errorStatusPersistError) {
-        console.warn('[checkRealtimeUpdatesJob] Failed to persist error status.', errorStatusPersistError);
-      }
-    }
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'error:' + message);
     if (typeof logError === 'function') {
       logError('checkRealtimeUpdatesJob', error);
     } else {
@@ -354,84 +299,6 @@ function getRealtimeUpdateHandlers() {
   }
 
   return handlers;
-}
-
-function isRealtimeJobEnabled_(props) {
-  props = props || getScriptPropertiesSafe_();
-  if (!props) {
-    return REALTIME_JOB_DEFAULT_ENABLED;
-  }
-
-  try {
-    var raw = props.getProperty(REALTIME_JOB_ENABLED_PROP);
-    if (raw === null || raw === undefined || raw === '') {
-      return REALTIME_JOB_DEFAULT_ENABLED;
-    }
-    if (typeof raw === 'boolean') {
-      return raw;
-    }
-    raw = String(raw).toLowerCase();
-    return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'enabled';
-  } catch (error) {
-    console.warn('isRealtimeJobEnabled_: failed to read script property; defaulting to disabled.', error);
-    return REALTIME_JOB_DEFAULT_ENABLED;
-  }
-}
-
-function pauseRealtimeUpdatesJob() {
-  var props = getScriptPropertiesSafe_();
-  if (!props) {
-    console.warn('pauseRealtimeUpdatesJob: PropertiesService unavailable; cannot persist pause state.');
-    return false;
-  }
-
-  try {
-    props.setProperty(REALTIME_JOB_ENABLED_PROP, 'false');
-    props.setProperty(REALTIME_JOB_STATUS_PROP, 'disabled');
-    console.log('pauseRealtimeUpdatesJob: realtime updates job disabled.');
-    return true;
-  } catch (error) {
-    console.error('pauseRealtimeUpdatesJob: failed to persist disabled state.', error);
-    return false;
-  }
-}
-
-function resumeRealtimeUpdatesJob() {
-  var props = getScriptPropertiesSafe_();
-  if (!props) {
-    console.warn('resumeRealtimeUpdatesJob: PropertiesService unavailable; cannot persist resume state.');
-    return false;
-  }
-
-  try {
-    props.setProperty(REALTIME_JOB_ENABLED_PROP, 'true');
-    props.deleteProperty(REALTIME_JOB_STATUS_PROP);
-    console.log('resumeRealtimeUpdatesJob: realtime updates job enabled.');
-    return true;
-  } catch (error) {
-    console.error('resumeRealtimeUpdatesJob: failed to persist enabled state.', error);
-    return false;
-  }
-}
-
-function getRealtimeJobState() {
-  var props = getScriptPropertiesSafe_();
-  if (!props) {
-    return { enabled: REALTIME_JOB_DEFAULT_ENABLED, status: 'unknown (PropertiesService unavailable)' };
-  }
-
-  try {
-    var enabled = isRealtimeJobEnabled_(props);
-    return {
-      enabled: enabled,
-      lastRunAt: props.getProperty(REALTIME_JOB_LAST_RUN_PROP),
-      lastSuccessAt: props.getProperty(REALTIME_JOB_LAST_SUCCESS_PROP),
-      status: props.getProperty(REALTIME_JOB_STATUS_PROP) || (enabled ? 'idle' : 'disabled')
-    };
-  } catch (error) {
-    console.error('getRealtimeJobState: failed to read realtime job properties.', error);
-    return { enabled: REALTIME_JOB_DEFAULT_ENABLED, status: 'error reading properties' };
-  }
 }
 
 /**
@@ -1267,18 +1134,10 @@ function canonicalizePageKey(k) {
 
 function doGet(e) {
   try {
-    if (e && e.parameter && e.parameter.api === 'db') {
-      if (typeof SheetsDbApi === 'undefined') {
-        return ContentService.createTextOutput(JSON.stringify({ error: 'SheetsDbApi unavailable' }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      return SheetsDbApi.handleGet(e);
-    }
     const baseUrl = getBaseUrl();
 
-    // Request background initialization without blocking initial page render.
-    // The actual work will be kicked off asynchronously from the client once
-    // the page has loaded so that doGet can return immediately.
+    // Initialize system
+    initializeSystem();
 
     // Handle special actions
     if (e.parameter.page === 'proxy') {
@@ -1384,18 +1243,6 @@ function doGet(e) {
     writeError('doGet', error);
     return createErrorPage('System Error', `An error occurred: ${error.message}`);
   }
-}
-
-function doPost(e) {
-  if (e && e.parameter && e.parameter.api === 'db') {
-    if (typeof SheetsDbApi === 'undefined') {
-      return ContentService.createTextOutput(JSON.stringify({ error: 'SheetsDbApi unavailable' }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    return SheetsDbApi.handlePost(e);
-  }
-  return ContentService.createTextOutput(JSON.stringify({ error: 'Unsupported route' }))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -3764,279 +3611,7 @@ function getEmptyQAAnalytics() {
 // SYSTEM INITIALIZATION
 // ───────────────────────────────────────────────────────────────────────────────
 
-const SYSTEM_INIT_CACHE_KEY = 'SYSTEM_INIT_V1';
-const SYSTEM_INIT_CACHE_TTL_SECONDS = 15 * 60; // Cache successful init state for 15 minutes
-const SYSTEM_INIT_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000; // At most once every 6 hours
-const SYSTEM_INIT_LOCK_WAIT_MS = 1500; // Wait up to 1.5s for the init lock
-const SYSTEM_INIT_LAST_RUN_PROP = 'SYSTEM_INIT_LAST_RUN_AT';
-const CAMPAIGN_SYSTEMS_LAST_INIT_PROP = 'CAMPAIGN_SYSTEMS_LAST_INIT_AT';
-const CAMPAIGN_SYSTEMS_MIN_INTERVAL_MS = 60 * 60 * 1000; // Rebuild campaign assets at most hourly
-const ASYNC_INIT_MIN_INTERVAL_MS = 2 * 60 * 1000; // Only re-attempt async initialization every 2 minutes
-const ASYNC_INIT_LAST_ATTEMPT_PROP = 'ASYNC_INIT_LAST_ATTEMPT_AT';
-const ASYNC_INIT_LOCK_WAIT_MS = 250; // Small lock window for async queueing
-
-function getScriptCacheSafe_() {
-  try {
-    return (typeof CacheService !== 'undefined' && CacheService.getScriptCache)
-      ? CacheService.getScriptCache()
-      : null;
-  } catch (error) {
-    console.warn('initializeSystem: CacheService unavailable; continuing without cache.', error);
-    return null;
-  }
-}
-
-function getScriptPropertiesSafe_() {
-  try {
-    return (typeof PropertiesService !== 'undefined' && PropertiesService.getScriptProperties)
-      ? PropertiesService.getScriptProperties()
-      : null;
-  } catch (error) {
-    console.warn('initializeSystem: PropertiesService unavailable; continuing without script properties.', error);
-    return null;
-  }
-}
-
-function acquireSystemInitLock_() {
-  if (typeof LockService === 'undefined' || !LockService.getScriptLock) {
-    return { acquired: false, lock: null, unavailable: true };
-  }
-
-  try {
-    var lock = LockService.getScriptLock();
-    if (!lock.tryLock(SYSTEM_INIT_LOCK_WAIT_MS)) {
-      return { acquired: false, lock: lock, unavailable: false };
-    }
-    return {
-      acquired: true,
-      lock: lock,
-      release: function () {
-        try {
-          lock.releaseLock();
-        } catch (releaseError) {
-          console.warn('initializeSystem: failed to release initialization lock.', releaseError);
-        }
-      }
-    };
-  } catch (error) {
-    console.warn('initializeSystem: could not acquire LockService lock; falling back to direct initialization.', error);
-    return { acquired: false, lock: null, unavailable: true };
-  }
-}
-
-function queueBackgroundInitialization(options) {
-  options = options || {};
-  var force = options.force === true;
-  var throttleMs = typeof options.throttleMs === 'number' && options.throttleMs >= 0
-    ? options.throttleMs
-    : ASYNC_INIT_MIN_INTERVAL_MS;
-
-  var props = getScriptPropertiesSafe_();
-  var now = Date.now();
-  var lastAttempt = 0;
-
-  if (!force && props) {
-    try {
-      lastAttempt = Number(props.getProperty(ASYNC_INIT_LAST_ATTEMPT_PROP)) || 0;
-    } catch (readError) {
-      console.warn('queueBackgroundInitialization: failed to read last attempt timestamp.', readError);
-    }
-  }
-
-  if (!force && lastAttempt && now - lastAttempt < throttleMs) {
-    return {
-      queued: false,
-      reason: 'throttled',
-      lastAttempt: lastAttempt,
-      throttleMs: throttleMs
-    };
-  }
-
-  var lock = null;
-  if (typeof LockService !== 'undefined' && LockService.getScriptLock) {
-    try {
-      lock = LockService.getScriptLock();
-      if (!lock.tryLock(ASYNC_INIT_LOCK_WAIT_MS)) {
-        return { queued: false, reason: 'busy' };
-      }
-    } catch (lockError) {
-      console.warn('queueBackgroundInitialization: failed to acquire lock; continuing without lock.', lockError);
-      lock = null;
-    }
-  }
-
-  try {
-    if (props) {
-      try {
-        props.setProperty(ASYNC_INIT_LAST_ATTEMPT_PROP, String(now));
-      } catch (writeError) {
-        console.warn('queueBackgroundInitialization: failed to persist last attempt timestamp.', writeError);
-      }
-    }
-
-    var result;
-    try {
-      result = initializeSystem(options);
-    } catch (error) {
-      console.error('queueBackgroundInitialization: initializeSystem threw an error.', error);
-      writeError('queueBackgroundInitialization', error);
-      return {
-        queued: false,
-        reason: 'error',
-        error: error && error.message ? error.message : String(error)
-      };
-    }
-
-    return {
-      queued: true,
-      result: result
-    };
-  } finally {
-    if (lock) {
-      try {
-        lock.releaseLock();
-      } catch (releaseError) {
-        console.warn('queueBackgroundInitialization: failed to release lock.', releaseError);
-      }
-    }
-  }
-}
-
-function initializeSystem(options) {
-  options = options || {};
-  var force = options.force === true;
-
-  var cache = getScriptCacheSafe_();
-
-  if (!force && cache) {
-    try {
-      var cached = cache.get(SYSTEM_INIT_CACHE_KEY);
-      if (cached) {
-        return { success: true, message: 'System initialization skipped (cached)' };
-      }
-    } catch (cacheError) {
-      console.warn('initializeSystem: cache read failed; continuing without cache.', cacheError);
-      cache = null;
-    }
-  }
-
-  var lockInfo = acquireSystemInitLock_();
-  if (!lockInfo.acquired && !force) {
-    if (lockInfo.unavailable) {
-      // If LockService is unavailable we continue by falling back to property-based throttling.
-      var fallbackProps = getScriptPropertiesSafe_();
-      return runSystemInitializationWithThrottleFallback_(options, cache, fallbackProps);
-    }
-
-    console.log('initializeSystem: another initialization is already running; skipping.');
-    return { success: true, message: 'Initialization already in progress' };
-  }
-
-  try {
-    var props = getScriptPropertiesSafe_();
-    var now = Date.now();
-    var lastRun = 0;
-
-    if (props) {
-      try {
-        lastRun = Number(props.getProperty(SYSTEM_INIT_LAST_RUN_PROP)) || 0;
-      } catch (propReadError) {
-        console.warn('initializeSystem: could not read last run timestamp; ignoring throttle.', propReadError);
-        props = null;
-      }
-    }
-
-    if (!force && lastRun && now - lastRun < SYSTEM_INIT_MIN_INTERVAL_MS) {
-      if (cache) {
-        try {
-          cache.put(SYSTEM_INIT_CACHE_KEY, '1', SYSTEM_INIT_CACHE_TTL_SECONDS);
-        } catch (cacheWriteError) {
-          console.warn('initializeSystem: cache write failed while throttling.', cacheWriteError);
-        }
-      }
-      console.log('initializeSystem: throttled; last run ' + Math.round((now - lastRun) / 1000) + 's ago.');
-      return { success: true, message: 'Initialization throttled' };
-    }
-
-    var result = runSystemInitialization_(options);
-    if (result && result.success) {
-      if (props) {
-        try {
-          props.setProperty(SYSTEM_INIT_LAST_RUN_PROP, String(now));
-        } catch (propWriteError) {
-          console.warn('initializeSystem: failed to persist last run timestamp.', propWriteError);
-        }
-      }
-      if (cache) {
-        try {
-          cache.put(SYSTEM_INIT_CACHE_KEY, '1', SYSTEM_INIT_CACHE_TTL_SECONDS);
-        } catch (cachePersistError) {
-          console.warn('initializeSystem: cache write failed after initialization.', cachePersistError);
-        }
-      }
-    }
-
-    return result;
-
-  } finally {
-
-    if (lockInfo && lockInfo.acquired && typeof lockInfo.release === 'function') {
-      lockInfo.release();
-    }
-  }
-}
-
-function runSystemInitializationWithThrottleFallback_(options, cache, props) {
-  options = options || {};
-  var force = options.force === true;
-  var now = Date.now();
-  var lastRun = 0;
-
-  if (!force && props) {
-    try {
-      lastRun = Number(props.getProperty(SYSTEM_INIT_LAST_RUN_PROP)) || 0;
-    } catch (propReadError) {
-      console.warn('initializeSystem: fallback mode could not read last run timestamp; continuing without throttle.', propReadError);
-      props = null;
-    }
-  }
-
-  if (!force && lastRun && now - lastRun < SYSTEM_INIT_MIN_INTERVAL_MS) {
-    if (cache) {
-      try {
-        cache.put(SYSTEM_INIT_CACHE_KEY, '1', SYSTEM_INIT_CACHE_TTL_SECONDS);
-      } catch (cacheWriteError) {
-        console.warn('initializeSystem: fallback mode cache write failed while throttling.', cacheWriteError);
-      }
-    }
-    console.log('initializeSystem: throttled via fallback; last run ' + Math.round((now - lastRun) / 1000) + 's ago.');
-    return { success: true, message: 'Initialization throttled' };
-  }
-
-  var result = runSystemInitialization_(options);
-
-  if (result && result.success) {
-    if (props) {
-      try {
-        props.setProperty(SYSTEM_INIT_LAST_RUN_PROP, String(now));
-      } catch (propWriteError) {
-        console.warn('initializeSystem: fallback mode failed to persist last run timestamp.', propWriteError);
-      }
-    }
-
-    if (cache) {
-      try {
-        cache.put(SYSTEM_INIT_CACHE_KEY, '1', SYSTEM_INIT_CACHE_TTL_SECONDS);
-      } catch (cacheWriteError2) {
-        console.warn('initializeSystem: fallback mode cache write failed.', cacheWriteError2);
-      }
-    }
-  }
-
-  return result;
-}
-
-function runSystemInitialization_(options) {
+function initializeSystem() {
   try {
     console.log('Initializing system...');
 
@@ -4045,21 +3620,13 @@ function runSystemInitialization_(options) {
     }
 
     initializeMainSheets();
-    initializeCampaignSystems(options);
+    initializeCampaignSystems();
 
     if (typeof CallCenterWorkflowService !== 'undefined' && CallCenterWorkflowService.initialize) {
       try {
         CallCenterWorkflowService.initialize();
       } catch (err) {
         console.warn('CallCenterWorkflowService initialization failed', err);
-      }
-    }
-
-    if (typeof initializeSheetsDatabase === 'function') {
-      try {
-        initializeSheetsDatabase();
-      } catch (dbErr) {
-        console.warn('initializeSheetsDatabase failed', dbErr);
       }
     }
 
@@ -4132,29 +3699,8 @@ function initializeSheetHeaders(sheet, sheetName) {
   }
 }
 
-function initializeCampaignSystems(options) {
-  options = options || {};
-  var force = options.force === true;
-
+function initializeCampaignSystems() {
   try {
-    var props = getScriptPropertiesSafe_();
-    var now = Date.now();
-    var lastRun = 0;
-
-    if (props) {
-      try {
-        lastRun = Number(props.getProperty(CAMPAIGN_SYSTEMS_LAST_INIT_PROP)) || 0;
-      } catch (propReadError) {
-        console.warn('initializeCampaignSystems: could not read last run timestamp; proceeding without throttle.', propReadError);
-        props = null;
-      }
-    }
-
-    if (!force && lastRun && now - lastRun < CAMPAIGN_SYSTEMS_MIN_INTERVAL_MS) {
-      console.log('initializeCampaignSystems: recently initialized; skipping.');
-      return;
-    }
-
     if (typeof initializeIndependenceQASystem === 'function') {
       try {
         initializeIndependenceQASystem();
@@ -4174,25 +3720,12 @@ function initializeCampaignSystems(options) {
     }
 
     if (typeof readSheet === 'function') {
-      try {
-        var pages = readSheet('Pages');
-        if (pages.length === 0) {
-          initializeSystemPages();
-        }
-      } catch (readError) {
-        console.warn('initializeCampaignSystems: failed to verify system pages.', readError);
+      const pages = readSheet('Pages');
+      if (pages.length === 0) {
+        initializeSystemPages();
       }
     }
 
-    if (props) {
-      try {
-        props.setProperty(CAMPAIGN_SYSTEMS_LAST_INIT_PROP, String(now));
-      } catch (propWriteError) {
-        console.warn('initializeCampaignSystems: failed to persist last run timestamp.', propWriteError);
-      }
-    }
-
-    props.setProperty(CAMPAIGN_SYSTEMS_LAST_INIT_PROP, String(now));
     console.log('Campaign systems initialization completed');
 
   } catch (error) {
