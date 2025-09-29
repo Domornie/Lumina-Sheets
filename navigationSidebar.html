@@ -53,8 +53,10 @@
     });
   }
 
+  var rawRoleNames = (typeof roleNames !== 'undefined' && roleNames !== null) ? roleNames : '';
+
   var roleCandidates = [];
-  roleCandidates = roleCandidates.concat(normalizeRoleInput(roleNames));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(rawRoleNames));
   roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.roleNames));
   roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.roles));
   roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.Roles));
