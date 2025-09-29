@@ -269,28 +269,11 @@
       } catch (err) {
         logError('resolveRoleIds:getUserRoleIds', err);
       }
-      return record;
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Role helpers
-  // ---------------------------------------------------------------------------
-
-  function resolveRoleIds(userId, fallbackColumn) {
-    var ids = [];
-    if (typeof global.getUserRoleIds === 'function') {
-      try {
-        ids = global.getUserRoleIds(userId) || [];
-      } catch (err) {
-        logError('resolveRoleIds:getUserRoleIds', err);
+    }
+    if (!ids || !ids.length) {
+      if (fallbackColumn) {
+        ids = parseList(fallbackColumn);
       }
-    }
-    if ((!ids || !ids.length) && fallbackColumn) {
-      ids = parseList(fallbackColumn);
-    }
-    if ((!ids || !ids.length) && fallbackColumn) {
-      ids = parseList(fallbackColumn);
     }
     return ids;
   }
@@ -328,7 +311,6 @@
       } catch (err) {
         logError('syncRoles:deleteUserRoles', err);
       }
-
     }
 
     if (typeof global.addUserRole === 'function') {

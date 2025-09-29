@@ -204,7 +204,6 @@ The web app exposes `/exec?api=db` for programmatic access:
 GET  ?api=db&table=AgentProfiles&limit=50
 GET  ?api=db&table=AgentProfiles&id=AGENT_000123
 POST ?api=db (body: { "action": "create", "table": "AgentProfiles", ... })
-
 ```
 
 Protect the endpoint with script properties:
