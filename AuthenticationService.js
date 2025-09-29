@@ -193,6 +193,165 @@
     return sanitized;
   }
 
+  function isEmailConfirmed(user) {
+    if (!user) {
+      return false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(user, 'EmailConfirmed')) {
+      return true;
+    }
+    return toBoolean(user.EmailConfirmed);
+  }
+
+  function invalidateUsersCache() {
+    try {
+      if (typeof global.invalidateCache === 'function') {
+        global.invalidateCache(USERS_TABLE_NAME);
+      }
+    } catch (err) {
+      console.warn('invalidateUsersCache: failed to invalidate cache', err);
+    }
+  }
+
+  function findUserByResetToken(token) {
+    var normalized = normalizeString(token);
+    if (!normalized) {
+      return null;
+    }
+
+    var table = getUsersTable();
+    var user = null;
+
+    if (typeof table.findOne === 'function') {
+      user = table.findOne({ EmailConfirmation: normalized });
+    }
+
+    if (!user && typeof table.find === 'function') {
+      var results = table.find({ where: { EmailConfirmation: normalized }, limit: 5 }) || [];
+      user = results.length ? results[0] : null;
+    }
+
+    if (!user && typeof table.read === 'function') {
+      var rows = table.read({ limit: 2000 }) || [];
+      for (var i = 0; i < rows.length; i++) {
+        if (normalizeString(rows[i].EmailConfirmation) === normalized) {
+          user = rows[i];
+          break;
+        }
+      }
+    }
+
+    if (user && user.Email) {
+      user.Email = normalizeEmail(user.Email);
+    }
+
+    return user;
+  }
+
+  function ensureResetTokenForUser(user) {
+    if (!user || !user.ID) {
+      throw new Error('User record is missing an ID');
+    }
+
+    var table = getUsersTable();
+    var token = normalizeString(user.EmailConfirmation);
+    var needsUpdate = false;
+    var updates = { UpdatedAt: nowIso() };
+
+    if (!token) {
+      token = Utilities.getUuid();
+      updates.EmailConfirmation = token;
+      needsUpdate = true;
+    }
+
+    if (!toBoolean(user.ResetRequired)) {
+      updates.ResetRequired = true;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      if (typeof table.update !== 'function') {
+        throw new Error('Users table does not support updates');
+      }
+      table.update(String(user.ID), updates);
+      invalidateUsersCache();
+      user.ResetRequired = true;
+    }
+
+    user.EmailConfirmation = token;
+
+    return token;
+  }
+
+  function sendPasswordResetNotification(user, token) {
+    if (!user || !user.Email || !token) {
+      return false;
+    }
+
+    if (typeof global.sendPasswordResetEmail === 'function') {
+      try {
+        return global.sendPasswordResetEmail(user.Email, token) !== false;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    if (typeof global.sendAdminPasswordResetEmail === 'function') {
+      try {
+        global.sendAdminPasswordResetEmail(user.Email, { resetToken: token });
+        return true;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    return false;
+  }
+
+  function sendPasswordSetupNotification(user, token) {
+    if (!user || !user.Email || !token) {
+      return false;
+    }
+
+    var payload = {
+      userName: user.UserName || user.Email,
+      fullName: user.FullName || user.UserName || user.Email,
+      passwordSetupToken: token
+    };
+
+    if (typeof global.sendFirstLoginResendEmail === 'function') {
+      try {
+        return global.sendFirstLoginResendEmail(user.Email, payload) !== false;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    if (typeof global.sendPasswordSetupEmail === 'function') {
+      try {
+        return global.sendPasswordSetupEmail(user.Email, payload) !== false;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    return sendPasswordResetNotification(user, token);
+  }
+
+  function sendPasswordChangeConfirmation(user) {
+    if (!user || !user.Email) {
+      return;
+    }
+
+    if (typeof global.sendPasswordChangeConfirmation === 'function') {
+      try {
+        global.sendPasswordChangeConfirmation(user.Email, { timestamp: nowIso() });
+      } catch (err) {
+        console.warn('sendPasswordChangeConfirmation: failed to send confirmation', err);
+      }
+    }
+  }
+
   function isSoftDeleted(record) {
     if (!record) {
       return false;
@@ -455,8 +614,49 @@
       return { success: false, error: 'Account is disabled', errorCode: 'ACCOUNT_DISABLED' };
     }
 
+    var existingHash = normalizeString(user.PasswordHash);
+    if (!existingHash) {
+      var setupToken;
+      try {
+        setupToken = ensureResetTokenForUser(user);
+      } catch (tokenErr) {
+        console.error('login: failed to ensure setup token', tokenErr);
+        if (typeof global.writeError === 'function') {
+          global.writeError('login.ensureResetToken', tokenErr);
+        }
+      }
+      return {
+        success: false,
+        error: 'You need to set a password before signing in. Check your email for the activation link.',
+        errorCode: 'PASSWORD_NOT_SET',
+        resetToken: setupToken || normalizeString(user.EmailConfirmation) || ''
+      };
+    }
+
     if (!verifyUserPassword(user, password)) {
       return { success: false, error: 'Invalid email or password', errorCode: 'INVALID_CREDENTIALS' };
+    }
+
+    if (!isEmailConfirmed(user)) {
+      return { success: false, error: 'Please confirm your email address before signing in.', errorCode: 'EMAIL_NOT_CONFIRMED' };
+    }
+
+    if (toBoolean(user.ResetRequired)) {
+      var resetToken;
+      try {
+        resetToken = ensureResetTokenForUser(user);
+      } catch (resetErr) {
+        console.error('login: failed to ensure reset token', resetErr);
+        if (typeof global.writeError === 'function') {
+          global.writeError('login.ensureResetToken', resetErr);
+        }
+      }
+      return {
+        success: false,
+        error: 'Password reset required before signing in.',
+        errorCode: 'PASSWORD_RESET_REQUIRED',
+        resetToken: resetToken || normalizeString(user.EmailConfirmation) || ''
+      };
     }
 
     var sessionEnvelope = buildSessionRecord(user.ID, !!rememberMe, null, clientMetadata);
@@ -562,6 +762,213 @@
     });
   }
 
+  function requestPasswordReset(email) {
+    try {
+      ensureTables();
+    } catch (err) {
+      return {
+        success: false,
+        error: 'Authentication system unavailable',
+        errorCode: 'AUTH_UNAVAILABLE'
+      };
+    }
+
+    var normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return { success: false, error: 'Email is required', errorCode: 'EMAIL_REQUIRED' };
+    }
+
+    var user = findUserByEmail(normalizedEmail);
+    var genericMessage = 'If an account with that email exists, a password reset link has been sent.';
+
+    if (!user) {
+      return { success: true, message: genericMessage };
+    }
+
+    if (!canLogin(user)) {
+      return { success: true, message: genericMessage };
+    }
+
+    var lock = null;
+    if (typeof LockService !== 'undefined' && LockService) {
+      try {
+        lock = LockService.getScriptLock();
+        lock.waitLock(20000);
+      } catch (err) {
+        return { success: false, error: 'System is busy. Please try again shortly.', errorCode: 'LOCK_TIMEOUT' };
+      }
+    }
+
+    try {
+      var token = ensureResetTokenForUser(user);
+      if (!sendPasswordResetNotification(user, token)) {
+        return {
+          success: false,
+          error: 'Unable to send password reset email. Please contact support.',
+          errorCode: 'EMAIL_FAILURE'
+        };
+      }
+      return { success: true, message: genericMessage };
+    } catch (err) {
+      console.error('requestPasswordReset failed', err);
+      if (typeof global.writeError === 'function') {
+        global.writeError('requestPasswordReset', err);
+      }
+      return {
+        success: false,
+        error: 'Unable to process the password reset request. Please try again later.',
+        errorCode: 'RESET_FAILED'
+      };
+    } finally {
+      if (lock) {
+        try { lock.releaseLock(); } catch (_) { }
+      }
+    }
+  }
+
+  function resendPasswordSetupEmail(email) {
+    try {
+      ensureTables();
+    } catch (err) {
+      return {
+        success: false,
+        error: 'Authentication system unavailable',
+        errorCode: 'AUTH_UNAVAILABLE'
+      };
+    }
+
+    var normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return { success: false, error: 'Email is required', errorCode: 'EMAIL_REQUIRED' };
+    }
+
+    var user = findUserByEmail(normalizedEmail);
+    var genericMessage = 'If an account with that email exists, setup instructions have been sent.';
+
+    if (!user) {
+      return { success: true, message: genericMessage };
+    }
+
+    if (!canLogin(user)) {
+      return { success: true, message: genericMessage };
+    }
+
+    // If a password already exists, fall back to the reset flow.
+    if (normalizeString(user.PasswordHash)) {
+      return requestPasswordReset(normalizedEmail);
+    }
+
+    var lock = null;
+    if (typeof LockService !== 'undefined' && LockService) {
+      try {
+        lock = LockService.getScriptLock();
+        lock.waitLock(20000);
+      } catch (err) {
+        return { success: false, error: 'System is busy. Please try again shortly.', errorCode: 'LOCK_TIMEOUT' };
+      }
+    }
+
+    try {
+      var token = ensureResetTokenForUser(user);
+      if (!sendPasswordSetupNotification(user, token)) {
+        return {
+          success: false,
+          error: 'Unable to send the setup email. Please contact support.',
+          errorCode: 'EMAIL_FAILURE'
+        };
+      }
+      return { success: true, message: genericMessage };
+    } catch (err) {
+      console.error('resendPasswordSetupEmail failed', err);
+      if (typeof global.writeError === 'function') {
+        global.writeError('resendPasswordSetupEmail', err);
+      }
+      return {
+        success: false,
+        error: 'Unable to resend the setup email. Please try again later.',
+        errorCode: 'SETUP_FAILED'
+      };
+    } finally {
+      if (lock) {
+        try { lock.releaseLock(); } catch (_) { }
+      }
+    }
+  }
+
+  function setPasswordWithToken(token, newPassword) {
+    try {
+      ensureTables();
+    } catch (err) {
+      return {
+        success: false,
+        error: 'Authentication system unavailable',
+        errorCode: 'AUTH_UNAVAILABLE'
+      };
+    }
+
+    var normalizedToken = normalizeString(token);
+    if (!normalizedToken) {
+      return { success: false, error: 'Invalid or missing token.', errorCode: 'TOKEN_MISSING' };
+    }
+
+    var normalizedPassword = newPassword == null ? '' : String(newPassword);
+    if (normalizedPassword.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters long.', errorCode: 'PASSWORD_TOO_SHORT' };
+    }
+
+    var user = findUserByResetToken(normalizedToken);
+    if (!user) {
+      return { success: false, error: 'Reset link is invalid or has expired.', errorCode: 'TOKEN_INVALID' };
+    }
+
+    var lock = null;
+    if (typeof LockService !== 'undefined' && LockService) {
+      try {
+        lock = LockService.getScriptLock();
+        lock.waitLock(20000);
+      } catch (err) {
+        return { success: false, error: 'System is busy. Please try again shortly.', errorCode: 'LOCK_TIMEOUT' };
+      }
+    }
+
+    try {
+      var utils = getPasswordUtils();
+      var hash = utils.createPasswordHash(normalizedPassword);
+      var table = getUsersTable();
+      if (typeof table.update !== 'function') {
+        throw new Error('Users table does not support updates');
+      }
+
+      table.update(String(user.ID), {
+        PasswordHash: hash,
+        ResetRequired: false,
+        EmailConfirmation: '',
+        EmailConfirmed: true,
+        UpdatedAt: nowIso()
+      });
+      invalidateUsersCache();
+      sendPasswordChangeConfirmation(user);
+      return {
+        success: true,
+        message: 'Your password has been updated. You may now sign in.'
+      };
+    } catch (err) {
+      console.error('setPasswordWithToken failed', err);
+      if (typeof global.writeError === 'function') {
+        global.writeError('setPasswordWithToken', err);
+      }
+      return {
+        success: false,
+        error: 'Unable to update your password. Please try again later.',
+        errorCode: 'RESET_FAILED'
+      };
+    } finally {
+      if (lock) {
+        try { lock.releaseLock(); } catch (_) { }
+      }
+    }
+  }
+
   function ensureSheets() {
     ensureTables();
   }
@@ -578,7 +985,10 @@
     findUserById: findUserById,
     getUserByEmail: findUserByEmail,
     verifyUserPassword: verifyUserPassword,
-    getTableSchemas: getTableSchemas
+    getTableSchemas: getTableSchemas,
+    requestPasswordReset: requestPasswordReset,
+    resendPasswordSetupEmail: resendPasswordSetupEmail,
+    setPasswordWithToken: setPasswordWithToken
   };
 
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -597,6 +1007,18 @@ function keepAliveSession(sessionToken) {
 
 function login(email, password, rememberMe, clientMetadata) {
   return AuthenticationService.login(email, password, rememberMe, clientMetadata);
+}
+
+function requestPasswordReset(email) {
+  return AuthenticationService.requestPasswordReset(email);
+}
+
+function resendPasswordSetupEmail(email) {
+  return AuthenticationService.resendPasswordSetupEmail(email);
+}
+
+function setPasswordWithToken(token, newPassword) {
+  return AuthenticationService.setPasswordWithToken(token, newPassword);
 }
 
 function logout(sessionToken) {
