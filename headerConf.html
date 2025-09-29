@@ -1,4 +1,54 @@
 <!-- File: header.html -->
+<?
+  var __headerInvalidPanelPattern = /usercodeapppanel/i;
+
+  function __headerNormalizeUrlValue(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var trimmed = String(value).trim();
+    if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+      return '';
+    }
+
+    return trimmed;
+  }
+
+  function __headerFixPanelUrl(value) {
+    var normalized = __headerNormalizeUrlValue(value);
+    if (!normalized) {
+      return '';
+    }
+
+    if (!__headerInvalidPanelPattern.test(normalized)) {
+      return normalized;
+    }
+
+    return normalized.replace(/\/userCodeAppPanel.*$/i, '/exec');
+  }
+
+  function __headerSanitizeNavigationUrl(url, fallback) {
+    var primary = __headerFixPanelUrl(url);
+    if (primary) {
+      return primary;
+    }
+
+    return __headerFixPanelUrl(fallback);
+  }
+
+  var __headerRawBaseUrl = (typeof baseUrl !== 'undefined') ? baseUrl : '';
+  var __headerRawScriptUrl = (typeof scriptUrl !== 'undefined') ? scriptUrl : __headerRawBaseUrl;
+
+  var __headerSanitizedBaseUrl = __headerSanitizeNavigationUrl(__headerRawBaseUrl, __headerRawScriptUrl);
+  var __headerSanitizedScriptUrl = __headerSanitizeNavigationUrl(__headerRawScriptUrl, __headerRawBaseUrl);
+
+  baseUrl = __headerSanitizedBaseUrl || __headerSanitizedScriptUrl || baseUrl;
+
+  if (typeof scriptUrl !== 'undefined') {
+    scriptUrl = __headerSanitizedScriptUrl || __headerSanitizedBaseUrl || scriptUrl;
+  }
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
