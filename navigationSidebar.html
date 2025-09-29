@@ -1,0 +1,187 @@
+<?
+  var baseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var currentPage = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : '';
+  var sidebarUser = (typeof user !== 'undefined' && user) ? user : {};
+  var isAdminUser = Boolean(isAdmin);
+  var userRoleNames = Array.isArray(roleNames) ? roleNames : [];
+  var campaignIdValue = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
+  var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
+  var navigationConfig = navigation && typeof navigation === 'object' ? navigation : { categories: [], uncategorizedPages: [] };
+  var employmentMetaValue = employmentMeta && typeof employmentMeta === 'object' ? employmentMeta : { status: '', cls: '', icon: 'fas fa-briefcase' };
+
+  function generateLink(page) {
+    return baseUrl + '?page=' + encodeURIComponent(page);
+  }
+?>
+
+<nav id="sidebar">
+  <!-- Enhanced Logo Section -->
+  <div class="sidebar-logo" id="sidebarToggle">
+    <img
+      src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png"
+      alt="LuminaHQ Icon"
+      class="logo-icon"
+      loading="lazy"
+      onerror="this.style.display='none'"
+    />
+
+    <div class="logo-text-container">
+      <img
+        src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763929/vlbpo/lumina/Lumina_aa8rch.png"
+        alt="LuminaHQ"
+        class="logo-text"
+        loading="lazy"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='block'"
+      />
+
+      <div class="logo-text-fallback">
+        <span class="brand-accent">Lumina</span>HQ
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-content">
+    <? if (campaignIdValue && campaignNameValue) { ?>
+    <div class="campaign-header-sidebar">
+      <div class="campaign-badge-sidebar">
+        <i class="fas fa-building"></i>
+        <?= campaignNameValue ?>
+      </div>
+    </div>
+    <? } else if (isAdminUser) { ?>
+    <div class="campaign-header-sidebar">
+      <div class="campaign-badge-sidebar">
+        <i class="fas fa-user-shield"></i>System Administrator
+      </div>
+    </div>
+    <? } ?>
+
+    <? if (navigationConfig && navigationConfig.categories && navigationConfig.categories.length > 0) { ?>
+      <? navigationConfig.categories.forEach(function(category) { ?>
+        <? if (category && category.pages && category.pages.length > 0) { ?>
+        <div class="sidebar-category">
+          <div class="category-header">
+            <i class="<?= category.CategoryIcon || 'fas fa-folder' ?>"></i>
+            <span><?= category.CategoryName || 'Unnamed Category' ?></span>
+          </div>
+          <div class="sidebar-group">
+            <? category.pages.forEach(function(page) { ?>
+              <? if (page && page.PageKey && page.PageTitle) { ?>
+              <a href="<?= generateLink(page.PageKey) ?>"
+                class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
+                data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
+                <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
+                <span><?= page.PageTitle ?></span>
+              </a>
+              <? } ?>
+            <? }); ?>
+          </div>
+        </div>
+        <? } ?>
+      <? }); ?>
+    <? } ?>
+
+    <? if (navigationConfig && navigationConfig.uncategorizedPages && navigationConfig.uncategorizedPages.length > 0) { ?>
+    <div class="sidebar-category">
+      <div class="category-header">
+        <i class="fas fa-list"></i>
+        <span>Other</span>
+      </div>
+      <div class="sidebar-group">
+        <? navigationConfig.uncategorizedPages.forEach(function(page) { ?>
+          <? if (page && page.PageKey && page.PageTitle) { ?>
+          <a href="<?= generateLink(page.PageKey) ?>"
+            class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
+            <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
+            <span><?= page.PageTitle ?></span>
+          </a>
+          <? } ?>
+        <? }); ?>
+      </div>
+    </div>
+    <? } ?>
+
+    <div class="global-section">
+      <div class="sidebar-category">
+        <div class="category-header">
+          <i class="fas fa-globe"></i>
+          <span>Global</span>
+        </div>
+        <div class="sidebar-group">
+          <a href="<?= generateLink('chat') ?>" class="<?= currentPage==='Chat'?'active':'' ?>" data-bs-toggle="tooltip"
+            data-bs-placement="right" title="Team Chat">
+            <i class="fas fa-comments"></i><span>Chat</span>
+          </a>
+          <a href="<?= generateLink('collaboration-reporting') ?>" class="<?= currentPage==='Collaboration Reporting'?'active':'' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Collaboration &amp; Reporting Hub">
+            <i class="fas fa-diagram-project"></i><span>Collab &amp; Reporting</span>
+          </a>
+          <a href="<?= generateLink('search') ?>" class="<?= currentPage==='Search'?'active':'' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Web Search">
+            <i class="fas fa-search"></i><span>Search</span>
+          </a>
+          <a href="<?= generateLink('bookmarks') ?>" class="<?= currentPage==='Bookmarks'?'active':'' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Bookmarks">
+            <i class="fas fa-bookmark"></i><span>Bookmarks</span>
+          </a>
+        </div>
+      </div>
+
+      <? if (isAdminUser) { ?>
+      <div class="sidebar-category">
+        <div class="category-header">
+          <i class="fas fa-shield-alt"></i>
+          <span>Administration</span>
+        </div>
+        <div class="sidebar-group">
+          <a href="<?= generateLink('manageuser') ?>" class="<?= currentPage==='Users'?'active':'' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="User Management">
+            <i class="fas fa-users"></i><span>Users</span>
+          </a>
+          <a href="<?= generateLink('manageroles') ?>" class="<?= currentPage==='Settings'?'active':'' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Role Management">
+            <i class="fas fa-user-shield"></i><span>Roles</span>
+          </a>
+          <a href="<?= generateLink('managecampaign') ?>" class="<?= currentPage==='Campaigns'?'active':'' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Campaign Management">
+            <i class="fas fa-bullhorn"></i><span>Campaigns</span>
+          </a>
+        </div>
+      </div>
+      <? } ?>
+    </div>
+  </div>
+
+  <div class="user-panel" id="userPanel" data-initialized="true"
+    data-name="<?= sidebarUser.FullName || sidebarUser.UserName || 'Unknown User' ?>"
+    data-roles="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>"
+    data-status="<?= sidebarUser.EmploymentStatus || '' ?>" data-country="<?= sidebarUser.Country || '' ?>">
+    <div class="user-avatar-side" id="userAvatar">
+      <?= (sidebarUser.FullName || sidebarUser.UserName || 'U').charAt(0).toUpperCase() ?>
+    </div>
+    <div class="user-info">
+      <div class="names" id="userName">
+        <?= sidebarUser.FullName || sidebarUser.UserName || 'Unknown User' ?>
+      </div>
+      <div class="role" id="userRole">
+        <? if (userRoleNames && userRoleNames.length) { ?>
+        <?= userRoleNames.join(', ') ?>
+        <? } else if (isAdminUser) { ?>
+        System Administrator
+        <? } else { ?>
+        User
+        <? } ?>
+      </div>
+      <div class="employment-status" id="userEmp">
+        <? if (employmentMetaValue.status) { ?>
+        <i class="<?= employmentMetaValue.icon ?> <?= employmentMetaValue.cls ?>"></i>
+        <span class="<?= employmentMetaValue.cls ?>"><?= employmentMetaValue.status ?></span>
+        <? if (sidebarUser.Country) { ?><span>• <?= sidebarUser.Country ?></span><? } ?>
+        <? } else if (sidebarUser.Country) { ?>
+        <i class="fas fa-globe"></i><span><?= sidebarUser.Country ?></span>
+        <? } ?>
+      </div>
+    </div>
+  </div>
+</nav>
