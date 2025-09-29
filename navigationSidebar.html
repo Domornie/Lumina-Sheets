@@ -3,11 +3,74 @@
   var currentPage = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : '';
   var sidebarUser = (typeof user !== 'undefined' && user) ? user : {};
   var isAdminUser = Boolean(isAdmin);
-  var userRoleNames = Array.isArray(roleNames) ? roleNames : [];
   var campaignIdValue = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
   var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
   var navigationConfig = navigation && typeof navigation === 'object' ? navigation : { categories: [], uncategorizedPages: [] };
   var employmentMetaValue = employmentMeta && typeof employmentMeta === 'object' ? employmentMeta : { status: '', cls: '', icon: 'fas fa-briefcase' };
+
+  function normalizeRoleInput(input) {
+    if (!input) {
+      return [];
+    }
+
+    if (Array.isArray(input)) {
+      return input
+        .map(function (role) {
+          if (!role) {
+            return '';
+          }
+          if (typeof role === 'string') {
+            return role;
+          }
+          if (typeof role === 'object') {
+            return role.Name || role.name || role.RoleName || role.roleName || '';
+          }
+          return String(role);
+        })
+        .map(function (role) { return String(role || '').trim(); })
+        .filter(function (role) { return role.length > 0; });
+    }
+
+    if (typeof input === 'string') {
+      return input
+        .split(',')
+        .map(function (role) { return role.trim(); })
+        .filter(function (role) { return role.length > 0; });
+    }
+
+    return [String(input || '').trim()].filter(function (role) { return role.length > 0; });
+  }
+
+  function dedupeRoles(list) {
+    var seen = {};
+    return list.filter(function (role) {
+      var key = role.toLowerCase();
+      if (seen[key]) {
+        return false;
+      }
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  var rawRoleNames = (typeof roleNames !== 'undefined' && roleNames !== null) ? roleNames : '';
+
+  var roleCandidates = [];
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(rawRoleNames));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.roleNames));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.roles));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.Roles));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(sidebarUser && sidebarUser.csvRoles));
+
+  if (!roleCandidates.length) {
+    var singleRole = sidebarUser && (sidebarUser.RoleName || sidebarUser.PrimaryRole || sidebarUser.Role || sidebarUser.role);
+    roleCandidates = roleCandidates.concat(normalizeRoleInput(singleRole));
+  }
+
+  var userRoleNames = dedupeRoles(roleCandidates);
+  if (!userRoleNames.length && isAdminUser) {
+    userRoleNames = ['System Administrator'];
+  }
 
   function generateLink(page) {
     return baseUrl + '?page=' + encodeURIComponent(page);
@@ -164,7 +227,7 @@
       <div class="names" id="userName">
         <?= sidebarUser.FullName || sidebarUser.UserName || 'Unknown User' ?>
       </div>
-      <div class="role" id="userRole">
+      <div class="role" id="userRole" title="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>">
         <? if (userRoleNames && userRoleNames.length) { ?>
         <?= userRoleNames.join(', ') ?>
         <? } else if (isAdminUser) { ?>
