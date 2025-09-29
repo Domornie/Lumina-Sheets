@@ -20,6 +20,49 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/notify/0.4.2/notify.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/notify/0.4.2/notify.min.js"></script>
 
+  <?
+    function __layoutSlugify(value) {
+      if (!value) {
+        return '';
+      }
+
+      var source = String(value);
+      source = source.replace(/["'`]+/g, '');
+
+      try {
+        if (source.normalize) {
+          source = source.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+        }
+      } catch (slugErr) {
+        // Ignore normalization issues and continue with original value
+      }
+
+      return source
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+    }
+
+    var __layoutPageSlugInput = (typeof pageSlug !== 'undefined' && pageSlug) ? pageSlug : '';
+    var __layoutCurrentPageName = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : '';
+    var __layoutPageTitleText = (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : '';
+
+    var __layoutSlugCandidate = __layoutSlugify(__layoutPageSlugInput) ||
+      __layoutSlugify(__layoutCurrentPageName) ||
+      __layoutSlugify(__layoutPageTitleText);
+
+    var __layoutSlugSources = [
+      __layoutPageSlugInput,
+      __layoutCurrentPageName,
+      __layoutPageTitleText,
+      __layoutSlugCandidate
+    ];
+
+    var __layoutRawReturnUrl = (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '';
+  ?>
+
   <style>
     /* Make sure notifications float above modals/menus */
     .notifyjs-corner {
@@ -31,6 +74,9 @@
     // Base URLs for navigation
     let BASE_URL = '<?= baseUrl ?>';
     let SCRIPT_URL = '<?= scriptUrl || baseUrl ?>';
+
+    const __PAGE_SLUG_SOURCES = <?!= JSON.stringify(__layoutSlugSources) ?>;
+    const __RAW_RETURN_URL = <?!= JSON.stringify(__layoutRawReturnUrl) ?>;
 
     const __invalidPanelPattern = /usercodeapppanel/i;
 
@@ -64,6 +110,57 @@
     BASE_URL = __BASE_URL || __SCRIPT_URL || BASE_URL;
     SCRIPT_URL = __SCRIPT_URL || __BASE_URL || SCRIPT_URL;
 
+    function createSlug(value, fallback) {
+      const queue = [];
+
+      const enqueue = (input) => {
+        if (typeof input === 'undefined' || input === null) {
+          return;
+        }
+
+        if (Array.isArray(input)) {
+          input.forEach(enqueue);
+          return;
+        }
+
+        queue.push(String(input));
+      };
+
+      enqueue(value);
+      enqueue(fallback);
+
+      while (queue.length) {
+        let candidate = queue.shift().trim();
+        if (!candidate) {
+          continue;
+        }
+
+        try {
+          if (candidate.normalize) {
+            candidate = candidate.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+          }
+        } catch (err) {
+          console.warn('Slug normalization failed:', err);
+        }
+
+        const slug = candidate
+          .replace(/["'`]+/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/-{2,}/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 80);
+
+        if (slug) {
+          return slug;
+        }
+      }
+
+      return '';
+    }
+
+    const PAGE_SLUG = createSlug(__PAGE_SLUG_SOURCES);
+
     /**
      * Generate URLs for navigation
      */
@@ -95,9 +192,86 @@
       window.location.href = url;
     }
 
+    function deriveReturnUrl(rawUrl, slug) {
+      const sanitizedRaw = sanitizeNavigationUrl(rawUrl, '');
+      if (sanitizedRaw) {
+        return sanitizedRaw;
+      }
+
+      if (slug) {
+        return generateUrl(slug);
+      }
+
+      return BASE_URL || SCRIPT_URL || '';
+    }
+
+    const RETURN_URL = deriveReturnUrl(__RAW_RETURN_URL, PAGE_SLUG);
+
+    function buildReturnUrl(extraParams = {}, rawUrl = RETURN_URL) {
+      const base = deriveReturnUrl(rawUrl, PAGE_SLUG);
+      if (!extraParams || typeof extraParams !== 'object' || Array.isArray(extraParams)) {
+        return base;
+      }
+
+      try {
+        const url = new URL(base, window.location.origin);
+        const params = new URLSearchParams(url.search);
+
+        Object.entries(extraParams).forEach(([key, value]) => {
+          if (value === null || typeof value === 'undefined') {
+            params.delete(key);
+            return;
+          }
+
+          params.set(key, value);
+        });
+
+        url.search = params.toString();
+        return url.toString();
+      } catch (err) {
+        console.warn('Failed to build return URL, falling back to base value:', err);
+        return base;
+      }
+    }
+
+    const __applySlugMetadata = () => {
+      if (typeof document === 'undefined' || !document.body) {
+        return;
+      }
+
+      try {
+        document.body.dataset.pageSlug = PAGE_SLUG || '';
+        if (RETURN_URL) {
+          document.body.dataset.returnUrl = RETURN_URL;
+        } else {
+          delete document.body.dataset.returnUrl;
+        }
+      } catch (err) {
+        console.warn('Unable to apply slug/return data attributes:', err);
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      if (document.body) {
+        __applySlugMetadata();
+      } else {
+        try {
+          document.addEventListener('DOMContentLoaded', __applySlugMetadata, { once: true });
+        } catch (err) {
+          document.addEventListener('DOMContentLoaded', __applySlugMetadata, false);
+        }
+      }
+    }
+
     // Make utilities available globally
     window.generateUrl = generateUrl;
     window.navigateToPage = navigateToPage;
+    window.createSlug = createSlug;
+    window.pageSlug = PAGE_SLUG;
+    window.returnUrl = RETURN_URL;
+    window.deriveReturnUrl = (rawUrl, slug = PAGE_SLUG) => deriveReturnUrl(rawUrl, slug);
+    window.buildReturnUrl = buildReturnUrl;
+    window.getReturnUrl = buildReturnUrl;
   </script>
 
   <style>
@@ -981,7 +1155,10 @@
   </style>
 </head>
 
-<body>
+<body
+  data-page-slug="<?!= __layoutSlugCandidate ?>"
+  data-return-url="<?!= __layoutRawReturnUrl ?>"
+>
   <?
     // Shared layout context so navigation components can stay in sync
     var __layoutUser = (typeof safeUser !== 'undefined' && safeUser) ? safeUser : (typeof user !== 'undefined' ? user : {});

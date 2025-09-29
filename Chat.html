@@ -1,7 +1,7 @@
 <!-- ====================================== -->
 <!-- ChatWindow.html - Enhanced Main Chat Interface -->
 <!-- ====================================== -->
-<?!= include('layout',{ baseUrl, user, currentPage }) ?>
+<?!= include('layout',{ baseUrl, scriptUrl, user, currentPage }) ?>
 <? 
   const adminRoles = ['CEO','CTO','COO','CFO','Director','Account Manager'];
   const isAdmin = (user.roleNames||[]).some(r => adminRoles.includes(r));
