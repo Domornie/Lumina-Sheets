@@ -1,0 +1,36 @@
+<script>
+  (function () {
+    const START = Date.now();
+    const MAX_WAIT_MS = 5000;
+    const RETRY_DELAY_MS = 150;
+
+    function scheduleDeferredInit() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        if (Date.now() - START < MAX_WAIT_MS) {
+          setTimeout(scheduleDeferredInit, RETRY_DELAY_MS);
+        }
+        return;
+      }
+
+      try {
+        google.script.run
+          .withFailureHandler(function (error) {
+            if (window.console && console.warn) {
+              console.warn('Deferred initialization failed', error);
+            }
+          })
+          .queueBackgroundInitialization();
+      } catch (err) {
+        if (window.console && console.warn) {
+          console.warn('Deferred initialization scheduling error', err);
+        }
+      }
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      scheduleDeferredInit();
+    } else {
+      document.addEventListener('DOMContentLoaded', scheduleDeferredInit);
+    }
+  })();
+</script>

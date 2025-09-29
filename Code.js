@@ -1276,8 +1276,9 @@ function doGet(e) {
     }
     const baseUrl = getBaseUrl();
 
-    // Initialize system
-    initializeSystem();
+    // Request background initialization without blocking initial page render.
+    // The actual work will be kicked off asynchronously from the client once
+    // the page has loaded so that doGet can return immediately.
 
     // Handle special actions
     if (e.parameter.page === 'proxy') {
@@ -3770,6 +3771,9 @@ const SYSTEM_INIT_LOCK_WAIT_MS = 1500; // Wait up to 1.5s for the init lock
 const SYSTEM_INIT_LAST_RUN_PROP = 'SYSTEM_INIT_LAST_RUN_AT';
 const CAMPAIGN_SYSTEMS_LAST_INIT_PROP = 'CAMPAIGN_SYSTEMS_LAST_INIT_AT';
 const CAMPAIGN_SYSTEMS_MIN_INTERVAL_MS = 60 * 60 * 1000; // Rebuild campaign assets at most hourly
+const ASYNC_INIT_MIN_INTERVAL_MS = 2 * 60 * 1000; // Only re-attempt async initialization every 2 minutes
+const ASYNC_INIT_LAST_ATTEMPT_PROP = 'ASYNC_INIT_LAST_ATTEMPT_AT';
+const ASYNC_INIT_LOCK_WAIT_MS = 250; // Small lock window for async queueing
 
 function getScriptCacheSafe_() {
   try {
@@ -3817,6 +3821,84 @@ function acquireSystemInitLock_() {
   } catch (error) {
     console.warn('initializeSystem: could not acquire LockService lock; falling back to direct initialization.', error);
     return { acquired: false, lock: null, unavailable: true };
+  }
+}
+
+function queueBackgroundInitialization(options) {
+  options = options || {};
+  var force = options.force === true;
+  var throttleMs = typeof options.throttleMs === 'number' && options.throttleMs >= 0
+    ? options.throttleMs
+    : ASYNC_INIT_MIN_INTERVAL_MS;
+
+  var props = getScriptPropertiesSafe_();
+  var now = Date.now();
+  var lastAttempt = 0;
+
+  if (!force && props) {
+    try {
+      lastAttempt = Number(props.getProperty(ASYNC_INIT_LAST_ATTEMPT_PROP)) || 0;
+    } catch (readError) {
+      console.warn('queueBackgroundInitialization: failed to read last attempt timestamp.', readError);
+    }
+  }
+
+  if (!force && lastAttempt && now - lastAttempt < throttleMs) {
+    return {
+      queued: false,
+      reason: 'throttled',
+      lastAttempt: lastAttempt,
+      throttleMs: throttleMs
+    };
+  }
+
+  var lock = null;
+  if (typeof LockService !== 'undefined' && LockService.getScriptLock) {
+    try {
+      lock = LockService.getScriptLock();
+      if (!lock.tryLock(ASYNC_INIT_LOCK_WAIT_MS)) {
+        return { queued: false, reason: 'busy' };
+      }
+    } catch (lockError) {
+      console.warn('queueBackgroundInitialization: failed to acquire lock; continuing without lock.', lockError);
+      lock = null;
+    }
+  }
+
+  try {
+    if (props) {
+      try {
+        props.setProperty(ASYNC_INIT_LAST_ATTEMPT_PROP, String(now));
+      } catch (writeError) {
+        console.warn('queueBackgroundInitialization: failed to persist last attempt timestamp.', writeError);
+      }
+    }
+
+    var result;
+    try {
+      result = initializeSystem(options);
+    } catch (error) {
+      console.error('queueBackgroundInitialization: initializeSystem threw an error.', error);
+      writeError('queueBackgroundInitialization', error);
+      return {
+        queued: false,
+        reason: 'error',
+        error: error && error.message ? error.message : String(error)
+      };
+    }
+
+    return {
+      queued: true,
+      result: result
+    };
+  } finally {
+    if (lock) {
+      try {
+        lock.releaseLock();
+      } catch (releaseError) {
+        console.warn('queueBackgroundInitialization: failed to release lock.', releaseError);
+      }
+    }
   }
 }
 
@@ -4067,7 +4149,6 @@ function initializeCampaignSystems(options) {
         props = null;
       }
     }
-
 
     if (!force && lastRun && now - lastRun < CAMPAIGN_SYSTEMS_MIN_INTERVAL_MS) {
       console.log('initializeCampaignSystems: recently initialized; skipping.');
