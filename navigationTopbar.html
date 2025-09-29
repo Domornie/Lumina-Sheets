@@ -1,11 +1,62 @@
 <?
-  var baseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var __topbarInvalidPanelPattern = /usercodeapppanel/i;
+
+  function __topbarNormalizeUrlValue(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var trimmed = String(value).trim();
+    if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+      return '';
+    }
+
+    return trimmed;
+  }
+
+  function __topbarFixPanelUrl(value) {
+    var normalized = __topbarNormalizeUrlValue(value);
+    if (!normalized) {
+      return '';
+    }
+
+    if (!__topbarInvalidPanelPattern.test(normalized)) {
+      return normalized;
+    }
+
+    return normalized.replace(/\/userCodeAppPanel.*$/i, '/exec');
+  }
+
+  function __topbarSanitizeNavigationUrl(url, fallback) {
+    var primary = __topbarFixPanelUrl(url);
+    if (primary) {
+      return primary;
+    }
+
+    return __topbarFixPanelUrl(fallback);
+  }
+
+  var __topbarRawBaseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var __topbarRawScriptUrl = (typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : __topbarRawBaseUrl;
+
+  var __topbarSanitizedBaseUrl = __topbarSanitizeNavigationUrl(__topbarRawBaseUrl, __topbarRawScriptUrl);
+  var __topbarSanitizedScriptUrl = __topbarSanitizeNavigationUrl(__topbarRawScriptUrl, __topbarRawBaseUrl);
+
+  var baseUrl = __topbarSanitizedBaseUrl || __topbarSanitizedScriptUrl || __topbarRawBaseUrl;
+  var __topbarLinkBase = baseUrl || __topbarSanitizedScriptUrl || '';
   var currentPageValue = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'Home';
   var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
   var isAdminValue = Boolean(isAdmin);
 
   function generateLink(page) {
-    return baseUrl + '?page=' + encodeURIComponent(page);
+    var target = __topbarLinkBase;
+    if (!target) {
+      return '?page=' + encodeURIComponent(page);
+    }
+
+    var hasQuery = target.indexOf('?') !== -1;
+    var separator = hasQuery ? (/[?&]$/.test(target) ? '' : '&') : '?';
+    return target + separator + 'page=' + encodeURIComponent(page);
   }
 ?>
 
