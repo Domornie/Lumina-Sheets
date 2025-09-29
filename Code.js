@@ -3927,6 +3927,7 @@ function initializeSystem(options) {
       var fallbackProps = getScriptPropertiesSafe_();
       return runSystemInitializationWithThrottleFallback_(options, cache, fallbackProps);
     }
+
     console.log('initializeSystem: another initialization is already running; skipping.');
     return { success: true, message: 'Initialization already in progress' };
   }
@@ -3978,6 +3979,7 @@ function initializeSystem(options) {
     return result;
 
   } finally {
+
     if (lockInfo && lockInfo.acquired && typeof lockInfo.release === 'function') {
       lockInfo.release();
     }
@@ -4190,6 +4192,7 @@ function initializeCampaignSystems(options) {
       }
     }
 
+    props.setProperty(CAMPAIGN_SYSTEMS_LAST_INIT_PROP, String(now));
     console.log('Campaign systems initialization completed');
 
   } catch (error) {
