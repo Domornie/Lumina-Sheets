@@ -46,9 +46,54 @@ const OPTIONAL_USER_COLUMNS = [
   'InsuranceCardReceivedDate'
 ];
 
+function _normalizeFieldKey_(key) {
+  return String(key || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function _findUserFieldValue_(user, targetKey) {
+  if (!user || typeof user !== 'object') return '';
+  const normalizedTarget = _normalizeFieldKey_(targetKey);
+  if (!normalizedTarget) return '';
+
+  try {
+    if (user.sheetFieldMap && typeof user.sheetFieldMap === 'object') {
+      for (const key in user.sheetFieldMap) {
+        if (!Object.prototype.hasOwnProperty.call(user.sheetFieldMap, key)) continue;
+        if (_normalizeFieldKey_(key) !== normalizedTarget) continue;
+        const value = user.sheetFieldMap[key];
+        if (value !== null && value !== undefined && value !== '') return value;
+      }
+    }
+  } catch (_) { /* ignore lookup issues */ }
+
+  if (Array.isArray(user.sheetFields)) {
+    for (let i = 0; i < user.sheetFields.length; i++) {
+      const field = user.sheetFields[i];
+      if (!field || typeof field.key === 'undefined') continue;
+      if (_normalizeFieldKey_(field.key) !== normalizedTarget) continue;
+      const value = field.value;
+      if (value !== null && value !== undefined && value !== '') return value;
+    }
+  }
+
+  const keys = Object.keys(user);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (_normalizeFieldKey_(key) !== normalizedTarget) continue;
+    const value = user[key];
+    if (value !== null && value !== undefined && value !== '') return value;
+  }
+
+  return '';
+}
+
 function _getUserName_(user) {
   if (!user) return '';
-  return user.UserName || user.userName || user.username || user.Username || '';
+  const direct = user.UserName || user.userName || user.username || user.Username;
+  if (direct !== null && direct !== undefined && String(direct).trim() !== '') return direct;
+  return _findUserFieldValue_(user, 'username');
 }
 
 const EMPLOYMENT_STATUS_CANONICAL = [
@@ -786,6 +831,12 @@ function createSafeUserObject(user) {
     }
   });
 
+  safe.sheetFieldMap = {};
+  for (let i = 0; i < sheetFieldOrder.length; i++) {
+    const key = sheetFieldOrder[i];
+    safe.sheetFieldMap[key] = sheetFieldMap[key];
+  }
+  safe.sheetFieldOrder = sheetFieldOrder.slice();
   safe.sheetFields = sheetFieldOrder.map(key => ({ key, value: sheetFieldMap[key] }));
   safe.sheetFieldCount = safe.sheetFields.length;
 
@@ -826,6 +877,8 @@ function createMinimalUserObject(user) {
       : _strToBool_(user.InsuranceSignedUp || false),
     CreatedAt: new Date().toISOString(),
     UpdatedAt: new Date().toISOString(),
+    sheetFieldMap: {},
+    sheetFieldOrder: [],
     sheetFields: [],
     sheetFieldCount: 0
   };
