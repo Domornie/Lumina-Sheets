@@ -24,6 +24,15 @@ if (typeof G.USER_ROLES_SHEET === 'undefined') G.USER_ROLES_SHEET = 'UserRoles';
 if (typeof G.CAMPAIGN_USER_PERMISSIONS_SHEET === 'undefined') G.CAMPAIGN_USER_PERMISSIONS_SHEET = 'CampaignUserPermissions';
 if (typeof G.MANAGER_USERS_SHEET === 'undefined') G.MANAGER_USERS_SHEET = 'MANAGER_USERS';
 if (typeof G.MANAGER_USERS_HEADER === 'undefined') G.MANAGER_USERS_HEADER = ['ID', 'ManagerUserID', 'UserID', 'CreatedAt', 'UpdatedAt'];
+if (typeof G.USER_EQUIPMENT_SHEET === 'undefined') G.USER_EQUIPMENT_SHEET = 'UserEquipment';
+if (typeof G.USER_EQUIPMENT_HEADERS === 'undefined') {
+  G.USER_EQUIPMENT_HEADERS = [
+    'ID', 'UserID', 'ItemName', 'ItemType', 'SerialNumber', 'Condition', 'IssuedDate', 'ReturnedDate',
+    'Notes', 'PhotoIds', 'PhotoUrls', 'PhotoNames', 'CreatedAt', 'UpdatedAt'
+  ];
+}
+if (typeof G.USER_EQUIPMENT_FOLDER_NAME === 'undefined') G.USER_EQUIPMENT_FOLDER_NAME = 'LuminaHQ User Equipment';
+if (typeof G.USER_EQUIPMENT_FOLDER_PROPERTY === 'undefined') G.USER_EQUIPMENT_FOLDER_PROPERTY = 'USER_EQUIPMENT_FOLDER_ID';
 
 // Campaign user permissions headers
 if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
@@ -94,6 +103,169 @@ function _getUserName_(user) {
   const direct = user.UserName || user.userName || user.username || user.Username;
   if (direct !== null && direct !== undefined && String(direct).trim() !== '') return direct;
   return _findUserFieldValue_(user, 'username');
+}
+
+function _equipmentParseArray_(value) {
+  if (value === null || typeof value === 'undefined') return [];
+  if (Array.isArray(value)) return value.filter(v => v !== null && typeof v !== 'undefined').map(v => String(v));
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter(v => v !== null && typeof v !== 'undefined').map(v => String(v));
+    } catch (_) {
+      // ignore
+    }
+    return trimmed.split(/[\n,;]/).map(part => part.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function _equipmentStringifyArray_(arr) {
+  return (Array.isArray(arr) && arr.length) ? JSON.stringify(arr) : '';
+}
+
+function _equipmentEnsureSheet_() {
+  return ensureSheetWithHeaders(G.USER_EQUIPMENT_SHEET, G.USER_EQUIPMENT_HEADERS);
+}
+
+function _equipmentSanitizeSegment_(value, fallback) {
+  const raw = String(value || '').trim();
+  const sanitized = raw.replace(/[\\/:*?"<>|#]+/g, '_').replace(/\s+/g, ' ').trim();
+  return sanitized || fallback || 'untitled';
+}
+
+function _equipmentEnsureRootFolder_() {
+  if (typeof DriveApp === 'undefined') throw new Error('Drive service unavailable');
+  let props = null;
+  try { props = PropertiesService.getScriptProperties(); } catch (_) { props = null; }
+  const propKey = G.USER_EQUIPMENT_FOLDER_PROPERTY || 'USER_EQUIPMENT_FOLDER_ID';
+  let folderId = props ? props.getProperty(propKey) : null;
+  if (folderId) {
+    try {
+      return DriveApp.getFolderById(folderId);
+    } catch (err) {
+      if (props) props.deleteProperty(propKey);
+    }
+  }
+  const root = DriveApp.getRootFolder();
+  const desiredName = G.USER_EQUIPMENT_FOLDER_NAME || 'User Equipment';
+  const iter = root.getFoldersByName(desiredName);
+  const folder = iter.hasNext() ? iter.next() : root.createFolder(desiredName);
+  if (props) props.setProperty(propKey, folder.getId());
+  return folder;
+}
+
+function _equipmentEnsureSubfolder_(userId, equipmentId) {
+  const root = _equipmentEnsureRootFolder_();
+  const userFolderName = _equipmentSanitizeSegment_('user-' + userId, 'user');
+  let userFolderIter = root.getFoldersByName(userFolderName);
+  let userFolder = userFolderIter.hasNext() ? userFolderIter.next() : root.createFolder(userFolderName);
+  const equipmentFolderName = _equipmentSanitizeSegment_('equipment-' + equipmentId, 'equipment');
+  let equipmentIter = userFolder.getFoldersByName(equipmentFolderName);
+  let equipmentFolder = equipmentIter.hasNext() ? equipmentIter.next() : userFolder.createFolder(equipmentFolderName);
+  return equipmentFolder;
+}
+
+function _equipmentToIsoString_(value) {
+  if (!value && value !== 0) return '';
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? '' : value.toISOString();
+  }
+  if (typeof value === 'number') {
+    const dt = new Date(value);
+    return isNaN(dt.getTime()) ? '' : dt.toISOString();
+  }
+  const str = String(value || '').trim();
+  if (!str) return '';
+  const dateObj = new Date(str);
+  if (!isNaN(dateObj.getTime())) return dateObj.toISOString();
+  return str;
+}
+
+function _equipmentSavePhotos_(userId, equipmentId, photos) {
+  const result = { ids: [], urls: [], names: [] };
+  if (!Array.isArray(photos) || !photos.length) return result;
+  if (typeof Utilities === 'undefined' || typeof Utilities.base64Decode !== 'function') {
+    throw new Error('Utilities service unavailable for file upload');
+  }
+  const folder = _equipmentEnsureSubfolder_(userId, equipmentId);
+  photos.forEach(photo => {
+    try {
+      if (!photo || !photo.dataUrl) return;
+      const rawName = photo.name || ('Equipment Photo ' + (result.ids.length + 1));
+      const safeName = _equipmentSanitizeSegment_(rawName, 'photo') + (rawName.includes('.') ? '' : '.png');
+      let mimeType = photo.mimeType || '';
+      let base64 = photo.dataUrl;
+      if (typeof base64 === 'string' && base64.indexOf(',') > -1) {
+        const parts = base64.split(',');
+        const meta = parts.shift();
+        base64 = parts.join(',');
+        const match = meta && meta.match(/^data:(.*?);base64$/i);
+        if (match && match[1]) mimeType = mimeType || match[1];
+      }
+      if (!mimeType) mimeType = 'image/png';
+      const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, safeName);
+      const file = folder.createFile(blob);
+      result.ids.push(file.getId());
+      result.urls.push(file.getUrl());
+      result.names.push(safeName);
+    } catch (err) {
+      writeError && writeError('_equipmentSavePhotos_', err);
+    }
+  });
+  return result;
+}
+
+function _equipmentRemovePhotos_(photoIds) {
+  if (!Array.isArray(photoIds) || !photoIds.length) return;
+  if (typeof DriveApp === 'undefined') return;
+  photoIds.forEach(id => {
+    const safeId = String(id || '').trim();
+    if (!safeId) return;
+    try {
+      DriveApp.getFileById(safeId).setTrashed(true);
+    } catch (err) {
+      writeError && writeError('_equipmentRemovePhotos_', err);
+    }
+  });
+}
+
+function _equipmentMapRow_(headers, row) {
+  const data = {};
+  for (let i = 0; i < headers.length; i++) {
+    data[headers[i]] = typeof row[i] !== 'undefined' ? row[i] : '';
+  }
+  const ids = _equipmentParseArray_(data.PhotoIds);
+  const urls = _equipmentParseArray_(data.PhotoUrls);
+  const names = _equipmentParseArray_(data.PhotoNames);
+  const photos = [];
+  const count = Math.max(ids.length, urls.length, names.length);
+  for (let i = 0; i < count; i++) {
+    photos.push({
+      id: ids[i] || '',
+      url: urls[i] || '',
+      name: names[i] || ''
+    });
+  }
+  return {
+    id: data.ID || data.id || '',
+    userId: data.UserID || data.userId || '',
+    itemName: data.ItemName || data.itemName || '',
+    itemType: data.ItemType || data.itemType || '',
+    serialNumber: data.SerialNumber || data.serialNumber || '',
+    condition: data.Condition || data.condition || '',
+    issuedDate: _toIsoDateOnly_(data.IssuedDate || data.issuedDate || ''),
+    returnedDate: _toIsoDateOnly_(data.ReturnedDate || data.returnedDate || ''),
+    notes: data.Notes || data.notes || '',
+    photoIds: ids,
+    photoUrls: urls,
+    photoNames: names,
+    photos: photos,
+    createdAt: _equipmentToIsoString_(data.CreatedAt || data.createdAt || ''),
+    updatedAt: _equipmentToIsoString_(data.UpdatedAt || data.updatedAt || '')
+  };
 }
 
 const EMPLOYMENT_STATUS_CANONICAL = [
@@ -1962,6 +2134,189 @@ function clientAssignPagesToUser(userId, pageKeys) {
     try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
     return { success: true, message: `Assigned ${pageKeys.length} pages to user` };
   } catch (e) { writeError && writeError('clientAssignPagesToUser', e); return { success: false, error: 'Failed to assign pages: ' + e.message }; }
+}
+
+function listUserEquipment_(userId) {
+  if (!userId) return [];
+  const sheet = _equipmentEnsureSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const rowCount = Math.max(0, lastRow - 1);
+  if (!rowCount) return [];
+  const values = sheet.getRange(2, 1, rowCount, lastCol).getValues();
+  const idx = {};
+  headers.forEach((h, i) => { idx[h] = i; });
+  if (typeof idx.UserID !== 'number') return [];
+  const userKey = String(userId);
+  const items = [];
+  for (let i = 0; i < values.length; i++) {
+    const row = values[i];
+    const rowUser = String(row[idx.UserID] || row[idx.userId] || '');
+    if (rowUser !== userKey) continue;
+    items.push(_equipmentMapRow_(headers, row));
+  }
+  items.sort((a, b) => {
+    const aTime = Date.parse(a.updatedAt || a.createdAt || 0) || 0;
+    const bTime = Date.parse(b.updatedAt || b.createdAt || 0) || 0;
+    return bTime - aTime;
+  });
+  return items;
+}
+
+function clientGetUserEquipment(userId) {
+  try {
+    if (!userId) return { success: false, error: 'User ID required' };
+    const items = listUserEquipment_(userId);
+    return { success: true, items: items };
+  } catch (e) {
+    writeError && writeError('clientGetUserEquipment', e);
+    return { success: false, error: e.message };
+  }
+}
+
+function clientSaveUserEquipment(userId, equipmentData) {
+  try {
+    if (!userId) return { success: false, error: 'User ID required' };
+    const data = equipmentData || {};
+    const sheet = _equipmentEnsureSheet_();
+    const lastCol = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const idx = {};
+    headers.forEach((h, i) => { idx[h] = i; });
+    ['ID', 'UserID', 'ItemName', 'ItemType', 'SerialNumber', 'Condition', 'IssuedDate', 'ReturnedDate',
+      'Notes', 'PhotoIds', 'PhotoUrls', 'PhotoNames', 'CreatedAt', 'UpdatedAt']
+      .forEach(header => {
+        if (typeof idx[header] !== 'number') {
+          throw new Error('Equipment sheet missing header: ' + header);
+        }
+      });
+
+    const lastRow = sheet.getLastRow();
+    const rowCount = Math.max(0, lastRow - 1);
+    const rangeValues = rowCount ? sheet.getRange(2, 1, rowCount, lastCol).getValues() : [];
+
+    const targetId = data.id ? String(data.id) : '';
+    let rowNumber = -1;
+    let existingRow = null;
+    if (targetId) {
+      for (let r = 0; r < rangeValues.length; r++) {
+        const row = rangeValues[r];
+        if (String(row[idx.ID]) === targetId) {
+          rowNumber = r + 2;
+          existingRow = row;
+          break;
+        }
+      }
+    }
+
+    const equipmentId = targetId || (typeof Utilities !== 'undefined' && Utilities.getUuid ? Utilities.getUuid() : 'EQ-' + Date.now());
+    const now = new Date();
+
+    let existingPhotos = [];
+    let createdAt = now;
+    if (existingRow) {
+      const mapped = _equipmentMapRow_(headers, existingRow);
+      existingPhotos = Array.isArray(mapped.photos) ? mapped.photos.slice() : [];
+      const createdRaw = (typeof idx.CreatedAt === 'number') ? existingRow[idx.CreatedAt] : null;
+      if (createdRaw instanceof Date) {
+        createdAt = createdRaw;
+      } else if (createdRaw) {
+        const parsed = new Date(createdRaw);
+        createdAt = isNaN(parsed) ? now : parsed;
+      } else if (mapped.createdAt) {
+        const parsed = new Date(mapped.createdAt);
+        if (!isNaN(parsed)) createdAt = parsed;
+      }
+    }
+
+    const removeSet = new Set((Array.isArray(data.removePhotoIds) ? data.removePhotoIds : []).map(id => String(id)));
+    if (removeSet.size) {
+      const removedIds = existingPhotos.filter(photo => removeSet.has(String(photo.id))).map(photo => photo.id);
+      existingPhotos = existingPhotos.filter(photo => !removeSet.has(String(photo.id)));
+      _equipmentRemovePhotos_(removedIds);
+    }
+
+    if (Array.isArray(data.newPhotos) && data.newPhotos.length) {
+      const uploaded = _equipmentSavePhotos_(userId, equipmentId, data.newPhotos);
+      for (let i = 0; i < uploaded.ids.length; i++) {
+        existingPhotos.push({
+          id: uploaded.ids[i],
+          url: uploaded.urls[i] || '',
+          name: uploaded.names[i] || ''
+        });
+      }
+    }
+
+    const photoIds = existingPhotos.map(photo => photo.id).filter(Boolean);
+    const photoUrls = existingPhotos.map(photo => photo.url || '');
+    const photoNames = existingPhotos.map(photo => photo.name || '');
+
+    const rowValues = new Array(headers.length).fill('');
+    rowValues[idx.ID] = equipmentId;
+    rowValues[idx.UserID] = String(userId);
+    rowValues[idx.ItemName] = data.itemName ? String(data.itemName) : '';
+    rowValues[idx.ItemType] = data.itemType ? String(data.itemType) : '';
+    rowValues[idx.SerialNumber] = data.serialNumber ? String(data.serialNumber) : '';
+    rowValues[idx.Condition] = data.condition ? String(data.condition) : '';
+    rowValues[idx.IssuedDate] = data.issuedDate ? _toIsoDateOnly_(data.issuedDate) : '';
+    rowValues[idx.ReturnedDate] = data.returnedDate ? _toIsoDateOnly_(data.returnedDate) : '';
+    rowValues[idx.Notes] = data.notes ? String(data.notes) : '';
+    rowValues[idx.PhotoIds] = _equipmentStringifyArray_(photoIds);
+    rowValues[idx.PhotoUrls] = _equipmentStringifyArray_(photoUrls);
+    rowValues[idx.PhotoNames] = _equipmentStringifyArray_(photoNames);
+    rowValues[idx.CreatedAt] = createdAt;
+    rowValues[idx.UpdatedAt] = now;
+
+    if (rowNumber > 0) {
+      sheet.getRange(rowNumber, 1, 1, headers.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+      rowNumber = sheet.getLastRow();
+    }
+
+    const mappedRow = _equipmentMapRow_(headers, rowValues);
+    return {
+      success: true,
+      id: equipmentId,
+      item: mappedRow,
+      message: existingRow ? 'Equipment updated.' : 'Equipment added.'
+    };
+  } catch (e) {
+    writeError && writeError('clientSaveUserEquipment', e);
+    return { success: false, error: e.message };
+  }
+}
+
+function clientDeleteUserEquipment(equipmentId) {
+  try {
+    if (!equipmentId) return { success: false, error: 'Equipment ID required' };
+    const sheet = _equipmentEnsureSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: false, error: 'Equipment not found' };
+    const lastCol = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const rowCount = Math.max(0, lastRow - 1);
+    const values = rowCount ? sheet.getRange(2, 1, rowCount, lastCol).getValues() : [];
+    const idx = {};
+    headers.forEach((h, i) => { idx[h] = i; });
+    if (typeof idx.ID !== 'number') throw new Error('Equipment sheet missing ID header');
+    if (typeof idx.PhotoIds !== 'number') throw new Error('Equipment sheet missing PhotoIds header');
+
+    for (let r = 0; r < values.length; r++) {
+      const row = values[r];
+      if (String(row[idx.ID]) !== String(equipmentId)) continue;
+      const photoIds = _equipmentParseArray_(row[idx.PhotoIds]);
+      sheet.deleteRow(r + 2);
+      _equipmentRemovePhotos_(photoIds);
+      return { success: true, message: 'Equipment entry removed.' };
+    }
+    return { success: false, error: 'Equipment not found' };
+  } catch (e) {
+    writeError && writeError('clientDeleteUserEquipment', e);
+    return { success: false, error: e.message };
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
