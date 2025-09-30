@@ -5,26 +5,229 @@
   currentPage: 'Notifications'
 }) ?>
 
-<div class="container py-4">
-  <h2 class="mb-4">Tasks Due Today</h2>
+<style>
+  .notifications-hero {
+    background: linear-gradient(135deg, var(--lumina-primary) 0%, var(--lumina-primary-dark) 100%);
+    color: #ffffff;
+    padding: 3.5rem 0 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
 
-  <? var tasks = JSON.parse(tasksJson); ?>
-  <? if (tasks.length === 0) { ?>
-    <div class="alert alert-success">
-      🎉 You have no tasks due today!
-    </div>
-  <? } else { ?>
-    <ul class="list-group">
-      <? tasks.forEach(function(t) { ?>
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <div>
-            <strong><?= t.Task ?></strong><br/>
-            <small>ID: <?= t.ID ?> &mdash; Owner: <?= t.Owner ?></small>
+  .notifications-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12), transparent 55%),
+                radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.18), transparent 50%);
+    opacity: 0.85;
+  }
+
+  .notifications-hero .container {
+    position: relative;
+    z-index: 2;
+  }
+
+  .notifications-hero h1 {
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+
+  .notifications-hero p {
+    font-size: 1.05rem;
+    margin: 0;
+    opacity: 0.9;
+  }
+
+  .notifications-card {
+    background: #ffffff;
+    border-radius: var(--lumina-border-radius);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: var(--lumina-shadow);
+    overflow: hidden;
+  }
+
+  .notifications-card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .notifications-card-header h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .notifications-card-body {
+    padding: 1.5rem;
+    background: linear-gradient(180deg, rgba(241, 245, 249, 0.55) 0%, rgba(248, 250, 252, 0.9) 100%);
+  }
+
+  .notification-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .notification-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .notifications-empty {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .notifications-empty .lumina-loader {
+    margin-bottom: 1rem;
+  }
+
+  .notifications-summary {
+    background: #0f172a;
+    color: #f8fafc;
+    border-radius: var(--lumina-border-radius);
+    padding: 1.5rem;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .notifications-summary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.18), transparent 60%);
+    opacity: 0.75;
+  }
+
+  .notifications-summary-content {
+    position: relative;
+    z-index: 2;
+  }
+
+  .notifications-summary h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+  }
+
+  .summary-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+    font-size: 0.95rem;
+  }
+
+  .summary-stat strong {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+
+  @media (max-width: 767.98px) {
+    .notifications-card-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<? var tasks = JSON.parse(tasksJson); ?>
+<? var totalTasks = tasks.length; ?>
+<? var upcoming = tasks.filter(function(t) {
+  if (!t || !t.DueDate) return false;
+  try {
+    var due = new Date(t.DueDate);
+    var today = new Date();
+    due.setHours(0,0,0,0);
+    today.setHours(0,0,0,0);
+    return due.getTime() >= today.getTime();
+  } catch(err) {
+    return false;
+  }
+}).length; ?>
+
+<div class="notifications-hero">
+  <div class="container">
+    <h1>Schedule Notifications</h1>
+    <p>Stay ahead of your commitments with a unified look and feel for every alert across Lumina.</p>
+  </div>
+
+</div>
+
+<div class="container py-4">
+  <div class="row g-4 align-items-stretch">
+    <div class="col-lg-4">
+      <div class="notifications-summary">
+        <div class="notifications-summary-content">
+          <h3>Today at a Glance</h3>
+          <div class="summary-stat">
+            <span>Total notifications</span>
+            <strong><?= totalTasks ?></strong>
           </div>
-          <span class="badge bg-danger rounded-pill"><?= t.DueDate ?></span>
-        </li>
-      <? }); ?>
-    </ul>
-  <? } ?>
-</div>
-</div>
+          <div class="summary-stat">
+            <span>Upcoming today</span>
+            <strong><?= upcoming ?></strong>
+          </div>
+          <p class="mb-0" style="font-size: 0.85rem; opacity: 0.85;">
+            Notifications mirror the Schedule Management experience for a cohesive workflow.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="notifications-card">
+        <div class="notifications-card-header">
+          <h2>
+            <i class="fas fa-calendar-check text-primary"></i>
+            Tasks Due Today
+          </h2>
+          <span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2 rounded-pill">
+            <?= totalTasks ?> due
+          </span>
+        </div>
+        <div class="notifications-card-body">
+          <? if (tasks.length === 0) { ?>
+            <div class="notifications-empty">
+              <div class="lumina-loader"></div>
+              <h5 class="mt-3">You're all caught up!</h5>
+              <p class="text-muted mb-0">There are no tasks due today. New notifications will appear here as they arrive.</p>
+            </div>
+          <? } else { ?>
+            <? tasks.forEach(function(t) { ?>
+              <div class="alert-modern alert-warning-modern">
+                <div class="d-flex justify-content-between flex-wrap gap-2">
+                  <div>
+                    <h6><?= t.Task ?></h6>
+                    <p class="mb-1">Stay on track by confirming completion or adjusting your schedule as needed.</p>
+                  </div>
+                  <span class="badge bg-danger text-white align-self-start px-3 py-2 rounded-pill">
+                    Due <?= t.DueDate ?>
+                  </span>
+                </div>
+                <div class="notification-meta">
+                  <span><i class="fas fa-hashtag"></i> ID <?= t.ID ?></span>
+                  <span><i class="fas fa-user"></i> <?= t.Owner ?></span>
+                </div>
+              </div>
+            <? }); ?>
+          <? } ?>
+        </div>
+      </div>
+    </div>
+  </div>
+

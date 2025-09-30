@@ -118,6 +118,197 @@
     .notifyjs-corner {
       z-index: 99999 !important;
     }
+
+    :root {
+      --lumina-primary: #0052cc;
+      --lumina-primary-dark: #003d99;
+      --lumina-primary-light: rgba(0, 82, 204, 0.12);
+      --lumina-success: #00875a;
+      --lumina-warning: #ffab00;
+      --lumina-danger: #de350b;
+      --lumina-info: #0747a6;
+      --lumina-surface: #ffffff;
+      --lumina-border-radius: 12px;
+      --lumina-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+    }
+
+    /* Unified notification appearance */
+    .alert-modern {
+      position: relative;
+      border: none;
+      border-radius: var(--lumina-border-radius);
+      padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: var(--lumina-shadow);
+      background: var(--lumina-surface);
+    }
+
+    .alert-modern::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: 6px;
+      border-radius: var(--lumina-border-radius) 0 0 var(--lumina-border-radius);
+      background: var(--lumina-primary);
+    }
+
+    .alert-modern strong,
+    .alert-modern h6 {
+      font-weight: 600;
+      margin: 0;
+      color: #0f172a;
+    }
+
+    .alert-modern p {
+      margin: 0;
+      color: #475569;
+    }
+
+    .alert-success-modern::before {
+      background: var(--lumina-success);
+    }
+
+    .alert-warning-modern::before {
+      background: var(--lumina-warning);
+    }
+
+    .alert-danger-modern::before {
+      background: var(--lumina-danger);
+    }
+
+    .alert-info-modern::before {
+      background: var(--lumina-info);
+    }
+
+    .lumina-toast-container {
+      position: fixed;
+      top: 2rem;
+      right: 2rem;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: stretch;
+      max-width: calc(100vw - 2rem);
+      pointer-events: none;
+    }
+
+    .lumina-toast-container .toast {
+      pointer-events: auto;
+      border: none;
+      border-radius: var(--lumina-border-radius);
+      min-width: 320px;
+      max-width: 420px;
+      overflow: hidden;
+      box-shadow: var(--lumina-shadow);
+      background: var(--lumina-surface);
+    }
+
+    .lumina-toast-container .toast-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 600;
+      border-bottom: none;
+      padding: 0.85rem 1rem;
+    }
+
+    .lumina-toast-container .toast-header i {
+      font-size: 1.1rem;
+    }
+
+    .lumina-toast-container .toast-body {
+      color: #1f2937;
+      font-size: 0.95rem;
+      padding: 1rem 1.05rem 1.15rem;
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.8) 0%, rgba(226, 232, 240, 0.35) 100%);
+    }
+
+    .lumina-toast-container .btn-close {
+      filter: brightness(0) invert(1);
+      opacity: 0.9;
+    }
+
+    .lumina-toast-container .btn-close:hover {
+      opacity: 1;
+    }
+
+    @media (max-width: 575.98px) {
+      .lumina-toast-container {
+        top: 1rem;
+        right: 0.75rem;
+        left: 0.75rem;
+        max-width: none;
+      }
+
+      .lumina-toast-container .toast {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+
+    /* Unified loader presentation */
+    @keyframes lumina-spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .lumina-loader,
+    div.loading-spinner,
+    span.loading-spinner {
+      display: inline-block;
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 50%;
+      border: 3px solid var(--lumina-primary-light);
+      border-top-color: var(--lumina-primary);
+      animation: lumina-spin 0.9s linear infinite;
+    }
+
+    .lumina-loader-sm,
+    .loading-spinner-sm {
+      width: 1.25rem;
+      height: 1.25rem;
+      border-width: 2px;
+    }
+
+    .lumina-loader-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      z-index: 1100;
+    }
+
+    .lumina-loader-overlay.show {
+      display: flex;
+    }
+
+    .lumina-loader-card {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: var(--lumina-border-radius);
+      box-shadow: var(--lumina-shadow);
+      text-align: center;
+      min-width: 260px;
+    }
+
+    .lumina-loader-card .lumina-loader,
+    .lumina-loader-card .loading-spinner,
+    .lumina-loader-card .lumina-loader-sm,
+    .lumina-loader-card .loading-spinner-sm {
+      margin-bottom: 1rem;
+    }
   </style>
 
   <script>
@@ -322,6 +513,212 @@
     window.deriveReturnUrl = (rawUrl, slug = PAGE_SLUG) => deriveReturnUrl(rawUrl, slug);
     window.buildReturnUrl = buildReturnUrl;
     window.getReturnUrl = buildReturnUrl;
+  </script>
+
+  <script>
+    (function() {
+      const toneMap = {
+        success: {
+          icon: 'check-circle',
+          headerClass: 'bg-success text-white',
+          title: 'Success'
+        },
+        danger: {
+          icon: 'exclamation-circle',
+          headerClass: 'bg-danger text-white',
+          title: 'Attention needed'
+        },
+        warning: {
+          icon: 'exclamation-triangle',
+          headerClass: 'bg-warning text-dark',
+          title: 'Heads up'
+        },
+        info: {
+          icon: 'info-circle',
+          headerClass: 'bg-info text-white',
+          title: 'FYI'
+        }
+      };
+
+      const pendingQueue = [];
+
+      function coerceMessage(message) {
+        if (message === null || typeof message === 'undefined') {
+          return '';
+        }
+
+        if (message instanceof Error) {
+          return message.message;
+        }
+
+        if (typeof message === 'object') {
+          try {
+            return JSON.stringify(message);
+          } catch (err) {
+            console.warn('Unable to stringify toast message object', err);
+            return String(message);
+          }
+        }
+
+        return String(message);
+      }
+
+      function normalizeType(type) {
+        if (!type) return 'info';
+        const normalized = String(type).trim().toLowerCase();
+        if (normalized === 'error') {
+          return 'danger';
+        }
+        if (toneMap[normalized]) {
+          return normalized;
+        }
+        return 'info';
+      }
+
+      function ensureToastContainer() {
+        if (typeof document === 'undefined') {
+          return null;
+        }
+
+        let container = document.getElementById('luminaToastContainer');
+        if (container) {
+          return container;
+        }
+
+        if (!document.body) {
+          return null;
+        }
+
+        container = document.createElement('div');
+        container.id = 'luminaToastContainer';
+        container.className = 'lumina-toast-container';
+        container.setAttribute('aria-live', 'polite');
+        container.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(container);
+        return container;
+      }
+
+      function buildToastMarkup(message, options) {
+        const id = `lumina-toast-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        const tone = toneMap[options.type] || toneMap.info;
+        const title = options.title || tone.title;
+        const icon = options.icon || tone.icon;
+        const headerClass = options.headerClass || tone.headerClass;
+
+        return {
+          id,
+          html: `
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="${id}">
+              <div class="toast-header ${headerClass}">
+                <i class="fas fa-${icon}"></i>
+                <span class="me-auto">${title}</span>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+              </div>
+              <div class="toast-body">${message}</div>
+            </div>
+          `
+        };
+      }
+
+      function mountToast(container, markup, options) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = markup.html.trim();
+        const toastElement = wrapper.firstElementChild;
+        if (!toastElement) {
+          return;
+        }
+
+        container.prepend(toastElement);
+
+        const delay = Number.isFinite(options.delay) ? Number(options.delay) : 4500;
+        const autohide = options.autohide !== false;
+
+        const closeButton = toastElement.querySelector('[data-bs-dismiss="toast"]');
+        if (closeButton) {
+          closeButton.addEventListener('click', () => {
+            toastElement.classList.remove('show');
+            setTimeout(() => toastElement.remove(), 150);
+          });
+        }
+
+        if (window.bootstrap && typeof window.bootstrap.Toast === 'function') {
+          const toast = new window.bootstrap.Toast(toastElement, { autohide, delay });
+          toast.show();
+          toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+          });
+        } else {
+          toastElement.classList.add('show');
+          if (autohide) {
+            setTimeout(() => {
+              toastElement.classList.remove('show');
+              setTimeout(() => toastElement.remove(), 300);
+            }, delay);
+          }
+        }
+      }
+
+      function processQueue() {
+        const container = ensureToastContainer();
+        if (!container || !pendingQueue.length) {
+          return;
+        }
+
+        const items = pendingQueue.splice(0, pendingQueue.length);
+        items.forEach(({ message, options }) => {
+          const markup = buildToastMarkup(message, options);
+          mountToast(container, markup, options);
+        });
+      }
+
+      function showLuminaToast(message, typeOrOptions, maybeOptions) {
+        const text = coerceMessage(message);
+        if (!text) {
+          return;
+        }
+
+        let options = {};
+        if (typeof typeOrOptions === 'string') {
+          options = Object.assign({}, maybeOptions || {}, { type: typeOrOptions });
+        } else if (typeOrOptions && typeof typeOrOptions === 'object') {
+          options = Object.assign({}, typeOrOptions);
+        } else if (maybeOptions && typeof maybeOptions === 'object') {
+          options = Object.assign({}, maybeOptions);
+        }
+
+        options.type = normalizeType(options.type);
+        if (typeof options.title === 'string') {
+          options.title = options.title.trim();
+        }
+        if (!options.title) {
+          options.title = 'Lumina';
+        }
+
+        const container = ensureToastContainer();
+        if (!container) {
+          pendingQueue.push({ message: text, options });
+          return;
+        }
+
+        const markup = buildToastMarkup(text, options);
+        mountToast(container, markup, options);
+      }
+
+      window.showLuminaToast = showLuminaToast;
+      window.showLuminaNotification = showLuminaToast;
+      window.luminaNotify = function(message, type = 'info', opts = {}) {
+        const options = Object.assign({}, opts, { type });
+        showLuminaToast(message, options);
+      };
+
+      if (typeof document !== 'undefined') {
+        try {
+          document.addEventListener('DOMContentLoaded', processQueue);
+        } catch (err) {
+          document.addEventListener('DOMContentLoaded', processQueue, false);
+        }
+      }
+    })();
   </script>
 
   <style>
@@ -1966,33 +2363,15 @@
         }
 
         function showLogoutMessage() {
-            // Create and show a logout notification
-            const logoutDiv = document.createElement('div');
-            logoutDiv.style.cssText = `
-                position: fixed; top: 20px; right: 20px; 
-                background: linear-gradient(135deg, #27ae60, #2ecc71);
-                color: white; padding: 1rem 1.5rem; border-radius: 10px;
-                box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
-                z-index: 10000; font-family: 'Inter', sans-serif;
-                font-weight: 500; animation: slideInRight 0.5s ease-out;
-            `;
-            logoutDiv.innerHTML = '✓ Logged out successfully';
-            document.body.appendChild(logoutDiv);
-            
-            // Add animation keyframes
-            if (!document.getElementById('logout-animation')) {
-                const style = document.createElement('style');
-                style.id = 'logout-animation';
-                style.textContent = `
-                    @keyframes slideInRight {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
+            if (typeof window.showLuminaToast === 'function') {
+                window.showLuminaToast('Logged out successfully', {
+                    type: 'success',
+                    title: 'Lumina'
+                });
+                return;
             }
-            
-            setTimeout(() => logoutDiv.remove(), 5000);
+
+            alert('Logged out successfully');
         }
 
         // ──────────────────────────────────────────────────────────────────────────────

@@ -993,29 +993,20 @@
             }
 
             showNotification(message, type = 'info') {
-                const alertClass = type === 'error' ? 'alert-danger-enhanced' : 
-                                 type === 'success' ? 'alert-success-enhanced' : 
-                                 'alert-info-enhanced';
-                
-                const notification = document.createElement('div');
-                notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-                notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 350px; max-width: 500px;';
-                notification.innerHTML = `
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
-                        <div class="flex-grow-1">${message}</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                `;
-                
-                document.body.appendChild(notification);
-                
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        const bsAlert = new bootstrap.Alert(notification);
-                        bsAlert.close();
-                    }
-                }, 5000);
+                const normalizedType = type === 'error' ? 'danger'
+                    : type === 'success' ? 'success'
+                    : type === 'warning' ? 'warning'
+                    : 'info';
+
+                if (typeof window.showLuminaToast === 'function') {
+                    window.showLuminaToast(message, {
+                        type: normalizedType,
+                        title: 'Slot Manager'
+                    });
+                    return;
+                }
+
+                alert(message);
             }
 
             // Enhanced Time Formatting Functions
