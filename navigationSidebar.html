@@ -171,27 +171,38 @@
     <? } ?>
 
     <? if (navigationConfig && navigationConfig.categories && navigationConfig.categories.length > 0) { ?>
-      <? navigationConfig.categories.forEach(function(category) { ?>
-        <? if (category && category.pages && category.pages.length > 0) { ?>
+      <? navigationConfig.categories.forEach(function(category) {
+           var categoryPages = (category && (category.pages || category.Pages)) || [];
+           if (!Array.isArray(categoryPages) || !categoryPages.length) {
+             return;
+           }
+
+           var categoryIcon = category.CategoryIcon || category.categoryIcon || 'fas fa-folder';
+           var categoryName = category.CategoryName || category.categoryName || 'Unnamed Category';
+        ?>
         <div class="sidebar-category">
           <div class="category-header">
-            <i class="<?= category.CategoryIcon || 'fas fa-folder' ?>"></i>
-            <span><?= category.CategoryName || 'Unnamed Category' ?></span>
+            <i class="<?= categoryIcon ?>"></i>
+            <span><?= categoryName ?></span>
           </div>
           <div class="sidebar-group">
-            <? category.pages.forEach(function(page) { ?>
-              <? if (page && page.PageKey && page.PageTitle) { ?>
-              <a href="<?= generateLink(page.PageKey) ?>"
-                class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
-                data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
-                <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
-                <span><?= page.PageTitle ?></span>
+            <? categoryPages.forEach(function(page) {
+                 var pageKey = page && (page.PageKey || page.pageKey);
+                 var pageTitle = page && (page.PageTitle || page.pageTitle);
+                 if (!page || !pageKey || !pageTitle) { return; }
+
+                 var pageIcon = page.PageIcon || page.pageIcon || 'fas fa-file';
+                 var pageDescription = page.PageDescription || page.pageDescription || pageTitle;
+            ?>
+              <a href="<?= generateLink(pageKey) ?>"
+                class="<?= (currentPage === pageTitle || currentPage === pageKey) ? 'active' : '' ?>"
+                data-bs-toggle="tooltip" data-bs-placement="right" title="<?= pageDescription ?>">
+                <i class="<?= pageIcon ?>"></i>
+                <span><?= pageTitle ?></span>
               </a>
-              <? } ?>
             <? }); ?>
           </div>
         </div>
-        <? } ?>
       <? }); ?>
     <? } ?>
 
@@ -202,15 +213,20 @@
         <span>Other</span>
       </div>
       <div class="sidebar-group">
-        <? navigationConfig.uncategorizedPages.forEach(function(page) { ?>
-          <? if (page && page.PageKey && page.PageTitle) { ?>
-          <a href="<?= generateLink(page.PageKey) ?>"
-            class="<?= (currentPage === page.PageTitle || currentPage === page.PageKey) ? 'active' : '' ?>"
-            data-bs-toggle="tooltip" data-bs-placement="right" title="<?= page.PageDescription || page.PageTitle ?>">
-            <i class="<?= page.PageIcon || 'fas fa-file' ?>"></i>
-            <span><?= page.PageTitle ?></span>
+        <? navigationConfig.uncategorizedPages.forEach(function(page) {
+             var pageKey = page && (page.PageKey || page.pageKey);
+             var pageTitle = page && (page.PageTitle || page.pageTitle);
+             if (!page || !pageKey || !pageTitle) { return; }
+
+             var pageIcon = page.PageIcon || page.pageIcon || 'fas fa-file';
+             var pageDescription = page.PageDescription || page.pageDescription || pageTitle;
+        ?>
+          <a href="<?= generateLink(pageKey) ?>"
+            class="<?= (currentPage === pageTitle || currentPage === pageKey) ? 'active' : '' ?>"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="<?= pageDescription ?>">
+            <i class="<?= pageIcon ?>"></i>
+            <span><?= pageTitle ?></span>
           </a>
-          <? } ?>
         <? }); ?>
       </div>
     </div>
