@@ -1283,11 +1283,11 @@
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
-                                                <label for="probationEndDate" class="form-label fw-medium">
+                                                <label for="probationEnd" class="form-label fw-medium">
                                                     Probation End Date
                                                     <i class="fas fa-info-circle ms-1" title="Automatically calculated from hire date + probation months"></i>
                                                 </label>
-                                                <input type="date" class="form-control" id="probationEndDate" readonly>
+                                                <input type="date" class="form-control" id="probationEnd" readonly>
                                                 <div class="form-text text-muted">
                                                     <i class="fas fa-calculator me-1"></i>Auto-calculated: Hire Date + Probation Months
                                                 </div>
@@ -1309,11 +1309,11 @@
                                     <div class="row">
                                         <div class="col-md-4">
                                             <div class="mb-3">
-                                                <label for="insuranceEligibilityDate" class="form-label fw-medium">
+                                                <label for="insuranceEligibleDate" class="form-label fw-medium">
                                                     Insurance Eligibility Date
                                                     <i class="fas fa-info-circle ms-1" title="Date when insurance becomes available"></i>
                                                 </label>
-                                                <input type="date" class="form-control" id="insuranceEligibilityDate" readonly>
+                                                <input type="date" class="form-control" id="insuranceEligibleDate" readonly>
                                                 <div class="form-text text-muted">
                                                     <i class="fas fa-calculator me-1"></i>Auto-calculated: Probation End + 3 months
                                                 </div>
@@ -1338,8 +1338,8 @@
                                                         <i class="fas fa-clipboard-check me-1"></i><strong>Enrolled in Insurance</strong>
                                                     </label>
                                                 </div>
-                                                <label for="insuranceCardDate" class="form-label fw-medium">Insurance Card Received</label>
-                                                <input type="date" class="form-control" id="insuranceCardDate">
+                                                <label for="insuranceCardReceivedDate" class="form-label fw-medium">Insurance Card Received</label>
+                                                <input type="date" class="form-control" id="insuranceCardReceivedDate">
                                                 <div class="form-text">Date insurance card was received</div>
                                             </div>
                                         </div>
@@ -2294,10 +2294,10 @@
     const hireDate = user.HireDate || '';
     const country = user.Country || '';
     const terminationDate = user.TerminationDate || '';
-    const probationEnd = user.ProbationEndDate || '';
-    const enrolled = !!(user.InsuranceSignedUp || user.InsuranceEnrolled || user.InsuranceEnrolledBool);
-    const eligDate = user.InsuranceQualifiedDate || user.InsuranceEligibilityDate || '';
-    const qualified = (user.InsuranceEligible === true || user.InsuranceQualifiedBool === true)
+    const probationEnd = user.ProbationEnd || user.ProbationEndDate || '';
+    const enrolled = !!(user.InsuranceEnrolled || user.InsuranceSignedUp || user.InsuranceEnrolledBool);
+    const eligDate = user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '';
+    const qualified = (user.InsuranceQualified === true || user.InsuranceEligible === true || user.InsuranceQualifiedBool === true)
       ? true
       : (eligDate ? (new Date() >= new Date(eligDate)) : false);
 
@@ -2570,24 +2570,24 @@
       ? u.ProbationMonths : '';
     document.getElementById('probationMonths').value = probMonths;
 
-    document.getElementById('probationEndDate').value = formatDateForInput(u.ProbationEndDate);
-    document.getElementById('insuranceEligibilityDate').value = formatDateForInput(
-      u.InsuranceQualifiedDate || u.InsuranceEligibilityDate
+    document.getElementById('probationEnd').value = formatDateForInput(u.ProbationEnd || u.ProbationEndDate);
+    document.getElementById('insuranceEligibleDate').value = formatDateForInput(
+      u.InsuranceEligibleDate || u.InsuranceQualifiedDate
     );
 
     document.getElementById('insuranceEnrolled').checked = !!(
-      u.InsuranceSignedUp || u.InsuranceEnrolled || u.InsuranceEnrolledBool
+      u.InsuranceEnrolled || u.InsuranceSignedUp || u.InsuranceEnrolledBool
     );
 
-    document.getElementById('insuranceCardDate').value = formatDateForInput(
+    document.getElementById('insuranceCardReceivedDate').value = formatDateForInput(
       u.InsuranceCardReceivedDate || u.InsuranceCardDate
     );
 
     // Set eligibility pill
-    const qualified = (u.InsuranceEligible === true || u.InsuranceQualifiedBool === true)
+    const qualified = (u.InsuranceQualified === true || u.InsuranceEligible === true || u.InsuranceQualifiedBool === true)
       ? true
-      : (document.getElementById('insuranceEligibilityDate').value
-        ? (new Date() >= new Date(document.getElementById('insuranceEligibilityDate').value))
+      : (document.getElementById('insuranceEligibleDate').value
+        ? (new Date() >= new Date(document.getElementById('insuranceEligibleDate').value))
         : false);
     setEligibilityPill(qualified);
 
@@ -2716,8 +2716,8 @@
       return element ? element.checked : defaultValue;
     };
 
-    const insuranceEligibilityDate = getFieldValue('insuranceEligibilityDate');
-    const insuranceEligible = insuranceEligibilityDate ? (new Date() >= new Date(insuranceEligibilityDate)) : false;
+    const insuranceEligibleDate = getFieldValue('insuranceEligibleDate');
+    const insuranceQualified = insuranceEligibleDate ? (new Date() >= new Date(insuranceEligibleDate)) : false;
     const normalizedStatus = normalizeEmploymentStatusClient(getFieldValue('employmentStatus').trim());
 
     const payload = {
@@ -2742,11 +2742,11 @@
         const v = parseInt(getFieldValue('probationMonths'), 10);
         return isNaN(v) ? null : v;
       })(),
-      probationEndDate: getFieldValue('probationEndDate'),
-      insuranceQualifiedDate: insuranceEligibilityDate,
-      insuranceEligible: insuranceEligible,
-      insuranceSignedUp: getFieldChecked('insuranceEnrolled'),
-      insuranceCardReceivedDate: getFieldValue('insuranceCardDate')
+      probationEnd: getFieldValue('probationEnd'),
+      insuranceEligibleDate: insuranceEligibleDate,
+      insuranceQualified: insuranceQualified,
+      insuranceEnrolled: getFieldChecked('insuranceEnrolled'),
+      insuranceCardReceivedDate: getFieldValue('insuranceCardReceivedDate')
     };
 
     console.log('Save payload:', payload); // Debug log
@@ -2933,14 +2933,14 @@
     if (hireStr && validMonths !== null) {
       const hire = new Date(hireStr + 'T00:00:00');
       const probationEnd = addMonthsSafe(hire, validMonths);
-      document.getElementById('probationEndDate').value = toDateInput(probationEnd);
+      document.getElementById('probationEnd').value = toDateInput(probationEnd);
       // Frontend uses +3 months default to match service's default INSURANCE_MONTHS_AFTER_PROBATION
       const elig = addMonthsSafe(probationEnd, 3);
-      document.getElementById('insuranceEligibilityDate').value = toDateInput(elig);
+      document.getElementById('insuranceEligibleDate').value = toDateInput(elig);
       setEligibilityPill(new Date() >= new Date(elig));
     } else {
-      document.getElementById('probationEndDate').value = '';
-      document.getElementById('insuranceEligibilityDate').value = '';
+      document.getElementById('probationEnd').value = '';
+      document.getElementById('insuranceEligibleDate').value = '';
       setEligibilityPill(false);
     }
   }

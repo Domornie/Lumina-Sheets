@@ -2,8 +2,8 @@
  * UserService.gs — Complete Campaign-aware User Management + HR/Benefits
  * - FIXED globals: safe constant pattern (no block-scoped const in if)
  * - Adds HR/Benefits columns & logic:
- *     TerminationDate, ProbationMonths, ProbationEndDate,
- *     InsuranceQualifiedDate, InsuranceEligible, InsuranceSignedUp,
+ *     TerminationDate, ProbationMonths, ProbationEnd,
+ *     InsuranceEligibleDate, InsuranceQualified, InsuranceEnrolled,
  *     InsuranceCardReceivedDate
  *   Insurance eligibility = 3 months AFTER probation ends (configurable)
  * - Safe fallbacks for readSheet/ensureSheetWithHeaders/writeError/etc.
@@ -39,10 +39,10 @@ if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTH
 const OPTIONAL_USER_COLUMNS = [
   'TerminationDate',
   'ProbationMonths',
-  'ProbationEndDate',
-  'InsuranceQualifiedDate',
-  'InsuranceEligible',
-  'InsuranceSignedUp',
+  'ProbationEnd',
+  'InsuranceEligibleDate',
+  'InsuranceQualified',
+  'InsuranceEnrolled',
   'InsuranceCardReceivedDate'
 ];
 
@@ -208,14 +208,15 @@ function calcProbationEndDate_(hireDateStr, probationMonths) {
   if (!hireDateStr || !probationMonths) return '';
   return _addMonths_(hireDateStr, Number(probationMonths || 0));
 }
-function calcInsuranceQualifiedDate_(probationEndStr, monthsAfter) {
+function calcInsuranceEligibleDate_(probationEndStr, monthsAfter) {
   if (!probationEndStr) return '';
   const m = (typeof monthsAfter === 'number') ? monthsAfter : G.INSURANCE_MONTHS_AFTER_PROBATION;
   return _addMonths_(probationEndStr, m);
 }
-function isInsuranceEligibleNow_(qualifiedDateStr, terminationDateStr) {
-  if (!qualifiedDateStr) return false;
-  const q = new Date(qualifiedDateStr);
+const calcInsuranceQualifiedDate_ = calcInsuranceEligibleDate_;
+function isInsuranceQualifiedNow_(eligibleDateStr, terminationDateStr) {
+  if (!eligibleDateStr) return false;
+  const q = new Date(eligibleDateStr);
   if (isNaN(q)) return false;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   if (q > today) return false;
@@ -225,6 +226,7 @@ function isInsuranceEligibleNow_(qualifiedDateStr, terminationDateStr) {
   }
   return true;
 }
+const isInsuranceEligibleNow_ = isInsuranceQualifiedNow_;
 function _boolToStr_(v) { return (v === true || String(v).trim().toUpperCase() === 'TRUE' || String(v).trim().toUpperCase() === 'YES' || String(v).trim() === '1') ? 'TRUE' : 'FALSE'; }
 function _strToBool_(v) { return (v === true || String(v).trim().toUpperCase() === 'TRUE'); }
 
@@ -565,6 +567,16 @@ function clientGetAllUsers(requestingUserId) {
 }
 
 function createSafeUserObject(user) {
+  const probationEnd = user.ProbationEnd || user.probationEnd || user.ProbationEndDate || '';
+  const insuranceEligibleDate = user.InsuranceEligibleDate || user.insuranceEligibleDate
+    || user.InsuranceQualifiedDate || '';
+  const insuranceQualified = (user.InsuranceQualified != null)
+    ? _strToBool_(user.InsuranceQualified)
+    : _strToBool_(user.InsuranceEligible || false);
+  const insuranceEnrolled = (user.InsuranceEnrolled != null)
+    ? _strToBool_(user.InsuranceEnrolled)
+    : _strToBool_(user.InsuranceSignedUp || false);
+
   const safe = {
     ID: user.ID || '',
     UserName: _getUserName_(user), // Fix: Check all variations
@@ -578,10 +590,10 @@ function createSafeUserObject(user) {
     // HR/Benefits raw
     TerminationDate: user.TerminationDate || '',
     ProbationMonths: (user.ProbationMonths !== '' && user.ProbationMonths != null) ? Number(user.ProbationMonths) : '',
-    ProbationEndDate: user.ProbationEndDate || '',
-    InsuranceQualifiedDate: user.InsuranceQualifiedDate || '',
-    InsuranceEligible: _strToBool_(user.InsuranceEligible || false),
-    InsuranceSignedUp: _strToBool_(user.InsuranceSignedUp || false),
+    ProbationEnd: probationEnd,
+    InsuranceEligibleDate: insuranceEligibleDate,
+    InsuranceQualified: insuranceQualified,
+    InsuranceEnrolled: insuranceEnrolled,
     InsuranceCardReceivedDate: user.InsuranceCardReceivedDate || ''
   };
 
@@ -591,10 +603,13 @@ function createSafeUserObject(user) {
   safe.fullName = safe.FullName;
   safe.email = safe.Email;
 
-  safe.InsuranceEligibilityDate = safe.InsuranceQualifiedDate;  // alias for UI
-  safe.InsuranceEnrolled = safe.InsuranceSignedUp;              // alias for UI
-  safe.InsuranceEnrolledBool = !!safe.InsuranceSignedUp;        // convenience
-  safe.InsuranceQualifiedBool = !!safe.InsuranceEligible;       // convenience
+  safe.ProbationEndDate = safe.ProbationEnd; // legacy alias
+  safe.InsuranceQualifiedDate = safe.InsuranceEligibleDate; // legacy alias
+  safe.InsuranceEligibilityDate = safe.InsuranceEligibleDate;  // alias for UI
+  safe.InsuranceSignedUp = safe.InsuranceEnrolled;              // legacy alias
+  safe.InsuranceEnrolledBool = !!safe.InsuranceEnrolled;        // convenience
+  safe.InsuranceEligible = safe.InsuranceQualified;             // legacy alias
+  safe.InsuranceQualifiedBool = !!safe.InsuranceQualified;      // convenience
 
   try {
     safe.canLoginBool = _strToBool_(user.CanLogin);
@@ -613,8 +628,8 @@ function createSafeUserObject(user) {
     // nice formats
     safe.hireDateFormatted = user.HireDate ? new Date(user.HireDate).toLocaleDateString() : '';
     safe.terminationDateFormatted = user.TerminationDate ? new Date(user.TerminationDate).toLocaleDateString() : '';
-    safe.probationEndDateFormatted = user.ProbationEndDate ? new Date(user.ProbationEndDate).toLocaleDateString() : '';
-    safe.insuranceQualifiedDateFormatted = user.InsuranceQualifiedDate ? new Date(user.InsuranceQualifiedDate).toLocaleDateString() : '';
+    safe.probationEndDateFormatted = probationEnd ? new Date(probationEnd).toLocaleDateString() : '';
+    safe.insuranceQualifiedDateFormatted = insuranceEligibleDate ? new Date(insuranceEligibleDate).toLocaleDateString() : '';
     safe.insuranceCardReceivedDateFormatted = user.InsuranceCardReceivedDate ? new Date(user.InsuranceCardReceivedDate).toLocaleDateString() : '';
   } catch (_) { }
 
@@ -642,8 +657,10 @@ function createSafeUserObject(user) {
 
   // Derived: InsuranceEligible recompute if needed
   try {
-    const eligible = isInsuranceEligibleNow_(safe.InsuranceQualifiedDate, safe.TerminationDate);
-    safe.InsuranceEligible = !!eligible;
+    const qualifiedNow = isInsuranceEligibleNow_(safe.InsuranceEligibleDate, safe.TerminationDate);
+    safe.InsuranceQualified = !!qualifiedNow;
+    safe.InsuranceEligible = safe.InsuranceQualified;
+    safe.InsuranceQualifiedBool = safe.InsuranceQualified;
   } catch (_) { }
 
   return safe;
@@ -665,6 +682,22 @@ function createMinimalUserObject(user) {
     roleNames: [],
     campaignPermissions: [],
     pages: [],
+    ProbationEnd: user.ProbationEnd || user.ProbationEndDate || '',
+    InsuranceEligibleDate: user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '',
+    InsuranceQualified: (user.InsuranceQualified != null)
+      ? _strToBool_(user.InsuranceQualified)
+      : _strToBool_(user.InsuranceEligible || false),
+    InsuranceEnrolled: (user.InsuranceEnrolled != null)
+      ? _strToBool_(user.InsuranceEnrolled)
+      : _strToBool_(user.InsuranceSignedUp || false),
+    ProbationEndDate: user.ProbationEnd || user.ProbationEndDate || '',
+    InsuranceQualifiedDate: user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '',
+    InsuranceEligible: (user.InsuranceQualified != null)
+      ? _strToBool_(user.InsuranceQualified)
+      : _strToBool_(user.InsuranceEligible || false),
+    InsuranceSignedUp: (user.InsuranceEnrolled != null)
+      ? _strToBool_(user.InsuranceEnrolled)
+      : _strToBool_(user.InsuranceSignedUp || false),
     CreatedAt: new Date().toISOString(),
     UpdatedAt: new Date().toISOString()
   };
@@ -702,6 +735,94 @@ function getUserRolesSafe(userId) {
       return role ? { id: role.ID, name: role.Name } : null;
     }).filter(Boolean);
   } catch (e) { return []; }
+}
+
+function normalizeRoleIds_(roleIds) {
+  if (!Array.isArray(roleIds)) return [];
+  var normalized = [];
+  var seen = {};
+  roleIds.forEach(function (rid) {
+    var key = String(rid || '').trim();
+    if (!key) return;
+    if (!seen[key]) {
+      seen[key] = true;
+      normalized.push(key);
+    }
+  });
+  return normalized;
+}
+
+function syncUserRoles_(userId, desiredRoleIds, options) {
+  var summary = { added: 0, removed: 0 };
+  try {
+    if (!userId) return summary;
+
+    var normalizedDesired = normalizeRoleIds_(desiredRoleIds);
+
+    var existing = getUserRoleIdsSafe(userId).map(function (rid) { return String(rid || '').trim(); }).filter(Boolean);
+
+    var existingUnique = normalizeRoleIds_(existing);
+    var hasDuplicates = existing.length !== existingUnique.length;
+
+    var differs = false;
+    if (existingUnique.length !== normalizedDesired.length) {
+      differs = true;
+    } else {
+      var desiredLookup = {};
+      normalizedDesired.forEach(function (rid) { desiredLookup[rid] = true; });
+      for (var i = 0; i < normalizedDesired.length; i++) {
+        if (!desiredLookup[existingUnique[i]]) {
+          differs = true;
+          break;
+        }
+      }
+    }
+
+    if (!differs && !hasDuplicates) {
+      return summary;
+    }
+
+    if (existing.length && typeof deleteUserRoles === 'function') {
+      deleteUserRoles(userId);
+      summary.removed = existing.length;
+    }
+
+    if (normalizedDesired.length && typeof addUserRole === 'function') {
+      var scope = options && options.scope ? options.scope : (options && options.defaultScope ? options.defaultScope : '');
+      var assignedBy = options && options.assignedBy ? options.assignedBy : resolveAssignedBy_();
+      normalizedDesired.forEach(function (rid) {
+        addUserRole(userId, rid, { scope: scope, assignedBy: assignedBy });
+      });
+      summary.added = normalizedDesired.length;
+    }
+
+    return summary;
+  } catch (err) {
+    throw err;
+  }
+}
+
+function resolveAssignedBy_() {
+  try {
+    if (typeof Session === 'undefined' || !Session) return 'System';
+
+    if (typeof Session.getEffectiveUser === 'function') {
+      var effective = Session.getEffectiveUser();
+      if (effective && typeof effective.getEmail === 'function') {
+        var effEmail = effective.getEmail();
+        if (effEmail) return effEmail;
+      }
+    }
+
+    if (typeof Session.getActiveUser === 'function') {
+      var active = Session.getActiveUser();
+      if (active && typeof active.getEmail === 'function') {
+        var actEmail = active.getEmail();
+        if (actEmail) return actEmail;
+      }
+    }
+  } catch (_) { }
+  return 'System';
 }
 function getRoleNameSafe(roleId) {
   try {
@@ -792,9 +913,26 @@ function clientRegisterUser(userData) {
         // recompute benefits if needed
         const hire = data.hireDate || existing.HireDate || '';
         const probMonths = (data.probationMonths != null) ? data.probationMonths : (existing.ProbationMonths || '');
-        const probEnd = data.probationEndDate || calcProbationEndDate_(hire, probMonths);
-        const insQual = data.insuranceQualifiedDate || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
-        const insEligible = isInsuranceEligibleNow_(insQual, data.terminationDate || existing.TerminationDate);
+        const existingProbEnd = existing.ProbationEnd || existing.ProbationEndDate || '';
+        const existingEligibleDate = existing.InsuranceEligibleDate || existing.InsuranceQualifiedDate || '';
+        const existingQualified = (existing.InsuranceQualified != null)
+          ? _strToBool_(existing.InsuranceQualified)
+          : _strToBool_(existing.InsuranceEligible || false);
+        const existingEnrolled = (existing.InsuranceEnrolled != null)
+          ? _strToBool_(existing.InsuranceEnrolled)
+          : _strToBool_(existing.InsuranceSignedUp || false);
+
+        const probEnd = data.probationEnd || data.probationEndDate || existingProbEnd || calcProbationEndDate_(hire, probMonths);
+        const eligibleDate = data.insuranceEligibleDate || data.insuranceQualifiedDate || existingEligibleDate
+          || calcInsuranceEligibleDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+        const qualified = (data.insuranceQualified != null)
+          ? _strToBool_(data.insuranceQualified)
+          : ((existing.InsuranceQualified != null || existing.InsuranceEligible != null)
+            ? existingQualified
+            : isInsuranceQualifiedNow_(eligibleDate, data.terminationDate || existing.TerminationDate));
+        const enrolled = (data.insuranceEnrolled != null)
+          ? _strToBool_(data.insuranceEnrolled)
+          : existingEnrolled;
 
         const merged = {
           ID: existing.ID,
@@ -821,10 +959,14 @@ function clientRegisterUser(userData) {
           // Benefits
           TerminationDate: _toIsoDateOnly_(data.terminationDate || existing.TerminationDate || ''),
           ProbationMonths: (probMonths === '' ? '' : Number(probMonths)),
+          ProbationEnd: _toIsoDateOnly_(probEnd),
           ProbationEndDate: _toIsoDateOnly_(probEnd),
-          InsuranceQualifiedDate: _toIsoDateOnly_(insQual),
-          InsuranceEligible: _boolToStr_(insEligible),
-          InsuranceSignedUp: _boolToStr_(data.insuranceSignedUp != null ? data.insuranceSignedUp : existing.InsuranceSignedUp),
+          InsuranceEligibleDate: _toIsoDateOnly_(eligibleDate),
+          InsuranceQualifiedDate: _toIsoDateOnly_(eligibleDate),
+          InsuranceQualified: qualified,
+          InsuranceEligible: _boolToStr_(qualified),
+          InsuranceEnrolled: enrolled,
+          InsuranceSignedUp: _boolToStr_(enrolled),
           InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || existing.InsuranceCardReceivedDate || '')
         };
 
@@ -860,9 +1002,16 @@ function clientRegisterUser(userData) {
     const setupToken = Utilities.getUuid();
 
     // Benefits compute
-    const probEnd = calcProbationEndDate_(data.hireDate || '', data.probationMonths || '');
-    const insQual = calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
-    const insEligible = isInsuranceEligibleNow_(insQual, data.terminationDate);
+    const probEnd = data.probationEnd || calcProbationEndDate_(data.hireDate || '', data.probationMonths || '');
+    const eligibleDate = data.insuranceEligibleDate || calcInsuranceEligibleDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+    const qualified = (data.insuranceQualified != null)
+      ? _strToBool_(data.insuranceQualified)
+      : isInsuranceQualifiedNow_(eligibleDate, data.terminationDate);
+    const enrolled = (data.insuranceEnrolled != null)
+      ? _strToBool_(data.insuranceEnrolled)
+      : _strToBool_(data.insuranceSignedUp);
+
+    const normalizedRoleIds = normalizeRoleIds_(data.roles);
 
     const newUser = {
       ID: id,
@@ -881,7 +1030,7 @@ function clientRegisterUser(userData) {
       LockoutEnd: '',
       TwoFactorEnabled: 'FALSE',
       CanLogin: _boolToStr_(data.canLogin),
-      Roles: (data.roles || []).join(','),
+      Roles: normalizedRoleIds.join(','),
       Pages: (data.pages || []).join(','),
       CreatedAt: createdAt,
       UpdatedAt: createdAt,
@@ -889,10 +1038,14 @@ function clientRegisterUser(userData) {
       // Benefits fields
       TerminationDate: _toIsoDateOnly_(data.terminationDate || ''),
       ProbationMonths: (data.probationMonths === '' || data.probationMonths == null) ? '' : Number(data.probationMonths),
+      ProbationEnd: _toIsoDateOnly_(data.probationEnd || probEnd),
       ProbationEndDate: _toIsoDateOnly_(data.probationEndDate || probEnd),
-      InsuranceQualifiedDate: _toIsoDateOnly_(data.insuranceQualifiedDate || insQual),
-      InsuranceEligible: _boolToStr_(data.insuranceEligible != null ? data.insuranceEligible : insEligible),
-      InsuranceSignedUp: _boolToStr_(data.insuranceSignedUp),
+      InsuranceEligibleDate: _toIsoDateOnly_(data.insuranceEligibleDate || eligibleDate),
+      InsuranceQualifiedDate: _toIsoDateOnly_(data.insuranceQualifiedDate || eligibleDate),
+      InsuranceQualified: (data.insuranceQualified != null) ? _strToBool_(data.insuranceQualified) : qualified,
+      InsuranceEligible: _boolToStr_((data.insuranceQualified != null) ? data.insuranceQualified : qualified),
+      InsuranceEnrolled: enrolled,
+      InsuranceSignedUp: _boolToStr_(enrolled),
       InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || '')
     };
 
@@ -905,8 +1058,12 @@ function clientRegisterUser(userData) {
         setCampaignUserPermissions(data.campaignId, id, String(data.permissionLevel).toUpperCase(),
           _strToBool_(data.canManageUsers), _strToBool_(data.canManagePages));
       }
-      if (Array.isArray(data.roles) && typeof addUserRole === 'function') {
-        data.roles.forEach(rid => addUserRole(id, rid));
+      if (Array.isArray(data.roles)) {
+        try {
+          syncUserRoles_(id, normalizedRoleIds, { assignedBy: resolveAssignedBy_() });
+        } catch (syncErr) {
+          writeError && writeError('clientRegisterUser:syncUserRoles', syncErr);
+        }
       }
     } catch (pe) { writeError && writeError('clientRegisterUser:perms/roles', pe); }
 
@@ -1026,10 +1183,30 @@ function clientUpdateUser(userId, userData) {
     // Benefits recomputation
     const hire = data.hireDate || current['HireDate'] || '';
     const probMonths = (data.probationMonths != null) ? data.probationMonths : (current['ProbationMonths'] || '');
-    const probEnd = data.probationEndDate || calcProbationEndDate_(hire, probMonths);
+    const currentProbEnd = current['ProbationEnd'] || current['ProbationEndDate'] || '';
     const term = data.terminationDate || current['TerminationDate'] || '';
-    const insQual = data.insuranceQualifiedDate || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
-    const insEligible = (data.insuranceEligible != null) ? data.insuranceEligible : isInsuranceEligibleNow_(insQual, term);
+    const currentEligibleDate = current['InsuranceEligibleDate'] || current['InsuranceQualifiedDate'] || '';
+    const currentQualified = (Object.prototype.hasOwnProperty.call(current, 'InsuranceQualified'))
+      ? _strToBool_(current['InsuranceQualified'])
+      : _strToBool_(current['InsuranceEligible']);
+    const currentEnrolled = (Object.prototype.hasOwnProperty.call(current, 'InsuranceEnrolled'))
+      ? _strToBool_(current['InsuranceEnrolled'])
+      : _strToBool_(current['InsuranceSignedUp']);
+
+    const probEnd = data.probationEnd || data.probationEndDate || currentProbEnd || calcProbationEndDate_(hire, probMonths);
+    const eligibleDate = data.insuranceEligibleDate || data.insuranceQualifiedDate || currentEligibleDate
+      || calcInsuranceEligibleDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+    const qualified = (data.insuranceQualified != null)
+      ? _strToBool_(data.insuranceQualified)
+      : (Object.prototype.hasOwnProperty.call(current, 'InsuranceQualified')
+        || Object.prototype.hasOwnProperty.call(current, 'InsuranceEligible'))
+        ? currentQualified
+        : isInsuranceQualifiedNow_(eligibleDate, term);
+    const enrolled = (data.insuranceEnrolled != null)
+      ? _strToBool_(data.insuranceEnrolled)
+      : currentEnrolled;
+
+    const normalizedRoleIds = normalizeRoleIds_(data.roles);
 
     const updated = {
       ID: userId,
@@ -1048,7 +1225,7 @@ function clientUpdateUser(userId, userData) {
       LockoutEnd: current['LockoutEnd'],
       TwoFactorEnabled: current['TwoFactorEnabled'],
       CanLogin: _boolToStr_(data.canLogin),
-      Roles: (data.roles || []).join(','),
+      Roles: normalizedRoleIds.join(','),
       Pages: (data.pages || []).join(','),
       CreatedAt: current['CreatedAt'],
       UpdatedAt: _now_(),
@@ -1056,10 +1233,14 @@ function clientUpdateUser(userId, userData) {
       // Benefits
       TerminationDate: _toIsoDateOnly_(term),
       ProbationMonths: (probMonths === '' ? '' : Number(probMonths)),
+      ProbationEnd: _toIsoDateOnly_(probEnd),
       ProbationEndDate: _toIsoDateOnly_(probEnd),
-      InsuranceQualifiedDate: _toIsoDateOnly_(insQual),
-      InsuranceEligible: _boolToStr_(insEligible),
-      InsuranceSignedUp: _boolToStr_(data.insuranceSignedUp != null ? data.insuranceSignedUp : current['InsuranceSignedUp']),
+      InsuranceEligibleDate: _toIsoDateOnly_(eligibleDate),
+      InsuranceQualifiedDate: _toIsoDateOnly_(eligibleDate),
+      InsuranceQualified: qualified,
+      InsuranceEligible: _boolToStr_(qualified),
+      InsuranceEnrolled: enrolled,
+      InsuranceSignedUp: _boolToStr_(enrolled),
       InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || current['InsuranceCardReceivedDate'] || '')
     };
 
@@ -1079,8 +1260,16 @@ function clientUpdateUser(userId, userData) {
         setCampaignUserPermissions(data.campaignId, userId, String(data.permissionLevel).toUpperCase(),
           _strToBool_(data.canManageUsers), _strToBool_(data.canManagePages));
       }
-    } catch (pe) { 
-      writeError && writeError('clientUpdateUser:perms', pe); 
+    } catch (pe) {
+      writeError && writeError('clientUpdateUser:perms', pe);
+    }
+
+    try {
+      if (Array.isArray(data.roles)) {
+        syncUserRoles_(userId, normalizedRoleIds, { assignedBy: resolveAssignedBy_() });
+      }
+    } catch (roleSyncErr) {
+      writeError && writeError('clientUpdateUser:syncUserRoles', roleSyncErr);
     }
 
     try {
@@ -1996,7 +2185,7 @@ function _validateUserInput_(userData) {
     errors.push('Country must be between 2 and 100 characters');
   }
   // dates sanity (optional)
-  ['terminationDate', 'probationEndDate', 'insuranceQualifiedDate', 'insuranceCardReceivedDate'].forEach(k => {
+  ['terminationDate', 'probationEnd', 'probationEndDate', 'insuranceEligibleDate', 'insuranceQualifiedDate', 'insuranceCardReceivedDate'].forEach(k => {
     if (userData[k]) {
       const d = new Date(userData[k]);
       if (isNaN(d)) errors.push(`${k} is not a valid date`);
@@ -2020,28 +2209,51 @@ function _normalizeIncoming_(userData) {
   out.employmentStatus = normalizeEmploymentStatus(out.employmentStatus);
   out.country = String(out.country || '').trim();
 
-  if (out.insuranceEnrolled != null && out.insuranceSignedUp == null) {
-    out.insuranceSignedUp = out.insuranceEnrolled;
+  if (out.probationEnd == null && out.probationEndDate != null) {
+    out.probationEnd = out.probationEndDate;
   }
-  if (out.insuranceEligibilityDate && !out.insuranceQualifiedDate) {
-    out.insuranceQualifiedDate = out.insuranceEligibilityDate;
+  if (out.insuranceEligibleDate == null && out.insuranceQualifiedDate != null) {
+    out.insuranceEligibleDate = out.insuranceQualifiedDate;
+  }
+  if (out.insuranceQualified == null && out.insuranceEligible != null) {
+    out.insuranceQualified = out.insuranceEligible;
+  }
+  if (out.insuranceEnrolled == null && out.insuranceSignedUp != null) {
+    out.insuranceEnrolled = out.insuranceSignedUp;
+  }
+
+  // Maintain legacy mirrors for downstream compatibility
+  if (out.probationEnd != null && out.probationEndDate == null) {
+    out.probationEndDate = out.probationEnd;
+  }
+  if (out.insuranceEligibleDate != null && out.insuranceQualifiedDate == null) {
+    out.insuranceQualifiedDate = out.insuranceEligibleDate;
   }
   if (out.insuranceQualified != null && out.insuranceEligible == null) {
     out.insuranceEligible = out.insuranceQualified;
+  }
+  if (out.insuranceEnrolled != null && out.insuranceSignedUp == null) {
+    out.insuranceSignedUp = out.insuranceEnrolled;
   }
 
   // Normalize date-only strings (keep after alias mapping)
   out.hireDate = out.hireDate ? _toIsoDateOnly_(out.hireDate) : '';
   out.terminationDate = out.terminationDate ? _toIsoDateOnly_(out.terminationDate) : '';
-  out.probationEndDate = out.probationEndDate ? _toIsoDateOnly_(out.probationEndDate) : '';
-  out.insuranceQualifiedDate = out.insuranceQualifiedDate ? _toIsoDateOnly_(out.insuranceQualifiedDate) : '';
+  out.probationEnd = out.probationEnd ? _toIsoDateOnly_(out.probationEnd) : '';
+  out.probationEndDate = out.probationEnd;
+  out.insuranceEligibleDate = out.insuranceEligibleDate ? _toIsoDateOnly_(out.insuranceEligibleDate) : '';
+  out.insuranceQualifiedDate = out.insuranceEligibleDate;
   out.insuranceCardReceivedDate = out.insuranceCardReceivedDate ? _toIsoDateOnly_(out.insuranceCardReceivedDate) : '';
 
   // Normalize booleans
   out.isAdmin = _strToBool_(out.isAdmin);
   out.canLogin = _strToBool_(out.canLogin);
-  out.insuranceEligible = (out.insuranceEligible == null) ? null : _strToBool_(out.insuranceEligible);
-  out.insuranceSignedUp = _strToBool_(out.insuranceSignedUp);
+  out.insuranceQualified = (out.insuranceQualified == null || out.insuranceQualified === '')
+    ? null
+    : _strToBool_(out.insuranceQualified);
+  out.insuranceEligible = out.insuranceQualified;
+  out.insuranceEnrolled = _strToBool_(out.insuranceEnrolled);
+  out.insuranceSignedUp = out.insuranceEnrolled;
 
   // Normalize numbers
   if (out.probationMonths === '' || out.probationMonths == null) {
@@ -2258,18 +2470,28 @@ function clientGetBenefitsSnapshot(userId) {
     if (!u) return { success: false, error: 'User not found' };
     const hire = u.HireDate || '';
     const probMonths = (u.ProbationMonths !== '' && u.ProbationMonths != null) ? Number(u.ProbationMonths) : '';
-    const probEnd = u.ProbationEndDate || calcProbationEndDate_(hire, probMonths);
-    const insQual = u.InsuranceQualifiedDate || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
-    const eligible = isInsuranceEligibleNow_(insQual, u.TerminationDate || '');
+    const probEnd = u.ProbationEnd || u.ProbationEndDate || calcProbationEndDate_(hire, probMonths);
+    const eligibleDate = u.InsuranceEligibleDate || u.InsuranceQualifiedDate
+      || calcInsuranceEligibleDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+    const qualified = (u.InsuranceQualified != null)
+      ? _strToBool_(u.InsuranceQualified)
+      : isInsuranceQualifiedNow_(eligibleDate, u.TerminationDate || '');
+    const enrolled = (u.InsuranceEnrolled != null)
+      ? _strToBool_(u.InsuranceEnrolled)
+      : _strToBool_(u.InsuranceSignedUp);
     return {
       success: true,
       userId,
       hireDate: hire || '',
       probationMonths: probMonths === '' ? '' : Number(probMonths),
+      probationEnd: _toIsoDateOnly_(probEnd),
       probationEndDate: _toIsoDateOnly_(probEnd),
-      insuranceQualifiedDate: _toIsoDateOnly_(insQual),
-      insuranceEligible: !!eligible,
-      insuranceSignedUp: _strToBool_(u.InsuranceSignedUp),
+      insuranceEligibleDate: _toIsoDateOnly_(eligibleDate),
+      insuranceQualifiedDate: _toIsoDateOnly_(eligibleDate),
+      insuranceQualified: !!qualified,
+      insuranceEligible: !!qualified,
+      insuranceEnrolled: !!enrolled,
+      insuranceSignedUp: !!enrolled,
       insuranceCardReceivedDate: _toIsoDateOnly_(u.InsuranceCardReceivedDate || '')
     };
   } catch (e) { writeError && writeError('clientGetBenefitsSnapshot', e); return { success: false, error: e.message }; }
@@ -2290,18 +2512,20 @@ function clientBatchNormalizeBenefits() {
       const term = row[idx['TerminationDate']] || '';
       let probMonths = row[idx['ProbationMonths']];
       probMonths = (probMonths === '' || probMonths == null) ? '' : Number(probMonths);
-      const curProbEnd = row[idx['ProbationEndDate']] || '';
-      const curInsQual = row[idx['InsuranceQualifiedDate']] || '';
-      const curEligible = row[idx['InsuranceEligible']];
-      const curCard = row[idx['InsuranceCardReceivedDate']] || '';
 
-      const probEnd = curProbEnd || calcProbationEndDate_(hire, probMonths);
-      const insQual = curInsQual || calcInsuranceQualifiedDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
-      const eligible = isInsuranceEligibleNow_(insQual, term);
+      const curProbEnd = (typeof idx['ProbationEnd'] === 'number') ? row[idx['ProbationEnd']] : '';
+      const curProbEndLegacy = (typeof idx['ProbationEndDate'] === 'number') ? row[idx['ProbationEndDate']] : '';
+      const curEligibleDate = (typeof idx['InsuranceEligibleDate'] === 'number') ? row[idx['InsuranceEligibleDate']] : '';
+      const curEligibleDateLegacy = (typeof idx['InsuranceQualifiedDate'] === 'number') ? row[idx['InsuranceQualifiedDate']] : '';
+
+      const probEnd = curProbEnd || curProbEndLegacy || calcProbationEndDate_(hire, probMonths);
+      const eligibleDate = curEligibleDate || curEligibleDateLegacy || calcInsuranceEligibleDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
+      const qualified = isInsuranceQualifiedNow_(eligibleDate, term);
 
       const newProbEnd = _toIsoDateOnly_(probEnd);
-      const newInsQual = _toIsoDateOnly_(insQual);
-      const newEligibleStr = _boolToStr_(eligible);
+      const newEligibleIso = _toIsoDateOnly_(eligibleDate);
+      const newQualifiedBool = !!qualified;
+      const newQualifiedStr = _boolToStr_(newQualifiedBool);
 
       let changed = false;
       function setIfDiff(colName, val) {
@@ -2310,9 +2534,12 @@ function clientBatchNormalizeBenefits() {
         const cur = row[idx[colName]];
         if (String(cur) !== String(val)) { sh.getRange(r + 1, col).setValue(val); row[idx[colName]] = val; changed = true; }
       }
+      setIfDiff('ProbationEnd', newProbEnd);
       setIfDiff('ProbationEndDate', newProbEnd);
-      setIfDiff('InsuranceQualifiedDate', newInsQual);
-      setIfDiff('InsuranceEligible', newEligibleStr);
+      setIfDiff('InsuranceEligibleDate', newEligibleIso);
+      setIfDiff('InsuranceQualifiedDate', newEligibleIso);
+      setIfDiff('InsuranceQualified', newQualifiedBool);
+      setIfDiff('InsuranceEligible', newQualifiedStr);
 
       if (changed) {
         if (typeof idx['UpdatedAt'] === 'number') sh.getRange(r + 1, idx['UpdatedAt'] + 1).setValue(new Date());
