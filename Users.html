@@ -1426,7 +1426,6 @@
                                     </div>
                                 </div>
                             </div>
-
                         </div>
 
                         <!-- Campaigns Tab -->
@@ -2587,6 +2586,7 @@
     // Reset UI elements
     updatePageStats();
     setEligibilityPill(false);
+    updateUserSheetDataCard(null);
 
     // Hide manager tab for new users
     document.getElementById('manage-users-tab').style.display = 'none';
@@ -2685,6 +2685,7 @@
         ? (new Date() >= new Date(document.getElementById('insuranceEligibleDate').value))
         : false);
     setEligibilityPill(qualified);
+    updateUserSheetDataCard(u);
 
     // Set roles
     const roleIds = u.roleIds || [];
