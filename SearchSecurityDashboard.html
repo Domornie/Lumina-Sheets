@@ -623,37 +623,16 @@
   }
 
   function showNotification(message, type = 'success') {
-    // Create and show notification
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 15px 20px;
-      border-radius: 8px;
-      color: white;
-      font-weight: 500;
-      z-index: 1000;
-      max-width: 300px;
-      animation: slideIn 0.3s ease;
-    `;
-    
-    const colors = {
-      success: '#27ae60',
-      error: '#e74c3c',
-      info: '#3498db',
-      warning: '#f39c12'
-    };
-    
-    notification.style.backgroundColor = colors[type] || colors.success;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.style.animation = 'slideOut 0.3s ease';
-      setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    const normalizedType = type === 'error' ? 'danger' : type;
+    if (typeof window.showLuminaToast === 'function') {
+      window.showLuminaToast(message, {
+        type: normalizedType,
+        title: 'Search Security'
+      });
+      return;
+    }
+
+    alert(message);
   }
 
   function convertToCSV(data) {
@@ -674,19 +653,6 @@
     window.URL.revokeObjectURL(url);
   }
 
-  // Add CSS for animations
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-      from { transform: translateX(0); opacity: 1; }
-      to { transform: translateX(100%); opacity: 0; }
-    }
-  `;
-  document.head.appendChild(style);
 </script>
 
 </body>
