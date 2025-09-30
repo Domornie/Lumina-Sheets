@@ -168,6 +168,11 @@
     userRoleNames = ['System Administrator'];
   }
 
+  var currentPageKeyValue = currentPage || '';
+  var currentPageAttrValue = String(currentPageKeyValue)
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
   function generateLink(page) {
     var target = __navLinkBase;
     if (!target) {
@@ -180,7 +185,7 @@
   }
 ?>
 
-<nav id="sidebar">
+<nav id="sidebar" data-current-page='<?= currentPageAttrValue ?>'>
   <!-- Enhanced Logo Section -->
   <div class="sidebar-logo" id="sidebarToggle">
     <img
@@ -248,6 +253,8 @@
             ?>
               <a href="<?= generateLink(pageKey) ?>"
                 class="<?= (currentPage === pageTitle || currentPage === pageKey) ? 'active' : '' ?>"
+                data-page-key="<?= pageKey ?>"
+                data-page-title="<?= pageTitle ?>"
                 data-bs-toggle="tooltip" data-bs-placement="right" title="<?= pageDescription ?>">
                 <i class="<?= pageIcon ?>"></i>
                 <span><?= pageTitle ?></span>
@@ -275,6 +282,8 @@
         ?>
           <a href="<?= generateLink(pageKey) ?>"
             class="<?= (currentPage === pageTitle || currentPage === pageKey) ? 'active' : '' ?>"
+            data-page-key="<?= pageKey ?>"
+            data-page-title="<?= pageTitle ?>"
             data-bs-toggle="tooltip" data-bs-placement="right" title="<?= pageDescription ?>">
             <i class="<?= pageIcon ?>"></i>
             <span><?= pageTitle ?></span>
@@ -292,18 +301,22 @@
         </div>
         <div class="sidebar-group">
           <a href="<?= generateLink('chat') ?>" class="<?= currentPage==='Chat'?'active':'' ?>" data-bs-toggle="tooltip"
+            data-page-key="chat" data-page-title="Chat"
             data-bs-placement="right" title="Team Chat">
             <i class="fas fa-comments"></i><span>Chat</span>
           </a>
           <a href="<?= generateLink('collaboration-reporting') ?>" class="<?= currentPage==='Collaboration Reporting'?'active':'' ?>"
+            data-page-key="collaboration-reporting" data-page-title="Collaboration Reporting"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Collaboration &amp; Reporting Hub">
             <i class="fas fa-diagram-project"></i><span>Collab &amp; Reporting</span>
           </a>
           <a href="<?= generateLink('search') ?>" class="<?= currentPage==='Search'?'active':'' ?>"
+            data-page-key="search" data-page-title="Search"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Web Search">
             <i class="fas fa-search"></i><span>Search</span>
           </a>
           <a href="<?= generateLink('bookmarks') ?>" class="<?= currentPage==='Bookmarks'?'active':'' ?>"
+            data-page-key="bookmarks" data-page-title="Bookmarks"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Bookmarks">
             <i class="fas fa-bookmark"></i><span>Bookmarks</span>
           </a>
@@ -318,14 +331,17 @@
         </div>
         <div class="sidebar-group">
           <a href="<?= generateLink('manageuser') ?>" class="<?= currentPage==='Users'?'active':'' ?>"
+            data-page-key="manageuser" data-page-title="Users"
             data-bs-toggle="tooltip" data-bs-placement="right" title="User Management">
             <i class="fas fa-users"></i><span>Users</span>
           </a>
           <a href="<?= generateLink('manageroles') ?>" class="<?= currentPage==='Settings'?'active':'' ?>"
+            data-page-key="manageroles" data-page-title="Settings"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Role Management">
             <i class="fas fa-user-shield"></i><span>Roles</span>
           </a>
           <a href="<?= generateLink('managecampaign') ?>" class="<?= currentPage==='Campaigns'?'active':'' ?>"
+            data-page-key="managecampaign" data-page-title="Campaigns"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Campaign Management">
             <i class="fas fa-bullhorn"></i><span>Campaigns</span>
           </a>
@@ -375,3 +391,114 @@
     </div>
   </div>
 </nav>
+
+<script>
+  (function () {
+    var sidebar = document.getElementById('sidebar');
+    if (!sidebar) {
+      return;
+    }
+
+    var normalize = function (value) {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+
+      return String(value).trim().toLowerCase();
+    };
+
+    var getPageFromQuery = function () {
+      try {
+        var pageParam = new URL(window.location.href).searchParams.get('page');
+        if (pageParam) {
+          return pageParam;
+        }
+      } catch (err) {
+        var match = String(window.location.search || '').match(/[?&]page=([^&#]+)/i);
+        if (match && match[1]) {
+          try {
+            return decodeURIComponent(match[1].replace(/\+/g, ' '));
+          } catch (decodeErr) {
+            return match[1];
+          }
+        }
+      }
+
+      return '';
+    };
+
+    var activeKey = normalize(getPageFromQuery());
+    if (!activeKey) {
+      activeKey = normalize(sidebar.getAttribute('data-current-page'));
+    }
+
+    var links = Array.prototype.slice.call(sidebar.querySelectorAll('a[data-page-key]'));
+    if (!links.length) {
+      return;
+    }
+
+    var defaultActive = null;
+    var matchedLink = null;
+
+    links.forEach(function (link) {
+      if (!defaultActive && link.classList.contains('active')) {
+        defaultActive = link;
+      }
+
+      if (matchedLink) {
+        return;
+      }
+
+      if (!activeKey) {
+        return;
+      }
+
+      var linkKey = normalize(link.getAttribute('data-page-key'));
+      var linkTitle = normalize(link.getAttribute('data-page-title') || link.textContent);
+      var hrefKey = '';
+
+      try {
+        var absolute = new URL(link.getAttribute('href'), window.location.origin);
+        hrefKey = normalize(absolute.searchParams.get('page'));
+      } catch (hrefErr) {
+        var hrefRaw = link.getAttribute('href') || '';
+        var hrefMatch = hrefRaw.match(/[?&]page=([^&#]+)/i);
+        if (hrefMatch && hrefMatch[1]) {
+          try {
+            hrefKey = normalize(decodeURIComponent(hrefMatch[1].replace(/\+/g, ' ')));
+          } catch (decodeHrefErr) {
+            hrefKey = normalize(hrefMatch[1]);
+          }
+        }
+      }
+
+      if (linkKey === activeKey || (linkTitle && linkTitle === activeKey) || (hrefKey && hrefKey === activeKey)) {
+        matchedLink = link;
+      }
+    });
+
+    var finalActive = matchedLink || defaultActive;
+    if (matchedLink || (activeKey && finalActive)) {
+      links.forEach(function (link) {
+        if (link === finalActive) {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+    }
+
+    if (!finalActive) {
+      return;
+    }
+
+    links.forEach(function (link) {
+      link.addEventListener('click', function () {
+        links.forEach(function (item) {
+          item.classList.remove('active');
+        });
+        link.classList.add('active');
+      });
+    });
+  })();
+</script>
