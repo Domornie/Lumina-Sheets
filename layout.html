@@ -48,6 +48,7 @@
     var __layoutPageSlugInput = (typeof pageSlug !== 'undefined' && pageSlug) ? pageSlug : '';
     var __layoutCurrentPageName = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : '';
     var __layoutPageTitleText = (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : '';
+    var __layoutPageDescriptionText = (typeof pageDescription !== 'undefined' && pageDescription) ? pageDescription : '';
 
     var __layoutSlugCandidate = __layoutSlugify(__layoutPageSlugInput) ||
       __layoutSlugify(__layoutCurrentPageName) ||
@@ -1191,6 +1192,212 @@
       margin-left: calc(var(--sidebar-collapsed) + 2rem);
     }
 
+    /* Unified global page banner */
+    .lumina-banner {
+      position: relative;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.05) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 28px;
+      padding: clamp(1.75rem, 3vw, 2.75rem);
+      margin-bottom: 2.5rem;
+      box-shadow: 0 28px 48px -28px rgba(15, 23, 42, 0.45);
+      color: var(--dark);
+      overflow: hidden;
+    }
+
+    .lumina-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(120% 140% at 100% 0%, rgba(14, 165, 233, 0.25) 0%, transparent 60%),
+        radial-gradient(100% 120% at 0% 100%, rgba(34, 211, 238, 0.18) 0%, transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .lumina-banner::after {
+      content: '';
+      position: absolute;
+      inset: 1px;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+    }
+
+    .lumina-banner__content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: clamp(1.5rem, 3vw, 3rem);
+    }
+
+    .lumina-banner__main {
+      flex: 1 1 360px;
+      min-width: 260px;
+    }
+
+    .lumina-banner__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(15, 23, 42, 0.65);
+      background: rgba(255, 255, 255, 0.85);
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      margin-bottom: 0.85rem;
+    }
+
+    .lumina-banner__eyebrow i {
+      color: var(--primary);
+    }
+
+    .lumina-banner__title {
+      font-size: clamp(2rem, 4vw, 2.85rem);
+      font-weight: 700;
+      margin: 0 0 0.75rem 0;
+      color: var(--dark);
+      letter-spacing: -0.01em;
+    }
+
+    .lumina-banner__description {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: #475569;
+      max-width: 68ch;
+    }
+
+    .lumina-banner__meta {
+      flex: 0 0 280px;
+      min-width: 240px;
+      display: grid;
+      gap: 1.1rem;
+      background: rgba(255, 255, 255, 0.78);
+      border-radius: 22px;
+      padding: 1.35rem 1.5rem;
+      box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+
+    .lumina-banner__meta-item {
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .lumina-banner__meta-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .lumina-banner__meta-value {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--dark);
+      line-height: 1.5;
+    }
+
+    .lumina-banner__meta-value[data-dst-active="true"] {
+      color: #0f766e;
+    }
+
+    .lumina-banner__meta-value[data-dst-active="false"] {
+      color: #b45309;
+    }
+
+    .lumina-banner__extras {
+      margin-top: 1.75rem;
+      display: grid;
+      gap: 1.25rem;
+      width: 100%;
+    }
+
+    .lumina-banner__extras.is-empty {
+      display: none;
+    }
+
+    .lumina-banner__extras > * {
+      width: 100%;
+    }
+
+    .lumina-banner__legacy-block {
+      width: 100%;
+      position: relative;
+    }
+
+    .lumina-banner__legacy-block[data-legacy-source="hero-card"],
+    .lumina-banner__legacy-block[data-legacy-source="dashboard-header"],
+    .lumina-banner__legacy-block[data-legacy-source="feature-banner"],
+    .lumina-banner__legacy-block[data-legacy-source="live-banner"],
+    .lumina-banner__legacy-block[data-legacy-source="action-banner"],
+    .lumina-banner__legacy-block[data-legacy-source="title-banner"] {
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .lumina-banner__legacy-block[data-legacy-source="hero-card"]::after,
+    .lumina-banner__legacy-block[data-legacy-source="dashboard-header"]::after,
+    .lumina-banner__legacy-block[data-legacy-source="feature-banner"]::after,
+    .lumina-banner__legacy-block[data-legacy-source="live-banner"]::after,
+    .lumina-banner__legacy-block[data-legacy-source="action-banner"]::after,
+    .lumina-banner__legacy-block[data-legacy-source="title-banner"]::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      pointer-events: none;
+    }
+
+    @media (max-width: 1200px) {
+      .lumina-banner__meta {
+        flex: 1 1 100%;
+        width: 100%;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 768px) {
+      .lumina-banner {
+        padding: 1.5rem;
+        border-radius: 22px;
+      }
+
+      .lumina-banner__eyebrow {
+        margin-bottom: 0.5rem;
+      }
+
+      .lumina-banner__title {
+        font-size: clamp(1.75rem, 6vw, 2.25rem);
+      }
+
+      .lumina-banner__meta {
+        padding: 1.1rem 1.25rem;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .lumina-banner__meta-label {
+        font-size: 0.68rem;
+      }
+
+      .lumina-banner__meta-value {
+        font-size: 0.95rem;
+      }
+    }
+
     /* Loading spinner */
     @keyframes spin {
       from {
@@ -1320,9 +1527,213 @@
   
   <div id="maincontent" class="animate-in main-content">
 
+    <section class="lumina-banner" id="luminaBanner" aria-label="Page overview">
+      <div class="lumina-banner__content">
+        <div class="lumina-banner__main">
+          <div class="lumina-banner__eyebrow" id="luminaBannerEyebrow">
+            <i class="fa-solid fa-sun"></i>
+            <span id="luminaBannerEyebrowText">Lumina Sheets</span>
+          </div>
+          <h1 class="lumina-banner__title" id="luminaBannerTitle">LuminaHQ</h1>
+          <p class="lumina-banner__description" id="luminaBannerDescription"></p>
+          <div class="lumina-banner__extras is-empty" id="luminaBannerExtras"></div>
+        </div>
+        <div class="lumina-banner__meta">
+          <div class="lumina-banner__meta-item">
+            <div class="lumina-banner__meta-label"><i class="fa-regular fa-calendar"></i> Today</div>
+            <div class="lumina-banner__meta-value" id="luminaBannerDate" aria-live="polite">—</div>
+          </div>
+          <div class="lumina-banner__meta-item">
+            <div class="lumina-banner__meta-label"><i class="fa-regular fa-clock"></i> Daylight Saving</div>
+            <div class="lumina-banner__meta-value" id="luminaBannerDst" aria-live="polite" data-dst-active="false">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        const __GLOBAL_BANNER_LEGACY_SELECTORS = [
+            '[data-page-banner]',
+            '.hero-card',
+            '.dashboard-header',
+            '.feature-banner',
+            '.live-banner',
+            '.action-banner',
+            '.modern-page-header',
+            '.page-hero',
+            '.hero-section',
+            '.overview-banner',
+            '.summary-banner',
+            '.title-banner',
+            '.app-header',
+            '.campaign-header',
+            '.coaching-header',
+            '.ack-header'
+        ];
+
+        function formatBannerDateTime(date) {
+            try {
+                const dateFormatter = new Intl.DateTimeFormat(undefined, {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                const timeFormatter = new Intl.DateTimeFormat(undefined, {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+                const tzFormatter = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' });
+                const tzPart = tzFormatter.formatToParts(date).find(part => part.type === 'timeZoneName');
+                const tzLabel = tzPart ? ` (${tzPart.value})` : '';
+                return `${dateFormatter.format(date)} • ${timeFormatter.format(date)}${tzLabel}`;
+            } catch (err) {
+                console.warn('Unable to format banner date/time', err);
+                return date.toLocaleString();
+            }
+        }
+
+        function computeBannerDst(date) {
+            try {
+                const options = Intl.DateTimeFormat().resolvedOptions();
+                const january = new Date(date.getFullYear(), 0, 1);
+                const july = new Date(date.getFullYear(), 6, 1);
+                const standardOffset = Math.max(january.getTimezoneOffset(), july.getTimezoneOffset());
+                const isDst = date.getTimezoneOffset() < standardOffset;
+                const timeZone = options.timeZone || '';
+                const statusText = isDst ? 'Daylight Saving Time is active' : 'Daylight Saving Time is not active';
+                return {
+                    isDst,
+                    timeZone,
+                    message: `${statusText}${timeZone ? ` (${timeZone})` : ''}`
+                };
+            } catch (err) {
+                console.warn('Unable to compute DST status', err);
+                return {
+                    isDst: false,
+                    timeZone: '',
+                    message: 'Daylight Saving Time status unavailable'
+                };
+            }
+        }
+
+        function initializeGlobalBanner(config = {}) {
+            const banner = document.getElementById('luminaBanner');
+            if (!banner) {
+                return;
+            }
+
+            const titleEl = document.getElementById('luminaBannerTitle');
+            const descEl = document.getElementById('luminaBannerDescription');
+            const eyebrowEl = document.getElementById('luminaBannerEyebrow');
+            const eyebrowText = document.getElementById('luminaBannerEyebrowText');
+            const dateEl = document.getElementById('luminaBannerDate');
+            const dstEl = document.getElementById('luminaBannerDst');
+            const extras = document.getElementById('luminaBannerExtras');
+
+            const resolvedTitle = config.title || document.title || 'LuminaHQ';
+            if (titleEl) {
+                titleEl.textContent = resolvedTitle.trim() || 'LuminaHQ';
+            }
+
+            if (descEl) {
+                const description = config.description ? String(config.description).trim() : '';
+                if (description) {
+                    descEl.textContent = description;
+                    descEl.style.display = '';
+                } else {
+                    descEl.textContent = '';
+                    descEl.style.display = 'none';
+                }
+            }
+
+            if (eyebrowEl && eyebrowText) {
+                const eyebrowValue = config.eyebrow || config.campaignName || '';
+                const fallback = 'Lumina Sheets';
+                const text = String(eyebrowValue || fallback).trim();
+                eyebrowText.textContent = text;
+                eyebrowEl.style.display = text ? 'inline-flex' : 'none';
+            }
+
+            const refreshMeta = () => {
+                const now = new Date();
+                if (dateEl) {
+                    dateEl.textContent = formatBannerDateTime(now);
+                }
+                if (dstEl) {
+                    const dstInfo = computeBannerDst(now);
+                    dstEl.textContent = dstInfo.message;
+                    dstEl.setAttribute('data-dst-active', String(dstInfo.isDst));
+                }
+            };
+
+            refreshMeta();
+            if (typeof window !== 'undefined') {
+                if (window.__luminaBannerInterval) {
+                    clearInterval(window.__luminaBannerInterval);
+                }
+                window.__luminaBannerInterval = setInterval(refreshMeta, 60000);
+            }
+
+            if (extras) {
+                const mainContent = document.getElementById('maincontent');
+                const selectors = Array.isArray(config.legacySelectors) && config.legacySelectors.length
+                    ? config.legacySelectors
+                    : __GLOBAL_BANNER_LEGACY_SELECTORS;
+
+                if (mainContent && selectors.length) {
+                    const mainRect = mainContent.getBoundingClientRect ? mainContent.getBoundingClientRect() : null;
+                    let movedCount = 0;
+                    const maxBlocks = typeof config.maxLegacyBlocks === 'number' ? config.maxLegacyBlocks : 3;
+
+                    selectors.some(selector => {
+                        const candidates = Array.from(mainContent.querySelectorAll(selector));
+                        if (!candidates.length) {
+                            return false;
+                        }
+
+                        for (const candidate of candidates) {
+                            if (movedCount >= maxBlocks) {
+                                return true;
+                            }
+                            if (!candidate || candidate.closest('#luminaBanner') || candidate.hasAttribute('data-banner-migrated')) {
+                                continue;
+                            }
+
+                            if (candidate.getBoundingClientRect && mainRect) {
+                                const candidateRect = candidate.getBoundingClientRect();
+                                if ((candidateRect.top - mainRect.top) > 800) {
+                                    continue;
+                                }
+                            }
+
+                            extras.appendChild(candidate);
+                            candidate.classList.add('lumina-banner__legacy-block');
+                            candidate.setAttribute('data-banner-migrated', 'true');
+                            if (!candidate.getAttribute('data-legacy-source')) {
+                                const classList = Array.from(candidate.classList || []);
+                                const inferred = classList.length ? classList[0] : selector.replace(/[.#]/g, '');
+                                candidate.setAttribute('data-legacy-source', inferred);
+                            }
+                            movedCount += 1;
+                        }
+
+                        return movedCount >= maxBlocks;
+                    });
+                }
+
+                if (!extras.childElementCount) {
+                    extras.classList.add('is-empty');
+                } else {
+                    extras.classList.remove('is-empty');
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // SIMPLIFIED HYDRATION SYSTEM
         // ──────────────────────────────────────────────────────────────────────────────
         // SIMPLIFIED HYDRATION SYSTEM
         // ──────────────────────────────────────────────────────────────────────────────
@@ -1551,7 +1962,13 @@
         // ──────────────────────────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 VLBPO Dashboard initializing...');
-            
+
+            initializeGlobalBanner({
+                title: <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>,
+                description: <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>,
+                campaignName: <?!= JSON.stringify(__layoutCampaignName || '') ?>
+            });
+
             // Initialize tooltips
             [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function(tooltipTriggerEl) {
                 new bootstrap.Tooltip(tooltipTriggerEl);
@@ -1606,10 +2023,11 @@
         // ──────────────────────────────────────────────────────────────────────────────
         // GLOBAL FUNCTION AVAILABILITY
         // ──────────────────────────────────────────────────────────────────────────────
-        
+
         // Make functions available globally
         window.handleLogout = handleLogout;
         window.updateUserDisplaySafely = updateUserDisplaySafely;
-        
+        window.initializeGlobalBanner = initializeGlobalBanner;
+
         console.log('✨ Simplified header system loaded successfully');
     </script>
