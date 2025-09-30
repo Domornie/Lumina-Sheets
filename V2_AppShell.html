@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8" />
+    <title>Lumina Sheets</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --bg-gradient: linear-gradient(135deg, rgba(0, 49, 119, 0.16) 0%, rgba(0, 174, 239, 0.2) 100%);
+        --panel: rgba(255, 255, 255, 0.92);
+        --panel-border: rgba(0, 49, 119, 0.12);
+        --primary: #00aeef;
+        --primary-dark: #003f87;
+        --navy: #003177;
+        --text: #1e293b;
+        --muted: #64748b;
+        --muted-soft: rgba(100, 116, 139, 0.6);
+        --danger: #ef4444;
+        --shadow-lg: 0 24px 48px -28px rgba(0, 49, 119, 0.75);
+        --shadow-sm: 0 10px 30px -22px rgba(0, 49, 119, 0.55);
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg-gradient);
+        color: var(--text);
+      }
+      body {
+        display: flex;
+      }
+      .app-shell {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 100vh;
+        width: 100%;
+        backdrop-filter: blur(18px);
+      }
+      aside {
+        background: linear-gradient(180deg, rgba(0, 49, 119, 0.95) 0%, rgba(0, 63, 135, 0.88) 100%);
+        border-right: 1px solid rgba(0, 174, 239, 0.2);
+        padding: 28px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        color: #f8fafc;
+        --muted: rgba(226, 239, 255, 0.7);
+      }
+      .logo {
+        font-weight: 700;
+        font-size: 1.45rem;
+        letter-spacing: 0.02em;
+      }
+      nav ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      nav li {
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      nav button {
+        all: unset;
+        display: flex;
+        width: 100%;
+        padding: 12px 16px;
+        color: rgba(241, 245, 249, 0.82);
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 14px;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+      nav button.active,
+      nav button:hover {
+        color: #ffffff;
+        background: linear-gradient(135deg, rgba(0, 174, 239, 0.35), rgba(0, 125, 190, 0.4));
+        transform: translateX(4px);
+      }
+      main {
+        padding: 32px 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      header.top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--panel);
+        border-radius: 24px;
+        padding: 22px 28px;
+        border: 1px solid var(--panel-border);
+        box-shadow: var(--shadow-lg);
+      }
+      header.top-bar h2 {
+        color: var(--navy);
+      }
+      .user-badge {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .user-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(0, 174, 239, 0.35), rgba(0, 63, 135, 0.65));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #ffffff;
+      }
+      .command {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 14px;
+        cursor: pointer;
+        font-weight: 600;
+        box-shadow: var(--shadow-sm);
+      }
+      .command:hover {
+        box-shadow: 0 18px 32px -24px rgba(0, 49, 119, 0.75);
+        transform: translateY(-1px);
+      }
+      .content-card {
+        background: var(--panel);
+        border-radius: 24px;
+        padding: 28px;
+        border: 1px solid var(--panel-border);
+        box-shadow: var(--shadow-lg);
+      }
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+      .grid.two {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .metric {
+        border-radius: 18px;
+        padding: 20px;
+        background: rgba(0, 174, 239, 0.12);
+        border: 1px solid rgba(0, 174, 239, 0.2);
+      }
+      .metric h3 {
+        margin: 0;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+      .metric strong {
+        display: block;
+        font-size: 1.8rem;
+        margin-top: 8px;
+        color: var(--navy);
+      }
+      .notification {
+        padding: 18px 20px;
+        border-radius: 18px;
+        margin-bottom: 12px;
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.18);
+        color: var(--text);
+      }
+      .notification[data-severity="critical"] {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.24);
+      }
+      .notification h4 {
+        margin: 0 0 6px;
+        color: var(--navy);
+      }
+      .notification p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 24px 12px;
+      }
+      .campaign-pill {
+        background: rgba(0, 174, 239, 0.18);
+        padding: 7px 12px;
+        border-radius: 999px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        font-size: 0.85rem;
+        color: #f1f5f9;
+      }
+      footer {
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--muted-soft);
+        padding: 18px 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside>
+        <div class="logo">Lumina Sheets</div>
+        <div id="campaigns"></div>
+        <nav>
+          <ul id="navigation"></ul>
+        </nav>
+      </aside>
+      <main>
+        <header class="top-bar">
+          <div>
+            <h2 id="view-title" style="margin:0;font-size:1.35rem;font-weight:600;">Dashboard</h2>
+            <p id="view-subtitle" style="margin:6px 0 0;font-size:0.95rem;color:var(--muted);">
+              Rebuilt workspace experience
+            </p>
+          </div>
+          <div class="user-badge">
+            <div class="user-avatar" id="user-avatar">--</div>
+            <div>
+              <div id="user-name" style="font-weight:600;">Loading…</div>
+              <div id="user-email" style="font-size:0.85rem;color:var(--muted);"></div>
+            </div>
+            <button class="command" id="logout">Sign out</button>
+          </div>
+        </header>
+        <section id="content" class="content-card">
+          <div class="grid two">
+            <article class="metric">
+              <h3>Notifications</h3>
+              <strong id="metric-notifications">0</strong>
+              <span style="font-size:0.85rem;color:var(--muted);">Unread alerts for your campaigns</span>
+            </article>
+            <article class="metric">
+              <h3>Campaigns</h3>
+              <strong id="metric-campaigns">0</strong>
+              <span style="font-size:0.85rem;color:var(--muted);">Active campaign memberships</span>
+            </article>
+          </div>
+          <div style="margin-top:24px;">
+            <h3 style="margin:0 0 12px;font-size:1.05rem;font-weight:600;">Latest updates</h3>
+            <div id="notifications" class="column"></div>
+          </div>
+        </section>
+        <footer>
+          Built fresh with caching, modular services, and clean routing.
+        </footer>
+      </main>
+    </div>
+    <script>
+      const state = {
+        token: localStorage.getItem('lumina::token') || '',
+        user: null,
+        navigation: [],
+        campaigns: []
+      };
+
+      const navigationEl = document.getElementById('navigation');
+      const campaignsEl = document.getElementById('campaigns');
+      const metricNotifications = document.getElementById('metric-notifications');
+      const metricCampaigns = document.getElementById('metric-campaigns');
+      const notificationsEl = document.getElementById('notifications');
+      const logoutBtn = document.getElementById('logout');
+      const userNameEl = document.getElementById('user-name');
+      const userEmailEl = document.getElementById('user-email');
+      const avatarEl = document.getElementById('user-avatar');
+
+      function ensureSession() {
+        if (!state.token) {
+          window.location.href = '?page=login';
+          return false;
+        }
+        return true;
+      }
+
+      function renderAvatar(name) {
+        if (!name) return '--';
+        return name
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map(part => part.charAt(0).toUpperCase())
+          .join('');
+      }
+
+      function renderCampaigns(campaigns) {
+        if (!campaigns.length) {
+          campaignsEl.innerHTML = '<p class="empty">No campaigns linked.</p>';
+          return;
+        }
+        campaignsEl.innerHTML = campaigns
+          .map(c => `<span class="campaign-pill">${c.name}<span style="font-size:0.75rem;opacity:0.7;">${c.role || ''}</span></span>`)
+          .join(' ');
+      }
+
+      function renderNavigation(navigation) {
+        navigationEl.innerHTML = '';
+        navigation.forEach(category => {
+          const header = document.createElement('li');
+          header.innerHTML = `<div style="padding:10px 0;font-size:0.75rem;text-transform:uppercase;color:var(--muted);letter-spacing:0.08em;">${category.name}</div>`;
+          navigationEl.appendChild(header);
+          category.pages.forEach(page => {
+            const item = document.createElement('li');
+            const button = document.createElement('button');
+            button.textContent = page.title;
+            button.dataset.page = page.key;
+            button.addEventListener('click', function () {
+              setActiveNav(page.key);
+              loadPage(page.key);
+            });
+            item.appendChild(button);
+            navigationEl.appendChild(item);
+          });
+        });
+      }
+
+      function setActiveNav(pageKey) {
+        navigationEl.querySelectorAll('button').forEach(btn => {
+          if (btn.dataset.page === pageKey) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+
+      function renderDashboard(data) {
+        metricNotifications.textContent = (data.notifications || []).length;
+        metricCampaigns.textContent = (data.campaigns || []).length;
+
+        if (!data.notifications || !data.notifications.length) {
+          notificationsEl.innerHTML = '<div class="empty">No unread notifications. Enjoy your day! 🎉</div>';
+          return;
+        }
+
+        notificationsEl.innerHTML = data.notifications
+          .map(notif => `
+            <article class="notification" data-severity="${notif.severity || 'info'}">
+              <h4>${notif.title || 'Notification'}</h4>
+              <p style="margin:0;color:var(--muted);">${notif.message || ''}</p>
+              <small style="display:block;margin-top:6px;color:rgba(226,232,240,0.45);">${notif.createdAt || ''}</small>
+            </article>
+          `)
+          .join('');
+      }
+
+      function loadPage(pageKey) {
+        switch ((pageKey || '').toLowerCase()) {
+          case 'dashboard':
+          default:
+            google.script.run
+              .withSuccessHandler(function (data) {
+                renderDashboard(data);
+              })
+              .withFailureHandler(function (err) {
+                notificationsEl.innerHTML = `<div class="empty">${err && err.message ? err.message : 'Unable to load dashboard.'}</div>`;
+              })
+              .appDashboard({ token: state.token });
+            break;
+        }
+      }
+
+      function bootstrap() {
+        if (!ensureSession()) return;
+        google.script.run
+          .withSuccessHandler(function (data) {
+            state.user = data.user;
+            state.navigation = data.navigation || [];
+            state.campaigns = data.campaigns || [];
+
+            userNameEl.textContent = data.user.FullName || data.user.UserName || 'Anonymous agent';
+            userEmailEl.textContent = data.user.Email || '';
+            avatarEl.textContent = renderAvatar(data.user.FullName || data.user.UserName || '--');
+
+            renderCampaigns(state.campaigns);
+            renderNavigation(state.navigation);
+            const initial = <?!= JSON.stringify(app.data.initialView || 'dashboard') ?>;
+            const selected = (initial || 'dashboard').replace(/^#/, '');
+            setActiveNav(selected);
+            loadPage(selected);
+          })
+          .withFailureHandler(function (err) {
+            console.error(err);
+            window.location.href = '?page=login';
+          })
+          .appBootstrap({ token: state.token });
+      }
+
+      logoutBtn.addEventListener('click', function () {
+        google.script.run
+          .withSuccessHandler(function () {
+            localStorage.removeItem('lumina::token');
+            localStorage.removeItem('lumina::user');
+            window.location.href = '?page=login';
+          })
+          .withFailureHandler(function () {
+            localStorage.removeItem('lumina::token');
+            localStorage.removeItem('lumina::user');
+            window.location.href = '?page=login';
+          })
+          .appLogout({ token: state.token });
+      });
+
+      bootstrap();
+    </script>
+  </body>
+</html>
