@@ -127,6 +127,59 @@
 
   var userInitialValue = (displayPrimaryNameValue || 'U').charAt(0).toUpperCase();
 
+  function isLikelyRoleIdentifier(value) {
+    var text = safeUserString(value);
+    if (!text) {
+      return false;
+    }
+
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)) {
+      return true;
+    }
+
+    if (/^[0-9a-f]{24}$/i.test(text)) {
+      return true;
+    }
+
+    if (/^[0-9]{7,}$/.test(text)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function extractRoleLabelFromObject(role) {
+    if (!role || typeof role !== 'object') {
+      return '';
+    }
+
+    var labelKeys = [
+      'Name', 'name',
+      'RoleName', 'roleName',
+      'Title', 'title',
+      'DisplayName', 'displayName',
+      'Label', 'label'
+    ];
+
+    for (var idx = 0; idx < labelKeys.length; idx++) {
+      var key = labelKeys[idx];
+      if (!(key in role)) {
+        continue;
+      }
+
+      var labelCandidate = safeUserString(role[key]);
+      if (labelCandidate && !isLikelyRoleIdentifier(labelCandidate)) {
+        return labelCandidate;
+      }
+    }
+
+    if (role.Role || role.role) {
+      return extractRoleLabelFromObject(role.Role || role.role);
+    }
+
+    return '';
+  }
+
   function normalizeRoleInput(input) {
     if (!input) {
       return [];
@@ -142,22 +195,28 @@
             return role;
           }
           if (typeof role === 'object') {
-            return role.Name || role.name || role.RoleName || role.roleName || '';
+            return extractRoleLabelFromObject(role);
           }
           return String(role);
         })
         .map(function (role) { return String(role || '').trim(); })
-        .filter(function (role) { return role.length > 0; });
+        .filter(function (role) {
+          return role.length > 0 && !isLikelyRoleIdentifier(role);
+        });
     }
 
     if (typeof input === 'string') {
       return input
         .split(',')
         .map(function (role) { return role.trim(); })
-        .filter(function (role) { return role.length > 0; });
+        .filter(function (role) {
+          return role.length > 0 && !isLikelyRoleIdentifier(role);
+        });
     }
 
-    return [String(input || '').trim()].filter(function (role) { return role.length > 0; });
+    return [String(input || '').trim()].filter(function (role) {
+      return role.length > 0 && !isLikelyRoleIdentifier(role);
+    });
   }
 
   function dedupeRoles(list) {
