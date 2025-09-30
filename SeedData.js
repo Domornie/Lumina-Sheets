@@ -31,7 +31,18 @@ const SEED_ADMIN_PROFILE = {
   email: 'admin@vlbpo.com',
   password: 'ChangeMe123!',
   defaultCampaign: 'Lumina HQ',
-  roleNames: ['Super Admin', 'Administrator']
+  roleNames: ['Super Admin', 'Administrator'],
+  seedLabel: 'Super Administrator'
+};
+
+const SEED_LUMINA_ADMIN_PROFILE = {
+  userName: 'lumina.admin',
+  fullName: 'Lumina Admin',
+  email: 'lumina@vlbpo.com',
+  password: 'ChangeMe123!',
+  defaultCampaign: 'Lumina HQ',
+  roleNames: ['Administrator'],
+  seedLabel: 'Lumina Administrator'
 };
 
 const PASSWORD_UTILS = (function resolvePasswordUtilities() {
@@ -68,7 +79,8 @@ function seedDefaultData() {
   const summary = {
     roles: { created: [], existing: [] },
     campaigns: { created: [], existing: [] },
-    admin: null
+    admin: null,
+    luminaAdmin: null
   };
 
   try {
@@ -89,6 +101,9 @@ function seedDefaultData() {
 
     const adminInfo = ensureSuperAdminUser(roleIdsByName, campaignIdsByName);
     summary.admin = adminInfo;
+
+    const luminaAdminInfo = ensureLuminaAdminUser(roleIdsByName, campaignIdsByName);
+    summary.luminaAdmin = luminaAdminInfo;
 
     return {
       success: true,
@@ -214,15 +229,38 @@ function getCampaignsIndex(forceRefresh) {
  * Ensure there is a super admin user with a known password and permissions.
  */
 function ensureSuperAdminUser(roleIdsByName, campaignIdsByName) {
-  const desiredRoleIds = (SEED_ADMIN_PROFILE.roleNames || [])
-    .map(name => roleIdsByName[name])
+  return ensureSeedAdministrator(SEED_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
+}
+
+/**
+ * Ensure there is a Lumina admin user with a known password and permissions.
+ */
+function ensureLuminaAdminUser(roleIdsByName, campaignIdsByName) {
+  return ensureSeedAdministrator(SEED_LUMINA_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
+}
+
+/**
+ * Shared implementation for creating or refreshing privileged seed accounts.
+ */
+function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
+  if (!profile || !profile.email) {
+    throw new Error('Seed administrator profile is not configured correctly.');
+  }
+
+  const label = profile.seedLabel || profile.fullName || profile.email;
+  const desiredRoleIds = (profile.roleNames || [])
+    .map(name => {
+      if (!name) return null;
+      const key = String(name);
+      return roleIdsByName[key] || roleIdsByName[key.toLowerCase()];
+    })
     .filter(Boolean);
 
-  const defaultCampaignKey = SEED_ADMIN_PROFILE.defaultCampaign
-    ? SEED_ADMIN_PROFILE.defaultCampaign.toLowerCase()
+  const defaultCampaignKey = profile.defaultCampaign
+    ? String(profile.defaultCampaign).toLowerCase()
     : '';
 
-  const primaryCampaignId = (defaultCampaignKey && campaignIdsByName[defaultCampaignKey])
+  const primaryCampaignId = (defaultCampaignKey && (campaignIdsByName[defaultCampaignKey] || campaignIdsByName[profile.defaultCampaign]))
     || Object.values(campaignIdsByName)[0]
     || '';
 
@@ -230,26 +268,31 @@ function ensureSuperAdminUser(roleIdsByName, campaignIdsByName) {
     throw new Error('No campaigns exist to assign to the administrator.');
   }
 
+  const accountFlags = Object.assign({
+    canLogin: true,
+    isAdmin: true,
+    permissionLevel: 'ADMIN',
+    canManageUsers: true,
+    canManagePages: true
+  }, profile.accountOverrides || {});
+
+  const payload = Object.assign({
+    userName: profile.userName,
+    fullName: profile.fullName,
+    email: profile.email,
+    campaignId: primaryCampaignId,
+    roles: desiredRoleIds
+  }, accountFlags);
+
   const existing = (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail)
-    ? AuthenticationService.getUserByEmail(SEED_ADMIN_PROFILE.email)
+    ? AuthenticationService.getUserByEmail(profile.email)
     : null;
 
   if (existing) {
-    const updateResult = clientUpdateUser(existing.ID, {
-      userName: SEED_ADMIN_PROFILE.userName,
-      fullName: SEED_ADMIN_PROFILE.fullName,
-      email: SEED_ADMIN_PROFILE.email,
-      campaignId: primaryCampaignId,
-      canLogin: true,
-      isAdmin: true,
-      roles: desiredRoleIds,
-      permissionLevel: 'ADMIN',
-      canManageUsers: true,
-      canManagePages: true
-    });
+    const updateResult = clientUpdateUser(existing.ID, payload);
 
     if (!updateResult || !updateResult.success) {
-      throw new Error('Failed to refresh administrator: ' + (updateResult && updateResult.error ? updateResult.error : 'Unknown error'));
+      throw new Error('Failed to refresh ' + label + ': ' + (updateResult && updateResult.error ? updateResult.error : 'Unknown error'));
     }
 
     syncUserRoleLinks(existing.ID, desiredRoleIds);
@@ -259,54 +302,50 @@ function ensureSuperAdminUser(roleIdsByName, campaignIdsByName) {
     return {
       status: 'updated',
       userId: existing.ID,
-      email: SEED_ADMIN_PROFILE.email,
-      message: updateResult && updateResult.message ? updateResult.message : 'Administrator refreshed.'
+      email: profile.email,
+      message: (updateResult && updateResult.message) || (label + ' refreshed.')
     };
   }
 
-  const createResult = clientRegisterUser({
-    userName: SEED_ADMIN_PROFILE.userName,
-    fullName: SEED_ADMIN_PROFILE.fullName,
-    email: SEED_ADMIN_PROFILE.email,
-    campaignId: primaryCampaignId,
-    canLogin: true,
-    isAdmin: true,
-    roles: desiredRoleIds,
-    permissionLevel: 'ADMIN',
-    canManageUsers: true,
-    canManagePages: true
-  });
+  const createResult = clientRegisterUser(payload);
 
   if (!createResult || !createResult.success) {
-    throw new Error('Failed to create administrator: ' + (createResult && createResult.error ? createResult.error : 'Unknown error'));
+    throw new Error('Failed to create ' + label + ': ' + (createResult && createResult.error ? createResult.error : 'Unknown error'));
   }
 
-  let adminRecord = AuthenticationService.getUserByEmail(SEED_ADMIN_PROFILE.email);
+  let adminRecord = AuthenticationService.getUserByEmail(profile.email);
   if (!adminRecord) {
-    throw new Error('Administrator record not found after creation.');
+    throw new Error(label + ' record not found after creation.');
   }
 
-  if (adminRecord.EmailConfirmation) {
-    const setPasswordResult = setPasswordWithToken(adminRecord.EmailConfirmation, SEED_ADMIN_PROFILE.password);
-    if (!setPasswordResult || !setPasswordResult.success) {
-      throw new Error('Failed to set administrator password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
+  if (profile.password) {
+    if (adminRecord.EmailConfirmation) {
+      const setPasswordResult = setPasswordWithToken(adminRecord.EmailConfirmation, profile.password);
+      if (!setPasswordResult || !setPasswordResult.success) {
+        throw new Error('Failed to set ' + label + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
+      }
+    } else {
+      setUserPasswordDirect(adminRecord.ID, profile.password);
     }
-  } else {
-    setUserPasswordDirect(adminRecord.ID, SEED_ADMIN_PROFILE.password);
   }
 
-  adminRecord = AuthenticationService.getUserByEmail(SEED_ADMIN_PROFILE.email);
+  adminRecord = AuthenticationService.getUserByEmail(profile.email);
   syncUserRoleLinks(adminRecord.ID, desiredRoleIds);
   assignAdminCampaignAccess(adminRecord.ID, Object.values(campaignIdsByName));
   ensureCanLoginFlag(adminRecord.ID, true);
 
-  return {
+  const result = {
     status: 'created',
     userId: adminRecord.ID,
     email: adminRecord.Email,
-    password: SEED_ADMIN_PROFILE.password,
-    message: 'Administrator account created with default credentials. Please change the password after first login.'
+    message: label + ' account created with default credentials. Please change the password after first login.'
   };
+
+  if (profile.password) {
+    result.password = profile.password;
+  }
+
+  return result;
 }
 
 /**

@@ -1,0 +1,97 @@
+<?
+  var __topbarInvalidPanelPattern = /usercodeapppanel/i;
+
+  function __topbarNormalizeUrlValue(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var trimmed = String(value).trim();
+    if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+      return '';
+    }
+
+    return trimmed;
+  }
+
+  function __topbarFixPanelUrl(value) {
+    var normalized = __topbarNormalizeUrlValue(value);
+    if (!normalized) {
+      return '';
+    }
+
+    if (!__topbarInvalidPanelPattern.test(normalized)) {
+      return normalized;
+    }
+
+    return normalized.replace(/\/userCodeAppPanel.*$/i, '/exec');
+  }
+
+  function __topbarSanitizeNavigationUrl(url, fallback) {
+    var primary = __topbarFixPanelUrl(url);
+    if (primary) {
+      return primary;
+    }
+
+    return __topbarFixPanelUrl(fallback);
+  }
+
+  var __topbarRawBaseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var __topbarRawScriptUrl = (typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : __topbarRawBaseUrl;
+
+  var __topbarSanitizedBaseUrl = __topbarSanitizeNavigationUrl(__topbarRawBaseUrl, __topbarRawScriptUrl);
+  var __topbarSanitizedScriptUrl = __topbarSanitizeNavigationUrl(__topbarRawScriptUrl, __topbarRawBaseUrl);
+
+  var baseUrl = __topbarSanitizedBaseUrl || __topbarSanitizedScriptUrl || __topbarRawBaseUrl;
+  var __topbarLinkBase = baseUrl || __topbarSanitizedScriptUrl || '';
+  var currentPageValue = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'Home';
+  var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
+  var isAdminValue = Boolean(isAdmin);
+
+  function generateLink(page) {
+    var target = __topbarLinkBase;
+    if (!target) {
+      return '?page=' + encodeURIComponent(page);
+    }
+
+    var hasQuery = target.indexOf('?') !== -1;
+    var separator = hasQuery ? (/[?&]$/.test(target) ? '' : '&') : '?';
+    return target + separator + 'page=' + encodeURIComponent(page);
+  }
+?>
+
+<div id="topbar">
+  <button class="topbar-toggle d-md-none" id="mobileToggle">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <div class="breadcrumb-nav">
+    <? if (campaignNameValue) { ?>
+    <span class="current-campaign"><?= campaignNameValue ?></span>
+    <? } ?>
+    <i class="fas fa-chevron-right"></i>
+    <span class="current-page"><?= currentPageValue ?></span>
+  </div>
+
+  <div class="top-actions">
+    <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
+      <i class="fas fa-bell"></i>
+      <div class="notification-badge"></div>
+    </button>
+
+    <a href="<?= generateLink('search') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
+      <i class="fas fa-search"></i>
+    </a>
+
+    <? if (isAdminValue) { ?>
+    <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
+      title="Employment Report">
+      <i class="fas fa-chart-bar"></i>
+    </a>
+    <? } ?>
+
+    <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
+      <i class="fas fa-sign-out-alt"></i>
+    </button>
+  </div>
+</div>
