@@ -931,6 +931,57 @@
         font-weight: 600;
         border: 1px solid var(--gray-200);
     }
+
+    /* User sheet data */
+    .user-sheet-details {
+        margin-top: 1.5rem;
+        background: rgba(248, 250, 252, 0.6);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(203, 213, 225, 0.4);
+        padding: 0.75rem 1rem;
+    }
+
+    .user-sheet-details>summary {
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        list-style: none;
+    }
+
+    .user-sheet-details>summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .sheet-data-table th {
+        width: 35%;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        color: var(--gray-500);
+        background: rgba(226, 232, 240, 0.35);
+    }
+
+    .sheet-data-table td {
+        font-size: 0.8rem;
+        color: var(--gray-700);
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .user-sheet-data-empty {
+        font-style: italic;
+        color: var(--gray-500);
+    }
+
+    #userSheetDataCard .table-responsive {
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    #userSheetDataCard .badge {
+        font-size: 0.75rem;
+    }
 </style>
 
 <!-- Loading Overlay -->
@@ -1384,6 +1435,21 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Sheet Data Section -->
+                            <div class="card mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2"></i>Users Sheet Data</h6>
+                                    <span class="badge bg-light text-dark" id="userSheetFieldCountBadge" style="display:none;"></span>
+                                </div>
+                                <div class="card-body" id="userSheetDataCard">
+                                    <div class="user-sheet-data-empty">
+                                        <i class="fas fa-info-circle me-1"></i>Select an existing user to review their synced sheet data.
+                                        Saved users will display every available column captured from the Users sheet.
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
 
                         <!-- Campaigns Tab -->
@@ -2283,6 +2349,7 @@
           <div class="small text-muted mb-2 fw-medium"><i class="fas fa-robot me-1"></i>Auto-Discovered Page Access:</div>
           ${renderUserPagesBadges(user)}
         </div>
+        ${renderUserSheetDetails(user)}
       </div>
     </div>
   </div>`;
@@ -2348,6 +2415,110 @@
   function renderRolesBadges(user) {
     if (!user.roleNames || !user.roleNames.length) return '';
     return user.roleNames.map(r => `<span class="badge bg-secondary">${escapeHtml(r)}</span>`).join(' ');
+  }
+
+  function formatSheetFieldValue(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    if (value instanceof Date) return value.toISOString().split('T')[0];
+    if (Array.isArray(value)) {
+      return value.map(item => formatSheetFieldValue(item)).join(', ');
+    }
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch (err) {
+        console.warn('Unable to stringify sheet field value', err, value);
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  function renderSheetFieldsTable(fields) {
+    if (!Array.isArray(fields) || !fields.length) {
+      return '<div class="user-sheet-data-empty"><i class="fas fa-info-circle me-1"></i>No sheet fields available.</div>';
+    }
+    const rows = fields.map(({ key, value }) => `
+      <tr>
+        <th scope="row">${escapeHtml(key)}</th>
+        <td>${escapeHtml(formatSheetFieldValue(value))}</td>
+      </tr>
+    `).join('');
+    return `
+      <div class="table-responsive">
+        <table class="table table-sm table-striped sheet-data-table align-middle mb-0">
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderUserSheetDetails(user) {
+    const fields = Array.isArray(user.sheetFields) ? user.sheetFields : [];
+    if (!fields.length) {
+      return '<div class="user-sheet-details user-sheet-data-empty"><i class="fas fa-info-circle me-1"></i>No sheet data found for this user.</div>';
+    }
+    const fieldCount = user.sheetFieldCount || fields.length;
+    return `
+      <details class="user-sheet-details">
+        <summary><i class="fas fa-table me-2"></i><span>Sheet data (${fieldCount})</span></summary>
+        <div class="mt-3">${renderSheetFieldsTable(fields)}</div>
+      </details>
+    `;
+  }
+
+  function updateUserSheetDataCard(user) {
+    const container = document.getElementById('userSheetDataCard');
+    const badge = document.getElementById('userSheetFieldCountBadge');
+    if (!container) return;
+
+    const resetBadge = () => {
+      if (badge) {
+        badge.style.display = 'none';
+        badge.textContent = '';
+      }
+    };
+
+    if (!user) {
+      container.innerHTML = `
+        <div class="user-sheet-data-empty">
+          <i class="fas fa-info-circle me-1"></i>Select an existing user to review their synced sheet data.
+          Saved users will display every available column captured from the Users sheet.
+        </div>`;
+      resetBadge();
+      return;
+    }
+
+    const username = user.UserName || user.userName || user.username || user.Username || '';
+    const fields = Array.isArray(user.sheetFields) ? user.sheetFields : [];
+    if (!fields.length) {
+      container.innerHTML = `
+        <div class="user-sheet-data-empty">
+          <i class="fas fa-info-circle me-1"></i>No sheet data is currently recorded${username ? ` for <strong>${escapeHtml(username)}</strong>` : ''}.
+        </div>`;
+      resetBadge();
+      return;
+    }
+
+    const fieldCount = user.sheetFieldCount || fields.length;
+    if (badge) {
+      badge.textContent = `Fields: ${fieldCount}`;
+      badge.style.display = 'inline-flex';
+    }
+
+    const updatedAt = formatDateTimeForDisplay(user.UpdatedAt || user.updatedAt);
+    const tableHtml = renderSheetFieldsTable(fields);
+    const summaryChips = [
+      '<span class="badge bg-primary-subtle text-primary-emphasis"><i class="fas fa-table me-1"></i>Users Sheet</span>',
+      username ? `<span class="badge bg-secondary"><i class="fas fa-at me-1"></i>${escapeHtml(username)}</span>` : '',
+      updatedAt ? `<span class="badge bg-info-subtle text-info-emphasis"><i class="fas fa-clock me-1"></i>${escapeHtml(updatedAt)}</span>` : ''
+    ].filter(Boolean).join(' ');
+
+    container.innerHTML = `
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">${summaryChips}</div>
+      ${tableHtml}
+    `;
   }
 
   // ---------- Pagination control ----------
@@ -2492,6 +2663,7 @@
     // Reset UI elements
     updatePageStats();
     setEligibilityPill(false);
+    updateUserSheetDataCard(null);
 
     // Hide manager tab for new users
     document.getElementById('manage-users-tab').style.display = 'none';
@@ -2590,6 +2762,7 @@
         ? (new Date() >= new Date(document.getElementById('insuranceEligibleDate').value))
         : false);
     setEligibilityPill(qualified);
+    updateUserSheetDataCard(u);
 
     // Set roles
     const roleIds = u.roleIds || [];
@@ -2897,6 +3070,17 @@
   }
 
   // ---------- Employment helpers ----------
+  function formatDateTimeForDisplay(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch {
+      return '';
+    }
+  }
+
   function formatHireVisual(dateStr) {
     if (!dateStr) return '';
     try {
