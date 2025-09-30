@@ -1,6 +1,12 @@
 
     <!-- CoachingView.html -->
-    <?!= include("layout", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+    <?!= include("layout", {
+        baseUrl: baseUrl,
+        user: user,
+        currentPage: currentPage,
+        pageTitle: 'Independence Coaching Session',
+        pageDescription: 'Track independence coaching progress, share acknowledgement links, and print session summaries.'
+    }) ?>
 
     <!-- Injected by doGet as stringified JSON -->
     <script>
@@ -135,16 +141,6 @@
             box-shadow: 0 2px 8px rgba(66, 133, 244, .3)
         }
 
-        /* Action banner */
-        .action-banner {
-            display: flex;
-            flex-wrap: wrap;
-            gap: .5rem;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 1rem
-        }
-
         .btn {
             border: none;
             border-radius: 10px;
@@ -179,15 +175,6 @@
         .btn-secondary:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, .06)
-        }
-
-        .id-chip {
-            background: var(--surface-variant);
-            border: 1px solid var(--outline);
-            padding: .5rem .75rem;
-            border-radius: 999px;
-            color: var(--muted);
-            font-weight: 700
         }
 
         /* Cards */
@@ -449,17 +436,6 @@
         </div>
     </nav>
 
-    <!-- Action Banner -->
-    <div class="action-banner">
-        <span class="id-chip" title="Coaching Record ID"><i class="fas fa-hashtag"></i> <strong id="ridChip">—</strong></span>
-        <a href="<?= baseUrl ?>&page=ackform&id=<?= recordId ?>" class="btn btn-accent" id="sendAck" target="_blank"
-           title="Open the acknowledgement link for this session">
-            <i class="fas fa-external-link-alt"></i> Send Acknowledgement Link
-        </a>
-        <button class="btn btn-secondary" id="copyAck"><i class="fas fa-link"></i> Copy Ack Link</button>
-        <button class="btn btn-secondary" id="printPage"><i class="fas fa-print"></i> Print</button>
-    </div>
-
     <!-- Coaching Details -->
     <div class="coaching-card">
         <div class="coaching-card-header">
@@ -575,26 +551,58 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const ackHref = recordId ? '<?= baseUrl ?>&page=ackform&id=<?= recordId ?>' : '';
+            initializeGlobalBanner({
+                title: 'Independence Coaching Session',
+                description: 'Track independence coaching progress, share acknowledgement links, and print session summaries.',
+                actions: [
+                    ackHref ? {
+                        id: 'indCoachingAckLink',
+                        label: 'Send Acknowledgement Link',
+                        icon: 'fas fa-external-link-alt',
+                        variant: 'primary',
+                        href: ackHref,
+                        target: '_blank',
+                        rel: 'noopener'
+                    } : null,
+                    ackHref ? {
+                        id: 'indCoachingCopyAck',
+                        label: 'Copy Ack Link',
+                        icon: 'fas fa-link',
+                        variant: 'secondary'
+                    } : null,
+                    {
+                        id: 'indCoachingPrint',
+                        label: 'Print Session',
+                        icon: 'fas fa-print',
+                        variant: ackHref ? 'secondary' : 'primary'
+                    }
+                ].filter(Boolean)
+            });
+
             if (!recordId) {
                 alert('No coaching record loaded.');
                 return;
             }
             const get = k => record[k] ?? '';
 
-            // ID chip & links
-            document.getElementById('ridChip').textContent = recordId || '—';
-            const ackHref = '<?= baseUrl ?>&page=ackform&id=<?= recordId ?>';
-            document.getElementById('copyAck').addEventListener('click', async () => {
-                try {
-                    await navigator.clipboard.writeText(ackHref);
-                } catch {
-                }
-                const btn = document.getElementById('copyAck');
-                const old = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-check"></i> Copied';
-                setTimeout(() => btn.innerHTML = old, 1200);
-            });
-            document.getElementById('printPage').addEventListener('click', () => window.print());
+            const copyBtn = document.getElementById('indCoachingCopyAck');
+            if (copyBtn && ackHref) {
+                copyBtn.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(ackHref);
+                    } catch {
+                    }
+                    const previous = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
+                    setTimeout(() => copyBtn.innerHTML = previous, 1200);
+                });
+            }
+
+            const printBtn = document.getElementById('indCoachingPrint');
+            if (printBtn) {
+                printBtn.addEventListener('click', () => window.print());
+            }
 
             // Populate detail fields (ActionPlan/Notes as sanitized HTML)
             const fields = {

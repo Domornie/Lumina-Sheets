@@ -1,5 +1,11 @@
 <!-- CoachingView.html -->
-<?!= include("layout", { baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+<?!= include("layout", {
+  baseUrl: baseUrl,
+  user: user,
+  currentPage: currentPage,
+  pageTitle: 'Coaching Session Details',
+  pageDescription: 'Review coaching insights, topics covered, and send acknowledgement links to agents.'
+}) ?>
 
 <!-- Injected by doGet as stringified JSON -->
 <script>
@@ -127,40 +133,6 @@
 
   .coaching-nav .nav-link.active::before {
     display: none;
-  }
-
-  /* Action Button */
-  .action-banner {
-    text-align: center;
-    margin-bottom: var(--spacing);
-  }
-
-  .ack-button {
-    background: var(--gradient-accent);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    padding: 1rem 2rem;
-    font-size: 0.925rem;
-    font-weight: 600;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: var(--transition);
-    box-shadow: 0 2px 8px rgba(52, 168, 83, 0.2);
-    letter-spacing: -0.01em;
-  }
-
-  .ack-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(52, 168, 83, 0.3);
-    color: white;
-    text-decoration: none;
-  }
-
-  .ack-button i {
-    font-size: 1rem;
   }
 
   /* Modern Cards */
@@ -652,16 +624,6 @@
   </div>
 </nav>
 
-<!-- Action Banner -->
-<div class="action-banner">
-  <a href="<?= baseUrl ?>&page=ackform&id=<?= recordId ?>"
-     class="ack-button"
-     target="_blank">
-    <i class="fas fa-external-link-alt"></i>
-    Send Acknowledgement Link
-  </a>
-</div>
-
 <!-- Coaching Details Card -->
 <div class="coaching-card">
   <div class="coaching-card-header">
@@ -791,6 +753,23 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
+    const ackUrl = recordId ? "<?= baseUrl ?>&page=ackform&id=<?= recordId ?>" : '';
+    initializeGlobalBanner({
+      title: 'Coaching Session Details',
+      description: 'Review coaching insights, topics covered, and send acknowledgement links to agents.',
+      actions: ackUrl ? [
+        {
+          id: 'coachingBannerAck',
+          label: 'Send Acknowledgement Link',
+          icon: 'fas fa-external-link-alt',
+          variant: 'primary',
+          href: ackUrl,
+          target: '_blank',
+          rel: 'noopener'
+        }
+      ] : []
+    });
+
     if (!recordId) {
       alert('No coaching record loaded.');
       return;
