@@ -65,6 +65,19 @@
     return text;
   }
 
+  function escapeHtml(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function getUserFieldValue(user, keys) {
     if (!user || !keys || !keys.length) {
       return '';
@@ -97,6 +110,16 @@
 
   var displayFullNameValue = userFullNameValue || firstLastDisplayName || userNameValue;
   var displayPrimaryNameValue = firstLastDisplayName || displayFullNameValue || userNameValue || 'Unknown User';
+
+  var primaryRoleNameValue = getUserFieldValue(sidebarUser, [
+    'RoleName', 'roleName', 'PrimaryRole', 'primaryRole',
+    'Role', 'role', 'Title', 'title',
+    'JobTitle', 'jobTitle'
+  ]);
+
+  if (!primaryRoleNameValue && userRoleNames && userRoleNames.length) {
+    primaryRoleNameValue = userRoleNames[0];
+  }
 
   if (!displayFullNameValue) {
     displayFullNameValue = displayPrimaryNameValue;
@@ -149,6 +172,23 @@
     });
   }
 
+  function buildRoleBadgeMarkup(roles) {
+    if (!roles || !roles.length) {
+      return '';
+    }
+
+    var html = [];
+    for (var idx = 0; idx < roles.length; idx++) {
+      var label = safeUserString(roles[idx]);
+      if (!label) {
+        continue;
+      }
+      html.push('<span class="badge bg-secondary role-badge">' + escapeHtml(label) + '</span>');
+    }
+
+    return html.join('');
+  }
+
   var rawRoleNames = (typeof roleNames !== 'undefined' && roleNames !== null) ? roleNames : '';
 
   var roleCandidates = [];
@@ -168,6 +208,8 @@
     userRoleNames = ['System Administrator'];
   }
 
+  var userRoleBadgesHtml = buildRoleBadgeMarkup(userRoleNames);
+
   var currentPageKeyValue = currentPage || '';
   var currentPageAttrValue = String(currentPageKeyValue)
     .replace(/"/g, '&quot;')
@@ -184,6 +226,29 @@
     return target + separator + 'page=' + encodeURIComponent(page);
   }
 ?>
+
+<style>
+  #sidebar .user-info .role {
+    white-space: normal;
+  }
+
+  #sidebar .user-info .role-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+  }
+
+  #sidebar .user-info .role-badges .badge {
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+</style>
 
 <nav id="sidebar" data-current-page='<?= currentPageAttrValue ?>'>
   <!-- Enhanced Logo Section -->
@@ -363,21 +428,21 @@
     </div>
     <div class="user-info">
       <div class="names" id="userName">
-        <? if (firstLastDisplayName) { ?>
-        <div class="name-line first-last" id="userFirstLast"><?= firstLastDisplayName ?></div>
-        <? } else { ?>
-        <div class="name-line first-last" id="userFirstLast"><?= displayPrimaryNameValue ?></div>
+        <? if (primaryRoleNameValue) { ?>
+        <div class="name-line role-name" id="userRoleNameDisplay"><?= primaryRoleNameValue ?></div>
         <? } ?>
         <div class="name-line full-name" id="userFullName"><?= displayFullNameValue ?></div>
       </div>
       <div class="role" id="userRole" title="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>">
-        <? if (userRoleNames && userRoleNames.length) { ?>
-        <?= userRoleNames.join(', ') ?>
-        <? } else if (isAdminUser) { ?>
-        System Administrator
-        <? } else { ?>
-        User
-        <? } ?>
+        <div class="role-badges" id="userRoleBadges">
+          <? if (userRoleBadgesHtml) { ?>
+          <?!= userRoleBadgesHtml ?>
+          <? } else if (isAdminUser) { ?>
+          <span class="badge bg-secondary role-badge">System Administrator</span>
+          <? } else { ?>
+          <span class="badge bg-secondary role-badge">User</span>
+          <? } ?>
+        </div>
       </div>
       <div class="employment-status" id="userEmp">
         <? if (employmentMetaValue.status) { ?>
