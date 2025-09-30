@@ -52,6 +52,58 @@
   var navigationConfig = navigation && typeof navigation === 'object' ? navigation : { categories: [], uncategorizedPages: [] };
   var employmentMetaValue = employmentMeta && typeof employmentMeta === 'object' ? employmentMeta : { status: '', cls: '', icon: 'fas fa-briefcase' };
 
+  function safeUserString(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var text = String(value).trim();
+    if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+      return '';
+    }
+
+    return text;
+  }
+
+  function getUserFieldValue(user, keys) {
+    if (!user || !keys || !keys.length) {
+      return '';
+    }
+
+    for (var idx = 0; idx < keys.length; idx++) {
+      var key = keys[idx];
+      if (!key || !(key in user)) {
+        continue;
+      }
+
+      var rawValue = user[key];
+      var normalized = safeUserString(rawValue);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  var firstNameValue = getUserFieldValue(sidebarUser, ['FirstName', 'firstName', 'GivenName', 'givenName']);
+  var lastNameValue = getUserFieldValue(sidebarUser, ['LastName', 'lastName', 'Surname', 'surname', 'FamilyName', 'familyName']);
+  var userFullNameValue = getUserFieldValue(sidebarUser, ['FullName', 'fullName', 'DisplayName', 'displayName']);
+  var userNameValue = getUserFieldValue(sidebarUser, ['UserName', 'userName', 'username', 'Email', 'email']);
+
+  var firstLastDisplayName = [firstNameValue, lastNameValue]
+    .filter(function (value) { return safeUserString(value); })
+    .join(' ');
+
+  var displayFullNameValue = userFullNameValue || firstLastDisplayName || userNameValue;
+  var displayPrimaryNameValue = firstLastDisplayName || displayFullNameValue || userNameValue || 'Unknown User';
+
+  if (!displayFullNameValue) {
+    displayFullNameValue = displayPrimaryNameValue;
+  }
+
+  var userInitialValue = (displayPrimaryNameValue || 'U').charAt(0).toUpperCase();
+
   function normalizeRoleInput(input) {
     if (!input) {
       return [];
@@ -284,15 +336,23 @@
   </div>
 
   <div class="user-panel" id="userPanel" data-initialized="true"
-    data-name="<?= sidebarUser.FullName || sidebarUser.UserName || 'Unknown User' ?>"
+    data-name="<?= displayPrimaryNameValue ?>"
+    data-first-name="<?= firstNameValue ?>"
+    data-last-name="<?= lastNameValue ?>"
+    data-full-name="<?= displayFullNameValue ?>"
     data-roles="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>"
     data-status="<?= sidebarUser.EmploymentStatus || '' ?>" data-country="<?= sidebarUser.Country || '' ?>">
     <div class="user-avatar-side" id="userAvatar">
-      <?= (sidebarUser.FullName || sidebarUser.UserName || 'U').charAt(0).toUpperCase() ?>
+      <?= userInitialValue ?>
     </div>
     <div class="user-info">
       <div class="names" id="userName">
-        <?= sidebarUser.FullName || sidebarUser.UserName || 'Unknown User' ?>
+        <? if (firstLastDisplayName) { ?>
+        <div class="name-line first-last" id="userFirstLast"><?= firstLastDisplayName ?></div>
+        <? } else { ?>
+        <div class="name-line first-last" id="userFirstLast"><?= displayPrimaryNameValue ?></div>
+        <? } ?>
+        <div class="name-line full-name" id="userFullName"><?= displayFullNameValue ?></div>
       </div>
       <div class="role" id="userRole" title="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>">
         <? if (userRoleNames && userRoleNames.length) { ?>
