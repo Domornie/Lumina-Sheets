@@ -1776,40 +1776,177 @@ function getOrCreateManagerUsersSheet_() {
 // ───────────────────────────────────────────────────────────────────────────────
 function getAllRoles() {
   try {
-    const sheet = SpreadsheetApp.getActive().getSheetByName(G.ROLES_SHEET);
-    if (!sheet) return [];
-    const data = sheet.getDataRange().getValues();
-    if (data.length <= 1) return [];
-    const rows = data.slice(1);
-    return rows.map(r => ({ ID: r[0], Name: r[1], normalizedName: r[2] }));
-  } catch (e) { writeError && writeError('getAllRoles', e); return []; }
+    const rows = (typeof _readRolesSheet_ === 'function')
+      ? _readRolesSheet_()
+      : __readSheetFallback__(G.ROLES_SHEET);
+    const normalizer = (typeof normalizeRoleRecord_ === 'function') ? normalizeRoleRecord_ : __normalizeRoleRecordFallback__;
+    return rows.map(normalizer).filter(Boolean);
+  } catch (e) {
+    writeError && writeError('getAllRoles', e);
+    return [];
+  }
 }
-function addUserRole(userId, roleId) {
+function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
   try {
+    if (!userId || !roleId) throw new Error('User ID and Role ID are required');
     const sheet = SpreadsheetApp.getActive().getSheetByName(G.USER_ROLES_SHEET);
-    if (!sheet) return;
-    const id = Utilities.getUuid(); const now = new Date();
-    sheet.appendRow([id, userId, roleId, now, now]);
+    if (!sheet) throw new Error(`Sheet ${G.USER_ROLES_SHEET} not found`);
+
+    const headers = __getHeaders__(sheet, G.USER_ROLES_HEADER);
+    const now = new Date();
+    const id = Utilities.getUuid();
+
+    let scope = '';
+    let assigned = '';
+    if (scopeOrOptions && typeof scopeOrOptions === 'object' && !Array.isArray(scopeOrOptions)) {
+      scope = scopeOrOptions.scope || scopeOrOptions.Scope || '';
+      assigned = scopeOrOptions.assignedBy || scopeOrOptions.AssignedBy || scopeOrOptions.assigned_by || '';
+    } else {
+      scope = scopeOrOptions || '';
+      assigned = assignedBy || '';
+    }
+
+    const rowMap = {
+      ID: id,
+      UserId: userId,
+      RoleId: roleId,
+      Scope: scope,
+      AssignedBy: assigned,
+      CreatedAt: now,
+      UpdatedAt: now,
+      DeletedAt: ''
+    };
+
+    const mapper = (typeof _mapRowFromHeaders_ === 'function') ? _mapRowFromHeaders_ : __mapRowFromHeaders__;
+    sheet.appendRow(mapper(headers, rowMap));
     invalidateCache && invalidateCache(G.USER_ROLES_SHEET);
-  } catch (e) { writeError && writeError('addUserRole', e); }
+    return id;
+  } catch (e) {
+    writeError && writeError('addUserRole', e);
+  }
 }
-function deleteUserRoles(userId) {
+function deleteUserRoles(userId, roleId) {
   try {
     const sheet = SpreadsheetApp.getActive().getSheetByName(G.USER_ROLES_SHEET);
     if (!sheet) return;
     const data = sheet.getDataRange().getValues();
+    if (!data.length) return;
+    const headers = data[0].map(h => String(h || '').trim());
+    const userIdx = headers.indexOf('UserId');
+    const roleIdx = headers.indexOf('RoleId');
+    if (userIdx < 0) return;
+
     for (let i = data.length - 1; i >= 1; i--) {
-      if (String(data[i][1]) === String(userId)) sheet.deleteRow(i + 1);
+      const matchesUser = String(data[i][userIdx]) === String(userId);
+      const matchesRole = roleId ? String(data[i][roleIdx]) === String(roleId) : true;
+      if (matchesUser && matchesRole) {
+        sheet.deleteRow(i + 1);
+      }
     }
     invalidateCache && invalidateCache(G.USER_ROLES_SHEET);
-  } catch (e) { writeError && writeError('deleteUserRoles', e); }
+  } catch (e) {
+    writeError && writeError('deleteUserRoles', e);
+  }
 }
 function getRolesMapping() {
   try {
     const roles = getAllRoles();
-    const mapping = {}; roles.forEach(r => mapping[r.ID] = r.Name);
+    const mapping = {};
+    roles.forEach(r => {
+      const id = r.id || r.ID;
+      const name = r.name || r.Name;
+      if (id) mapping[id] = name;
+    });
     return mapping;
-  } catch (error) { writeError && writeError('getRolesMapping', error); return {}; }
+  } catch (error) {
+    writeError && writeError('getRolesMapping', error);
+    return {};
+  }
+}
+
+function __readSheetFallback__(sheetName) {
+  try {
+    const ss = SpreadsheetApp.getActive().getSheetByName(sheetName);
+    if (!ss) return [];
+    const range = ss.getDataRange();
+    if (!range) return [];
+    const values = range.getValues();
+    if (!values.length) return [];
+    const headers = values.shift().map(h => String(h || '').trim());
+    return values
+      .map(row => {
+        const obj = {};
+        let hasData = false;
+        headers.forEach((header, idx) => {
+          if (!header) return;
+          const value = row[idx];
+          if (value !== '' && value != null) hasData = true;
+          obj[header] = value;
+        });
+        return hasData ? obj : null;
+      })
+      .filter(Boolean);
+  } catch (error) {
+    writeError && writeError('readSheetFallback', error);
+    return [];
+  }
+}
+
+function __normalizeRoleRecordFallback__(record) {
+  if (!record || typeof record !== 'object') return null;
+  const base = Object.assign({}, record);
+  let id = base.ID || base.Id || base.id || '';
+  if (id != null) id = String(id).trim();
+  let name = base.Name || base.name || '';
+  if (name != null) name = String(name).trim();
+  const normalizedName = (base.NormalizedName || base.normalizedName || (name ? name.toUpperCase() : '') || '').toString();
+  const scope = base.Scope || base.scope || '';
+  const description = base.Description || base.description || '';
+  const createdValue = base.CreatedAt || base.createdAt || null;
+  const updatedValue = base.UpdatedAt || base.updatedAt || null;
+  const deletedValue = base.DeletedAt || base.deletedAt || null;
+
+  return Object.assign({}, base, {
+    ID: id || base.ID,
+    id: id,
+    Name: name || base.Name,
+    name: name,
+    NormalizedName: normalizedName,
+    normalizedName: normalizedName,
+    Scope: scope,
+    scope: scope,
+    Description: description,
+    description: description,
+    CreatedAt: createdValue,
+    createdAt: __toClientDateFallback__(createdValue),
+    UpdatedAt: updatedValue,
+    updatedAt: __toClientDateFallback__(updatedValue),
+    DeletedAt: deletedValue,
+    deletedAt: __toClientDateFallback__(deletedValue)
+  });
+}
+
+function __toClientDateFallback__(value) {
+  if (!value && value !== 0) return null;
+  if (value instanceof Date) return value.toISOString();
+  return value;
+}
+
+function __getHeaders__(sheet, fallback) {
+  if (typeof _getSheetHeaders_ === 'function') return _getSheetHeaders_(sheet, fallback);
+  if (!sheet) return Array.isArray(fallback) ? fallback.slice() : [];
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn < 1) return Array.isArray(fallback) ? fallback.slice() : [];
+  const values = sheet.getRange(1, 1, 1, lastColumn).getValues();
+  if (!values.length) return Array.isArray(fallback) ? fallback.slice() : [];
+  return values[0].map(h => String(h || '').trim());
+}
+
+function __mapRowFromHeaders__(headers, valueMap) {
+  return headers.map(header => {
+    if (!header) return '';
+    return Object.prototype.hasOwnProperty.call(valueMap, header) ? valueMap[header] : '';
+  });
 }
 
 // ───────────────────────────────────────────────────────────────────────────────

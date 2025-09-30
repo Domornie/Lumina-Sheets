@@ -152,6 +152,41 @@
             transition-duration: 0.01ms !important;
         }
     }
+
+    .norm-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        border-radius: 999px;
+        background: var(--surface-variant);
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--on-surface-variant);
+    }
+
+    .scope-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        padding: 0.3rem 0.7rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .scope-badge.border {
+        border: 1px solid var(--outline);
+    }
+
+    .desc-cell {
+        max-width: 320px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--on-surface-variant);
+        font-size: 0.85rem;
+    }
 </style>
 
 
@@ -209,7 +244,9 @@
                 <thead>
                 <tr>
                     <th class="sortable" data-sort="name">Name <i class="fas fa-sort sort-ind"></i></th>
+                    <th class="sortable" data-sort="scope">Scope <i class="fas fa-sort sort-ind"></i></th>
                     <th>Normalized</th>
+                    <th>Description</th>
                     <th class="sortable" data-sort="createdAt">Created <i class="fas fa-sort sort-ind"></i></th>
                     <th class="sortable" data-sort="updatedAt">Updated <i class="fas fa-sort sort-ind"></i></th>
                     <th class="text-end">Actions</th>
@@ -218,12 +255,15 @@
                 <tbody id="rolesTableBody">
                 <!-- Enhanced skeleton loader -->
                 <tr>
-                    <td colspan="5">
+                    <td colspan="7">
                         <div class="row g-3">
-                            <div class="col-3">
+                            <div class="col-2">
                                 <div class="skeleton" style="height: 20px;"></div>
                             </div>
-                            <div class="col-3">
+                            <div class="col-2">
+                                <div class="skeleton" style="height: 20px;"></div>
+                            </div>
+                            <div class="col-2">
                                 <div class="skeleton" style="height: 20px;"></div>
                             </div>
                             <div class="col-3">
@@ -236,9 +276,12 @@
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="5">
+                    <td colspan="7">
                         <div class="row g-3">
-                            <div class="col-4">
+                            <div class="col-3">
+                                <div class="skeleton" style="height: 18px;"></div>
+                            </div>
+                            <div class="col-2">
                                 <div class="skeleton" style="height: 18px;"></div>
                             </div>
                             <div class="col-2">
@@ -247,7 +290,7 @@
                             <div class="col-3">
                                 <div class="skeleton" style="height: 18px;"></div>
                             </div>
-                            <div class="col-3">
+                            <div class="col-2">
                                 <div class="skeleton" style="height: 18px;"></div>
                             </div>
                         </div>
@@ -288,6 +331,16 @@
                     <input type="text" id="newRoleName" class="form-control" placeholder="e.g., Content Manager, System Admin" required>
                     <div class="form-text">Choose a descriptive name. The normalized identifier will be generated automatically.</div>
                 </div>
+                <div class="mb-3">
+                    <label for="newRoleScope" class="form-label">Scope</label>
+                    <input type="text" id="newRoleScope" class="form-control" placeholder="e.g., Global, Campaign, Department">
+                    <div class="form-text">Use scope to indicate where this role applies. Leave blank for global access.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="newRoleDescription" class="form-label">Description</label>
+                    <textarea id="newRoleDescription" class="form-control" rows="3" placeholder="Summarize responsibilities and permissions"></textarea>
+                    <div class="form-text">Provide context to help admins understand this role's purpose.</div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">
@@ -319,6 +372,16 @@
                     <label for="editRoleName" class="form-label">Role Name</label>
                     <input type="text" id="editRoleName" class="form-control" placeholder="e.g., Content Manager" required>
                     <div class="form-text">Update the role name. The normalized identifier will be updated automatically.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="editRoleScope" class="form-label">Scope</label>
+                    <input type="text" id="editRoleScope" class="form-control" placeholder="e.g., Global, Campaign, Department">
+                    <div class="form-text">Refine where this role applies within LuminaHQ.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="editRoleDescription" class="form-label">Description</label>
+                    <textarea id="editRoleDescription" class="form-control" rows="3" placeholder="Describe responsibilities and permissions"></textarea>
+                    <div class="form-text">Clarify what this role enables so future admins can manage it confidently.</div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -495,7 +558,9 @@
         if (q) {
             list = list.filter(r =>
                 (r.name || '').toLowerCase().includes(q) ||
-                (r.normalizedName || '').toLowerCase().includes(q)
+                (r.normalizedName || '').toLowerCase().includes(q) ||
+                (r.scope || '').toLowerCase().includes(q) ||
+                (r.description || '').toLowerCase().includes(q)
             );
         }
 
@@ -524,23 +589,33 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
         <td class="fw-bold">${escapeHtml(r.name || '')}</td>
+        <td>${renderScopeCell(r.scope)}</td>
         <td><span class="norm-chip"><i class="fa-solid fa-code"></i>${escapeHtml((r.normalizedName || '').toUpperCase())}</span></td>
+        <td>${renderDescriptionCell(r.description)}</td>
         <td>${renderDateCell(r.createdAt)}</td>
         <td>${renderDateCell(r.updatedAt)}</td>
         <td class="text-end">
-          <button class="btn btn-light btn-icon me-2"
-                  onclick="openEditRoleModal('${escapeAttr(r.id)}','${escapeAttr(r.name)}')"
+          <button class="btn btn-light btn-icon me-2 btn-edit-role"
+                  type="button"
                   data-bs-toggle="tooltip" title="Edit role">
             <i class="fas fa-edit"></i>
           </button>
-          <button class="btn btn-light btn-icon"
-                  onclick="deleteRole('${escapeAttr(r.id)}')"
+          <button class="btn btn-light btn-icon btn-delete-role" type="button"
                   data-bs-toggle="tooltip" title="Delete role">
             <i class="fas fa-trash text-danger"></i>
           </button>
         </td>
       `;
             tbody.appendChild(tr);
+
+            const editBtn = tr.querySelector('.btn-edit-role');
+            if (editBtn) {
+                editBtn.addEventListener('click', () => openEditRoleModal(r));
+            }
+            const deleteBtn = tr.querySelector('.btn-delete-role');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteRole(r.id || r.ID));
+            }
         }
 
         // 5) Result counter (range)
@@ -561,7 +636,7 @@
         // 8) Empty state
         if (!total) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="5" class="empty-state">
+            tr.innerHTML = `<td colspan="7" class="empty-state">
         <i class="fas fa-shield-alt"></i>
         <h3>No roles found</h3>
         <p>${q ? 'Try adjusting your search terms' : 'Create your first role to get started'}</p>
@@ -715,6 +790,8 @@
             btnSpin.classList.remove('d-none');
 
             const name = document.getElementById('newRoleName').value.trim();
+            const scope = document.getElementById('newRoleScope').value.trim();
+            const description = document.getElementById('newRoleDescription').value.trim();
             if (!name) {
                 btnSpin.classList.add('d-none');
                 return;
@@ -731,7 +808,7 @@
                     btnSpin.classList.add('d-none');
                     showToast('Failed to create role. ' + (err?.message || ''), 'danger');
                 })
-                .addRole(name);
+                .addRole(name, scope, description);
         });
 
         document.getElementById('addRoleModal').addEventListener('hidden.bs.modal', () => {
@@ -743,12 +820,23 @@
     // ---------------- Edit Role modal ----------------
     let editRoleModal;
 
-    function openEditRoleModal(id, currentName) {
+    function openEditRoleModal(roleOrId, currentName, currentScope, currentDescription) {
         const modalEl = document.getElementById('editRoleModal');
         if (!editRoleModal) editRoleModal = new bootstrap.Modal(modalEl, {backdrop: 'static'});
 
-        document.getElementById('editRoleId').value = id || '';
-        document.getElementById('editRoleName').value = currentName || '';
+        const role = (roleOrId && typeof roleOrId === 'object' && !Array.isArray(roleOrId))
+            ? roleOrId
+            : {
+                id: roleOrId,
+                name: currentName,
+                scope: currentScope,
+                description: currentDescription
+            };
+
+        document.getElementById('editRoleId').value = role?.id || role?.ID || '';
+        document.getElementById('editRoleName').value = role?.name || role?.Name || '';
+        document.getElementById('editRoleScope').value = role?.scope || role?.Scope || '';
+        document.getElementById('editRoleDescription').value = role?.description || role?.Description || '';
 
         setEditSaving(false);
         editRoleModal.show();
@@ -761,6 +849,8 @@
             e.preventDefault();
             const id = document.getElementById('editRoleId').value.trim();
             const name = document.getElementById('editRoleName').value.trim();
+            const scope = document.getElementById('editRoleScope').value.trim();
+            const description = document.getElementById('editRoleDescription').value.trim();
             if (!id || !name) return;
 
             setEditSaving(true);
@@ -775,7 +865,7 @@
                     setEditSaving(false);
                     showToast('Failed to update role. ' + (err?.message || ''), 'danger');
                 })
-                .updateRole(id, name);
+                .updateRole(id, name, scope, description);
         });
 
         document.getElementById('editRoleModal').addEventListener('hidden.bs.modal', () => {
@@ -830,12 +920,23 @@
         toastEl.addEventListener('hidden.bs.toast', () => container.remove());
     }
 
-    function escapeHtml(s = '') {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    function renderScopeCell(scope) {
+        const value = (scope || '').trim();
+        const label = value || 'Global';
+        const tone = value ? 'bg-info text-white' : 'bg-light text-muted border';
+        const icon = value ? 'fa-diagram-project' : 'fa-globe-americas';
+        return `<span class="badge scope-badge ${tone}"><i class="fas ${icon} me-1"></i>${escapeHtml(label)}</span>`;
     }
 
-    function escapeAttr(s = '') {
-        return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    function renderDescriptionCell(desc) {
+        const value = (desc || '').trim();
+        if (!value) return '<span class="text-muted">—</span>';
+        const short = value.length > 140 ? value.slice(0, 137) + '…' : value;
+        return `<div class="desc-cell" title="${escapeHtml(value)}">${escapeHtml(short)}</div>`;
+    }
+
+    function escapeHtml(s = '') {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 </script>
 </body>
