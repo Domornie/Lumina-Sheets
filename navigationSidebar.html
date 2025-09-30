@@ -98,6 +98,16 @@
   var displayFullNameValue = userFullNameValue || firstLastDisplayName || userNameValue;
   var displayPrimaryNameValue = firstLastDisplayName || displayFullNameValue || userNameValue || 'Unknown User';
 
+  var primaryRoleNameValue = getUserFieldValue(sidebarUser, [
+    'RoleName', 'roleName', 'PrimaryRole', 'primaryRole',
+    'Role', 'role', 'Title', 'title',
+    'JobTitle', 'jobTitle'
+  ]);
+
+  if (!primaryRoleNameValue && userRoleNames && userRoleNames.length) {
+    primaryRoleNameValue = userRoleNames[0];
+  }
+
   if (!displayFullNameValue) {
     displayFullNameValue = displayPrimaryNameValue;
   }
@@ -363,10 +373,8 @@
     </div>
     <div class="user-info">
       <div class="names" id="userName">
-        <? if (firstLastDisplayName) { ?>
-        <div class="name-line first-last" id="userFirstLast"><?= firstLastDisplayName ?></div>
-        <? } else { ?>
-        <div class="name-line first-last" id="userFirstLast"><?= displayPrimaryNameValue ?></div>
+        <? if (primaryRoleNameValue) { ?>
+        <div class="name-line role-name" id="userRoleNameDisplay"><?= primaryRoleNameValue ?></div>
         <? } ?>
         <div class="name-line full-name" id="userFullName"><?= displayFullNameValue ?></div>
       </div>
