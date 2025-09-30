@@ -973,6 +973,16 @@
         font-style: italic;
         color: var(--gray-500);
     }
+
+    #userSheetDataCard .table-responsive {
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    #userSheetDataCard .badge {
+        font-size: 0.75rem;
+    }
+
 </style>
 
 <!-- Loading Overlay -->
@@ -1426,6 +1436,21 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Sheet Data Section -->
+                            <div class="card mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold"><i class="fas fa-table me-2"></i>Users Sheet Data</h6>
+                                    <span class="badge bg-light text-dark" id="userSheetFieldCountBadge" style="display:none;"></span>
+                                </div>
+                                <div class="card-body" id="userSheetDataCard">
+                                    <div class="user-sheet-data-empty">
+                                        <i class="fas fa-info-circle me-1"></i>Select an existing user to review their synced sheet data.
+                                        Saved users will display every available column captured from the Users sheet.
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
 
                         <!-- Campaigns Tab -->
@@ -2444,6 +2469,59 @@
     `;
   }
 
+  function updateUserSheetDataCard(user) {
+    const container = document.getElementById('userSheetDataCard');
+    const badge = document.getElementById('userSheetFieldCountBadge');
+    if (!container) return;
+
+    const resetBadge = () => {
+      if (badge) {
+        badge.style.display = 'none';
+        badge.textContent = '';
+      }
+    };
+
+    if (!user) {
+      container.innerHTML = `
+        <div class="user-sheet-data-empty">
+          <i class="fas fa-info-circle me-1"></i>Select an existing user to review their synced sheet data.
+          Saved users will display every available column captured from the Users sheet.
+        </div>`;
+      resetBadge();
+      return;
+    }
+
+    const username = user.UserName || user.userName || user.username || user.Username || '';
+    const fields = Array.isArray(user.sheetFields) ? user.sheetFields : [];
+    if (!fields.length) {
+      container.innerHTML = `
+        <div class="user-sheet-data-empty">
+          <i class="fas fa-info-circle me-1"></i>No sheet data is currently recorded${username ? ` for <strong>${escapeHtml(username)}</strong>` : ''}.
+        </div>`;
+      resetBadge();
+      return;
+    }
+
+    const fieldCount = user.sheetFieldCount || fields.length;
+    if (badge) {
+      badge.textContent = `Fields: ${fieldCount}`;
+      badge.style.display = 'inline-flex';
+    }
+
+    const updatedAt = formatDateTimeForDisplay(user.UpdatedAt || user.updatedAt);
+    const tableHtml = renderSheetFieldsTable(fields);
+    const summaryChips = [
+      '<span class="badge bg-primary-subtle text-primary-emphasis"><i class="fas fa-table me-1"></i>Users Sheet</span>',
+      username ? `<span class="badge bg-secondary"><i class="fas fa-at me-1"></i>${escapeHtml(username)}</span>` : '',
+      updatedAt ? `<span class="badge bg-info-subtle text-info-emphasis"><i class="fas fa-clock me-1"></i>${escapeHtml(updatedAt)}</span>` : ''
+    ].filter(Boolean).join(' ');
+
+    container.innerHTML = `
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">${summaryChips}</div>
+      ${tableHtml}
+    `;
+  }
+
   // ---------- Pagination control ----------
   function updateUsersPagination(totalPages) {
     const ul = document.getElementById('usersPagination');
@@ -2993,6 +3071,17 @@
   }
 
   // ---------- Employment helpers ----------
+  function formatDateTimeForDisplay(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch {
+      return '';
+    }
+  }
+
   function formatHireVisual(dateStr) {
     if (!dateStr) return '';
     try {

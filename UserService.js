@@ -145,6 +145,7 @@ const EMPLOYMENT_STATUS_ALIAS_MAP = {
   'consultant/contractor': 'Consultant'
 };
 
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Safe fallbacks for common helpers (no-ops if you already defined them)
 // ───────────────────────────────────────────────────────────────────────────────
