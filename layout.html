@@ -323,6 +323,146 @@
     window.getReturnUrl = buildReturnUrl;
   </script>
 
+  <script>
+    (function () {
+      if (window.__luminaIntervalPatched) {
+        return;
+      }
+
+      window.__luminaIntervalPatched = true;
+
+      const originalSetInterval = window.setInterval.bind(window);
+      const originalClearInterval = window.clearInterval.bind(window);
+
+      const tracked = new Map();
+      const MIN_INTERVAL_DELAY = 500;
+
+      function normalizeDelay(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+          return MIN_INTERVAL_DELAY;
+        }
+        return Math.max(numeric, MIN_INTERVAL_DELAY);
+      }
+
+      function buildMetadata(handler, delay) {
+        const meta = {
+          handler,
+          delay,
+          lastRun: 0,
+          pauseWhenHidden: true,
+          pauseWhenOffline: true
+        };
+
+        const config = (handler && (handler.__luminaIntervalConfig || handler.__luminaIntervalOptions)) || null;
+        if (config && typeof config === 'object') {
+          if (Object.prototype.hasOwnProperty.call(config, 'runWhenHidden')) {
+            meta.pauseWhenHidden = !config.runWhenHidden;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(config, 'runWhenOffline')) {
+            meta.pauseWhenOffline = !config.runWhenOffline;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(config, 'minDelay')) {
+            const configuredDelay = Number(config.minDelay);
+            if (Number.isFinite(configuredDelay) && configuredDelay > 0) {
+              meta.delay = Math.max(configuredDelay, MIN_INTERVAL_DELAY);
+            }
+          }
+        } else {
+          if (handler && handler.allowWhenHidden === true) {
+            meta.pauseWhenHidden = false;
+          }
+          if (handler && handler.allowWhenOffline === true) {
+            meta.pauseWhenOffline = false;
+          }
+        }
+
+        return meta;
+      }
+
+      function shouldExecute(meta) {
+        if (meta.pauseWhenHidden && typeof document !== 'undefined' && document.hidden) {
+          return false;
+        }
+
+        if (meta.pauseWhenOffline && typeof navigator !== 'undefined' && !navigator.onLine) {
+          return false;
+        }
+
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (meta.lastRun && now - meta.lastRun < meta.delay * 0.6) {
+          return false;
+        }
+
+        meta.lastRun = now;
+        return true;
+      }
+
+      window.setInterval = function patchedSetInterval(handler, timeout) {
+        if (typeof handler !== 'function') {
+          return originalSetInterval(handler, timeout);
+        }
+
+        const delay = normalizeDelay(timeout);
+        const meta = buildMetadata(handler, delay);
+        const idRef = { value: null };
+        const wrapped = function wrappedHandlerProxy() {
+          const id = idRef.value;
+          if (!tracked.has(id)) {
+            return;
+          }
+
+          if (!shouldExecute(meta)) {
+            return;
+          }
+
+          try {
+            meta.handler.apply(this, arguments);
+          } catch (error) {
+            console.error('Interval handler failed', error);
+          }
+        };
+
+        const id = originalSetInterval(wrapped, meta.delay);
+        idRef.value = id;
+        tracked.set(id, meta);
+        return id;
+      };
+
+      window.clearInterval = function patchedClearInterval(id) {
+        if (tracked.has(id)) {
+          tracked.delete(id);
+        }
+        return originalClearInterval(id);
+      };
+
+      function cleanupTracked() {
+        tracked.forEach((_, id) => {
+          originalClearInterval(id);
+        });
+        tracked.clear();
+      }
+
+      if (typeof window !== 'undefined') {
+        window.addEventListener('beforeunload', cleanupTracked);
+        window.addEventListener('pagehide', cleanupTracked);
+      }
+
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) {
+            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            tracked.forEach(meta => {
+              meta.lastRun = now - meta.delay;
+            });
+          }
+        });
+      }
+    })();
+  </script>
+
   <style>
     :root {
       /* Enhanced Modern Color Palette */
