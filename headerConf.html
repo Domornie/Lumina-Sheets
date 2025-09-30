@@ -516,32 +516,32 @@
         return;
       }
 
-      const tokenForPing = rawToken || readAuthCookie();
-      if (!tokenForPing) {
-        return;
-      }
+      const ping = () => {
+        const tokenForPing = rawToken || readAuthCookie();
+        if (!tokenForPing) {
+          return;
+        }
 
-      // Execute a single keep-alive request during page load without
-      // establishing any recurring timers. The previous implementation
-      // scheduled an interval that continued to ping the server in the
-      // background, which slowed navigation. Removing the interval keeps the
-      // session check lightweight and avoids background processing.
-      google.script.run
-        .withSuccessHandler(result => {
-          if (result && result.success) {
-            rawToken = result.sessionToken || tokenForPing;
-            persistAuthCookie(rawToken, result.sessionTtlSeconds);
-          } else if (result && result.expired) {
-            clearAuthCookie();
-            const loginUrl = new URL(location.origin + location.pathname);
-            loginUrl.searchParams.set('page', 'login');
-            window.location.href = loginUrl.toString();
-          }
-        })
-        .withFailureHandler(err => {
-          console.warn('Keep-alive failed:', err);
-        })
-        .keepAlive(tokenForPing);
+        google.script.run
+          .withSuccessHandler(result => {
+            if (result && result.success) {
+              rawToken = result.sessionToken || tokenForPing;
+              persistAuthCookie(rawToken, result.sessionTtlSeconds);
+            } else if (result && result.expired) {
+              clearAuthCookie();
+              const loginUrl = new URL(location.origin + location.pathname);
+              loginUrl.searchParams.set('page', 'login');
+              window.location.href = loginUrl.toString();
+            }
+          })
+          .withFailureHandler(err => {
+            console.warn('Keep-alive failed:', err);
+          })
+          .keepAlive(tokenForPing);
+      };
+
+      ping();
+      setInterval(ping, 10 * 60 * 1000);
     }
 
     scheduleKeepAlive();
