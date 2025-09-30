@@ -1,98 +1,248 @@
-# Lumina Sheets – Rebuilt Core
+# Lumina-Sheets
 
-This repository now ships with a **ground-up rewrite** of the Lumina Sheets
-workspace. The previous collection of disjoint Apps Script files has been
-replaced by a modular runtime that treats Google Sheets as a database, delivers
-fast cached reads, and exposes a clean API to the HTML client.
+Call center management system built on Google Apps Script + Google Sheets.
 
-## Highlights
+## Trigger maintenance
 
-- **Deterministic bootstrap** – every required sheet is ensured with the
-  expected headers before the first request executes. The schema mirrors the
-  original `MainUtilities` constants so existing data continues to work.
-- **Token-based authentication** – sign-in issues short-lived or remember-me
-  tokens that are stored inside the `Sessions` sheet with user agent and IP
-  metadata.
-- **Cache-aware repositories** – heavy lookups against `Users`, `Campaigns`,
-  `Pages`, and `Notifications` are memoised through `CacheService` to keep the
-  UI snappy even for large datasets.
-- **Compact HTML client** – the new `V2_Login.html` and `V2_AppShell.html`
-  provide a modern authenticated experience that talks to the Apps Script API
-  (`google.script.run`) without relying on legacy global functions.
+- `checkRealtimeUpdatesJob()` now self-throttles by default, limiting each run to
+  one minute and pausing at least five minutes between executions. Adjust the
+  cadence by setting script properties such as
+  `REALTIME_JOB_MAX_RUNTIME_MS`, `REALTIME_JOB_MIN_INTERVAL_MS`, or
+  `REALTIME_JOB_SLEEP_MS`.
+- Run `listProjectTriggers()` from the Apps Script editor if you suspect a
+  legacy time-driven job is still active. The helper logs every trigger and the
+  handler function it tries to invoke.
+- Use `removeLegacyRealtimeTrigger()` only when you intentionally want to delete
+  the realtime job trigger (for example, before replacing it with a new
+  schedule).
 
-## Project layout
+## Google Sheets database manager
 
+The `DatabaseManager.gs` module turns any worksheet into a CRUD-ready table. Define
+schema defaults once and re-use the same interface across every client campaign.
+
+> **Compatibility note:** shared helpers such as `ensureSheetWithHeaders`,
+> `readSheet`, and `invalidateCache` are wrapped so they prefer the centralized
+> database logic while falling back to any legacy implementations already loaded
+> in your project. This eliminates Apps Script "function already defined"
+> conflicts when combining the database layer with existing utility files.
+
+### Quick start
+
+```javascript
+const users = DatabaseManager.defineTable('Users', {
+  headers: ['ID', 'UserName', 'Email', 'CampaignID'],
+  defaults: { CanLogin: true },
+});
+
+// Create
+const user = users.insert({
+  UserName: 'jsmith',
+  Email: 'jsmith@example.com',
+  CampaignID: 'credit-suite'
+});
+
+// Read
+const perCampaign = users.find({ where: { CampaignID: 'credit-suite' } });
+
+// Update
+users.update(user.ID, { CanLogin: false });
+
+// Delete
+users.delete(user.ID);
 ```
-Lumina-Sheets/
-├── Code.js             # V2 runtime (authentication, routing, sheet access)
-├── V2_Login.html       # Standalone login screen
-├── V2_AppShell.html    # Authenticated workspace shell + dashboard view
-├── appsscript.json     # Manifest (V8 runtime + web-app settings)
-└── ...                 # Legacy HTML/GS files kept for reference
+
+The manager automatically ensures each sheet exists, appends missing headers, and
+stores `CreatedAt`/`UpdatedAt` timestamps for every record. Cached reads keep lookups
+fast while still honoring sheet edits from other services.
+
+### Global CRUD helpers
+
+`DatabaseBindings.gs` registers the common sheets used across the call center platform
+and exposes lightweight helpers so existing Apps Script functions can switch to the
+database abstraction without rewriting business logic:
+
+```javascript
+// Read data with optional filters/sorting/pagination
+const activeUsers = dbSelect(USERS_SHEET, {
+  where: { CampaignID: campaignId, CanLogin: true },
+  sortBy: 'FullName'
+});
+
+// Create/update/delete
+const created = dbCreate(USERS_SHEET, payload);
+const updated = dbUpdate(USERS_SHEET, created.ID, { ResetRequired: false });
+dbDelete(USERS_SHEET, created.ID);
+
+// Upsert by any condition (automatically creates IDs when needed)
+dbUpsert(CAMPAIGN_USER_PERMISSIONS_SHEET, { UserID, CampaignID }, {
+  PermissionLevel: 'Manager',
+  CanManageUsers: true
+});
 ```
 
-The old services remain in the repository for historical reference but are no
-longer required. The runtime entry points (`doGet`, `doPost`, `appLogin`, etc.)
-all delegate to the new `LuminaAppV2` implementation inside `Code.js`.
+The existing `readSheet`/`ensureSheetWithHeaders` helpers now rely on these bindings,
+so all services automatically share cached queries and schema registration through
+`DatabaseManager`.
 
-## Getting started
+### Multi-tenant SaaS safeguards
 
-1. Deploy the Apps Script project (`clasp push` or manual upload) so the new
-   files replace the existing script project.
-2. Make sure your Google Sheet already contains the historical data. During the
-   first run the runtime will automatically ensure all core sheets exist with the
-   correct headers.
-3. Open the web app URL. You should see the refreshed login page. Sign in using
-   an existing account (passwords must match the original SHA-256 + Base64 hash
-   stored in the `Users` sheet).
-4. Upon successful login the token is cached in `localStorage` and the workspace
-   renders the dashboard view with campaign memberships and unread notifications.
+Every campaign operates as an isolated tenant. Tables that contain campaign data are
+now registered with a `tenantColumn`, so `DatabaseManager` automatically blocks reads
+and writes that target campaigns outside the active tenant context.
 
-## Client API
+```javascript
+// Create a tenant-scoped CRUD context for the signed-in manager
+const { context } = getTenantContextForUser(currentUserId, 'credit-suite');
+const campaignPages = DatabaseManager.table(CAMPAIGN_PAGES_SHEET, context);
 
-The HTML client communicates with Apps Script through the following public
-functions:
+// All queries will be transparently filtered to the campaigns in `context`
+const navigation = campaignPages.find({ sortBy: 'SortOrder' });
+```
 
-| Function        | Description                                                   |
-| --------------- | ------------------------------------------------------------- |
-| `appLogin`      | Validates credentials and issues a session token.             |
-| `appLogout`     | Revokes the provided token and clears it from storage.        |
-| `appBootstrap`  | Returns the authenticated user profile, campaign list, and    |
-|                 | navigation metadata.                                          |
-| `appDashboard`  | Provides dashboard aggregates including unread notifications. |
-| `appNotifications` | Retrieves the unread notifications list.                   |
+Use `TenantSecurityService.gs` to calculate per-user access profiles, enforce
+manager/admin permissions, and obtain reusable CRUD contexts:
 
-Each method expects an object containing the `token` (except `appLogin`) and
-returns a JSON-serialisable payload that the front-end renders.
+```javascript
+const { profile, context } = TenantSecurity.getTenantContext(userId, campaignId);
+// Throws if the user cannot access the campaign
 
-## Extending the workspace
+// One-line helpers for Apps Script services
+const db = dbWithContext(context);
+const notifications = db.select(NOTIFICATIONS_SHEET, { where: { UserId: userId } });
 
-The rebuilt runtime separates concerns so additional features are easy to add:
+// When you need a DatabaseManager table instance:
+const scopedUsers = TenantSecurity.getScopedTable(userId, campaignId, USERS_SHEET);
+```
 
-- **New tables** – add the sheet name + header array to the `SHEETS`/`HEADERS`
-  objects, call `ensureSheetWithHeaders`, and build a repository helper using the
-  existing patterns (`readTable`, `appendRow`, etc.).
-- **Additional APIs** – create a function that receives a payload, calls
-  `requireSession(token)` to resolve the user, performs the necessary data work,
-  and expose it through a new global wrapper (`function appSomething()`).
-- **Front-end modules** – extend `V2_AppShell.html` with additional navigation
-  buttons and call your new Apps Script functions via `google.script.run`.
+Legacy helpers such as `dbSelect` and `dbCreate` accept an optional tenant context as
+their final argument, while dedicated helpers (`dbTenantSelect`, `dbTenantCreate`,
+etc.) provide a more explicit API.
 
-## Migration notes
+### Authentication & campaign-scoped sessions
 
-- All legacy Apps Script files are still available in the repository should you
-  need to port individual workflows. They no longer participate in the runtime
-  and can be deleted once the migration is complete.
-- Password validation now expects the Base64-encoded SHA-256 digest of the raw
-  password, aligning with the historical storage format in the `Users` sheet. If
-  your dataset used a different hashing approach, update `hashPassword` inside
-  `Code.js` accordingly.
-- Sessions are stored exclusively in the `Sessions` sheet. The cache layer keeps
-  active session lookups fast, but expired tokens are pruned when a user attempts
-  to reuse them.
+`AuthenticationService.gs` now persists sessions through `DatabaseManager`, upgrading
+the `Sessions` sheet to track remember-me flags, user agents, IP addresses, and a
+serialized tenant scope. Every login computes a tenant access profile via
+`TenantSecurityService`, blocks accounts that are not assigned to at least one
+campaign (unless they are global administrators), and returns the full list of
+allowed/managed/admin campaigns to the client. Session renewals automatically refresh
+the campaign scope so managers cannot switch to unauthorized tenants mid-session.
 
-## Support
 
-If you run into issues while extending the rebuilt runtime, review the inline
-comments in `Code.js` – every helper has been documented with the intended
-responsibilities to make future maintenance straightforward.
+## End-to-end call center workflows
+
+`CallCenterWorkflowService.gs` stitches together authentication, scheduling,
+performance, coaching, reporting, and collaboration into a single tenant-aware
+facade. It automatically registers the critical sheets with `DatabaseManager`,
+hydrates dashboard-ready aggregates, and exposes the most common CRUD flows used by
+managers and agents.
+
+```javascript
+// Initialize during startup (handled automatically inside initializeSystem)
+CallCenterWorkflowService.initialize();
+
+// Hydrate the authenticated user's workspace
+const workspace = CallCenterWorkflowService.getWorkspace(currentUserId, {
+  campaignId: activeCampaignId,
+  activeOnly: true,
+});
+
+// Schedule a shift for an agent (campaign enforcement handled internally)
+CallCenterWorkflowService.scheduleAgentShift(managerId, {
+  UserID: agentId,
+  Date: '2024-04-01',
+  StartTime: '09:00',
+  EndTime: '17:00',
+  CampaignID: activeCampaignId,
+});
+
+// Log QA/performance results
+CallCenterWorkflowService.logPerformanceReview(qaLeadId, {
+  UserID: agentId,
+  CampaignID: activeCampaignId,
+  EvaluationDate: new Date(),
+  FinalScore: 94.2,
+  Notes: 'Excellent rapport building',
+});
+
+// Create and acknowledge coaching engagements
+const coaching = CallCenterWorkflowService.createCoachingSession(managerId, {
+  UserID: agentId,
+  CampaignID: activeCampaignId,
+  FocusArea: 'Call control',
+  DueDate: '2024-04-05',
+});
+CallCenterWorkflowService.acknowledgeCoaching(agentId, coaching.ID, {
+  Notes: 'Reviewed and will implement feedback',
+});
+
+// Campaign-specific manager dashboard and communications
+const managerDashboard = CallCenterWorkflowService.getManagerCampaignDashboard(managerId, activeCampaignId, {
+  includeRoster: true,
+  maxMessages: 10,
+});
+
+CallCenterWorkflowService.sendCampaignCommunication(managerId, activeCampaignId, {
+  title: 'Script refresh',
+  message: 'Please review the updated talk track before tomorrow\'s shift.',
+  userIds: [agentId],
+});
+
+// Executive view across campaigns
+const executiveOverview = CallCenterWorkflowService.getExecutiveAnalytics(executiveId);
+
+// Post tenant-scoped collaboration updates
+CallCenterWorkflowService.postCollaborationMessage(agentId, channelId, 'QA review completed', {
+  campaignId: activeCampaignId,
+});
+```
+
+The workspace payload returned by `getWorkspace` bundles:
+
+* **Authentication context** – the signed-in user, their roles, claims, and active
+  sessions.
+* **Scheduling + attendance** – upcoming shifts, today's coverage, and shift counts.
+* **Performance** – QA averages, attendance distribution, and adherence trends.
+* **Coaching** – pending acknowledgements, overdue sessions, and coaching summaries.
+* **Collaboration** – recent chat activity scoped to the user's accessible campaigns.
+* **Reporting** – aggregated metrics (agents, shifts, QA scores, attendance rates,
+  coaching backlog) ready for dashboards.
+
+Each write helper (`scheduleAgentShift`, `recordAttendanceEvent`,
+`logPerformanceReview`, `createCoachingSession`, `acknowledgeCoaching`,
+`postCollaborationMessage`) automatically asserts campaign permissions through
+`TenantSecurityService`, assigns the correct tenant column, and preserves the sheet
+schemas registered with `DatabaseManager`.
+
+## Extensibility considerations
+
+- **Modular HTML views.** Dashboard panels such as Top Performers, QA rollups, and
+  Coaching lists should be implemented as self-contained widgets that communicate
+  through shared events and data loaders instead of directly depending on each
+  other. This keeps the UI flexible so new KPIs or workflows can be introduced
+  without breaking existing modules.
+- **Service-level CRUD contracts.** Google Apps Script services (for example
+  `UserService.gs`, `ScheduleService.gs`, `QAService.gs`, and `CoachingService.gs`)
+  should expose consistent create/read/update/delete helpers for their
+  corresponding sheets. Keeping these interfaces explicit enables automation,
+  scheduled jobs, and future integrations to reuse the same endpoints instead of
+  duplicating business logic.
+
+## Deployment & security checklist
+
+- **Manifest alignment.** The repository now ships the canonical
+  [`appsscript.json`](./appsscript.json) manifest so deployments inherit the
+  correct V8 runtime, advanced service enablement, and OAuth scopes. Ensure this
+  file is committed with any future scope or dependency changes so the Apps
+  Script project stays in sync across environments.
+- **Web app execution context.** Web deployments execute as the signed-in user
+  (`executeAs: USER_ACCESSING`) and require authentication (`access: ANYONE`).
+  This configuration enforces the tenant-aware permission checks implemented in
+  `AuthenticationService.gs` and `TenantSecurityService.gs` while still allowing
+  external client stakeholders to authenticate with Google accounts.
+- **Operational documentation.** See [`docs/implementation-map.md`](./docs/implementation-map.md)
+  for a cross-reference between the requirements, HTML front-end modules, and
+  Apps Script services that fulfill them. Update this document whenever new
+  modules are introduced so auditors can validate coverage quickly.
+
