@@ -3030,48 +3030,93 @@ function getCampaignById(campaignId) {
 
 function getCampaignNavigation(campaignId) {
   try {
-    if (typeof readSheet === 'function') {
-      const navigation = readSheet('CampaignNavigation') || [];
-      const campaignNav = navigation.filter(nav =>
-        String(nav.CampaignID || nav.campaignId) === String(campaignId)
-      );
-
-      const categories = {};
-      const uncategorizedPages = [];
-
-      campaignNav.forEach(nav => {
-        const category = nav.Category || nav.category || 'Uncategorized';
-        if (category === 'Uncategorized') {
-          uncategorizedPages.push(nav);
-        } else {
-          if (!categories[category]) {
-            categories[category] = [];
-          }
-          categories[category].push(nav);
-        }
-      });
-
-      return {
-        categories: Object.entries(categories).map(([name, pages]) => ({
-          name,
-          pages
-        })),
-        uncategorizedPages
-      };
+    if (!campaignId) {
+      return { categories: [], uncategorizedPages: [] };
     }
 
-    return {
-      categories: [
-        {
-          name: 'Main',
-          pages: [
-            { PageKey: 'dashboard', Name: 'Dashboard', Icon: 'dashboard' },
-            { PageKey: 'reports', Name: 'Reports', Icon: 'bar_chart' }
-          ]
+    const cache = (typeof CacheService !== 'undefined' && CacheService)
+      ? CacheService.getScriptCache()
+      : null;
+    const cacheTtl = (typeof CACHE_TTL_SEC !== 'undefined') ? CACHE_TTL_SEC : 300;
+    const cacheKey = `NAVIGATION_${campaignId}`;
+
+    if (cache) {
+      try {
+        const cached = cache.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
         }
-      ],
-      uncategorizedPages: []
-    };
+      } catch (cacheErr) {
+        console.warn('getCampaignNavigation: cache read failed', cacheErr);
+      }
+    }
+
+    const pages = (typeof getCampaignPages === 'function')
+      ? getCampaignPages(campaignId)
+      : (function () {
+          if (typeof readSheet !== 'function') return [];
+          const sheetName = (typeof CAMPAIGN_PAGES_SHEET !== 'undefined') ? CAMPAIGN_PAGES_SHEET : 'CAMPAIGN_PAGES';
+          const allPages = readSheet(sheetName) || [];
+          return allPages.filter(p => String(p.CampaignID || p.campaignId) === String(campaignId));
+        })();
+
+    const categories = (typeof getCampaignPageCategories === 'function')
+      ? getCampaignPageCategories(campaignId)
+      : (function () {
+          if (typeof readSheet !== 'function') return [];
+          const sheetName = (typeof PAGE_CATEGORIES_SHEET !== 'undefined') ? PAGE_CATEGORIES_SHEET : 'PAGE_CATEGORIES';
+          const allCategories = readSheet(sheetName) || [];
+          return allCategories
+            .filter(cat => String(cat.CampaignID || cat.campaignId) === String(campaignId))
+            .map(cat => ({
+              ID: cat.ID || cat.id,
+              CampaignID: cat.CampaignID || cat.campaignId,
+              CategoryName: cat.CategoryName || cat.categoryName || cat.Category || cat.category,
+              CategoryIcon: cat.CategoryIcon || cat.categoryIcon || 'fas fa-folder',
+              SortOrder: cat.SortOrder || cat.sortOrder || 999
+            }))
+            .sort((a, b) => (a.SortOrder || 999) - (b.SortOrder || 999));
+        })();
+
+    const navigation = { categories: [], uncategorizedPages: [] };
+
+    if (!Array.isArray(pages) || pages.length === 0) {
+      if (cache) {
+        try { cache.put(cacheKey, JSON.stringify(navigation), cacheTtl); } catch (_) {}
+      }
+      return navigation;
+    }
+
+    const categoryMap = {};
+    categories.forEach(cat => {
+      if (!cat || !cat.ID) return;
+      categoryMap[cat.ID] = Object.assign({}, cat, { pages: [] });
+    });
+
+    pages.forEach(page => {
+      if (!page) return;
+      const normalizedPage = Object.assign({}, page, {
+        PageIcon: page.PageIcon || page.pageIcon || 'fas fa-file'
+      });
+      const categoryId = page.CategoryID || page.categoryId;
+      if (categoryId && categoryMap[categoryId]) {
+        categoryMap[categoryId].pages.push(normalizedPage);
+      } else {
+        navigation.uncategorizedPages.push(normalizedPage);
+      }
+    });
+
+    navigation.categories = Object.values(categoryMap).filter(cat => cat.pages && cat.pages.length > 0);
+
+    if (cache) {
+      try {
+        cache.put(cacheKey, JSON.stringify(navigation), cacheTtl);
+      } catch (cachePutErr) {
+        console.warn('getCampaignNavigation: cache write failed', cachePutErr);
+      }
+    }
+
+    return navigation;
   } catch (error) {
     console.error('Error getting campaign navigation:', error);
     writeError('getCampaignNavigation', error);
