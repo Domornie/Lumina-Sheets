@@ -1497,6 +1497,16 @@
     var __layoutRoleNames = [];
     if (Array.isArray(__layoutUser && __layoutUser.roleNames) && __layoutUser.roleNames.length) {
       __layoutRoleNames = __layoutUser.roleNames;
+    } else if (__layoutUser && __layoutUser.ID && typeof getUserRolesSafe === 'function') {
+      try {
+        var __layoutResolvedRoles = getUserRolesSafe(__layoutUser.ID) || [];
+        __layoutRoleNames = __layoutResolvedRoles
+          .map(function (role) { return role && role.name ? role.name : ''; })
+          .filter(function (name) { return Boolean(name); });
+      } catch (resolveRolesErr) {
+        console.error('layout: failed to resolve roles from database', resolveRolesErr);
+        __layoutRoleNames = [];
+      }
     } else if (__layoutIsAdmin) {
       __layoutRoleNames = ['System Administrator'];
     }
@@ -1657,7 +1667,6 @@
             const dateEl = document.getElementById('luminaBannerDate');
             const dstEl = document.getElementById('luminaBannerDst');
             const actionsEl = document.getElementById('luminaBannerActions');
-
             const resolvedTitle = config.title || document.title || 'LuminaHQ';
             if (titleEl) {
                 titleEl.textContent = resolvedTitle.trim() || 'LuminaHQ';
