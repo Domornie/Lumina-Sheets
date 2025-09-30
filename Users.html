@@ -492,6 +492,154 @@
         border: 1px solid rgba(203, 213, 225, 0.3);
     }
 
+    /* Equipment Manager */
+    .equipment-card {
+        border: 1px solid rgba(203, 213, 225, 0.5);
+        border-radius: var(--border-radius-sm);
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.85);
+        transition: var(--transition-fast);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .equipment-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(120deg, transparent, rgba(14, 165, 233, 0.08), transparent);
+        transition: var(--transition-fast);
+    }
+
+    .equipment-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(59, 130, 246, 0.4);
+        box-shadow: var(--shadow-md);
+    }
+
+    .equipment-card:hover::before {
+        left: 100%;
+    }
+
+    .equipment-card.active {
+        border-color: var(--primary-500);
+        box-shadow: var(--shadow-lg);
+        background: linear-gradient(140deg, rgba(59, 130, 246, 0.12), rgba(191, 219, 254, 0.08));
+    }
+
+    .equipment-card h6 {
+        margin-bottom: 0.35rem;
+        font-weight: 600;
+    }
+
+    .equipment-card small {
+        color: var(--gray-500);
+    }
+
+    .equipment-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        background: rgba(59, 130, 246, 0.08);
+        color: var(--primary-700);
+        margin-right: 0.35rem;
+        margin-top: 0.35rem;
+    }
+
+    .equipment-photo-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .equipment-photo-thumb {
+        position: relative;
+        width: 84px;
+        height: 84px;
+        border-radius: var(--border-radius-xs);
+        overflow: hidden;
+        border: 1px solid rgba(203, 213, 225, 0.6);
+        background: var(--gray-100);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .equipment-photo-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .equipment-photo-thumb .remove-photo-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        border: none;
+        border-radius: 999px;
+        width: 22px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.7);
+        color: white;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: var(--transition-fast);
+    }
+
+    .equipment-photo-thumb .remove-photo-btn:hover {
+        background: rgba(220, 38, 38, 0.9);
+    }
+
+    .equipment-photo-label {
+        font-size: 0.7rem;
+        text-align: center;
+        margin-top: 0.25rem;
+        color: var(--gray-600);
+        word-break: break-word;
+    }
+
+    .equipment-empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        border: 2px dashed rgba(203, 213, 225, 0.5);
+        border-radius: var(--border-radius);
+        background: rgba(248, 250, 252, 0.4);
+        color: var(--gray-500);
+    }
+
+    .equipment-empty-state i {
+        font-size: 2.2rem;
+        margin-bottom: 0.75rem;
+        color: var(--gray-400);
+    }
+
+    .equipment-form-disabled {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .equipment-file-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(99, 102, 241, 0.12);
+        color: rgba(79, 70, 229, 1);
+        font-size: 0.75rem;
+        margin-right: 0.35rem;
+        margin-bottom: 0.35rem;
+    }
+
     .employment-badge {
         display: inline-flex;
         align-items: center;
@@ -1170,6 +1318,12 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment"
+                                    type="button" role="tab" aria-controls="equipment" aria-selected="false">
+                                <i class="fas fa-toolbox me-2"></i><span class="d-none d-sm-inline">Equipment</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions"
                                     type="button" role="tab" aria-controls="permissions" aria-selected="false">
                                 <i class="fas fa-shield-alt me-2"></i><span class="d-none d-sm-inline">Permissions</span>
@@ -1536,12 +1690,122 @@
                                     <i class="fas fa-cogs me-2"></i>Discovered Pages
                                     <small class="text-muted fw-normal">(Auto-Updated from System Routes)</small>
                                 </h6>
-                                <div id="pageAssignmentContainer" class="page-grid border rounded p-3" style="max-height: 450px; overflow-y: auto;">
-                                    <div class="text-center py-4 w-100">
-                                        <div class="spinner-border text-primary mb-3" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
+                        <div id="pageAssignmentContainer" class="page-grid border rounded p-3" style="max-height: 450px; overflow-y: auto;">
+                            <div class="text-center py-4 w-100">
+                                <div class="spinner-border text-primary mb-3" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
                                         <p class="text-muted mb-0">Running page discovery...</p>
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+
+                        <!-- Equipment Tab -->
+                        <div class="tab-pane fade" id="equipment" role="tabpanel" aria-labelledby="equipment-tab">
+                            <div class="row g-4">
+                                <div class="col-lg-5">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0 fw-bold"><i class="fas fa-toolbox me-2"></i>Assigned Equipment</h6>
+                                            <span class="badge bg-light text-dark"><i class="fas fa-box-open me-1"></i><span id="equipmentCount">0</span></span>
+                                        </div>
+                                        <div class="card-body" id="equipmentList">
+                                            <div class="equipment-empty-state">
+                                                <i class="fas fa-box"></i>
+                                                <p class="mb-0">Select an existing user to review and manage assigned equipment.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-7">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0 fw-bold"><i class="fas fa-clipboard-list me-2"></i>Equipment Details</h6>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetEquipmentForm()">
+                                                    <i class="fas fa-rotate-left me-1"></i>Clear
+                                                </button>
+                                                <button type="button" class="btn btn-primary btn-sm" id="saveEquipmentBtn" onclick="submitEquipmentForm()">
+                                                    <i class="fas fa-save me-1"></i>Save Equipment
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="alert alert-info" id="equipmentUnavailableNotice">
+                                                <i class="fas fa-info-circle me-2"></i>Save the user record before assigning company equipment.
+                                            </div>
+                                            <input type="hidden" id="equipmentId">
+                                            <div id="equipmentFormFields" class="equipment-form-fields">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="equipmentItemName" class="form-label fw-medium">Item Name <span class="text-danger">*</span></label>
+                                                            <input type="text" class="form-control" id="equipmentItemName" placeholder="e.g., Dell Laptop" maxlength="120" required>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="equipmentItemType" class="form-label fw-medium">Category</label>
+                                                            <input type="text" class="form-control" id="equipmentItemType" placeholder="Laptop, Headset, Power Bank" maxlength="80">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="equipmentSerialNumber" class="form-label fw-medium">Serial / Asset Number</label>
+                                                            <input type="text" class="form-control" id="equipmentSerialNumber" placeholder="Serial number or asset tag" maxlength="120">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="equipmentCondition" class="form-label fw-medium">Condition</label>
+                                                            <select class="form-select" id="equipmentCondition">
+                                                                <option value="">Select condition</option>
+                                                                <option value="New">New</option>
+                                                                <option value="Excellent">Excellent</option>
+                                                                <option value="Good">Good</option>
+                                                                <option value="Fair">Fair</option>
+                                                                <option value="Needs Repair">Needs Repair</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="equipmentIssuedDate" class="form-label fw-medium">Issued Date</label>
+                                                            <input type="date" class="form-control" id="equipmentIssuedDate">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label for="equipmentReturnedDate" class="form-label fw-medium">Return Date</label>
+                                                            <input type="date" class="form-control" id="equipmentReturnedDate">
+                                                            <div class="form-text">Leave blank if the item is still assigned</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="equipmentNotes" class="form-label fw-medium">Notes</label>
+                                                    <textarea class="form-control" id="equipmentNotes" rows="3" placeholder="Condition details, accessories included, issue notes..."></textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="equipmentPhotos" class="form-label fw-medium">Photos</label>
+                                                    <input type="file" id="equipmentPhotos" class="form-control" accept="image/*" multiple>
+                                                    <div class="form-text">Attach multiple angles or packaging shots. Each photo must be under 5 MB.</div>
+                                                    <div class="mt-3">
+                                                        <h6 class="fw-semibold small text-muted mb-2"><i class="fas fa-images me-2"></i>Existing Photos</h6>
+                                                        <div id="equipmentExistingPhotos" class="equipment-photo-grid"></div>
+                                                    </div>
+                                                    <div class="mt-3">
+                                                        <h6 class="fw-semibold small text-muted mb-2"><i class="fas fa-cloud-upload-alt me-2"></i>New Uploads</h6>
+                                                        <div id="equipmentNewPhotos" class="equipment-photo-grid"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1852,6 +2116,12 @@
   let usersPage = 1;
   let usersPerPage = 12;
   let filteredUsers = [];
+  let userEquipmentItems = [];
+  let currentEquipmentEntryId = null;
+  let equipmentFormExistingPhotos = [];
+  let equipmentNewPhotos = [];
+  let equipmentRemovePhotoIds = new Set();
+  const EQUIPMENT_PHOTO_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB per photo
 
   // ---------- Employment status utilities ----------
   function updateEmploymentStatusLookup(statuses, aliases) {
@@ -1979,6 +2249,7 @@
   function initializeApp() {
     try {
       setupEventListeners();
+      initializeEquipmentTab();
       updateEmploymentStatusLookup(employmentStatuses, employmentStatusAliases);
       populateEmploymentStatusOptions();
       loadAllData();
@@ -2334,6 +2605,7 @@
             <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User"><i class="fas fa-edit"></i></button>
             <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password"><i class="fas fa-key"></i></button>
             <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
+            <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment"><i class="fas fa-toolbox"></i></button>
             <button class="btn btn-outline-danger btn-sm" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User"><i class="fas fa-trash"></i></button>
           </div>
         </div>
@@ -2522,6 +2794,358 @@
     `;
   }
 
+  // ---------- Equipment management ----------
+  function initializeEquipmentTab() {
+    const photoInput = document.getElementById('equipmentPhotos');
+    if (photoInput) {
+      photoInput.addEventListener('change', handleEquipmentPhotoSelection);
+    }
+    prepareEquipmentTabForNewUser();
+  }
+
+  function prepareEquipmentTabForNewUser() {
+    userEquipmentItems = [];
+    currentEquipmentEntryId = null;
+    equipmentFormExistingPhotos = [];
+    equipmentNewPhotos = [];
+    equipmentRemovePhotoIds = new Set();
+    updateEquipmentAvailability(false);
+    renderEquipmentList();
+    resetEquipmentForm();
+  }
+
+  function prepareEquipmentTabForExistingUser(userId) {
+    if (!userId) {
+      prepareEquipmentTabForNewUser();
+      return;
+    }
+    currentEquipmentEntryId = null;
+    equipmentFormExistingPhotos = [];
+    equipmentNewPhotos = [];
+    equipmentRemovePhotoIds = new Set();
+    updateEquipmentAvailability(true);
+    resetEquipmentForm(false);
+    loadUserEquipment(userId);
+  }
+
+  function updateEquipmentAvailability(enabled) {
+    const notice = document.getElementById('equipmentUnavailableNotice');
+    const fields = document.getElementById('equipmentFormFields');
+    const saveBtn = document.getElementById('saveEquipmentBtn');
+    if (!fields) return;
+
+    if (notice) {
+      notice.classList.toggle('d-none', !!enabled);
+    }
+
+    const inputs = fields.querySelectorAll('input, textarea, select');
+    inputs.forEach(input => {
+      input.disabled = !enabled;
+    });
+    if (saveBtn) saveBtn.disabled = !enabled;
+    fields.classList.toggle('equipment-form-disabled', !enabled);
+  }
+
+  function resetEquipmentForm(renderList = true) {
+    const idField = document.getElementById('equipmentId');
+    if (idField) idField.value = '';
+    currentEquipmentEntryId = null;
+    equipmentFormExistingPhotos = [];
+    equipmentNewPhotos = [];
+    equipmentRemovePhotoIds = new Set();
+    ['equipmentItemName', 'equipmentItemType', 'equipmentSerialNumber', 'equipmentNotes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const conditionEl = document.getElementById('equipmentCondition');
+    if (conditionEl) conditionEl.value = '';
+    const issuedEl = document.getElementById('equipmentIssuedDate');
+    if (issuedEl) issuedEl.value = '';
+    const returnedEl = document.getElementById('equipmentReturnedDate');
+    if (returnedEl) returnedEl.value = '';
+
+    renderEquipmentExistingPhotos();
+    renderEquipmentNewPhotos();
+    if (renderList) renderEquipmentList();
+  }
+
+  function loadUserEquipment(userId) {
+    const listContainer = document.getElementById('equipmentList');
+    if (listContainer) {
+      listContainer.innerHTML = `<div class="text-center py-4 w-100"><div class="spinner-border text-primary mb-3" role="status"></div><p class="text-muted mb-0">Loading equipment...</p></div>`;
+    }
+    return callGoogleScript('clientGetUserEquipment', userId)
+      .then(res => {
+        if (!res || res.success === false) {
+          throw new Error(res?.error || 'Unable to load equipment');
+        }
+        userEquipmentItems = Array.isArray(res.items) ? res.items : [];
+        renderEquipmentList();
+      })
+      .catch(err => {
+        userEquipmentItems = [];
+        renderEquipmentList(err.message || String(err));
+      });
+  }
+
+  function renderEquipmentList(errorMessage = '') {
+    const container = document.getElementById('equipmentList');
+    const countBadge = document.getElementById('equipmentCount');
+    if (countBadge) countBadge.textContent = String(userEquipmentItems.length || 0);
+    if (!container) return;
+
+    if (!currentEditingUserId) {
+      container.innerHTML = `
+        <div class="equipment-empty-state">
+          <i class="fas fa-id-card"></i>
+          <p class="mb-0">Save or select a user to begin logging company equipment.</p>
+        </div>`;
+      return;
+    }
+
+    if (errorMessage) {
+      container.innerHTML = `<div class="equipment-empty-state text-danger"><i class="fas fa-exclamation-triangle"></i><p class="mb-0">${escapeHtml(errorMessage)}</p></div>`;
+      return;
+    }
+
+    if (!userEquipmentItems.length) {
+      container.innerHTML = `
+        <div class="equipment-empty-state">
+          <i class="fas fa-box"></i>
+          <p class="mb-2">No equipment logged for this user yet.</p>
+          <button type="button" class="btn btn-primary btn-sm" onclick="resetEquipmentForm(); document.getElementById('equipmentItemName').focus();">
+            <i class="fas fa-plus me-1"></i>Add Equipment
+          </button>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = userEquipmentItems
+      .map(item => renderEquipmentCard(item))
+      .join('');
+  }
+
+  function renderEquipmentCard(item) {
+    const selected = currentEquipmentEntryId && String(currentEquipmentEntryId) === String(item.id);
+    const issued = item.issuedDate ? `<span class="equipment-chip"><i class="fas fa-calendar-day"></i>${escapeHtml(formatHireVisual(item.issuedDate))}</span>` : '';
+    const condition = item.condition ? `<span class="equipment-chip"><i class="fas fa-heartbeat"></i>${escapeHtml(item.condition)}</span>` : '';
+    const serial = item.serialNumber ? `<div class="small text-muted"><i class="fas fa-barcode me-1"></i>${escapeHtml(item.serialNumber)}</div>` : '';
+    const photos = Array.isArray(item.photos) ? item.photos : [];
+    const photoPreview = photos.slice(0, 3).map(photo => `<div class="equipment-photo-thumb" style="width:48px;height:48px;"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.name || 'Equipment photo')}"></div>`).join('');
+
+    return `
+      <div class="equipment-card${selected ? ' active' : ''}" onclick="selectEquipmentItem('${escapeHtml(String(item.id))}')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6>${escapeHtml(item.itemName || 'Equipment')}</h6>
+            ${serial}
+          </div>
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-primary" onclick="event.stopPropagation(); selectEquipmentItem('${escapeHtml(String(item.id))}');"><i class="fas fa-pen"></i></button>
+            <button type="button" class="btn btn-outline-danger" onclick="event.stopPropagation(); deleteEquipmentItem('${escapeHtml(String(item.id))}');"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="mt-2">
+          ${issued}${condition}
+          ${item.returnedDate ? `<span class="equipment-chip"><i class="fas fa-undo"></i>${escapeHtml(formatHireVisual(item.returnedDate))}</span>` : ''}
+        </div>
+        ${photos.length ? `<div class="mt-3 d-flex gap-2">${photoPreview}</div>` : ''}
+        <div class="small text-muted mt-2">
+          Updated ${item.updatedAt ? escapeHtml(formatHireVisual(item.updatedAt)) : '—'}
+        </div>
+      </div>`;
+  }
+
+  function selectEquipmentItem(equipmentId) {
+    const item = userEquipmentItems.find(eq => String(eq.id) === String(equipmentId));
+    if (!item) {
+      showAlert('warning', 'Equipment record not found.');
+      return;
+    }
+    currentEquipmentEntryId = item.id;
+    const idField = document.getElementById('equipmentId');
+    if (idField) idField.value = item.id || '';
+    document.getElementById('equipmentItemName').value = item.itemName || '';
+    document.getElementById('equipmentItemType').value = item.itemType || '';
+    document.getElementById('equipmentSerialNumber').value = item.serialNumber || '';
+    document.getElementById('equipmentCondition').value = item.condition || '';
+    document.getElementById('equipmentIssuedDate').value = formatDateForInput(item.issuedDate);
+    document.getElementById('equipmentReturnedDate').value = formatDateForInput(item.returnedDate);
+    document.getElementById('equipmentNotes').value = item.notes || '';
+
+    equipmentFormExistingPhotos = Array.isArray(item.photos) ? item.photos.map(photo => ({ ...photo })) : [];
+    equipmentNewPhotos = [];
+    equipmentRemovePhotoIds = new Set();
+
+    renderEquipmentExistingPhotos();
+    renderEquipmentNewPhotos();
+    renderEquipmentList();
+  }
+
+  function renderEquipmentExistingPhotos() {
+    const container = document.getElementById('equipmentExistingPhotos');
+    if (!container) return;
+    if (!equipmentFormExistingPhotos.length) {
+      container.innerHTML = '<div class="text-muted small">No existing photos.</div>';
+      return;
+    }
+    container.innerHTML = equipmentFormExistingPhotos.map(photo => `
+      <div class="text-center">
+        <div class="equipment-photo-thumb">
+          <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.name || 'Equipment photo')}">
+          <button type="button" class="remove-photo-btn" title="Remove photo" onclick="removeExistingEquipmentPhoto('${escapeHtml(photo.id)}')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="equipment-photo-label">${escapeHtml(photo.name || '')}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderEquipmentNewPhotos() {
+    const container = document.getElementById('equipmentNewPhotos');
+    if (!container) return;
+    if (!equipmentNewPhotos.length) {
+      container.innerHTML = '<div class="text-muted small">No new uploads selected.</div>';
+      return;
+    }
+    container.innerHTML = equipmentNewPhotos.map((photo, index) => `
+      <div class="text-center">
+        <div class="equipment-photo-thumb">
+          <img src="${escapeHtml(photo.previewUrl || photo.dataUrl)}" alt="${escapeHtml(photo.name || 'New photo')}">
+          <button type="button" class="remove-photo-btn" title="Remove new photo" onclick="removeNewEquipmentPhoto(${index})"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="equipment-photo-label">${escapeHtml(photo.name || '')}</div>
+      </div>
+    `).join('');
+  }
+
+  function removeExistingEquipmentPhoto(photoId) {
+    equipmentFormExistingPhotos = equipmentFormExistingPhotos.filter(photo => String(photo.id) !== String(photoId));
+    equipmentRemovePhotoIds.add(String(photoId));
+    renderEquipmentExistingPhotos();
+  }
+
+  function removeNewEquipmentPhoto(index) {
+    equipmentNewPhotos.splice(index, 1);
+    renderEquipmentNewPhotos();
+  }
+
+  function handleEquipmentPhotoSelection(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const readers = files.map(file => readEquipmentPhotoFile(file));
+    Promise.all(readers)
+      .then(results => {
+        equipmentNewPhotos.push(...results);
+        renderEquipmentNewPhotos();
+      })
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => {
+        event.target.value = '';
+      });
+  }
+
+  function readEquipmentPhotoFile(file) {
+    return new Promise((resolve, reject) => {
+      if (file.size > EQUIPMENT_PHOTO_SIZE_LIMIT) {
+        reject(new Error(`${file.name} exceeds the 5 MB upload limit.`));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          name: file.name,
+          dataUrl: reader.result,
+          previewUrl: reader.result,
+          mimeType: file.type,
+          size: file.size
+        });
+      };
+      reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function submitEquipmentForm() {
+    if (!currentEditingUserId) {
+      showAlert('warning', 'Save the user before assigning equipment.');
+      return;
+    }
+
+    const itemNameEl = document.getElementById('equipmentItemName');
+    if (!itemNameEl || !itemNameEl.value.trim()) {
+      showAlert('error', 'Item name is required.');
+      if (itemNameEl) itemNameEl.focus();
+      return;
+    }
+
+    const payload = {
+      id: currentEquipmentEntryId,
+      itemName: itemNameEl.value.trim(),
+      itemType: document.getElementById('equipmentItemType').value.trim(),
+      serialNumber: document.getElementById('equipmentSerialNumber').value.trim(),
+      condition: document.getElementById('equipmentCondition').value,
+      issuedDate: document.getElementById('equipmentIssuedDate').value,
+      returnedDate: document.getElementById('equipmentReturnedDate').value,
+      notes: document.getElementById('equipmentNotes').value.trim(),
+      removePhotoIds: Array.from(equipmentRemovePhotoIds),
+      newPhotos: equipmentNewPhotos.map(photo => ({
+        name: photo.name,
+        dataUrl: photo.dataUrl,
+        mimeType: photo.mimeType,
+        size: photo.size
+      }))
+    };
+
+    showLoading(true);
+    callGoogleScript('clientSaveUserEquipment', currentEditingUserId, payload)
+      .then(res => {
+        if (!res || res.success === false) {
+          throw new Error(res?.error || 'Failed to save equipment');
+        }
+        showAlert('success', res.message || 'Equipment saved successfully.');
+        return loadUserEquipment(currentEditingUserId).then(() => {
+          if (res.id) {
+            selectEquipmentItem(res.id);
+          } else {
+            resetEquipmentForm();
+          }
+        });
+      })
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => showLoading(false));
+  }
+
+  function deleteEquipmentItem(equipmentId) {
+    if (!equipmentId) return;
+    if (!confirm('Remove this equipment record from the user?')) return;
+
+    showLoading(true);
+    callGoogleScript('clientDeleteUserEquipment', equipmentId)
+      .then(res => {
+        if (!res || res.success === false) {
+          throw new Error(res?.error || 'Failed to delete equipment');
+        }
+        showAlert('success', res.message || 'Equipment removed.');
+        if (currentEquipmentEntryId && String(currentEquipmentEntryId) === String(equipmentId)) {
+          resetEquipmentForm(false);
+        }
+        return loadUserEquipment(currentEditingUserId);
+      })
+      .catch(err => showAlert('error', err.message || String(err)))
+      .finally(() => showLoading(false));
+  }
+
+  function manageUserEquipment(userId) {
+    editUserWithPages(userId);
+    setTimeout(() => {
+      const tabTrigger = document.getElementById('equipment-tab');
+      if (tabTrigger) {
+        new bootstrap.Tab(tabTrigger).show();
+      }
+    }, 350);
+  }
+
   // ---------- Pagination control ----------
   function updateUsersPagination(totalPages) {
     const ul = document.getElementById('usersPagination');
@@ -2661,6 +3285,9 @@
     document.querySelectorAll('.campaign-checkbox').forEach(cb => cb.checked = false);
     document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = false);
 
+    // Reset equipment manager
+    prepareEquipmentTabForNewUser();
+
     // Reset UI elements
     updatePageStats();
     setEligibilityPill(false);
@@ -2695,6 +3322,7 @@
 
     currentEditingUserId = userId;
     currentEditingManagerId = userId;
+    prepareEquipmentTabForExistingUser(userId);
     document.getElementById('userModalTitle').textContent = 'Edit User';
     document.getElementById('saveButtonText').textContent = 'Update User';
 
