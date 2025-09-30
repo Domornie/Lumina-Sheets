@@ -694,177 +694,18 @@
       }
     }
 
-    /* Live Campaign Banner */
-    .live-banner {
-      position: relative;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: #fff;
-      padding: 2rem;
-      border-radius: 1rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow-lg);
-      overflow: hidden;
-    }
-
-    .live-banner .led-strip {
-      position: absolute;
-      inset: 0 0 auto 0;
-      height: 4px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, .15) 0%, rgba(255, 255, 255, .6) 50%, rgba(255, 255, 255, .15) 100%);
-      filter: blur(.2px);
-    }
-
-    .live-banner .scanline {
-      pointer-events: none;
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .06) 0, rgba(255, 255, 255, .06) 1px, transparent 2px, transparent 4px);
-      mix-blend-mode: soft-light;
-    }
-
-    .live-banner-main {
-      position: relative;
-      display: flex;
-      justify-content: space-between;
-      gap: 2rem;
-      align-items: center;
-    }
-
-    @media (max-width:768px) {
-      .live-banner-main {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-      }
-    }
-
-    .live-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: .5rem;
-      background: rgba(255, 255, 255, .15);
-      border: 1px solid rgba(255, 255, 255, .25);
-      padding: .25rem .6rem;
-      border-radius: 999px;
-      font-size: .8rem;
-      font-weight: 600;
-      letter-spacing: .02em;
-      backdrop-filter: blur(4px);
-    }
-
-    .live-pill .ping {
-      width: .55rem;
-      height: .55rem;
-      border-radius: 999px;
-      background: #22c55e;
-      position: relative;
-    }
-
-    .live-pill .ping::after {
-      content: "";
-      position: absolute;
-      inset: -6px;
-      border-radius: 999px;
-      border: 2px solid #22c55e;
-      opacity: .5;
-      animation: ping 1.5s cubic-bezier(0, 0, .2, 1) infinite;
-    }
-
-    @keyframes ping {
-      0% {
-        transform: scale(.6);
-        opacity: .8
-      }
-
-      100% {
-        transform: scale(1.6);
-        opacity: 0
-      }
-    }
-
-    .clock .small {
-      opacity: .85
-    }
-
-    .tz-badge,
-    .dst-badge {
-      display: inline-block;
-      padding: .2rem .55rem;
-      border-radius: .5rem;
-      border: 1px solid rgba(255, 255, 255, .25);
-      font-size: .75rem;
-      background: rgba(0, 0, 0, .15)
-    }
-
-    .live-ticker {
-      margin-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, .2);
-      padding-top: .75rem;
-      opacity: .95;
-      overflow: hidden;
-    }
-
-    .live-ticker .marquee {
-      white-space: nowrap;
-      display: inline-block;
-      animation: marq 30s linear infinite;
-    }
-
-    @keyframes marq {
-      from {
-        transform: translateX(0)
-      }
-
-      to {
-        transform: translateX(-100%)
-      }
-    }
   </style>
 
-  <?!= include("layout", { rawToken: rawToken, baseUrl: baseUrl, user: user, currentPage: currentPage }) ?>
+  <?!= include("layout", {
+        rawToken: rawToken,
+        baseUrl: baseUrl,
+        user: user,
+        currentPage: currentPage,
+        pageTitle: 'Campaign Management',
+        pageDescription: 'Manage campaigns, organize pages, and control access permissions.'
+      }) ?>
 
   <div class="container">
-    <!-- Live Campaign Banner -->
-    <div class="live-banner">
-      <div class="led-strip" aria-hidden="true"></div>
-      <div class="scanline" aria-hidden="true"></div>
-
-      <div class="live-banner-main">
-        <div>
-          <span class="live-pill"><span class="ping"></span>Live</span>
-          <h1 class="mt-2 mb-1 fw-bold">
-            <i class="fas fa-bullhorn me-2"></i>Campaign Management
-          </h1>
-          <p class="opacity-75 mb-0">
-            Manage campaigns, organize pages, and control access permissions
-          </p>
-        </div>
-
-        <div class="clock" aria-live="polite" aria-atomic="true">
-          <div class="d-flex align-items-center fw-bold">
-            <i class="fas fa-clock me-2"></i>
-            <span id="headerTime">--:--:--</span>
-          </div>
-          <div class="d-flex align-items-center small text-light">
-            <i class="fas fa-calendar-day me-2"></i>
-            <span id="headerDate">-- --- ----</span>
-          </div>
-          <div class="mt-1 d-flex gap-2">
-            <span class="tz-badge" id="tzBadge">Local</span>
-            <span class="dst-badge" id="dstStatusLocal">DST: Off</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="live-ticker" aria-hidden="true">
-        <div class="marquee">
-          Tips: Use categories to group campaign pages • Sort order controls nav placement •
-          Run Auto-Discovery to find new pages • Use permissions (ADMIN/MANAGER/VIEWER) for access control •
-          Refresh after bulk changes
-        </div>
-      </div>
-    </div>
-
     <div id="alertContainer" aria-live="polite" aria-atomic="true"></div>
 
     <div class="stats">
@@ -1139,42 +980,6 @@
   let stats = [];
   let currentTargetInput = null;
 
-  function startLiveClock(){
-    const elTime = document.getElementById('headerTime');
-    const elDate = document.getElementById('headerDate');
-    const elTZ   = document.getElementById('tzBadge');
-    const elDST  = document.getElementById('dstStatusLocal');
-
-    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
-
-    function getTZShort(d){
-      try{
-        const parts = new Intl.DateTimeFormat(undefined,{ timeZoneName:'short' }).formatToParts(d);
-        const tzn = parts.find(p=>p.type==='timeZoneName')?.value;
-        return tzn || tzName;
-      }catch(_){ return tzName; }
-    }
-
-    function isDSTnow(d){
-      // Compare offsets in Jan & Jul to detect DST for the zone
-      const jan = new Date(d.getFullYear(),0,1);
-      const jul = new Date(d.getFullYear(),6,1);
-      const stdOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
-      return d.getTimezoneOffset() < stdOffset;
-    }
-
-    function tick(){
-      const now = new Date();
-      if (elTime) elTime.textContent = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-      if (elDate) elDate.textContent = now.toLocaleDateString([], { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-      if (elTZ)   elTZ.textContent   = getTZShort(now);
-      if (elDST)  elDST.textContent  = 'DST: ' + (isDSTnow(now) ? 'On' : 'Off');
-    }
-
-    tick();
-    setInterval(tick, 1000);
-  }
-
   const iconData = {
     business:[{name:'Home',class:'fas fa-home'},{name:'Building',class:'fas fa-building'},{name:'Industry',class:'fas fa-industry'},{name:'Store',class:'fas fa-store'},{name:'Briefcase',class:'fas fa-briefcase'},{name:'Handshake',class:'fas fa-handshake'},{name:'Chart Pie',class:'fas fa-chart-pie'},{name:'Sitemap',class:'fas fa-sitemap'}],
     tech:[{name:'Laptop',class:'fas fa-laptop'},{name:'Server',class:'fas fa-server'},{name:'Database',class:'fas fa-database'},{name:'Code',class:'fas fa-code'},{name:'Microchip',class:'fas fa-microchip'},{name:'Wifi',class:'fas fa-wifi'},{name:'Cloud',class:'fas fa-cloud'},{name:'Mobile',class:'fas fa-mobile-alt'}],
@@ -1191,9 +996,12 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Campaign Management V2.0 with FA Guide Initializing...');
+    initializeGlobalBanner({
+      title: 'Campaign Management',
+      description: 'Manage campaigns, organize pages, and control access permissions.'
+    });
     initializeApp();
     initializeFontAwesomeGuide();
-    startLiveClock();
   });
 
   async function initializeApp() {
