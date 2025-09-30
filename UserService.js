@@ -567,101 +567,227 @@ function clientGetAllUsers(requestingUserId) {
 }
 
 function createSafeUserObject(user) {
-  const probationEnd = user.ProbationEnd || user.probationEnd || user.ProbationEndDate || '';
-  const insuranceEligibleDate = user.InsuranceEligibleDate || user.insuranceEligibleDate
-    || user.InsuranceQualifiedDate || '';
-  const insuranceQualified = (user.InsuranceQualified != null)
-    ? _strToBool_(user.InsuranceQualified)
-    : _strToBool_(user.InsuranceEligible || false);
-  const insuranceEnrolled = (user.InsuranceEnrolled != null)
-    ? _strToBool_(user.InsuranceEnrolled)
-    : _strToBool_(user.InsuranceSignedUp || false);
+  const raw = (user && typeof user === 'object') ? user : {};
+  const safe = {};
+  const sheetFieldMap = {};
+  const sheetFieldOrder = [];
 
-  const safe = {
-    ID: user.ID || '',
-    UserName: _getUserName_(user), // Fix: Check all variations
-    FullName: user.FullName || user.fullName || '',
-    Email: user.Email || user.email || '',
-    PhoneNumber: user.PhoneNumber || user.phoneNumber || '',
-    CampaignID: user.CampaignID || user.campaignID || '',
-    EmploymentStatus: normalizeEmploymentStatus(user.EmploymentStatus) || (user.EmploymentStatus || ''),
-    HireDate: user.HireDate || '',
-    Country: user.Country || '',
-    // HR/Benefits raw
-    TerminationDate: user.TerminationDate || '',
-    ProbationMonths: (user.ProbationMonths !== '' && user.ProbationMonths != null) ? Number(user.ProbationMonths) : '',
-    ProbationEnd: probationEnd,
-    InsuranceEligibleDate: insuranceEligibleDate,
-    InsuranceQualified: insuranceQualified,
-    InsuranceEnrolled: insuranceEnrolled,
-    InsuranceCardReceivedDate: user.InsuranceCardReceivedDate || ''
+  const assignField = (key, value) => {
+    if (!key && key !== 0) return;
+    const strKey = String(key);
+    if (!Object.prototype.hasOwnProperty.call(sheetFieldMap, strKey)) sheetFieldOrder.push(strKey);
+    sheetFieldMap[strKey] = value;
   };
 
-  // Add convenience aliases
-  safe.userName = safe.UserName; // Add camelCase alias for frontend
-  safe.username = safe.UserName; // Add lowercase alias for robustness
-  safe.fullName = safe.FullName;
-  safe.email = safe.Email;
+  Object.keys(raw).forEach(key => {
+    const value = raw[key];
+    safe[key] = value;
+    assignField(key, value);
+    if (typeof key === 'string' && key.length) {
+      const camel = key.charAt(0).toLowerCase() + key.slice(1);
+      if (!Object.prototype.hasOwnProperty.call(safe, camel)) {
+        safe[camel] = value;
+      }
+    }
+  });
 
-  safe.ProbationEndDate = safe.ProbationEnd; // legacy alias
-  safe.InsuranceQualifiedDate = safe.InsuranceEligibleDate; // legacy alias
-  safe.InsuranceEligibilityDate = safe.InsuranceEligibleDate;  // alias for UI
-  safe.InsuranceSignedUp = safe.InsuranceEnrolled;              // legacy alias
-  safe.InsuranceEnrolledBool = !!safe.InsuranceEnrolled;        // convenience
-  safe.InsuranceEligible = safe.InsuranceQualified;             // legacy alias
-  safe.InsuranceQualifiedBool = !!safe.InsuranceQualified;      // convenience
+  safe.ID = safe.ID || safe.id || '';
+  assignField('ID', safe.ID);
+
+  const resolvedUserName = _getUserName_(safe) || safe.Email || safe.email || '';
+  safe.UserName = resolvedUserName;
+  safe.userName = resolvedUserName;
+  safe.username = resolvedUserName;
+  assignField('UserName', safe.UserName);
+
+  const firstName = safe.FirstName || safe.firstName || '';
+  const lastName = safe.LastName || safe.lastName || '';
+  if (!safe.FullName && (firstName || lastName)) {
+    safe.FullName = [firstName, lastName].filter(Boolean).join(' ');
+  }
+  safe.FullName = safe.FullName || safe.fullName || '';
+  safe.fullName = safe.FullName;
+  assignField('FullName', safe.FullName);
+
+  safe.Email = safe.Email || safe.email || safe.EmailAddress || safe.emailAddress || safe.PrimaryEmail || safe.primaryEmail || '';
+  safe.email = safe.Email;
+  assignField('Email', safe.Email);
+
+  safe.PhoneNumber = safe.PhoneNumber || safe.phoneNumber || safe.Phone || safe.phone || safe.Mobile || safe.mobile || safe.ContactNumber || safe.contactNumber || '';
+  safe.phoneNumber = safe.PhoneNumber;
+  assignField('PhoneNumber', safe.PhoneNumber);
+
+  safe.CampaignID = safe.CampaignID || safe.CampaignId || safe.campaignID || safe.campaignId || '';
+  safe.campaignId = safe.CampaignID;
+  assignField('CampaignID', safe.CampaignID);
+
+  const normalizedStatus = normalizeEmploymentStatus(safe.EmploymentStatus || safe.employmentStatus || safe.Status || safe.EmployeeStatus);
+  safe.EmploymentStatus = normalizedStatus || safe.EmploymentStatus || safe.employmentStatus || '';
+  safe.employmentStatus = safe.EmploymentStatus;
+  assignField('EmploymentStatus', safe.EmploymentStatus);
+
+  const hireDateValue = safe.HireDate || safe.hireDate || safe.DateOfHire || safe.dateOfHire || safe.Hire_Date || '';
+  safe.HireDate = hireDateValue ? _toIsoDateOnly_(hireDateValue) : '';
+  safe.hireDate = safe.HireDate;
+  assignField('HireDate', safe.HireDate);
+
+  const countryValue = safe.Country || safe.country || safe.Location || safe.location || safe.CountryOfResidence || '';
+  safe.Country = countryValue;
+  safe.country = safe.Country;
+  assignField('Country', safe.Country);
+
+  const terminationValue = safe.TerminationDate || safe.terminationDate || safe.DateOfTermination || safe.dateOfTermination || '';
+  safe.TerminationDate = terminationValue ? _toIsoDateOnly_(terminationValue) : '';
+  safe.terminationDate = safe.TerminationDate;
+  assignField('TerminationDate', safe.TerminationDate);
+
+  let probationMonths = '';
+  if (safe.ProbationMonths !== '' && safe.ProbationMonths != null) probationMonths = Number(safe.ProbationMonths);
+  if ((probationMonths === '' || isNaN(probationMonths)) && safe.probationMonths !== '' && safe.probationMonths != null) {
+    probationMonths = Number(safe.probationMonths);
+  }
+  probationMonths = (probationMonths === '' || isNaN(probationMonths)) ? '' : probationMonths;
+  safe.ProbationMonths = probationMonths;
+  safe.probationMonths = probationMonths;
+  assignField('ProbationMonths', safe.ProbationMonths);
+
+  const probationEndValue = safe.ProbationEnd || safe.probationEnd || safe.ProbationEndDate || safe.probationEndDate || '';
+  safe.ProbationEnd = probationEndValue ? _toIsoDateOnly_(probationEndValue) : '';
+  safe.ProbationEndDate = safe.ProbationEnd;
+  safe.probationEnd = safe.ProbationEnd;
+  safe.probationEndDate = safe.ProbationEnd;
+  assignField('ProbationEnd', safe.ProbationEnd);
+  assignField('ProbationEndDate', safe.ProbationEndDate);
+
+  const insuranceEligibleValue = safe.InsuranceEligibleDate || safe.insuranceEligibleDate || safe.InsuranceQualifiedDate || safe.insuranceQualifiedDate || safe.InsuranceEligibilityDate || '';
+  safe.InsuranceEligibleDate = insuranceEligibleValue ? _toIsoDateOnly_(insuranceEligibleValue) : '';
+  safe.InsuranceQualifiedDate = safe.InsuranceEligibleDate;
+  safe.InsuranceEligibilityDate = safe.InsuranceEligibleDate;
+  assignField('InsuranceEligibleDate', safe.InsuranceEligibleDate);
+  assignField('InsuranceQualifiedDate', safe.InsuranceQualifiedDate);
+
+  let insuranceQualified = null;
+  if (safe.InsuranceQualified != null) {
+    insuranceQualified = _strToBool_(safe.InsuranceQualified);
+  } else if (safe.InsuranceEligible != null) {
+    insuranceQualified = _strToBool_(safe.InsuranceEligible);
+  } else if (safe.InsuranceEligibleDate) {
+    insuranceQualified = isInsuranceEligibleNow_(safe.InsuranceEligibleDate, safe.TerminationDate);
+  }
+  if (insuranceQualified == null) insuranceQualified = false;
+  safe.InsuranceQualified = insuranceQualified;
+  safe.InsuranceEligible = insuranceQualified;
+  safe.InsuranceQualifiedBool = !!insuranceQualified;
+  assignField('InsuranceQualified', _boolToStr_(insuranceQualified));
+  assignField('InsuranceEligible', _boolToStr_(insuranceQualified));
+
+  let insuranceEnrolled = null;
+  if (safe.InsuranceEnrolled != null) {
+    insuranceEnrolled = _strToBool_(safe.InsuranceEnrolled);
+  } else if (safe.InsuranceSignedUp != null) {
+    insuranceEnrolled = _strToBool_(safe.InsuranceSignedUp);
+  }
+  if (insuranceEnrolled == null) insuranceEnrolled = false;
+  safe.InsuranceEnrolled = insuranceEnrolled;
+  safe.InsuranceSignedUp = insuranceEnrolled;
+  safe.InsuranceEnrolledBool = !!insuranceEnrolled;
+  assignField('InsuranceEnrolled', _boolToStr_(insuranceEnrolled));
+  assignField('InsuranceSignedUp', _boolToStr_(insuranceEnrolled));
+
+  const insuranceCardValue = safe.InsuranceCardReceivedDate || safe.insuranceCardReceivedDate || safe.InsuranceCardDate || '';
+  safe.InsuranceCardReceivedDate = insuranceCardValue ? _toIsoDateOnly_(insuranceCardValue) : '';
+  assignField('InsuranceCardReceivedDate', safe.InsuranceCardReceivedDate);
 
   try {
-    safe.canLoginBool = _strToBool_(user.CanLogin);
-    safe.isAdminBool = _strToBool_(user.IsAdmin);
-    safe.emailConfirmedBool = _strToBool_(user.EmailConfirmed);
-    safe.needsPasswordSetup = !user.PasswordHash || _strToBool_(user.ResetRequired);
-  } catch (e) {
-    safe.canLoginBool = false; safe.isAdminBool = false; safe.emailConfirmedBool = false; safe.needsPasswordSetup = true;
+    const canLogin = _strToBool_(safe.CanLogin != null ? safe.CanLogin : safe.canLogin);
+    safe.canLoginBool = canLogin;
+    safe.CanLogin = _boolToStr_(canLogin);
+    assignField('CanLogin', safe.CanLogin);
+  } catch (_) {
+    safe.canLoginBool = false;
   }
 
   try {
-    safe.CreatedAt = user.CreatedAt ? new Date(user.CreatedAt).toISOString() : new Date().toISOString();
-    safe.UpdatedAt = user.UpdatedAt ? new Date(user.UpdatedAt).toISOString() : new Date().toISOString();
-    safe.LastLogin = user.LastLogin ? new Date(user.LastLogin).toISOString() : null;
-
-    // nice formats
-    safe.hireDateFormatted = user.HireDate ? new Date(user.HireDate).toLocaleDateString() : '';
-    safe.terminationDateFormatted = user.TerminationDate ? new Date(user.TerminationDate).toLocaleDateString() : '';
-    safe.probationEndDateFormatted = probationEnd ? new Date(probationEnd).toLocaleDateString() : '';
-    safe.insuranceQualifiedDateFormatted = insuranceEligibleDate ? new Date(insuranceEligibleDate).toLocaleDateString() : '';
-    safe.insuranceCardReceivedDateFormatted = user.InsuranceCardReceivedDate ? new Date(user.InsuranceCardReceivedDate).toLocaleDateString() : '';
-  } catch (_) { }
-
-  try { safe.campaignName = user.CampaignID ? getCampaignNameSafe(user.CampaignID) : ''; } catch (_) { safe.campaignName = ''; }
+    const isAdmin = _strToBool_(safe.IsAdmin != null ? safe.IsAdmin : safe.isAdmin);
+    safe.isAdminBool = isAdmin;
+    safe.IsAdmin = _boolToStr_(isAdmin);
+    assignField('IsAdmin', safe.IsAdmin);
+  } catch (_) {
+    safe.isAdminBool = false;
+  }
 
   try {
-    const userRoleIds = getUserRoleIdsSafe(user.ID);
-    const userRoles = getUserRolesSafe(user.ID);
+    const confirmed = _strToBool_(safe.EmailConfirmed != null ? safe.EmailConfirmed : safe.emailConfirmed);
+    safe.emailConfirmedBool = confirmed;
+    safe.EmailConfirmed = _boolToStr_(confirmed);
+    assignField('EmailConfirmed', safe.EmailConfirmed);
+  } catch (_) {
+    safe.emailConfirmedBool = false;
+  }
+
+  safe.needsPasswordSetup = !safe.PasswordHash || _strToBool_(safe.ResetRequired);
+
+  const pagesRaw = Array.isArray(safe.Pages) ? safe.Pages : Array.isArray(safe.pages) ? safe.pages : String(safe.Pages || safe.pages || '').split(',');
+  safe.pages = (pagesRaw || []).map(p => String(p || '').trim()).filter(Boolean);
+  safe.Pages = safe.pages.join(',');
+  assignField('Pages', safe.Pages);
+
+  try {
+    safe.campaignName = safe.CampaignID ? getCampaignNameSafe(safe.CampaignID) : '';
+  } catch (_) {
+    safe.campaignName = '';
+  }
+
+  try {
+    const userRoleIds = getUserRoleIdsSafe(safe.ID);
+    const userRoles = getUserRolesSafe(safe.ID);
     safe.roleIds = userRoleIds;
     safe.roles = userRoles.map(r => r.id);
     safe.roleNames = userRoles.map(r => r.name);
-    if (safe.roleNames.length === 0 && user.Roles) {
-      const csvRoles = String(user.Roles).split(',').filter(Boolean);
+    if (!safe.roleNames.length) {
+      const csvRoles = safe.Roles ? String(safe.Roles).split(',').map(r => r.trim()).filter(Boolean) : [];
       safe.csvRoles = csvRoles;
-      safe.roleNames = csvRoles.map(roleId => getRoleNameSafe(roleId));
+      if (!safe.roleNames.length && csvRoles.length) {
+        safe.roleNames = csvRoles.map(roleId => getRoleNameSafe(roleId));
+      }
     } else {
-      safe.csvRoles = user.Roles ? String(user.Roles).split(',').filter(Boolean) : [];
+      safe.csvRoles = safe.roleNames.length ? userRoles.map(r => r.id) : [];
     }
+    safe.Roles = (safe.csvRoles || []).join(',');
+    assignField('Roles', safe.Roles);
   } catch (_) {
     safe.roleIds = []; safe.roles = []; safe.roleNames = []; safe.csvRoles = [];
+    assignField('Roles', safe.Roles || '');
   }
 
-  try { safe.pages = getUserPagesSafe(user.ID); } catch (_) { safe.pages = []; }
-  try { safe.campaignPermissions = getUserCampaignPermissionsSafe(user.ID); } catch (_) { safe.campaignPermissions = []; }
+  try { safe.campaignPermissions = getUserCampaignPermissionsSafe(safe.ID); } catch (_) { safe.campaignPermissions = []; }
 
-  // Derived: InsuranceEligible recompute if needed
   try {
-    const qualifiedNow = isInsuranceEligibleNow_(safe.InsuranceEligibleDate, safe.TerminationDate);
-    safe.InsuranceQualified = !!qualifiedNow;
-    safe.InsuranceEligible = safe.InsuranceQualified;
-    safe.InsuranceQualifiedBool = safe.InsuranceQualified;
+    safe.CreatedAt = safe.CreatedAt ? new Date(safe.CreatedAt).toISOString() : new Date().toISOString();
+    safe.UpdatedAt = safe.UpdatedAt ? new Date(safe.UpdatedAt).toISOString() : new Date().toISOString();
+    safe.LastLogin = safe.LastLogin ? new Date(safe.LastLogin).toISOString() : (safe.lastLogin ? new Date(safe.lastLogin).toISOString() : null);
+    assignField('CreatedAt', safe.CreatedAt);
+    assignField('UpdatedAt', safe.UpdatedAt);
+    if (safe.LastLogin) assignField('LastLogin', safe.LastLogin);
+
+    safe.hireDateFormatted = safe.HireDate ? new Date(safe.HireDate).toLocaleDateString() : '';
+    safe.terminationDateFormatted = safe.TerminationDate ? new Date(safe.TerminationDate).toLocaleDateString() : '';
+    safe.probationEndDateFormatted = safe.ProbationEnd ? new Date(safe.ProbationEnd).toLocaleDateString() : '';
+    safe.insuranceQualifiedDateFormatted = safe.InsuranceQualifiedDate ? new Date(safe.InsuranceQualifiedDate).toLocaleDateString() : '';
+    safe.insuranceCardReceivedDateFormatted = safe.InsuranceCardReceivedDate ? new Date(safe.InsuranceCardReceivedDate).toLocaleDateString() : '';
   } catch (_) { }
+
+  // Ensure canonical sheet columns exist in the export snapshot
+  const ensureColumns = (Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : [])
+    .concat(Array.isArray(OPTIONAL_USER_COLUMNS) ? OPTIONAL_USER_COLUMNS : []);
+  ensureColumns.forEach(col => {
+    if (!Object.prototype.hasOwnProperty.call(sheetFieldMap, col)) {
+      assignField(col, typeof safe[col] !== 'undefined' ? safe[col] : '');
+    }
+  });
+
+  safe.sheetFields = sheetFieldOrder.map(key => ({ key, value: sheetFieldMap[key] }));
+  safe.sheetFieldCount = safe.sheetFields.length;
 
   return safe;
 }
@@ -699,7 +825,9 @@ function createMinimalUserObject(user) {
       ? _strToBool_(user.InsuranceEnrolled)
       : _strToBool_(user.InsuranceSignedUp || false),
     CreatedAt: new Date().toISOString(),
-    UpdatedAt: new Date().toISOString()
+    UpdatedAt: new Date().toISOString(),
+    sheetFields: [],
+    sheetFieldCount: 0
   };
 }
 
