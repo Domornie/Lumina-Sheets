@@ -436,7 +436,7 @@
       <div class="role" id="userRole" title="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>">
         <div class="role-badges" id="userRoleBadges">
           <? if (userRoleBadgesHtml) { ?>
-          <?= userRoleBadgesHtml ?>
+          <?!= userRoleBadgesHtml ?>
           <? } else if (isAdminUser) { ?>
           <span class="badge bg-secondary role-badge">System Administrator</span>
           <? } else { ?>
