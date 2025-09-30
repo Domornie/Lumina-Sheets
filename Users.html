@@ -931,6 +931,48 @@
         font-weight: 600;
         border: 1px solid var(--gray-200);
     }
+
+    /* User sheet data */
+    .user-sheet-details {
+        margin-top: 1.5rem;
+        background: rgba(248, 250, 252, 0.6);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(203, 213, 225, 0.4);
+        padding: 0.75rem 1rem;
+    }
+
+    .user-sheet-details>summary {
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        list-style: none;
+    }
+
+    .user-sheet-details>summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .sheet-data-table th {
+        width: 35%;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        color: var(--gray-500);
+        background: rgba(226, 232, 240, 0.35);
+    }
+
+    .sheet-data-table td {
+        font-size: 0.8rem;
+        color: var(--gray-700);
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .user-sheet-data-empty {
+        font-style: italic;
+        color: var(--gray-500);
+    }
 </style>
 
 <!-- Loading Overlay -->
@@ -1384,6 +1426,7 @@
                                     </div>
                                 </div>
                             </div>
+
                         </div>
 
                         <!-- Campaigns Tab -->
@@ -2283,6 +2326,7 @@
           <div class="small text-muted mb-2 fw-medium"><i class="fas fa-robot me-1"></i>Auto-Discovered Page Access:</div>
           ${renderUserPagesBadges(user)}
         </div>
+        ${renderUserSheetDetails(user)}
       </div>
     </div>
   </div>`;
@@ -2348,6 +2392,57 @@
   function renderRolesBadges(user) {
     if (!user.roleNames || !user.roleNames.length) return '';
     return user.roleNames.map(r => `<span class="badge bg-secondary">${escapeHtml(r)}</span>`).join(' ');
+  }
+
+  function formatSheetFieldValue(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    if (value instanceof Date) return value.toISOString().split('T')[0];
+    if (Array.isArray(value)) {
+      return value.map(item => formatSheetFieldValue(item)).join(', ');
+    }
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch (err) {
+        console.warn('Unable to stringify sheet field value', err, value);
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  function renderSheetFieldsTable(fields) {
+    if (!Array.isArray(fields) || !fields.length) {
+      return '<div class="user-sheet-data-empty"><i class="fas fa-info-circle me-1"></i>No sheet fields available.</div>';
+    }
+    const rows = fields.map(({ key, value }) => `
+      <tr>
+        <th scope="row">${escapeHtml(key)}</th>
+        <td>${escapeHtml(formatSheetFieldValue(value))}</td>
+      </tr>
+    `).join('');
+    return `
+      <div class="table-responsive">
+        <table class="table table-sm table-striped sheet-data-table align-middle mb-0">
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderUserSheetDetails(user) {
+    const fields = Array.isArray(user.sheetFields) ? user.sheetFields : [];
+    if (!fields.length) {
+      return '<div class="user-sheet-details user-sheet-data-empty"><i class="fas fa-info-circle me-1"></i>No sheet data found for this user.</div>';
+    }
+    const fieldCount = user.sheetFieldCount || fields.length;
+    return `
+      <details class="user-sheet-details">
+        <summary><i class="fas fa-table me-2"></i><span>Sheet data (${fieldCount})</span></summary>
+        <div class="mt-3">${renderSheetFieldsTable(fields)}</div>
+      </details>
+    `;
   }
 
   // ---------- Pagination control ----------
