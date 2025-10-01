@@ -2599,7 +2599,9 @@ function _uiUserShape_(u, cmap) {
     ID: u.ID,
     UserName: u.UserName,
     FullName: u.FullName,
+    name: _normStr_(u.FullName || u.UserName || ''),
     Email: u.Email,
+    email: _normStr_(u.Email || ''),
     CampaignID: u.CampaignID,
     campaignName: cmap[cid] || _normStr_(u.CampaignName || ''),
     CanLogin: u.CanLogin,
@@ -2630,18 +2632,22 @@ function _readManagerUsersSheetSafe_() {
 }
 
 function _dedupeAndSortUsers_(list) {
-  const seen = new Set();
+  const seenIds = new Set();
+  const seenEmails = new Set();
   const out = [];
   for (let i = 0; i < list.length; i++) {
     const user = list[i];
     if (!user) continue;
-    const key = String(user.ID || '');
-    if (key && seen.has(key)) continue;
-    if (key) seen.add(key);
+    const idKey = String(user.ID || '');
+    const emailKey = String(user.email || user.Email || '').trim().toLowerCase();
+    if (idKey && seenIds.has(idKey)) continue;
+    if (emailKey && seenEmails.has(emailKey)) continue;
+    if (idKey) seenIds.add(idKey);
+    if (emailKey) seenEmails.add(emailKey);
     out.push(user);
   }
   out.sort(function (a, b) {
-    return String(a.FullName || '').localeCompare(String(b.FullName || '')) ||
+    return String(a.name || a.FullName || '').localeCompare(String(b.name || b.FullName || '')) ||
       String(a.UserName || '').localeCompare(String(b.UserName || ''));
   });
   return out;

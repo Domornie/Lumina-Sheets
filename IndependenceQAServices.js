@@ -909,63 +909,6 @@ function clientPreviewIndependenceQAScore(formData) {
     }
 }
 
-function getUsers() {
-  try {
-    // 1) Identify the logged-in manager by email
-    const mgrEmail = (Session.getActiveUser().getEmail() || '').trim().toLowerCase();
-    if (!mgrEmail) return [];
-
-    const users = readSheet(USERS_SHEET) || [];
-    const manager = users.find(u => String(u.Email || '').trim().toLowerCase() === mgrEmail);
-    if (!manager) return [];
-
-    // 2) Read manager→user assignments (sheet name helper if present, else default)
-    const muSheetName = (typeof getManagerUsersSheetName_ === 'function')
-      ? getManagerUsersSheetName_()
-      : 'MANAGER_USERS';
-
-    const assignments = readSheet(muSheetName) || [];
-    const assignedIds = new Set(
-      assignments
-        .filter(a => String(a.ManagerUserID) === String(manager.ID))
-        .map(a => String(a.UserID))
-    );
-
-    // 3) Build list: include the manager + all assigned users (no active filter)
-    const list = [];
-
-    if (manager.FullName && manager.Email) {
-      list.push({
-        name: String(manager.FullName).trim(),
-        email: String(manager.Email).trim()
-      });
-    }
-
-    users.forEach(u => {
-      if (assignedIds.has(String(u.ID)) && u.FullName && u.Email) {
-        list.push({
-          name: String(u.FullName).trim(),
-          email: String(u.Email).trim()
-        });
-      }
-    });
-
-    // 4) De-dupe by email and sort by name
-    const seen = new Set();
-    const out = list.filter(item => {
-      const key = (item.email || '').toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
-
-    return out;
-  } catch (e) {
-    Logger.log('getUsers error: ' + e);
-    return [];
-  }
-}
-
 function clientGetIndependenceQAConfig() {
     try {
         return JSON.parse(JSON.stringify(INDEPENDENCE_QA_CONFIG));
