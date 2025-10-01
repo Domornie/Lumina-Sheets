@@ -384,22 +384,6 @@
       opacity: .9;
     }
 
-    /* JAMAICA TIME ZONE INDICATOR */
-    .timezone-indicator {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(0, 49, 119, 0.9);
-      color: white;
-      padding: 0.5rem 1rem;
-      border-radius: var(--border-radius);
-      font-size: 0.8rem;
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
     @media (max-width: 768px) {
       .modern-page-header {
         padding: 1rem;
@@ -421,13 +405,6 @@
         margin-bottom: 1rem;
       }
 
-      .timezone-indicator {
-        position: relative;
-        bottom: auto;
-        left: auto;
-        margin-top: 1rem;
-        justify-content: center;
-      }
     }
 
     .loading-state {
@@ -488,20 +465,22 @@
     }
   </style>
 
+<script>
+  window.CURRENT_USER = <?!= currentUserJSON || '{}' ?>;
+  window.MANAGER_USER_ID = <?= JSON.stringify(managerUserId || '') ?>;
+  window.INITIAL_USER_LIST = <?!= userListJSON || '[]' ?>;
+  window.INITIAL_ATTENDANCE_DATA = <?!= attendanceDataJSON || '{}' ?>;
+  window.COMPANY_TIMEZONE = <?= JSON.stringify(attendanceTimezone || 'America/Jamaica') ?>;
+  window.COMPANY_TIMEZONE_LABEL = <?= JSON.stringify(attendanceTimezoneLabel || 'Company Time') ?>;
+</script>
+
 <!-- PERFORMANCE MONITOR -->
 <div id="performanceMonitor" class="performance-monitor" style="display: none;">
   <h6><i class="fas fa-tachometer-alt me-2"></i>System Health</h6>
   <div class="d-flex justify-content-between"><span>Response:</span><span id="responseTime">--</span></div>
   <div class="d-flex justify-content-between"><span>Data Format:</span><span>Seconds→Hours</span></div>
-  <div class="d-flex justify-content-between"><span>Timezone:</span><span>Jamaica</span></div>
+  <div class="d-flex justify-content-between"><span>Timezone:</span><span id="monitorTimezone">--</span></div>
   <div class="d-flex justify-content-between"><span>Quality:</span><span id="dataQuality">--</span></div>
-</div>
-
-<!-- JAMAICA TIME ZONE INDICATOR -->
-<div class="timezone-indicator">
-  <i class="fas fa-clock"></i>
-  <span>Jamaica Time (UTC-5)</span>
-  <span id="jamaicanTime">--:--:--</span>
 </div>
 
 <!-- MAIN CONTAINER -->
@@ -509,7 +488,7 @@
 
 <div class="modern-page-header">
   <h1><i class="fas fa-users-clock me-3"></i>Attendance Management</h1>
-  <p>Real-time workforce analytics with corrected time calculations (Jamaica Time Zone)</p>
+  <p>Real-time workforce analytics aligned with company timekeeping</p>
   <div class="d-flex gap-3 mb-4 flex-wrap">
     <button class="btn btn-light" onclick="window.location='?page=importattendance'" title="Import CSV">
       <i class="fas fa-file-import me-2"></i>Import Data
@@ -911,7 +890,7 @@
           <div class="row mb-3">
             <div class="col-12">
               <div class="alert alert-modern alert-success" role="alert">
-                <h6 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Export Preview (Jamaica Time Zone)</h6>
+                <h6 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Export Preview (<span id="previewTimezoneLabel">Company Time</span>)</h6>
                 <div class="row">
                   <div class="col-md-6">
                     <p class="mb-1"><strong>Format:</strong> <span id="previewFormat">Daily Pivot Matrix</span></p>
@@ -921,7 +900,7 @@
                   <div class="col-md-6">
                     <p class="mb-1"><strong>Users:</strong> <span id="previewUsers">All Users</span></p>
                     <p class="mb-1"><strong>Data Format:</strong> <span>Seconds → Decimal Hours</span></p>
-                    <p class="mb-0"><strong>Timezone:</strong> <span>Jamaica (UTC-5)</span></p>
+                    <p class="mb-0"><strong>Timezone:</strong> <span id="previewTimezoneDetail">Company Time</span></p>
                   </div>
                 </div>
                 <hr>
@@ -971,42 +950,38 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 
 <script>
-  // Jamaica Time Zone Configuration
-  const JAMAICA_TIMEZONE = 'America/Jamaica';
-  const JAMAICA_UTC_OFFSET = -5; // UTC-5 (no daylight saving time)
+  // Company Time Zone Configuration
+  const COMPANY_TIMEZONE = window.COMPANY_TIMEZONE || 'America/Jamaica';
+  const COMPANY_TIMEZONE_LABEL = window.COMPANY_TIMEZONE_LABEL || 'Company Time';
 
-  // Update Jamaican time display
-  function updateJamaicanTime() {
-    try {
-      const now = new Date();
-      const jamaicanTime = now.toLocaleTimeString('en-US', {
-        timeZone: JAMAICA_TIMEZONE,
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-      const timeElement = document.getElementById('jamaicanTime');
-      if (timeElement) {
-        timeElement.textContent = jamaicanTime;
-      }
-    } catch (error) {
-      console.warn('Error updating Jamaican time:', error);
-      const timeElement = document.getElementById('jamaicanTime');
-      if (timeElement) {
-        timeElement.textContent = '--:--:--';
-      }
+  function initializeTimezoneLabels() {
+    const readableLabel = window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
+    const activeTimezone = window.COMPANY_TIMEZONE || COMPANY_TIMEZONE;
+    const monitorEl = document.getElementById('monitorTimezone');
+    if (monitorEl) {
+      monitorEl.textContent = readableLabel;
+    }
+
+    const previewTitleEl = document.getElementById('previewTimezoneLabel');
+    if (previewTitleEl) {
+      previewTitleEl.textContent = readableLabel;
+    }
+
+    const previewDetailEl = document.getElementById('previewTimezoneDetail');
+    if (previewDetailEl) {
+      previewDetailEl.textContent = `${readableLabel} (${activeTimezone})`;
     }
   }
 
-  // Update Jamaican time every second
-  setInterval(updateJamaicanTime, 1000);
-  updateJamaicanTime(); // Initial call
-
   // Global variables
-  window.CURRENT_USER = {};
-  window.MANAGER_USER_ID = '';
-  window.INITIAL_USER_LIST = [];
+  window.CURRENT_USER = window.CURRENT_USER || {};
+  window.MANAGER_USER_ID = window.MANAGER_USER_ID || '';
+  window.INITIAL_USER_LIST = Array.isArray(window.INITIAL_USER_LIST) ? window.INITIAL_USER_LIST : [];
+  window.INITIAL_ATTENDANCE_DATA = (window.INITIAL_ATTENDANCE_DATA && typeof window.INITIAL_ATTENDANCE_DATA === 'object')
+    ? window.INITIAL_ATTENDANCE_DATA
+    : null;
+  window.COMPANY_TIMEZONE = COMPANY_TIMEZONE;
+  window.COMPANY_TIMEZONE_LABEL = COMPANY_TIMEZONE_LABEL;
 
   // Client hardening helpers
   const ChannelClosedRegex = /message channel closed/i;
@@ -1112,9 +1087,19 @@
     }
 
     initialize() {
-      console.log('🚀 Initializing Attendance Dashboard (Corrected Database Structure - Jamaica Time Zone)...');
+      console.log('🚀 Initializing Attendance Dashboard with company time alignment...');
       this.setupEventListeners();
       this.initializeControls();
+
+      if (window.INITIAL_ATTENDANCE_DATA && Object.keys(window.INITIAL_ATTENDANCE_DATA).length) {
+        try {
+          this.currentData = JSON.parse(JSON.stringify(window.INITIAL_ATTENDANCE_DATA));
+          this.renderDashboard();
+        } catch (bootstrapError) {
+          console.warn('Unable to bootstrap dashboard from initial data:', bootstrapError);
+        }
+      }
+
       this.startPerformanceMonitoring();
       this.startAutoRefresh(); // Initialize auto-refresh
       this.loadData();
@@ -1180,41 +1165,45 @@
       if (weekEl) weekEl.value = this.currentPeriod;
 
       this.loadUserList();
+    }
 
-      showToast(message, type) {
-        if (window.showLuminaToast) {
-          window.showLuminaToast(message, type);
-          return;
-        }
-
-        const tone = String(type || 'info').toUpperCase();
-        window.alert(`[${tone}] ${message}`);
+    showToast(message, type) {
+      if (window.showLuminaToast) {
+        window.showLuminaToast(message, type);
+        return;
       }
+
+      const tone = String(type || 'info').toUpperCase();
+      window.alert(`[${tone}] ${message}`);
     }
 
     async loadUserList() {
       try {
-        let users = [];
+        let users = Array.isArray(window.INITIAL_USER_LIST) && window.INITIAL_USER_LIST.length
+          ? [...window.INITIAL_USER_LIST]
+          : [];
 
-        try {
-          console.log('Loading user list from server...');
-          users = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 10000 });
+        if (users.length === 0) {
+          try {
+            console.log('Loading user list from server...');
+            users = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 10000 });
 
-          if (!Array.isArray(users) || users.length === 0) {
-            console.log('No users from clientGetAssignedAgentNames, trying fallback...');
-            try {
-              const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 8000 });
-              if (Array.isArray(userData)) {
-                users = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
+            if (!Array.isArray(users) || users.length === 0) {
+              console.log('No users from clientGetAssignedAgentNames, trying fallback...');
+              try {
+                const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 8000 });
+                if (Array.isArray(userData)) {
+                  users = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
+                }
+              } catch (fallbackError) {
+                console.log('Fallback getUsers also failed:', fallbackError.message);
+                users = [];
               }
-            } catch (fallbackError) {
-              console.log('Fallback getUsers also failed:', fallbackError.message);
-              users = [];
             }
+          } catch (error) {
+            console.error('Error calling server for users:', error.message);
+            users = [];
           }
-        } catch (error) {
-          console.error('Error calling server for users:', error.message);
-          users = [];
         }
 
         const select = document.getElementById('agentSelect');
@@ -1230,6 +1219,7 @@
             opt.textContent = name.trim();
             select.appendChild(opt);
           });
+          window.INITIAL_USER_LIST = [...users];
           console.log('Loaded', users.length, 'users successfully');
         } else {
           console.warn('No users available');
@@ -1342,7 +1332,7 @@
 
           if (data) {
             console.log('Attendance analytics loaded successfully');
-            this.showToast('Attendance data loaded successfully (Jamaica Time)', 'success');
+            this.showToast('Attendance data loaded successfully', 'success');
           }
         } catch (basicError) {
           console.error('Attendance analytics failed:', basicError.message);
@@ -1405,7 +1395,9 @@
           periodId: this.currentPeriod,
           startDateIso: new Date().toISOString(),
           endDateIso: new Date().toISOString(),
-          workingDays: 5
+          workingDays: 5,
+          timezone: window.COMPANY_TIMEZONE || COMPANY_TIMEZONE,
+          timezoneLabel: window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE
         }
       };
     }
@@ -1413,6 +1405,30 @@
     renderDashboard() {
       if (!this.currentData) return;
       try {
+        const info = this.currentData.periodInfo || {};
+        if (info.timezone) {
+          window.COMPANY_TIMEZONE = info.timezone;
+        }
+        if (info.timezoneLabel) {
+          window.COMPANY_TIMEZONE_LABEL = info.timezoneLabel;
+        }
+        const monitorEl = document.getElementById('monitorTimezone');
+        if (monitorEl) {
+          const tzLabel = info.timezoneLabel || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
+          monitorEl.textContent = tzLabel;
+        }
+
+        const previewTitleEl = document.getElementById('previewTimezoneLabel');
+        const previewDetailEl = document.getElementById('previewTimezoneDetail');
+        if (previewTitleEl) {
+          previewTitleEl.textContent = info.timezoneLabel || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
+        }
+        if (previewDetailEl) {
+          const detailLabel = info.timezoneLabel || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
+          const detailZone = info.timezone || COMPANY_TIMEZONE;
+          previewDetailEl.textContent = `${detailLabel} (${detailZone})`;
+        }
+
         this.renderExecutiveMetrics();
         this.renderKPICards();
         this.renderProductivityGauges();
@@ -1423,7 +1439,7 @@
         if (this.currentData.enhanced) {
           this.renderIntelligentInsights();
         }
-        this.showToast('Dashboard updated with corrected time calculations (Jamaica Time)', 'success');
+        this.showToast('Attendance dashboard updated', 'success');
       } catch (error) {
         console.error('Error rendering dashboard:', error);
         this.showToast('Error rendering dashboard components', 'danger');
@@ -1572,19 +1588,22 @@
 
     renderDailyAttendanceChart() {
       try {
-        const ctx = document.getElementById('dailyAttendanceChart'); 
+        const ctx = document.getElementById('dailyAttendanceChart');
         if (!ctx) return;
         if (this.charts.dailyAttendance) this.charts.dailyAttendance.destroy();
-        
+
         const daily = this.currentData.dailyMetrics || [];
-        
+        const periodInfo = this.currentData.periodInfo || {};
+        const tz = periodInfo.timezone || COMPANY_TIMEZONE;
+        const tzLabel = periodInfo.timezoneLabel || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
+
         this.charts.dailyAttendance = new Chart(ctx, {
           type: 'line',
           data: {
             labels: daily.map(d => {
               const date = new Date(d.date + 'T12:00:00');
-              return date.toLocaleDateString('en-US', { 
-                timeZone: JAMAICA_TIMEZONE,
+              return date.toLocaleDateString('en-US', {
+                timeZone: tz,
                 month: 'short',
                 day: 'numeric'
               });
@@ -1604,7 +1623,7 @@
             plugins: {
               title: {
                 display: true,
-                text: `Daily Attendance (Jamaica Time) - Corrected Calculations`
+                text: `Daily Attendance (${tzLabel})`
               }
             },
             scales: {
@@ -1655,7 +1674,7 @@
         let tableHtml = `
           <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="text-muted">
-              Showing ${startIndex + 1}-${endIndex} of ${this.pagination.totalItems} employees (Corrected Hours - Jamaica Time)
+              Showing ${startIndex + 1}-${endIndex} of ${this.pagination.totalItems} employees (Company time adjusted)
             </div>
             <div class="d-flex align-items-center gap-2">
               <label class="form-label mb-0 small">Items per page:</label>
@@ -1744,7 +1763,7 @@
           <div class="mt-3">
             <small class="text-muted">
               <i class="fas fa-info-circle me-1"></i>
-              <strong>Data Format:</strong> All duration values converted from seconds to decimal hours. All times in Jamaica Time Zone.
+              <strong>Data Format:</strong> All duration values converted from seconds to decimal hours. All times follow ${window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone'} (${window.COMPANY_TIMEZONE || COMPANY_TIMEZONE}).
             </small>
           </div>`;
 
@@ -1866,20 +1885,27 @@
         let html = '<div class="row g-3">';
 
         days.forEach(day => {
-          const dayData = dailyData[day] || { 
-            lunch: { total: 0, violations: 0, users: [] }, 
-            break: { total: 0, violations: 0, users: [] } 
+          const dayData = dailyData[day] || {
+            lunch: { total: 0, violations: 0, users: new Set() },
+            break: { total: 0, violations: 0, users: new Set() }
           };
 
           const lunchMinutes = Math.round(dayData.lunch.total / 60);
           const breakMinutes = Math.round(dayData.break.total / 60);
 
+          const lunchUsers = dayData.lunch.users instanceof Set
+            ? Array.from(dayData.lunch.users)
+            : Array.isArray(dayData.lunch.users) ? dayData.lunch.users : [];
+          const breakUsers = dayData.break.users instanceof Set
+            ? Array.from(dayData.break.users)
+            : Array.isArray(dayData.break.users) ? dayData.break.users : [];
+
           let lunchAllowed, breakAllowed, displayUnit;
-          
+
           if (isAllAgents && uniqueAgents > 1) {
             // For all agents, calculate based on actual users who had lunch/break that day
-            const lunchUserCount = dayData.lunch.users.length || uniqueAgents;
-            const breakUserCount = dayData.break.users.length || uniqueAgents;
+            const lunchUserCount = lunchUsers.length || uniqueAgents;
+            const breakUserCount = breakUsers.length || uniqueAgents;
             
             lunchAllowed = 30 * lunchUserCount;
             breakAllowed = 30 * breakUserCount;
@@ -1919,7 +1945,7 @@
                       </div>
                     </div>
                     <small class="text-muted">
-                      ${isAllAgents ? `${dayData.lunch.users.length} users had lunch` : `30 minutes maximum per agent`}
+                      ${isAllAgents ? `${lunchUsers.length} users had lunch` : `30 minutes maximum per agent`}
                     </small>
                   </div>
 
@@ -1940,7 +1966,7 @@
                       </div>
                     </div>
                     <small class="text-muted">
-                      ${isAllAgents ? `${dayData.break.users.length} users had breaks` : `30 minutes maximum per agent`}
+                      ${isAllAgents ? `${breakUsers.length} users had breaks` : `30 minutes maximum per agent`}
                     </small>
                   </div>
                 </div>
@@ -1952,7 +1978,7 @@
         html += `<div class="mt-2 text-center">
           <small class="text-info">
             <i class="fas fa-info-circle me-1"></i>
-            All durations calculated from seconds data with Jamaica timezone (UTC-5)
+            All durations calculated from seconds data using ${window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone'} (${window.COMPANY_TIMEZONE || COMPANY_TIMEZONE})
           </small>
         </div>`;
         
@@ -1997,12 +2023,13 @@
       try {
         const dailyData = {};
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const tz = (this.currentData && this.currentData.periodInfo && this.currentData.periodInfo.timezone) || COMPANY_TIMEZONE;
 
         // Initialize data structure
         days.forEach(day => {
           dailyData[day] = {
-            lunch: { total: 0, count: 0, violations: 0, userViolations: {} },
-            break: { total: 0, count: 0, violations: 0, userViolations: {} }
+            lunch: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() },
+            break: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() }
           };
         });
 
@@ -2030,12 +2057,12 @@
               return;
             }
 
-            // Get Jamaica date and day of week
-            const jamaicaDateString = timestamp.toLocaleDateString('en-CA', { 
-              timeZone: JAMAICA_TIMEZONE 
+            // Get localized date and day of week
+            const localizedDateString = timestamp.toLocaleDateString('en-CA', {
+              timeZone: tz
             });
-            const jamaicaDate = new Date(jamaicaDateString + 'T12:00:00');
-            const dayOfWeek = jamaicaDate.getDay();
+            const localizedDate = new Date(localizedDateString + 'T12:00:00');
+            const dayOfWeek = localizedDate.getDay();
             
             // Skip weekends
             if (dayOfWeek === 0 || dayOfWeek === 6) return;
@@ -2060,6 +2087,7 @@
             if (r.state === 'Lunch') {
               dailyData[dayName].lunch.total += duration;
               dailyData[dayName].lunch.count++;
+              dailyData[dayName].lunch.users.add(user);
               userDailyTotals[user][dayName].lunch += duration;
 
               // Check for violations (over 30 minutes = 1800 seconds)
@@ -2072,6 +2100,7 @@
             } else if (r.state === 'Break') {
               dailyData[dayName].break.total += duration;
               dailyData[dayName].break.count++;
+              dailyData[dayName].break.users.add(user);
               userDailyTotals[user][dayName].break += duration;
 
               // Check for violations (over 30 minutes = 1800 seconds)
@@ -2106,8 +2135,8 @@
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         days.forEach(day => {
           emptyData[day] = {
-            lunch: { total: 0, count: 0, violations: 0, userViolations: {} },
-            break: { total: 0, count: 0, violations: 0, userViolations: {} }
+            lunch: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() },
+            break: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() }
           };
         });
         return emptyData;
@@ -2572,6 +2601,9 @@
         users = Array.from(checked).map(cb => cb.value);
       }
 
+      const activeTimezone = (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.periodInfo && window.dashboard.currentData.periodInfo.timezone)
+        || COMPANY_TIMEZONE;
+
       const dailyPivotOptions = {
         highlightLowHours: document.getElementById('highlightLowHours')?.checked || false,
         includeWeekends: document.getElementById('includeWeekends')?.checked || false,
@@ -2589,7 +2621,7 @@
         dailyPivotOptions: dailyPivotOptions,
         options: {
           ...dailyPivotOptions,
-          timeZone: JAMAICA_TIMEZONE,
+          timeZone: activeTimezone,
           correctedFormat: true
         }
       };
@@ -2609,7 +2641,7 @@
         if (exportModal) exportModal.hide();
         if (progressModal) progressModal.show();
 
-        this.updateExportProgress(25, 'Preparing matrix export (Jamaica Time)...');
+        this.updateExportProgress(25, `Preparing matrix export (${window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone'})...`);
 
         let result;
 
@@ -2771,14 +2803,14 @@
 
   function refreshAIInsights() {
     if (dashboard) {
-      dashboard.showToast('Refreshing analytics (Jamaica Time)...', 'info');
+      dashboard.showToast('Refreshing analytics...', 'info');
       dashboard.loadDataDebounced();
     }
   }
 
   function refreshData() {
     if (dashboard) {
-      dashboard.showToast('Refreshing data (Jamaica Time)...', 'info');
+      dashboard.showToast('Refreshing data...', 'info');
       dashboard.loadDataDebounced();
     }
   }
@@ -2793,7 +2825,8 @@
 
   // INITIALIZATION
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Initializing Attendance Management System (Corrected Database Structure - Jamaica Time Zone)...');
+    console.log('🚀 Initializing Attendance Management System with company time configuration...');
+    initializeTimezoneLabels();
     dashboard = new AttendanceDashboard();
     window.dashboard = dashboard;
 
