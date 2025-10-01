@@ -2045,7 +2045,6 @@
     if (typeof value === 'boolean') return value ? 'true' : 'false';
     if (value instanceof Date) {
       return isNaN(value.getTime()) ? fallbackStr : value.toISOString();
-
     }
     try {
       return String(value);
@@ -2056,8 +2055,17 @@
   }
 
   function safeTrim(value, fallback = '') {
-    const str = coerceToString(value, fallback);
-    return (typeof str === 'string') ? str.trim() : '';
+    try {
+      const str = coerceToString(value, fallback);
+      return (typeof str === 'string') ? str.trim() : '';
+    } catch (err) {
+      console.error('safeTrim failed', { value, fallback, err });
+      try {
+        return typeof fallback === 'string' ? fallback.trim() : '';
+      } catch (_) {
+        return '';
+      }
+    }
   }
 
   function safeLower(value, fallback = '') {
@@ -2074,10 +2082,18 @@
   }
 
   function readInputValue(id, { trim = false, fallback = '' } = {}) {
-    const element = document.getElementById(id);
-    if (!element) return trim ? safeTrim(fallback) : fallback;
-    const raw = ('value' in element) ? element.value : element.textContent;
-    return trim ? safeTrim(raw, fallback) : coerceToString(raw, fallback);
+    try {
+      const element = document.getElementById(id);
+      if (!element) {
+        console.warn('readInputValue: element missing', { id });
+        return trim ? safeTrim(fallback) : fallback;
+      }
+      const raw = ('value' in element) ? element.value : element.textContent;
+      return trim ? safeTrim(raw, fallback) : coerceToString(raw, fallback);
+    } catch (err) {
+      console.error('readInputValue failed', { id, trim, fallback, err });
+      return trim ? safeTrim(fallback) : coerceToString(fallback);
+    }
   }
 
   function readCheckboxValue(id, fallback = false) {
@@ -2086,10 +2102,15 @@
   }
 
   function readNumberValue(id) {
-    const raw = safeTrim(readInputValue(id));
-    if (!raw) return null;
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) ? parsed : null;
+    try {
+      const raw = safeTrim(readInputValue(id));
+      if (!raw) return null;
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch (err) {
+      console.error('readNumberValue failed', { id, err });
+      return null;
+    }
   }
 
   // ---------- Globals ----------
@@ -3467,10 +3488,25 @@
     if (userNameField) userNameField.classList.remove('is-invalid');
     if (emailField) emailField.classList.remove('is-invalid');
 
-    const userName = safeTrim(userNameField ? userNameField.value : '');
-    const email = safeTrim(emailField ? emailField.value : '');
+    let userName = '';
+    let email = '';
+    try {
+      userName = safeTrim(userNameField ? userNameField.value : '');
+      email = safeTrim(emailField ? emailField.value : '');
+    } catch (err) {
+      console.error('saveUserWithPages: failed to normalize core identity fields', {
+        err,
+        hasUserNameField: !!userNameField,
+        hasEmailField: !!emailField
+      });
+      showAlert('error', 'Unable to read username or email from the form. Please refresh and try again.');
+      return;
+    }
 
-    console.log('Saving user with username:', userName); // Debug log
+    console.groupCollapsed('saveUserWithPages: normalized identity fields');
+    console.log('Username value:', userName);
+    console.log('Email value:', email);
+    console.groupEnd();
 
     if (!userName) {
       showAlert('error', 'Username is required and cannot be empty');
@@ -3514,9 +3550,17 @@
       return;
     }
 
-    const selectedCampaigns = Array.from(document.querySelectorAll('.campaign-checkbox:checked'))
-      .map(cb => safeTrim(cb ? cb.value : ''))
-      .filter(Boolean);
+    let selectedCampaigns = [];
+    try {
+      selectedCampaigns = Array.from(document.querySelectorAll('.campaign-checkbox:checked'))
+        .map(cb => safeTrim(cb ? cb.value : ''))
+        .filter(Boolean);
+    } catch (err) {
+      console.error('saveUserWithPages: failed to read selected campaigns', err);
+      showAlert('error', 'Unable to process selected campaigns. Please refresh and try again.');
+      return;
+    }
+    
     if (!selectedCampaigns.length) {
       showAlert('error', 'Please select at least one campaign');
       const campaignTabEl = document.getElementById('campaigns-tab');
@@ -3526,9 +3570,16 @@
       return;
     }
 
-    const selectedPages = Array.from(document.querySelectorAll('.page-checkbox:checked'))
-      .map(cb => safeTrim(cb ? cb.value : ''))
-      .filter(Boolean);
+    let selectedPages = [];
+    try {
+      selectedPages = Array.from(document.querySelectorAll('.page-checkbox:checked'))
+        .map(cb => safeTrim(cb ? cb.value : ''))
+        .filter(Boolean);
+    } catch (err) {
+      console.error('saveUserWithPages: failed to read selected pages', err);
+      showAlert('error', 'Unable to process selected pages. Please refresh and try again.');
+      return;
+    }
 
     const insuranceEligibleDate = readInputValue('insuranceEligibleDate');
     const insuranceQualified = insuranceEligibleDate ? (new Date() >= new Date(insuranceEligibleDate)) : false;
@@ -3565,7 +3616,9 @@
       insuranceCardReceivedDate: readInputValue('insuranceCardReceivedDate')
     };
 
-    console.log('Save payload:', payload); // Debug log
+    console.groupCollapsed('saveUserWithPages: payload snapshot');
+    console.log('Payload', payload);
+    console.groupEnd();
 
     showLoading(true);
 
