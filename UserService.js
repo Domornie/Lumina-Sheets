@@ -3073,30 +3073,177 @@ function notifyOnUserRegistered_(newUser) {
 
     if (!recipient) return; // nothing to notify
 
-    const rolesList = (newUser.roles || []).join(', ') || '—';
-    const pagesList = (newUser.pages || []).join(', ') || '—';
+    const escapeHtml = function (value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    const normalizeList = function (value) {
+      if (Array.isArray(value)) return value;
+      if (value === null || value === undefined) return [];
+      if (typeof value === 'string') {
+        return value.split(',').map(function (part) { return part.trim(); }).filter(Boolean);
+      }
+      return [value];
+    };
+
+    const brandName = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG.brandName) ? EMAIL_CONFIG.brandName : 'Lumina HQ';
+    const supportEmail = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG.supportEmail) ? EMAIL_CONFIG.supportEmail : 'it@vlbpo.com';
+
+    const roleSource = normalizeList(newUser.roles);
+    const resolvedRoles = roleSource.map(function (role) {
+      let raw = role;
+      if (role && typeof role === 'object') {
+        raw = role.id || role.ID || role.roleId || role.RoleId || role.name || role.Name || '';
+      }
+      raw = raw === undefined || raw === null ? '' : raw;
+      let display = raw;
+      if (typeof getRoleNameSafe === 'function' && raw) {
+        try {
+          const lookup = getRoleNameSafe(raw);
+          display = lookup || display;
+        } catch (roleErr) {
+          display = display || raw;
+        }
+      }
+      if ((!display || !String(display).trim()) && role && typeof role === 'object') {
+        display = role.name || role.Name || raw;
+      }
+      return String(display || '').trim();
+    }).filter(Boolean);
+
+    const roleBadges = resolvedRoles.length
+      ? resolvedRoles.map(function (name) { return '<span class="role-chip">' + escapeHtml(name) + '</span>'; }).join('')
+      : '<span class="role-chip role-chip--ghost">No roles assigned yet</span>';
+
+    const pageSource = normalizeList(newUser.pages);
+    const resolvedPages = pageSource.map(function (page) {
+      if (page && typeof page === 'object') {
+        const candidate = page.name || page.title || page.displayName || page.PageName || page.Page || page.key || page.Key || page.slug || page;
+        return String(candidate || '').trim();
+      }
+      return String(page || '').trim();
+    }).filter(Boolean);
+
+    const pageBadges = resolvedPages.length
+      ? resolvedPages.map(function (name) { return '<span class="page-chip">' + escapeHtml(name) + '</span>'; }).join('')
+      : '<span class="page-chip page-chip--ghost">No pages assigned</span>';
 
     let campaignName = '';
     try { campaignName = getCampaignNameSafe ? getCampaignNameSafe(newUser.campaignId) : getCampaignName(newUser.campaignId); } catch (_) { }
+    const campaignDisplay = campaignName || newUser.campaignId || '—';
+
+    let hireDateDisplay = '—';
+    if (newUser.hireDate) {
+      try {
+        const hireDate = new Date(newUser.hireDate);
+        hireDateDisplay = isNaN(hireDate.getTime()) ? String(newUser.hireDate) : hireDate.toLocaleDateString();
+      } catch (hireErr) {
+        hireDateDisplay = String(newUser.hireDate);
+      }
+    }
+
+    let createdAtDisplay = '—';
+    if (newUser.createdAt) {
+      try {
+        const created = new Date(newUser.createdAt);
+        createdAtDisplay = isNaN(created.getTime()) ? String(newUser.createdAt) : created.toLocaleString();
+      } catch (createdErr) {
+        createdAtDisplay = String(newUser.createdAt);
+      }
+    }
+
+    const loginIndicator = newUser.canLogin
+      ? '<span class="status-indicator"><span class="status-dot"></span>Login Enabled</span>'
+      : '<span class="status-indicator status-indicator--warning"><span class="status-dot"></span>Login Disabled</span>';
+
+    const adminIndicator = newUser.isAdmin
+      ? '<span class="status-indicator status-indicator--info"><span class="status-dot"></span>Administrator Privileges</span>'
+      : '<span class="status-indicator status-indicator--muted"><span class="status-dot"></span>Standard Access</span>';
+
+    const brandNameEscaped = escapeHtml(brandName);
+    const supportEmailEscaped = escapeHtml(supportEmail);
+
+    const phoneMarkup = newUser.phoneNumber
+      ? '            <p style="margin:4px 0 0;color:#64748b;font-size:13px;">' + escapeHtml(newUser.phoneNumber) + '</p>'
+      : '';
+
+    const employmentStatusDisplay = escapeHtml(newUser.employmentStatus || '—');
+    const countryDisplay = escapeHtml(newUser.country || '—');
+
+    const content = [
+      '<div class="welcome-badge" style="background:linear-gradient(135deg,#00AEEF 0%,#003F87 100%);border:1px solid rgba(255,255,255,.35);box-shadow:0 15px 35px rgba(0,63,135,.35);">🚀 ' + brandNameEscaped + ' Account</div>',
+      '<p class="subtitle">A new team member has been activated in ' + brandNameEscaped + '. Here\'s their launch profile.</p>',
+      '<div class="futuristic-card">',
+      '    <div class="detail-grid">',
+      '        <div class="detail-item">',
+      '            <span class="muted-label">Employee</span>',
+      '            <strong>' + escapeHtml(newUser.fullName || newUser.userName || newUser.email || '—') + '</strong>',
+      '            <p style="margin:6px 0 0;color:#475569;">' + escapeHtml(newUser.email || '—') + '</p>',
+      phoneMarkup,
+      '        </div>',
+      '        <div class="detail-item">',
+      '            <span class="muted-label">Account Created</span>',
+      '            <strong>' + escapeHtml(createdAtDisplay) + '</strong>',
+      '            <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;">',
+      '                ' + loginIndicator,
+      '                ' + adminIndicator,
+      '            </div>',
+      '        </div>',
+      '    </div>',
+      '    <div style="margin-top:24px;">',
+      '        <span class="muted-label">Roles &amp; Access Levels</span>',
+      '        ' + roleBadges,
+      '    </div>',
+      '    <div style="margin-top:20px;">',
+      '        <span class="muted-label">Pages Enabled</span>',
+      '        ' + pageBadges,
+      '    </div>',
+      '</div>',
+      '<div class="info-matrix">',
+      '    <div class="info-matrix-row">',
+      '        <div class="info-matrix-cell">',
+      '            <span class="muted-label">Campaign</span>',
+      '            <strong>' + escapeHtml(campaignDisplay) + '</strong>',
+      '        </div>',
+      '        <div class="info-matrix-cell">',
+      '            <span class="muted-label">Employment Status</span>',
+      '            <strong>' + employmentStatusDisplay + '</strong>',
+      '        </div>',
+      '    </div>',
+      '    <div class="info-matrix-row">',
+      '        <div class="info-matrix-cell">',
+      '            <span class="muted-label">Hire Date</span>',
+      '            <strong>' + escapeHtml(hireDateDisplay) + '</strong>',
+      '        </div>',
+      '        <div class="info-matrix-cell">',
+      '            <span class="muted-label">Country</span>',
+      '            <strong>' + countryDisplay + '</strong>',
+      '        </div>',
+      '    </div>',
+      '</div>',
+      '<div class="info-card" style="background:linear-gradient(135deg,rgba(0,174,239,.08),rgba(0,63,135,.08));border-left-color:#00AEEF;">',
+      '    <h3 style="margin:0 0 10px;color:#003F87;">Next Actions</h3>',
+      '    <ul class="feature-list">',
+      '        <li style="border-left-color:#00AEEF;">Confirm tool provisioning within 24 hours</li>',
+      '        <li style="border-left-color:#00AEEF;">Share onboarding checklist with the employee</li>',
+      '        <li style="border-left-color:#00AEEF;">Welcome them in the Lumina HQ collaboration channels</li>',
+      '    </ul>',
+      '    <p style="margin-top:18px;color:#475569;">Need adjustments? Contact <a href="mailto:' + supportEmailEscaped + '" class="support-link">' + supportEmailEscaped + '</a>.</p>',
+      '</div>'
+    ].filter(Boolean).join('\n');
 
     const html = buildHtmlEmail_(
-      'New User Registered', 'A new user account was created.',
-      '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:16px;">'
-      + '<p><strong>User Name:</strong> ' + (newUser.userName || '') + '</p>'
-      + '<p><strong>Full Name:</strong> ' + (newUser.fullName || '') + '</p>'
-      + '<p><strong>Email:</strong> ' + (newUser.email || '') + '</p>'
-      + '<p><strong>Phone:</strong> ' + (newUser.phoneNumber || '') + '</p>'
-      + '<p><strong>Campaign:</strong> ' + (campaignName || newUser.campaignId || '—') + '</p>'
-      + '<p><strong>Roles:</strong> ' + rolesList + '</p>'
-      + '<p><strong>Pages:</strong> ' + pagesList + '</p>'
-      + '<p><strong>Can Login:</strong> ' + (newUser.canLogin ? 'Yes' : 'No') + '</p>'
-      + '<p><strong>Is Admin:</strong> ' + (newUser.isAdmin ? 'Yes' : 'No') + '</p>'
-      + '<p><strong>Created:</strong> ' + new Date(newUser.createdAt).toLocaleString() + '</p>'
-      + '</div>'
+      'New Team Member Activated', 'Access summary for ' + brandName + '.',
+      content
     );
 
-
-    safeSendHtmlEmail_(recipient, 'New User Registered: ' + (newUser.userName || newUser.email || newUser.id), html);
+    safeSendHtmlEmail_(recipient, 'New Team Member: ' + (newUser.userName || newUser.email || newUser.id), html);
   } catch (e) { writeError && writeError('notifyOnUserRegistered_', e); }
 }
 

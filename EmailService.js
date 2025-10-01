@@ -299,6 +299,161 @@ const ENHANCED_STYLES = `
         min-width: 120px
     }
 
+    .futuristic-card {
+        background: linear-gradient(135deg, rgba(0, 63, 135, .06), rgba(0, 174, 239, .08));
+        border: 1px solid rgba(14, 165, 233, .18);
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, .08);
+    }
+
+    .detail-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+    }
+
+    .detail-item {
+        flex: 1 1 220px;
+        background: rgba(255, 255, 255, .9);
+        border: 1px solid rgba(148, 163, 184, .25);
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, .08);
+    }
+
+    .muted-label {
+        display: block;
+        font-size: 11px;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 6px;
+        font-weight: 700;
+    }
+
+    .role-chip, .page-chip {
+        display: inline-block;
+        margin: 6px 8px 0 0;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .01em;
+    }
+
+    .role-chip {
+        background: linear-gradient(135deg, #003f87 0%, #00aeef 100%);
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(0, 63, 135, .28);
+    }
+
+    .role-chip--ghost {
+        background: rgba(148, 163, 184, .15);
+        color: #475569;
+        border: 1px dashed rgba(148, 163, 184, .7);
+        box-shadow: none;
+    }
+
+    .page-chip {
+        background: rgba(14, 165, 233, .15);
+        color: #0f172a;
+        border: 1px solid rgba(14, 165, 233, .35);
+        box-shadow: none;
+    }
+
+    .page-chip--ghost {
+        background: rgba(226, 232, 240, .6);
+        color: #475569;
+        border: 1px dashed rgba(148, 163, 184, .6);
+    }
+
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(16, 185, 129, .14);
+        color: #0f766e;
+        box-shadow: 0 8px 18px rgba(16, 185, 129, .18);
+    }
+
+    .status-indicator--warning {
+        background: rgba(248, 113, 113, .18);
+        color: #b91c1c;
+        box-shadow: 0 8px 18px rgba(248, 113, 113, .2);
+    }
+
+    .status-indicator--info {
+        background: rgba(59, 130, 246, .18);
+        color: #1d4ed8;
+    }
+
+    .status-indicator--muted {
+        background: rgba(148, 163, 184, .18);
+        color: #475569;
+        box-shadow: none;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #10b981;
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, .25);
+        display: inline-block;
+    }
+
+    .status-indicator--warning .status-dot {
+        background: #ef4444;
+        box-shadow: 0 0 0 4px rgba(248, 113, 113, .25);
+    }
+
+    .status-indicator--info .status-dot {
+        background: #38bdf8;
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, .25);
+    }
+
+    .status-indicator--muted .status-dot {
+        background: #94a3b8;
+        box-shadow: none;
+    }
+
+    .info-matrix {
+        margin-top: 28px;
+        border: 1px solid rgba(14, 165, 233, .2);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .info-matrix-row {
+        display: flex;
+        flex-wrap: wrap;
+        border-bottom: 1px solid rgba(226, 232, 240, .6);
+    }
+
+    .info-matrix-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-matrix-cell {
+        flex: 1 1 260px;
+        padding: 18px 22px;
+        background: rgba(248, 250, 252, .9);
+        border-right: 1px solid rgba(226, 232, 240, .6);
+    }
+
+    .info-matrix-cell:nth-child(2n) {
+        background: rgba(255, 255, 255, .95);
+    }
+
+    .info-matrix-cell:last-child {
+        border-right: none;
+    }
+
     .subtitle {
         color: #64748b;
         font-size: 16px;
