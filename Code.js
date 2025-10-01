@@ -13,6 +13,13 @@
 // GLOBAL CONSTANTS AND CONFIGURATION
 // ───────────────────────────────────────────────────────────────────────────────
 
+var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
+  : (typeof globalThis === 'object' && globalThis)
+    ? globalThis
+    : (typeof this === 'object' && this)
+      ? this
+      : {};
+
 const SCRIPT_URL = 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec';
 const FAVICON_URL = 'https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png';
 
@@ -2149,11 +2156,11 @@ function handleAttendanceReportsData(tpl, e, user, campaignId) {
     const requestingUserId = user && user.ID ? user.ID : null;
     tpl.userList = clientGetAssignedAgentNames(campaignId || user.CampaignID || '', requestingUserId);
 
-    const resolvedTimezone = (typeof global.ATTENDANCE_TIMEZONE === 'string' && global.ATTENDANCE_TIMEZONE)
-      ? global.ATTENDANCE_TIMEZONE
+    const resolvedTimezone = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE)
+      ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE
       : (typeof Session !== 'undefined' && Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'America/Jamaica');
-    const resolvedTimezoneLabel = (typeof global.ATTENDANCE_TIMEZONE_LABEL === 'string' && global.ATTENDANCE_TIMEZONE_LABEL)
-      ? global.ATTENDANCE_TIMEZONE_LABEL
+    const resolvedTimezoneLabel = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL)
+      ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
       : 'Company Time';
 
     tpl.managerUserId = user && user.ID ? user.ID : '';
@@ -2170,11 +2177,11 @@ function handleAttendanceReportsData(tpl, e, user, campaignId) {
     tpl.executiveMetrics = JSON.stringify({});
     tpl.userList = [];
     tpl.managerUserId = user && user.ID ? user.ID : '';
-    const fallbackTimezone = (typeof global.ATTENDANCE_TIMEZONE === 'string' && global.ATTENDANCE_TIMEZONE)
-      ? global.ATTENDANCE_TIMEZONE
+    const fallbackTimezone = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE)
+      ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE
       : (typeof Session !== 'undefined' && Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'America/Jamaica');
-    const fallbackTimezoneLabel = (typeof global.ATTENDANCE_TIMEZONE_LABEL === 'string' && global.ATTENDANCE_TIMEZONE_LABEL)
-      ? global.ATTENDANCE_TIMEZONE_LABEL
+    const fallbackTimezoneLabel = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL)
+      ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
       : 'Company Time';
     tpl.attendanceTimezone = fallbackTimezone;
     tpl.attendanceTimezoneLabel = fallbackTimezoneLabel;

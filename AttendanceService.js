@@ -25,6 +25,14 @@ const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meetin
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const END_SHIFT_STATES = ['End of Shift'];
 
+// Resolve a safe global scope reference for Apps Script V8
+var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
+  : (typeof globalThis === 'object' && globalThis)
+    ? globalThis
+    : (typeof this === 'object' && this)
+      ? this
+      : {};
+
 // Time constants (working in seconds, since DurationMin column contains seconds)
 const DAILY_SHIFT_SECS = 8 * 3600;       // 8 hours in seconds
 const DAILY_BREAKS_SECS = 30 * 60;       // 30 minutes in seconds
@@ -32,11 +40,11 @@ const DAILY_LUNCH_SECS = 30 * 60;        // 30 minutes in seconds
 const WEEKLY_OVERTIME_SECS = 40 * 3600;  // 40 hours in seconds
 
 // Primary attendance timezone configuration (defaults to script timezone)
-const ATTENDANCE_TIMEZONE = (typeof global.ATTENDANCE_TIMEZONE === 'string' && global.ATTENDANCE_TIMEZONE)
-  ? global.ATTENDANCE_TIMEZONE
+const ATTENDANCE_TIMEZONE = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE)
+  ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE
   : (typeof Session !== 'undefined' && Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'America/Jamaica');
-const ATTENDANCE_TIMEZONE_LABEL = (typeof global.ATTENDANCE_TIMEZONE_LABEL === 'string' && global.ATTENDANCE_TIMEZONE_LABEL)
-  ? global.ATTENDANCE_TIMEZONE_LABEL
+const ATTENDANCE_TIMEZONE_LABEL = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL)
+  ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
   : 'Company Time';
 
 // Performance optimization constants
