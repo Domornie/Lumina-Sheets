@@ -30,6 +30,179 @@ const ACCESS = {
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
 
+// ───────────────────────────────────────────────────────────────────────────────
+// LUMINA ENTITY REGISTRY
+// ───────────────────────────────────────────────────────────────────────────────
+
+const LUMINA_ENTITY_REGISTRY = (function buildEntityRegistry() {
+  var registry = Object.create(null);
+
+  function sliceHeaders(headers) {
+    return Array.isArray(headers) ? headers.slice() : null;
+  }
+
+  function coerceString(value) {
+    return value === null || typeof value === 'undefined' ? '' : String(value);
+  }
+
+  var qualityTableName = (typeof QA_RECORDS === 'string' && QA_RECORDS) ? QA_RECORDS : 'Quality';
+  registry.quality = {
+    name: 'quality',
+    tableName: qualityTableName,
+    idColumn: 'ID',
+    summaryColumns: ['ID', 'Timestamp', 'AgentName', 'TotalScore', 'Percentage', 'FeedbackShared'],
+    summaryOptions: { sortBy: 'Timestamp', sortDesc: true },
+    schema: (typeof QA_HEADERS !== 'undefined' && Array.isArray(QA_HEADERS))
+      ? { headers: sliceHeaders(QA_HEADERS), idColumn: 'ID' }
+      : { idColumn: 'ID' },
+    normalizeSummary: function (row) {
+      return {
+        id: row.ID,
+        agentName: coerceString(row.AgentName || row.agentName),
+        timestamp: row.Timestamp || row.timestamp || '',
+        totalScore: row.TotalScore || row.totalScore || '',
+        percentage: row.Percentage || row.percentage || '',
+        feedbackShared: row.FeedbackShared || row.feedbackShared || ''
+      };
+    },
+    normalizeDetail: function (row) { return row; }
+  };
+  registry.qa = registry.quality;
+  registry.qualityrecords = registry.quality;
+
+  var usersTableName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
+  registry.users = {
+    name: 'users',
+    tableName: usersTableName,
+    idColumn: 'ID',
+    summaryColumns: ['ID', 'FullName', 'UserName', 'CampaignID'],
+    schema: (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
+      ? { headers: sliceHeaders(USERS_HEADERS), idColumn: 'ID' }
+      : { idColumn: 'ID' },
+    normalizeSummary: function (row) {
+      var fullName = coerceString(row.FullName || row.fullName);
+      var userName = coerceString(row.UserName || row.userName || row.Username);
+      return {
+        id: row.ID,
+        displayName: fullName || userName || row.ID,
+        fullName: fullName,
+        userName: userName,
+        campaignId: coerceString(row.CampaignID || row.CampaignId)
+      };
+    },
+    normalizeDetail: function (row) {
+      return {
+        id: row.ID,
+        fullName: coerceString(row.FullName || row.fullName),
+        userName: coerceString(row.UserName || row.userName),
+        email: coerceString(row.Email || row.email || row.EmailAddress),
+        record: row
+      };
+    }
+  };
+  registry.user = registry.users;
+
+  return registry;
+})();
+
+function resolveLuminaEntityDefinition(entityName) {
+  var key = String(entityName || '').toLowerCase();
+  if (!key) {
+    throw new Error('Entity name is required.');
+  }
+  var def = LUMINA_ENTITY_REGISTRY[key];
+  if (!def) {
+    throw new Error('Unknown entity: ' + entityName);
+  }
+  return def;
+}
+
+function ensureEntitySchema(definition) {
+  if (!definition || !definition.tableName) {
+    throw new Error('Invalid entity definition.');
+  }
+
+  try {
+    if (definition.schema && typeof registerTableSchema === 'function') {
+      registerTableSchema(definition.tableName, definition.schema);
+    } else if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.defineTable === 'function') {
+      DatabaseManager.defineTable(definition.tableName, { idColumn: definition.idColumn || 'ID' });
+    }
+  } catch (schemaError) {
+    console.warn('ensureEntitySchema: unable to register schema for ' + definition.tableName + ':', schemaError);
+  }
+}
+
+function projectEntityRows(definition, context, options, columns) {
+  var manager = (typeof DatabaseManager !== 'undefined') ? DatabaseManager : null;
+  if (!manager || typeof manager.table !== 'function') {
+    throw new Error('DatabaseManager.table is not available.');
+  }
+
+  ensureEntitySchema(definition);
+
+  var table = manager.table(definition.tableName, context);
+  var cols = Array.isArray(columns) ? columns.slice() : null;
+  if (cols && definition.idColumn && cols.indexOf(definition.idColumn) === -1) {
+    cols.push(definition.idColumn);
+  }
+
+  if (cols && typeof table.project === 'function') {
+    return table.project(cols, options || {});
+  }
+
+  var opts = Object.assign({}, options || {});
+  if (cols) {
+    opts.columns = cols;
+  }
+  return table.read(opts);
+}
+
+function getEntitySummaries(entityName, context) {
+  try {
+    var def = resolveLuminaEntityDefinition(entityName);
+    var options = def.summaryOptions ? Object.assign({}, def.summaryOptions) : {};
+    var rows = projectEntityRows(def, context, options, def.summaryColumns);
+    if (typeof def.normalizeSummary === 'function') {
+      return rows.map(function (row) { return def.normalizeSummary(row); });
+    }
+    return rows;
+  } catch (error) {
+    console.error('getEntitySummaries failed for "' + entityName + '":', error);
+    throw error;
+  }
+}
+
+function getEntityDetail(entityName, id, context) {
+  try {
+    if (!id && id !== 0) {
+      throw new Error('Record id is required.');
+    }
+
+    var def = resolveLuminaEntityDefinition(entityName);
+    var manager = (typeof DatabaseManager !== 'undefined') ? DatabaseManager : null;
+    if (!manager || typeof manager.table !== 'function') {
+      throw new Error('DatabaseManager.table is not available.');
+    }
+
+    ensureEntitySchema(def);
+    var table = manager.table(def.tableName, context);
+    var record = (typeof table.findById === 'function') ? table.findById(id) : null;
+    if (!record && typeof table.findOne === 'function' && def.idColumn) {
+      var where = {};
+      where[def.idColumn] = id;
+      record = table.findOne(where);
+    }
+    if (!record) {
+      return null;
+    }
+    return (typeof def.normalizeDetail === 'function') ? def.normalizeDetail(record) : record;
+  } catch (error) {
+    console.error('getEntityDetail failed for "' + entityName + '":', error);
+    throw error;
+  }
+}
+
 /**
  * Utility helpers for managing time-driven triggers that may have become
  * orphaned after refactors. These are meant to be run manually from the Apps

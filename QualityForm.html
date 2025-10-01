@@ -2251,15 +2251,137 @@
   console.log('Template-injected recordId=', recordId, 'record=', record);
 
   // Server-injected list (may be [] if nothing was passed in)
-  const USERS = <?!= JSON.stringify(__users || []) ?>;
+  const PRELOADED_USERS = <?!= JSON.stringify(__users || []) ?>;
+  const userDirectory = {
+    byId: Object.create(null),
+    nameToId: Object.create(null)
+  };
+  const agentRosterState = {
+    useIds: false,
+    summaries: [],
+    runHelper: null
+  };
+  let userList = Array.isArray(PRELOADED_USERS) ? PRELOADED_USERS.slice() : [];
 
-  // Build a map: name -> email (works with strings or objects)
-  const userMap = (USERS || []).reduce((acc, u) => {
-    const name  = (typeof u === 'string') ? u : (u?.name || u?.fullName || u?.displayName || '');
-    const email = (typeof u === 'object') ? (u?.email || u?.mail || u?.emailAddress || '') : '';
-    if (name) acc[name] = email || '';
-    return acc;
-  }, Object.create(null));
+  function normalizeUserEntry(entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    var id = entry.id || entry.ID || entry.Id || entry.UserId || entry.UserID || entry.uuid || entry.UUID;
+    id = (id === null || typeof id === 'undefined') ? '' : String(id).trim();
+    var name = '';
+    if (typeof entry.displayName === 'string' && entry.displayName.trim()) name = entry.displayName.trim();
+    else if (typeof entry.name === 'string' && entry.name.trim()) name = entry.name.trim();
+    else if (typeof entry.fullName === 'string' && entry.fullName.trim()) name = entry.fullName.trim();
+    else if (typeof entry.FullName === 'string' && entry.FullName.trim()) name = entry.FullName.trim();
+    else if (typeof entry.UserName === 'string' && entry.UserName.trim()) name = entry.UserName.trim();
+    else if (typeof entry.userName === 'string' && entry.userName.trim()) name = entry.userName.trim();
+    var email = '';
+    if (typeof entry.email === 'string' && entry.email.trim()) email = entry.email.trim();
+    else if (typeof entry.Email === 'string' && entry.Email.trim()) email = entry.Email.trim();
+    else if (typeof entry.mail === 'string' && entry.mail.trim()) email = entry.mail.trim();
+    else if (typeof entry.EmailAddress === 'string' && entry.EmailAddress.trim()) email = entry.EmailAddress.trim();
+    return { id: id, name: name, email: email };
+  }
+
+  function rememberUser(entry, source) {
+    var normalized = null;
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      normalized = normalizeUserEntry(entry);
+    } else if (typeof entry === 'string') {
+      normalized = { id: '', name: entry, email: '' };
+    }
+    if (!normalized || (!normalized.id && !normalized.name)) {
+      return null;
+    }
+    var id = normalized.id || '';
+    if (id) {
+      if (!userDirectory.byId[id]) {
+        userDirectory.byId[id] = { id: id, name: normalized.name || '', email: normalized.email || '', sources: [] };
+      }
+      var cached = userDirectory.byId[id];
+      if (normalized.name && (!cached.name || source === 'summary' || source === 'detail')) {
+        cached.name = normalized.name;
+      }
+      if (normalized.email && (!cached.email || source === 'detail' || source === 'prefill')) {
+        cached.email = normalized.email;
+      }
+      cached.sources.push(source || 'unknown');
+      if (cached.name) {
+        userDirectory.nameToId[cached.name.toLowerCase()] = id;
+      }
+      return cached;
+    }
+    if (normalized.name) {
+      var key = normalized.name.toLowerCase();
+      if (!userDirectory.nameToId[key]) {
+        userDirectory.nameToId[key] = '';
+      }
+      return { id: '', name: normalized.name, email: normalized.email || '' };
+    }
+    return null;
+  }
+
+  function getCachedUserById(id) {
+    if (!id) return null;
+    return userDirectory.byId[id] || null;
+  }
+
+  function getCachedUserIdByName(name) {
+    if (!name) return '';
+    return userDirectory.nameToId[name.toLowerCase()] || '';
+  }
+
+  function getCachedUserByName(name) {
+    var id = getCachedUserIdByName(name);
+    if (id && userDirectory.byId[id]) {
+      return userDirectory.byId[id];
+    }
+    return null;
+  }
+
+  async function fetchUserDetail(userId) {
+    if (!userId) return null;
+
+    const cached = getCachedUserById(userId);
+    if (cached && cached.email) {
+      return cached;
+    }
+
+    const runHelper = agentRosterState.runHelper;
+    const contextPayload = buildEntityContextPayload();
+
+    if (typeof runHelper === 'function') {
+      try {
+        const detail = await runHelper('clientGetUserDetail', userId, contextPayload);
+        return rememberUser(detail, 'detail');
+      } catch (error) {
+        console.warn('fetchUserDetail via entity loader failed:', error);
+      }
+    }
+
+    if (google?.script?.run) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(detail => resolve(rememberUser(detail, 'detail')))
+          .withFailureHandler(reject)
+          .clientGetUserDetail(userId, contextPayload);
+      });
+    }
+
+    return cached || null;
+  }
+
+  function buildEntityContextPayload() {
+    var ctx = {};
+    if (typeof campaignId !== 'undefined' && campaignId) {
+      ctx.campaignId = campaignId;
+      ctx.tenantId = campaignId;
+    }
+    return ctx;
+  }
+
+  (PRELOADED_USERS || []).forEach(function(entry) {
+    rememberUser(entry, 'template');
+  });
 
   // Question weights and categories for scoring
   const questionMap = {
@@ -2378,24 +2500,60 @@
     if (placeholder) sel.appendChild(placeholder);
 
     const frag = document.createDocumentFragment();
-    (list || []).forEach(u => {
-      const name = (typeof u === 'string') ? u : (u?.name || u?.fullName || u?.displayName || '');
-      const email = (typeof u === 'object') ? (u?.email || u?.mail || u?.emailAddress || '') : '';
-      if (!name) return;
+    let hasStructured = false;
 
-      if (!(name in userMap)) userMap[name] = email || '';
+    (Array.isArray(list) ? list : []).forEach(item => {
+      if (item && typeof item === 'object' && !Array.isArray(item) && (item.id || item.ID || item.Id || item.UserId || item.UserID || item.displayName || item.name || item.FullName)) {
+        const normalized = rememberUser(item, 'summary');
+        if (normalized && normalized.id) {
+          hasStructured = true;
+          const opt = document.createElement('option');
+          opt.value = normalized.id;
+          opt.textContent = normalized.name || normalized.id;
+          opt.dataset.name = normalized.name || '';
+          frag.appendChild(opt);
+          return;
+        }
+      }
+
+      const name = (typeof item === 'string') ? item : (item && (item.name || item.displayName || item.fullName || item.FullName)) || '';
+      if (!name) return;
+      rememberUser({ name: name, email: item?.email }, 'fallback');
 
       const opt = document.createElement('option');
       opt.value = name;
       opt.textContent = name;
+      opt.dataset.name = name;
       frag.appendChild(opt);
     });
+
     sel.appendChild(frag);
+    agentRosterState.useIds = hasStructured;
+    agentRosterState.summaries = Array.isArray(list) ? list.slice() : [];
+    sel.dataset.usesIds = hasStructured ? 'true' : 'false';
 
     if (recordId && record && record !== '{}') {
       try {
         const rec = JSON.parse(record);
-        if (rec.AgentName) sel.value = rec.AgentName;
+        if (rec.AgentName) {
+          const displayName = String(rec.AgentName).trim();
+          if (hasStructured) {
+            const cachedId = getCachedUserIdByName(displayName);
+            const match = Array.from(sel.options || []).find(opt => opt.value === cachedId);
+            if (match && cachedId) {
+              sel.value = cachedId;
+            } else if (displayName) {
+              const opt = document.createElement('option');
+              opt.value = cachedId || '';
+              opt.textContent = displayName;
+              opt.dataset.name = displayName;
+              opt.selected = true;
+              sel.appendChild(opt);
+            }
+          } else {
+            sel.value = displayName;
+          }
+        }
       } catch (e) {
         console.warn('Error parsing record for agent selection:', e);
       }
@@ -2404,9 +2562,9 @@
 
   function fallbackToStaticUsers() {
     console.log('Using static/template users as final fallback...');
-    if (Array.isArray(USERS) && USERS.length > 0) {
-      userList = USERS.slice();
-      populateAgentSelect(USERS);
+    if (Array.isArray(PRELOADED_USERS) && PRELOADED_USERS.length > 0) {
+      userList = PRELOADED_USERS.slice();
+      populateAgentSelect(PRELOADED_USERS);
       console.log('Updated userList from template users:', userList.length, 'agents');
     } else {
       console.error('No users available from any source');
@@ -2432,16 +2590,31 @@
     console.log('Starting agent list hydration...');
 
     const hasRunHelper = typeof run === 'function';
+    agentRosterState.runHelper = hasRunHelper ? run : null;
     const cid = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
+    const contextPayload = buildEntityContextPayload();
 
-    if (!hasRunHelper) {
+    if (hasRunHelper) {
+      try {
+        const summaries = await run('clientGetUserSummaries', contextPayload);
+        if (Array.isArray(summaries) && summaries.length > 0) {
+          userList = summaries.slice();
+          populateAgentSelect(summaries);
+          console.log('Updated userList from entity summaries:', summaries.length, 'agents');
+          return true;
+        }
+        console.warn('clientGetUserSummaries returned no data; continuing with legacy fallbacks.');
+      } catch (error) {
+        console.warn('clientGetUserSummaries failed:', error);
+      }
+    } else {
       console.warn('google.script.run helper unavailable, using fallback data');
-      const fallback = Array.isArray(USERS) && USERS.length > 0
-        ? USERS.slice()
+      const fallback = Array.isArray(PRELOADED_USERS) && PRELOADED_USERS.length > 0
+        ? PRELOADED_USERS.slice()
         : extractAgentNamesFromQAData(typeof rawQA !== 'undefined' ? rawQA : []);
 
       if (fallback.length > 0) {
-        userList = fallback;
+        userList = fallback.slice();
         populateAgentSelect(fallback);
         console.log('Hydrated agent list from fallback data:', userList.length, 'agents');
         return true;
@@ -2456,7 +2629,7 @@
     try {
       const names = await run('clientGetAssignedAgentNames', cid);
       if (Array.isArray(names) && names.length > 0) {
-        userList = names;
+        userList = names.slice();
         populateAgentSelect(names);
         console.log('Updated userList from campaign agents:', userList.length, 'agents');
         return true;
@@ -2468,14 +2641,9 @@
 
     try {
       const users = await run('getUsers');
-      const names = (users || [])
-        .map(u => u.FullName || u.UserName || u.Email || u.name || u.fullName)
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b));
-
-      if (names.length > 0) {
-        userList = names;
-        populateAgentSelect(names);
+      if (Array.isArray(users) && users.length > 0) {
+        userList = users.slice();
+        populateAgentSelect(users);
         console.log('Updated userList from general users:', userList.length, 'agents');
         return true;
       }
@@ -2507,17 +2675,16 @@
     }
 
     fallbackToStaticUsers();
-    return userList.length > 0;
+    return Array.isArray(userList) && userList.length > 0;
   }
 
   async function loadAgentsFromServerIfNeeded(run) {
     console.log('=== AGENT LOADING PROCESS STARTED ===');
 
-    if (Array.isArray(USERS) && USERS.length > 0) {
-      console.log('Using pre-loaded template users:', USERS.length, 'agents');
-      userList = USERS.slice();
-      populateAgentSelect(USERS);
-      return true;
+    if (Array.isArray(PRELOADED_USERS) && PRELOADED_USERS.length > 0) {
+      console.log('Using pre-loaded template users:', PRELOADED_USERS.length, 'agents');
+      userList = PRELOADED_USERS.slice();
+      populateAgentSelect(PRELOADED_USERS);
     }
 
     return hydrateAgentList(run);
@@ -3284,12 +3451,40 @@
 
   function prefillFromRecord(r) {
     if (!r || typeof r !== 'object') return;
-    
+
     // Agent email auto-population
     const agentSel = document.getElementById('agentName');
     const emailInp = document.getElementById('agentEmail');
-    if (agentSel && emailInp && agentSel.value && !emailInp.value) {
-      emailInp.value = userMap[agentSel.value] || '';
+    if (agentSel && emailInp) {
+      const usesIds = agentRosterState.useIds || agentSel.dataset.usesIds === 'true';
+      const selectedOption = agentSel.selectedIndex >= 0 ? agentSel.options[agentSel.selectedIndex] : null;
+      const displayName = selectedOption ? (selectedOption.dataset.name || selectedOption.textContent || '') : (agentSel.value || '');
+      const recordEmail = r.AgentEmail || r.agentEmail || '';
+
+      if (recordEmail) {
+        emailInp.value = recordEmail;
+        if (usesIds && agentSel.value) {
+          rememberUser({ id: agentSel.value, name: displayName, email: recordEmail }, 'prefill');
+        } else if (displayName) {
+          rememberUser({ name: displayName, email: recordEmail }, 'prefill');
+        }
+        emailInp.setAttribute('readonly', true);
+      } else {
+        const cached = usesIds ? getCachedUserById(agentSel.value) : getCachedUserByName(displayName || agentSel.value);
+        if (cached && cached.email) {
+          emailInp.value = cached.email;
+          emailInp.setAttribute('readonly', true);
+        } else if (usesIds && agentSel.value) {
+          fetchUserDetail(agentSel.value)
+            .then(detail => {
+              if (detail && detail.email && !emailInp.value) {
+                emailInp.value = detail.email;
+                emailInp.setAttribute('readonly', true);
+              }
+            })
+            .catch(err => console.warn('Prefill detail lookup failed:', err));
+        }
+      }
     }
 
     // Feedback shared normalization
@@ -3311,6 +3506,26 @@
     }
   }
 
+  function ensurePrefilledAgentEmail() {
+    const agentSelect = document.getElementById('agentName');
+    const emailInput = document.getElementById('agentEmail');
+    if (!agentSelect || !emailInput) return;
+    if (!agentSelect.value) return;
+    if (emailInput.value && emailInput.value !== 'Loading...') return;
+
+    const usesIds = agentRosterState.useIds || agentSelect.dataset.usesIds === 'true';
+    if (!usesIds) return;
+
+    fetchUserDetail(agentSelect.value)
+      .then(detail => {
+        if (detail && detail.email && !emailInput.value) {
+          emailInput.value = detail.email;
+          emailInput.setAttribute('readonly', true);
+        }
+      })
+      .catch(err => console.warn('ensurePrefilledAgentEmail failed:', err));
+  }
+
   // ============================================================================
   // ENHANCED EMAIL AUTO-FILL WITH DEBUGGING
   // Replace the setupEventListeners function in your Quality Form script
@@ -3322,62 +3537,49 @@
     const emailInput = document.getElementById('agentEmail');
     
     if (agentSelect && emailInput) {
-      agentSelect.addEventListener('change', function() {
-        const selectedAgent = this.value;
+      agentSelect.addEventListener('change', async function() {
+        const usesIds = agentRosterState.useIds || this.dataset.usesIds === 'true';
+        const selectedOption = this.selectedIndex >= 0 ? this.options[this.selectedIndex] : null;
+        const selectedId = usesIds ? this.value : '';
+        const selectedName = selectedOption ? (selectedOption.dataset.name || selectedOption.textContent || '') : (this.value || '');
         console.log('=== EMAIL AUTO-FILL ===');
-        console.log('Agent selected:', selectedAgent);
-        
-        if (!selectedAgent) {
+        console.log('Agent selected:', usesIds ? selectedId : selectedName);
+
+        if (!selectedId && !selectedName) {
           emailInput.value = '';
           emailInput.removeAttribute('readonly');
           return;
         }
-        
-        // Show loading state
+
         emailInput.value = 'Loading...';
         emailInput.setAttribute('readonly', true);
-        
-        // Method 1: Check local userMap cache first
-        if (userMap[selectedAgent]) {
-          console.log('Email found in cache:', userMap[selectedAgent]);
-          emailInput.value = userMap[selectedAgent];
+
+        const cached = usesIds ? getCachedUserById(selectedId) : getCachedUserByName(selectedName);
+        if (cached && cached.email) {
+          emailInput.value = cached.email;
+          console.log('Email found in cache:', cached.email);
           return;
         }
-        
-        // Method 2: Server lookup with timeout
-        if (google?.script?.run) {
-          const timeoutId = setTimeout(() => {
-            console.warn('Email lookup timeout');
+
+        if (!usesIds) {
+          console.log('No structured identifier available; allowing manual entry.');
+          emailInput.value = '';
+          emailInput.removeAttribute('readonly');
+          return;
+        }
+
+        try {
+          const detail = await fetchUserDetail(selectedId);
+          if (detail && detail.email) {
+            emailInput.value = detail.email;
+            console.log('✅ Email populated from server:', detail.email);
+          } else {
             emailInput.value = '';
             emailInput.removeAttribute('readonly');
-            showToast('Email lookup timed out. Please enter manually.', true);
-          }, 5000);
-          
-          google.script.run
-            .withSuccessHandler(email => {
-              clearTimeout(timeoutId);
-              console.log('Server returned email:', email);
-              
-              if (email && email.trim()) {
-                emailInput.value = email.trim();
-                userMap[selectedAgent] = email.trim(); // Cache it
-                emailInput.setAttribute('readonly', true);
-                console.log('✅ Email populated:', email);
-              } else {
-                emailInput.value = '';
-                emailInput.removeAttribute('readonly');
-                console.log('⚠️ No email found - manual entry required');
-              }
-            })
-            .withFailureHandler(err => {
-              clearTimeout(timeoutId);
-              console.error('Email lookup failed:', err);
-              emailInput.value = '';
-              emailInput.removeAttribute('readonly');
-            })
-            .getUserEmail(selectedAgent);
-        } else {
-          console.warn('Google Apps Script not available');
+            console.log('⚠️ No email found - manual entry required');
+          }
+        } catch (err) {
+          console.error('Email lookup failed:', err);
           emailInput.value = '';
           emailInput.removeAttribute('readonly');
         }
@@ -3386,121 +3588,6 @@
 
     // Continue with other event listeners...
     setupOtherEventListeners();
-  }
-
-  function fallbackToBasicAgentList() {
-    console.log('Using basic agent list fallback');
-    const runHelper = (window.LuminaEntityLoader && typeof LuminaEntityLoader.run === 'function' && LuminaEntityLoader.isGoogleScriptAvailable())
-      ? LuminaEntityLoader.run
-      : undefined;
-    hydrateAgentList(runHelper);
-  }
-
-  function loadAgentsWithEmails() {
-    console.log('Loading agents with emails...');
-    
-    if (!google?.script?.run) {
-      console.warn('Google Apps Script not available');
-      return;
-    }
-    
-    // Load users with their emails
-    google.script.run
-      .withSuccessHandler(usersWithEmails => {
-        console.log('Received users with emails:', usersWithEmails);
-        
-        if (!Array.isArray(usersWithEmails) || usersWithEmails.length === 0) {
-          console.warn('No users with emails received');
-          fallbackToBasicAgentList();
-          return;
-        }
-        
-        // Update userMap with all emails
-        usersWithEmails.forEach(u => {
-          if (u.name && u.email) {
-            userMap[u.name] = u.email;
-          }
-        });
-        
-        // Populate the select dropdown
-        const agentSelect = document.getElementById('agentName');
-        if (!agentSelect) return;
-        
-        // Keep placeholder
-        const placeholder = agentSelect.querySelector('option[disabled]');
-        agentSelect.innerHTML = '';
-        if (placeholder) agentSelect.appendChild(placeholder);
-        
-        // Add all agents
-        const frag = document.createDocumentFragment();
-        usersWithEmails.forEach(u => {
-          const opt = document.createElement('option');
-          opt.value = u.name;
-          opt.textContent = u.name;
-          frag.appendChild(opt);
-        });
-        agentSelect.appendChild(frag);
-        
-        // Restore previous selection if editing
-        if (recordId && record && record !== '{}') {
-          try {
-            const rec = JSON.parse(record);
-            if (rec.AgentName) {
-              agentSelect.value = rec.AgentName;
-              // Trigger change to populate email
-              agentSelect.dispatchEvent(new Event('change'));
-            }
-          } catch (e) {
-            console.warn('Error restoring agent selection:', e);
-          }
-        }
-        
-        console.log('✅ Agents loaded with emails cached');
-      })
-      .withFailureHandler(err => {
-        console.error('Failed to load users with emails:', err);
-        fallbackToBasicAgentList();
-      })
-      .getUsersWithEmails();
-  }
-
-  function tryGetAllUsersForEmail(selectedAgent, emailInput) {
-    console.log('Trying fallback: getUsers for email extraction...');
-    
-    google.script.run
-      .withSuccessHandler(users => {
-        console.log('All users received for email extraction:', users);
-        if (Array.isArray(users) && users.length > 0) {
-          const userObj = users.find(u => 
-            u.FullName === selectedAgent || 
-            u.UserName === selectedAgent ||
-            u.name === selectedAgent ||
-            u.fullName === selectedAgent ||
-            u.displayName === selectedAgent
-          );
-          
-          if (userObj) {
-            const email = userObj.Email || userObj.email || userObj.mail || 
-                        userObj.emailAddress || userObj.Mail || userObj.EmailAddress || '';
-            if (email) {
-              emailInput.value = email;
-              userMap[selectedAgent] = email; // Cache it
-              console.log('✅ Email found via getUsers fallback:', email);
-            } else {
-              console.warn('User found but no email field:', userObj);
-              emailInput.value = ''; // Clear if no email
-            }
-          } else {
-            console.warn('User not found in users array:', selectedAgent);
-            emailInput.value = ''; // Clear if user not found
-          }
-        }
-      })
-      .withFailureHandler(err => {
-        console.error('getUsers fallback failed:', err);
-        emailInput.value = ''; // Clear on error
-      })
-      .getUsers();
   }
 
   function setupOtherEventListeners() {
@@ -3626,14 +3713,14 @@
               } else {
                 mount('<div class="lumina-entity-status lumina-entity-status--warning">Showing fallback agent roster.</div>');
               }
-              loadAgentsWithEmails();
+              ensurePrefilledAgentEmail();
             } catch (error) {
               console.error('Agent roster load failed:', error);
               placeholder.setAttribute('data-lumina-entity-error', 'true');
               fallbackToStaticUsers();
               mount('<div class="lumina-entity-status lumina-entity-status--error">Unable to reach the server. Using offline roster.</div>');
               showToast('Unable to load the latest agent roster. Showing fallback list.', true);
-              loadAgentsWithEmails();
+              ensurePrefilledAgentEmail();
             } finally {
               agentSelect.disabled = false;
             }
@@ -3660,7 +3747,7 @@
 
         loadAgentsFromServerIfNeeded(window.google && google.script && google.script.run ? inlineRun : undefined)
           .finally(() => {
-            loadAgentsWithEmails();
+            ensurePrefilledAgentEmail();
           });
       }
       // Prefill form if record exists
