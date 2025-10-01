@@ -2034,26 +2034,30 @@
 
   // ---------- Primitive guards ----------
   function coerceToString(value, fallback = '') {
-    if (value === null || value === undefined) return fallback;
+    const fallbackStr = (typeof fallback === 'string')
+      ? fallback
+      : (fallback === null || fallback === undefined ? '' : String(fallback));
+    if (value === null || value === undefined) return fallbackStr;
     if (typeof value === 'string') return value;
     if (typeof value === 'number') {
-      return Number.isFinite(value) ? String(value) : fallback;
+      return Number.isFinite(value) ? String(value) : fallbackStr;
     }
     if (typeof value === 'boolean') return value ? 'true' : 'false';
     if (value instanceof Date) {
-      return isNaN(value.getTime()) ? fallback : value.toISOString();
+      return isNaN(value.getTime()) ? fallbackStr : value.toISOString();
+
     }
     try {
       return String(value);
     } catch (err) {
       console.warn('coerceToString failed, returning fallback.', err, value);
-      return fallback;
+      return fallbackStr;
     }
   }
 
   function safeTrim(value, fallback = '') {
     const str = coerceToString(value, fallback);
-    return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+    return (typeof str === 'string') ? str.trim() : '';
   }
 
   function safeLower(value, fallback = '') {
