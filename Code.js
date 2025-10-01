@@ -4171,6 +4171,124 @@ function initializeSystemPages() {
   }
 }
 
+function queueBackgroundInitialization(options) {
+  var safeConsole = (typeof console !== 'undefined' && console) ? console : {
+    error: function () { },
+    warn: function () { },
+    log: function () { }
+  };
+
+  function logTaskError(label, error) {
+    if (safeConsole && typeof safeConsole.error === 'function') {
+      safeConsole.error('queueBackgroundInitialization task failed [' + label + ']:', error);
+    }
+    if (typeof writeError === 'function') {
+      try {
+        writeError('queueBackgroundInitialization::' + label, error);
+      } catch (loggingError) {
+        if (safeConsole && typeof safeConsole.error === 'function') {
+          safeConsole.error('Failed to log queueBackgroundInitialization error for [' + label + ']:', loggingError);
+        }
+      }
+    }
+  }
+
+  function extractContext(opts) {
+    if (!opts || typeof opts !== 'object') {
+      return null;
+    }
+    if (opts.context && typeof opts.context === 'object') {
+      return opts.context;
+    }
+    var contextKeys = ['tenantId', 'tenantIds', 'campaignId', 'campaignIds', 'allowAllTenants', 'globalTenantAccess'];
+    var context = {};
+    var hasContext = false;
+    contextKeys.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(opts, key)) {
+        context[key] = opts[key];
+        hasContext = true;
+      }
+    });
+    return hasContext ? context : null;
+  }
+
+  try {
+    var requestOptions = (options && typeof options === 'object') ? options : {};
+    var context = extractContext(requestOptions);
+    var manager = (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function')
+      ? DatabaseManager
+      : null;
+
+    var seenEntities = Object.create(null);
+    var entityNames = [];
+    function addEntity(name) {
+      if (!name) return;
+      var normalized = String(name).trim().toLowerCase();
+      if (!normalized || seenEntities[normalized]) return;
+      seenEntities[normalized] = true;
+      entityNames.push(normalized);
+    }
+
+    if (Array.isArray(requestOptions.entities)) {
+      requestOptions.entities.forEach(addEntity);
+    }
+
+    if (!entityNames.length) {
+      addEntity('quality');
+      addEntity('users');
+    }
+
+    var tasks = [];
+
+    if (manager && typeof resolveLuminaEntityDefinition === 'function') {
+      var warmedTables = Object.create(null);
+      entityNames.forEach(function (entityName) {
+        try {
+          var definition = resolveLuminaEntityDefinition(entityName);
+          if (!definition || !definition.tableName || warmedTables[definition.tableName]) {
+            return;
+          }
+          warmedTables[definition.tableName] = true;
+          tasks.push({
+            label: 'warmEntity:' + (definition.name || entityName),
+            run: function () {
+              var readOptions = { cache: true, limit: 50 };
+              if (Array.isArray(definition.summaryColumns) && definition.summaryColumns.length) {
+                readOptions.columns = definition.summaryColumns.slice();
+              }
+              manager.table(definition.tableName, context).read(readOptions);
+            }
+          });
+        } catch (resolveError) {
+          logTaskError('resolveEntity(' + entityName + ')', resolveError);
+        }
+      });
+    }
+
+    if (typeof QualityService !== 'undefined' && QualityService && typeof QualityService.queueBackgroundInitialization === 'function') {
+      tasks.push({
+        label: 'QualityService.queueBackgroundInitialization',
+        run: function () {
+          QualityService.queueBackgroundInitialization(context, requestOptions);
+        }
+      });
+    }
+
+    tasks.forEach(function (task) {
+      try {
+        task.run();
+      } catch (taskError) {
+        logTaskError(task.label, taskError);
+      }
+    });
+
+    return true;
+  } catch (error) {
+    logTaskError('root', error);
+    return false;
+  }
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // GLOBAL FAVICON INJECTOR AND TEMPLATE HELPERS
 // ───────────────────────────────────────────────────────────────────────────────
