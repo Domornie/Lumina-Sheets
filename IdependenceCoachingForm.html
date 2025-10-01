@@ -459,47 +459,6 @@
             display: block
         }
 
-        /* Loader */
-        #loaderOverlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, .95);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(4px)
-        }
-
-        .loading-content {
-            text-align: center;
-            color: #64748b
-        }
-
-        .spinner-border {
-            width: 3rem;
-            height: 3rem;
-            border: 3px solid var(--outline);
-            border-top-color: var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 1rem
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg)
-            }
-        }
-
-        .loading-text {
-            font-size: 1rem;
-            font-weight: 500
-        }
-
         /* Toasts */
         .toast {
             position: fixed;
@@ -665,14 +624,6 @@
         <div class="page-header">
             <h1><i class="fas fa-users-cog"></i> New Coaching Session</h1>
             <p>Document coaching conversations, link to QA, track progress, and plan follow-up actions.</p>
-        </div>
-
-        <!-- Loader -->
-        <div id="loaderOverlay" role="alert" aria-live="assertive">
-            <div class="loading-content">
-                <div class="spinner-border" aria-hidden="true"></div>
-                <div class="loading-text">Saving coaching session...</div>
-            </div>
         </div>
 
         <form id="coachingForm" novalidate>
@@ -1175,7 +1126,13 @@
                 }
                 submitting = true;
                 $('submitBtn').disabled = true;
-                $('loaderOverlay').style.display = 'flex';
+                const loaderApi = window.LuminaLoader;
+                loaderApi?.show({
+                    title: 'Saving Coaching Session',
+                    detail: 'Uploading coaching notes and metrics…',
+                    tip: 'Please keep this tab open',
+                    progress: 40
+                });
 
                 // Prepare payload
                 $('summaryText').value = summaryQ.root.innerHTML;
@@ -1198,7 +1155,7 @@
                 // Save → optionally notify
                 google.script.run
                     .withSuccessHandler(resp => {
-                        $('loaderOverlay').style.display = 'none';
+                        const loaderApi = window.LuminaLoader;
                         $('submitBtn').disabled = false;
                         submitting = false;
 
@@ -1206,28 +1163,43 @@
                         localStorage.removeItem(DRAFT_KEY);
 
                         const notify = $('chkNotify').checked;
+                        loaderApi?.update({
+                            detail: notify ? 'Preparing acknowledgement email…' : 'Coaching session saved successfully!',
+                            progress: notify ? 65 : 100,
+                            tip: notify ? 'Sending summary to coachee' : 'All set!'
+                        });
+
                         if (notify) {
-                            $('loaderOverlay').style.display = 'flex';
-                            $('.loading-text') ? $('.loading-text').textContent = 'Sending acknowledgement…' : null;
+                            loaderApi?.update({
+                                detail: 'Sending acknowledgement…',
+                                progress: 75,
+                                tip: 'Emailing the coachee now'
+                            });
                             google.script.run
                                 .withSuccessHandler(() => {
-                                    $('loaderOverlay').style.display = 'none';
+                                    loaderApi?.update({
+                                        detail: 'Acknowledgement email sent!',
+                                        progress: 100,
+                                        tip: 'Session complete'
+                                    });
+                                    loaderApi?.hide(300);
                                     showToast('Acknowledgement email sent to coachee.', 'success');
                                     resetForm(true);
                                 })
                                 .withFailureHandler(err => {
-                                    $('loaderOverlay').style.display = 'none';
+                                    loaderApi?.hide();
                                     console.error('Notify error:', err);
                                     showToast('Saved, but failed to send acknowledgement.', 'error');
                                     resetForm(true);
                                 })
                                 .completeCoachingAndNotify(resp.id);
                         } else {
+                            loaderApi?.hide(300);
                             resetForm(true);
                         }
                     })
                     .withFailureHandler(error => {
-                        $('loaderOverlay').style.display = 'none';
+                        window.LuminaLoader?.hide();
                         $('submitBtn').disabled = false;
                         submitting = false;
                         console.error('Save error:', error);

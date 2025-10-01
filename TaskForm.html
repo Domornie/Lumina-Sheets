@@ -63,21 +63,6 @@
      border: none;
      color: white;
   }
-  .alert {
-     padding: 1rem;
-     border-radius: 8px;
-     margin-bottom: 1rem;
-  }
-  .alert-success {
-     background: #f0fdf4;
-     color: #166534;
-     border: 1px solid #bbf7d0;
-  }
-  .alert-danger {
-     background: #fef2f2;
-     color: #dc2626;
-     border: 1px solid #fecaca;
-  }
   .recurrence-help {
      background: #f8fafc;
      border: 1px solid #e2e8f0;
@@ -370,16 +355,18 @@
   }
 
   function showAlert(message, type = 'success') {
+    const supportedTypes = ['success', 'danger', 'warning', 'info'];
+    const resolvedType = supportedTypes.includes(type) ? type : 'info';
     const alertHtml = `
-      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+      <div class="alert alert-modern alert-${resolvedType} alert-dismissible fade show" role="alert">
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
     `;
     document.getElementById('alertContainer').innerHTML = alertHtml;
-    
+
     // Auto-dismiss success alerts
-    if (type === 'success') {
+    if (resolvedType === 'success') {
       setTimeout(() => {
         const alert = document.querySelector('.alert');
         if (alert) {

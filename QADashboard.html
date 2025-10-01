@@ -38,61 +38,6 @@
     --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Enhanced Loader */
-  #loaderOverlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: var(--backdrop-blur);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  #loaderOverlay.show {
-    opacity: 1;
-  }
-
-  .modern-spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid transparent;
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    animation: modernSpin 1s linear infinite;
-    position: relative;
-  }
-
-  .modern-spinner::before {
-    content: '';
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
-    border: 4px solid transparent;
-    border-top: 4px solid #764ba2;
-    border-radius: 50%;
-    animation: modernSpin 1.5s linear infinite reverse;
-  }
-
-  @keyframes modernSpin {
-    0% {
-      transform: rotate(0deg);
-    }
-
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-
   /* Modern Page Header with Live Status */
   .modern-page-header {
     background: var(--primary-gradient);
@@ -1013,11 +958,6 @@
   </div>
 </div>
 
-<!-- Enhanced Loader -->
-<div id="loaderOverlay">
-  <div class="modern-spinner"></div>
-</div>
-
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -1091,8 +1031,19 @@
       
       let dailyChart, agentChart, categoryChart;
 
-      function showLoader(){ const el=document.getElementById('loaderOverlay'); el.style.display='flex'; setTimeout(()=>el.classList.add('show'),10); }
-      function hideLoader(){ const el=document.getElementById('loaderOverlay'); el.classList.remove('show'); setTimeout(()=>el.style.display='none',300); }
+      function showLoader(detail = 'Loading QA metrics…') {
+        const loaderApi = window.LuminaLoader;
+        loaderApi?.show({
+          title: 'Refreshing QA Dashboard',
+          detail,
+          tip: 'Crunching performance metrics…',
+          progress: 25
+        });
+      }
+
+      function hideLoader(delay = 250) {
+        window.LuminaLoader?.hide(delay);
+      }
 
       function toISOWeek(d){
         d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
@@ -1317,7 +1268,7 @@
       }
 
       function applyFilters(){
-          showLoader();
+          showLoader('Preparing filtered results…');
           setTimeout(()=>{
               // STEP 1: Clean and validate the raw QA data first
               const cleanedQA = rawQA.map(r => {
@@ -1500,6 +1451,7 @@
               renderAgentChart(filtered);
               renderAgentTable(filtered);
 
+              window.LuminaLoader?.update({ detail: 'Dashboard refreshed!', progress: 100, tip: 'Latest QA metrics are ready.' });
               hideLoader();
           }, 100);
       }

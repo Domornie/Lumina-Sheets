@@ -191,43 +191,6 @@
       box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.25), var(--shadow-md);
     }
 
-    /* Enhanced Alert Styles */
-    .alert {
-      border: none;
-      border-radius: var(--border-radius);
-      font-size: 0.9rem;
-      margin-bottom: 1.5rem;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-      overflow: hidden;
-      font-weight: 500;
-      border-left: 4px solid;
-    }
-
-    .alert-danger {
-      background: linear-gradient(135deg, #fef2f2, #fee2e2);
-      color: #991b1b;
-      border-left-color: var(--danger-red);
-    }
-
-    .alert-warning {
-      background: linear-gradient(135deg, #fffbeb, #fef3c7);
-      color: #92400e;
-      border-left-color: var(--warning-yellow);
-    }
-
-    .alert-info {
-      background: linear-gradient(135deg, #eff6ff, #dbeafe);
-      color: #1e40af;
-      border-left-color: var(--info-cyan);
-    }
-
-    .alert-success {
-      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-      color: #166534;
-      border-left-color: var(--success-green);
-    }
-
     /* Enhanced Password Field */
     .password-field {
       position: relative;
@@ -266,33 +229,6 @@
       color: var(--primary-dark);
       text-decoration: underline;
       transform: translateY(-1px);
-    }
-
-    /* Enhanced Loader */
-    #loaderOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.95);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      backdrop-filter: blur(8px);
-      transition: opacity 0.3s ease;
-    }
-
-    #loaderOverlay.d-none {
-      display: none;
-    }
-
-    .spinner-border {
-      color: var(--primary-blue);
-      width: 3rem;
-      height: 3rem;
-      border-width: 3px;
     }
 
     .loader-content {
@@ -730,20 +666,10 @@
       }
     }
   </style>
+<?!= include('layoutLoader') ?>
 </head>
 
 <body class="bg-light">
-
-  <!-- Enhanced Loader -->
-  <div id="loaderOverlay" class="d-none">
-    <div class="loader-content">
-      <div class="spinner-border" role="status">
-        <span class="visually-hidden">Loading…</span>
-      </div>
-      <h4>Signing you in...</h4>
-      <p class="mb-0 text-muted">Please wait...</p>
-    </div>
-  </div>
 
   <div class="container-fluid h-100">
     <div class="row h-100">
@@ -764,16 +690,16 @@
           </div>
 
           <!-- Enhanced Alerts -->
-          <div id="successAlert" class="alert alert-success d-none">
+          <div id="successAlert" class="alert alert-modern alert-success d-none" role="alert">
             <i class="fas fa-check-circle me-2"></i><span id="successMessage"></span>
           </div>
-          <div id="errorAlert" class="alert alert-danger d-none">
+          <div id="errorAlert" class="alert alert-modern alert-danger d-none" role="alert">
             <i class="fas fa-exclamation-triangle me-2"></i><span id="errorMessage"></span>
           </div>
-          <div id="warningAlert" class="alert alert-warning d-none">
+          <div id="warningAlert" class="alert alert-modern alert-warning d-none" role="alert">
             <i class="fas fa-exclamation-circle me-2"></i><span id="warningMessage"></span>
           </div>
-          <div id="infoAlert" class="alert alert-info d-none">
+          <div id="infoAlert" class="alert alert-modern alert-info d-none" role="alert">
             <i class="fas fa-info-circle me-2"></i><span id="infoMessage"></span>
           </div>
 
@@ -950,7 +876,6 @@
     // DOM ELEMENTS AND STATE MANAGEMENT
     // ───────────────────────────────────────────────────────────────────────────────
     const elements = {
-      loader: document.getElementById('loaderOverlay'),
       feedback: document.getElementById('feedback'),
       loginBtn: document.getElementById('loginBtn'),
       emailInput: document.getElementById('email'),
@@ -1035,9 +960,24 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // ENHANCED LOADING STATE
     // ───────────────────────────────────────────────────────────────────────────────
-    function setLoading(isLoading) {
-      if (elements.loader) {
-        elements.loader.classList.toggle('d-none', !isLoading);
+    function setLoading(isLoading, detailMessage = 'Validating your credentials…') {
+      const loaderApi = window.LuminaLoader;
+      if (loaderApi) {
+        if (isLoading) {
+          const loaderPayload = {
+            title: 'Signing you in…',
+            detail: detailMessage,
+            tip: 'Securing your Lumina workspace',
+            progress: 45
+          };
+          if (typeof loaderApi.isVisible === 'function' && loaderApi.isVisible()) {
+            loaderApi.update(loaderPayload);
+          } else {
+            loaderApi.show(loaderPayload);
+          }
+        } else {
+          loaderApi.hide(200);
+        }
       }
 
       if (elements.loginBtn) {

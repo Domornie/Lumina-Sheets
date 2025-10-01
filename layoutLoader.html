@@ -1,0 +1,305 @@
+<!-- Shared Lumina loader system -->
+<style id="lumina-loader-styles">
+  @keyframes lumina-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .lumina-loader,
+  .lumina-loader::before,
+  .lumina-loader::after,
+  .loading-spinner,
+  .loading-spinner::before,
+  .loading-spinner::after {
+    box-sizing: border-box;
+  }
+
+  .lumina-loader,
+  .loading-spinner {
+    display: inline-block;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 3px solid var(--lumina-primary-light, rgba(14, 165, 233, 0.25));
+    border-top-color: var(--lumina-primary, #0ea5e9);
+    animation: lumina-spin 0.9s linear infinite;
+  }
+
+  .lumina-loader.is-small,
+  .loading-spinner.is-small {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-width: 2px;
+  }
+
+  .lumina-loader-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 1100;
+    padding: 1.5rem;
+  }
+
+  .lumina-loader-overlay.is-visible {
+    display: flex;
+  }
+
+  .lumina-loader-card {
+    background: #ffffff;
+    padding: 2rem 2.5rem;
+    border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+  }
+
+  .lumina-loader-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .lumina-loader-detail {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #475569;
+  }
+
+  .lumina-loader-progress {
+    width: 100%;
+    height: 4px;
+    background: rgba(14, 116, 144, 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 1.25rem 0 0.75rem;
+  }
+
+  .lumina-loader-progress[hidden] {
+    display: none !important;
+  }
+
+  .lumina-loader-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--lumina-primary, #0ea5e9), #38bdf8);
+    transition: width 0.3s ease;
+  }
+
+  .lumina-loader-tip {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .lumina-loader-tip[hidden] {
+    display: none !important;
+  }
+</style>
+
+<script>
+  (function () {
+    if (window.LuminaLoader) {
+      return;
+    }
+
+    const OVERLAY_ID = 'luminaGlobalLoader';
+    const TITLE_ID = 'luminaGlobalLoaderTitle';
+    const DETAIL_ID = 'luminaGlobalLoaderDetail';
+    const TIP_ID = 'luminaGlobalLoaderTip';
+    const PROGRESS_WRAP_ID = 'luminaGlobalLoaderProgress';
+    const PROGRESS_BAR_ID = 'luminaGlobalLoaderProgressBar';
+
+    const DEFAULT_STATE = {
+      title: 'Working on it…',
+      detail: 'Please wait while we process your request.',
+      tip: '',
+      progress: null
+    };
+
+    let overlayInstance = null;
+    let overlayMounted = false;
+
+    function createOverlayElement() {
+      const overlay = document.createElement('div');
+      overlay.id = OVERLAY_ID;
+      overlay.className = 'lumina-loader-overlay';
+      overlay.setAttribute('role', 'status');
+      overlay.setAttribute('aria-live', 'polite');
+      overlay.setAttribute('aria-hidden', 'true');
+
+      overlay.innerHTML = `
+        <div class="lumina-loader-card" role="document">
+          <div class="lumina-loader" aria-hidden="true"></div>
+          <h2 class="lumina-loader-title" id="${TITLE_ID}">${DEFAULT_STATE.title}</h2>
+          <p class="lumina-loader-detail" id="${DETAIL_ID}">${DEFAULT_STATE.detail}</p>
+          <div class="lumina-loader-progress" id="${PROGRESS_WRAP_ID}" hidden>
+            <div class="lumina-loader-progress-bar" id="${PROGRESS_BAR_ID}"></div>
+          </div>
+          <p class="lumina-loader-tip" id="${TIP_ID}" hidden></p>
+        </div>`;
+
+      return overlay;
+    }
+
+    function mountOverlayIfNeeded() {
+      if (overlayMounted) {
+        return;
+      }
+
+      if (!overlayInstance) {
+        overlayInstance = createOverlayElement();
+      }
+
+      if (document.body) {
+        document.body.appendChild(overlayInstance);
+        overlayMounted = true;
+      } else {
+        const attach = () => {
+          if (!overlayMounted) {
+            document.body.appendChild(overlayInstance);
+            overlayMounted = true;
+          }
+        };
+
+        try {
+          document.addEventListener('DOMContentLoaded', attach, { once: true });
+        } catch (err) {
+          document.addEventListener('DOMContentLoaded', attach, false);
+        }
+      }
+    }
+
+    function ensureOverlay() {
+      if (overlayInstance) {
+        mountOverlayIfNeeded();
+        return overlayInstance;
+      }
+
+      const existing = document.getElementById(OVERLAY_ID);
+      if (existing) {
+        overlayInstance = existing;
+        overlayMounted = true;
+        return existing;
+      }
+
+      overlayInstance = createOverlayElement();
+      mountOverlayIfNeeded();
+      return overlayInstance;
+    }
+
+    function resolveElements() {
+      const overlay = ensureOverlay();
+      return {
+        overlay,
+        title: overlay.querySelector('#' + TITLE_ID),
+        detail: overlay.querySelector('#' + DETAIL_ID),
+        tip: overlay.querySelector('#' + TIP_ID),
+        progressWrap: overlay.querySelector('#' + PROGRESS_WRAP_ID),
+        progressBar: overlay.querySelector('#' + PROGRESS_BAR_ID)
+      };
+    }
+
+    function applyState(elements, options, merge) {
+      const state = merge ? Object.assign({}, {
+        title: elements.title.textContent,
+        detail: elements.detail.textContent,
+        tip: elements.tip && !elements.tip.hasAttribute('hidden') ? elements.tip.textContent : '',
+        progress: elements.progressWrap && !elements.progressWrap.hasAttribute('hidden') ? Number(elements.progressBar.style.width.replace('%', '')) : null
+      }, options) : Object.assign({}, DEFAULT_STATE, options || {});
+
+      if (elements.title) {
+        elements.title.textContent = state.title || DEFAULT_STATE.title;
+      }
+
+      if (elements.detail) {
+        elements.detail.textContent = state.detail || DEFAULT_STATE.detail;
+      }
+
+      if (elements.tip) {
+        const hasTip = Boolean(state.tip);
+        elements.tip.textContent = hasTip ? state.tip : '';
+        elements.tip.toggleAttribute('hidden', !hasTip);
+      }
+
+      if (elements.progressWrap && elements.progressBar) {
+        const hasProgress = typeof state.progress === 'number' && !Number.isNaN(state.progress);
+        const constrained = hasProgress ? Math.max(0, Math.min(100, state.progress)) : 0;
+        elements.progressBar.style.width = constrained + '%';
+        elements.progressWrap.toggleAttribute('hidden', !hasProgress);
+      }
+    }
+
+    function show(options) {
+      const elements = resolveElements();
+      applyState(elements, options, false);
+      elements.overlay.classList.add('is-visible');
+      elements.overlay.setAttribute('aria-hidden', 'false');
+      return elements.overlay;
+    }
+
+    function hide(delay) {
+      const elements = resolveElements();
+      const execute = () => {
+        elements.overlay.classList.remove('is-visible');
+        elements.overlay.setAttribute('aria-hidden', 'true');
+        applyState(elements, DEFAULT_STATE, false);
+      };
+
+      if (typeof delay === 'number' && delay > 0) {
+        setTimeout(execute, delay);
+      } else {
+        execute();
+      }
+    }
+
+    function update(options) {
+      if (!options) {
+        return;
+      }
+
+      const elements = resolveElements();
+      if (!elements.overlay.classList.contains('is-visible')) {
+        applyState(elements, options, false);
+        return;
+      }
+
+      applyState(elements, options, true);
+    }
+
+    async function withLoader(promiseOrFunction, options) {
+      show(options);
+      try {
+        if (typeof promiseOrFunction === 'function') {
+          const result = promiseOrFunction();
+          return await Promise.resolve(result);
+        }
+        return await Promise.resolve(promiseOrFunction);
+      } finally {
+        hide();
+      }
+    }
+
+    function isVisible() {
+      const overlay = document.getElementById(OVERLAY_ID);
+      return overlay ? overlay.classList.contains('is-visible') : false;
+    }
+
+    window.LuminaLoader = {
+      show,
+      hide,
+      update,
+      withLoader,
+      isVisible
+    };
+
+    window.showLuminaLoader = show;
+    window.hideLuminaLoader = hide;
+    window.updateLuminaLoader = update;
+  })();
+</script>

@@ -529,55 +529,6 @@
             }
         }
 
-        /* Enhanced Loader */
-        #loaderOverlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: var(--backdrop-blur);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        #loaderOverlay.show {
-            opacity: 1;
-        }
-
-        .modern-spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid transparent;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: modernSpin 1s linear infinite;
-            position: relative;
-        }
-
-        .modern-spinner::before {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            border: 4px solid transparent;
-            border-top: 4px solid #764ba2;
-            border-radius: 50%;
-            animation: modernSpin 1.5s linear infinite reverse;
-        }
-
-        @keyframes modernSpin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         /* Responsive Design */
         @media (max-width: 768px) {
             .modern-page-header {
@@ -666,11 +617,6 @@
     <div class="modern-page-header fade-in">
         <h1><i class="fas fa-shield-alt me-3"></i>Independence Insurance QA Form</h1>
         <p>Comprehensive insurance call quality evaluation and feedback system</p>
-    </div>
-
-    <!-- Enhanced Loader Overlay -->
-    <div id="loaderOverlay">
-        <div class="modern-spinner"></div>
     </div>
 
     <form id="auditForm" class="stagger-animation">
@@ -1172,16 +1118,18 @@
         }
 
         // Enhanced loader functions
-        function showLoader() {
-            const loader = document.getElementById('loaderOverlay');
-            loader.style.display = 'flex';
-            setTimeout(() => loader.classList.add('show'), 10);
+        function showLoader(detail = 'Loading QA evaluation…', tip = 'Please wait while we process your request.') {
+            const loaderApi = window.LuminaLoader;
+            loaderApi?.show({
+                title: 'Processing QA Evaluation',
+                detail,
+                tip,
+                progress: 35
+            });
         }
 
-        function hideLoader() {
-            const loader = document.getElementById('loaderOverlay');
-            loader.classList.remove('show');
-            setTimeout(() => loader.style.display = 'none', 300);
+        function hideLoader(delay = 250) {
+            window.LuminaLoader?.hide(delay);
         }
         
         document.addEventListener('DOMContentLoaded', () => {
@@ -1221,7 +1169,7 @@
             
             form.addEventListener('submit', e => {
                 e.preventDefault();
-                showLoader();
+                showLoader('Uploading and processing...');
                 status.innerHTML = '<i class="fas fa-upload"></i> Uploading and processing...';
 
                 const html = quill.root.innerHTML;
@@ -1251,6 +1199,7 @@
 
                 google.script.run
                     .withSuccessHandler(res => {
+                        window.LuminaLoader?.update({ detail: 'Assessment saved successfully!', progress: 100, tip: 'Refreshing dashboard…' });
                         hideLoader();
                         if (res.success) {
                             status.innerHTML = `
@@ -1266,6 +1215,7 @@
                         }
                     })
                     .withFailureHandler(err => {
+                        window.LuminaLoader?.update({ detail: 'Save failed', tip: err.message });
                         hideLoader();
                         status.innerHTML = `
                             <div style="padding: 1rem; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;">

@@ -154,38 +154,6 @@
       text-decoration: none;
     }
     
-    .alert {
-      border: none;
-      border-radius: 12px;
-      padding: 15px 20px;
-      margin-bottom: 1.5rem;
-      display: none;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .alert.show {
-      display: flex;
-    }
-    
-    .alert-success {
-      background: linear-gradient(135deg, #d4edda, #c3e6cb);
-      color: #155724;
-      border-left: 4px solid #28a745;
-    }
-    
-    .alert-danger {
-      background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-      color: #721c24;
-      border-left: 4px solid #dc3545;
-    }
-    
-    .alert-info {
-      background: linear-gradient(135deg, #d1ecf1, #bee5eb);
-      color: #0c5460;
-      border-left: 4px solid #17a2b8;
-    }
-    
     .help-section {
       margin-top: 2rem;
       padding-top: 1.5rem;
@@ -277,17 +245,17 @@
       </p>
 
       <!-- Alerts -->
-      <div id="successAlert" class="alert alert-success">
+      <div id="successAlert" class="alert alert-modern alert-success d-none" role="alert">
         <i class="fas fa-check-circle"></i>
         <span id="successMessage"></span>
       </div>
 
-      <div id="errorAlert" class="alert alert-danger">
+      <div id="errorAlert" class="alert alert-modern alert-danger d-none" role="alert">
         <i class="fas fa-exclamation-triangle"></i>
         <span id="errorMessage"></span>
       </div>
 
-      <div id="infoAlert" class="alert alert-info">
+      <div id="infoAlert" class="alert alert-modern alert-info d-none" role="alert">
         <i class="fas fa-info-circle"></i>
         <span id="infoMessage"></span>
       </div>
@@ -355,30 +323,36 @@
     const errorMessage = document.getElementById('errorMessage');
     const infoMessage = document.getElementById('infoMessage');
 
+    let alertHideTimer;
+
+    function hideAllAlerts() {
+      [successAlert, errorAlert, infoAlert].forEach(alert => {
+        alert.classList.add('d-none');
+      });
+    }
+
     function showAlert(type, message) {
-      // Hide all alerts
-      successAlert.classList.remove('show');
-      errorAlert.classList.remove('show');
-      infoAlert.classList.remove('show');
-      
-      // Show appropriate alert
+      clearTimeout(alertHideTimer);
+      hideAllAlerts();
+
+      let target;
       if (type === 'success') {
         successMessage.textContent = message;
-        successAlert.classList.add('show');
+        target = successAlert;
       } else if (type === 'info') {
         infoMessage.textContent = message;
-        infoAlert.classList.add('show');
+        target = infoAlert;
       } else {
         errorMessage.textContent = message;
-        errorAlert.classList.add('show');
+        target = errorAlert;
       }
-      
-      // Auto-hide after 8 seconds
-      setTimeout(() => {
-        successAlert.classList.remove('show');
-        errorAlert.classList.remove('show');
-        infoAlert.classList.remove('show');
-      }, 8000);
+
+      if (target) {
+        target.classList.remove('d-none');
+        alertHideTimer = window.setTimeout(() => {
+          target.classList.add('d-none');
+        }, 8000);
+      }
     }
 
     function setLoading(loading) {

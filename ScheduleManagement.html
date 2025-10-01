@@ -352,55 +352,6 @@
         transition: opacity 0.3s ease;
     }
 
-    /* Alert System */
-    .alert-modern {
-        border: none;
-        border-radius: var(--border-radius-sm);
-        padding: var(--spacing-md);
-        border-left: 4px solid;
-        margin-bottom: var(--spacing-md);
-    }
-
-    .alert-success-modern {
-        background: rgba(0, 135, 90, 0.1);
-        border-left-color: var(--success);
-        color: var(--success);
-    }
-
-    .alert-warning-modern {
-        background: rgba(255, 171, 0, 0.1);
-        border-left-color: var(--warning);
-        color: var(--warning);
-    }
-
-    .alert-danger-modern {
-        background: rgba(222, 53, 11, 0.1);
-        border-left-color: var(--danger);
-        color: var(--danger);
-    }
-
-    .alert-info-modern {
-        background: rgba(7, 71, 166, 0.1);
-        border-left-color: var(--info);
-        color: var(--info);
-    }
-
-    /* Floating Notification */
-    .notification-toast {
-        position: fixed;
-        top: 2rem;
-        right: 2rem;
-        z-index: 9999;
-        min-width: 300px;
-        max-width: 400px;
-        transform: translateX(100%);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .notification-toast.show {
-        transform: translateX(0);
-    }
-
     /* Days Selector */
     .days-selector {
         display: flex;
@@ -1589,7 +1540,7 @@
 </div>
 
     <!-- Toast Container -->
-    <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
+    
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -1722,45 +1673,13 @@
             }
 
             showToast(message, type = 'info') {
-                const toastId = 'toast-' + Date.now();
-                const iconMap = {
-                    success: 'check-circle',
-                    danger: 'exclamation-circle',
-                    warning: 'exclamation-triangle',
-                    info: 'info-circle'
-                };
+                if (typeof window.showLuminaToast === 'function') {
+                    window.showLuminaToast(message, type);
+                    return;
+                }
 
-                const bgColorMap = {
-                    success: 'bg-success',
-                    danger: 'bg-danger',
-                    warning: 'bg-warning text-dark',
-                    info: 'bg-info'
-                };
-
-                const toastHtml = `
-                        <div class="toast" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
-                            <div class="toast-header ${bgColorMap[type]} text-white">
-                                <i class="fas fa-${iconMap[type]} me-2"></i>
-                                <strong class="me-auto">LUMINA</strong>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                            </div>
-                            <div class="toast-body">
-                                ${message}
-                            </div>
-                        </div>
-                    `;
-
-                const container = document.getElementById('toastContainer');
-                container.insertAdjacentHTML('afterbegin', toastHtml);
-
-                const toastElement = document.getElementById(toastId);
-                const bsToast = new bootstrap.Toast(toastElement);
-                bsToast.show();
-
-                // Remove from DOM after hiding
-                toastElement.addEventListener('hidden.bs.toast', () => {
-                    toastElement.remove();
-                });
+                console.warn('Lumina toast system unavailable, falling back to browser alert.');
+                window.alert(`[${String(type).toUpperCase()}] ${message}`);
             }
 
             showLoading(show) {
