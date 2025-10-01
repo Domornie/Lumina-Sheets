@@ -166,16 +166,26 @@
     gap: 0.5rem;
   }
 
-  .status-text i {
-    color: #10b981;
-    font-size: 1.1rem;
-  }
+    .status-text i {
+      color: #10b981;
+      font-size: 1.1rem;
+    }
 
-  @keyframes pulse-live {
+    .lumina-entity-placeholder {
+      margin-top: 0.5rem;
+      min-height: 1.25rem;
+    }
 
-    0%,
-    100% {
-      opacity: 1;
+    .lumina-entity-placeholder:empty {
+      margin-top: 0;
+      min-height: 0;
+    }
+
+    @keyframes pulse-live {
+
+      0%,
+      100% {
+        opacity: 1;
       transform: scale(1);
       box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
     }
@@ -1473,6 +1483,7 @@
                   <option value="<?= name ?>" <?= recObj.AgentName===name?'selected':'' ?>><?= name ?></option>
                 <? } ?>
               </select>
+              <div id="agentLoaderHost" class="lumina-entity-placeholder" aria-live="polite"></div>
             </div>
             <div class="form-group">
               <label for="agentEmail">Agent Email</label>
@@ -2362,7 +2373,6 @@
     const sel = document.getElementById('agentName');
     if (!sel) return;
 
-    // Preserve the placeholder option
     const placeholder = sel.querySelector('option[disabled]');
     sel.innerHTML = '';
     if (placeholder) sel.appendChild(placeholder);
@@ -2373,7 +2383,6 @@
       const email = (typeof u === 'object') ? (u?.email || u?.mail || u?.emailAddress || '') : '';
       if (!name) return;
 
-      // Keep userMap in sync
       if (!(name in userMap)) userMap[name] = email || '';
 
       const opt = document.createElement('option');
@@ -2383,7 +2392,6 @@
     });
     sel.appendChild(frag);
 
-    // If the record had an agent preselected, reapply it
     if (recordId && record && record !== '{}') {
       try {
         const rec = JSON.parse(record);
@@ -2394,134 +2402,125 @@
     }
   }
 
-  function hydrateAgentList() {
-    console.log('Starting agent list hydration...');
-    
-    // Check if Google Apps Script is available
-    if (!(window.google && google.script && google.script.run)) {
-      console.warn('google.script.run not available, using fallback');
-      fallbackToStaticUsers();
-      return;
-    }
-
-    // Get campaign ID if available (for campaign-specific agents)
-    const cid = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
-    console.log('Using campaign ID:', cid || 'none');
-
-    // Primary method: Try to get campaign-assigned agents
-    google.script.run
-      .withSuccessHandler(names => {
-        console.log('Received agent names from clientGetAssignedAgentNames:', names);
-        if (!Array.isArray(names) || names.length === 0) { 
-          console.warn('Empty or invalid names payload, falling back to getUsers');
-          fallbackToGetUsers(); 
-          return; 
-        }
-        userList = names;
-        populateAgentSelect(names);
-        console.log('Updated userList from campaign agents:', userList.length, 'agents');
-      })
-      .withFailureHandler(err => {
-        console.warn('clientGetAssignedAgentNames failed:', err);
-        fallbackToGetUsers();
-      })
-      .clientGetAssignedAgentNames(cid);
-
-    function fallbackToGetUsers() {
-      console.log('Falling back to general user list...');
-      google.script.run
-        .withSuccessHandler(users => {
-          console.log('Received users from getUsers:', users);
-          const names = (users || [])
-            .map(u => u.FullName || u.UserName || u.Email || u.name || u.fullName)
-            .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b));
-          
-          if (names.length === 0) {
-            console.warn('No users found from getUsers, trying QA data fallback');
-            fallbackToQAData();
-          } else {
-            userList = names;
-            populateAgentSelect(names);
-            console.log('Updated userList from general users:', userList.length, 'agents');
-          }
-        })
-        .withFailureHandler(err => {
-          console.error('getUsers failed:', err);
-          fallbackToQAData();
-        })
-        .getUsers();
-    }
-
-    function fallbackToQAData() {
-      console.log('Falling back to QA data extraction...');
-      try {
-        // Try to get agents from existing QA data if available
-        if (typeof rawQA !== 'undefined' && Array.isArray(rawQA)) {
-          const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
-          if (qaAgents.length > 0) {
-            userList = qaAgents;
-            populateAgentSelect(qaAgents);
-            console.log('Updated userList from QA data:', userList.length, 'agents');
-            return;
-          }
-        }
-        
-        // Try alternative QA data source
-        google.script.run
-          .withSuccessHandler(qaData => {
-            console.log('Received QA data for agent extraction');
-            if (Array.isArray(qaData) && qaData.length > 0) {
-              const qaAgents = Array.from(new Set(qaData.map(r => r.AgentName || r.agentName).filter(Boolean))).sort();
-              if (qaAgents.length > 0) {
-                userList = qaAgents;
-                populateAgentSelect(qaAgents);
-                console.log('Updated userList from server QA data:', userList.length, 'agents');
-                return;
-              }
-            }
-            fallbackToStaticUsers();
-          })
-          .withFailureHandler(err => {
-            console.warn('QA data fallback failed:', err);
-            fallbackToStaticUsers();
-          })
-          .getAllQA();
-          
-      } catch (e) {
-        console.warn('QA data fallback exception:', e);
-        fallbackToStaticUsers();
-      }
-    }
-
-    function fallbackToStaticUsers() {
-      console.log('Using static/template users as final fallback...');
-      // Use the template-injected users as absolute fallback
-      if (Array.isArray(USERS) && USERS.length > 0) {
-        userList = USERS.slice(); // Make a copy
-        populateAgentSelect(USERS);
-        console.log('Updated userList from template users:', userList.length, 'agents');
-      } else {
-        console.error('No users available from any source');
-        userList = [];
-        populateAgentSelect([]);
-        showToast('Unable to load agent list. Please contact support.', true);
-      }
+  function fallbackToStaticUsers() {
+    console.log('Using static/template users as final fallback...');
+    if (Array.isArray(USERS) && USERS.length > 0) {
+      userList = USERS.slice();
+      populateAgentSelect(USERS);
+      console.log('Updated userList from template users:', userList.length, 'agents');
+    } else {
+      console.error('No users available from any source');
+      userList = [];
+      populateAgentSelect([]);
+      showToast('Unable to load agent list. Please contact support.', true);
     }
   }
 
-  function loadAgentsFromServerIfNeeded() {
+  function extractAgentNamesFromQAData(data) {
+    if (!Array.isArray(data) || data.length === 0) {
+      return [];
+    }
+
+    return Array.from(new Set(
+      data
+        .map(r => (r && (r.AgentName || r.agentName)) || null)
+        .filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b));
+  }
+
+  async function hydrateAgentList(run) {
+    console.log('Starting agent list hydration...');
+
+    const hasRunHelper = typeof run === 'function';
+    const cid = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
+
+    if (!hasRunHelper) {
+      console.warn('google.script.run helper unavailable, using fallback data');
+      const fallback = Array.isArray(USERS) && USERS.length > 0
+        ? USERS.slice()
+        : extractAgentNamesFromQAData(typeof rawQA !== 'undefined' ? rawQA : []);
+
+      if (fallback.length > 0) {
+        userList = fallback;
+        populateAgentSelect(fallback);
+        console.log('Hydrated agent list from fallback data:', userList.length, 'agents');
+        return true;
+      }
+
+      fallbackToStaticUsers();
+      return false;
+    }
+
+    console.log('Using campaign ID:', cid || 'none');
+
+    try {
+      const names = await run('clientGetAssignedAgentNames', cid);
+      if (Array.isArray(names) && names.length > 0) {
+        userList = names;
+        populateAgentSelect(names);
+        console.log('Updated userList from campaign agents:', userList.length, 'agents');
+        return true;
+      }
+      console.warn('Empty campaign agent response, falling back to getUsers');
+    } catch (error) {
+      console.warn('clientGetAssignedAgentNames failed:', error);
+    }
+
+    try {
+      const users = await run('getUsers');
+      const names = (users || [])
+        .map(u => u.FullName || u.UserName || u.Email || u.name || u.fullName)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
+
+      if (names.length > 0) {
+        userList = names;
+        populateAgentSelect(names);
+        console.log('Updated userList from general users:', userList.length, 'agents');
+        return true;
+      }
+      console.warn('No users returned from getUsers, falling back to QA data');
+    } catch (error) {
+      console.error('getUsers failed:', error);
+    }
+
+    const qaTemplateAgents = extractAgentNamesFromQAData(typeof rawQA !== 'undefined' ? rawQA : []);
+    if (qaTemplateAgents.length > 0) {
+      userList = qaTemplateAgents;
+      populateAgentSelect(qaTemplateAgents);
+      console.log('Updated userList from embedded QA data:', userList.length, 'agents');
+      return true;
+    }
+
+    try {
+      const qaData = await run('getAllQA');
+      const qaAgents = extractAgentNamesFromQAData(qaData);
+      if (qaAgents.length > 0) {
+        userList = qaAgents;
+        populateAgentSelect(qaAgents);
+        console.log('Updated userList from server QA data:', userList.length, 'agents');
+        return true;
+      }
+      console.warn('QA data fallback returned no agents');
+    } catch (error) {
+      console.warn('QA data fallback failed:', error);
+    }
+
+    fallbackToStaticUsers();
+    return userList.length > 0;
+  }
+
+  async function loadAgentsFromServerIfNeeded(run) {
     console.log('=== AGENT LOADING PROCESS STARTED ===');
-    
-    // Check if we already have users from server template
+
     if (Array.isArray(USERS) && USERS.length > 0) {
       console.log('Using pre-loaded template users:', USERS.length, 'agents');
+      userList = USERS.slice();
       populateAgentSelect(USERS);
-      return;
+      return true;
     }
-    
-    // Otherwise, use the enhanced hydration method
-    hydrateAgentList();
+
+    return hydrateAgentList(run);
   }
 
   // ============================================================================
@@ -3391,8 +3390,10 @@
 
   function fallbackToBasicAgentList() {
     console.log('Using basic agent list fallback');
-    // Your existing fallback logic
-    hydrateAgentList();
+    const runHelper = (window.LuminaEntityLoader && typeof LuminaEntityLoader.run === 'function' && LuminaEntityLoader.isGoogleScriptAvailable())
+      ? LuminaEntityLoader.run
+      : undefined;
+    hydrateAgentList(runHelper);
   }
 
   function loadAgentsWithEmails() {
@@ -3601,10 +3602,67 @@
       // Setup event listeners
       setupEventListeners();
       
-      // Load agents with enhanced method
-      loadAgentsFromServerIfNeeded();
-      
-      loadAgentsWithEmails
+      const agentLoaderHost = document.getElementById('agentLoaderHost');
+      if (window.LuminaEntityLoader && typeof LuminaEntityLoader.register === 'function' && agentLoaderHost) {
+        LuminaEntityLoader.register({
+          id: 'qualityForm.agentRoster',
+          placeholder: agentLoaderHost,
+          skeleton: { id: 'lumina-inline-spinner', props: { text: 'Loading agent roster…' } },
+          load: async ({ run, mount, removeSkeleton, placeholder }) => {
+            const agentSelect = document.getElementById('agentName');
+            if (!agentSelect) {
+              mount('');
+              return;
+            }
+
+            agentSelect.disabled = true;
+
+            try {
+              const loaded = await loadAgentsFromServerIfNeeded(run);
+              removeSkeleton();
+              placeholder.removeAttribute('data-lumina-entity-error');
+              if (loaded) {
+                mount('');
+              } else {
+                mount('<div class="lumina-entity-status lumina-entity-status--warning">Showing fallback agent roster.</div>');
+              }
+              loadAgentsWithEmails();
+            } catch (error) {
+              console.error('Agent roster load failed:', error);
+              placeholder.setAttribute('data-lumina-entity-error', 'true');
+              fallbackToStaticUsers();
+              mount('<div class="lumina-entity-status lumina-entity-status--error">Unable to reach the server. Using offline roster.</div>');
+              showToast('Unable to load the latest agent roster. Showing fallback list.', true);
+              loadAgentsWithEmails();
+            } finally {
+              agentSelect.disabled = false;
+            }
+          }
+        });
+      } else {
+        const inlineRun = (methodName, ...args) => new Promise((resolve, reject) => {
+          if (!(window.google && google.script && google.script.run)) {
+            reject(new Error('google.script.run is not available.'));
+            return;
+          }
+
+          const runner = google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject);
+
+          if (typeof runner[methodName] !== 'function') {
+            reject(new Error(`google.script.run.${methodName} is not defined.`));
+            return;
+          }
+
+          runner[methodName](...args);
+        });
+
+        loadAgentsFromServerIfNeeded(window.google && google.script && google.script.run ? inlineRun : undefined)
+          .finally(() => {
+            loadAgentsWithEmails();
+          });
+      }
       // Prefill form if record exists
       if (record && record !== '{}') {
         try {

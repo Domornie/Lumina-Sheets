@@ -2,6 +2,16 @@
 
 Call center management system built on Google Apps Script + Google Sheets.
 
+## Frontend lazy-loading harness
+
+- Every layout now includes `EntityLoader.html`, which exposes a global
+  `LuminaEntityLoader` helper for registering async entities with shared
+  skeletons and a promise-based `google.script.run` wrapper.
+- Pilot implementation lives in `QualityForm.html`; additional feature pages can
+  follow the same pattern to hydrate UI fragments once data returns.
+- Refer to [`docs/lazy-loading.md`](docs/lazy-loading.md) for usage examples,
+  skeleton registration, and helper APIs.
+
 ## Trigger maintenance
 
 - `checkRealtimeUpdatesJob()` now self-throttles by default, limiting each run to
