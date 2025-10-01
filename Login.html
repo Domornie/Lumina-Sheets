@@ -18,26 +18,29 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
     :root {
-      --primary-blue: #00AEEF;
-      --primary-dark: #003F87;
-      --success-green: #28a745;
+      --primary-blue: #0478d3;
+      --primary-dark: #035799;
+      --success-green: #1f9254;
       --danger-red: #dc3545;
       --warning-yellow: #ffc107;
       --info-cyan: #17a2b8;
-      --light-gray: #f8f9fa;
+      --light-gray: #f5f7fb;
+      --surface: #ffffff;
+      --surface-muted: #f2f4f9;
+      --border-color: #e2e8f0;
       --border-radius: 16px;
       --border-radius-sm: 12px;
-      --border-radius-lg: 20px;
+      --border-radius-lg: 24px;
       --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-      --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.15);
-      --shadow-2xl: 0 24px 48px rgba(0, 0, 0, 0.18);
-      --text-primary: #1a202c;
-      --text-secondary: #4a5568;
-      --text-muted: #718096;
+      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.12);
+      --shadow-xl: 0 26px 55px rgba(15, 23, 42, 0.16);
+      --shadow-2xl: 0 32px 65px rgba(15, 23, 42, 0.18);
+      --text-primary: #101828;
+      --text-secondary: #475467;
+      --text-muted: #667085;
     }
 
     * {
@@ -50,13 +53,18 @@
       margin: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.6;
-      background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+      background-color: var(--light-gray);
+      background-image:
+        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.85), transparent 55%),
+        radial-gradient(circle at 78% 4%, rgba(255, 255, 255, 0.7), transparent 60%),
+        linear-gradient(180deg, rgba(247, 249, 253, 0.96), rgba(242, 244, 249, 0.98));
       font-size: 15px;
+      color: var(--text-primary);
     }
 
     /* Modern Background with subtle pattern */
     .gradient-bg {
-      background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(244, 246, 252, 0.94) 100%);
       position: relative;
       overflow: hidden;
     }
@@ -64,46 +72,68 @@
     .gradient-bg::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
       background:
-        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 25%),
-        radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 25%);
-      background-size: 100px 100px;
-      animation: float 20s ease-in-out infinite;
+        radial-gradient(circle at top right, rgba(4, 120, 211, 0.14), transparent 55%),
+        radial-gradient(circle at 20% 80%, rgba(3, 87, 153, 0.1), transparent 60%);
+      opacity: 0.25;
     }
 
-    @keyframes float {
+    .form-column {
+      position: relative;
+      padding: 0 3.5rem;
+    }
 
-      0%,
-      100% {
-        transform: translate(0, 0);
-      }
+    .form-column::before {
+      content: '';
+      position: absolute;
+      inset: 12% 8% 14% 12%;
+      background: radial-gradient(circle at top left, rgba(4, 120, 211, 0.12), transparent 65%);
+      filter: blur(85px);
+      opacity: 0.4;
+      pointer-events: none;
+    }
 
-      50% {
-        transform: translate(-10px, -10px);
-      }
+    .right-panel {
+      position: relative;
+      padding: 0 3.5rem;
+    }
+
+    .right-panel::after {
+      content: '';
+      position: absolute;
+      inset: 12% 12% 10% 40%;
+      background: radial-gradient(circle at center, rgba(4, 120, 211, 0.18), transparent 65%);
+      filter: blur(65px);
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .right-panel img {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 520px;
+      filter: drop-shadow(0 35px 45px rgba(15, 23, 42, 0.18));
+      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .right-panel img:hover {
+      transform: translateY(-6px) scale(1.01);
     }
 
     /* Modern Form Container */
     .login-container {
-      backdrop-filter: blur(20px);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(18px);
       border-radius: var(--border-radius-lg);
-      padding: 0 3rem 0 3rem;
-      width: 60%;
+      padding: 3.5rem 3.25rem;
+      width: 100%;
+      max-width: 460px;
       position: relative;
-    }
-
-    .login-container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--primary-blue), var(--primary-dark));
+      border: 1px solid rgba(226, 232, 240, 0.65);
+      box-shadow: var(--shadow-md);
+      z-index: 1;
     }
 
     /* Enhanced Form Controls */
@@ -129,7 +159,7 @@
 
     .form-control:focus {
       border-color: var(--primary-blue);
-      box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.1), var(--shadow-md);
+      box-shadow: 0 0 0 3px rgba(4, 120, 211, 0.12), var(--shadow-md);
       background: #ffffff;
       outline: none;
       transform: translateY(-1px);
@@ -168,7 +198,7 @@
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+      background: var(--primary-blue);
       border: none;
       box-shadow: var(--shadow-md);
       color: white;
@@ -179,16 +209,16 @@
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-lg);
-      background: linear-gradient(135deg, #0099d4, #002d61);
+      background: #0262ad;
     }
 
     .btn-primary:active {
       transform: translateY(0);
-      box-shadow: var(--shadow-md);
+      box-shadow: var(--shadow-sm);
     }
 
     .btn-primary:focus {
-      box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.25), var(--shadow-md);
+      box-shadow: 0 0 0 3px rgba(4, 120, 211, 0.25), var(--shadow-md);
     }
 
     /* Enhanced Password Field */
@@ -212,7 +242,7 @@
     }
 
     .password-toggle:hover {
-      background: rgba(0, 174, 239, 0.1);
+      background: rgba(4, 120, 211, 0.12);
       color: var(--primary-blue);
       transform: translateY(-50%) scale(1.1);
     }
@@ -245,8 +275,8 @@
     /* Enhanced Redirect Section */
     .redirect-section {
       display: none;
-      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-      border: 2px solid var(--success-green);
+      background: rgba(240, 253, 244, 0.9);
+      border: 1px solid rgba(31, 146, 84, 0.35);
       border-radius: var(--border-radius-lg);
       padding: 2.5rem;
       margin-top: 2rem;
@@ -257,109 +287,27 @@
 
     .next-steps-card {
       border-radius: var(--border-radius-lg);
-      border: 1px solid rgba(0, 174, 239, 0.18);
-      background: linear-gradient(135deg, #f6fbff, #ffffff);
-      box-shadow: var(--shadow-md);
-      padding: 1.75rem;
-      margin-bottom: 1.75rem;
-      transition: var(--transition);
-    }
-
-    .next-steps-card[data-tone="warning"] {
-      border-color: rgba(255, 193, 7, 0.35);
-      background: linear-gradient(135deg, #fff8e1, #fff3cd);
-    }
-
-    .next-steps-card[data-tone="success"] {
-      border-color: rgba(40, 167, 69, 0.3);
-      background: linear-gradient(135deg, #ecfdf3, #ffffff);
-    }
-
-    .next-steps-card[data-tone="danger"] {
-      border-color: rgba(220, 53, 69, 0.35);
-      background: linear-gradient(135deg, #fef2f2, #ffffff);
-    }
-
-    .next-steps-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .next-steps-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      color: var(--primary-blue);
-      background: rgba(0, 174, 239, 0.12);
-      transition: var(--transition);
-    }
-
-    .next-steps-icon[data-tone="warning"] {
-      background: rgba(255, 193, 7, 0.18);
-      color: #b68400;
-    }
-
-    .next-steps-icon[data-tone="success"] {
-      background: rgba(40, 167, 69, 0.18);
-      color: #1b7d3e;
-    }
-
-    .next-steps-icon[data-tone="danger"] {
-      background: rgba(220, 53, 69, 0.18);
-      color: #b22534;
-    }
-
-    .next-steps-body {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
-    }
-
-    .next-steps-card .btn {
-      border-radius: var(--border-radius-sm);
-      font-weight: 600;
+      border: 1px solid rgba(4, 120, 211, 0.16);
+      background: rgba(246, 251, 255, 0.92);
       box-shadow: var(--shadow-sm);
-    }
-
-    .next-steps-card .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    @media (max-width: 575.98px) {
-      .next-steps-card .btn {
-        width: 100%;
-      }
-    }
-
-    .next-steps-card {
-      border-radius: var(--border-radius-lg);
-      border: 1px solid rgba(0, 174, 239, 0.18);
-      background: linear-gradient(135deg, #f6fbff, #ffffff);
-      box-shadow: var(--shadow-md);
       padding: 1.75rem;
       margin-bottom: 1.75rem;
       transition: var(--transition);
     }
 
     .next-steps-card[data-tone="warning"] {
-      border-color: rgba(255, 193, 7, 0.35);
-      background: linear-gradient(135deg, #fff8e1, #fff3cd);
+      border-color: rgba(255, 193, 7, 0.28);
+      background: rgba(255, 248, 225, 0.92);
     }
 
     .next-steps-card[data-tone="success"] {
-      border-color: rgba(40, 167, 69, 0.3);
-      background: linear-gradient(135deg, #ecfdf3, #ffffff);
+      border-color: rgba(31, 146, 84, 0.26);
+      background: rgba(236, 253, 243, 0.92);
     }
 
     .next-steps-card[data-tone="danger"] {
-      border-color: rgba(220, 53, 69, 0.35);
-      background: linear-gradient(135deg, #fef2f2, #ffffff);
+      border-color: rgba(220, 53, 69, 0.33);
+      background: rgba(254, 242, 242, 0.92);
     }
 
     .next-steps-header {
@@ -378,22 +326,22 @@
       justify-content: center;
       font-size: 1.4rem;
       color: var(--primary-blue);
-      background: rgba(0, 174, 239, 0.12);
+      background: rgba(4, 120, 211, 0.12);
       transition: var(--transition);
     }
 
     .next-steps-icon[data-tone="warning"] {
-      background: rgba(255, 193, 7, 0.18);
+      background: rgba(255, 193, 7, 0.16);
       color: #b68400;
     }
 
     .next-steps-icon[data-tone="success"] {
-      background: rgba(40, 167, 69, 0.18);
+      background: rgba(31, 146, 84, 0.16);
       color: #1b7d3e;
     }
 
     .next-steps-icon[data-tone="danger"] {
-      background: rgba(220, 53, 69, 0.18);
+      background: rgba(220, 53, 69, 0.16);
       color: #b22534;
     }
 
@@ -436,7 +384,7 @@
     }
 
     .redirect-button {
-      background: linear-gradient(135deg, var(--success-green), #20c997);
+      background: var(--success-green);
       color: #fff;
       padding: 1.25rem 2.5rem;
       border: none;
@@ -456,7 +404,7 @@
       transform: translateY(-3px);
       box-shadow: var(--shadow-xl);
       color: #fff;
-      background: linear-gradient(135deg, #218838, #1e7e34);
+      background: #177644;
     }
 
     .redirect-button:active {
@@ -466,12 +414,12 @@
 
     /* Enhanced Countdown */
     .countdown-display {
-      background: rgba(0, 174, 239, 0.1);
+      background: rgba(4, 120, 211, 0.08);
       border-radius: var(--border-radius);
       padding: 1.5rem;
       margin: 1.5rem 0;
       font-weight: 600;
-      border: 2px solid rgba(0, 174, 239, 0.2);
+      border: 1px solid rgba(4, 120, 211, 0.15);
     }
 
     .countdown-number {
@@ -483,13 +431,18 @@
     /* Logo Enhancement */
     .logo-container {
       margin-bottom: 2.5rem;
-      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .logo-container img {
-      padding-top: 1rem;
+      width: 100%;
+      max-width: clamp(220px, 65vw, 320px);
+      height: auto;
+      padding-top: 0.5rem;
       transition: var(--transition);
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+      filter: drop-shadow(0 12px 20px rgba(15, 23, 42, 0.08));
     }
 
     .logo-container img:hover {
@@ -498,16 +451,53 @@
 
     /* Welcome Text */
     .welcome-text h1 {
-      font-size: 2rem;
+      font-size: 2.25rem;
       font-weight: 700;
       color: var(--text-primary);
       margin-bottom: 0.5rem;
     }
 
     .welcome-text p {
-      font-size: 1rem;
+      font-size: 1.05rem;
       color: var(--text-secondary);
       margin-bottom: 2rem;
+    }
+
+    /* Alert Styling */
+    .alert-modern {
+      border-radius: var(--border-radius-sm);
+      border: none;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(4, 120, 211, 0.08);
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .alert-modern i {
+      font-size: 1.1rem;
+    }
+
+    .alert-modern.alert-success {
+      background: rgba(31, 146, 84, 0.12);
+      color: #1b7d3e;
+    }
+
+    .alert-modern.alert-danger {
+      background: rgba(220, 53, 69, 0.12);
+      color: #b22534;
+    }
+
+    .alert-modern.alert-warning {
+      background: rgba(255, 193, 7, 0.16);
+      color: #9a6b02;
+    }
+
+    .alert-modern.alert-info {
+      background: rgba(4, 120, 211, 0.12);
+      color: var(--primary-dark);
     }
 
     /* Form Animation */
@@ -627,18 +617,25 @@
         display: none;
       }
 
+      .form-column {
+        padding: 0 1.5rem;
+      }
+
+      .form-column::before {
+        display: none;
+      }
+
       .login-container {
         margin: 1rem;
         padding: 2rem;
       }
 
       .logo-container img {
-        max-width: 300px;
-        height: auto;
+        max-width: 260px;
       }
 
       .welcome-text h1 {
-        font-size: 1.75rem;
+        font-size: 2rem;
       }
 
       .redirect-button {
@@ -648,6 +645,10 @@
     }
 
     @media (max-width: 480px) {
+      .form-column {
+        padding: 0;
+      }
+
       .login-container {
         margin: 0.5rem;
         padding: 1.5rem;
@@ -662,7 +663,7 @@
       }
 
       .welcome-text h1 {
-        font-size: 1.5rem;
+        font-size: 1.65rem;
       }
     }
   </style>
@@ -675,18 +676,18 @@
     <div class="row h-100">
 
       <!-- LEFT: Modern Login Form -->
-      <div class="col-md-6 d-flex align-items-center justify-content-center bg-light">
+      <div class="col-md-6 d-flex align-items-center justify-content-center bg-light form-column">
         <div class="login-container">
 
           <!-- Logo Section -->
           <div class="logo-container">
             <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png"
-                 alt="LuminaHQ" class="img-fluid" style="width: 400px; height: auto;" loading="lazy">
+                 alt="LuminaHQ" class="img-fluid" loading="lazy">
           </div>
 
           <div class="welcome-text">
-            <h1>Welcome back!</h1>
-            <p>Sign in to access your dashboard</p>
+            <h1>Welcome back 👋</h1>
+            <p>Sign in to access your LuminaHQ workspace.</p>
           </div>
 
           <!-- Enhanced Alerts -->
@@ -763,7 +764,7 @@
             </div>
             <div class="d-grid mb-3">
               <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
-                <i class="fas fa-sign-in-alt me-2"></i>SIGN IN
+                <i class="fas fa-sign-in-alt me-2"></i>Sign in
               </button>
             </div>
             <div id="feedback" class="text-danger small mb-3"></div>
@@ -787,7 +788,7 @@
       <!-- RIGHT: Illustration -->
       <div class="col-md-6 gradient-bg d-none d-md-flex align-items-center justify-content-center right-panel">
         <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
-             alt="Welcome Illustration" class="img-fluid" style="max-width: 70%; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));" loading="lazy">
+             alt="Welcome Illustration" class="img-fluid" loading="lazy">
       </div>
 
     </div>
