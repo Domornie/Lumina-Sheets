@@ -416,37 +416,6 @@
         background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
     }
 
-    /* Enhanced Loading States */
-    #loaderOverlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(248, 250, 252, 0.9);
-        backdrop-filter: var(--backdrop-blur);
-        z-index: 9999;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .spinner-border {
-        width: 3rem;
-        height: 3rem;
-        border: 3px solid rgba(37, 99, 235, 0.2);
-        border-top: 3px solid var(--primary);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
     /* Enhanced Table Styles */
     .table-responsive {
         background: white;
@@ -772,16 +741,6 @@
         <button id="exportCallCsvBtn" class="btn btn-secondary" title="Download analytics as CSV">
             <i class="fas fa-file-export me-2"></i>Export Analytics
         </button>
-    </div>
-</div>
-
-<!-- Enhanced Loader Overlay -->
-<div id="loaderOverlay">
-    <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-    </div>
-    <div style="color: var(--gray-700); font-weight: 500; font-size: 0.875rem; margin-top: 1rem;">
-        Loading dashboard data...
     </div>
 </div>
 
@@ -1552,17 +1511,23 @@
   
   // Keep the existing loadAnalytics function EXACTLY as it was - this is the server integration
   function loadAnalytics(gran, periodIdentifier, agent) {
-    document.getElementById("loaderOverlay").style.display = "flex";
+    const loaderApi = window.LuminaLoader;
+    loaderApi?.show({
+      title: 'Loading Call Analytics',
+      detail: 'Pulling call metrics and trends…',
+      tip: `Filters: ${gran} • ${agent || 'All agents'}`,
+      progress: 35
+    });
 
     google.script
       .run
       .withFailureHandler(err => {
-        document.getElementById("loaderOverlay").style.display = "none";
+        loaderApi?.hide();
         console.error("Error fetching analytics:", err);
         showToast("Error loading analytics: " + err.message, "danger");
       })
       .withSuccessHandler(result => {
-        document.getElementById("loaderOverlay").style.display = "none";
+        loaderApi?.update({ detail: 'Analytics loaded successfully', progress: 100, tip: 'Refreshing dashboards…' });
         const agentSelect = document.getElementById("agentSelect");
         agentSelect.innerHTML = `<option value="">👥 All Agents</option>`;
         const liveAgents = result.activeAgents;
@@ -1573,10 +1538,11 @@
           opt.textContent = agent;
           if (agent === currentAgent) opt.selected = true;
           agentSelect.appendChild(opt);
-        });    
-            
+        });
+
         renderEverything(result);
         showToast("Dashboard updated successfully", "success");
+        loaderApi?.hide(250);
       })
       .getAnalyticsByPeriod(gran, periodIdentifier, agent);
   }
@@ -1610,11 +1576,8 @@
 
   // Add accessibility enhancements
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const overlay = document.getElementById('loaderOverlay');
-      if (overlay.style.display === 'flex') {
-        // Allow escape to cancel loading if needed
-      }
+    if (e.key === 'Escape' && window.LuminaLoader?.isVisible()) {
+      window.LuminaLoader.hide();
     }
   });
 </script>

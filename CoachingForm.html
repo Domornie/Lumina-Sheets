@@ -391,45 +391,6 @@
     border-top: 1px solid var(--outline);
   }
 
-  /* Enhanced Loading Overlay */
-  #loaderOverlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.95);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(4px);
-  }
-
-  .loading-content {
-    text-align: center;
-    color: #64748b;
-  }
-
-  .spinner-border {
-    width: 3rem;
-    height: 3rem;
-    border: 3px solid var(--outline);
-    border-top-color: var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .loading-text {
-    font-size: 1rem;
-    font-weight: 500;
-  }
-
   /* Enhanced Toast Notifications */
   .toast {
     position: fixed;
@@ -595,14 +556,6 @@
       New Coaching Session
     </h1>
     <p>Document coaching conversations, track progress, and plan follow-up actions</p>
-  </div>
-
-  <!-- Loading Overlay -->
-  <div id="loaderOverlay">
-    <div class="loading-content">
-      <div class="spinner-border"></div>
-      <div class="loading-text">Saving coaching session...</div>
-    </div>
   </div>
 
   <form id="coachingForm">
@@ -968,8 +921,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
-    // Show loading
-    document.getElementById('loaderOverlay').style.display = 'flex';
+    const loaderApi = window.LuminaLoader;
+    loaderApi?.show({
+      title: 'Saving Coaching Session',
+      detail: 'Submitting your updates...',
+      tip: 'Connecting to LuminaHQ',
+      progress: 30
+    });
     
     // Prepare data
     document.getElementById('summaryText').value = summaryQ.root.innerHTML;
@@ -991,7 +949,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     google.script.run
       .withSuccessHandler(response => {
-        document.getElementById('loaderOverlay').style.display = 'none';
+        loaderApi?.update({ detail: 'Coaching session saved successfully!', progress: 100, tip: 'Refreshing session list...' });
+        loaderApi?.hide(300);
         showToast(`Coaching session saved successfully! ID: ${response.id}`, 'success');
         
         // Reset form after successful save
@@ -1000,7 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
       })
       .withFailureHandler(error => {
-        document.getElementById('loaderOverlay').style.display = 'none';
+        loaderApi?.hide();
         showToast(`Error saving session: ${error.message}`, 'error');
         console.error('Save error:', error);
       })

@@ -283,65 +283,6 @@
       }
     }
 
-    /* Unified loader presentation */
-    @keyframes lumina-spin {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-
-    .lumina-loader,
-    div.loading-spinner,
-    span.loading-spinner {
-      display: inline-block;
-      width: 2.75rem;
-      height: 2.75rem;
-      border-radius: 50%;
-      border: 3px solid var(--lumina-primary-light);
-      border-top-color: var(--lumina-primary);
-      animation: lumina-spin 0.9s linear infinite;
-    }
-
-    .lumina-loader-sm,
-    .loading-spinner-sm {
-      width: 1.25rem;
-      height: 1.25rem;
-      border-width: 2px;
-    }
-
-    .lumina-loader-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.4);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-      z-index: 1100;
-    }
-
-    .lumina-loader-overlay.show {
-      display: flex;
-    }
-
-    .lumina-loader-card {
-      background: #ffffff;
-      padding: 2rem;
-      border-radius: var(--lumina-border-radius);
-      box-shadow: var(--lumina-shadow);
-      text-align: center;
-      min-width: 260px;
-    }
-
-    .lumina-loader-card .lumina-loader,
-    .lumina-loader-card .loading-spinner,
-    .lumina-loader-card .lumina-loader-sm,
-    .lumina-loader-card .loading-spinner-sm {
-      margin-bottom: 1rem;
-    }
   </style>
 
   <script>
@@ -1881,6 +1822,7 @@
       }
     }
   </style>
+<?!= include('layoutLoader') ?>
 </head>
 
 <body
