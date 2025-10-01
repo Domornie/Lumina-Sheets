@@ -1,0 +1,436 @@
+<!-- Lumina Entity Loader partial -->
+<script>
+  (function () {
+    if (window.LuminaEntityLoader) {
+      return;
+    }
+
+    const skeletonRegistry = new Map();
+    const entityRegistry = new Map();
+    let autoId = 0;
+
+    function isGoogleScriptAvailable() {
+      return Boolean(window.google && google.script && google.script.run);
+    }
+
+    function runGoogleScript(methodName, ...args) {
+      return new Promise((resolve, reject) => {
+        if (!isGoogleScriptAvailable()) {
+          reject(new Error('google.script.run is not available.'));
+          return;
+        }
+
+        if (!methodName || typeof methodName !== 'string') {
+          reject(new Error('A google.script.run method name is required.'));
+          return;
+        }
+
+        const runner = google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject);
+
+        if (typeof runner[methodName] !== 'function') {
+          reject(new Error(`google.script.run.${methodName} is not defined.`));
+          return;
+        }
+
+        runner[methodName](...args);
+      });
+    }
+
+    function ensureDocumentReady(callback) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => callback(), { once: true });
+      } else {
+        callback();
+      }
+    }
+
+    function toNodeList(value) {
+      if (!value) {
+        return [];
+      }
+
+      if (value instanceof DocumentFragment) {
+        return Array.from(value.childNodes);
+      }
+
+      if (value instanceof Node) {
+        return [value];
+      }
+
+      if (Array.isArray(value)) {
+        return value.reduce((acc, item) => acc.concat(toNodeList(item)), []);
+      }
+
+      const temp = document.createElement('div');
+      temp.innerHTML = String(value);
+      return Array.from(temp.childNodes);
+    }
+
+    function mountContent(target, content, options = {}) {
+      if (!target) {
+        return;
+      }
+
+      const opts = Object.assign({ append: false }, options);
+      if (!opts.append) {
+        target.innerHTML = '';
+      }
+
+      if (content === null || typeof content === 'undefined') {
+        return;
+      }
+
+      const nodes = toNodeList(content);
+      nodes.forEach(node => {
+        if (opts.append) {
+          target.appendChild(node);
+        } else {
+          target.appendChild(node);
+        }
+      });
+    }
+
+    function resolvePlaceholder(entry) {
+      if (entry.placeholder && entry.placeholder.isConnected) {
+        return entry.placeholder;
+      }
+
+      if (entry.placeholderSelector) {
+        const el = document.querySelector(entry.placeholderSelector);
+        if (el) {
+          entry.placeholder = el;
+          return el;
+        }
+      }
+
+      return null;
+    }
+
+    function normalizeSkeletonSpec(spec) {
+      if (!spec) {
+        return null;
+      }
+
+      if (typeof spec === 'string') {
+        return { id: spec, props: {} };
+      }
+
+      if (typeof spec === 'function') {
+        return { renderer: spec, props: {} };
+      }
+
+      if (spec instanceof HTMLTemplateElement) {
+        return {
+          renderer: () => spec.content.cloneNode(true),
+          props: {}
+        };
+      }
+
+      if (spec && typeof spec === 'object') {
+        const normalized = {
+          id: spec.id || null,
+          renderer: typeof spec.renderer === 'function' ? spec.renderer : null,
+          props: spec.props || {}
+        };
+
+        if (!normalized.renderer && typeof spec.markup === 'string') {
+          const markup = spec.markup;
+          normalized.renderer = () => markup;
+        }
+
+        if (!normalized.renderer && typeof spec.templateSelector === 'string') {
+          normalized.renderer = () => {
+            const tpl = document.querySelector(spec.templateSelector);
+            if (tpl && tpl.content) {
+              return tpl.content.cloneNode(true);
+            }
+            return null;
+          };
+        }
+
+        return normalized;
+      }
+
+      return null;
+    }
+
+    function renderSkeleton(entry, placeholder, overrideSpec) {
+      const spec = normalizeSkeletonSpec(overrideSpec || entry.skeleton);
+      if (!spec) {
+        return null;
+      }
+
+      let renderer = spec.renderer;
+      if (!renderer && spec.id && skeletonRegistry.has(spec.id)) {
+        renderer = skeletonRegistry.get(spec.id);
+      }
+
+      if (!renderer) {
+        return null;
+      }
+
+      placeholder.setAttribute('data-lumina-entity-loading', 'true');
+
+      const rendered = renderer({
+        id: entry.id,
+        placeholder,
+        props: spec.props || {},
+        mount: (content, opts) => mountContent(placeholder, content, opts)
+      });
+
+      placeholder.innerHTML = '';
+
+      if (rendered !== null && typeof rendered !== 'undefined') {
+        mountContent(placeholder, rendered, { append: true });
+      }
+
+      return () => {
+        placeholder.removeAttribute('data-lumina-entity-loading');
+        placeholder.innerHTML = '';
+      };
+    }
+
+    function registerSkeleton(id, renderer) {
+      if (!id) {
+        throw new Error('LuminaEntityLoader.attachSkeleton requires an id.');
+      }
+
+      let normalizedRenderer = renderer;
+      if (typeof renderer === 'string') {
+        const markup = renderer;
+        normalizedRenderer = () => markup;
+      } else if (renderer instanceof HTMLTemplateElement) {
+        normalizedRenderer = () => renderer.content.cloneNode(true);
+      } else if (renderer && typeof renderer === 'object' && typeof renderer.templateSelector === 'string') {
+        normalizedRenderer = () => {
+          const tpl = document.querySelector(renderer.templateSelector);
+          return tpl && tpl.content ? tpl.content.cloneNode(true) : null;
+        };
+      }
+
+      if (typeof normalizedRenderer !== 'function') {
+        throw new Error('Skeleton renderer must be a function, string, or template element.');
+      }
+
+      skeletonRegistry.set(id, normalizedRenderer);
+    }
+
+    function runEntityLoad(entry, overrideOptions = {}) {
+      const placeholder = resolvePlaceholder(entry);
+      if (!placeholder) {
+        console.warn(`LuminaEntityLoader: placeholder not found for entity "${entry.id}".`);
+        return Promise.resolve(null);
+      }
+
+      const options = Object.assign({ showSkeleton: true }, overrideOptions);
+      let cleanupSkeleton = null;
+
+      const context = {
+        id: entry.id,
+        placeholder,
+        run: runGoogleScript,
+        mount: (content, opts) => mountContent(placeholder, content, opts),
+        isGoogleScriptAvailable,
+        setLoadingState(isLoading) {
+          if (isLoading) {
+            placeholder.setAttribute('data-lumina-entity-loading', 'true');
+          } else {
+            placeholder.removeAttribute('data-lumina-entity-loading');
+          }
+        },
+        showSkeleton(spec) {
+          if (cleanupSkeleton) {
+            cleanupSkeleton();
+          }
+          cleanupSkeleton = renderSkeleton(entry, placeholder, spec);
+          return () => {
+            if (cleanupSkeleton) {
+              cleanupSkeleton();
+              cleanupSkeleton = null;
+            }
+          };
+        },
+        removeSkeleton() {
+          if (cleanupSkeleton) {
+            cleanupSkeleton();
+            cleanupSkeleton = null;
+          }
+        }
+      };
+
+      context.setLoadingState(true);
+
+      if (options.showSkeleton) {
+        cleanupSkeleton = renderSkeleton(entry, placeholder);
+      }
+
+      if (typeof entry.load !== 'function') {
+        console.warn(`LuminaEntityLoader: entity "${entry.id}" does not have a load() handler.`);
+        context.removeSkeleton();
+        context.setLoadingState(false);
+        return Promise.resolve(null);
+      }
+
+      return Promise.resolve()
+        .then(() => entry.load(context))
+        .then(result => {
+          if (typeof result !== 'undefined') {
+            context.mount(result);
+          }
+          return result;
+        })
+        .catch(error => {
+          console.error(`LuminaEntityLoader: failed to load entity "${entry.id}"`, error);
+          placeholder.setAttribute('data-lumina-entity-error', 'true');
+          throw error;
+        })
+        .finally(() => {
+          context.removeSkeleton();
+          context.setLoadingState(false);
+        });
+    }
+
+    function registerEntity(config) {
+      if (!config || typeof config !== 'object') {
+        throw new Error('LuminaEntityLoader.register requires a configuration object.');
+      }
+
+      const id = config.id || `luminaEntity${++autoId}`;
+
+      const entry = {
+        id,
+        placeholderSelector: config.placeholderSelector || null,
+        placeholder: config.placeholder || null,
+        load: config.load,
+        skeleton: config.skeleton || null,
+        autoStart: config.autoStart !== false
+      };
+
+      entityRegistry.set(id, entry);
+
+      const controller = {
+        id,
+        load(options) {
+          return runEntityLoad(entry, options);
+        },
+        refresh(options) {
+          return runEntityLoad(entry, options);
+        },
+        getPlaceholder() {
+          return resolvePlaceholder(entry);
+        },
+        setSkeleton(spec) {
+          entry.skeleton = spec;
+        }
+      };
+
+      if (entry.autoStart) {
+        ensureDocumentReady(() => runEntityLoad(entry));
+      }
+
+      return controller;
+    }
+
+    function loadEntityById(id, options) {
+      const entry = entityRegistry.get(id);
+      if (!entry) {
+        console.warn(`LuminaEntityLoader: entity "${id}" is not registered.`);
+        return Promise.resolve(null);
+      }
+      return runEntityLoad(entry, options);
+    }
+
+    function loadAllEntities() {
+      const promises = [];
+      entityRegistry.forEach(entry => {
+        promises.push(runEntityLoad(entry));
+      });
+      return Promise.all(promises);
+    }
+
+    function injectBaseStyles() {
+      if (document.getElementById('lumina-entity-loader-styles')) {
+        return;
+      }
+
+      const style = document.createElement('style');
+      style.id = 'lumina-entity-loader-styles';
+      style.textContent = `
+        @keyframes lumina-entity-spinner {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .lumina-entity-skeleton {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.875rem;
+          color: var(--lumina-info, #0ea5e9);
+        }
+
+        .lumina-entity-skeleton--block {
+          display: flex;
+        }
+
+        .lumina-entity-skeleton__spinner {
+          width: 1rem;
+          height: 1rem;
+          border-radius: 50%;
+          border: 2px solid currentColor;
+          border-top-color: transparent;
+          animation: lumina-entity-spinner 0.75s linear infinite;
+        }
+
+        .lumina-entity-status {
+          font-size: 0.8125rem;
+          margin-top: 0.35rem;
+        }
+
+        .lumina-entity-status--warning {
+          color: var(--lumina-warning, #f59e0b);
+        }
+
+        .lumina-entity-status--error {
+          color: var(--lumina-danger, #dc2626);
+        }
+      `;
+
+      document.head.appendChild(style);
+    }
+
+    function registerDefaultSkeletons() {
+      if (skeletonRegistry.has('lumina-inline-spinner')) {
+        return;
+      }
+
+      registerSkeleton('lumina-inline-spinner', ({ props }) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'lumina-entity-skeleton';
+        const spinner = document.createElement('span');
+        spinner.className = 'lumina-entity-skeleton__spinner';
+        spinner.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.className = 'lumina-entity-skeleton__label';
+        label.textContent = props && props.text ? props.text : 'Loading…';
+        wrapper.appendChild(spinner);
+        wrapper.appendChild(label);
+        return wrapper;
+      });
+    }
+
+    injectBaseStyles();
+    registerDefaultSkeletons();
+
+    window.LuminaEntityLoader = {
+      register: registerEntity,
+      attachSkeleton: registerSkeleton,
+      load: loadEntityById,
+      loadAll: loadAllEntities,
+      run: runGoogleScript,
+      isGoogleScriptAvailable
+    };
+  })();
+</script>
