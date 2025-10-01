@@ -804,6 +804,7 @@
     };
 
     const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
+    const SESSION_RESUME_LOADER_DELAY_MS = 500;
 
     function sanitizeBaseUrl(candidate, fallback) {
       const invalidPattern = /usercodeapppanel/i;
@@ -908,7 +909,9 @@
       loginTimeoutFired: false,
       pendingLogin: null,
       autoRetryCount: 0,
-      isAutoRetrying: false
+      isAutoRetrying: false,
+      resumeLoaderTimer: null,
+      resumeLoaderVisible: false
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -989,6 +992,33 @@
         } else {
           elements.loginBtn.classList.remove('btn-loading');
           elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>SIGN IN';
+        }
+      }
+    }
+
+    function scheduleSessionResumeLoader(detailMessage = 'Restoring your previous session…') {
+      if (state.resumeLoaderTimer || state.resumeLoaderVisible) {
+        return;
+      }
+
+      state.resumeLoaderTimer = setTimeout(() => {
+        state.resumeLoaderTimer = null;
+        state.resumeLoaderVisible = true;
+        setLoading(true, detailMessage);
+      }, SESSION_RESUME_LOADER_DELAY_MS);
+    }
+
+    function cancelSessionResumeLoader({ preserveLoader = false } = {}) {
+      if (state.resumeLoaderTimer) {
+        clearTimeout(state.resumeLoaderTimer);
+        state.resumeLoaderTimer = null;
+      }
+
+      if (state.resumeLoaderVisible) {
+        state.resumeLoaderVisible = false;
+
+        if (!preserveLoader && !state.loginRequestActive) {
+          setLoading(false);
         }
       }
     }
@@ -1320,12 +1350,17 @@
       }
 
       console.log('Attempting to resume session from cookie');
-      setLoading(true);
+      scheduleSessionResumeLoader();
+
+      const finalizeResumeAttempt = () => {
+        cancelSessionResumeLoader();
+      };
 
       google.script.run
         .withSuccessHandler(result => {
+          finalizeResumeAttempt();
+
           if (!result || !result.success) {
-            setLoading(false);
             if (result && result.expired) {
               clearAuthCookie();
               showAlert('info', 'Your previous session has expired. Please sign in again.');
@@ -1348,11 +1383,10 @@
           }
 
           hideAllAlerts();
-          setLoading(false);
           setupRedirect(buildPageUrl('dashboard'), resumedUser);
         })
         .withFailureHandler(error => {
-          setLoading(false);
+          finalizeResumeAttempt();
           console.error('Session resume validation failed:', error);
         })
         .keepAlive(cookieToken);
@@ -1521,6 +1555,7 @@
         return;
       }
 
+      cancelSessionResumeLoader({ preserveLoader: true });
       setLoading(true);
       google.script.run
         .withSuccessHandler(result => {
@@ -1547,6 +1582,7 @@
         return;
       }
 
+      cancelSessionResumeLoader({ preserveLoader: true });
       setLoading(true);
       google.script.run
         .withSuccessHandler(result => {
@@ -2610,6 +2646,7 @@
         const rememberMe = elements.rememberMeCheckbox ? elements.rememberMeCheckbox.checked : false;
 
         state.lastEmail = email;
+        cancelSessionResumeLoader({ preserveLoader: true });
         setLoading(true);
 
         persistEmailState(email, rememberMe);
