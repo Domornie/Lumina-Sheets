@@ -55,6 +55,66 @@ const OPTIONAL_USER_COLUMNS = [
   'InsuranceCardReceivedDate'
 ];
 
+const USER_LOG_MAX_DEPTH = 4;
+const USER_LOG_MAX_KEYS = 40;
+
+function _userSanitizeForLog_(value, depth = 0, seen) {
+  if (value === null || value === undefined) return value;
+  const type = typeof value;
+  if (type === 'string' || type === 'number' || type === 'boolean') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (type === 'function') return '[Function]';
+
+  const tracker = seen || new WeakSet();
+  if (depth >= USER_LOG_MAX_DEPTH) {
+    return Array.isArray(value) ? '[Array]' : '[Object]';
+  }
+
+  if (value && typeof value === 'object') {
+    if (tracker.has(value)) return '[Circular]';
+    tracker.add(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, USER_LOG_MAX_KEYS).map(item => _userSanitizeForLog_(item, depth + 1, tracker));
+  }
+
+  if (value && typeof value === 'object') {
+    const out = {};
+    Object.keys(value).slice(0, USER_LOG_MAX_KEYS).forEach(key => {
+      try {
+        out[key] = _userSanitizeForLog_(value[key], depth + 1, tracker);
+      } catch (err) {
+        out[key] = '[Unserializable]';
+      }
+    });
+    return out;
+  }
+
+  try {
+    return String(value);
+  } catch (_) {
+    return '[Unserializable primitive]';
+  }
+}
+
+function _userLog_(label, payload, level) {
+  try {
+    const sanitized = _userSanitizeForLog_(payload);
+    if (level === 'error') {
+      console.error(label, sanitized);
+    } else if (level === 'warn') {
+      console.warn(label, sanitized);
+    } else {
+      console.log(label, sanitized);
+    }
+  } catch (err) {
+    try {
+      console.warn('UserService logging failed', label, err && err.message ? err.message : err);
+    } catch (_) { }
+  }
+}
+
 function clientGetUserSummaries(context) {
   try {
     return getEntitySummaries('users', context);
@@ -1262,9 +1322,14 @@ function clientRegisterUser(userData) {
   try { lock.waitLock(20000); } catch (e) { return { success: false, error: 'System is busy. Please try again.' }; }
 
   try {
+    _userLog_('[clientRegisterUser] invoked', { userData });
     const v = _validateUserInput_(userData);
-    if (!v.ok) return { success: false, error: v.errors.join('; ') };
+    if (!v.ok) {
+      _userLog_('[clientRegisterUser] validation failed', { errors: v.errors }, 'warn');
+      return { success: false, error: v.errors.join('; ') };
+    }
     const data = _normalizeIncoming_(userData);
+    _userLog_('[clientRegisterUser] normalized data', { data });
 
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
@@ -1277,6 +1342,16 @@ function clientRegisterUser(userData) {
 
     const emailKey = _normEmail_(data.email);
     const existing = emailKey ? uniq.byEmail.get(emailKey) : null;
+    if (existing) {
+      _userLog_('[clientRegisterUser] existing record located by email', {
+        existingId: existing.ID,
+        existingUserName: _getUserName_(existing),
+        incomingUserName: data.userName,
+        mergeRequested: data.mergeIfExists
+      });
+    } else {
+      _userLog_('[clientRegisterUser] no existing user for email', { emailKey });
+    }
 
     if (existing) {
       if (data.mergeIfExists === true || String(data.mergeIfExists).toLowerCase() === 'true') {
@@ -1285,7 +1360,12 @@ function clientRegisterUser(userData) {
 
         if (data.userName && _normUser_(data.userName) !== _normUser_(_getUserName_(existing))) {
           const taken = uniq.byUser.has(_normUser_(data.userName));
-          if (taken) return { success: false, error: 'Username already exists' };
+          if (taken) {
+            _userLog_('[clientRegisterUser] merge aborted due to username conflict', {
+              requestedUserName: data.userName
+            }, 'warn');
+            return { success: false, error: 'Username already exists' };
+          }
         }
 
         // recompute benefits if needed
@@ -1348,16 +1428,28 @@ function clientRegisterUser(userData) {
           InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || existing.InsuranceCardReceivedDate || '')
         };
 
+        _userLog_('[clientRegisterUser] merging user payload', { merged });
+
         const row = [];
         Object.keys(idx).forEach(header => {
           row[idx[header]] = (typeof merged[header] !== 'undefined') ? merged[header] : values[rowIndex][idx[header]];
         });
         sh.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
 
-        try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
-        return { success: true, alreadyExisted: true, merged: true, userId: existing.ID, message: 'Existing user merged safely (roles/pages/fields updated).' };
+        try {
+          if (typeof invalidateCache === 'function') {
+            _userLog_('[clientRegisterUser] cache invalidation start (merge)', { sheets: [G.USERS_SHEET] });
+            invalidateCache(G.USERS_SHEET);
+            _userLog_('[clientRegisterUser] cache invalidation complete (merge)', {});
+          }
+        } catch (cacheErr) {
+          _userLog_('[clientRegisterUser] cache invalidation failed (merge)', { error: cacheErr && cacheErr.message }, 'warn');
+        }
+        const mergeResponse = { success: true, alreadyExisted: true, merged: true, userId: existing.ID, message: 'Existing user merged safely (roles/pages/fields updated).' };
+        _userLog_('[clientRegisterUser] merge completed', mergeResponse);
+        return mergeResponse;
       } else {
-        return {
+        const conflictResponse = {
           success: false,
           alreadyExisted: true,
           userId: existing.ID,
@@ -1369,11 +1461,16 @@ function clientRegisterUser(userData) {
             campaignId: existing.CampaignID || ''
           }
         };
+        _userLog_('[clientRegisterUser] merge denied (email conflict)', conflictResponse, 'warn');
+        return conflictResponse;
       }
     }
 
     const userKey = _normUser_(data.userName);
-    if (userKey && uniq.byUser.has(userKey)) return { success: false, error: 'Username already exists' };
+    if (userKey && uniq.byUser.has(userKey)) {
+      _userLog_('[clientRegisterUser] username conflict detected', { requestedUserName: data.userName }, 'warn');
+      return { success: false, error: 'Username already exists' };
+    }
 
     const id = Utilities.getUuid();
     const createdAt = _now_();
@@ -1427,28 +1524,52 @@ function clientRegisterUser(userData) {
       InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || '')
     };
 
+    _userLog_('[clientRegisterUser] new user row prepared', { newUser });
+
     const row = [];
     Object.keys(idx).forEach(header => { row[idx[header]] = (typeof newUser[header] !== 'undefined') ? newUser[header] : ''; });
     sh.appendRow(row);
+    _userLog_('[clientRegisterUser] row appended', { userId: id, rowValues: row });
 
     try {
       if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
+        _userLog_('[clientRegisterUser] setCampaignUserPermissions invoked', {
+          campaignId: data.campaignId,
+          userId: id,
+          permissionLevel: data.permissionLevel,
+          canManageUsers: data.canManageUsers,
+          canManagePages: data.canManagePages
+        });
         setCampaignUserPermissions(data.campaignId, id, String(data.permissionLevel).toUpperCase(),
           _strToBool_(data.canManageUsers), _strToBool_(data.canManagePages));
       }
       if (Array.isArray(data.roles)) {
         try {
           syncUserRoles_(id, normalizedRoleIds, { assignedBy: resolveAssignedBy_() });
+          _userLog_('[clientRegisterUser] syncUserRoles invoked', { userId: id, roles: normalizedRoleIds });
         } catch (syncErr) {
           writeError && writeError('clientRegisterUser:syncUserRoles', syncErr);
+          _userLog_('[clientRegisterUser] syncUserRoles failed', { error: syncErr && syncErr.message }, 'warn');
         }
       }
     } catch (pe) { writeError && writeError('clientRegisterUser:perms/roles', pe); }
 
-    try { invalidateCache && invalidateCache(G.USERS_SHEET); } catch (_) { }
+    try {
+      if (typeof invalidateCache === 'function') {
+        _userLog_('[clientRegisterUser] cache invalidation start', { sheets: [G.USERS_SHEET, G.CAMPAIGN_USER_PERMISSIONS_SHEET] });
+        invalidateCache(G.USERS_SHEET);
+        if (G.CAMPAIGN_USER_PERMISSIONS_SHEET) {
+          invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+        }
+        _userLog_('[clientRegisterUser] cache invalidation complete', {});
+      }
+    } catch (cacheErr) {
+      _userLog_('[clientRegisterUser] cache invalidation failed', { error: cacheErr && cacheErr.message }, 'warn');
+    }
 
     if (data.canLogin && typeof sendPasswordSetupEmail === 'function') {
       try {
+        _userLog_('[clientRegisterUser] sending password setup email', { email: data.email, userId: id });
         sendPasswordSetupEmail(data.email, {
           userName: data.userName,
           fullName: data.fullName || data.userName,
@@ -1467,15 +1588,18 @@ function clientRegisterUser(userData) {
       });
     } catch (nerr) { writeError && writeError('clientRegisterUser:notify', nerr); }
 
-    return {
+    const result = {
       success: true,
       userId: id,
       message: (data.canLogin
         ? `User created. ${(data.pages || []).length} page(s) assigned. Password setup email sent.`
         : `User created. ${(data.pages || []).length} page(s) assigned. Login disabled.`)
     };
+    _userLog_('[clientRegisterUser] success response', result);
+    return result;
 
   } catch (e) {
+    _userLog_('[clientRegisterUser] error', { message: e && e.message, stack: e && e.stack }, 'error');
     writeError && writeError('clientRegisterUser', e);
     return { success: false, error: e.message || String(e) };
   } finally {
@@ -1484,7 +1608,7 @@ function clientRegisterUser(userData) {
 }
 
 function clientUpdateUser(userId, userData) {
-  console.log('Updating user', userId, 'with data:', userData); // Debug log
+  _userLog_('[clientUpdateUser] invoked', { userId, userData });
   
   if (!userId) return { success: false, error: 'User ID is required' };
   
@@ -1504,18 +1628,20 @@ function clientUpdateUser(userId, userData) {
       userData.userName = userData.username;
     }
     
-    console.log('userName after mapping:', userData.userName); // Debug log
+    _userLog_('[clientUpdateUser] username after mapping', { userName: userData.userName });
     
     const v = _validateUserInput_(userData);
     if (!v.ok) {
-      console.error('Update validation failed:', v.errors);
+      _userLog_('[clientUpdateUser] validation failed', { errors: v.errors }, 'warn');
       return { success: false, error: v.errors.join('; ') };
     }
-    
+
     const data = _normalizeIncoming_(userData);
-    
+    _userLog_('[clientUpdateUser] normalized data', { data });
+
     // Additional check for userName after normalization
     if (!data.userName) {
+      _userLog_('[clientUpdateUser] username missing after normalization', { userId }, 'warn');
       return { success: false, error: 'Username is required for update' };
     }
 
@@ -1531,13 +1657,13 @@ function clientUpdateUser(userId, userData) {
 
     const rowIndex = _findRowIndexById_(values, idx, userId);
     if (rowIndex === -1) {
+      _userLog_('[clientUpdateUser] user not found', { userId }, 'warn');
       return { success: false, error: 'User not found in sheet' };
     }
 
-    const current = {}; 
+    const current = {};
     headers.forEach((h, i) => current[h] = values[rowIndex][i]);
-    
-    console.log('Current user data:', current); // Debug log
+    _userLog_('[clientUpdateUser] current row snapshot', { current });
 
     const desiredEmailKey = _normEmail_(data.email);
     const desiredUserKey = _normUser_(data.userName);
@@ -1546,6 +1672,7 @@ function clientUpdateUser(userId, userData) {
     if (desiredEmailKey) {
       const hit = uniq.byEmail.get(desiredEmailKey);
       if (hit && String(hit.ID) !== String(userId)) {
+        _userLog_('[clientUpdateUser] email conflict detected', { conflictingUserId: hit.ID, desiredEmailKey }, 'warn');
         return { success: false, error: 'Email already exists for another user' };
       }
     }
@@ -1554,6 +1681,7 @@ function clientUpdateUser(userId, userData) {
     if (desiredUserKey) {
       const hitU = uniq.byUser.get(desiredUserKey);
       if (hitU && String(hitU.ID) !== String(userId)) {
+        _userLog_('[clientUpdateUser] username conflict detected', { conflictingUserId: hitU.ID, desiredUserKey }, 'warn');
         return { success: false, error: 'Username already exists for another user' };
       }
     }
@@ -1621,8 +1749,7 @@ function clientUpdateUser(userId, userData) {
       InsuranceSignedUp: _boolToStr_(enrolled),
       InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || current['InsuranceCardReceivedDate'] || '')
     };
-
-    console.log('Updated user object:', updated); // Debug log
+    _userLog_('[clientUpdateUser] updated row payload', { updated });
 
     const row = [];
     Object.keys(idx).forEach(header => {
@@ -1630,38 +1757,57 @@ function clientUpdateUser(userId, userData) {
     });
     
     sh.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
-
-    console.log('User updated successfully with userName:', data.userName);
+    _userLog_('[clientUpdateUser] row updated', { userId, userName: data.userName, rowValues: row });
 
     try {
       if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
+        _userLog_('[clientUpdateUser] setCampaignUserPermissions invoked', {
+          campaignId: data.campaignId,
+          userId,
+          permissionLevel: data.permissionLevel,
+          canManageUsers: data.canManageUsers,
+          canManagePages: data.canManagePages
+        });
         setCampaignUserPermissions(data.campaignId, userId, String(data.permissionLevel).toUpperCase(),
           _strToBool_(data.canManageUsers), _strToBool_(data.canManagePages));
       }
     } catch (pe) {
       writeError && writeError('clientUpdateUser:perms', pe);
+      _userLog_('[clientUpdateUser] setCampaignUserPermissions failed', { error: pe && pe.message }, 'warn');
     }
 
     try {
       if (Array.isArray(data.roles)) {
         syncUserRoles_(userId, normalizedRoleIds, { assignedBy: resolveAssignedBy_() });
+        _userLog_('[clientUpdateUser] syncUserRoles invoked', { userId, roles: normalizedRoleIds });
       }
     } catch (roleSyncErr) {
       writeError && writeError('clientUpdateUser:syncUserRoles', roleSyncErr);
+      _userLog_('[clientUpdateUser] syncUserRoles failed', { error: roleSyncErr && roleSyncErr.message }, 'warn');
     }
 
     try {
-      invalidateCache && invalidateCache(G.USERS_SHEET);
-      invalidateCache && invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
-    } catch (_) { }
+      if (typeof invalidateCache === 'function') {
+        _userLog_('[clientUpdateUser] cache invalidation start', { sheets: [G.USERS_SHEET, G.CAMPAIGN_USER_PERMISSIONS_SHEET] });
+        invalidateCache(G.USERS_SHEET);
+        if (G.CAMPAIGN_USER_PERMISSIONS_SHEET) {
+          invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+        }
+        _userLog_('[clientUpdateUser] cache invalidation complete', {});
+      }
+    } catch (cacheErr) {
+      _userLog_('[clientUpdateUser] cache invalidation failed', { error: cacheErr && cacheErr.message }, 'warn');
+    }
 
-    return { 
-      success: true, 
-      message: `User updated successfully with username "${data.userName}". ${(data.pages || []).length} page(s) assigned.` 
+    const response = {
+      success: true,
+      message: `User updated successfully with username "${data.userName}". ${(data.pages || []).length} page(s) assigned.`
     };
+    _userLog_('[clientUpdateUser] success response', { userId, response });
+    return response;
 
   } catch (e) {
-    console.error('clientUpdateUser error:', e);
+    _userLog_('[clientUpdateUser] error', { message: e && e.message, stack: e && e.stack }, 'error');
     writeError && writeError('clientUpdateUser', e);
     return { success: false, error: e.message || String(e) };
   } finally {
