@@ -2594,20 +2594,54 @@ function _campaignNameMap_() {
 }
 
 function _uiUserShape_(u, cmap) {
-  const cid = _normStr_(u.CampaignID || u.campaignId);
+  const primaryCampaignId = _normStr_(u.CampaignID || u.campaignId);
+  const campaignIdsRaw = u.CampaignIds || u.campaignIds || '';
+  const campaignIds = Array.isArray(campaignIdsRaw)
+    ? campaignIdsRaw.filter(Boolean).map(function (val) { return _normStr_(val); })
+    : String(campaignIdsRaw || '')
+        .split(/[,\s]+/)
+        .map(function (part) { return _normStr_(part); })
+        .filter(Boolean);
+
+  const employmentStatus = _normStr_(u.EmploymentStatus || u.employmentStatus || u.Status || '');
+  const department = _normStr_(u.Department || u.department || '');
+  const role = _normStr_(u.Role || u.role || u.PrimaryRole || '');
+  const managerEmail = _normStr_(u.ManagerEmail || u.managerEmail || '');
+  const activeFlag = (typeof u.Active === 'undefined') ? u.active : u.Active;
+  const activeBool = (function (val) {
+    if (typeof val === 'boolean') return val;
+    const str = String(val || '').trim().toLowerCase();
+    if (!str) return false;
+    return str === 'true' || str === 'yes' || str === '1' || str === 'active';
+  })(activeFlag);
+
   return {
     ID: u.ID,
+    id: u.ID,
     UserName: u.UserName,
     FullName: u.FullName,
     name: _normStr_(u.FullName || u.UserName || ''),
     Email: u.Email,
     email: _normStr_(u.Email || ''),
     CampaignID: u.CampaignID,
-    campaignName: cmap[cid] || _normStr_(u.CampaignName || ''),
+    campaignName: cmap[primaryCampaignId] || _normStr_(u.CampaignName || ''),
+    CampaignIds: campaignIds,
+    campaignIds: campaignIds,
     CanLogin: u.CanLogin,
     IsAdmin: u.IsAdmin,
     canLoginBool: _toBool_(u.CanLogin),
     isAdminBool: _toBool_(u.IsAdmin),
+    Active: typeof u.Active === 'undefined' ? u.active : u.Active,
+    active: activeBool,
+    activeBool: activeBool,
+    EmploymentStatus: employmentStatus,
+    employmentStatus: employmentStatus,
+    Department: department,
+    department: department,
+    Role: role,
+    role: role,
+    ManagerEmail: managerEmail,
+    managerEmail: managerEmail,
     roleNames: _tryGetRoleNames_(u.ID),
     pages: []
   };
@@ -2935,14 +2969,31 @@ function getUsersByCampaign(campaignId) {
   }
 }
 
-function getAllUsers() {
+function getAllUsersRaw() {
   try {
     if (typeof readSheet === 'function') {
       return readSheet('Users') || [];
     }
     return [];
   } catch (error) {
-    console.error('Error getting all users:', error);
+    console.error('Error getting raw user list:', error);
+    return [];
+  }
+}
+
+function getAllUsers() {
+  try {
+    if (typeof getUsers === 'function') {
+      const scoped = getUsers();
+      if (Array.isArray(scoped)) {
+        return scoped;
+      }
+    }
+
+    console.warn('getAllUsers: getUsers unavailable or returned invalid data; defaulting to empty list');
+    return [];
+  } catch (error) {
+    console.error('Error getting manager-scoped users:', error);
     return [];
   }
 }

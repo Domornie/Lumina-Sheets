@@ -936,43 +936,48 @@ function clientGetIndependenceCallTypes() {
 /* ---------- Helpers (self-contained, no external dependencies) ---------- */
 
 function readUsers_(ss) {
-  const sh = ss.getSheetByName('Users');
-  if (!sh) return {};
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return {};
+  try {
+    const scopedUsers = (typeof getUsers === 'function') ? (getUsers() || []) : [];
+    const map = {};
 
-  const h = toIndex_(values[0]);
-  const rows = values.slice(1);
-  const map = {};
+    scopedUsers.forEach(user => {
+      if (!user) return;
+      const email = String((user.email || user.Email || '')).trim().toLowerCase();
+      if (!email) return;
 
-  rows.forEach(r => {
-    const email = String(val(r, h, ['Email'])).trim().toLowerCase();
-    if (!email) return;
+      const campaignIds = Array.isArray(user.campaignIds)
+        ? user.campaignIds.filter(Boolean).map(id => String(id))
+        : String(user.CampaignIds || user.campaignIds || user.CampaignID || '')
+            .split(/[,\s]+/)
+            .map(part => part.trim())
+            .filter(Boolean);
 
-    const activeCell = val(r, h, ['Active']);
-    const isActive = activeCell === true ||
-                     String(activeCell).toLowerCase() === 'true' ||
-                     activeCell === 1 ||
-                     String(activeCell).toLowerCase() === 'yes';
+      const activeFlag = typeof user.activeBool === 'boolean'
+        ? user.activeBool
+        : (function (val) {
+            if (typeof val === 'boolean') return val;
+            const str = String(val || '').trim().toLowerCase();
+            if (!str) return false;
+            return str === 'true' || str === 'yes' || str === '1' || str === 'active';
+          })(user.active || user.Active);
 
-    const campaignsRaw = String(val(r, h, ['CampaignIds','CampaignId']) || '');
-    const campaignIds = campaignsRaw
-      ? campaignsRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
-      : [];
+      map[email] = {
+        id: String(user.ID || user.id || '').trim(),
+        name: String(user.FullName || user.UserName || user.name || '').trim() || email,
+        email,
+        department: String(user.Department || user.department || '').trim(),
+        role: String(user.Role || user.role || '').trim(),
+        managerEmail: String(user.ManagerEmail || user.managerEmail || '').trim().toLowerCase(),
+        campaignIds,
+        active: !!activeFlag
+      };
+    });
 
-    map[email] = {
-      id: String(val(r, h, ['UserId','ID']) || '').trim(),
-      name: String(val(r, h, ['Name','FullName']) || '').trim() || email,
-      email,
-      department: String(val(r, h, ['Department']) || '').trim(),
-      role: String(val(r, h, ['Role']) || '').trim(),
-      managerEmail: String(val(r, h, ['ManagerEmail','Manager']) || '').trim().toLowerCase(),
-      campaignIds,
-      active: isActive
-    };
-  });
-
-  return map;
+    return map;
+  } catch (err) {
+    safeWriteError && safeWriteError('readUsers_', err);
+    return {};
+  }
 }
 
 function getAssignedEmails_(ss, managerEmail, campaignId, usersByEmail) {

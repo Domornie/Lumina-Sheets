@@ -1446,64 +1446,56 @@ function clientGetAttendanceUserNamesForManager(managerUserId, opts) {
 
     if (!managerUserId) return [];
 
-    // Get assigned user IDs from UserService
-    const assigned = (typeof clientGetManagedUsers === 'function')
-      ? clientGetManagedUsers(String(managerUserId))
-      : { success: false, users: [] };
-
-    const assignedIds = (assigned && assigned.success && Array.isArray(assigned.users))
-      ? assigned.users.map(u => String(u.ID)).filter(Boolean)
-      : [];
-
-    if (!assignedIds.length) return [];
-
-    // Try identity spreadsheet first
-    let rows = [];
+    let scopedUsers = [];
     try {
-      const ss = getIdentitySpreadsheet();
-      const sh = ss.getSheetByName('Users');
-      if (sh) {
-        const vals = sh.getDataRange().getValues();
-        if (vals.length > 1) {
-          const hdr = vals[0].map(String);
-          const idx = {
-            ID: hdr.indexOf('ID'),
-            FullName: hdr.indexOf('FullName'),
-            UserName: hdr.indexOf('UserName'),
-            EmploymentStatus: hdr.indexOf('EmploymentStatus')
-          };
-          rows = vals.slice(1).map(r => ({
-            ID: (idx.ID >= 0 ? String(r[idx.ID]) : ''),
-            FullName: (idx.FullName >= 0 ? String(r[idx.FullName]) : ''),
-            UserName: (idx.UserName >= 0 ? String(r[idx.UserName]) : ''),
-            EmploymentStatus: (idx.EmploymentStatus >= 0 ? String(r[idx.EmploymentStatus]) : '')
-          }));
-        }
+      if (typeof getUsersByManager === 'function') {
+        scopedUsers = getUsersByManager(String(managerUserId), {
+          includeManager: includeSelf,
+          fallbackToCampaign: true,
+          fallbackToAll: false
+        }) || [];
+      } else if (typeof getUsers === 'function') {
+        scopedUsers = getUsers() || [];
       }
-    } catch (_) { /* fall through */ }
+    } catch (err) {
+      console.warn('clientGetAttendanceUserNamesForManager: getUsersByManager failed:', err);
+      scopedUsers = [];
+    }
 
-    // Fallback to project USERS sheet if identity sheet not available
-    if (!rows.length && typeof readSheet === 'function') {
-      const us = readSheet(G && G.USERS_SHEET ? G.USERS_SHEET : 'Users') || [];
-      rows = us.map(u => ({
-        ID: String(u.ID || ''),
-        FullName: String(u.FullName || ''),
-        UserName: String(u.UserName || ''),
-        EmploymentStatus: String(u.EmploymentStatus || '')
-      }));
+    if (!Array.isArray(scopedUsers) || scopedUsers.length === 0) {
+      return [];
     }
 
     const allowedStatuses = ['Active', 'Probation', 'Contractor', 'Intern'];
-    const assignedSet = new Set(assignedIds);
-    const out = rows
-      .filter(r => assignedSet.has(String(r.ID)))
-      .filter(r => includeSelf || String(r.ID) !== String(managerUserId))
-      .filter(r => !activeOnly || allowedStatuses.includes(String(r.EmploymentStatus || '').trim()))
-      .map(r => String(r[displayCol] || '').trim())
-      .filter(Boolean);
+    const normalizedManagerId = String(managerUserId);
+    const uniqueNames = new Set();
 
-    // Return unique, sorted display names
-    return Array.from(new Set(out)).sort((a, b) => a.localeCompare(b));
+    scopedUsers.forEach(user => {
+      if (!user) return;
+      const userId = String(user.ID || user.id || '');
+      if (!userId) return;
+
+      if (!includeSelf && userId === normalizedManagerId) return;
+
+      if (activeOnly) {
+        const status = String(user.EmploymentStatus || user.employmentStatus || '').trim();
+        if (status && !allowedStatuses.includes(status)) return;
+      }
+
+      const displayValue = String(
+        user[displayCol] ||
+        user.FullName ||
+        user.UserName ||
+        user.name ||
+        ''
+      ).trim();
+
+      if (displayValue) {
+        uniqueNames.add(displayValue);
+      }
+    });
+
+    return Array.from(uniqueNames).sort((a, b) => a.localeCompare(b));
   }, []);
 }
 

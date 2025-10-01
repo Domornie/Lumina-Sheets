@@ -736,7 +736,13 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
 function clientGetAllUsers(requestingUserId) {
   try {
     let users = [];
-    try { users = readSheet(G.USERS_SHEET); } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
+    try {
+      if (typeof getAllUsersRaw === 'function') {
+        users = getAllUsersRaw();
+      } else {
+        users = readSheet(G.USERS_SHEET);
+      }
+    } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
     if (!Array.isArray(users) || users.length === 0) return [];
 
     const enhancedUsers = [];
