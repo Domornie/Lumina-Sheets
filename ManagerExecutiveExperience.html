@@ -357,34 +357,6 @@
     color: var(--text-muted);
   }
 
-  .toast-container {
-    position: fixed;
-    top: 90px;
-    right: 32px;
-    z-index: 1050;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .toast-message {
-    background: var(--surface);
-    border-radius: var(--radius-md);
-    padding: 0.9rem 1.1rem;
-    box-shadow: var(--shadow-sm);
-    border-left: 5px solid var(--navy);
-    min-width: 240px;
-    max-width: 320px;
-    color: var(--text-primary);
-    animation: slideIn 0.35s ease;
-  }
-
-  .toast-message.success { border-left-color: var(--mint); }
-  .toast-message.error { border-left-color: var(--rose); }
-  .toast-message.warning { border-left-color: var(--amber); }
-
-  .toast-message strong { display: block; margin-bottom: 0.25rem; }
-
   @keyframes slideIn {
     from { opacity: 0; transform: translateX(40px); }
     to { opacity: 1; transform: translateX(0); }
@@ -666,8 +638,6 @@
     </div>
   </div>
 </div>
-
-<div class="toast-container" id="toastContainer"></div>
 
 <script>
   const managerExecutiveState = {
@@ -1137,16 +1107,13 @@
   }
 
   function showToast(type, message) {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = 'toast-message ' + type;
-    toast.innerHTML = '<strong>' + (type === 'error' ? 'Action Required' : type === 'success' ? 'Success' : 'Notice') + '</strong>' + escapeHtml(message);
-    container.appendChild(toast);
-    setTimeout(function () {
-      toast.classList.add('fade');
-      toast.style.opacity = '0';
-      setTimeout(function () { container.removeChild(toast); }, 400);
-    }, 3500);
+    if (window.showLuminaToast) {
+      window.showLuminaToast(message, type === 'error' ? 'danger' : type);
+      return;
+    }
+
+    const tone = type === 'error' ? 'DANGER' : String(type || 'info').toUpperCase();
+    window.alert(`[${tone}] ${message}`);
   }
 
   function getSelectedValues(selectId) {

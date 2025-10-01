@@ -459,39 +459,6 @@
             display: block
         }
 
-        /* Toasts */
-        .toast {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
-            color: #fff;
-            padding: 1rem 1.5rem;
-            border-radius: var(--border-radius-sm);
-            box-shadow: var(--shadow-lg);
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all .3s cubic-bezier(.4, 0, .2, 1);
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            min-width: 300px;
-            z-index: 1050
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateX(0)
-        }
-
-        .toast i {
-            font-size: 1.25rem
-        }
-
-        .toast.error {
-            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%)
-        }
-
         /* Empty state */
         .empty-topics {
             text-align: center;
@@ -564,12 +531,7 @@
                 justify-content: center
             }
 
-            .toast {
-                right: 1rem;
-                left: 1rem;
-                bottom: 1rem
             }
-        }
 
         @media (max-width: 480px) {
             .page-header {
@@ -835,11 +797,6 @@
             </div>
         </form>
 
-        <!-- Toast -->
-        <div id="toast" class="toast" role="status" aria-live="assertive">
-            <i class="fas fa-check-circle" aria-hidden="true"></i>
-            <span id="toastMessage">Session saved successfully!</span>
-        </div>
     </div>
 
     <!-- Quill JS -->
@@ -1039,12 +996,13 @@
 
             // Toast utility
             function showToast(message, type = 'success', ms = 4000) {
-                const toast = $('toast'), msg = $('toastMessage'), icon = toast.querySelector('i');
-                msg.textContent = message;
-                toast.className = `toast ${type}`;
-                icon.className = type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), ms);
+                if (window.showLuminaToast) {
+                    window.showLuminaToast(message, type === 'error' ? 'danger' : type);
+                    return;
+                }
+
+                const tone = type === 'error' ? 'ERROR' : String(type || 'info').toUpperCase();
+                window.alert(`[${tone}] ${message}`);
             }
 
             // Validation helper

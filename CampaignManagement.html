@@ -607,24 +607,6 @@
       color: var(--text-muted);
     }
 
-    .toast {
-      position: fixed;
-      top: 2rem;
-      right: 2rem;
-      background: var(--success);
-      color: #fff;
-      padding: 1rem 1.5rem;
-      border-radius: .5rem;
-      font-weight: 500;
-      z-index: 2000;
-      transform: translateX(100%);
-      transition: transform .3s ease;
-    }
-
-    .toast.show {
-      transform: translateX(0);
-    }
-
     .hidden {
       display: none;
     }
@@ -914,8 +896,6 @@
     </div>
   </div>
 
-  <div id="toast" class="toast"><i class="fas fa-check"></i> <span>Icon copied to form!</span></div>
-
   <script>
     function jsq(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
@@ -1021,7 +1001,14 @@
       section.style.display = visible > 0 ? 'block' : 'none';
     });
   }
-  function showToast(msg){ const t=document.getElementById('toast'); t.querySelector('span').textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+  function showToast(msg, type = 'success') {
+    if (window.showLuminaToast) {
+      window.showLuminaToast(msg, type);
+      return;
+    }
+
+    window.alert(`[${String(type).toUpperCase()}] ${msg}`);
+  }
 
   async function loadInitialData(){
     try{

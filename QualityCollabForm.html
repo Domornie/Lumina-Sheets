@@ -113,47 +113,6 @@
         background: #e74a3b;
     }
 
-    .toast {
-        position: fixed;
-        bottom: 1rem;
-        right: 1rem;
-        min-width: 250px;
-        background: #1cc88a;
-        color: #fff;
-        padding: 0.75rem 1rem;
-        border-radius: 4px;
-        box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.1);
-        display: none;
-        z-index: 9999;
-    }
-
-    .toast.error {
-        background: #e74a3b;
-    }
-
-    .toast.show {
-        display: block;
-        animation: fadein 0.5s, fadeout 0.5s 2.5s;
-    }
-
-    @keyframes fadein {
-        from {
-            opacity: 0
-        }
-        to {
-            opacity: 1
-        }
-    }
-
-    @keyframes fadeout {
-        from {
-            opacity: 1
-        }
-        to {
-            opacity: 0
-        }
-    }
-
     /* Summary + Gauge layout */
     .summary-wrapper {
         display: flex;
@@ -542,7 +501,6 @@
       <button type="submit" class="btn">Submit</button>
       <button type="button" id="resetBtn" class="btn btn-reset">Reset</button>
     </div>
-    <div id="toast" class="toast"></div>
   </form>
 </div>
 <!-- Quill JS -->
@@ -634,10 +592,13 @@
     }
 
     function showToast(msg, isErr = false) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.className = 'toast show' + (isErr ? ' error' : '');
-        setTimeout(() => t.classList.remove('show'), 3000);
+        if (window.showLuminaToast) {
+            window.showLuminaToast(msg, isErr ? 'danger' : 'success');
+            return;
+        }
+
+        const tone = isErr ? 'ERROR' : 'SUCCESS';
+        window.alert(`[${tone}] ${msg}`);
     }
 
     function htmlToPlainText(html) {

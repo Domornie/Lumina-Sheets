@@ -699,12 +699,18 @@ function displayTaskList(containerId, tasks, emptyMessage) {
   });
 }
 
-function showLoading(show) {
+function showLoading(show, options = {}) {
+  const loader = window.LuminaLoader;
   if (show) {
+    loader?.show(Object.assign({
+      title: 'Loading Daily Report',
+      detail: 'Gathering tasks and notes…'
+    }, options));
     $('#loadingState').show();
     $('#reportContent').hide();
     $('#emptyState').hide();
   } else {
+    loader?.hide();
     $('#loadingState').hide();
   }
 }

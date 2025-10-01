@@ -906,19 +906,13 @@
     }
 
     function showToast(msg, type) {
-        const container = document.createElement('div');
-        container.className = 'position-fixed bottom-0 end-0 p-3';
-        container.style.zIndex = 'var(--z-toast)';
-        const toastEl = document.createElement('div');
-        toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
-        toastEl.setAttribute('role', 'alert');
-        toastEl.setAttribute('aria-live', 'assertive');
-        toastEl.setAttribute('aria-atomic', 'true');
-        toastEl.innerHTML = `<div class="d-flex"><div class="toast-body fw-medium">${escapeHtml(msg)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-        container.appendChild(toastEl);
-        document.body.appendChild(container);
-        new bootstrap.Toast(toastEl, {delay: 3000}).show();
-        toastEl.addEventListener('hidden.bs.toast', () => container.remove());
+        if (window.showLuminaToast) {
+            window.showLuminaToast(msg, type);
+            return;
+        }
+
+        const tone = String(type || 'info').toUpperCase();
+        window.alert(`[${tone}] ${msg}`);
     }
 
     function renderScopeCell(scope) {

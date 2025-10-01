@@ -1344,18 +1344,29 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function showLoading(show) {
-    // You can implement a loading indicator here
+function showLoading(show, options = {}) {
+    const loader = window.LuminaLoader;
+    if (!loader) {
+        return;
+    }
+
     if (show) {
-        console.log('Loading...');
+        loader.show(Object.assign({
+            title: 'Loading Task Board',
+            detail: 'Fetching the latest tasks…'
+        }, options));
     } else {
-        console.log('Loading complete');
+        loader.hide();
     }
 }
 
 function showSuccess(message) {
-    // Simple alert for now - you can implement a toast notification
-    alert(message);
+    if (window.showLuminaToast) {
+        window.showLuminaToast(message, 'success');
+        return;
+    }
+
+    window.alert(`[SUCCESS] ${message}`);
 }
 
 function showError(message) {
