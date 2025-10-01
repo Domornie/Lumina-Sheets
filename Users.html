@@ -2032,6 +2032,65 @@
     if (timeoutMs > 0) setTimeout(() => host.remove(), timeoutMs);
   }
 
+  // ---------- Primitive guards ----------
+  function coerceToString(value, fallback = '') {
+    const fallbackStr = (typeof fallback === 'string')
+      ? fallback
+      : (fallback === null || fallback === undefined ? '' : String(fallback));
+    if (value === null || value === undefined) return fallbackStr;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? String(value) : fallbackStr;
+    }
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (value instanceof Date) {
+      return isNaN(value.getTime()) ? fallbackStr : value.toISOString();
+    }
+    try {
+      return String(value);
+    } catch (err) {
+      console.warn('coerceToString failed, returning fallback.', err, value);
+      return fallbackStr;
+    }
+  }
+
+  function safeTrim(value, fallback = '') {
+    const str = coerceToString(value, fallback);
+    return (typeof str === 'string') ? str.trim() : '';
+  }
+
+  function safeLower(value, fallback = '') {
+    const trimmed = safeTrim(value, fallback);
+    return trimmed ? trimmed.toLowerCase() : '';
+  }
+
+  function safeArray(value) {
+    if (Array.isArray(value)) {
+      return value.filter(item => item !== null && item !== undefined);
+    }
+    if (value === null || value === undefined) return [];
+    return [value];
+  }
+
+  function readInputValue(id, { trim = false, fallback = '' } = {}) {
+    const element = document.getElementById(id);
+    if (!element) return trim ? safeTrim(fallback) : fallback;
+    const raw = ('value' in element) ? element.value : element.textContent;
+    return trim ? safeTrim(raw, fallback) : coerceToString(raw, fallback);
+  }
+
+  function readCheckboxValue(id, fallback = false) {
+    const element = document.getElementById(id);
+    return element ? !!element.checked : fallback;
+  }
+
+  function readNumberValue(id) {
+    const raw = safeTrim(readInputValue(id));
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   // ---------- Globals ----------
   const DEFAULT_EMPLOYMENT_STATUSES = [
     'Active',
@@ -2078,15 +2137,15 @@
   function updateEmploymentStatusLookup(statuses, aliases) {
     const lookup = new Map();
     (statuses || []).forEach(status => {
-      const label = (status || '').toString().trim();
+      const label = safeTrim(status);
       if (!label) return;
       lookup.set(label.toLowerCase(), label);
     });
     const aliasEntries = (aliases && typeof aliases === 'object') ? Object.entries(aliases) : [];
     aliasEntries.forEach(([alias, canonical]) => {
-      const aliasKey = (alias || '').toString().trim().toLowerCase();
+      const aliasKey = safeLower(alias);
       if (!aliasKey) return;
-      const canonicalLabel = (canonical || '').toString().trim();
+      const canonicalLabel = safeTrim(canonical);
       if (!canonicalLabel) return;
       const resolved = lookup.get(canonicalLabel.toLowerCase()) || canonicalLabel;
       lookup.set(aliasKey, resolved);
@@ -2095,7 +2154,7 @@
   }
 
   function normalizeEmploymentStatusClient(status) {
-    const raw = (status || '').toString().trim();
+    const raw = safeTrim(status);
     if (!raw) return '';
     return employmentStatusLookup.get(raw.toLowerCase()) || raw;
   }
@@ -2143,7 +2202,7 @@
       let statuses = DEFAULT_EMPLOYMENT_STATUSES.slice();
       if (response && response.success && Array.isArray(response.statuses) && response.statuses.length) {
         statuses = response.statuses
-          .map(status => (status || '').toString().trim())
+          .map(status => safeTrim(status))
           .filter(Boolean);
       }
 
@@ -2235,7 +2294,8 @@
     });
 
     $('#userSearch').on('input', function () {
-      userFilters.search = this.value.trim().toLowerCase();
+      const searchValue = (this && ('value' in this)) ? this.value : '';
+      userFilters.search = safeLower(searchValue);
       applyUserFilters();
     });
     $('#filterRole').on('change', function () {
@@ -3024,7 +3084,8 @@
     }
 
     const itemNameEl = document.getElementById('equipmentItemName');
-    if (!itemNameEl || !itemNameEl.value.trim()) {
+    const itemName = readInputValue('equipmentItemName', { trim: true });
+    if (!itemName) {
       showAlert('error', 'Item name is required.');
       if (itemNameEl) itemNameEl.focus();
       return;
@@ -3032,13 +3093,13 @@
 
     const payload = {
       id: currentEquipmentEntryId,
-      itemName: itemNameEl.value.trim(),
-      itemType: document.getElementById('equipmentItemType').value.trim(),
-      serialNumber: document.getElementById('equipmentSerialNumber').value.trim(),
-      condition: document.getElementById('equipmentCondition').value,
-      issuedDate: document.getElementById('equipmentIssuedDate').value,
-      returnedDate: document.getElementById('equipmentReturnedDate').value,
-      notes: document.getElementById('equipmentNotes').value.trim(),
+      itemName: itemName,
+      itemType: readInputValue('equipmentItemType', { trim: true }),
+      serialNumber: readInputValue('equipmentSerialNumber', { trim: true }),
+      condition: readInputValue('equipmentCondition'),
+      issuedDate: readInputValue('equipmentIssuedDate'),
+      returnedDate: readInputValue('equipmentReturnedDate'),
+      notes: readInputValue('equipmentNotes', { trim: true }),
       removePhotoIds: Array.from(equipmentRemovePhotoIds),
       newPhotos: equipmentNewPhotos.map(photo => ({
         name: photo.name,
@@ -3390,14 +3451,14 @@
 
     console.log('Edit user modal opened for:', mappedUserName || userId);
   }
-  function getElementValue(id, defaultValue = '') {
-    const element = document.getElementById(id);
-    if (!element) return defaultValue;
-    return element.value || defaultValue;
-  }
-
   async function saveUserWithPages() {
     const form = document.getElementById('userForm');
+    if (!form) {
+      console.error('saveUserWithPages: user form element missing');
+      showAlert('error', 'Unable to find the user form. Please refresh and try again.');
+      return;
+    }
+
     form.classList.add('was-validated');
 
     const userNameField = document.getElementById('userName');
@@ -3405,8 +3466,8 @@
     if (userNameField) userNameField.classList.remove('is-invalid');
     if (emailField) emailField.classList.remove('is-invalid');
 
-    const userName = userNameField ? userNameField.value.trim() : '';
-    const email = emailField ? emailField.value.trim() : '';
+    const userName = safeTrim(userNameField ? userNameField.value : '');
+    const email = safeTrim(emailField ? emailField.value : '');
 
     console.log('Saving user with username:', userName); // Debug log
 
@@ -3417,8 +3478,10 @@
         userNameField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         userNameField.classList.add('is-invalid');
       }
-      const basicTab = new bootstrap.Tab(document.getElementById('basic-tab'));
-      basicTab.show();
+      const basicTabEl = document.getElementById('basic-tab');
+      if (basicTabEl && typeof bootstrap !== 'undefined' && typeof bootstrap.Tab === 'function') {
+        new bootstrap.Tab(basicTabEl).show();
+      }
       return;
     }
 
@@ -3450,56 +3513,55 @@
       return;
     }
 
-    const selectedCampaigns = Array.from(document.querySelectorAll('.campaign-checkbox:checked')).map(cb => cb.value);
+    const selectedCampaigns = Array.from(document.querySelectorAll('.campaign-checkbox:checked'))
+      .map(cb => safeTrim(cb ? cb.value : ''))
+      .filter(Boolean);
     if (!selectedCampaigns.length) {
       showAlert('error', 'Please select at least one campaign');
-      const campaignTab = new bootstrap.Tab(document.getElementById('campaigns-tab'));
-      campaignTab.show();
+      const campaignTabEl = document.getElementById('campaigns-tab');
+      if (campaignTabEl && typeof bootstrap !== 'undefined' && typeof bootstrap.Tab === 'function') {
+        new bootstrap.Tab(campaignTabEl).show();
+      }
       return;
     }
 
-    const selectedPages = Array.from(document.querySelectorAll('.page-checkbox:checked')).map(cb => cb.value);
+    const selectedPages = Array.from(document.querySelectorAll('.page-checkbox:checked'))
+      .map(cb => safeTrim(cb ? cb.value : ''))
+      .filter(Boolean);
 
-    const getFieldValue = (id, defaultValue = '') => {
-      const element = document.getElementById(id);
-      return element ? (element.value || defaultValue) : defaultValue;
-    };
-    const getFieldChecked = (id, defaultValue = false) => {
-      const element = document.getElementById(id);
-      return element ? element.checked : defaultValue;
-    };
-
-    const insuranceEligibleDate = getFieldValue('insuranceEligibleDate');
+    const insuranceEligibleDate = readInputValue('insuranceEligibleDate');
     const insuranceQualified = insuranceEligibleDate ? (new Date() >= new Date(insuranceEligibleDate)) : false;
-    const normalizedStatus = normalizeEmploymentStatusClient(getFieldValue('employmentStatus').trim());
+    const normalizedStatus = normalizeEmploymentStatusClient(readInputValue('employmentStatus', { trim: true }));
+
+    const rawRoles = (typeof $ === 'function' && $('#roles').length) ? $('#roles').val() : [];
+    const sanitizedRoles = safeArray(rawRoles)
+      .map(role => safeTrim(role))
+      .filter(Boolean);
 
     const payload = {
       userName: userName,
       UserName: userName,
-      fullName: getFieldValue('fullName').trim(),
+      fullName: readInputValue('fullName', { trim: true }),
       email: email,
-      phoneNumber: getFieldValue('phoneNumber').trim(),
+      phoneNumber: readInputValue('phoneNumber', { trim: true }),
       campaignId: selectedCampaigns[0],
-      roles: $('#roles').val() || [],
-      canLogin: getFieldChecked('canLogin'),
-      isAdmin: getFieldChecked('isAdmin'),
+      roles: sanitizedRoles,
+      canLogin: readCheckboxValue('canLogin'),
+      isAdmin: readCheckboxValue('isAdmin'),
       pages: selectedPages,
-      permissionLevel: getFieldValue('permissionLevel'),
-      canManageUsers: getFieldChecked('canManageUsers'),
-      canManagePages: getFieldChecked('canManagePages'),
+      permissionLevel: readInputValue('permissionLevel'),
+      canManageUsers: readCheckboxValue('canManageUsers'),
+      canManagePages: readCheckboxValue('canManagePages'),
       employmentStatus: normalizedStatus,
-      hireDate: getFieldValue('hireDate'),
-      country: getFieldValue('country').trim(),
-      terminationDate: getFieldValue('terminationDate'),
-      probationMonths: (() => {
-        const v = parseInt(getFieldValue('probationMonths'), 10);
-        return isNaN(v) ? null : v;
-      })(),
-      probationEnd: getFieldValue('probationEnd'),
+      hireDate: readInputValue('hireDate'),
+      country: readInputValue('country', { trim: true }),
+      terminationDate: readInputValue('terminationDate'),
+      probationMonths: readNumberValue('probationMonths'),
+      probationEnd: readInputValue('probationEnd'),
       insuranceEligibleDate: insuranceEligibleDate,
       insuranceQualified: insuranceQualified,
-      insuranceEnrolled: getFieldChecked('insuranceEnrolled'),
-      insuranceCardReceivedDate: getFieldValue('insuranceCardReceivedDate')
+      insuranceEnrolled: readCheckboxValue('insuranceEnrolled'),
+      insuranceCardReceivedDate: readInputValue('insuranceCardReceivedDate')
     };
 
     console.log('Save payload:', payload); // Debug log
@@ -3599,7 +3661,11 @@
       const statusMsg = payload.employmentStatus ? ` (${payload.employmentStatus})` : '';
       showAlert('success', `User ${isEditing ? 'updated' : 'created'} successfully${statusMsg} with username "${payload.userName}"`);
 
-      bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+      const userModalEl = document.getElementById('userModal');
+      if (userModalEl && typeof bootstrap !== 'undefined' && typeof bootstrap.Modal !== 'undefined') {
+        const modalInstance = bootstrap.Modal.getInstance(userModalEl);
+        if (modalInstance) modalInstance.hide();
+      }
       loadAllData();
     } catch (err) {
       console.error('Save error:', err);
@@ -4003,7 +4069,7 @@
       .replace(/'/g, '&#039;');
   }
   function getInitials(name) {
-    const parts = String(name || '').trim().split(/\s+/).slice(0, 2);
+    const parts = safeTrim(name).split(/\s+/).slice(0, 2);
     return parts.map(p => p[0]?.toUpperCase() || '').join('') || 'U';
   }
 
