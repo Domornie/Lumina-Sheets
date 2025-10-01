@@ -2338,6 +2338,25 @@
       }
       permissionLevelSelect.disabled = !!isClientMode;
     }
+
+    const employmentFieldIds = [
+      'employmentStatus',
+      'hireDate',
+      'country',
+      'probationMonths',
+      'probationEnd',
+      'terminationDate',
+      'insuranceEligibleDate',
+      'insuranceEnrolled',
+      'insuranceCardReceivedDate'
+    ];
+
+    employmentFieldIds.forEach(id => {
+      const field = document.getElementById(id);
+      if (!field) return;
+      if (id === 'insuranceEnrolled' && isClientMode) field.checked = false;
+      field.disabled = !!isClientMode;
+    });
   }
 
   function enforceClientPageRestrictions(isClientMode) {
