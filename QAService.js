@@ -45,67 +45,23 @@ function qaQuestionText_() {
 function getUserEmail(agentName) {
   try {
     console.log('getUserEmail called with:', agentName);
-    
+
     if (!agentName || typeof agentName !== 'string') {
       return '';
     }
-    
-    // Clean the agent name for comparison
+
     const cleanName = agentName.trim();
-    
-    // Method 1: Try Users sheet directly
+
+    // Method 1: Try getUsers function with improved matching
     try {
-      const ss = getIBTRSpreadsheet();
-      const userSheet = ss.getSheetByName('Users') || 
-                       ss.getSheetByName('Agents') || 
-                       ss.getSheetByName('Agent List');
-      
-      if (userSheet) {
-        const data = userSheet.getDataRange().getValues();
-        const headers = data[0].map(h => String(h).toLowerCase().trim());
-        
-        // Find column indices more flexibly
-        const nameColIndices = headers.reduce((acc, h, i) => {
-          if (h.includes('name') || h.includes('agent')) acc.push(i);
-          return acc;
-        }, []);
-        
-        const emailColIndices = headers.reduce((acc, h, i) => {
-          if (h.includes('email') || h.includes('mail')) acc.push(i);
-          return acc;
-        }, []);
-        
-        // Search through rows
-        for (let i = 1; i < data.length; i++) {
-          for (let nameIdx of nameColIndices) {
-            const cellName = String(data[i][nameIdx] || '').trim();
-            if (cellName === cleanName || cellName.toLowerCase() === cleanName.toLowerCase()) {
-              // Found the name, now get the email
-              for (let emailIdx of emailColIndices) {
-                const email = String(data[i][emailIdx] || '').trim();
-                if (email && email.includes('@')) {
-                  console.log('Email found in sheet:', email);
-                  return email;
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (sheetError) {
-      console.warn('Sheet lookup failed:', sheetError);
-    }
-    
-    // Method 2: Try getUsers function with improved matching
-    try {
-      const users = getUsers();
+      const users = (typeof getUsers === 'function') ? getUsers() : [];
       if (Array.isArray(users) && users.length > 0) {
         // Try exact match first
         let user = users.find(u => {
           const uName = u.FullName || u.UserName || u.name || u.fullName || u.displayName || '';
           return uName === cleanName;
         });
-        
+
         // Try case-insensitive match if exact match fails
         if (!user) {
           user = users.find(u => {
@@ -113,9 +69,9 @@ function getUserEmail(agentName) {
             return uName === cleanName.toLowerCase();
           });
         }
-        
+
         if (user) {
-          const email = user.Email || user.email || user.mail || 
+          const email = user.Email || user.email || user.mail ||
                        user.emailAddress || user.EmailAddress || '';
           if (email) {
             console.log('Email found via getUsers:', email);
@@ -126,19 +82,19 @@ function getUserEmail(agentName) {
     } catch (error) {
       console.warn('getUsers failed:', error);
     }
-    
-    // Method 3: Try QA Records as last resort
+
+    // Method 2: Try QA Records as last resort
     try {
       const qaSheet = getQaSheet_();
       const qaData = qaSheet.getDataRange().getValues();
       const qaHeaders = qaData[0];
-      const agentNameCol = qaHeaders.findIndex(h => 
+      const agentNameCol = qaHeaders.findIndex(h =>
         String(h).toLowerCase().includes('agentname')
       );
-      const agentEmailCol = qaHeaders.findIndex(h => 
+      const agentEmailCol = qaHeaders.findIndex(h =>
         String(h).toLowerCase().includes('agentemail')
       );
-      
+
       if (agentNameCol >= 0 && agentEmailCol >= 0) {
         for (let i = 1; i < qaData.length; i++) {
           if (String(qaData[i][agentNameCol]).trim() === cleanName) {
@@ -153,10 +109,10 @@ function getUserEmail(agentName) {
     } catch (qaError) {
       console.warn('QA lookup failed:', qaError);
     }
-    
+
     console.log('No email found for:', cleanName);
     return '';
-    
+
   } catch (error) {
     console.error('Error in getUserEmail:', error);
     return '';
@@ -167,53 +123,9 @@ function getUsersWithEmails() {
   try {
     const allUsers = [];
     const processedNames = new Set();
-    
-    // Source 1: Users/Agents sheet
+
     try {
-      const ss = getIBTRSpreadsheet();
-      const sheets = ['Users', 'Agents', 'Agent List'];
-      
-      for (const sheetName of sheets) {
-        const sheet = ss.getSheetByName(sheetName);
-        if (!sheet) continue;
-        
-        const data = sheet.getDataRange().getValues();
-        if (data.length < 2) continue;
-        
-        const headers = data[0].map(h => String(h).toLowerCase().trim());
-        const nameIndices = headers.reduce((acc, h, i) => {
-          if (h.includes('name') || h.includes('agent')) acc.push(i);
-          return acc;
-        }, []);
-        
-        const emailIndices = headers.reduce((acc, h, i) => {
-          if (h.includes('email') || h.includes('mail')) acc.push(i);
-          return acc;
-        }, []);
-        
-        for (let i = 1; i < data.length; i++) {
-          for (let nameIdx of nameIndices) {
-            const name = String(data[i][nameIdx] || '').trim();
-            if (!name || processedNames.has(name)) continue;
-            
-            for (let emailIdx of emailIndices) {
-              const email = String(data[i][emailIdx] || '').trim();
-              if (email && email.includes('@')) {
-                allUsers.push({ name: name, email: email });
-                processedNames.add(name);
-                break;
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Sheet processing error:', e);
-    }
-    
-    // Source 2: getUsers function
-    try {
-      const users = getUsers();
+      const users = (typeof getUsers === 'function') ? getUsers() : [];
       if (Array.isArray(users)) {
         users.forEach(u => {
           const name = u.FullName || u.UserName || u.name || u.fullName || '';
@@ -227,13 +139,12 @@ function getUsersWithEmails() {
     } catch (e) {
       console.warn('getUsers error:', e);
     }
-    
-    // Sort by name
+
     allUsers.sort((a, b) => a.name.localeCompare(b.name));
-    
+
     console.log('Found', allUsers.length, 'users with emails');
     return allUsers;
-    
+
   } catch (error) {
     console.error('Error in getUsersWithEmails:', error);
     return [];

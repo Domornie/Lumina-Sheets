@@ -343,48 +343,36 @@ function round2_(n) { return Math.round(n * 100) / 100; }
  */
 function getAllUsers() {
   try {
-    // Try multiple sources for user data
-    let users = [];
-
-    // Method 1: Try to get from Users sheet
-    try {
-      const spreadsheet = getMainSpreadsheet();
-      const usersSheet = spreadsheet.getSheetByName('Users') || spreadsheet.getSheetByName('Agents');
-
-      if (usersSheet) {
-        const data = usersSheet.getDataRange().getValues();
-        const headers = data[0];
-
-        for (let i = 1; i < data.length; i++) {
-          const user = {};
-          headers.forEach((header, index) => {
-            user[header] = data[i][index];
-          });
-
-          // Ensure required fields
-          user.Email = user.Email || user.UserName || `user${i}@company.com`;
-          user.FullName = user.FullName || user.Name || user.Email.split('@')[0];
-          user.CampaignID = user.CampaignID || user.Campaign || 'default';
-          user.Roles = user.Roles || user.Role || 'Agent';
-
-          users.push(user);
-        }
+    if (typeof getUsers === 'function') {
+      const scoped = getUsers();
+      if (Array.isArray(scoped)) {
+        return scoped;
       }
-    } catch (error) {
-      console.warn('Could not load users from sheet:', error);
     }
 
-    // Method 2: Fallback to sample users if no data found
-    if (users.length === 0) {
-      users = getSampleUsers();
-    }
-
-    console.log(`Loaded ${users.length} users`);
-    return users;
-
+    console.warn('DashboardOKRService.getAllUsers: falling back to empty list because getUsers is unavailable');
+    return [];
   } catch (error) {
     console.error('Error in getAllUsers:', error);
-    return getSampleUsers();
+    return [];
+  }
+}
+
+function getAllUsersForOKR() {
+  try {
+    const users = getAllUsers();
+    return users.map(function (user) {
+      return {
+        id: user.ID || user.id || '',
+        email: user.Email || user.email || '',
+        name: user.FullName || user.name || user.UserName || ''
+      };
+    }).filter(function (user) {
+      return user.email && user.name;
+    });
+  } catch (error) {
+    console.error('Error in getAllUsersForOKR:', error);
+    return [];
   }
 }
 

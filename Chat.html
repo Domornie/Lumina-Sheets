@@ -1839,8 +1839,19 @@ function readSheet(name) {
  * Enhanced user management
  */
 function getAllUsers() {
-  setupSheets();
-  return readSheet(USERS_SHEET);
+  try {
+    if (typeof getUsers === 'function') {
+      const scoped = getUsers();
+      if (Array.isArray(scoped)) {
+        return scoped;
+      }
+    }
+  } catch (error) {
+    console.error('Chat.getAllUsers: error retrieving manager-scoped users', error);
+  }
+
+  console.warn('Chat.getAllUsers: getUsers unavailable; returning empty list');
+  return [];
 }
 
 function getUserById(userId) {

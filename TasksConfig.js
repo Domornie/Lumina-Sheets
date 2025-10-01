@@ -473,7 +473,15 @@ function invalidateCache(sheetName) {
  */
 function getAllUsers() {
   try {
-    return readSheet(USERS_SHEET);
+    if (typeof getUsers === 'function') {
+      const scoped = getUsers();
+      if (Array.isArray(scoped)) {
+        return scoped;
+      }
+    }
+
+    console.warn('TasksConfig.getAllUsers: getUsers unavailable; returning empty list');
+    return [];
   } catch (error) {
     console.error('Error getting all users:', error);
     writeError('getAllUsers', error);
