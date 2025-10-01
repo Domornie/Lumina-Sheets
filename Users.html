@@ -480,6 +480,20 @@
         left: 0;
     }
 
+    .page-option.client-allowed {
+        border-color: rgba(14, 165, 233, 0.45);
+        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.2);
+    }
+
+    .page-option.client-restricted {
+        opacity: 0.55;
+        pointer-events: none;
+    }
+
+    .page-option.client-restricted .page-checkbox {
+        pointer-events: none;
+    }
+
     /* Enhanced Employment Badges */
     .employment-info {
         display: flex;
@@ -1131,6 +1145,9 @@
             <button class="btn-modern btn-primary" onclick="showAddUserModal()">
                 <i class="fas fa-plus"></i>Add New User
             </button>
+            <button class="btn-modern btn-outline-primary" onclick="showAddClientModal()">
+                <i class="fas fa-user-tie"></i>Add New Client
+            </button>
             <button class="btn-modern btn-secondary" onclick="refreshUsers()">
                 <i class="fas fa-sync"></i>Refresh
             </button>
@@ -1781,6 +1798,7 @@
                                         </label>
                                         <select class="form-control form-select" id="permissionLevel">
                                             <option value="USER">User - Basic access</option>
+                                            <option value="GUEST">Guest - Restricted client access</option>
                                             <option value="MANAGER">Manager - Can manage team members</option>
                                             <option value="ADMIN">Administrator - Full campaign control</option>
                                         </select>
@@ -2131,6 +2149,11 @@
     return trimmed ? trimmed.toLowerCase() : '';
   }
 
+  function normalizeClientIdentifier(value) {
+    const lowered = safeLower(value);
+    return lowered ? lowered.replace(/[^a-z0-9]+/g, '') : '';
+  }
+
   function safeArray(value) {
     if (Array.isArray(value)) {
       return value.filter(item => item !== null && item !== undefined);
@@ -2191,6 +2214,14 @@
     'Consultant'
   ];
 
+  const CLIENT_ALLOWED_FEATURES = [
+    { name: 'Call Reports', identifiers: ['callreports'] },
+    { name: 'Quality Dashboard', identifiers: ['qualitydashboard', 'qadashboard', 'unifiedqadashboard', 'ibtrqualityreports'] },
+    { name: 'Coaching', identifiers: ['coaching', 'coachingdashboard', 'coachinglist', 'coachingview', 'coachings', 'coachingsheet'] },
+    { name: 'Attendance Report', identifiers: ['attendancereport', 'attendancereports'] },
+    { name: 'Schedule', identifiers: ['schedule', 'schedulemanagement', 'agentschedule'] }
+  ];
+
   let allUsers = [];
   let allPages = [];
   let campaigns = [];
@@ -2212,6 +2243,160 @@
   let equipmentNewPhotos = [];
   let equipmentRemovePhotoIds = new Set();
   const EQUIPMENT_PHOTO_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB per photo
+  let isClientCreationMode = false;
+  let lastClientFeatureWarning = '';
+  let guestRoleWarningShown = false;
+
+  function resolveClientAllowedPageData() {
+    const allowedKeys = new Set();
+    const normalizedAllowed = new Set();
+    const missingFeatures = [];
+    const pages = Array.isArray(allPages) ? allPages : [];
+
+    CLIENT_ALLOWED_FEATURES.forEach(feature => {
+      let matched = false;
+      pages.forEach(page => {
+        const normalizedKey = normalizeClientIdentifier(page && page.key);
+        const normalizedTitle = normalizeClientIdentifier(page && page.title);
+        if (!normalizedKey && !normalizedTitle) return;
+        const isMatch = feature.identifiers.some(identifier => identifier === normalizedKey || identifier === normalizedTitle);
+        if (isMatch) {
+          if (page && page.key) allowedKeys.add(page.key);
+          if (normalizedKey) normalizedAllowed.add(normalizedKey);
+          if (normalizedTitle) normalizedAllowed.add(normalizedTitle);
+          matched = true;
+        }
+      });
+      if (!matched) missingFeatures.push(feature.name);
+    });
+
+    return { allowedKeys, normalizedAllowed, missingFeatures };
+  }
+
+  function getGuestRoleId() {
+    if (!Array.isArray(roles) || !roles.length) return null;
+    const match = roles.find(role => safeLower(role?.Name || role?.name) === 'guest');
+    return match ? (match.ID || match.id || null) : null;
+  }
+
+  function applyClientRoleSelection() {
+    if (!isClientCreationMode) return;
+    if (!Array.isArray(roles) || !roles.length) return;
+
+    const guestRoleId = getGuestRoleId();
+    if (!guestRoleId) {
+      if (!guestRoleWarningShown) {
+        showAlert('warning', 'Guest role not found. Please create a Guest role to add client accounts.');
+        guestRoleWarningShown = true;
+      }
+      return;
+    }
+
+    guestRoleWarningShown = false;
+
+    if (typeof $ === 'function' && $('#roles').length) {
+      $('#roles').val([guestRoleId]).trigger('change');
+    } else {
+      const roleSelect = document.getElementById('roles');
+      if (roleSelect) roleSelect.value = guestRoleId;
+    }
+  }
+
+  function setClientModeUIState(isClientMode) {
+    const roleSelect = document.getElementById('roles');
+    if (roleSelect) roleSelect.disabled = !!isClientMode;
+    if (typeof $ === 'function' && $('#roles').length) {
+      $('#roles').prop('disabled', !!isClientMode);
+      $('#roles').trigger('change.select2');
+      $('#roles').trigger('change');
+    }
+
+    const adminCheckbox = document.getElementById('isAdmin');
+    if (adminCheckbox) {
+      if (isClientMode) adminCheckbox.checked = false;
+      adminCheckbox.disabled = !!isClientMode;
+    }
+
+    const manageUsersCheckbox = document.getElementById('canManageUsers');
+    if (manageUsersCheckbox) {
+      if (isClientMode) manageUsersCheckbox.checked = false;
+      manageUsersCheckbox.disabled = !!isClientMode;
+    }
+
+    const managePagesCheckbox = document.getElementById('canManagePages');
+    if (managePagesCheckbox) {
+      if (isClientMode) managePagesCheckbox.checked = false;
+      managePagesCheckbox.disabled = !!isClientMode;
+    }
+
+    const permissionLevelSelect = document.getElementById('permissionLevel');
+    if (permissionLevelSelect) {
+      if (isClientMode) {
+        permissionLevelSelect.value = 'GUEST';
+      } else if (!permissionLevelSelect.value || permissionLevelSelect.value === 'GUEST') {
+        permissionLevelSelect.value = 'USER';
+      }
+      permissionLevelSelect.disabled = !!isClientMode;
+    }
+  }
+
+  function enforceClientPageRestrictions(isClientMode) {
+    const container = document.getElementById('pageAssignmentContainer');
+    if (!container) return { allowedKeys: new Set(), missingFeatures: [] };
+
+    const options = container.querySelectorAll('.page-option');
+    if (!options.length) return { allowedKeys: new Set(), missingFeatures: [] };
+
+    if (!isClientMode) {
+      options.forEach(option => {
+        option.classList.remove('client-allowed', 'client-restricted');
+        const checkbox = option.querySelector('.page-checkbox');
+        if (checkbox) checkbox.disabled = false;
+      });
+      updatePageStats();
+      lastClientFeatureWarning = '';
+      return { allowedKeys: new Set(), missingFeatures: [] };
+    }
+
+    if (!Array.isArray(allPages) || !allPages.length) {
+      return { allowedKeys: new Set(), missingFeatures: [] };
+    }
+
+    const data = resolveClientAllowedPageData();
+    const allowedNormalized = data.normalizedAllowed;
+
+    options.forEach(option => {
+      const checkbox = option.querySelector('.page-checkbox');
+      if (!checkbox) return;
+      const normalizedValue = normalizeClientIdentifier(checkbox.value || option.getAttribute('data-page-key') || '');
+      const allowed = allowedNormalized.has(normalizedValue);
+      if (allowed) {
+        checkbox.checked = true;
+        checkbox.disabled = false;
+        option.classList.add('client-allowed');
+        option.classList.remove('client-restricted');
+      } else {
+        checkbox.checked = false;
+        checkbox.disabled = true;
+        option.classList.remove('client-allowed');
+        option.classList.add('client-restricted');
+      }
+    });
+
+    updatePageStats();
+
+    if (data.missingFeatures.length) {
+      const warningKey = data.missingFeatures.slice().sort().join('|');
+      if (warningKey !== lastClientFeatureWarning) {
+        showAlert('warning', `Some client features are unavailable: ${data.missingFeatures.join(', ')}. Ensure these pages are discovered.`);
+        lastClientFeatureWarning = warningKey;
+      }
+    } else {
+      lastClientFeatureWarning = '';
+    }
+
+    return data;
+  }
 
   // ---------- Employment status utilities ----------
   function updateEmploymentStatusLookup(statuses, aliases) {
@@ -2364,6 +2549,15 @@
       document.getElementById('saveManagerBtn').style.display = 'none';
     });
 
+    const userModalEl = document.getElementById('userModal');
+    if (userModalEl) {
+      userModalEl.addEventListener('hidden.bs.modal', () => {
+        isClientCreationMode = false;
+        setClientModeUIState(false);
+        enforceClientPageRestrictions(false);
+      });
+    }
+
     $('#filterRole').select2({ theme: 'bootstrap-5', placeholder: 'Filter by role', allowClear: true, width: '100%' });
     $('#filterCampaign').select2({ theme: 'bootstrap-5', placeholder: 'Filter by campaign', allowClear: true, width: '100%' });
 
@@ -2467,6 +2661,7 @@
     allPages = pages || [];
     populatePageAssignmentOptions();
     updatePageStats();
+    enforceClientPageRestrictions(isClientCreationMode);
     if (!allPages.length) showAlert('warning', 'No pages discovered. Check routing or run discovery.');
   }
   function handleCampaignsLoaded(list) {
@@ -2481,6 +2676,10 @@
       const name = r.Name || r.name;
       if (id && name) sel.append(`<option value="${id}">${escapeHtml(name)}</option>`);
     });
+    if (isClientCreationMode) {
+      applyClientRoleSelection();
+      setClientModeUIState(true);
+    }
   }
 
   // ---------- Pages (auto discovery) ----------
@@ -2563,6 +2762,7 @@
         allPages = pages || [];
         populatePageAssignmentOptions();
         updatePageStats();
+        enforceClientPageRestrictions(isClientCreationMode);
         showAlert('success', 'Page discovery refreshed.');
         // If modal open, refresh content
         const modalEl = document.getElementById('pageInfoModal');
@@ -3361,49 +3561,67 @@
   }
 
   // ---------- CRUD ----------
-  function showAddUserModal() {
+  function showAddUserModal(options = {}) {
+    const opts = options || {};
+    isClientCreationMode = !!opts.clientMode;
+
     currentEditingUserId = null;
     currentEditingManagerId = null;
 
-    document.getElementById('userModalTitle').textContent = 'Add New User';
-    document.getElementById('saveButtonText').textContent = 'Create User';
+    const modalTitleEl = document.getElementById('userModalTitle');
+    if (modalTitleEl) modalTitleEl.textContent = isClientCreationMode ? 'Add New Client' : 'Add New User';
+    const saveButtonEl = document.getElementById('saveButtonText');
+    if (saveButtonEl) saveButtonEl.textContent = isClientCreationMode ? 'Create Client' : 'Create User';
 
-    // Reset form
-    document.getElementById('userForm').reset();
-    document.getElementById('userForm').classList.remove('was-validated');
+    const userForm = document.getElementById('userForm');
+    if (userForm) {
+      userForm.reset();
+      userForm.classList.remove('was-validated');
+    }
 
-    // Clear selections
     $('#roles').val(null).trigger('change');
     document.querySelectorAll('.campaign-checkbox').forEach(cb => cb.checked = false);
     document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = false);
 
-    // Reset equipment manager
     prepareEquipmentTabForNewUser();
 
-    // Reset UI elements
     updatePageStats();
     setEligibilityPill(false);
     updateUserSheetDataCard(null);
 
-    // Hide manager tab for new users
-    document.getElementById('manage-users-tab').style.display = 'none';
-    document.getElementById('saveManagerBtn').style.display = 'none';
+    const manageTab = document.getElementById('manage-users-tab');
+    if (manageTab) manageTab.style.display = 'none';
+    const saveManagerBtn = document.getElementById('saveManagerBtn');
+    if (saveManagerBtn) saveManagerBtn.style.display = 'none';
 
-    // Set default values
-    document.getElementById('canLogin').checked = true;
-    document.getElementById('probationMonths').value = '3';
+    const canLoginCheckbox = document.getElementById('canLogin');
+    if (canLoginCheckbox) canLoginCheckbox.checked = true;
+    const probationInput = document.getElementById('probationMonths');
+    if (probationInput) probationInput.value = '3';
 
-    // Recompute dates
+    setClientModeUIState(false);
+    enforceClientPageRestrictions(false);
+
+    if (isClientCreationMode) {
+      applyClientRoleSelection();
+      setClientModeUIState(true);
+      enforceClientPageRestrictions(true);
+      showAlert('info', 'Client accounts are limited to Call Reports, Quality Dashboard, Coaching, Attendance Report, and Schedule.');
+    }
+
     recomputeEmploymentDates();
 
-    // Show modal
-    new bootstrap.Modal(document.getElementById('userModal')).show();
+    const modalEl = document.getElementById('userModal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
 
-    // Focus on username field
     setTimeout(() => {
       const userNameField = document.getElementById('userName');
       if (userNameField) userNameField.focus();
     }, 300);
+  }
+
+  function showAddClientModal() {
+    showAddUserModal({ clientMode: true });
   }
 
   function editUserWithPages(userId) {
@@ -3411,6 +3629,10 @@
     if (!u) return showAlert('error', 'User not found');
 
     console.log('Editing user:', u); // Debug log
+
+    isClientCreationMode = false;
+    setClientModeUIState(false);
+    enforceClientPageRestrictions(false);
 
     currentEditingUserId = userId;
     currentEditingManagerId = userId;
@@ -3652,10 +3874,27 @@
     const normalizedStatus = normalizeEmploymentStatusClient(readInputValue('employmentStatus', { trim: true }));
 
     const rawRoles = (typeof $ === 'function' && $('#roles').length) ? $('#roles').val() : [];
-    const sanitizedRoles = safeArray(rawRoles)
+    let sanitizedRoles = safeArray(rawRoles)
       .map(role => safeTrim(role))
       .filter(Boolean);
     logGroup('saveUserWithPages: roles selection', safeForLog({ rawRoles, sanitizedRoles }));
+
+    if (isClientCreationMode) {
+      const guestRoleId = getGuestRoleId();
+      if (!guestRoleId) {
+        showAlert('error', 'Guest role not found. Please create a Guest role before adding a client.');
+        return;
+      }
+      const clientPagesData = resolveClientAllowedPageData();
+      const enforcedPages = Array.from(clientPagesData.allowedKeys);
+      if (!enforcedPages.length) {
+        showAlert('error', 'Client pages are unavailable. Ensure Call Reports, Quality Dashboard, Coaching, Attendance Report, and Schedule are discovered.');
+        return;
+      }
+      selectedPages = enforcedPages;
+      sanitizedRoles = [guestRoleId];
+      logGroup('saveUserWithPages: client enforcement applied', safeForLog({ enforcedPages, sanitizedRoles }));
+    }
 
     const payload = {
       userName: userName,
@@ -3682,6 +3921,14 @@
       insuranceEnrolled: readCheckboxValue('insuranceEnrolled'),
       insuranceCardReceivedDate: readInputValue('insuranceCardReceivedDate')
     };
+
+    if (isClientCreationMode) {
+      payload.roles = sanitizedRoles;
+      payload.permissionLevel = 'GUEST';
+      payload.canManageUsers = false;
+      payload.canManagePages = false;
+      payload.isAdmin = false;
+    }
 
     console.groupCollapsed('saveUserWithPages: payload snapshot');
     console.log('Payload', payload);
