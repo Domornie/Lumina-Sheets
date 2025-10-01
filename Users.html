@@ -3462,7 +3462,12 @@
 
     const getFieldValue = (id, defaultValue = '') => {
       const element = document.getElementById(id);
-      return element ? (element.value || defaultValue) : defaultValue;
+      return element ? (element.value ?? defaultValue) : defaultValue;
+    };
+    const getTrimmedValue = (id, defaultValue = '') => {
+      const raw = getFieldValue(id, defaultValue);
+      if (raw === undefined || raw === null) return '';
+      return raw.toString().trim();
     };
     const getFieldChecked = (id, defaultValue = false) => {
       const element = document.getElementById(id);
@@ -3471,14 +3476,14 @@
 
     const insuranceEligibleDate = getFieldValue('insuranceEligibleDate');
     const insuranceQualified = insuranceEligibleDate ? (new Date() >= new Date(insuranceEligibleDate)) : false;
-    const normalizedStatus = normalizeEmploymentStatusClient(getFieldValue('employmentStatus').trim());
+    const normalizedStatus = normalizeEmploymentStatusClient(getTrimmedValue('employmentStatus'));
 
     const payload = {
       userName: userName,
       UserName: userName,
-      fullName: getFieldValue('fullName').trim(),
+      fullName: getTrimmedValue('fullName'),
       email: email,
-      phoneNumber: getFieldValue('phoneNumber').trim(),
+      phoneNumber: getTrimmedValue('phoneNumber'),
       campaignId: selectedCampaigns[0],
       roles: $('#roles').val() || [],
       canLogin: getFieldChecked('canLogin'),
@@ -3489,7 +3494,7 @@
       canManagePages: getFieldChecked('canManagePages'),
       employmentStatus: normalizedStatus,
       hireDate: getFieldValue('hireDate'),
-      country: getFieldValue('country').trim(),
+      country: getTrimmedValue('country'),
       terminationDate: getFieldValue('terminationDate'),
       probationMonths: (() => {
         const v = parseInt(getFieldValue('probationMonths'), 10);
