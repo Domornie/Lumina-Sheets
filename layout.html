@@ -130,57 +130,90 @@
       --lumina-surface: #ffffff;
       --lumina-border-radius: 12px;
       --lumina-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+
+      /* Shared alert + spacing tokens */
+      --border-radius-sm: 12px;
+      --spacing-sm: 0.75rem;
+      --spacing-md: 1.25rem;
+      --spacing-lg: 1.75rem;
+      --success: var(--lumina-success);
+      --warning: var(--lumina-warning);
+      --danger: var(--lumina-danger);
+      --info: var(--lumina-info);
     }
 
-    /* Unified notification appearance */
+    /* Unified inline alert appearance */
+    .alert,
     .alert-modern {
-      position: relative;
       border: none;
-      border-radius: var(--lumina-border-radius);
-      padding: 1.25rem 1.25rem 1.25rem 1.5rem;
-      margin-bottom: 1rem;
+      border-radius: var(--border-radius-sm);
+      padding: var(--spacing-md);
+      border-left: 4px solid var(--info);
+      margin-bottom: var(--spacing-md);
+      background: rgba(7, 71, 166, 0.08);
+      color: var(--info);
+      position: relative;
       display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      box-shadow: var(--lumina-shadow);
-      background: var(--lumina-surface);
+      align-items: flex-start;
+      gap: var(--spacing-sm);
     }
 
-    .alert-modern::before {
-      content: '';
+    .alert.alert-success,
+    .alert-success,
+    .alert-modern.alert-success,
+    .alert-success-modern {
+      background: rgba(0, 135, 90, 0.1);
+      border-left-color: var(--success);
+      color: var(--success);
+    }
+
+    .alert.alert-warning,
+    .alert-warning,
+    .alert-modern.alert-warning,
+    .alert-warning-modern {
+      background: rgba(255, 171, 0, 0.1);
+      border-left-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .alert.alert-danger,
+    .alert-danger,
+    .alert-modern.alert-danger,
+    .alert-danger-modern {
+      background: rgba(222, 53, 11, 0.1);
+      border-left-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .alert.alert-info,
+    .alert-info,
+    .alert-modern.alert-info,
+    .alert-info-modern {
+      background: rgba(7, 71, 166, 0.1);
+      border-left-color: var(--info);
+      color: var(--info);
+    }
+
+    .alert .alert-close,
+    .alert-modern .alert-close {
       position: absolute;
-      inset: 0;
-      width: 6px;
-      border-radius: var(--lumina-border-radius) 0 0 var(--lumina-border-radius);
-      background: var(--lumina-primary);
+      top: 0.5rem;
+      right: 0.75rem;
+      border: none;
+      background: transparent;
+      font-size: 1.25rem;
+      line-height: 1;
+      color: currentColor;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
     }
 
-    .alert-modern strong,
-    .alert-modern h6 {
-      font-weight: 600;
-      margin: 0;
-      color: #0f172a;
-    }
-
-    .alert-modern p {
-      margin: 0;
-      color: #475569;
-    }
-
-    .alert-success-modern::before {
-      background: var(--lumina-success);
-    }
-
-    .alert-warning-modern::before {
-      background: var(--lumina-warning);
-    }
-
-    .alert-danger-modern::before {
-      background: var(--lumina-danger);
-    }
-
-    .alert-info-modern::before {
-      background: var(--lumina-info);
+    .alert .alert-close:hover,
+    .alert .alert-close:focus,
+    .alert-modern .alert-close:hover,
+    .alert-modern .alert-close:focus {
+      opacity: 1;
     }
 
     .lumina-toast-container {
