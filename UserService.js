@@ -55,6 +55,24 @@ const OPTIONAL_USER_COLUMNS = [
   'InsuranceCardReceivedDate'
 ];
 
+function clientGetUserSummaries(context) {
+  try {
+    return getEntitySummaries('users', context);
+  } catch (error) {
+    console.error('clientGetUserSummaries failed:', error);
+    throw error;
+  }
+}
+
+function clientGetUserDetail(id, context) {
+  try {
+    return getEntityDetail('users', id, context);
+  } catch (error) {
+    console.error('clientGetUserDetail failed:', error);
+    throw error;
+  }
+}
+
 function _normalizeFieldKey_(key) {
   return String(key || '')
     .toLowerCase()

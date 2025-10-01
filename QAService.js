@@ -10,6 +10,24 @@
 const ROOT_PROP_KEY = '1GuTbUeWFdp7u6nVDdavc_rCXfUMKX2DH';
 const FALLBACK_PATH = ['Lumina', 'QA Uploads'];
 
+function clientGetQualitySummaries(context) {
+  try {
+    return getEntitySummaries('quality', context);
+  } catch (error) {
+    console.error('clientGetQualitySummaries failed:', error);
+    throw error;
+  }
+}
+
+function clientGetQualityDetail(id, context) {
+  try {
+    return getEntityDetail('quality', id, context);
+  } catch (error) {
+    console.error('clientGetQualityDetail failed:', error);
+    throw error;
+  }
+}
+
 function qaWeights_() {
   return {
     q1: 3, q2: 5, q3: 7, q4: 10, q5: 5,

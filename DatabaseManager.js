@@ -480,6 +480,16 @@
     return applyQueryOptions(objects, headers, finalOptions);
   };
 
+  Table.prototype.project = function (columns, options, context) {
+    if (!Array.isArray(columns) || !columns.length) {
+      return this.read(options || {}, context);
+    }
+
+    var opts = options ? clone(options) : {};
+    opts.columns = columns.slice();
+    return this.read(opts, context);
+  };
+
   Table.prototype.find = function (options, context) {
     return this.read(options || {}, context);
   };
@@ -885,7 +895,7 @@
     return new ScopedTable(this.table, merged);
   };
 
-  var PROXIED_METHODS = ['read', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count'];
+  var PROXIED_METHODS = ['read', 'project', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count'];
   PROXIED_METHODS.forEach(function (method) {
     if (typeof Table.prototype[method] !== 'function') return;
     ScopedTable.prototype[method] = function () {
