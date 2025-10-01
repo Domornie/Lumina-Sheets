@@ -2149,12 +2149,38 @@ function handleAttendanceReportsData(tpl, e, user, campaignId) {
     const requestingUserId = user && user.ID ? user.ID : null;
     tpl.userList = clientGetAssignedAgentNames(campaignId || user.CampaignID || '', requestingUserId);
 
+    const resolvedTimezone = (typeof global.ATTENDANCE_TIMEZONE === 'string' && global.ATTENDANCE_TIMEZONE)
+      ? global.ATTENDANCE_TIMEZONE
+      : (typeof Session !== 'undefined' && Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'America/Jamaica');
+    const resolvedTimezoneLabel = (typeof global.ATTENDANCE_TIMEZONE_LABEL === 'string' && global.ATTENDANCE_TIMEZONE_LABEL)
+      ? global.ATTENDANCE_TIMEZONE_LABEL
+      : 'Company Time';
+
+    tpl.managerUserId = user && user.ID ? user.ID : '';
+    tpl.attendanceTimezone = resolvedTimezone;
+    tpl.attendanceTimezoneLabel = resolvedTimezoneLabel;
+    tpl.attendanceDataJSON = tpl.attendanceData;
+    tpl.userListJSON = JSON.stringify(tpl.userList || []).replace(/<\/script>/g, '<\\/script>');
+    tpl.currentUserJSON = JSON.stringify(user || {}).replace(/<\/script>/g, '<\\/script>');
+
   } catch (error) {
     console.error('Error handling attendance reports data:', error);
     writeError('handleAttendanceReportsData', error);
     tpl.attendanceData = JSON.stringify({ filteredRows: [], summary: {} });
     tpl.executiveMetrics = JSON.stringify({});
     tpl.userList = [];
+    tpl.managerUserId = user && user.ID ? user.ID : '';
+    const fallbackTimezone = (typeof global.ATTENDANCE_TIMEZONE === 'string' && global.ATTENDANCE_TIMEZONE)
+      ? global.ATTENDANCE_TIMEZONE
+      : (typeof Session !== 'undefined' && Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'America/Jamaica');
+    const fallbackTimezoneLabel = (typeof global.ATTENDANCE_TIMEZONE_LABEL === 'string' && global.ATTENDANCE_TIMEZONE_LABEL)
+      ? global.ATTENDANCE_TIMEZONE_LABEL
+      : 'Company Time';
+    tpl.attendanceTimezone = fallbackTimezone;
+    tpl.attendanceTimezoneLabel = fallbackTimezoneLabel;
+    tpl.attendanceDataJSON = tpl.attendanceData;
+    tpl.userListJSON = JSON.stringify([]);
+    tpl.currentUserJSON = JSON.stringify(user || {}).replace(/<\/script>/g, '<\\/script>');
   }
 }
 
