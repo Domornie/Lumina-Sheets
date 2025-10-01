@@ -92,37 +92,9 @@
      font-family: 'Monaco', 'Menlo', monospace;
      font-size: 0.875rem;
   }
-  #loadingOverlay {
-     display: none;
-     position: fixed;
-     top: 0;
-     left: 0;
-     width: 100%;
-     height: 100%;
-     background: rgba(0,0,0,0.5);
-     z-index: 9999;
-     justify-content: center;
-     align-items: center;
-  }
-  .spinner {
-     width: 40px;
-     height: 40px;
-     border: 4px solid #f3f4f6;
-     border-top: 4px solid #6366f1;
-     border-radius: 50%;
-     animation: spin 1s linear infinite;
-  }
-  @keyframes spin {
-     0% { transform: rotate(0deg); }
-     100% { transform: rotate(360deg); }
-  }
 </style>
 
 <div class="container">
-  <div id="loadingOverlay">
-    <div class="spinner"></div>
-  </div>
-  
   <div id="alertContainer"></div>
   
   <form id="taskForm" enctype="multipart/form-data">
@@ -377,8 +349,20 @@
     }
   }
 
-  function showLoading(show = true) {
-    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+  function showLoading(show = true, options = {}) {
+    const loader = window.LuminaLoader;
+    if (!loader) {
+      return;
+    }
+
+    if (show) {
+      loader.show(Object.assign({
+        title: 'Saving Task',
+        detail: 'Processing task details…'
+      }, options));
+    } else {
+      loader.hide();
+    }
   }
 
   function populateForm(data) {
@@ -504,7 +488,10 @@
         return;
       }
       
-      showLoading(true);
+      showLoading(true, {
+        title: recordId ? 'Updating Task' : 'Creating Task',
+        detail: 'Submitting task details to Lumina…'
+      });
       
       const formData = collectFormData();
       

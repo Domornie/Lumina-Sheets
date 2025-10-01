@@ -148,35 +148,6 @@
             border: 2px solid var(--danger);
         }
 
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(248, 250, 252, 0.95);
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            transition: opacity 0.3s ease;
-        }
-
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(0, 82, 204, 0.2);
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         .time-display {
             font-family: 'Courier New', monospace;
             font-weight: 600;
@@ -320,13 +291,6 @@
         }
     </style>
 
-        <!-- Loading Overlay -->
-        <div id="loadingOverlay" class="loading-overlay d-none">
-            <div class="text-center">
-                <div class="loading-spinner"></div>
-                <p class="mt-3 text-muted fw-bold">Processing request...</p>
-            </div>
-        </div>      
         <!-- Header -->
         <div class="enhanced-card">
             <div class="enhanced-card-header">
@@ -987,9 +951,20 @@
                 });
             }
 
-            showLoading(show) {
-                const overlay = document.getElementById('loadingOverlay');
-                overlay.classList.toggle('d-none', !show);
+            showLoading(show, options = {}) {
+                const loader = window.LuminaLoader;
+                if (!loader) {
+                    return;
+                }
+
+                if (show) {
+                    loader.show(Object.assign({
+                        title: 'Processing Slot Request',
+                        detail: 'Please wait while we update shift slots…'
+                    }, options));
+                } else {
+                    loader.hide();
+                }
             }
 
             showNotification(message, type = 'info') {

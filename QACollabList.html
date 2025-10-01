@@ -50,20 +50,17 @@
   </div>
 </div>
 </div>
-<!-- TOAST -->
-<div id="toast" class="toast position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true">
-  <div class="toast-body"></div>
-</div>
-
 <script>
   let allQA = [], currentPage = 1, rowsPerPage = 15;
 
   function showToast(msg, isError) {
-    const el = document.getElementById('toast');
-    el.querySelector('.toast-body').textContent = msg;
-    el.classList.toggle('bg-danger', isError);
-    el.classList.toggle('bg-success', !isError);
-    new bootstrap.Toast(el).show();
+    if (window.showLuminaToast) {
+      window.showLuminaToast(msg, isError ? 'danger' : 'success');
+      return;
+    }
+
+    const tone = isError ? 'ERROR' : 'SUCCESS';
+    window.alert(`[${tone}] ${msg}`);
   }
 
   function loadQA() {

@@ -392,6 +392,7 @@
 
     window.showLuminaToast = showLuminaToast;
     window.showLuminaNotification = showLuminaToast;
+    window.showToast = showLuminaToast;
     window.luminaNotify = function(message, type = 'info', opts = {}) {
       const options = Object.assign({}, opts, { type });
       showLuminaToast(message, options);

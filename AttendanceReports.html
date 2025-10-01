@@ -442,17 +442,6 @@
       margin-right: .5rem;
     }
 
-    .toast-container {
-      position: fixed;
-      bottom: 1rem;
-      right: 1rem;
-      z-index: 9999;
-    }
-
-    .toast {
-      backdrop-filter: blur(10px);
-    }
-
     .trend-up {
       color: var(--success);
     }
@@ -977,8 +966,6 @@
 </div>
 
 <!-- Toast Container -->
-<div class="toast-container"></div>
-
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -1195,22 +1182,14 @@
       this.loadUserList();
 
       showToast(message, type) {
-        const toastContainer = document.querySelector('.toast-container');
-        if (!toastContainer) return;
+        if (window.showLuminaToast) {
+          window.showLuminaToast(message, type);
+          return;
+        }
 
-        const toast = document.createElement('div');
-        toast.className = `toast align-items-center text-white bg-${type} border-0`;
-        toast.setAttribute('role', 'alert');
-        toast.innerHTML = `
-          <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-          </div>`;
-        toastContainer.appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast);
-        bsToast.show();
-        toast.addEventListener('hidden.bs.toast', () => toast.remove());
-      }      
+        const tone = String(type || 'info').toUpperCase();
+        window.alert(`[${tone}] ${message}`);
+      }
     }
 
     async loadUserList() {
@@ -2295,21 +2274,13 @@
     }
 
     showToast(message, type) {
-      const toastContainer = document.querySelector('.toast-container');
-      if (!toastContainer) return;
+      if (window.showLuminaToast) {
+        window.showLuminaToast(message, type);
+        return;
+      }
 
-      const toast = document.createElement('div');
-      toast.className = `toast align-items-center text-white bg-${type} border-0`;
-      toast.setAttribute('role', 'alert');
-      toast.innerHTML = `
-        <div class="d-flex">
-          <div class="toast-body">${message}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>`;
-      toastContainer.appendChild(toast);
-      const bsToast = new bootstrap.Toast(toast);
-      bsToast.show();
-      toast.addEventListener('hidden.bs.toast', () => toast.remove());
+      const tone = String(type || 'info').toUpperCase();
+      window.alert(`[${tone}] ${message}`);
     }
   }
 

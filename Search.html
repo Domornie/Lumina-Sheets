@@ -874,13 +874,18 @@
   }
 
   // ── Loading and Error Management ──
-  function showLoadingIndicator() {
+function showLoadingIndicator() {
     document.getElementById('loadingIndicator').style.display = 'block';
-  }
+    window.LuminaLoader?.show({
+      title: 'Searching Lumina',
+      detail: 'Gathering results across connected services…'
+    });
+}
 
-  function hideLoadingIndicator() {
+function hideLoadingIndicator() {
     document.getElementById('loadingIndicator').style.display = 'none';
-  }
+    window.LuminaLoader?.hide();
+}
 
   function showErrorDisplay(message) {
     hideLoadingIndicator();
