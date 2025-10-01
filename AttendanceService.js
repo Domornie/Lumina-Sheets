@@ -12,7 +12,7 @@
  * 
  * Timestamp format: "9/28/2023, 8:38 AM"
  * Date format: "9/28/2023"
- * Timezone: Jamaica (UTC-5)
+ * Timezone: Configurable via ATTENDANCE_TIMEZONE (defaults to script timezone)
  */
 
 /** @OnlyCurrentDoc */
@@ -25,14 +25,27 @@ const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meetin
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const END_SHIFT_STATES = ['End of Shift'];
 
+// Resolve a safe global scope reference for Apps Script V8
+var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
+  : (typeof globalThis === 'object' && globalThis)
+    ? globalThis
+    : (typeof this === 'object' && this)
+      ? this
+      : {};
+
 // Time constants (working in seconds, since DurationMin column contains seconds)
 const DAILY_SHIFT_SECS = 8 * 3600;       // 8 hours in seconds
 const DAILY_BREAKS_SECS = 30 * 60;       // 30 minutes in seconds
 const DAILY_LUNCH_SECS = 30 * 60;        // 30 minutes in seconds
 const WEEKLY_OVERTIME_SECS = 40 * 3600;  // 40 hours in seconds
 
-// Jamaica Time Zone - UTC-5 (no daylight saving time)
-const JAMAICA_TIMEZONE = 'America/Jamaica';
+// Primary attendance timezone configuration (defaults to script timezone)
+const ATTENDANCE_TIMEZONE = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE)
+  ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE
+  : (typeof Session !== 'undefined' && Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'America/Jamaica');
+const ATTENDANCE_TIMEZONE_LABEL = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL)
+  ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
+  : 'Company Time';
 
 // Performance optimization constants
 const MAX_PROCESSING_TIME = 25000; // 25 seconds max execution time
@@ -80,9 +93,31 @@ function fetchAllAttendanceRows() {
       const cached = CacheService.getScriptCache().get(CACHE_KEY);
       if (cached) {
         const data = JSON.parse(cached);
-        if (data.timestamp && (Date.now() - data.timestamp) < CACHE_TTL_MEDIUM * 1000) {
+        if (data.timestamp && (Date.now() - data.timestamp) < CACHE_TTL_MEDIUM * 1000 && Array.isArray(data.rows)) {
           console.log('Using cached attendance data');
-          return data.rows;
+          return data.rows.map(row => {
+            const dayOfWeek = typeof row.dayOfWeek === 'number'
+              ? row.dayOfWeek
+              : (typeof row.dayOfWeek === 'string' ? parseInt(row.dayOfWeek, 10) : undefined);
+
+            const timestampMs = typeof row.timestampMs === 'number'
+              ? row.timestampMs
+              : (typeof row.timestamp === 'number' ? row.timestamp : undefined);
+
+            const reconstructedTimestamp = typeof row.timestamp === 'number'
+              ? new Date(row.timestamp)
+              : (row.timestamp instanceof Date ? row.timestamp : (typeof timestampMs === 'number' ? new Date(timestampMs) : null));
+
+            return {
+              ...row,
+              timestamp: reconstructedTimestamp,
+              timestampMs: typeof timestampMs === 'number' ? timestampMs : (reconstructedTimestamp ? reconstructedTimestamp.getTime() : undefined),
+              dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
+              isWeekend: typeof row.isWeekend === 'boolean'
+                ? row.isWeekend
+                : (!isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined)
+            };
+          });
         }
       }
     } catch (e) {
@@ -122,7 +157,7 @@ function fetchAllAttendanceRows() {
         try {
           const timestampVal = row[timestampIdx];
           
-          // Enhanced timestamp parsing for Jamaica timezone
+          // Enhanced timestamp parsing for company timezone alignment
           let timestamp;
           if (timestampVal instanceof Date) {
             timestamp = new Date(timestampVal);
@@ -146,8 +181,8 @@ function fetchAllAttendanceRows() {
             return;
           }
 
-          // Ensure we're working with Jamaica timezone
-          const jamaicaTimestamp = new Date(timestamp.toLocaleString("en-US", {timeZone: JAMAICA_TIMEZONE}));
+          // Ensure we're working with the configured company timezone
+          const localizedTimestamp = new Date(timestamp.toLocaleString('en-US', { timeZone: ATTENDANCE_TIMEZONE }));
 
           const durationValue = row[durationIdx];
           let durationSeconds = 0;
@@ -169,15 +204,22 @@ function fetchAllAttendanceRows() {
             return;
           }
 
+          const timestampMs = localizedTimestamp.getTime();
+          const dateString = Utilities.formatDate(localizedTimestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+          const dayOfWeekStr = Utilities.formatDate(localizedTimestamp, ATTENDANCE_TIMEZONE, 'u');
+          const dayOfWeek = parseInt(dayOfWeekStr, 10);
+
           out.push({
-            timestamp: jamaicaTimestamp,
+            timestamp: localizedTimestamp,
+            timestampMs: timestampMs,
             user: user,
             state: state,
             durationSec: durationSeconds,
             durationMin: durationSeconds / 60,
             durationHours: durationSeconds / 3600,
-            // Add date string for consistent filtering
-            dateString: Utilities.formatDate(jamaicaTimestamp, JAMAICA_TIMEZONE, 'yyyy-MM-dd')
+            dateString: dateString,
+            dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
+            isWeekend: !isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined
           });
 
         } catch (rowError) {
@@ -188,9 +230,15 @@ function fetchAllAttendanceRows() {
 
     console.log(`Processed ${out.length} attendance records with enhanced timezone handling`);
     
-    // Cache the results
+    // Cache the results (serialize timestamps for storage)
     try {
-      const cacheData = { timestamp: Date.now(), rows: out };
+      const cacheData = {
+        timestamp: Date.now(),
+        rows: out.map(row => ({
+          ...row,
+          timestamp: row.timestamp.getTime()
+        }))
+      };
       CacheService.getScriptCache().put(CACHE_KEY, JSON.stringify(cacheData), CACHE_TTL_MEDIUM);
     } catch (e) {
       console.warn('Cache write failed:', e);
@@ -238,63 +286,280 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       throw new Error(`Invalid period: ${granularity} ${periodId}`);
     }
 
-    // Filter data efficiently
-    const filtered = allRows.filter(r => {
-      if (agentFilter && r.user !== agentFilter) return false;
-      return r.timestamp >= periodStart && r.timestamp <= periodEnd;
-    });
+    const periodStartMs = periodStart.getTime();
+    const periodEndMs = periodEnd.getTime();
 
-    console.log(`Filtered ${filtered.length} records from ${allRows.length} total`);
-
-    // Check timeout before heavy processing
-    if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.6) {
-      console.warn('Approaching timeout, returning basic analytics');
-      return createBasicAnalytics(filtered, granularity, periodId, agentFilter);
-    }
-
-    // Initialize state summaries
     const summary = {};
     const stateDuration = {};
-    [...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES].forEach(s => {
-      summary[s] = 0;
-      stateDuration[s] = 0;
+    const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES])];
+    seedStates.forEach(state => {
+      summary[state] = 0;
+      stateDuration[state] = 0;
     });
 
-    // Process records efficiently
-    filtered.forEach(r => {
-      if (summary[r.state] != null) summary[r.state]++;
-      if (stateDuration[r.state] != null) stateDuration[r.state] += r.durationSec; // Using actual seconds
+    const filteredRows = [];
+    const userComplianceMap = new Map();
+    const userDayMetrics = new Map();
+    const topSeconds = new Map();
+    const dailyMap = new Map();
+    const uniqueUsers = new Set();
+    const feedBuffer = [];
+    const FEED_LIMIT = 10;
+
+    let totalBillableSecs = 0;
+    let totalRowsConsidered = 0;
+
+    const registerFeedRow = (row, timestampMs) => {
+      if (!timestampMs) return;
+      if (feedBuffer.length < FEED_LIMIT) {
+        feedBuffer.push({ row, timestampMs });
+        feedBuffer.sort((a, b) => b.timestampMs - a.timestampMs);
+        return;
+      }
+
+      const last = feedBuffer[feedBuffer.length - 1];
+      if (last.timestampMs >= timestampMs) {
+        return;
+      }
+
+      feedBuffer[feedBuffer.length - 1] = { row, timestampMs };
+      feedBuffer.sort((a, b) => b.timestampMs - a.timestampMs);
+    };
+
+    for (let idx = 0; idx < allRows.length; idx++) {
+      const row = allRows[idx];
+      if (!row) continue;
+
+      const timestamp = row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp);
+      if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+        continue;
+      }
+
+      const timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : timestamp.getTime();
+      if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
+        continue;
+      }
+
+      if (agentFilter && row.user !== agentFilter) {
+        continue;
+      }
+
+      totalRowsConsidered++;
+
+      const state = row.state || '';
+      const durationSec = typeof row.durationSec === 'number' ? row.durationSec : parseFloat(row.durationSec) || 0;
+      const durationHrs = typeof row.durationHours === 'number'
+        ? row.durationHours
+        : Math.round((durationSec / 3600) * 100) / 100;
+
+      const dayOfWeek = (typeof row.dayOfWeek === 'number' && !isNaN(row.dayOfWeek))
+        ? row.dayOfWeek
+        : getAttendanceDayOfWeek(timestamp);
+      const dateKey = row.dateString || Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+      const isWeekend = typeof row.isWeekend === 'boolean' ? row.isWeekend : (dayOfWeek >= 6);
+
+      uniqueUsers.add(row.user);
+
+      summary[state] = (summary[state] || 0) + 1;
+      stateDuration[state] = (stateDuration[state] || 0) + durationSec;
+
+      const compliance = (() => {
+        if (!userComplianceMap.has(row.user)) {
+          userComplianceMap.set(row.user, {
+            weekdayProdSecs: 0,
+            weekendProdSecs: 0,
+            breakSecs: 0,
+            lunchSecs: 0
+          });
+        }
+        return userComplianceMap.get(row.user);
+      })();
+
+      if (state === 'Break') {
+        compliance.breakSecs += durationSec;
+      } else if (state === 'Lunch') {
+        compliance.lunchSecs += durationSec;
+      }
+
+      if (BILLABLE_STATES.includes(state)) {
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          compliance.weekdayProdSecs += durationSec;
+          topSeconds.set(row.user, (topSeconds.get(row.user) || 0) + durationSec);
+        } else {
+          compliance.weekendProdSecs += durationSec;
+        }
+
+        totalBillableSecs += durationSec;
+
+        if (!dailyMap.has(dateKey)) {
+          dailyMap.set(dateKey, { onWorkSecs: 0, lateCount: 0 });
+        }
+        dailyMap.get(dateKey).onWorkSecs += durationSec;
+      }
+
+      const userDayKey = `${row.user || ''}|${dateKey}`;
+      if (!userDayMetrics.has(userDayKey)) {
+        userDayMetrics.set(userDayKey, { prod: 0, break: 0, lunch: 0 });
+      }
+
+      const metrics = userDayMetrics.get(userDayKey);
+      if (BILLABLE_STATES.includes(state)) {
+        metrics.prod += durationSec;
+      } else if (state === 'Break') {
+        metrics.break += durationSec;
+      } else if (state === 'Lunch') {
+        metrics.lunch += durationSec;
+      }
+
+      const sanitizedRow = {
+        timestampMs,
+        user: row.user,
+        state,
+        durationSec,
+        durationHrs,
+        dateString: dateKey,
+        dayOfWeek,
+        isWeekend
+      };
+      filteredRows.push(sanitizedRow);
+      registerFeedRow(sanitizedRow, timestampMs);
+    }
+
+    console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total`);
+
+    if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.6) {
+      console.warn('Approaching timeout, returning basic analytics snapshot');
+      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
+    }
+
+    let prodSecs = 0;
+    let nonProdSecs = 0;
+    let violationDays = 0;
+
+    userDayMetrics.forEach(metrics => {
+      const paidBreak = Math.min(metrics.break, DAILY_BREAKS_SECS);
+      const breakExcess = Math.max(0, metrics.break - DAILY_BREAKS_SECS);
+      const lunchExcess = Math.max(0, metrics.lunch - DAILY_LUNCH_SECS);
+
+      let dayProdSecs = metrics.prod + paidBreak - breakExcess - lunchExcess;
+      dayProdSecs = Math.max(0, dayProdSecs);
+      const capped = Math.min(dayProdSecs, DAILY_SHIFT_SECS);
+      prodSecs += capped;
+
+      const excessProd = dayProdSecs - capped;
+      nonProdSecs += breakExcess + metrics.lunch + Math.max(0, excessProd);
+
+      if (breakExcess > 0 || lunchExcess > 0) {
+        violationDays++;
+      }
     });
 
-    // Calculate metrics
-    const productivity = calculateProductivityMetrics(filtered);
-    const userCompliance = calculateUserCompliance(filtered);
+    const totalProductiveHours = Math.round((prodSecs / 3600) * 100) / 100;
+    const totalNonProductiveHours = Math.round((nonProdSecs / 3600) * 100) / 100;
 
-    // Build result
+    const userCompliance = Array.from(userComplianceMap.entries()).map(([user, stats]) => ({
+      user,
+      availableSecsWeekday: stats.weekdayProdSecs,
+      availableLabelWeekday: formatSecsAsHhMm(stats.weekdayProdSecs),
+      breakSecs: stats.breakSecs,
+      breakLabel: formatSecsAsHhMm(stats.breakSecs),
+      lunchSecs: stats.lunchSecs,
+      lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
+      weekendSecs: stats.weekendProdSecs,
+      weekendLabel: formatSecsAsHhMm(stats.weekendProdSecs),
+      exceededLunchDays: Math.floor(stats.lunchSecs / DAILY_LUNCH_SECS),
+      exceededBreakDays: Math.floor(stats.breakSecs / DAILY_BREAKS_SECS),
+      exceededWeeklyCount: 0
+    }));
+
+    const weekdaysInPeriod = countWeekdaysInclusive(periodStart, periodEnd);
+    const expectedCapacitySecs = weekdaysInPeriod * DAILY_SHIFT_SECS;
+
+    const top5Attendance = Array.from(topSeconds.entries())
+      .map(([user, secs]) => ({
+        user,
+        percentage: expectedCapacitySecs > 0 ? Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
+      }))
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5);
+
+    const attendanceStats = [{
+      periodLabel: periodId,
+      OnWork: Math.round((totalBillableSecs / 3600) * 100) / 100,
+      OverTime: 0,
+      Leave: 0,
+      EarlyEntry: 0,
+      Late: 0,
+      Absent: 0,
+      EarlyOut: 0
+    }];
+
+    const attendanceFeed = feedBuffer
+      .sort((a, b) => b.timestampMs - a.timestampMs)
+      .map(item => {
+        const ts = new Date(item.timestampMs);
+        return {
+          user: item.row.user,
+          action: item.row.state,
+          date: Utilities.formatDate(ts, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd'),
+          time24: Utilities.formatDate(ts, ATTENDANCE_TIMEZONE, 'HH:mm:ss'),
+          time12: Utilities.formatDate(ts, ATTENDANCE_TIMEZONE, 'h:mm:ss a'),
+          dayOfWeek: Utilities.formatDate(ts, ATTENDANCE_TIMEZONE, 'EEEE'),
+          durationSec: item.row.durationSec,
+          durationHrs: Math.round(item.row.durationSec / 3600 * 100) / 100
+        };
+      });
+
+    const dailyMetrics = Array.from(dailyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, metrics]) => ({
+        date: day,
+        OnWorkHrs: Math.round((metrics.onWorkSecs / 3600) * 100) / 100,
+        LateCount: metrics.lateCount || 0
+      }));
+
+    const totalHours = totalProductiveHours + totalNonProductiveHours;
+    const efficiencyRate = totalHours > 0 ? (totalProductiveHours / totalHours) * 100 : 0;
+    const totalUserDays = userDayMetrics.size;
+    const complianceRate = totalUserDays > 0 ? ((totalUserDays - violationDays) / totalUserDays) * 100 : 100;
+
+    const executiveMetrics = {
+      overview: {
+        efficiencyRate,
+        complianceRate,
+        totalEmployees: uniqueUsers.size,
+        activeEmployees: uniqueUsers.size,
+        productiveHours: totalProductiveHours,
+        nonProductiveHours: totalNonProductiveHours
+      },
+      violations: {
+        totalViolations: violationDays
+      }
+    };
+
     const analytics = {
       summary,
       stateDuration,
-      totalProductiveHours: productivity.totalProductiveHours,
-      totalNonProductiveHours: productivity.totalNonProductiveHours,
-      filteredRows: filtered.slice(0, 500).map(r => ({ // Limit returned rows
-        timestampMs: r.timestamp.getTime(),
-        user: r.user,
-        state: r.state,
-        durationSec: r.durationSec, // Actual seconds
-        durationHrs: r.durationHours // Decimal hours
-      })),
+      totalProductiveHours,
+      totalNonProductiveHours,
+      filteredRows,
+      filteredRowCount: filteredRows.length,
       userCompliance,
-      top5Attendance: generateTopPerformers(filtered, periodStart, periodEnd),
-      attendanceStats: generateAttendanceStats(filtered, periodId),
-      attendanceFeed: generateAttendanceFeed(filtered),
-      dailyMetrics: generateDailyMetrics(filtered),
+      top5Attendance,
+      attendanceStats,
+      attendanceFeed,
+      dailyMetrics,
       shiftMetrics: {},
+      enhanced: true,
+      executiveMetrics,
       periodInfo: {
         granularity,
         periodId,
         startDateIso: periodStart.toISOString(),
         endDateIso: periodEnd.toISOString(),
-        workingDays: countWeekdaysInclusive(periodStart, periodEnd)
+        workingDays: weekdaysInPeriod,
+        timezone: ATTENDANCE_TIMEZONE,
+        timezoneLabel: ATTENDANCE_TIMEZONE_LABEL
       }
     };
 
@@ -320,22 +585,22 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 // CALCULATION FUNCTIONS
 // ────────────────────────────────────────────────────────────────────────────
 
-function getJamaicaDayOfWeek(timestamp) {
+function getAttendanceDayOfWeek(timestamp) {
   try {
     // Ensure we have a proper Date object
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
     
     if (isNaN(date.getTime())) {
-      console.warn('Invalid timestamp provided to getJamaicaDayOfWeek:', timestamp);
+      console.warn('Invalid timestamp provided to getAttendanceDayOfWeek:', timestamp);
       return 0;
     }
 
-    // Get the day of week for Jamaica timezone
-    const jamaicaDateString = Utilities.formatDate(date, JAMAICA_TIMEZONE, 'yyyy-MM-dd');
-    const jamaicaDate = new Date(jamaicaDateString + 'T12:00:00.000Z');
-    return jamaicaDate.getUTCDay();
+    // Get the day of week for the configured timezone
+    const localizedDateString = Utilities.formatDate(date, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+    const localizedDate = new Date(localizedDateString + 'T12:00:00.000Z');
+    return localizedDate.getUTCDay();
   } catch (error) {
-    console.error('Error in getJamaicaDayOfWeek:', error, 'timestamp:', timestamp);
+    console.error('Error in getAttendanceDayOfWeek:', error, 'timestamp:', timestamp);
     return 0;
   }
 }
@@ -360,12 +625,12 @@ function generateDailyBreakdownData() {
         try {
           const timestamp = new Date(r.timestampMs || r.timestamp);
           
-          // Use consistent Jamaica timezone date calculation
-          const jamaicaDateString = timestamp.toLocaleDateString('en-CA', { 
-            timeZone: JAMAICA_TIMEZONE 
+          // Use consistent configured timezone date calculation
+          const timezoneDateString = timestamp.toLocaleDateString('en-CA', {
+            timeZone: ATTENDANCE_TIMEZONE
           });
-          const jamaicaDate = new Date(jamaicaDateString + 'T12:00:00');
-          const dayOfWeek = jamaicaDate.getDay();
+          const timezoneDate = new Date(timezoneDateString + 'T12:00:00');
+          const dayOfWeek = timezoneDate.getDay();
           
           // Only process weekdays (1-5 = Monday-Friday)
           if (dayOfWeek === 0 || dayOfWeek === 6) return;
@@ -442,11 +707,11 @@ function calculateProductivityMetrics(filtered) {
 
     // Process records efficiently
     filtered.forEach(r => {
-        // Use Jamaica timezone for day of week calculation
-        const jamaicaDayOfWeek = getJamaicaDayOfWeek(r.timestamp);
-        if (jamaicaDayOfWeek < 1 || jamaicaDayOfWeek > 5) return; // Weekdays only (Monday=1, Friday=5)
+        // Use configured timezone for day of week calculation
+        const attendanceDayOfWeek = getAttendanceDayOfWeek(r.timestamp);
+        if (attendanceDayOfWeek < 1 || attendanceDayOfWeek > 5) return; // Weekdays only (Monday=1, Friday=5)
 
-        const dayKey = Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'yyyy-MM-dd');
+        const dayKey = Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
         const userDayKey = `${r.user}:${dayKey}`;
 
         if (!userDayMetrics.has(userDayKey)) {
@@ -504,14 +769,14 @@ function calculateUserCompliance(filtered) {
         const stats = userStats.get(r.user);
         const secs = r.durationSec; // Already in seconds
         
-        // Use Jamaica timezone for day calculation
-        const jamaicaDayOfWeek = getJamaicaDayOfWeek(r.timestamp);
+        // Use configured timezone for day calculation
+        const attendanceDayOfWeek = getAttendanceDayOfWeek(r.timestamp);
 
         if (r.state === 'Break') stats.breakSecs += secs;
         if (r.state === 'Lunch') stats.lunchSecs += secs;
 
         if (BILLABLE_STATES.includes(r.state)) {
-            if (jamaicaDayOfWeek >= 1 && jamaicaDayOfWeek <= 5) {
+            if (attendanceDayOfWeek >= 1 && attendanceDayOfWeek <= 5) {
                 stats.weekdayProdSecs += secs;
             } else {
                 stats.weekendProdSecs += secs;
@@ -552,7 +817,7 @@ function generateTopPerformers(filtered, periodStart, periodEnd) {
   const userProdSecs = new Map();
 
   filtered.forEach(r => {
-    const dow = getJamaicaDayOfWeek(r.timestamp);
+    const dow = getAttendanceDayOfWeek(r.timestamp);
     if (dow >= 1 && dow <= 5 && BILLABLE_STATES.includes(r.state)) {
       userProdSecs.set(r.user, (userProdSecs.get(r.user) || 0) + r.durationSec);
     }
@@ -593,10 +858,10 @@ function generateAttendanceFeed(filtered) {
     .map(r => ({
       user: r.user,
       action: r.state,
-      date: Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'yyyy-MM-dd'),
-      time24: Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'HH:mm:ss'),
-      time12: Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'h:mm:ss a'),
-      dayOfWeek: Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'EEEE'),
+      date: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd'),
+      time24: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'HH:mm:ss'),
+      time12: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'h:mm:ss a'),
+      dayOfWeek: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'EEEE'),
       durationSec: r.durationSec,
       durationHrs: Math.round(r.durationSec / 3600 * 100) / 100
     }));
@@ -607,20 +872,20 @@ function generateDailyMetrics(filtered) {
 
   filtered.forEach(r => {
     if (BILLABLE_STATES.includes(r.state)) {
-      // Ensure consistent date formatting in Jamaica timezone
-      const jamaicaDateString = Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'yyyy-MM-dd');
-      
-      if (!dailyMap.has(jamaicaDateString)) {
-        dailyMap.set(jamaicaDateString, { onWorkSecs: 0, lateCount: 0 });
+      // Ensure consistent date formatting in configured timezone
+      const timezoneDateString = Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+
+      if (!dailyMap.has(timezoneDateString)) {
+        dailyMap.set(timezoneDateString, { onWorkSecs: 0, lateCount: 0 });
       }
-      dailyMap.get(jamaicaDateString).onWorkSecs += r.durationSec;
+      dailyMap.get(timezoneDateString).onWorkSecs += r.durationSec;
     }
   });
 
   return Array.from(dailyMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([day, metrics]) => ({
-      date: day, // This will be in YYYY-MM-DD format in Jamaica timezone
+      date: day, // This will be in YYYY-MM-DD format in the configured timezone
       OnWorkHrs: Math.round(metrics.onWorkSecs / 3600 * 100) / 100, // Convert seconds to decimal hours
       LateCount: metrics.lateCount
     }));
@@ -686,7 +951,7 @@ function generateEnhancedDailyPivotMatrix(params) {
     return {
       success: true,
       csvData: csv,
-      filename: `daily_matrix_${granularity}_${periodValue}_jamaica.csv`,
+      filename: `daily_matrix_${granularity}_${periodValue}_company.csv`,
       type: 'daily_pivot_matrix',
       users: pivotMatrix.users.length,
       days: pivotMatrix.dateRange.length,
@@ -720,8 +985,8 @@ function generateDateRangeForPeriod(granularity, periodValue) {
   
   const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
-    // Use Jamaica timezone for consistent date formatting
-    const dateStr = Utilities.formatDate(currentDate, JAMAICA_TIMEZONE, 'yyyy-MM-dd');
+    // Use configured timezone for consistent date formatting
+    const dateStr = Utilities.formatDate(currentDate, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
     const dayOfWeek = currentDate.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
@@ -730,7 +995,7 @@ function generateDateRangeForPeriod(granularity, periodValue) {
       dayName: daysOfWeek[dayOfWeek],
       dayOfWeek: dayOfWeek,
       isWeekend: isWeekend,
-      formattedDate: Utilities.formatDate(currentDate, JAMAICA_TIMEZONE, 'M/d/yyyy')
+      formattedDate: Utilities.formatDate(currentDate, ATTENDANCE_TIMEZONE, 'M/d/yyyy')
     });
     
     currentDate.setDate(currentDate.getDate() + 1);
@@ -741,7 +1006,7 @@ function generateDateRangeForPeriod(granularity, periodValue) {
 }
 
 function generateDailyPivotMatrix(filteredRows, granularity, periodValue, options = {}) {
-  // Generate date range for the period with proper Jamaica timezone handling
+  // Generate date range for the period with proper configured timezone handling
   const dateRange = generateDateRangeForPeriod(granularity, periodValue);
   
   // Create user-date-hours mapping
@@ -769,7 +1034,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
   // Process attendance data with proper timezone handling
   filteredRows.forEach(r => {
     const timestamp = new Date(r.timestampMs || r.timestamp);
-    const dateStr = Utilities.formatDate(timestamp, JAMAICA_TIMEZONE, 'yyyy-MM-dd');
+    const dateStr = Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
     const user = r.user;
     
     if (userDateHours.has(user) && userDateHours.get(user).has(dateStr)) {
@@ -931,14 +1196,14 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
 
 function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
   const now = new Date();
-  const timestamp = Utilities.formatDate(now, JAMAICA_TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+  const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
   const options = params.dailyPivotOptions || {};
   
   let csv = '';
   
   // Header section
   csv += `Daily Attendance Matrix (Users × Days)\n`;
-  csv += `Generated: ${timestamp} (Jamaica Time)\n`;
+  csv += `Generated: ${timestamp} (${ATTENDANCE_TIMEZONE_LABEL})\n`;
   csv += `Period: ${params.period.type} ${params.period.value || 'Custom'}\n`;
   csv += `Users: ${pivotMatrix.metadata.totalUsers}, Days: ${pivotMatrix.metadata.totalDays} (${pivotMatrix.metadata.weekdays} weekdays, ${pivotMatrix.metadata.weekends} weekends)\n`;
   csv += `Data Format: Productive hours converted from seconds to decimal hours\n\n`;
@@ -1079,7 +1344,7 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
   csv += `\n"Efficiency %" = Weekday hours / Expected hours (weekdays × 8)`;
   csv += `\n\nDATA QUALITY NOTES:`;
   csv += `\n- All duration values converted from seconds to decimal hours`;
-  csv += `\n- Times calculated in Jamaica Time Zone (UTC-5)`;
+  csv += `\n- Times calculated in ${ATTENDANCE_TIMEZONE_LABEL} (${ATTENDANCE_TIMEZONE})`;
   csv += `\n- Only productive states counted: ${BILLABLE_STATES.join(', ')}`;
   csv += `\n- Break/lunch times tracked separately for violations`;
   csv += `\n- Source: DurationMin column (contains seconds despite name)`;
@@ -1206,20 +1471,20 @@ function importAttendance(rows) {
           batchKeysSeen.add(compositeKey);
 
           // Extract date for Date column (matching your database format "9/28/2023")
-          const dateOnly = Utilities.formatDate(timestamp, JAMAICA_TIMEZONE, 'M/d/yyyy');
+          const dateOnly = Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'M/d/yyyy');
 
           // Prepare row for insertion matching your exact database structure:
           // ID, Timestamp, User, DurationMin, State, Date, UserID, CreatedAt, UpdatedAt
           toAppend.push([
             '', // ID (auto-generated by spreadsheet)
-            Utilities.formatDate(timestamp, JAMAICA_TIMEZONE, 'M/d/yyyy, h:mm:ss a'), // Timestamp (matching format "9/28/2023, 8:38 AM")
+            Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'M/d/yyyy, h:mm:ss a'), // Timestamp (matching format "9/28/2023, 8:38 AM")
             rawName, // User
             durationInSeconds, // DurationMin (contains seconds despite name!)
             stateVal, // State
             dateOnly, // Date (date only in format "9/28/2023")
             '', // UserID (can be populated later)
-            Utilities.formatDate(now, JAMAICA_TIMEZONE, 'M/d/yyyy'), // CreatedAt
-            Utilities.formatDate(now, JAMAICA_TIMEZONE, 'M/d/yyyy') // UpdatedAt
+            Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'M/d/yyyy'), // CreatedAt
+            Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'M/d/yyyy') // UpdatedAt
           ]);
 
           // Log for audit trail
@@ -1279,45 +1544,94 @@ function importAttendance(rows) {
 // FALLBACK FUNCTIONS
 // ────────────────────────────────────────────────────────────────────────────
 
-function createBasicAnalytics(filtered, granularity, periodId, agentFilter) {
+function createBasicAnalytics(filtered, granularity, periodId, agentFilter, periodStart, periodEnd) {
   console.log('Creating basic analytics fallback');
 
+  const rows = Array.isArray(filtered) ? filtered : [];
   const summary = {};
-  [...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES].forEach(s => {
-    summary[s] = filtered.filter(r => r.state === s).length;
+  const stateDuration = {};
+  const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES])];
+  seedStates.forEach(state => {
+    summary[state] = 0;
+    stateDuration[state] = 0;
   });
 
-  const totalProd = filtered
-    .filter(r => BILLABLE_STATES.includes(r.state))
-    .reduce((sum, r) => sum + r.durationSec, 0) / 3600; // Convert seconds to hours
+  rows.forEach(r => {
+    if (!r) return;
+    const state = r.state || '';
+    const durationSec = typeof r.durationSec === 'number' ? r.durationSec : parseFloat(r.durationSec) || 0;
+    summary[state] = (summary[state] || 0) + 1;
+    stateDuration[state] = (stateDuration[state] || 0) + durationSec;
+  });
 
-  const totalNonProd = filtered
+  const totalProd = rows
+    .filter(r => BILLABLE_STATES.includes(r.state))
+    .reduce((sum, r) => sum + (r.durationSec || 0), 0) / 3600;
+
+  const totalNonProd = rows
     .filter(r => NON_PRODUCTIVE_STATES.includes(r.state))
-    .reduce((sum, r) => sum + r.durationSec, 0) / 3600; // Convert seconds to hours
+    .reduce((sum, r) => sum + (r.durationSec || 0), 0) / 3600;
+
+  const workingDays = periodStart && periodEnd
+    ? countWeekdaysInclusive(periodStart, periodEnd)
+    : 5;
+
+  const periodInfo = {
+    granularity,
+    periodId,
+    workingDays,
+    timezone: ATTENDANCE_TIMEZONE,
+    timezoneLabel: ATTENDANCE_TIMEZONE_LABEL
+  };
+
+  if (periodStart instanceof Date && !isNaN(periodStart.getTime())) {
+    periodInfo.startDateIso = periodStart.toISOString();
+  }
+  if (periodEnd instanceof Date && !isNaN(periodEnd.getTime())) {
+    periodInfo.endDateIso = periodEnd.toISOString();
+  }
+
+  const totalHours = totalProd + totalNonProd;
+  const efficiencyRate = totalHours > 0 ? (totalProd / totalHours) * 100 : 0;
+  const complianceRate = 100; // Default compliance placeholder
 
   return {
     summary,
-    stateDuration: {},
+    stateDuration,
     totalProductiveHours: Math.round(totalProd * 100) / 100,
     totalNonProductiveHours: Math.round(totalNonProd * 100) / 100,
-    filteredRows: filtered.slice(0, 100).map(r => ({
-      timestampMs: r.timestamp.getTime(),
+    filteredRows: rows.slice(0, 100).map(r => ({
+      timestampMs: r.timestampMs || (r.timestamp instanceof Date ? r.timestamp.getTime() : null),
       user: r.user,
       state: r.state,
       durationSec: r.durationSec,
-      durationHrs: Math.round(r.durationSec / 3600 * 100) / 100
+      durationHrs: Math.round((r.durationSec || 0) / 3600 * 100) / 100,
+      dateString: r.dateString,
+      dayOfWeek: r.dayOfWeek,
+      isWeekend: r.isWeekend
     })),
+    filteredRowCount: rows.length,
     userCompliance: [],
     top5Attendance: [],
     attendanceStats: [],
     attendanceFeed: [],
     dailyMetrics: [],
     shiftMetrics: {},
-    periodInfo: {
-      granularity,
-      periodId,
-      workingDays: 5
-    }
+    enhanced: false,
+    executiveMetrics: {
+      overview: {
+        efficiencyRate,
+        complianceRate,
+        totalEmployees: new Set(rows.map(r => r.user)).size,
+        activeEmployees: new Set(rows.map(r => r.user)).size,
+        productiveHours: Math.round(totalProd * 100) / 100,
+        nonProductiveHours: Math.round(totalNonProd * 100) / 100
+      },
+      violations: {
+        totalViolations: 0
+      }
+    },
+    periodInfo
   };
 }
 
@@ -1339,9 +1653,33 @@ function createEmptyAnalytics() {
     attendanceStats: [],
     attendanceFeed: [],
     filteredRows: [],
+    filteredRowCount: 0,
     userCompliance: [],
     shiftMetrics: {},
-    dailyMetrics: []
+    dailyMetrics: [],
+    enhanced: false,
+    executiveMetrics: {
+      overview: {
+        efficiencyRate: 0,
+        complianceRate: 100,
+        totalEmployees: 0,
+        activeEmployees: 0,
+        productiveHours: 0,
+        nonProductiveHours: 0
+      },
+      violations: {
+        totalViolations: 0
+      }
+    },
+    periodInfo: {
+      granularity: 'Week',
+      periodId: '',
+      workingDays: 5,
+      timezone: ATTENDANCE_TIMEZONE,
+      timezoneLabel: ATTENDANCE_TIMEZONE_LABEL,
+      startDateIso: new Date().toISOString(),
+      endDateIso: new Date().toISOString()
+    }
   };
 }
 
@@ -1514,10 +1852,10 @@ function clientGetAssignedAgentNames(managerUserId) {
 function testConnection() {
   return rpc('testConnection', () => ({
     message: 'Connection successful! Data structure correctly identified.',
-    timestamp: Utilities.formatDate(new Date(), JAMAICA_TIMEZONE, 'yyyy-MM-dd HH:mm:ss') + ' (Jamaica Time)',
-    timezone: JAMAICA_TIMEZONE,
+    timestamp: Utilities.formatDate(new Date(), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm:ss') + ` (${ATTENDANCE_TIMEZONE_LABEL})`,
+    timezone: ATTENDANCE_TIMEZONE,
     version: 'FINAL-1.0.0',
-    features: ['corrected-database-structure', 'seconds-handling', 'jamaica-timezone', 'daily-pivot-export'],
+    features: ['corrected-database-structure', 'seconds-handling', 'configured-timezone', 'daily-pivot-export'],
     dataStructure: {
       columns: ['ID', 'Timestamp', 'User', 'DurationMin', 'State', 'Date', 'UserID', 'CreatedAt', 'UpdatedAt'],
       timestampFormat: 'M/d/yyyy, h:mm AM/PM',
@@ -1593,7 +1931,7 @@ function validateDataConsistency() {
     const analysis = sample.map(r => ({
       user: r.user,
       state: r.state,
-      timestamp: Utilities.formatDate(r.timestamp, JAMAICA_TIMEZONE, 'M/d/yyyy, h:mm:ss a'),
+      timestamp: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'M/d/yyyy, h:mm:ss a'),
       durationSec: r.durationSec,
       durationHours: r.durationHours.toFixed(2),
       reasonableHours: r.durationHours > 0 && r.durationHours < 24
@@ -1613,7 +1951,7 @@ function validateDataConsistency() {
       dateTimeFormat: {
         expectedTimestampFormat: 'M/d/yyyy, h:mm AM/PM',
         expectedDateFormat: 'M/d/yyyy',
-        timezone: JAMAICA_TIMEZONE,
+        timezone: ATTENDANCE_TIMEZONE,
         note: 'Matches your database format exactly'
       }
     };
