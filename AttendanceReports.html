@@ -771,7 +771,7 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div class="alert alert-info">
+        <div class="alert alert-modern alert-info" role="alert">
           <i class="fas fa-info-circle me-2"></i>
           <strong>Daily Pivot Matrix:</strong> Export users as rows × days as columns showing productive hours. Data converted from seconds to decimal hours.
         </div>
@@ -968,7 +968,7 @@
           <!-- Preview Section -->
           <div class="row mb-3">
             <div class="col-12">
-              <div class="alert alert-success">
+              <div class="alert alert-modern alert-success" role="alert">
                 <h6 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Export Preview (Jamaica Time Zone)</h6>
                 <div class="row">
                   <div class="col-md-6">
@@ -2294,7 +2294,7 @@
       document.getElementById('kpi-productive').textContent = 'No Data';
       document.getElementById('kpi-nonproductive').textContent = 'No Data';
 
-      document.getElementById('stateSummaryRow').innerHTML = '<div class="col-12"><div class="alert alert-info text-center"><i class="fas fa-info-circle me-2"></i>No attendance data available for the selected period.</div></div>';
+      document.getElementById('stateSummaryRow').innerHTML = '<div class="col-12"><div class="alert alert-modern alert-info text-center" role="alert"><i class="fas fa-info-circle me-2"></i>No attendance data available for the selected period.</div></div>';
 
       const tableContainer = document.getElementById('attendanceTableContainer');
       if (tableContainer) {

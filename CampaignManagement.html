@@ -385,60 +385,6 @@
       flex-wrap: wrap;
     }
 
-    .alert {
-      padding: 1rem;
-      border-radius: .75rem;
-      margin-bottom: 1rem;
-      display: none;
-      border: 1px solid;
-      position: relative;
-    }
-
-    .alert.show {
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-    }
-
-    .alert-success {
-      background: #d1fae5;
-      color: #065f46;
-      border-color: #10b981;
-    }
-
-    .alert-danger {
-      background: #fee2e2;
-      color: #991b1b;
-      border-color: #dc2626;
-    }
-
-    .alert-warning {
-      background: #fef3c7;
-      color: #92400e;
-      border-color: #f59e0b;
-    }
-
-    .alert-info {
-      background: #dbeafe;
-      color: #1e40af;
-      border-color: #3b82f6;
-    }
-
-    .alert-close {
-      position: absolute;
-      top: .5rem;
-      right: .5rem;
-      background: none;
-      border: none;
-      font-size: 1.25rem;
-      cursor: pointer;
-      opacity: .7;
-    }
-
-    .alert-close:hover {
-      opacity: 1;
-    }
-
     .modal {
       display: none;
       position: fixed;
@@ -831,7 +777,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="catTitle">Add Category</h3>
-        <button class="alert-close" onclick="closeCategoryModal()" aria-label="Close dialog">&times;</button>
+        <button type="button" class="btn-close" onclick="closeCategoryModal()" aria-label="Close dialog"></button>
       </div>
       <form id="categoryForm" novalidate>
         <div class="form-group">
@@ -859,7 +805,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="pageTitleHdr">Add Page</h3>
-        <button class="alert-close" onclick="closePageModal()" aria-label="Close dialog">&times;</button>
+        <button type="button" class="btn-close" onclick="closePageModal()" aria-label="Close dialog"></button>
       </div>
       <form id="pageForm" novalidate>
         <div class="form-group">
@@ -901,7 +847,7 @@
       <div class="fa-guide-header">
         <h2 id="faGuideTitle"><i class="fas fa-icons"></i> Font Awesome Icon Guide</h2>
         <p>Click any icon to copy its class to your form</p>
-        <button class="alert-close" onclick="closeFontAwesomeGuide()" style="color: white; position: absolute; top: 1rem; right: 1rem;" aria-label="Close dialog">&times;</button>
+        <button type="button" class="btn-close btn-close-white" onclick="closeFontAwesomeGuide()" style="position: absolute; top: 1rem; right: 1rem;" aria-label="Close dialog"></button>
       </div>
 
       <div class="fa-guide-search"><input type="text" id="faSearchBox" placeholder="Search icons by name or description...">
@@ -1497,13 +1443,17 @@
   function showAlert(type, message){
     const container = document.getElementById('alertContainer'); if (!container) return;
     const iconMap = { success:'fa-check-circle', danger:'fa-exclamation-triangle', warning:'fa-exclamation-circle', info:'fa-info-circle' };
-    const icon = iconMap[type] || 'fa-info-circle';
+    const supportedTypes = Object.keys(iconMap);
+    const resolvedType = supportedTypes.includes(type) ? type : 'info';
+    const icon = iconMap[resolvedType];
     const id = 'alert-' + Date.now();
     const el = document.createElement('div');
-    el.id = id; el.className = `alert alert-${type} show`; el.setAttribute('role','alert');
+    el.id = id;
+    el.className = `alert alert-modern alert-${resolvedType}`;
+    el.setAttribute('role','alert');
     el.innerHTML = `<i class="fas ${icon}"></i><span style="flex:1;">${escapeHtml(String(message)).replace(/\n/g,'<br>')}</span><button type="button" class="alert-close" onclick="removeAlert('${id}')" aria-label="Close">&times;</button>`;
     container.appendChild(el);
-    if (type==='success' || type==='info') setTimeout(()=>removeAlert(id), 5000);
+    if (resolvedType==='success' || resolvedType==='info') setTimeout(()=>removeAlert(id), 5000);
   }
   function removeAlert(id){ const el=document.getElementById(id); if (el) el.remove(); }
   function clearAllAlerts(){ const c=document.getElementById('alertContainer'); if (c) c.innerHTML=''; }

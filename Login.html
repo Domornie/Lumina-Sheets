@@ -191,43 +191,6 @@
       box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.25), var(--shadow-md);
     }
 
-    /* Enhanced Alert Styles */
-    .alert {
-      border: none;
-      border-radius: var(--border-radius);
-      font-size: 0.9rem;
-      margin-bottom: 1.5rem;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-      overflow: hidden;
-      font-weight: 500;
-      border-left: 4px solid;
-    }
-
-    .alert-danger {
-      background: linear-gradient(135deg, #fef2f2, #fee2e2);
-      color: #991b1b;
-      border-left-color: var(--danger-red);
-    }
-
-    .alert-warning {
-      background: linear-gradient(135deg, #fffbeb, #fef3c7);
-      color: #92400e;
-      border-left-color: var(--warning-yellow);
-    }
-
-    .alert-info {
-      background: linear-gradient(135deg, #eff6ff, #dbeafe);
-      color: #1e40af;
-      border-left-color: var(--info-cyan);
-    }
-
-    .alert-success {
-      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-      color: #166534;
-      border-left-color: var(--success-green);
-    }
-
     /* Enhanced Password Field */
     .password-field {
       position: relative;
@@ -764,16 +727,16 @@
           </div>
 
           <!-- Enhanced Alerts -->
-          <div id="successAlert" class="alert alert-success d-none">
+          <div id="successAlert" class="alert alert-modern alert-success d-none" role="alert">
             <i class="fas fa-check-circle me-2"></i><span id="successMessage"></span>
           </div>
-          <div id="errorAlert" class="alert alert-danger d-none">
+          <div id="errorAlert" class="alert alert-modern alert-danger d-none" role="alert">
             <i class="fas fa-exclamation-triangle me-2"></i><span id="errorMessage"></span>
           </div>
-          <div id="warningAlert" class="alert alert-warning d-none">
+          <div id="warningAlert" class="alert alert-modern alert-warning d-none" role="alert">
             <i class="fas fa-exclamation-circle me-2"></i><span id="warningMessage"></span>
           </div>
-          <div id="infoAlert" class="alert alert-info d-none">
+          <div id="infoAlert" class="alert alert-modern alert-info d-none" role="alert">
             <i class="fas fa-info-circle me-2"></i><span id="infoMessage"></span>
           </div>
 
