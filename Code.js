@@ -2611,86 +2611,168 @@ function _uiUserShape_(u, cmap) {
   };
 }
 
+function _readUsersSheetSafe_() {
+  try {
+    return (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
+  } catch (err) {
+    console.warn('Unable to read Users sheet:', err);
+    return [];
+  }
+}
+
+function _readManagerUsersSheetSafe_() {
+  try {
+    return (typeof readSheet === 'function') ? (readSheet('MANAGER_USERS') || []) : [];
+  } catch (err) {
+    console.warn('Unable to read MANAGER_USERS sheet:', err);
+    return [];
+  }
+}
+
+function _dedupeAndSortUsers_(list) {
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    const user = list[i];
+    if (!user) continue;
+    const key = String(user.ID || '');
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(user);
+  }
+  out.sort(function (a, b) {
+    return String(a.FullName || '').localeCompare(String(b.FullName || '')) ||
+      String(a.UserName || '').localeCompare(String(b.UserName || ''));
+  });
+  return out;
+}
+
+function getUsersByManager(managerUserId, options) {
+  try {
+    const opts = Object.assign({
+      includeManager: true,
+      fallbackToCampaign: true,
+      fallbackToAll: false,
+      managerCampaignId: ''
+    }, options || {});
+
+    const allUsers = _readUsersSheetSafe_();
+    if (!allUsers.length) return [];
+
+    const cmap = _campaignNameMap_();
+    const byId = new Map(
+      allUsers
+        .filter(function (u) { return u && typeof u.ID !== 'undefined' && u.ID !== null && u.ID !== ''; })
+        .map(function (u) { return [String(u.ID), u]; })
+    );
+
+    const managerIdStr = managerUserId ? String(managerUserId) : '';
+    const manager = managerIdStr ? byId.get(managerIdStr) : null;
+    const visible = [];
+
+    const pushUser = function (rawUser) {
+      if (!rawUser) return;
+      visible.push(_uiUserShape_(rawUser, cmap));
+    };
+
+    if (opts.includeManager && manager) {
+      pushUser(manager);
+    }
+
+    const assignedIds = new Set();
+    if (managerIdStr) {
+      const relations = _readManagerUsersSheetSafe_();
+      for (let i = 0; i < relations.length; i++) {
+        const rel = relations[i];
+        if (!rel) continue;
+        if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
+          assignedIds.add(String(rel.UserID));
+        }
+      }
+    }
+
+    assignedIds.forEach(function (id) {
+      const match = byId.get(id);
+      if (match) pushUser(match);
+    });
+
+    const hasAssigned = assignedIds.size > 0;
+
+    if ((!hasAssigned || visible.length === (opts.includeManager && manager ? 1 : 0)) && opts.fallbackToCampaign) {
+      const targetCampaign = opts.managerCampaignId || (manager && (manager.CampaignID || manager.campaignId)) || '';
+      if (targetCampaign) {
+        allUsers.forEach(function (u) {
+          if (String(u.CampaignID || u.campaignId) === String(targetCampaign)) {
+            pushUser(u);
+          }
+        });
+      }
+    }
+
+    if (!visible.length && opts.fallbackToAll) {
+      allUsers.forEach(pushUser);
+    }
+
+    return _dedupeAndSortUsers_(visible);
+
+  } catch (error) {
+    console.error('Error in getUsersByManager:', error);
+    writeError && writeError('getUsersByManager', error);
+    return [];
+  }
+}
+
+function getUser(managerUserId, options) {
+  try {
+    let mgrId = managerUserId;
+    let opts = options;
+
+    if (typeof mgrId === 'object' && mgrId !== null && !Array.isArray(mgrId) && typeof opts === 'undefined') {
+      opts = mgrId;
+      mgrId = undefined;
+    }
+
+    if (!mgrId) {
+      const current = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      if (current && current.ID) {
+        mgrId = current.ID;
+        opts = Object.assign({ managerCampaignId: current.CampaignID || current.campaignId || '' }, opts || {});
+      }
+    }
+
+    const finalOpts = Object.assign({ includeManager: false, fallbackToCampaign: false, fallbackToAll: false }, opts || {});
+    return getUsersByManager(mgrId, finalOpts);
+
+  } catch (error) {
+    console.error('Error in getUser:', error);
+    writeError && writeError('getUser', error);
+    return [];
+  }
+}
+
 function getUsers() {
   try {
     console.log('getUsers() called');
 
-    const meEmail = _normEmail_((Session.getActiveUser() && Session.getActiveUser().getEmail()) || '');
-    console.log('Current user email:', meEmail);
+    const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    const managerId = currentUser && currentUser.ID ? currentUser.ID : null;
+    const managerCampaignId = currentUser ? (currentUser.CampaignID || currentUser.campaignId || '') : '';
 
-    if (!meEmail) {
-      console.warn('No current user email found');
-      return [];
-    }
-
-    const allUsers = (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
-    console.log('All users from sheet:', allUsers.length);
-
-    if (allUsers.length === 0) {
-      console.warn('No users found in Users sheet');
-      return [];
-    }
-
-    const me = allUsers.find(function (u) {
-      return _normEmail_(u.Email || u.email) === meEmail;
+    const users = getUsersByManager(managerId, {
+      includeManager: true,
+      fallbackToCampaign: true,
+      fallbackToAll: true,
+      managerCampaignId: managerCampaignId
     });
 
-    if (!me) {
-      console.warn('Current user not found in Users sheet');
-      return allUsers.map(u => _uiUserShape_(u, _campaignNameMap_()));
+    if (users.length) {
+      console.log('Final user list:', users.length, 'users');
+      return users;
     }
 
-    console.log('Found current user:', me.FullName || me.UserName);
-
-    let muRows = [];
-    try {
-      muRows = (typeof readSheet === 'function') ? (readSheet('MANAGER_USERS') || []) : [];
-      console.log('Manager-user relationships found:', muRows.length);
-    } catch (error) {
-      console.warn('Could not read manager-user relationships, will return all users:', error);
-      return allUsers.map(u => _uiUserShape_(u, _campaignNameMap_()));
-    }
-
-    const assignedIds = new Set(
-      muRows.filter(function (a) { return String(a.ManagerUserID) === String(me.ID); })
-        .map(function (a) { return String(a.UserID); })
-        .filter(Boolean)
-    );
-
-    console.log('Assigned user IDs:', Array.from(assignedIds));
-
-    if (assignedIds.size === 0) {
-      console.log('No assigned users found, using campaign-based filtering');
-      const sameCampaignUsers = allUsers.filter(u =>
-        (u.CampaignID || u.campaignId) === (me.CampaignID || me.campaignId)
-      );
-      return sameCampaignUsers.map(u => _uiUserShape_(u, _campaignNameMap_()));
-    }
-
-    const byId = new Map(allUsers.filter(function (u) { return u && u.ID; }).map(function (u) { return [String(u.ID), u]; }));
-    const cmap = _campaignNameMap_();
-
-    const out = [_uiUserShape_(me, cmap)];
-    assignedIds.forEach(function (id) {
-      const u = byId.get(id);
-      if (u) out.push(_uiUserShape_(u, cmap));
-    });
-
-    const seen = new Set();
-    const dedup = out.filter(function (u) {
-      const k = String(u.ID || '');
-      if (!k || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-
-    dedup.sort(function (a, b) {
-      return String(a.FullName || '').localeCompare(String(b.FullName || '')) ||
-        String(a.UserName || '').localeCompare(String(b.UserName || ''));
-    });
-
-    console.log('Final user list:', dedup.length, 'users');
-    return dedup;
+    const fallback = currentUser ? [_uiUserShape_(currentUser, _campaignNameMap_())] : [];
+    console.warn('No users found by manager; returning fallback list of size', fallback.length);
+    return fallback;
 
   } catch (e) {
     console.error('Error in getUsers:', e);
