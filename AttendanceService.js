@@ -221,7 +221,6 @@ function fetchAllAttendanceRows() {
             dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
             isWeekend: !isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined
           });
-
         } catch (rowError) {
           console.error(`Error processing row ${i + rowIndex}:`, rowError, row);
         }
