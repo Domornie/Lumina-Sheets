@@ -2045,6 +2045,7 @@
     if (typeof value === 'boolean') return value ? 'true' : 'false';
     if (value instanceof Date) {
       return isNaN(value.getTime()) ? fallbackStr : value.toISOString();
+
     }
     try {
       return String(value);
