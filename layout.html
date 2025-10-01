@@ -2219,7 +2219,7 @@
             }
             
             // Additional protection: If current displayed name is real, don't override
-            const nameEl = document.getElementById('userName');
+            const nameEl = document.getElementById('sidebarUserName') || document.getElementById('userName');
             const currentName = nameEl ? nameEl.textContent : '';
             if (nonEmpty(currentName) && currentName !== 'Unknown User') {
                 console.log('🛡️ PROTECTED: Current displayed name is real, blocking override');
