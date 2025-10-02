@@ -391,6 +391,7 @@
       box-shadow: 8px 0 32px rgba(15, 23, 42, 0.2);
       overflow: hidden;
       border-right: 1px solid rgba(255, 255, 255, 0.1);
+      transform: translateX(0);
     }
 
     #sidebar::before {
@@ -427,6 +428,28 @@
 
     #sidebar.collapsed {
       width: var(--sidebar-collapsed);
+    }
+
+    .mobile-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+      z-index: 998;
+      pointer-events: none;
+    }
+
+    .mobile-overlay.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    body.sidebar-open {
+      overflow: hidden;
     }
 
     .sidebar-content {
@@ -1153,10 +1176,63 @@
       animation: spin 1s linear infinite;
     }
 
+    @media (max-width: 1440px) {
+      :root {
+        --sidebar-width: clamp(260px, 20vw, 300px);
+      }
+    }
+
+    @media (max-width: 1100px) {
+      :root {
+        --sidebar-width: clamp(240px, 26vw, 280px);
+        --topbar-height: 64px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      #sidebar {
+        transform: translateX(-100%);
+        width: min(320px, 86vw);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+      }
+
+      #sidebar.mobile-open {
+        transform: translateX(0);
+      }
+
+      #sidebar.collapsed,
+      #sidebar.collapsed.mobile-open {
+        width: min(320px, 86vw);
+      }
+
+      #topbar {
+        left: 0;
+        padding: 0 1.5rem;
+      }
+
+      #sidebar.collapsed~#topbar {
+        left: 0;
+      }
+
+      #maincontent {
+        margin: calc(var(--topbar-height) + 1.5rem) clamp(1.25rem, 4vw, 1.75rem) 1.75rem;
+      }
+
+      #sidebar.collapsed~#maincontent {
+        margin-left: clamp(1.25rem, 4vw, 1.75rem);
+      }
+
+      body.sidebar-open #maincontent {
+        pointer-events: none;
+        filter: blur(1px);
+      }
+    }
+
     /* Mobile responsiveness for top actions */
     @media (max-width: 768px) {
       .top-actions {
         gap: 0.5rem;
+        margin-left: auto;
       }
 
       .notification-btn,
@@ -1168,6 +1244,31 @@
 
       #topbar {
         padding: 0 1rem;
+      }
+
+      #maincontent {
+        margin: calc(var(--topbar-height) + 1.25rem) clamp(1rem, 5vw, 1.5rem) 1.5rem;
+      }
+
+      .breadcrumb-nav {
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
+    }
+
+    @media (max-width: 576px) {
+      #topbar {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.75rem clamp(0.75rem, 5vw, 1rem);
+      }
+
+      #maincontent {
+        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 6vw, 1.25rem) 1.25rem;
+      }
+
+      .topbar-toggle {
+        margin-right: 0.75rem;
       }
     }
 
@@ -2608,31 +2709,109 @@
                 new bootstrap.Tooltip(tooltipTriggerEl);
             });
             
-            // Sidebar toggle
-            document.getElementById('sidebarToggle').addEventListener('click', function() {
-                const sidebar = document.getElementById('sidebar');
-                sidebar.classList.toggle('collapsed');
-                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-            });
-            
-            // Mobile toggle
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggleButton = document.getElementById('sidebarToggle');
             const mobileToggle = document.getElementById('mobileToggle');
-            if (mobileToggle) {
-                mobileToggle.addEventListener('click', function() {
-                    document.getElementById('sidebar').classList.toggle('mobile-open');
-                    document.getElementById('mobileOverlay').classList.toggle('active');
+            const mobileOverlay = document.getElementById('mobileOverlay');
+            const bodyElement = document.body;
+            const mobileBreakpoint = window.matchMedia('(max-width: 1024px)');
+
+            const isMobileSidebar = () => mobileBreakpoint.matches;
+
+            const openMobileSidebar = () => {
+                if (!sidebar) return;
+                sidebar.classList.add('mobile-open');
+                mobileOverlay?.classList.add('active');
+                bodyElement.classList.add('sidebar-open');
+            };
+
+            const closeMobileSidebar = () => {
+                if (!sidebar) return;
+                sidebar.classList.remove('mobile-open');
+                mobileOverlay?.classList.remove('active');
+                bodyElement.classList.remove('sidebar-open');
+            };
+
+            const toggleMobileSidebar = () => {
+                if (!sidebar) return;
+                if (sidebar.classList.contains('mobile-open')) {
+                    closeMobileSidebar();
+                } else {
+                    openMobileSidebar();
+                }
+            };
+
+            // Sidebar toggle
+            if (sidebarToggleButton) {
+                sidebarToggleButton.addEventListener('click', function(event) {
+                    if (isMobileSidebar()) {
+                        event.preventDefault();
+                        toggleMobileSidebar();
+                        return;
+                    }
+
+                    if (!sidebar) {
+                        return;
+                    }
+
+                    sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
                 });
             }
-            
+
+            // Mobile toggle
+            if (mobileToggle) {
+                mobileToggle.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    toggleMobileSidebar();
+                });
+            }
+
             // Mobile overlay close
-            document.getElementById('mobileOverlay')?.addEventListener('click', function() {
-                document.getElementById('sidebar').classList.remove('mobile-open');
-                this.classList.remove('active');
+            mobileOverlay?.addEventListener('click', closeMobileSidebar);
+
+            // Close sidebar when a navigation link is chosen on mobile
+            sidebar?.addEventListener('click', function(event) {
+                if (!isMobileSidebar()) {
+                    return;
+                }
+
+                const interactive = event.target && event.target.closest ? event.target.closest('a, button') : null;
+                if (!interactive) {
+                    return;
+                }
+
+                if (interactive.id === 'sidebarToggle') {
+                    return;
+                }
+
+                closeMobileSidebar();
             });
-            
-            // Restore sidebar state
-            if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                document.getElementById('sidebar').classList.add('collapsed');
+
+            // Keyboard accessibility
+            window.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeMobileSidebar();
+                }
+            });
+
+            const handleBreakpointChange = () => {
+                if (!isMobileSidebar()) {
+                    closeMobileSidebar();
+                }
+            };
+
+            if (typeof mobileBreakpoint.addEventListener === 'function') {
+                mobileBreakpoint.addEventListener('change', handleBreakpointChange);
+            } else if (typeof mobileBreakpoint.addListener === 'function') {
+                mobileBreakpoint.addListener(handleBreakpointChange);
+            }
+
+            handleBreakpointChange();
+
+            // Restore sidebar state for desktop users
+            if (sidebar && localStorage.getItem('sidebarCollapsed') === 'true') {
+                sidebar.classList.add('collapsed');
             }
 
             console.log('✅ Lumina Dashboard initialized');
