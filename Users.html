@@ -120,13 +120,29 @@
     }
 
     /* Enhanced User Cards */
+    #usersContainer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        align-items: stretch;
+    }
+
+    #usersContainer .empty-state {
+        flex: 1 1 100%;
+    }
+
     .user-card {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: var(--border-radius);
-        padding: 2rem;
-        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        width: 320px;
+        min-height: 340px;
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
         transition: var(--transition);
         position: relative;
         overflow: hidden;
@@ -152,6 +168,108 @@
 
     .user-card:hover::before {
         left: 100%;
+    }
+
+    .user-card-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .user-card-identity {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .user-card-identity h5 {
+        margin-bottom: 0.25rem;
+        font-size: 1rem;
+    }
+
+    .user-username {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        font-weight: 500;
+    }
+
+    .user-card-status {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        min-width: 0;
+        flex-shrink: 0;
+    }
+
+    .user-card-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .user-meta {
+        display: grid;
+        gap: 0.35rem;
+        font-size: 0.8rem;
+        color: var(--gray-600);
+    }
+
+    .user-meta span {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .user-meta i {
+        color: var(--primary-500);
+        width: 1rem;
+    }
+
+    .user-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    .user-card-section {
+        background: rgba(248, 250, 252, 0.6);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(203, 213, 225, 0.3);
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .user-card-section-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--gray-500);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .user-card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .user-card-actions .btn {
+        flex: 1 1 calc(50% - 0.25rem);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        padding: 0.45rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .user-card-actions .btn.user-action-delete {
+        flex-basis: 100%;
     }
 
     .user-avatar {
@@ -498,12 +616,13 @@
     .employment-info {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 1rem;
-        padding: 1rem;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.75rem;
         background: rgba(248, 250, 252, 0.5);
         border-radius: var(--border-radius-xs);
         border: 1px solid rgba(203, 213, 225, 0.3);
+        font-size: 0.75rem;
     }
 
     /* Equipment Manager */
@@ -798,7 +917,14 @@
         }
 
         .user-card {
-            padding: 1.5rem;
+            padding: 1.25rem;
+            width: 100%;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+
+        #usersContainer {
+            justify-content: center;
         }
 
         .user-avatar {
@@ -1011,11 +1137,12 @@
 
     /* User sheet data */
     .user-sheet-details {
-        margin-top: 1.5rem;
+        margin-top: 0.75rem;
         background: rgba(248, 250, 252, 0.6);
         border-radius: var(--border-radius-xs);
         border: 1px solid rgba(203, 213, 225, 0.4);
         padding: 0.75rem 1rem;
+        font-size: 0.8rem;
     }
 
     .user-sheet-details>summary {
@@ -2865,42 +2992,43 @@
     const username = user.UserName || user.userName || user.username || user.Username || 'unknown';
     const initials = getInitials(name);
     const userId = user.ID || '';
+    const email = user.Email || user.email || 'No email';
+    const phone = user.PhoneNumber || user.phoneNumber || user.Phone || user.PhoneNum || '';
 
     return `
   <div class="user-card">
-    <div class="d-flex align-items-start">
-      <div class="user-avatar me-3">${initials}</div>
-      <div class="flex-grow-1">
-        <div class="d-flex justify-content-between align-items-start">
-          <div class="flex-grow-1">
-            <h5 class="mb-2 fw-bold">${escapeHtml(name)}</h5>
-            <div class="text-muted small mb-1">@${escapeHtml(username)}</div>
-            <div class="text-muted small mb-1"><i class="fas fa-envelope me-1"></i>${escapeHtml(user.Email || 'No email')}</div>
-            ${user.PhoneNumber ? `<div class="text-muted small mb-1"><i class="fas fa-phone me-1"></i>${escapeHtml(user.PhoneNumber)}</div>` : ''}
-          </div>
-          <div class="btn-group" role="group" aria-label="User actions">
-            <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password"><i class="fas fa-key"></i></button>
-            <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
-            <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment"><i class="fas fa-toolbox"></i></button>
-            <button class="btn btn-outline-danger btn-sm" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User"><i class="fas fa-trash"></i></button>
-          </div>
+    <div class="user-card-header">
+      <div class="user-avatar">${initials}</div>
+      <div class="user-card-identity">
+        <h5 class="fw-bold text-truncate">${escapeHtml(name)}</h5>
+        <div class="user-username">@${escapeHtml(username)}</div>
+        <div class="user-meta mt-2">
+          <span><i class="fas fa-envelope me-1"></i>${escapeHtml(email)}</span>
+          ${phone ? `<span><i class="fas fa-phone me-1"></i>${escapeHtml(phone)}</span>` : ''}
         </div>
-
-        <div class="mt-3 d-flex flex-wrap gap-2">
-          ${renderStatusBadge(user)}
-          ${renderCampaignBadges(user)}
-          ${renderRolesBadges(user)}
-        </div>
-
-        ${renderEmploymentInfo(user)}
-
-        <div class="mt-3">
-          <div class="small text-muted mb-2 fw-medium"><i class="fas fa-robot me-1"></i>Auto-Discovered Page Access:</div>
-          ${renderUserPagesBadges(user)}
-        </div>
-        ${renderUserSheetDetails(user)}
       </div>
+      <div class="user-card-status">
+        ${renderStatusBadge(user)}
+      </div>
+    </div>
+    <div class="user-card-body">
+      <div class="user-tags">
+        ${renderCampaignBadges(user)}
+        ${renderRolesBadges(user)}
+      </div>
+      ${renderEmploymentInfo(user)}
+      <div class="user-card-section">
+        <div class="user-card-section-title"><i class="fas fa-robot"></i>Auto-Discovered Page Access</div>
+        ${renderUserPagesBadges(user)}
+      </div>
+      ${renderUserSheetDetails(user)}
+    </div>
+    <div class="user-card-actions" role="group" aria-label="User actions">
+      <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User"><i class="fas fa-edit"></i><span>Edit</span></button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password"><i class="fas fa-key"></i><span>Reset Pwd</span></button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email"><i class="fas fa-paper-plane"></i><span>First Login</span></button>
+      <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment"><i class="fas fa-toolbox"></i><span>Equipment</span></button>
+      <button class="btn btn-outline-danger btn-sm user-action-delete" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User"><i class="fas fa-trash"></i><span>Delete</span></button>
     </div>
   </div>`;
   }
@@ -2939,7 +3067,7 @@
 
   function renderUserPagesBadges(user) {
     const userPages = user.pages || [];
-    if (!userPages.length) return '<span class="user-page-count">🚫 No pages assigned</span>';
+    if (!userPages.length) return '<div class="user-pages"><span class="user-page-count">🚫 No pages assigned</span></div>';
     const maxDisplay = 5;
     const firstFew = userPages.slice(0, maxDisplay).map(key => {
       const page = allPages.find(p => p.key === key);
@@ -2948,7 +3076,7 @@
       return `<span class="user-page-badge" title="${escapeHtml(title)}"><i class="${icon} me-1"></i>${escapeHtml(key)}</span>`;
     }).join('');
     const extra = userPages.length > maxDisplay ? `<span class="user-page-count" title="Total: ${userPages.length} pages">+${userPages.length - maxDisplay} more</span>` : '';
-    return firstFew + extra;
+    return `<div class="user-pages">${firstFew}${extra}</div>`;
   }
 
   function renderStatusBadge(user) {
