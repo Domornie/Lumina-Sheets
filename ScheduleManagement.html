@@ -1504,7 +1504,7 @@
         // LUMINA Schedule Management System v4.0 - Modern UI Edition with Backend Integration
         class LuminaScheduleManager {
             constructor() {
-                this.currentUser = window.user || {};
+                this.currentUser = window.user || window.currentUser || window.CURRENT_USER || {};
                 this.availableUsers = [];
                 this.availableCampaigns = [];
                 this.attendanceChart = null;
@@ -1834,13 +1834,13 @@
                                 <div>
                                     <h6 class="mb-1">${slot.Name}</h6>
                                     <p class="mb-2 small text-muted">
-                                        <strong>Time:</strong> ${slot.StartTime} - ${slot.EndTime}<br>
+                                        <strong>Time:</strong> ${this.formatTimeValue(slot.StartTime)} - ${this.formatTimeValue(slot.EndTime)}<br>
                                         <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
                                         <strong>Department:</strong> ${slot.Department || 'General'}<br>
                                         <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
                                     </p>
                                     <small class="text-muted">
-                                        Created: ${this.formatDate(slot.CreatedAt)}
+                                        Created: ${this.formatDateTime(slot.CreatedAt)}
                                     </small>
                                 </div>
                                 <div class="btn-group-vertical btn-group-sm">
@@ -2755,7 +2755,15 @@
 
             // Utility methods
             getCurrentUserId() {
-                return this.currentUser?.ID || 'system-user';
+                const potentialIds = [
+                    this.currentUser?.ID,
+                    this.currentUser?.Id,
+                    this.currentUser?.id,
+                    this.currentUser?.UserID,
+                    this.currentUser?.UserId
+                ].filter(id => id);
+
+                return potentialIds.length > 0 ? String(potentialIds[0]) : 'system-user';
             }
 
             formatDate(dateStr) {
@@ -2763,6 +2771,77 @@
                     return dateStr ? new Date(dateStr).toLocaleDateString() : '';
                 } catch (error) {
                     return dateStr;
+                }
+            }
+
+            formatDateTime(dateValue) {
+                if (!dateValue) {
+                    return '';
+                }
+
+                try {
+                    const date = new Date(dateValue);
+                    if (isNaN(date.getTime())) {
+                        return String(dateValue);
+                    }
+
+                    return date.toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (error) {
+                    console.warn('Unable to format date time value:', dateValue, error);
+                    return String(dateValue);
+                }
+            }
+
+            formatTimeValue(timeValue) {
+                if (!timeValue && timeValue !== 0) {
+                    return '';
+                }
+
+                try {
+                    if (typeof timeValue === 'string') {
+                        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeValue)) {
+                            const [hours, minutes] = timeValue.split(':');
+                            const date = new Date();
+                            date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+                            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        }
+
+                        const parsed = new Date(timeValue);
+                        if (!isNaN(parsed.getTime())) {
+                            return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        }
+
+                        return timeValue;
+                    }
+
+                    if (timeValue instanceof Date) {
+                        return timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+
+                    if (typeof timeValue === 'number') {
+                        if (timeValue >= 0 && timeValue < 1) {
+                            const totalMinutes = Math.round(timeValue * 24 * 60);
+                            const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+                            const minutes = (totalMinutes % 60).toString().padStart(2, '0');
+                            return `${hours}:${minutes}`;
+                        }
+
+                        const date = new Date(timeValue);
+                        if (!isNaN(date.getTime())) {
+                            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        }
+                    }
+
+                    return String(timeValue);
+                } catch (error) {
+                    console.warn('Unable to format time value:', timeValue, error);
+                    return String(timeValue);
                 }
             }
 
