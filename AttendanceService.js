@@ -575,43 +575,6 @@ function ensureComparableMs(row) {
   return ensureDateMs(row);
 }
 
-function findFirstIndexOnOrAfterTimestamp(rows, targetMs) {
-  let low = 0;
-  let high = rows.length;
-
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    const value = ensureComparableMs(rows[mid]);
-
-    if (!Number.isFinite(value) || value < targetMs) {
-      low = mid + 1;
-    } else {
-      high = mid;
-    }
-  }
-
-  return low;
-}
-
-function findLastIndexOnOrBeforeTimestamp(rows, targetMs) {
-  let low = 0;
-  let high = rows.length;
-
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    const value = ensureComparableMs(rows[mid]);
-
-    if (!Number.isFinite(value) || value > targetMs) {
-      high = mid;
-    } else {
-      low = mid + 1;
-    }
-  }
-
-  return low - 1;
-}
-
-
 // ────────────────────────────────────────────────────────────────────────────
 // ANALYTICS ENGINE
 // ────────────────────────────────────────────────────────────────────────────
@@ -677,14 +640,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     const allRows = fetchAllAttendanceRows();
     const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
 
-    const firstCandidateIndex = findFirstIndexOnOrAfterTimestamp(allRows, periodStartMs);
-    const lastCandidateIndex = findLastIndexOnOrBeforeTimestamp(allRows, periodEndMs);
-    const hasCandidates = lastCandidateIndex >= firstCandidateIndex && firstCandidateIndex < allRows.length;
-
-    if (!hasCandidates) {
-      console.log('No attendance rows within requested period window by timestamp. Falling back to full scan for date matches.');
-    }
-
     const summary = {};
     const stateDuration = {};
     const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES])];
@@ -725,8 +680,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     let exceededTimeBudget = false;
     let scannedRows = 0;
 
-    const loopStart = hasCandidates ? Math.max(0, firstCandidateIndex) : 0;
-    const loopEnd = hasCandidates ? lastCandidateIndex : allRows.length - 1;
+    const loopStart = 0;
+    const loopEnd = allRows.length - 1;
+    const safePeriodStartMs = Number.isFinite(periodStartMs) ? periodStartMs : Number.POSITIVE_INFINITY;
+    const safePeriodDateStartMs = Number.isFinite(periodStartDateMs) ? periodStartDateMs : Number.POSITIVE_INFINITY;
+    const lowerBoundMs = Math.min(safePeriodStartMs, safePeriodDateStartMs);
 
     for (let idx = loopEnd; idx >= loopStart; idx--) {
       if (!exceededTimeBudget && scannedRows > 0 && (scannedRows % 250 === 0)) {
@@ -740,6 +698,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       const row = allRows[idx];
       if (!row) continue;
       scannedRows++;
+
+      const comparableMs = ensureComparableMs(row);
+      if (Number.isFinite(comparableMs) && comparableMs < lowerBoundMs) {
+        break;
+      }
 
       const timestampMs = ensureTimestampMs(row);
       const dateMs = ensureDateMs(row);
@@ -755,9 +718,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         continue;
       }
 
+      const effectiveTimestampMs = Number.isFinite(timestampMs)
+        ? timestampMs
+        : (Number.isFinite(dateMs) ? dateMs : undefined);
+
       const timestamp = row.timestamp instanceof Date
         ? row.timestamp
-        : (Number.isFinite(timestampMs) ? new Date(timestampMs) : (Number.isFinite(dateMs) ? new Date(dateMs) : null));
+        : (Number.isFinite(effectiveTimestampMs) ? new Date(effectiveTimestampMs) : null);
+
       if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
         continue;
       }
@@ -835,8 +803,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       }
 
       const sanitizedRow = {
-        timestamp: timestamp,
-        timestampMs,
+        timestamp,
+        timestampMs: effectiveTimestampMs,
         user: row.user,
         state,
         durationSec,
@@ -847,7 +815,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       };
       filteredRows.push(sanitizedRow);
       if (!exceededTimeBudget) {
-        registerFeedRow(sanitizedRow, timestampMs);
+        registerFeedRow(sanitizedRow, effectiveTimestampMs);
       }
     }
 
