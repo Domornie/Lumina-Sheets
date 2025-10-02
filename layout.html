@@ -122,6 +122,8 @@
 
     const __PAGE_SLUG_SOURCES = <?!= JSON.stringify(__layoutSlugSources) ?>;
     const __RAW_RETURN_URL = <?!= JSON.stringify(__layoutRawReturnUrl) ?>;
+    const __LAYOUT_CAMPAIGN_NAME = <?!= JSON.stringify(__layoutCampaignName || '') ?>;
+    const __LAYOUT_CLIENT_NAME = <?!= JSON.stringify(__layoutClientName || '') ?>;
 
     const __invalidPanelPattern = /usercodeapppanel/i;
 
@@ -1527,6 +1529,41 @@
     var __layoutCampaignName = (__layoutUser && (__layoutUser.campaignName || __layoutUser.CampaignName)) ?
       (__layoutUser.campaignName || __layoutUser.CampaignName) : '';
 
+    function __layoutResolveClientName(user) {
+      if (!user) {
+        return '';
+      }
+
+      var candidates = [
+        user.clientName,
+        user.ClientName,
+        user.client,
+        user.Client,
+        user.accountName,
+        user.AccountName,
+        user.companyName,
+        user.CompanyName,
+        user.organization,
+        user.Organization
+      ];
+
+      for (var i = 0; i < candidates.length; i++) {
+        var value = candidates[i];
+        if (!value) {
+          continue;
+        }
+
+        var text = String(value).trim();
+        if (text) {
+          return text;
+        }
+      }
+
+      return '';
+    }
+
+    var __layoutClientName = __layoutResolveClientName(__layoutUser);
+
     var __layoutRoleNames = [];
     if (Array.isArray(__layoutUser && __layoutUser.roleNames) && __layoutUser.roleNames.length) {
       __layoutRoleNames = __layoutUser.roleNames;
@@ -1626,13 +1663,21 @@
           <div class="lumina-banner__description" id="luminaBannerDescription"></div>
         </div>
         <div class="lumina-banner__meta">
-          <div class="lumina-banner__meta-item">
+          <div class="lumina-banner__meta-item" id="luminaBannerMetaDate">
             <div class="lumina-banner__meta-label"><i class="fa-regular fa-calendar"></i> Today</div>
             <div class="lumina-banner__meta-value" id="luminaBannerDate" aria-live="polite">—</div>
           </div>
-          <div class="lumina-banner__meta-item">
+          <div class="lumina-banner__meta-item" id="luminaBannerMetaDst">
             <div class="lumina-banner__meta-label"><i class="fa-regular fa-clock"></i> Daylight Saving</div>
             <div class="lumina-banner__meta-value" id="luminaBannerDst" aria-live="polite" data-dst-active="false">—</div>
+          </div>
+          <div class="lumina-banner__meta-item" id="luminaBannerMetaCampaign" data-empty="true">
+            <div class="lumina-banner__meta-label"><i class="fa-solid fa-bullseye"></i> Campaign</div>
+            <div class="lumina-banner__meta-value" id="luminaBannerCampaign" aria-live="polite">—</div>
+          </div>
+          <div class="lumina-banner__meta-item" id="luminaBannerMetaClient" data-empty="true">
+            <div class="lumina-banner__meta-label"><i class="fa-solid fa-building"></i> Client</div>
+            <div class="lumina-banner__meta-value" id="luminaBannerClient" aria-live="polite">—</div>
           </div>
         </div>
       </div>
@@ -1733,7 +1778,9 @@
                 descriptionText: '',
                 descriptionElements: [],
                 eyebrowText: '',
-                actions: []
+                actions: [],
+                clientName: '',
+                campaignName: ''
             };
 
             const processedHeaders = new Set();
@@ -1858,6 +1905,32 @@
                 if (shouldSkipHeader(header)) return;
 
                 processedHeaders.add(header);
+
+                const campaignAttr = header.getAttribute('data-banner-campaign') || header.getAttribute('data-banner-meta-campaign');
+                if (campaignAttr && !bannerData.campaignName) {
+                    bannerData.campaignName = campaignAttr.trim();
+                }
+
+                const clientAttr = header.getAttribute('data-banner-client') || header.getAttribute('data-banner-meta-client');
+                if (clientAttr && !bannerData.clientName) {
+                    bannerData.clientName = clientAttr.trim();
+                }
+
+                const campaignMetaEl = header.querySelector('[data-banner-campaign], [data-banner-meta="campaign"], .banner-campaign');
+                if (campaignMetaEl) {
+                    if (!bannerData.campaignName) {
+                        bannerData.campaignName = campaignMetaEl.textContent.trim();
+                    }
+                    campaignMetaEl.remove();
+                }
+
+                const clientMetaEl = header.querySelector('[data-banner-client], [data-banner-meta="client"], .banner-client');
+                if (clientMetaEl) {
+                    if (!bannerData.clientName) {
+                        bannerData.clientName = clientMetaEl.textContent.trim();
+                    }
+                    clientMetaEl.remove();
+                }
 
                 const eyebrowAttr = header.getAttribute('data-banner-eyebrow');
                 if (eyebrowAttr && !bannerData.eyebrowText) {
@@ -1992,7 +2065,56 @@
             const eyebrowText = document.getElementById('luminaBannerEyebrowText');
             const dateEl = document.getElementById('luminaBannerDate');
             const dstEl = document.getElementById('luminaBannerDst');
+            const campaignMetaEl = document.getElementById('luminaBannerMetaCampaign');
+            const campaignValueEl = document.getElementById('luminaBannerCampaign');
+            const clientMetaEl = document.getElementById('luminaBannerMetaClient');
+            const clientValueEl = document.getElementById('luminaBannerClient');
             const actionsEl = document.getElementById('luminaBannerActions');
+
+            const assignMetaValue = (container, valueElement, value) => {
+                if (!valueElement) {
+                    return;
+                }
+
+                const text = String(value || '').trim();
+                if (text) {
+                    valueElement.textContent = text;
+                    if (container) {
+                        container.dataset.empty = 'false';
+                        container.style.display = '';
+                    }
+                } else {
+                    valueElement.textContent = '—';
+                    if (container) {
+                        container.dataset.empty = 'true';
+                        container.style.display = 'none';
+                    }
+                }
+            };
+
+            const normalizeMetaValue = (value) => {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                return String(value).trim();
+            };
+
+            finalConfig.campaignName = normalizeMetaValue(
+                (config && config.campaignName !== undefined) ? config.campaignName : stored.campaignName
+            );
+
+            finalConfig.clientName = normalizeMetaValue(
+                (config && config.clientName !== undefined) ? config.clientName : stored.clientName
+            );
+
+            if (!finalConfig.campaignName && __LAYOUT_CAMPAIGN_NAME) {
+                finalConfig.campaignName = __LAYOUT_CAMPAIGN_NAME;
+            }
+
+            if (!finalConfig.clientName && __LAYOUT_CLIENT_NAME) {
+                finalConfig.clientName = __LAYOUT_CLIENT_NAME;
+            }
 
             const resolvedTitle = finalConfig.title || stored.titleText || stored.title || document.title || 'LuminaHQ';
             if (titleEl) {
@@ -2016,6 +2138,18 @@
                     ? String(finalConfig.description || '').trim()
                     : String(stored.descriptionText || '').trim();
 
+                let resolvedDescription = description;
+                if (!resolvedDescription && (finalConfig.clientName || finalConfig.campaignName)) {
+                    const summary = [];
+                    if (finalConfig.clientName) {
+                        summary.push(finalConfig.clientName);
+                    }
+                    if (finalConfig.campaignName && finalConfig.campaignName !== finalConfig.clientName) {
+                        summary.push(finalConfig.campaignName);
+                    }
+                    resolvedDescription = summary.join(' • ');
+                }
+
                 const fragments = Array.isArray(finalConfig.descriptionElements)
                     ? finalConfig.descriptionElements
                     : [];
@@ -2024,10 +2158,10 @@
 
                 let hasContent = false;
 
-                if (description) {
+                if (resolvedDescription) {
                     const textSpan = document.createElement('span');
                     textSpan.classList.add('lumina-banner__description-text');
-                    textSpan.textContent = description;
+                    textSpan.textContent = resolvedDescription;
                     descEl.appendChild(textSpan);
                     hasContent = true;
                 }
@@ -2050,12 +2184,25 @@
             }
 
             if (eyebrowEl && eyebrowText) {
-                const eyebrowValue = finalConfig.eyebrow || finalConfig.campaignName || stored.eyebrowText || '';
+                const eyebrowValue = finalConfig.eyebrow || finalConfig.clientName || finalConfig.campaignName ||
+                    stored.clientName || stored.campaignName || stored.eyebrowText || '';
                 const fallback = 'Lumina Sheets';
                 const text = String(eyebrowValue || fallback).trim();
                 eyebrowText.textContent = text;
                 eyebrowEl.style.display = text ? 'inline-flex' : 'none';
             }
+
+            assignMetaValue(
+                campaignMetaEl,
+                campaignValueEl,
+                finalConfig.campaignName || stored.campaignName || __LAYOUT_CAMPAIGN_NAME
+            );
+
+            assignMetaValue(
+                clientMetaEl,
+                clientValueEl,
+                finalConfig.clientName || stored.clientName || __LAYOUT_CLIENT_NAME
+            );
 
             const refreshMeta = () => {
                 const now = new Date();
@@ -2410,7 +2557,16 @@
             const defaultTitle = <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>;
             const defaultDescription = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
 
-            const combinedDescription = [defaultDescription, absorbed.descriptionText]
+            const identityPieces = [];
+            if (__LAYOUT_CLIENT_NAME) {
+                identityPieces.push(__LAYOUT_CLIENT_NAME);
+            }
+            if (__LAYOUT_CAMPAIGN_NAME && __LAYOUT_CAMPAIGN_NAME !== __LAYOUT_CLIENT_NAME) {
+                identityPieces.push(__LAYOUT_CAMPAIGN_NAME);
+            }
+            const identitySummary = identityPieces.join(' • ');
+
+            const combinedDescription = [defaultDescription, absorbed.descriptionText, identitySummary]
                 .map(part => String(part || '').trim())
                 .filter(Boolean)
                 .join(' • ');
@@ -2421,7 +2577,8 @@
                 description: combinedDescription,
                 descriptionElements: absorbed.descriptionElements,
                 eyebrow: absorbed.eyebrowText,
-                campaignName: <?!= JSON.stringify(__layoutCampaignName || '') ?>,
+                campaignName: absorbed.campaignName || <?!= JSON.stringify(__layoutCampaignName || '') ?>,
+                clientName: absorbed.clientName || <?!= JSON.stringify(__layoutClientName || '') ?>,
                 actions: absorbed.actions
             };
 
@@ -2431,10 +2588,19 @@
                 descriptionText: combinedDescription,
                 descriptionElements: absorbed.descriptionElements,
                 actions: absorbed.actions,
-                eyebrowText: initialConfig.eyebrow || absorbed.eyebrowText
+                eyebrowText: initialConfig.eyebrow || absorbed.eyebrowText,
+                campaignName: initialConfig.campaignName || absorbed.campaignName || '',
+                clientName: initialConfig.clientName || absorbed.clientName || ''
             });
 
             initializeGlobalBanner(initialConfig);
+
+            const resolvedDocumentTitle = initialConfig.title || document.title || '';
+            if (resolvedDocumentTitle) {
+                document.title = resolvedDocumentTitle;
+            } else if (__LAYOUT_CAMPAIGN_NAME) {
+                document.title = __LAYOUT_CAMPAIGN_NAME;
+            }
 
             // Initialize tooltips
             [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function(tooltipTriggerEl) {
@@ -2496,6 +2662,14 @@
         window.updateUserDisplaySafely = updateUserDisplaySafely;
         window.initializeGlobalBanner = initializeGlobalBanner;
         window.absorbLocalBanners = absorbLocalBanners;
+
+        document.addEventListener('lumina:banner-update', function(event) {
+            if (!event || !event.detail) {
+                return;
+            }
+
+            initializeGlobalBanner(event.detail || {});
+        });
 
         console.log('✨ Simplified header system loaded successfully');
     </script>
