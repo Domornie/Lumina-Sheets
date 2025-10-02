@@ -46,12 +46,109 @@ const ATTENDANCE_TIMEZONE = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE === 'string
 const ATTENDANCE_TIMEZONE_LABEL = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL)
   ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
   : 'Company Time';
+const ATTENDANCE_SHEET_NAME = (typeof GLOBAL_SCOPE.ATTENDANCE === 'string' && GLOBAL_SCOPE.ATTENDANCE)
+  ? GLOBAL_SCOPE.ATTENDANCE
+  : 'AttendanceLog';
 
 // Performance optimization constants
 const MAX_PROCESSING_TIME = 25000; // 25 seconds max execution time
 const CHUNK_SIZE = 1000; // Process data in chunks
 const CACHE_TTL_SHORT = 60; // 1 minute cache
 const CACHE_TTL_MEDIUM = 300; // 5 minute cache
+const LARGE_CACHE_CHUNK_SIZE = 90000; // stay below 100k Apps Script cache limit per entry
+const ATTENDANCE_CACHE_VERSION = 'v3';
+
+function readLargeCache(cache, baseKey) {
+  try {
+    const metaRaw = cache.get(`${baseKey}::meta`);
+    if (!metaRaw) return null;
+
+    const meta = JSON.parse(metaRaw);
+    if (!meta || meta.version !== ATTENDANCE_CACHE_VERSION || typeof meta.chunks !== 'number') {
+      return null;
+    }
+
+    if (typeof meta.timestamp === 'number' && (Date.now() - meta.timestamp) > CACHE_TTL_MEDIUM * 1000) {
+      return null;
+    }
+
+    const parts = [];
+    for (let i = 0; i < meta.chunks; i++) {
+      const part = cache.get(`${baseKey}::part::${i}`);
+      if (!part) {
+        return null;
+      }
+      parts.push(part);
+    }
+
+    const payload = parts.join('');
+    return JSON.parse(payload);
+  } catch (err) {
+    try {
+      console.warn('Large cache read failed:', err);
+    } catch (_) {}
+    return null;
+  }
+}
+
+function writeLargeCache(cache, baseKey, value, ttlSeconds) {
+  try {
+    const payload = JSON.stringify(value);
+    const chunks = [];
+    for (let offset = 0; offset < payload.length; offset += LARGE_CACHE_CHUNK_SIZE) {
+      chunks.push(payload.substring(offset, offset + LARGE_CACHE_CHUNK_SIZE));
+    }
+
+    const meta = JSON.stringify({
+      version: ATTENDANCE_CACHE_VERSION,
+      chunks: chunks.length,
+      timestamp: Date.now()
+    });
+
+    cache.put(`${baseKey}::meta`, meta, ttlSeconds);
+
+    chunks.forEach((chunk, index) => {
+      cache.put(`${baseKey}::part::${index}`, chunk, ttlSeconds);
+    });
+  } catch (err) {
+    try {
+      console.warn('Large cache write failed:', err);
+    } catch (_) {}
+  }
+}
+
+function resolveAttendanceSpreadsheet() {
+  if (typeof getIBTRSpreadsheet === 'function') {
+    try {
+      const ss = getIBTRSpreadsheet();
+      if (ss) {
+        return ss;
+      }
+    } catch (err) {
+      try {
+        console.warn('getIBTRSpreadsheet() failed, attempting SpreadsheetApp fallback', err);
+      } catch (_) {}
+    }
+  }
+
+  if (typeof SpreadsheetApp !== 'undefined') {
+    try {
+      if (typeof GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID === 'string' && GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID) {
+        return SpreadsheetApp.openById(GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID);
+      }
+    } catch (openErr) {
+      try {
+        console.warn('SpreadsheetApp.openById fallback failed:', openErr);
+      } catch (_) {}
+    }
+
+    if (typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
+      return SpreadsheetApp.getActiveSpreadsheet();
+    }
+  }
+
+  throw new Error('Unable to resolve attendance spreadsheet. Ensure IBTRUtilities is loaded.');
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // RPC WITH TIMEOUT PROTECTION
@@ -86,47 +183,48 @@ function rpc(label, fn, fallback, maxTime = 20000) {
 // In AttendanceService.gs, update the fetchAllAttendanceRows function around line 100-150
 function fetchAllAttendanceRows() {
   return rpc('fetchAllAttendanceRows', () => {
-    const CACHE_KEY = 'ATTENDANCE_ROWS_CACHE_FINAL_V2';
+    const CACHE_KEY = 'ATTENDANCE_ROWS_CACHE_FINAL_V3';
 
     // Try cache first
     try {
-      const cached = CacheService.getScriptCache().get(CACHE_KEY);
-      if (cached) {
-        const data = JSON.parse(cached);
-        if (data.timestamp && (Date.now() - data.timestamp) < CACHE_TTL_MEDIUM * 1000 && Array.isArray(data.rows)) {
-          console.log('Using cached attendance data');
-          return data.rows.map(row => {
-            const dayOfWeek = typeof row.dayOfWeek === 'number'
-              ? row.dayOfWeek
-              : (typeof row.dayOfWeek === 'string' ? parseInt(row.dayOfWeek, 10) : undefined);
+      const cache = CacheService.getScriptCache();
+      const cached = readLargeCache(cache, CACHE_KEY);
+      if (cached && cached.timestamp && Array.isArray(cached.rows)) {
+        console.log('Using cached attendance data');
+        return cached.rows.map(row => {
+          const timestampMsRaw = typeof row.t === 'number' ? row.t : parseFloat(row.t);
+          const timestampMs = Number.isFinite(timestampMsRaw) ? timestampMsRaw : undefined;
+          const timestamp = typeof timestampMs === 'number' ? new Date(timestampMs) : null;
+          const dayOfWeek = typeof row.dow === 'number'
+            ? row.dow
+            : (typeof row.dow === 'string' ? parseInt(row.dow, 10) : undefined);
+          const durationSecRaw = typeof row.d === 'number' ? row.d : parseFloat(row.d);
+          const durationSec = Number.isFinite(durationSecRaw) ? durationSecRaw : 0;
 
-            const timestampMs = typeof row.timestampMs === 'number'
-              ? row.timestampMs
-              : (typeof row.timestamp === 'number' ? row.timestamp : undefined);
-
-            const reconstructedTimestamp = typeof row.timestamp === 'number'
-              ? new Date(row.timestamp)
-              : (row.timestamp instanceof Date ? row.timestamp : (typeof timestampMs === 'number' ? new Date(timestampMs) : null));
-
-            return {
-              ...row,
-              timestamp: reconstructedTimestamp,
-              timestampMs: typeof timestampMs === 'number' ? timestampMs : (reconstructedTimestamp ? reconstructedTimestamp.getTime() : undefined),
-              dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
-              isWeekend: typeof row.isWeekend === 'boolean'
-                ? row.isWeekend
-                : (!isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined)
-            };
-          });
-        }
+          return {
+            timestamp,
+            timestampMs,
+            user: row.u,
+            state: row.s,
+            durationSec,
+            durationMin: durationSec / 60,
+            durationHours: durationSec / 3600,
+            dateString: row.ds,
+            dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
+            isWeekend: typeof row.w === 'boolean' ? row.w : (typeof dayOfWeek === 'number' && !isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined)
+          };
+        });
       }
     } catch (e) {
       console.warn('Cache read failed:', e);
     }
 
-    const ss = getIBTRSpreadsheet();
-    const sheet = ss.getSheetByName(ATTENDANCE);
-    if (!sheet) return [];
+    const ss = resolveAttendanceSpreadsheet();
+    const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
+    if (!sheet) {
+      console.warn(`Attendance sheet "${ATTENDANCE_SHEET_NAME}" not found in IBTR spreadsheet.`);
+      return [];
+    }
 
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return [];
@@ -231,14 +329,21 @@ function fetchAllAttendanceRows() {
     
     // Cache the results (serialize timestamps for storage)
     try {
-      const cacheData = {
+      const cache = CacheService.getScriptCache();
+      const rowsForCache = out.map(row => ({
+        t: row.timestamp.getTime(),
+        u: row.user,
+        s: row.state,
+        d: row.durationSec,
+        ds: row.dateString,
+        dow: row.dayOfWeek,
+        w: typeof row.isWeekend === 'boolean' ? row.isWeekend : undefined
+      }));
+
+      writeLargeCache(cache, CACHE_KEY, {
         timestamp: Date.now(),
-        rows: out.map(row => ({
-          ...row,
-          timestamp: row.timestamp.getTime()
-        }))
-      };
-      CacheService.getScriptCache().put(CACHE_KEY, JSON.stringify(cacheData), CACHE_TTL_MEDIUM);
+        rows: rowsForCache
+      }, CACHE_TTL_MEDIUM);
     } catch (e) {
       console.warn('Cache write failed:', e);
     }
@@ -254,6 +359,7 @@ function fetchAllAttendanceRows() {
 function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
   return rpc('getAttendanceAnalyticsByPeriod', () => {
     const startTime = Date.now();
+    const TIME_BUDGET_MS = Math.min(MAX_PROCESSING_TIME - 2000, 20000);
     console.log(`Analytics request: ${granularity}, ${periodId}, ${agentFilter || 'all'}`);
 
     if (!periodId) {
@@ -276,8 +382,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       console.warn('Analytics cache read failed:', e);
     }
 
-    const allRows = fetchAllAttendanceRows();
-
     let periodStart, periodEnd;
     try {
       [periodStart, periodEnd] = derivePeriodBounds(granularity, periodId);
@@ -287,6 +391,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const periodStartMs = periodStart.getTime();
     const periodEndMs = periodEnd.getTime();
+
+    const allRows = fetchAllAttendanceRows();
+    const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
 
     const summary = {};
     const stateDuration = {};
@@ -325,21 +432,54 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       feedBuffer.sort((a, b) => b.timestampMs - a.timestampMs);
     };
 
-    for (let idx = 0; idx < allRows.length; idx++) {
+    let exceededTimeBudget = false;
+    let scannedRows = 0;
+    let reachedPeriodWindow = false;
+
+    for (let idx = allRows.length - 1; idx >= 0; idx--) {
+      if (!exceededTimeBudget && scannedRows > 0 && (scannedRows % 250 === 0)) {
+        if ((Date.now() - startTime) > TIME_BUDGET_MS) {
+          console.warn('Analytics processing time budget exceeded after scanning', scannedRows, 'rows. Returning snapshot.');
+          exceededTimeBudget = true;
+          break;
+        }
+      }
+
       const row = allRows[idx];
       if (!row) continue;
+      scannedRows++;
 
-      const timestamp = row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp);
-      if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+      let timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : null;
+      let timestamp = row.timestamp instanceof Date ? row.timestamp : null;
+
+      if (!timestampMs) {
+        if (!timestamp || !(timestamp instanceof Date)) {
+          timestamp = new Date(row.timestamp);
+        }
+        if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+          continue;
+        }
+        timestampMs = timestamp.getTime();
+      } else if (!timestamp) {
+        timestamp = new Date(timestampMs);
+      }
+
+      if (!(timestamp instanceof Date) || isNaN(timestampMs)) {
         continue;
       }
 
-      const timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : timestamp.getTime();
-      if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
+      if (timestampMs > periodEndMs) {
         continue;
       }
 
-      if (agentFilter && row.user !== agentFilter) {
+      if (timestampMs < periodStartMs) {
+        if (reachedPeriodWindow) {
+          break;
+        }
+        continue;
+      }
+
+      if (normalizedAgentFilter && row.user !== normalizedAgentFilter) {
         continue;
       }
 
@@ -421,10 +561,19 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         isWeekend
       };
       filteredRows.push(sanitizedRow);
-      registerFeedRow(sanitizedRow, timestampMs);
+      reachedPeriodWindow = true;
+      if (!exceededTimeBudget) {
+        registerFeedRow(sanitizedRow, timestampMs);
+      }
     }
 
-    console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total`);
+    filteredRows.reverse();
+
+    console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total (scanned ${scannedRows})`);
+
+    if (exceededTimeBudget) {
+      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
+    }
 
     if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.6) {
       console.warn('Approaching timeout, returning basic analytics snapshot');
@@ -1394,10 +1543,10 @@ function importAttendance(rows) {
         throw new Error('Could not acquire document lock within 30 seconds');
       }
 
-      const ss = getIBTRSpreadsheet();
-      const sheet = ss.getSheetByName(ATTENDANCE);
+      const ss = resolveAttendanceSpreadsheet();
+      const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
       if (!sheet) {
-        throw new Error(`Sheet "${ATTENDANCE}" not found. Call setupCampaignSheets() first.`);
+        throw new Error(`Sheet "${ATTENDANCE_SHEET_NAME}" not found. Call setupCampaignSheets() first.`);
       }
 
       const now = new Date();
@@ -1487,7 +1636,7 @@ function importAttendance(rows) {
           ]);
 
           // Log for audit trail
-          logCampaignDirtyRow(ATTENDANCE, timestamp.toISOString() + "_" + rawName, "CREATE");
+          logCampaignDirtyRow(ATTENDANCE_SHEET_NAME, timestamp.toISOString() + "_" + rawName, "CREATE");
         } catch (rowError) {
           console.error('Error processing row:', rowError, r);
         }
@@ -1871,8 +2020,8 @@ function testConnection() {
 
 function debugDatabaseStructure() {
   try {
-    const ss = getIBTRSpreadsheet();
-    const sheet = ss.getSheetByName(ATTENDANCE);
+    const ss = resolveAttendanceSpreadsheet();
+    const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
     if (!sheet) {
       return { error: 'Attendance sheet not found' };
     }
