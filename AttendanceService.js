@@ -739,9 +739,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
       const state = row.state || '';
       const durationSec = typeof row.durationSec === 'number' ? row.durationSec : parseFloat(row.durationSec) || 0;
-      const durationHrs = typeof row.durationHours === 'number'
-        ? row.durationHours
-        : Math.round((durationSec / 3600) * 100) / 100;
 
       const dayOfWeek = (typeof row.dayOfWeek === 'number' && !isNaN(row.dayOfWeek))
         ? row.dayOfWeek
@@ -803,15 +800,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       }
 
       const sanitizedRow = {
-        timestamp,
         timestampMs: effectiveTimestampMs,
         user: row.user,
         state,
         durationSec,
-        durationHrs,
-        dateString: dateKey,
-        dayOfWeek,
-        isWeekend
+        dateString: dateKey
       };
       filteredRows.push(sanitizedRow);
       if (!exceededTimeBudget) {
@@ -1434,7 +1427,7 @@ function generateTopPerformers(filtered, periodStart, periodEnd) {
   filtered.forEach(r => {
     const dow = (typeof r.dayOfWeek === 'number' && !isNaN(r.dayOfWeek) && r.dayOfWeek > 0)
       ? r.dayOfWeek
-      : getAttendanceDayOfWeek(r.timestamp);
+      : getAttendanceDayOfWeek(ensureTimestampMs(r));
     if (dow >= 1 && dow <= 5 && BILLABLE_STATES.includes(r.state)) {
       userProdSecs.set(r.user, (userProdSecs.get(r.user) || 0) + r.durationSec);
     }
@@ -1470,17 +1463,37 @@ function generateAttendanceStats(filtered, periodId) {
 function generateAttendanceFeed(filtered) {
   return filtered
     .slice()
-    .sort((a, b) => b.timestamp - a.timestamp)
+    .map(row => {
+      const timestampMs = ensureTimestampMs(row);
+      if (!Number.isFinite(timestampMs)) {
+        return null;
+      }
+
+      const timestamp = new Date(timestampMs);
+      return {
+        user: row.user,
+        action: row.state,
+        date: Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd'),
+        time24: Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'HH:mm:ss'),
+        time12: Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'h:mm:ss a'),
+        dayOfWeek: Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'EEEE'),
+        durationSec: row.durationSec,
+        durationHrs: Math.round(row.durationSec / 3600 * 100) / 100,
+        timestampMs
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0))
     .slice(0, 10)
-    .map(r => ({
-      user: r.user,
-      action: r.state,
-      date: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd'),
-      time24: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'HH:mm:ss'),
-      time12: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'h:mm:ss a'),
-      dayOfWeek: Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'EEEE'),
-      durationSec: r.durationSec,
-      durationHrs: Math.round(r.durationSec / 3600 * 100) / 100
+    .map(item => ({
+      user: item.user,
+      action: item.action,
+      date: item.date,
+      time24: item.time24,
+      time12: item.time12,
+      dayOfWeek: item.dayOfWeek,
+      durationSec: item.durationSec,
+      durationHrs: item.durationHrs
     }));
 }
 
@@ -1489,8 +1502,12 @@ function generateDailyMetrics(filtered) {
 
   filtered.forEach(r => {
     if (BILLABLE_STATES.includes(r.state)) {
-      // Ensure consistent date formatting in configured timezone
-      const timezoneDateString = Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+      const timestampMs = ensureTimestampMs(r);
+      if (!Number.isFinite(timestampMs)) {
+        return;
+      }
+
+      const timezoneDateString = Utilities.formatDate(new Date(timestampMs), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
 
       if (!dailyMap.has(timezoneDateString)) {
         dailyMap.set(timezoneDateString, { onWorkSecs: 0, lateCount: 0 });
@@ -1650,10 +1667,15 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
   
   // Process attendance data with proper timezone handling
   filteredRows.forEach(r => {
-    const timestamp = new Date(r.timestampMs || r.timestamp);
+    const timestampMs = ensureTimestampMs(r);
+    if (!Number.isFinite(timestampMs)) {
+      return;
+    }
+
+    const timestamp = new Date(timestampMs);
     const dateStr = Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
     const user = r.user;
-    
+
     if (userDateHours.has(user) && userDateHours.get(user).has(dateStr)) {
       const durationHours = r.durationSec / 3600; // Convert seconds to hours
       const durationMinutes = r.durationSec / 60; // Convert seconds to minutes
@@ -2230,16 +2252,26 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     totalNonProductiveHours,
     billableHoursBreakdown: billableBreakdown,
     nonProductiveHoursBreakdown: nonProductiveBreakdown,
-    filteredRows: rows.slice(0, 100).map(r => ({
-      timestampMs: r.timestampMs || (r.timestamp instanceof Date ? r.timestamp.getTime() : null),
-      user: r.user,
-      state: r.state,
-      durationSec: r.durationSec,
-      durationHrs: Math.round((r.durationSec || 0) / 3600 * 100) / 100,
-      dateString: r.dateString,
-      dayOfWeek: r.dayOfWeek,
-      isWeekend: r.isWeekend
-    })),
+    filteredRows: rows.slice(0, 100).map(r => {
+      const timestampMs = (typeof r.timestampMs === 'number' && Number.isFinite(r.timestampMs))
+        ? r.timestampMs
+        : (r.timestamp instanceof Date ? r.timestamp.getTime() : Number(r.timestamp));
+
+      const safeTimestampMs = Number.isFinite(timestampMs) ? timestampMs : null;
+      const dateString = (typeof r.dateString === 'string' && r.dateString)
+        ? r.dateString
+        : (Number.isFinite(safeTimestampMs)
+          ? new Date(safeTimestampMs).toISOString().split('T')[0]
+          : '');
+
+      return {
+        timestampMs: safeTimestampMs,
+        user: r.user,
+        state: r.state,
+        durationSec: r.durationSec,
+        dateString
+      };
+    }),
     filteredRowCount: rows.length,
     userCompliance: [],
     top5Attendance: [],
