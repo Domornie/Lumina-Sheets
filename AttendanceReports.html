@@ -497,7 +497,7 @@
       <i class="fas fa-table me-2"></i>Export Matrix
     </button>
     <button id="aiInsightsBtn" class="btn btn-ai" onclick="refreshAIInsights()">
-      <i class="fas fa-magic me-2"></i>Analytics
+      <i class="fas fa-magic me-2"></i>View Analytics
     </button>
     <button id="refreshBtn" class="btn btn-light" onclick="refreshData()">
       <i class="fas fa-sync me-2"></i>Refresh
@@ -533,7 +533,8 @@
         <label class="form-label fw-bold">View Mode</label>
         <select class="form-select" id="viewMode">
           <option value="standard">Standard View</option>
-          <option value="executive">Executive Summary</option>
+          <option value="executive">Executive View</option>
+          <option value="summary">Summary View</option>
           <option value="detailed">Detailed Analysis</option>
         </select>
       </div>
@@ -542,12 +543,13 @@
 </div>
 
 <!-- INTELLIGENT INSIGHTS PANEL -->
-<div id="intelligentInsightsPanel" class="intelligent-insights-panel" style="display: none;">
+<div id="intelligentInsightsPanel" class="intelligent-insights-panel" style="display: none;" data-active="0">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h3><i class="fas fa-lightbulb me-2"></i>Analytics Insights</h3>
     <small class="text-muted">Powered by corrected time calculations</small>
   </div>
   <div id="insightsContainer"></div>
+  <div id="employeeTrendsContainer" class="mt-4"></div>
 </div>
 
 <!-- EXECUTIVE PANEL -->
@@ -590,62 +592,70 @@
 </div>
 
 <!-- STATE SUMMARY CARDS -->
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4" id="stateSummaryRow"></div>
+<div id="stateSummarySection" class="mb-4">
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="stateSummaryRow"></div>
+</div>
 
 <!-- KPI CARDS ROW -->
-<div class="row gx-4 mb-4">
-  <div class="col-lg-6">
-    <div class="kpi-card success h-100 ai-enhanced">
-      <i class="fas fa-chart-line"></i>
-      <div class="label">Productive Hours</div>
-      <div class="value text-success" id="kpi-productive">Loading...</div>
-      <small class="text-muted">Converted from seconds to hours</small>
+<div id="billableSummarySection" class="mb-4">
+  <div class="row gx-4">
+    <div class="col-lg-6">
+      <div class="kpi-card success h-100 ai-enhanced">
+        <i class="fas fa-chart-line"></i>
+        <div class="label">Billable Hours</div>
+        <div class="value text-success" id="kpi-productive">Loading...</div>
+        <small class="text-muted">Available, Administrative, Training, Meeting & Break</small>
+      </div>
     </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="kpi-card danger h-100 ai-enhanced">
-      <i class="fas fa-coffee"></i>
-      <div class="label">Non-Productive Hours</div>
-      <div class="value text-danger" id="kpi-nonproductive">Loading...</div>
-      <small class="text-muted">Break + Lunch time</small>
+    <div class="col-lg-6">
+      <div class="kpi-card danger h-100 ai-enhanced">
+        <i class="fas fa-coffee"></i>
+        <div class="label">Non-Productive Hours</div>
+        <div class="value text-danger" id="kpi-nonproductive">Loading...</div>
+        <small class="text-muted">Lunch & Break totals</small>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- DAILY BREAKDOWN CARD -->
-<div class="card mb-4 ai-enhanced">
-  <div class="card-header">
-    <h5><i class="fas fa-calendar-week"></i>Daily Break & Lunch Analysis</h5>
-  </div>
-  <div class="card-body">
-    <div id="dailyBreakdownBars">
-      <!-- Daily progress bars will be rendered here -->
+<div id="dailyBreakdownSection" class="mb-4">
+  <div class="card ai-enhanced">
+    <div class="card-header">
+      <h5><i class="fas fa-calendar-week"></i>Daily Break & Lunch Analysis</h5>
+    </div>
+    <div class="card-body">
+      <div id="dailyBreakdownBars">
+        <!-- Daily progress bars will be rendered here -->
+      </div>
     </div>
   </div>
 </div>
 
 <!-- CHARTS ROW -->
-<div class="row gx-4 mb-4">
-  <div class="col-lg-6">
-    <div class="card h-100 ai-enhanced">
-      <div class="card-header">
-        <h5><i class="fas fa-trophy"></i>Top Performers</h5>
-      </div>
-      <div class="card-body">
-        <div class="chart-container">
-          <canvas id="topPerformersChart"></canvas>
+<div id="chartsSection" class="mb-4">
+  <div class="row gx-4">
+    <div class="col-lg-6">
+      <div class="card h-100 ai-enhanced">
+        <div class="card-header">
+          <h5><i class="fas fa-trophy"></i>Top Performers</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="topPerformersChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card h-100 ai-enhanced">
-      <div class="card-header">
-        <h5><i class="fas fa-chart-bar"></i>Attendance Statistics</h5>
-      </div>
-      <div class="card-body">
-        <div class="chart-container">
-          <canvas id="attendanceStatsChart"></canvas>
+    <div class="col-lg-6">
+      <div class="card h-100 ai-enhanced">
+        <div class="card-header">
+          <h5><i class="fas fa-chart-bar"></i>Attendance Statistics</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="attendanceStatsChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
@@ -653,28 +663,32 @@
 </div>
 
 <!-- DAILY ATTENDANCE CHART -->
-<div class="card mb-4 ai-enhanced">
-  <div class="card-header">
-    <h5><i class="fas fa-chart-line"></i>Daily Attendance Overview</h5>
-  </div>
-  <div class="card-body">
-    <div class="chart-container">
-      <canvas id="dailyAttendanceChart"></canvas>
+<div id="dailyOverviewSection" class="mb-4">
+  <div class="card ai-enhanced">
+    <div class="card-header">
+      <h5><i class="fas fa-chart-line"></i>Daily Attendance Overview</h5>
+    </div>
+    <div class="card-body">
+      <div class="chart-container">
+        <canvas id="dailyAttendanceChart"></canvas>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- ATTENDANCE TABLE -->
-<div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h5><i class="fas fa-users"></i>Employee Attendance Summary</h5>
-    <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
-      <i class="fas fa-download me-1"></i>Export
-    </button>
-  </div>
-  <div id="attendanceTableContainer" class="card-body">
-    <div class="loading-state">
-      <i class="fas fa-spinner fa-spin"></i> Loading attendance data...
+<div id="attendanceTableSection" class="mb-4">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5><i class="fas fa-users"></i>Employee Attendance Summary</h5>
+      <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
+        <i class="fas fa-download me-1"></i>Export
+      </button>
+    </div>
+    <div id="attendanceTableContainer" class="card-body">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i> Loading attendance data...
+      </div>
     </div>
   </div>
 </div>
@@ -1165,6 +1179,7 @@
       if (weekEl) weekEl.value = this.currentPeriod;
 
       this.loadUserList();
+      this.updateViewMode();
     }
 
     showToast(message, type) {
@@ -1436,9 +1451,8 @@
         this.renderAttendanceTable();
         this.renderDailyBreakdownBars();
 
-        if (this.currentData.enhanced) {
-          this.renderIntelligentInsights();
-        }
+        this.renderIntelligentInsights();
+        this.updateViewMode();
         this.showToast('Attendance dashboard updated', 'success');
       } catch (error) {
         console.error('Error rendering dashboard:', error);
@@ -1455,8 +1469,14 @@
           document.getElementById('totalEmployees').textContent = exec.overview?.totalEmployees || 0;
           document.getElementById('violationsCount').textContent = exec.violations?.totalViolations || 0;
         } else {
-          const totalHours = (this.currentData.totalProductiveHours || 0) + (this.currentData.totalNonProductiveHours || 0);
-          const efficiency = totalHours > 0 ? ((this.currentData.totalProductiveHours || 0) / totalHours * 100) : 0;
+          const billableValue = typeof this.currentData.totalBillableHours === 'number'
+            ? this.currentData.totalBillableHours
+            : (typeof this.currentData.totalProductiveHours === 'number' ? this.currentData.totalProductiveHours : 0);
+          const nonProdValue = typeof this.currentData.totalNonProductiveHours === 'number'
+            ? this.currentData.totalNonProductiveHours
+            : 0;
+          const totalHours = billableValue + nonProdValue;
+          const efficiency = totalHours > 0 ? (billableValue / totalHours * 100) : 0;
           document.getElementById('efficiencyRate').textContent = efficiency.toFixed(1) + '%';
           document.getElementById('complianceRate').textContent = '85.0%';
           document.getElementById('totalEmployees').textContent = new Set((this.currentData.filteredRows || []).map(r => r.user)).size;
@@ -1469,6 +1489,7 @@
       try {
         const container = document.getElementById('stateSummaryRow');
         const summary = this.currentData.summary || {};
+        const durations = this.currentData.stateDuration || {};
         const states = [
           { name: 'Available', icon: 'fa-check-circle', type: 'success' },
           { name: 'Administrative Work', icon: 'fa-tasks', type: 'info' },
@@ -1477,19 +1498,38 @@
           { name: 'Break', icon: 'fa-coffee', type: 'danger' },
           { name: 'Lunch', icon: 'fa-utensils', type: 'danger' }
         ];
+
         container.innerHTML = states.map(state => {
           const count = summary[state.name] || 0;
-          return `<div class="col"><div class="kpi-card ${state.type} h-100 ai-enhanced"><i class="fas ${state.icon}"></i><div class="label">${state.name}</div><div class="value">${count}</div><small class="text-muted">${count > 0 ? 'Active' : 'Idle'}</small></div></div>`;
+          const durationSeconds = durations[state.name] || 0;
+          const hours = convertSecondsToDecimalHours(durationSeconds);
+          const subtitle = count === 1 ? '1 entry' : `${count} entries`;
+
+          return `
+            <div class="col">
+              <div class="kpi-card ${state.type} h-100 ai-enhanced">
+                <i class="fas ${state.icon}"></i>
+                <div class="label">${state.name}</div>
+                <div class="value">${hours.toFixed(2)}h</div>
+                <small class="text-muted">${subtitle}</small>
+              </div>
+            </div>
+          `;
         }).join('');
       } catch (error) { console.error('Error rendering KPI cards:', error); }
     }
 
     renderProductivityGauges() {
       try {
-        const prodHrs = (this.currentData.totalProductiveHours || 0).toFixed(2);
-        const nonProdHrs = (this.currentData.totalNonProductiveHours || 0).toFixed(2);
-        document.getElementById('kpi-productive').textContent = prodHrs + 'h';
-        document.getElementById('kpi-nonproductive').textContent = nonProdHrs + 'h';
+        const billableValue = typeof this.currentData.totalBillableHours === 'number'
+          ? this.currentData.totalBillableHours
+          : (typeof this.currentData.totalProductiveHours === 'number' ? this.currentData.totalProductiveHours : 0);
+        const nonProdValue = typeof this.currentData.totalNonProductiveHours === 'number'
+          ? this.currentData.totalNonProductiveHours
+          : 0;
+
+        document.getElementById('kpi-productive').textContent = billableValue.toFixed(2) + 'h';
+        document.getElementById('kpi-nonproductive').textContent = nonProdValue.toFixed(2) + 'h';
       } catch (error) { console.error('Error rendering productivity gauges:', error); }
     }
 
@@ -2146,16 +2186,27 @@
       try {
         const panel = document.getElementById('intelligentInsightsPanel');
         const container = document.getElementById('insightsContainer');
+        const trendsContainer = document.getElementById('employeeTrendsContainer');
+        const intelligence = this.currentData.intelligence || {};
+        const insights = Array.isArray(intelligence.insights) ? intelligence.insights : [];
+        const trends = Array.isArray(intelligence.employeeTrends) ? intelligence.employeeTrends : [];
 
-        if (!this.currentData.intelligence?.insights?.length) {
-          if (panel) panel.style.display = 'none';
+        if ((!insights.length && !trends.length) || !panel) {
+          if (panel) {
+            panel.style.display = 'none';
+            panel.dataset.active = '0';
+          }
+          if (trendsContainer) {
+            trendsContainer.innerHTML = '';
+          }
           return;
         }
 
-        if (panel) panel.style.display = 'block';
+        panel.style.display = 'block';
+        panel.dataset.active = '1';
 
         if (container) {
-          container.innerHTML = this.currentData.intelligence.insights.map(insight => `
+          container.innerHTML = insights.map(insight => `
             <div class="insight-card ${insight.priority || 'medium'}">
               <div class="d-flex">
                 <div class="me-3"><i class="fas fa-lightbulb text-primary"></i></div>
@@ -2168,6 +2219,70 @@
               </div>
             </div>
           `).join('');
+        }
+
+        if (trendsContainer) {
+          if (!trends.length) {
+            trendsContainer.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No employee trend data available.</div>';
+          } else {
+            const rows = trends.map(trend => {
+              const directionIcon = trend.trendDirection === 'up'
+                ? '<i class="fas fa-arrow-up trend-up me-1"></i>'
+                : trend.trendDirection === 'down'
+                  ? '<i class="fas fa-arrow-down trend-down me-1"></i>'
+                  : '<i class="fas fa-minus trend-stable me-1"></i>';
+
+              const billableHours = typeof trend.billableHours === 'number' ? trend.billableHours.toFixed(2) : '0.00';
+              const nonProdHours = typeof trend.nonProductiveHours === 'number' ? trend.nonProductiveHours.toFixed(2) : '0.00';
+              const efficiency = typeof trend.efficiencyRate === 'number' ? trend.efficiencyRate.toFixed(1) : '0.0';
+              const avgBillable = typeof trend.averageBillablePerDay === 'number' ? trend.averageBillablePerDay.toFixed(2) : '0.00';
+              const avgBreak = typeof trend.averageBreakPerDay === 'number' ? trend.averageBreakPerDay.toFixed(2) : '0.00';
+              const avgLunch = typeof trend.averageLunchPerDay === 'number' ? trend.averageLunchPerDay.toFixed(2) : '0.00';
+              const daysActive = trend.daysActive || 0;
+              const focusArea = trend.focusArea ? trend.focusArea : '—';
+              const summary = trend.trendSummary || 'Stable performance';
+
+              return `
+                <tr>
+                  <td>
+                    <strong>${trend.user || 'Employee'}</strong>
+                    <div class="text-muted small">${daysActive} active day${daysActive === 1 ? '' : 's'}</div>
+                  </td>
+                  <td>
+                    <span class="fw-semibold">${billableHours}h</span>
+                    <div class="text-muted small">Avg ${avgBillable}h / day</div>
+                  </td>
+                  <td>
+                    <span class="fw-semibold">${nonProdHours}h</span>
+                    <div class="text-muted small">Break ${avgBreak}h · Lunch ${avgLunch}h</div>
+                  </td>
+                  <td>${efficiency}%</td>
+                  <td>${directionIcon}${summary}</td>
+                  <td>${focusArea}</td>
+                </tr>
+              `;
+            }).join('');
+
+            trendsContainer.innerHTML = `
+              <hr class="my-4" />
+              <h4 class="mb-3"><i class="fas fa-user-clock me-2"></i>Employee Trends</h4>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Billable Hours</th>
+                      <th>Non-Productive Hours</th>
+                      <th>Efficiency</th>
+                      <th>Daily Trend</th>
+                      <th>Focus</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            `;
+          }
         }
       } catch (error) { console.error('Error rendering intelligent insights:', error); }
     }
@@ -2247,17 +2362,31 @@
     }
 
     updateViewMode() {
-      const executivePanel = document.getElementById('executivePanel');
-      switch (this.viewMode) {
-        case 'executive':
-          executivePanel.style.display = 'block';
-          break;
-        case 'detailed':
-          executivePanel.style.display = 'block';
-          break;
-        default:
-          executivePanel.style.display = 'block';
-      }
+      const sections = {
+        executivePanel: document.getElementById('executivePanel'),
+        insights: document.getElementById('intelligentInsightsPanel'),
+        stateSummary: document.getElementById('stateSummarySection'),
+        billableSummary: document.getElementById('billableSummarySection'),
+        dailyBreakdown: document.getElementById('dailyBreakdownSection'),
+        charts: document.getElementById('chartsSection'),
+        dailyOverview: document.getElementById('dailyOverviewSection'),
+        attendanceTable: document.getElementById('attendanceTableSection')
+      };
+
+      const viewConfig = {
+        executive: ['executivePanel', 'insights'],
+        summary: ['executivePanel', 'insights', 'billableSummary', 'stateSummary', 'dailyBreakdown'],
+        detailed: Object.keys(sections),
+        standard: ['executivePanel', 'insights', 'stateSummary', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
+      };
+
+      const activeKeys = new Set(viewConfig[this.viewMode] || viewConfig.standard);
+
+      Object.entries(sections).forEach(([key, element]) => {
+        if (!element) return;
+        const shouldShow = activeKeys.has(key) && !(key === 'insights' && element.dataset.active === '0');
+        element.style.display = shouldShow ? '' : 'none';
+      });
     }
 
     async callServerFunction(functionName, parameters, options = {}) {
@@ -2290,7 +2419,10 @@
       const insightsPanel = document.getElementById('intelligentInsightsPanel');
       if (insightsPanel) {
         insightsPanel.style.display = 'none';
+        insightsPanel.dataset.active = '0';
       }
+
+      this.updateViewMode();
     }
 
     getISOWeek(date) {
