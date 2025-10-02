@@ -1600,7 +1600,11 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
         return serveAdminPage('ImportCsv', e, baseUrl, user);
 
       case 'importattendance':
-        return serveAdminPage('ImportAttendance', e, baseUrl, user);
+        return serveAdminPage('ImportAttendance', e, baseUrl, user, {
+          allowManagers: true,
+          allowSupervisors: true,
+          accessDeniedMessage: 'You need manager or supervisor privileges to import attendance data.'
+        });
 
       case 'slotmanagement':
         return serveShiftSlotManagement(e, baseUrl, user, campaignIdFromCaller);
@@ -1622,7 +1626,11 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case 'importattendance':
         // Allow managers and supervisors for attendance imports
         if (isSystemAdmin(user) || hasManagerRole(user) || hasSupervisorRole(user)) {
-          return serveAdminPage('ImportAttendance', e, baseUrl, user);
+          return serveAdminPage('ImportAttendance', e, baseUrl, user, {
+            allowManagers: true,
+            allowSupervisors: true,
+            accessDeniedMessage: 'You need manager or supervisor privileges to import attendance data.'
+          });
         } else {
           return renderAccessDenied('You need manager or supervisor privileges to import attendance data.');
         }
@@ -1697,10 +1705,105 @@ function serveGlobalPage(templateName, e, baseUrl, user) {
   }
 }
 
-function serveAdminPage(templateName, e, baseUrl, user) {
-  // Single admin check - no need for redundancy
-  if (!isSystemAdmin(user)) {
-    return renderAccessDenied('This page requires System Admin privileges.');
+function __collectUserRoleNames(user) {
+  const roles = [];
+
+  const append = (value) => {
+    if (value === null || typeof value === 'undefined') {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(append);
+      return;
+    }
+
+    const raw = String(value);
+    if (!raw) {
+      return;
+    }
+
+    raw
+      .split(/[,;|]+/)
+      .map(part => part.trim().toLowerCase())
+      .filter(Boolean)
+      .forEach(part => roles.push(part));
+  };
+
+  try {
+    if (user) {
+      append(user.roleNames);
+      append(user.RoleNames);
+      append(user.roles);
+      append(user.Roles);
+      append(user.Role);
+      append(user.role);
+      append(user.PrimaryRole);
+      append(user.primaryRole);
+      append(user.Position);
+      append(user.position);
+      append(user.JobTitle);
+      append(user.jobTitle);
+      append(user.Title);
+      append(user.title);
+    }
+  } catch (roleError) {
+    writeError && writeError('__collectUserRoleNames', roleError);
+  }
+
+  return Array.from(new Set(roles));
+}
+
+function __userHasRoleKeyword(user, keywords) {
+  const list = Array.isArray(keywords) ? keywords : [keywords];
+  const normalizedKeywords = list
+    .map(keyword => String(keyword || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!normalizedKeywords.length) {
+    return false;
+  }
+
+  try {
+    const roles = __collectUserRoleNames(user);
+    return roles.some(role => normalizedKeywords.some(keyword => role.includes(keyword)));
+  } catch (err) {
+    writeError && writeError('__userHasRoleKeyword', err);
+    return false;
+  }
+}
+
+function hasManagerRole(user) {
+  if (isSystemAdmin(user)) {
+    return true;
+  }
+  return __userHasRoleKeyword(user, ['manager']);
+}
+
+function hasSupervisorRole(user) {
+  if (isSystemAdmin(user)) {
+    return true;
+  }
+  return __userHasRoleKeyword(user, ['supervisor', 'team lead', 'teamlead']);
+}
+
+function serveAdminPage(templateName, e, baseUrl, user, options) {
+  const opts = Object.assign({
+    allowManagers: false,
+    allowSupervisors: false,
+    allowedRoles: [],
+    accessDeniedMessage: 'This page requires System Admin privileges.'
+  }, options || {});
+
+  const hasAdditionalAccess =
+    (opts.allowManagers && hasManagerRole(user)) ||
+    (opts.allowSupervisors && hasSupervisorRole(user)) ||
+    (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length
+      ? __userHasRoleKeyword(user, opts.allowedRoles)
+      : false);
+
+  if (!isSystemAdmin(user) && !hasAdditionalAccess) {
+    return renderAccessDenied(opts.accessDeniedMessage);
   }
 
   try {
