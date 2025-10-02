@@ -876,16 +876,37 @@ function getCurrentUser() {
 
     // Hydrate campaign context
     try {
-      if (client.CampaignID) {
-        if (typeof getCampaignById === 'function') {
-          const c = getCampaignById(client.CampaignID);
-          client.campaignName = c ? (c.Name || c.name || '') : '';
+      const globalObj = (typeof globalThis !== 'undefined') ? globalThis : this;
+      const guardKey = '__READ_SHEET_SUPPRESS_TENANT_CONTEXT__';
+      const previousGuard = globalObj && globalObj[guardKey] ? Number(globalObj[guardKey]) : 0;
+      if (globalObj) {
+        globalObj[guardKey] = previousGuard + 1;
+      }
+
+      try {
+        if (client.CampaignID) {
+          if (typeof getCampaignById === 'function') {
+            const c = getCampaignById(client.CampaignID);
+            client.campaignName = c ? (c.Name || c.name || '') : '';
+          }
+          if (typeof getUserCampaignPermissions === 'function') {
+            client.campaignPermissions = getUserCampaignPermissions(client.ID);
+          }
+          if (typeof getCampaignNavigation === 'function') {
+            client.campaignNavigation = getCampaignNavigation(client.CampaignID);
+          }
         }
-        if (typeof getUserCampaignPermissions === 'function') {
-          client.campaignPermissions = getUserCampaignPermissions(client.ID);
-        }
-        if (typeof getCampaignNavigation === 'function') {
-          client.campaignNavigation = getCampaignNavigation(client.CampaignID);
+      } finally {
+        if (globalObj) {
+          if (previousGuard) {
+            globalObj[guardKey] = previousGuard;
+          } else {
+            try {
+              delete globalObj[guardKey];
+            } catch (_) {
+              globalObj[guardKey] = 0;
+            }
+          }
         }
       }
     } catch (ctxErr) {
