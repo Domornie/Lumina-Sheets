@@ -47,28 +47,17 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 
     // Apply manager permissions using MainUtilities functions
     if (requestingUserId) {
-      const requestingUser = allUsers.find(u => String(u.ID) === String(requestingUserId));
-      
+      const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+      const requestingUser = allUsers.find(u => normalizeUserIdValue(u.ID) === normalizedManagerId);
+
       if (requestingUser) {
-        // Use MainUtilities admin check
-        if (requestingUser.IsAdmin === 'TRUE' || requestingUser.IsAdmin === true) {
-          // Admin can see all users - no additional filtering needed
-        } else {
-          // Check managed campaigns using MainUtilities
-          const managedCampaigns = getUserManagedCampaigns(requestingUserId);
-          const managedCampaignIds = new Set(managedCampaigns.map(c => c.ID));
-          
-          // Get users from managed campaigns plus requesting user
-          const userCampaigns = getUserCampaignsSafe(requestingUserId).map(uc => uc.campaignId);
-          const accessibleUsers = new Set([requestingUserId]);
-          
-          // Add users from managed campaigns
-          managedCampaignIds.forEach(campaignId => {
-            const campaignUsers = getUsersByCampaign(campaignId);
-            campaignUsers.forEach(u => accessibleUsers.add(u.ID));
-          });
-          
-          filteredUsers = filteredUsers.filter(user => accessibleUsers.has(user.ID));
+        const isAdmin = requestingUser.IsAdmin === true || String(requestingUser.IsAdmin).toUpperCase() === 'TRUE';
+
+        if (!isAdmin) {
+          const managedUserIds = getDirectManagedUserIds(normalizedManagerId);
+          managedUserIds.add(normalizedManagerId);
+
+          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user.ID)));
         }
       }
     }
@@ -298,6 +287,100 @@ function clientCreateShiftSlot(slotData) {
       error: error.message
     };
   }
+}
+
+function normalizeUserIdValue(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const str = typeof value === 'number' && Number.isFinite(value)
+    ? String(Math.trunc(value))
+    : String(value);
+
+  return str.trim();
+}
+
+function getDirectManagedUserIds(managerId) {
+  const normalizedManagerId = normalizeUserIdValue(managerId);
+  const managedUsers = new Set();
+
+  if (!normalizedManagerId) {
+    return managedUsers;
+  }
+
+  const appendFromRows = (rows) => {
+    if (!Array.isArray(rows)) {
+      return;
+    }
+
+    rows.forEach(row => {
+      if (!row || typeof row !== 'object') {
+        return;
+      }
+
+      const managerCandidates = [
+        row.ManagerUserID, row.ManagerUserId, row.managerUserId,
+        row.ManagerID, row.ManagerId, row.managerId, row.manager_id,
+        row.UserManagerID, row.UserManagerId, row.userManagerId
+      ].map(normalizeUserIdValue).filter(Boolean);
+
+      const managedCandidates = [
+        row.UserID, row.UserId, row.userId,
+        row.ManagedUserID, row.ManagedUserId, row.managedUserId,
+        row.ManagedUserID, row.managed_user_id,
+        row.ManagedID, row.ManagedId
+      ].map(normalizeUserIdValue).filter(Boolean);
+
+      const managerMatch = managerCandidates.find(candidate => candidate === normalizedManagerId);
+
+      if (managerMatch && managedCandidates.length) {
+        managedCandidates.forEach(candidate => {
+          if (candidate && candidate !== normalizedManagerId) {
+            managedUsers.add(candidate);
+          }
+        });
+      }
+
+      // Some datasets may store the relationship reversed
+      const reversedManager = managedCandidates.find(candidate => candidate === normalizedManagerId);
+      if (reversedManager) {
+        managerCandidates.forEach(candidate => {
+          if (candidate && candidate !== normalizedManagerId) {
+            managedUsers.add(candidate);
+          }
+        });
+      }
+    });
+  };
+
+  try {
+    if (typeof readManagerAssignments_ === 'function') {
+      appendFromRows(readManagerAssignments_());
+    }
+  } catch (error) {
+    safeWriteError && safeWriteError('getDirectManagedUserIds.readManagerAssignments', error);
+  }
+
+  const candidateSheets = Array.from(new Set([
+    typeof getManagerUsersSheetName_ === 'function' ? getManagerUsersSheetName_() : null,
+    typeof G !== 'undefined' && G ? G.MANAGER_USERS_SHEET : null,
+    typeof USER_MANAGERS_SHEET !== 'undefined' ? USER_MANAGERS_SHEET : null,
+    'MANAGER_USERS',
+    'ManagerUsers',
+    'manager_users',
+    'UserManagers'
+  ].filter(Boolean)));
+
+  candidateSheets.forEach(sheetName => {
+    try {
+      appendFromRows(readSheet(sheetName));
+    } catch (error) {
+      console.warn(`Unable to read manager assignments from ${sheetName}:`, error && error.message ? error.message : error);
+    }
+  });
+
+  return managedUsers;
 }
 
 function clientCreateEnhancedShiftSlot(slotData) {
