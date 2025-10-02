@@ -58,7 +58,145 @@ const CHUNK_SIZE = 1000; // Process data in chunks
 const CACHE_TTL_SHORT = 60; // 1 minute cache
 const CACHE_TTL_MEDIUM = 300; // 5 minute cache
 const LARGE_CACHE_CHUNK_SIZE = 90000; // stay below 100k Apps Script cache limit per entry
-const ATTENDANCE_CACHE_VERSION = 'v3';
+const ATTENDANCE_CACHE_VERSION = 'v4';
+
+function cloneDate(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return new Date(value.getTime());
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const dateFromNumber = new Date(value);
+    return isNaN(dateFromNumber.getTime()) ? null : dateFromNumber;
+  }
+  return null;
+}
+
+function createDateInLocalTime(year, month, day, hour, minute, second) {
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  const safeHour = Number.isFinite(hour) ? hour : 0;
+  const safeMinute = Number.isFinite(minute) ? minute : 0;
+  const safeSecond = Number.isFinite(second) ? second : 0;
+
+  const date = new Date(year, month - 1, day, safeHour, safeMinute, safeSecond, 0);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeDateValue(value) {
+  if (value == null) return null;
+
+  const cloned = cloneDate(value);
+  if (cloned) {
+    return cloned;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const isoDateOnlyMatch = trimmed.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})$/);
+    if (isoDateOnlyMatch) {
+      const year = Number(isoDateOnlyMatch[1]);
+      const month = Number(isoDateOnlyMatch[2]);
+      const day = Number(isoDateOnlyMatch[3]);
+      const localDate = createDateInLocalTime(year, month, day, 0, 0, 0);
+      if (localDate) {
+        return localDate;
+      }
+    }
+
+    const isoDateTimeMatch = trimmed.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})[ T]([0-9]{1,2}):([0-9]{2})(?::([0-9]{2}))?$/);
+    if (isoDateTimeMatch) {
+      const year = Number(isoDateTimeMatch[1]);
+      const month = Number(isoDateTimeMatch[2]);
+      const day = Number(isoDateTimeMatch[3]);
+      const hour = Number(isoDateTimeMatch[4]);
+      const minute = Number(isoDateTimeMatch[5]);
+      const second = isoDateTimeMatch[6] ? Number(isoDateTimeMatch[6]) : 0;
+      const localDateTime = createDateInLocalTime(year, month, day, hour, minute, second);
+      if (localDateTime) {
+        return localDateTime;
+      }
+    }
+
+    const slashFormatMatch = trimmed.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})(?:[ ,T]+([0-9]{1,2}):([0-9]{2})(?::([0-9]{2}))?\s*(AM|PM)?)?$/i);
+    if (slashFormatMatch) {
+      const month = Number(slashFormatMatch[1]);
+      const day = Number(slashFormatMatch[2]);
+      const year = Number(slashFormatMatch[3]);
+      let hour = slashFormatMatch[4] ? Number(slashFormatMatch[4]) : 0;
+      const minute = slashFormatMatch[5] ? Number(slashFormatMatch[5]) : 0;
+      const second = slashFormatMatch[6] ? Number(slashFormatMatch[6]) : 0;
+      const meridiem = slashFormatMatch[7] ? slashFormatMatch[7].toUpperCase() : '';
+
+      if (meridiem === 'PM' && hour < 12) {
+        hour += 12;
+      }
+      if (meridiem === 'AM' && hour === 12) {
+        hour = 0;
+      }
+
+      const localFromSlash = createDateInLocalTime(year, month, day, hour, minute, second);
+      if (localFromSlash) {
+        return localFromSlash;
+      }
+    }
+
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) {
+      const dateFromParse = new Date(parsed);
+      return isNaN(dateFromParse.getTime()) ? null : dateFromParse;
+    }
+
+    const cleaned = trimmed.replace(/,/g, '');
+    const parsedCleaned = Date.parse(cleaned);
+    if (!Number.isNaN(parsedCleaned)) {
+      const cleanedDate = new Date(parsedCleaned);
+      return isNaN(cleanedDate.getTime()) ? null : cleanedDate;
+    }
+  }
+
+  return null;
+}
+
+function toIsoDateString(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toIsoDayOfWeek(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function coerceDurationSeconds(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
 
 function readLargeCache(cache, baseKey) {
   try {
@@ -186,7 +324,7 @@ function rpc(label, fn, fallback, maxTime = 20000) {
 // In AttendanceService.gs, update the fetchAllAttendanceRows function around line 100-150
 function fetchAllAttendanceRows() {
   return rpc('fetchAllAttendanceRows', () => {
-    const CACHE_KEY = 'ATTENDANCE_ROWS_CACHE_FINAL_V3';
+    const CACHE_KEY = 'ATTENDANCE_ROWS_CACHE_FINAL_V4';
 
     // Try cache first
     try {
@@ -198,11 +336,23 @@ function fetchAllAttendanceRows() {
           const timestampMsRaw = typeof row.t === 'number' ? row.t : parseFloat(row.t);
           const timestampMs = Number.isFinite(timestampMsRaw) ? timestampMsRaw : undefined;
           const timestamp = typeof timestampMs === 'number' ? new Date(timestampMs) : null;
-          const dayOfWeek = typeof row.dow === 'number'
+          const durationSec = coerceDurationSeconds(row.d);
+          let dayOfWeek = typeof row.dow === 'number' && Number.isFinite(row.dow)
             ? row.dow
-            : (typeof row.dow === 'string' ? parseInt(row.dow, 10) : undefined);
-          const durationSecRaw = typeof row.d === 'number' ? row.d : parseFloat(row.d);
-          const durationSec = Number.isFinite(durationSecRaw) ? durationSecRaw : 0;
+            : undefined;
+
+          const cachedDate = normalizeDateValue(row.ds);
+          if (!dayOfWeek && cachedDate) {
+            dayOfWeek = toIsoDayOfWeek(cachedDate);
+          }
+
+          const dateString = (typeof row.ds === 'string' && row.ds)
+            ? row.ds
+            : (cachedDate ? toIsoDateString(cachedDate) : '');
+
+          const isWeekend = typeof row.w === 'boolean'
+            ? row.w
+            : (typeof dayOfWeek === 'number' ? dayOfWeek >= 6 : undefined);
 
           return {
             timestamp,
@@ -212,9 +362,9 @@ function fetchAllAttendanceRows() {
             durationSec,
             durationMin: durationSec / 60,
             durationHours: durationSec / 3600,
-            dateString: row.ds,
-            dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
-            isWeekend: typeof row.w === 'boolean' ? row.w : (typeof dayOfWeek === 'number' && !isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined)
+            dateString,
+            dayOfWeek,
+            isWeekend
           };
         });
 
@@ -260,70 +410,46 @@ function fetchAllAttendanceRows() {
       chunk.forEach((row, rowIndex) => {
         try {
           const timestampVal = row[timestampIdx];
-          
-          // Enhanced timestamp parsing for company timezone alignment
-          let timestamp;
-          if (timestampVal instanceof Date) {
-            timestamp = new Date(timestampVal);
-          } else if (typeof timestampVal === 'string') {
-            // Handle format "9/28/2023, 8:38 AM"
-            timestamp = new Date(timestampVal);
-            
-            // If parsing failed, try alternative formats
-            if (isNaN(timestamp.getTime())) {
-              // Try parsing as ISO string or other common formats
-              const cleanedTimestamp = timestampVal.trim().replace(/,\s*/, ' ');
-              timestamp = new Date(cleanedTimestamp);
-            }
-          } else {
-            console.warn(`Row ${i + rowIndex}: Invalid timestamp value:`, timestampVal);
-            return;
-          }
-          
-          if (isNaN(timestamp.getTime())) {
+          const timestamp = normalizeDateValue(timestampVal);
+          if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
             console.warn(`Row ${i + rowIndex}: Could not parse timestamp:`, timestampVal);
             return;
           }
 
-          // Ensure we're working with the configured company timezone
-          const localizedTimestamp = new Date(timestamp.toLocaleString('en-US', { timeZone: ATTENDANCE_TIMEZONE }));
-
-          const durationValue = row[durationIdx];
-          let durationSeconds = 0;
-          
-          if (typeof durationValue === 'number') {
-            durationSeconds = durationValue;
-          } else if (typeof durationValue === 'string') {
-            const parsed = parseFloat(durationValue);
-            if (!isNaN(parsed)) {
-              durationSeconds = parsed;
-            }
-          }
-
+          const durationSeconds = coerceDurationSeconds(row[durationIdx]);
           const user = String(row[userIdx] || '').trim();
           const state = String(row[stateIdx] || '').trim();
-          
+
           if (!user || !state) {
             console.warn(`Row ${i + rowIndex}: Missing user or state:`, { user, state });
             return;
           }
 
-          const timestampMs = localizedTimestamp.getTime();
-          const dateString = Utilities.formatDate(localizedTimestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
-          const dayOfWeekStr = Utilities.formatDate(localizedTimestamp, ATTENDANCE_TIMEZONE, 'u');
-          const dayOfWeek = parseInt(dayOfWeekStr, 10);
+          const timestampMs = timestamp.getTime();
+
+          let dateBasis = null;
+          if (dateIdx >= 0) {
+            dateBasis = normalizeDateValue(row[dateIdx]);
+          }
+          if (!(dateBasis instanceof Date) || isNaN(dateBasis.getTime())) {
+            dateBasis = new Date(timestampMs);
+          }
+
+          const dateString = toIsoDateString(dateBasis);
+          const dayOfWeek = toIsoDayOfWeek(dateBasis);
+          const isWeekend = typeof dayOfWeek === 'number' ? dayOfWeek >= 6 : undefined;
 
           out.push({
-            timestamp: localizedTimestamp,
-            timestampMs: timestampMs,
-            user: user,
-            state: state,
+            timestamp,
+            timestampMs,
+            user,
+            state,
             durationSec: durationSeconds,
             durationMin: durationSeconds / 60,
             durationHours: durationSeconds / 3600,
-            dateString: dateString,
-            dayOfWeek: isNaN(dayOfWeek) ? undefined : dayOfWeek,
-            isWeekend: !isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined
+            dateString,
+            dayOfWeek,
+            isWeekend
           });
         } catch (rowError) {
           console.error(`Error processing row ${i + rowIndex}:`, rowError, row);
@@ -619,6 +745,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       }
 
       const sanitizedRow = {
+        timestamp: timestamp,
         timestampMs,
         user: row.user,
         state,
@@ -971,8 +1098,10 @@ function calculateUserCompliance(filtered) {
         const stats = userStats.get(r.user);
         const secs = r.durationSec; // Already in seconds
         
-        // Use configured timezone for day calculation
-        const attendanceDayOfWeek = getAttendanceDayOfWeek(r.timestamp);
+        // Use precomputed day of week when available to avoid repeated timezone formatting
+        const attendanceDayOfWeek = (typeof r.dayOfWeek === 'number' && !isNaN(r.dayOfWeek) && r.dayOfWeek > 0)
+            ? r.dayOfWeek
+            : getAttendanceDayOfWeek(r.timestamp);
 
         if (r.state === 'Break') stats.breakSecs += secs;
         if (r.state === 'Lunch') stats.lunchSecs += secs;
@@ -1245,7 +1374,9 @@ function generateTopPerformers(filtered, periodStart, periodEnd) {
   const userProdSecs = new Map();
 
   filtered.forEach(r => {
-    const dow = getAttendanceDayOfWeek(r.timestamp);
+    const dow = (typeof r.dayOfWeek === 'number' && !isNaN(r.dayOfWeek) && r.dayOfWeek > 0)
+      ? r.dayOfWeek
+      : getAttendanceDayOfWeek(r.timestamp);
     if (dow >= 1 && dow <= 5 && BILLABLE_STATES.includes(r.state)) {
       userProdSecs.set(r.user, (userProdSecs.get(r.user) || 0) + r.durationSec);
     }
