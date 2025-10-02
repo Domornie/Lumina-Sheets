@@ -197,11 +197,40 @@ function clientCreateShiftSlot(slotData) {
     const now = new Date();
     const slotId = Utilities.getUuid();
 
+    const toNumber = (value, fallback = '') => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : fallback;
+    };
+
+    const toBoolean = (value, fallback = false) => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value !== 0;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (!normalized) return fallback;
+        return ['true', 'yes', '1', 'y'].includes(normalized);
+      }
+      return fallback;
+    };
+
     // Process days of week
     let daysOfWeek = '1,2,3,4,5'; // Default to weekdays
     if (slotData.daysOfWeek && Array.isArray(slotData.daysOfWeek)) {
       daysOfWeek = slotData.daysOfWeek.join(',');
     }
+
+    const maxCapacity = toNumber(
+      slotData.maxCapacity,
+      SCHEDULE_CONFIG.DEFAULT_SHIFT_CAPACITY
+    );
+    const breakDuration = toNumber(
+      slotData.breakDuration !== undefined ? slotData.breakDuration : slotData.break1Duration,
+      SCHEDULE_CONFIG.DEFAULT_BREAK_MINUTES
+    );
+    const lunchDuration = toNumber(
+      slotData.lunchDuration,
+      SCHEDULE_CONFIG.DEFAULT_LUNCH_MINUTES
+    );
 
     const slot = {
       ID: slotId,
@@ -211,11 +240,32 @@ function clientCreateShiftSlot(slotData) {
       DaysOfWeek: daysOfWeek,
       Department: slotData.department || 'General',
       Location: slotData.location || 'Office',
-      MaxCapacity: slotData.maxCapacity || SCHEDULE_CONFIG.DEFAULT_SHIFT_CAPACITY,
+      MaxCapacity: maxCapacity,
+      MinCoverage: toNumber(slotData.minCoverage, ''),
+      Priority: toNumber(slotData.priority, 2),
       Description: slotData.description || '',
-      BreakDuration: slotData.breakDuration || SCHEDULE_CONFIG.DEFAULT_BREAK_MINUTES,
-      LunchDuration: slotData.lunchDuration || SCHEDULE_CONFIG.DEFAULT_LUNCH_MINUTES,
-      OvertimePolicy: slotData.overtimePolicy || 'LIMITED_30',
+      BreakDuration: breakDuration,
+      LunchDuration: lunchDuration,
+      Break1Duration: toNumber(slotData.break1Duration, breakDuration),
+      Break2Duration: toNumber(slotData.break2Duration, 0),
+      EnableStaggeredBreaks: toBoolean(slotData.enableStaggeredBreaks, true),
+      BreakGroups: toNumber(slotData.breakGroups, 3),
+      StaggerInterval: toNumber(slotData.staggerInterval, 15),
+      MinCoveragePct: toNumber(slotData.minCoveragePct, 70),
+      EnableOvertime: toBoolean(slotData.enableOvertime, false),
+      MaxDailyOT: toNumber(slotData.maxDailyOT, 0),
+      MaxWeeklyOT: toNumber(slotData.maxWeeklyOT, 0),
+      OTApproval: slotData.otApproval || slotData.overtimeApproval || 'supervisor',
+      OTRate: toNumber(slotData.otRate, 1.5),
+      OTPolicy: slotData.otPolicy || slotData.overtimePolicy || 'MANDATORY',
+      AllowSwaps: toBoolean(slotData.allowSwaps, true),
+      WeekendPremium: toBoolean(slotData.weekendPremium, false),
+      HolidayPremium: toBoolean(slotData.holidayPremium, true),
+      AutoAssignment: toBoolean(slotData.autoAssignment, false),
+      RestPeriod: toNumber(slotData.restPeriod, 8),
+      NotificationLead: toNumber(slotData.notificationLead, 24),
+      HandoverTime: toNumber(slotData.handoverTime, 15),
+      OvertimePolicy: slotData.overtimePolicy || slotData.otPolicy || 'LIMITED_30',
       IsActive: true,
       CreatedBy: slotData.createdBy || 'System',
       CreatedAt: now,
@@ -223,7 +273,9 @@ function clientCreateShiftSlot(slotData) {
     };
 
     // Create row data using proper header order
-    const rowData = SHIFT_SLOTS_HEADERS.map(header => slot[header] || '');
+    const rowData = SHIFT_SLOTS_HEADERS.map(header =>
+      Object.prototype.hasOwnProperty.call(slot, header) ? slot[header] : ''
+    );
     sheet.appendRow(rowData);
     SpreadsheetApp.flush();
 
@@ -248,6 +300,10 @@ function clientCreateShiftSlot(slotData) {
   }
 }
 
+function clientCreateEnhancedShiftSlot(slotData) {
+  return clientCreateShiftSlot(slotData);
+}
+
 /**
  * Get all shift slots - uses ScheduleUtilities
  */
@@ -265,12 +321,72 @@ function clientGetAllShiftSlots() {
       slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
     }
 
-    return slots.map(slot => ({
-      ...slot,
-      DaysOfWeekArray: slot.DaysOfWeek ? 
-        slot.DaysOfWeek.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d)) : 
-        [1, 2, 3, 4, 5]
-    }));
+    const normalizeBoolean = value => {
+      if (value === true || value === false) return value;
+      if (typeof value === 'number') return value !== 0;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (!normalized) return false;
+        return ['true', 'yes', '1', 'y'].includes(normalized);
+      }
+      return false;
+    };
+
+    const normalizeNumber = value => {
+      if (value === null || typeof value === 'undefined' || value === '') {
+        return '';
+      }
+      if (typeof value === 'number') return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : value;
+    };
+
+    return slots.map(slot => {
+      const normalizedSlot = {
+        ...slot,
+        DaysOfWeekArray: slot.DaysOfWeek ?
+          slot.DaysOfWeek.split(',').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d)) :
+          [1, 2, 3, 4, 5]
+      };
+
+      normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
+      normalizedSlot.EnableOvertime = normalizeBoolean(slot.EnableOvertime);
+      normalizedSlot.AllowSwaps = normalizeBoolean(slot.AllowSwaps);
+      normalizedSlot.WeekendPremium = normalizeBoolean(slot.WeekendPremium);
+      normalizedSlot.HolidayPremium = normalizeBoolean(slot.HolidayPremium);
+      normalizedSlot.AutoAssignment = normalizeBoolean(slot.AutoAssignment);
+      const isActive = slot.IsActive === '' ? true : normalizeBoolean(slot.IsActive);
+      normalizedSlot.IsActive = isActive;
+
+      normalizedSlot.MaxCapacity = normalizeNumber(slot.MaxCapacity);
+      normalizedSlot.MinCoverage = normalizeNumber(slot.MinCoverage);
+      normalizedSlot.Priority = normalizeNumber(slot.Priority);
+      normalizedSlot.BreakDuration = normalizeNumber(slot.BreakDuration);
+      normalizedSlot.LunchDuration = normalizeNumber(slot.LunchDuration);
+      normalizedSlot.Break1Duration = normalizeNumber(slot.Break1Duration);
+      normalizedSlot.Break2Duration = normalizeNumber(slot.Break2Duration);
+      normalizedSlot.BreakGroups = normalizeNumber(slot.BreakGroups);
+      normalizedSlot.StaggerInterval = normalizeNumber(slot.StaggerInterval);
+      normalizedSlot.MinCoveragePct = normalizeNumber(slot.MinCoveragePct);
+      normalizedSlot.MaxDailyOT = normalizeNumber(slot.MaxDailyOT);
+      normalizedSlot.MaxWeeklyOT = normalizeNumber(slot.MaxWeeklyOT);
+      normalizedSlot.OTRate = normalizeNumber(slot.OTRate);
+      normalizedSlot.RestPeriod = normalizeNumber(slot.RestPeriod);
+      normalizedSlot.NotificationLead = normalizeNumber(slot.NotificationLead);
+      normalizedSlot.HandoverTime = normalizeNumber(slot.HandoverTime);
+
+      if (slot.CreatedAt) {
+        const createdDate = new Date(slot.CreatedAt);
+        normalizedSlot.CreatedAt = isNaN(createdDate.getTime()) ? slot.CreatedAt : createdDate;
+      }
+
+      if (slot.UpdatedAt) {
+        const updatedDate = new Date(slot.UpdatedAt);
+        normalizedSlot.UpdatedAt = isNaN(updatedDate.getTime()) ? slot.UpdatedAt : updatedDate;
+      }
+
+      return normalizedSlot;
+    });
 
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
