@@ -121,14 +121,20 @@
 
     /* Enhanced User Cards */
     #usersContainer {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 1.5rem;
         align-items: stretch;
     }
 
     #usersContainer .empty-state {
-        flex: 1 1 100%;
+        grid-column: 1 / -1;
+    }
+
+    @media (min-width: 1200px) {
+        #usersContainer {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
     }
 
     .user-card {
@@ -137,9 +143,7 @@
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: var(--border-radius);
         padding: 1.5rem;
-        width: 320px;
         min-height: 340px;
-        flex: 0 0 auto;
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -147,6 +151,7 @@
         position: relative;
         overflow: hidden;
         box-shadow: var(--shadow-md);
+        height: 100%;
     }
 
     .user-card::before {
@@ -256,20 +261,18 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+        justify-content: flex-start;
     }
 
     .user-card-actions .btn {
-        flex: 1 1 calc(50% - 0.25rem);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.35rem;
-        padding: 0.45rem 0.5rem;
-        font-size: 0.75rem;
-    }
-
-    .user-card-actions .btn.user-action-delete {
-        flex-basis: 100%;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border-radius: var(--border-radius-xs);
+        font-size: 1rem;
     }
 
     .user-avatar {
@@ -3024,11 +3027,11 @@
       ${renderUserSheetDetails(user)}
     </div>
     <div class="user-card-actions" role="group" aria-label="User actions">
-      <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User"><i class="fas fa-edit"></i><span>Edit</span></button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password"><i class="fas fa-key"></i><span>Reset Pwd</span></button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email"><i class="fas fa-paper-plane"></i><span>First Login</span></button>
-      <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment"><i class="fas fa-toolbox"></i><span>Equipment</span></button>
-      <button class="btn btn-outline-danger btn-sm user-action-delete" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User"><i class="fas fa-trash"></i><span>Delete</span></button>
+      <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User" aria-label="Edit User"><i class="fas fa-edit"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password" aria-label="Reset Password"><i class="fas fa-key"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email" aria-label="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
+      <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment" aria-label="Manage Equipment"><i class="fas fa-toolbox"></i></button>
+      <button class="btn btn-outline-danger btn-sm user-action-delete" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User" aria-label="Delete User"><i class="fas fa-trash"></i></button>
     </div>
   </div>`;
   }
