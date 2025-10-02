@@ -4322,6 +4322,65 @@ function queueBackgroundInitialization(options) {
   }
 }
 
+function scheduledWarmup() {
+  var safeConsole = (typeof console !== 'undefined' && console) ? console : {
+    error: function () { },
+    warn: function () { },
+    log: function () { }
+  };
+
+  try {
+    return queueBackgroundInitialization({});
+  } catch (error) {
+    if (safeConsole && typeof safeConsole.error === 'function') {
+      safeConsole.error('scheduledWarmup failed:', error);
+    }
+    if (typeof writeError === 'function') {
+      try {
+        writeError('scheduledWarmup', error);
+      } catch (loggingError) {
+        if (safeConsole && typeof safeConsole.error === 'function') {
+          safeConsole.error('Failed to log scheduledWarmup error:', loggingError);
+        }
+      }
+    }
+    return false;
+  }
+}
+
+function ensureScheduledWarmupTrigger() {
+  var triggers = [];
+  try {
+    triggers = ScriptApp.getProjectTriggers();
+  } catch (error) {
+    var safeConsole = (typeof console !== 'undefined' && console) ? console : {
+      error: function () { },
+      warn: function () { },
+      log: function () { }
+    };
+    if (safeConsole && typeof safeConsole.error === 'function') {
+      safeConsole.error('ensureScheduledWarmupTrigger: unable to list triggers:', error);
+    }
+    throw error;
+  }
+
+  var hasTrigger = triggers.some(function (trigger) {
+    if (trigger && typeof trigger.getHandlerFunction === 'function') {
+      return trigger.getHandlerFunction() === 'scheduledWarmup';
+    }
+    return false;
+  });
+
+  if (!hasTrigger) {
+    ScriptApp.newTrigger('scheduledWarmup')
+      .timeBased()
+      .everyMinutes(5)
+      .create();
+  }
+
+  return hasTrigger;
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // GLOBAL FAVICON INJECTOR AND TEMPLATE HELPERS
 // ───────────────────────────────────────────────────────────────────────────────
