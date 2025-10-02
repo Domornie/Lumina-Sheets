@@ -46,12 +46,48 @@ const ATTENDANCE_TIMEZONE = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE === 'string
 const ATTENDANCE_TIMEZONE_LABEL = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL === 'string' && GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL)
   ? GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
   : 'Company Time';
+const ATTENDANCE_SHEET_NAME = (typeof GLOBAL_SCOPE.ATTENDANCE === 'string' && GLOBAL_SCOPE.ATTENDANCE)
+  ? GLOBAL_SCOPE.ATTENDANCE
+  : 'AttendanceLog';
 
 // Performance optimization constants
 const MAX_PROCESSING_TIME = 25000; // 25 seconds max execution time
 const CHUNK_SIZE = 1000; // Process data in chunks
 const CACHE_TTL_SHORT = 60; // 1 minute cache
 const CACHE_TTL_MEDIUM = 300; // 5 minute cache
+
+function resolveAttendanceSpreadsheet() {
+  if (typeof getIBTRSpreadsheet === 'function') {
+    try {
+      const ss = getIBTRSpreadsheet();
+      if (ss) {
+        return ss;
+      }
+    } catch (err) {
+      try {
+        console.warn('getIBTRSpreadsheet() failed, attempting SpreadsheetApp fallback', err);
+      } catch (_) {}
+    }
+  }
+
+  if (typeof SpreadsheetApp !== 'undefined') {
+    try {
+      if (typeof GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID === 'string' && GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID) {
+        return SpreadsheetApp.openById(GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID);
+      }
+    } catch (openErr) {
+      try {
+        console.warn('SpreadsheetApp.openById fallback failed:', openErr);
+      } catch (_) {}
+    }
+
+    if (typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
+      return SpreadsheetApp.getActiveSpreadsheet();
+    }
+  }
+
+  throw new Error('Unable to resolve attendance spreadsheet. Ensure IBTRUtilities is loaded.');
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // RPC WITH TIMEOUT PROTECTION
@@ -124,9 +160,12 @@ function fetchAllAttendanceRows() {
       console.warn('Cache read failed:', e);
     }
 
-    const ss = getIBTRSpreadsheet();
-    const sheet = ss.getSheetByName(ATTENDANCE);
-    if (!sheet) return [];
+    const ss = resolveAttendanceSpreadsheet();
+    const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
+    if (!sheet) {
+      console.warn(`Attendance sheet "${ATTENDANCE_SHEET_NAME}" not found in IBTR spreadsheet.`);
+      return [];
+    }
 
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return [];
@@ -254,7 +293,7 @@ function fetchAllAttendanceRows() {
 function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
   return rpc('getAttendanceAnalyticsByPeriod', () => {
     const startTime = Date.now();
-    const TIME_BUDGET_MS = 14000;
+    const TIME_BUDGET_MS = Math.min(MAX_PROCESSING_TIME - 2000, 20000);
     console.log(`Analytics request: ${granularity}, ${periodId}, ${agentFilter || 'all'}`);
 
     if (!periodId) {
@@ -328,16 +367,22 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     };
 
     let exceededTimeBudget = false;
+    let scannedRows = 0;
+    let reachedPeriodWindow = false;
 
-    for (let idx = 0; idx < allRows.length; idx++) {
-      if (!exceededTimeBudget && (Date.now() - startTime) > TIME_BUDGET_MS) {
-        console.warn('Analytics processing time budget exceeded, returning basic snapshot');
-        exceededTimeBudget = true;
-        break;
+    for (let idx = allRows.length - 1; idx >= 0; idx--) {
+      if (!exceededTimeBudget && scannedRows > 0 && (scannedRows % 250 === 0)) {
+        if ((Date.now() - startTime) > TIME_BUDGET_MS) {
+          console.warn('Analytics processing time budget exceeded after scanning', scannedRows, 'rows. Returning snapshot.');
+          exceededTimeBudget = true;
+          break;
+        }
+
       }
 
       const row = allRows[idx];
       if (!row) continue;
+      scannedRows++;
 
       let timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : null;
       let timestamp = row.timestamp instanceof Date ? row.timestamp : null;
@@ -358,7 +403,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         continue;
       }
 
-      if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
+      if (timestampMs > periodEndMs) {
+        continue;
+      }
+
+      if (timestampMs < periodStartMs) {
+        if (reachedPeriodWindow) {
+          break;
+        }
         continue;
       }
 
@@ -444,12 +496,15 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         isWeekend
       };
       filteredRows.push(sanitizedRow);
+      reachedPeriodWindow = true;
       if (!exceededTimeBudget) {
         registerFeedRow(sanitizedRow, timestampMs);
       }
     }
 
-    console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total`);
+    filteredRows.reverse();
+
+    console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total (scanned ${scannedRows})`);
 
     if (exceededTimeBudget) {
       return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
@@ -1423,10 +1478,10 @@ function importAttendance(rows) {
         throw new Error('Could not acquire document lock within 30 seconds');
       }
 
-      const ss = getIBTRSpreadsheet();
-      const sheet = ss.getSheetByName(ATTENDANCE);
+      const ss = resolveAttendanceSpreadsheet();
+      const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
       if (!sheet) {
-        throw new Error(`Sheet "${ATTENDANCE}" not found. Call setupCampaignSheets() first.`);
+        throw new Error(`Sheet "${ATTENDANCE_SHEET_NAME}" not found. Call setupCampaignSheets() first.`);
       }
 
       const now = new Date();
@@ -1516,7 +1571,7 @@ function importAttendance(rows) {
           ]);
 
           // Log for audit trail
-          logCampaignDirtyRow(ATTENDANCE, timestamp.toISOString() + "_" + rawName, "CREATE");
+          logCampaignDirtyRow(ATTENDANCE_SHEET_NAME, timestamp.toISOString() + "_" + rawName, "CREATE");
         } catch (rowError) {
           console.error('Error processing row:', rowError, r);
         }
@@ -1900,8 +1955,8 @@ function testConnection() {
 
 function debugDatabaseStructure() {
   try {
-    const ss = getIBTRSpreadsheet();
-    const sheet = ss.getSheetByName(ATTENDANCE);
+    const ss = resolveAttendanceSpreadsheet();
+    const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
     if (!sheet) {
       return { error: 'Attendance sheet not found' };
     }
