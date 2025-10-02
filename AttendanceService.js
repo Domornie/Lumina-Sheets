@@ -336,6 +336,18 @@ function fetchAllAttendanceRows() {
           const timestampMsRaw = typeof row.t === 'number' ? row.t : parseFloat(row.t);
           const timestampMs = Number.isFinite(timestampMsRaw) ? timestampMsRaw : undefined;
           const timestamp = typeof timestampMs === 'number' ? new Date(timestampMs) : null;
+          let dateMs = typeof row.dm === 'number' && Number.isFinite(row.dm) ? row.dm : undefined;
+          if (!Number.isFinite(dateMs) && timestamp instanceof Date && !isNaN(timestamp.getTime())) {
+            const fallbackDate = createDateInLocalTime(
+              timestamp.getFullYear(),
+              timestamp.getMonth() + 1,
+              timestamp.getDate(),
+              0,
+              0,
+              0
+            );
+            dateMs = (fallbackDate instanceof Date && !isNaN(fallbackDate.getTime())) ? fallbackDate.getTime() : undefined;
+          }
           const durationSec = coerceDurationSeconds(row.d);
           let dayOfWeek = typeof row.dow === 'number' && Number.isFinite(row.dow)
             ? row.dow
@@ -357,6 +369,7 @@ function fetchAllAttendanceRows() {
           return {
             timestamp,
             timestampMs,
+            dateMs,
             user: row.u,
             state: row.s,
             durationSec,
@@ -368,7 +381,7 @@ function fetchAllAttendanceRows() {
           };
         });
 
-        mapped.sort((a, b) => ensureTimestampMs(a) - ensureTimestampMs(b));
+        mapped.sort((a, b) => ensureComparableMs(a) - ensureComparableMs(b));
         return mapped;
       }
     } catch (e) {
@@ -438,10 +451,20 @@ function fetchAllAttendanceRows() {
           const dateString = toIsoDateString(dateBasis);
           const dayOfWeek = toIsoDayOfWeek(dateBasis);
           const isWeekend = typeof dayOfWeek === 'number' ? dayOfWeek >= 6 : undefined;
+          const dateStart = createDateInLocalTime(
+            dateBasis.getFullYear(),
+            dateBasis.getMonth() + 1,
+            dateBasis.getDate(),
+            0,
+            0,
+            0
+          );
+          const dateMs = (dateStart instanceof Date && !isNaN(dateStart.getTime())) ? dateStart.getTime() : undefined;
 
           out.push({
             timestamp,
             timestampMs,
+            dateMs,
             user,
             state,
             durationSec: durationSeconds,
@@ -469,7 +492,8 @@ function fetchAllAttendanceRows() {
         d: row.durationSec,
         ds: row.dateString,
         dow: row.dayOfWeek,
-        w: typeof row.isWeekend === 'boolean' ? row.isWeekend : undefined
+        w: typeof row.isWeekend === 'boolean' ? row.isWeekend : undefined,
+        dm: Number.isFinite(row.dateMs) ? row.dateMs : undefined
       }));
 
       writeLargeCache(cache, CACHE_KEY, {
@@ -480,11 +504,7 @@ function fetchAllAttendanceRows() {
       console.warn('Cache write failed:', e);
     }
 
-    out.sort((a, b) => {
-      const aMs = typeof a.timestampMs === 'number' ? a.timestampMs : (a.timestamp instanceof Date ? a.timestamp.getTime() : 0);
-      const bMs = typeof b.timestampMs === 'number' ? b.timestampMs : (b.timestamp instanceof Date ? b.timestamp.getTime() : 0);
-      return aMs - bMs;
-    });
+    out.sort((a, b) => ensureComparableMs(a) - ensureComparableMs(b));
 
     return out;
   }, []);
@@ -514,42 +534,46 @@ function ensureTimestampMs(row) {
   return ms;
 }
 
-function findFirstIndexOnOrAfterTimestamp(rows, targetMs) {
-  let low = 0;
-  let high = rows.length;
-
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    const value = ensureTimestampMs(rows[mid]);
-
-    if (!Number.isFinite(value) || value < targetMs) {
-      low = mid + 1;
-    } else {
-      high = mid;
-    }
+function ensureDateMs(row) {
+  if (!row || typeof row !== 'object') {
+    return NaN;
   }
 
-  return low;
-}
-
-function findLastIndexOnOrBeforeTimestamp(rows, targetMs) {
-  let low = 0;
-  let high = rows.length;
-
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    const value = ensureTimestampMs(rows[mid]);
-
-    if (!Number.isFinite(value) || value > targetMs) {
-      high = mid;
-    } else {
-      low = mid + 1;
-    }
+  if (typeof row.dateMs === 'number' && Number.isFinite(row.dateMs)) {
+    return row.dateMs;
   }
 
-  return low - 1;
+  const dateSource = row.dateString ? normalizeDateValue(row.dateString) : null;
+  if (!(dateSource instanceof Date) || isNaN(dateSource.getTime())) {
+    return NaN;
+  }
+
+  const localStart = createDateInLocalTime(
+    dateSource.getFullYear(),
+    dateSource.getMonth() + 1,
+    dateSource.getDate(),
+    0,
+    0,
+    0
+  );
+
+  if (!(localStart instanceof Date) || isNaN(localStart.getTime())) {
+    return NaN;
+  }
+
+  const ms = localStart.getTime();
+  row.dateMs = ms;
+  return ms;
 }
 
+function ensureComparableMs(row) {
+  const timestampMs = ensureTimestampMs(row);
+  if (Number.isFinite(timestampMs)) {
+    return timestampMs;
+  }
+
+  return ensureDateMs(row);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // ANALYTICS ENGINE
@@ -590,17 +614,31 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const periodStartMs = periodStart.getTime();
     const periodEndMs = periodEnd.getTime();
+    const periodStartDate = createDateInLocalTime(
+      periodStart.getFullYear(),
+      periodStart.getMonth() + 1,
+      periodStart.getDate(),
+      0,
+      0,
+      0
+    );
+    const periodEndDate = createDateInLocalTime(
+      periodEnd.getFullYear(),
+      periodEnd.getMonth() + 1,
+      periodEnd.getDate(),
+      0,
+      0,
+      0
+    );
+    const periodStartDateMs = (periodStartDate instanceof Date && !isNaN(periodStartDate.getTime()))
+      ? periodStartDate.getTime()
+      : periodStartMs;
+    const periodEndDateMs = (periodEndDate instanceof Date && !isNaN(periodEndDate.getTime()))
+      ? periodEndDate.getTime()
+      : periodEndMs;
 
     const allRows = fetchAllAttendanceRows();
     const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
-
-    const firstCandidateIndex = findFirstIndexOnOrAfterTimestamp(allRows, periodStartMs);
-    const lastCandidateIndex = findLastIndexOnOrBeforeTimestamp(allRows, periodEndMs);
-    const hasCandidates = lastCandidateIndex >= firstCandidateIndex && firstCandidateIndex < allRows.length;
-
-    if (!hasCandidates) {
-      console.log('No attendance rows within requested period window.');
-    }
 
     const summary = {};
     const stateDuration = {};
@@ -642,8 +680,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     let exceededTimeBudget = false;
     let scannedRows = 0;
 
-    const loopStart = hasCandidates ? Math.max(0, firstCandidateIndex) : allRows.length;
-    const loopEnd = hasCandidates ? lastCandidateIndex : -1;
+    const loopStart = 0;
+    const loopEnd = allRows.length - 1;
+    const safePeriodStartMs = Number.isFinite(periodStartMs) ? periodStartMs : Number.POSITIVE_INFINITY;
+    const safePeriodDateStartMs = Number.isFinite(periodStartDateMs) ? periodStartDateMs : Number.POSITIVE_INFINITY;
+    const lowerBoundMs = Math.min(safePeriodStartMs, safePeriodDateStartMs);
 
     for (let idx = loopEnd; idx >= loopStart; idx--) {
       if (!exceededTimeBudget && scannedRows > 0 && (scannedRows % 250 === 0)) {
@@ -658,17 +699,34 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       if (!row) continue;
       scannedRows++;
 
+      const comparableMs = ensureComparableMs(row);
+      if (Number.isFinite(comparableMs) && comparableMs < lowerBoundMs) {
+        break;
+      }
+
       const timestampMs = ensureTimestampMs(row);
-      if (!Number.isFinite(timestampMs)) {
+      const dateMs = ensureDateMs(row);
+
+      const hasTimestampMatch = Number.isFinite(timestampMs)
+        ? (timestampMs >= periodStartMs && timestampMs <= periodEndMs)
+        : false;
+      const hasDateMatch = Number.isFinite(dateMs)
+        ? (dateMs >= periodStartDateMs && dateMs <= periodEndDateMs)
+        : false;
+
+      if (!hasTimestampMatch && !hasDateMatch) {
         continue;
       }
 
-      const timestamp = row.timestamp instanceof Date ? row.timestamp : new Date(timestampMs);
+      const effectiveTimestampMs = Number.isFinite(timestampMs)
+        ? timestampMs
+        : (Number.isFinite(dateMs) ? dateMs : undefined);
+
+      const timestamp = row.timestamp instanceof Date
+        ? row.timestamp
+        : (Number.isFinite(effectiveTimestampMs) ? new Date(effectiveTimestampMs) : null);
+
       if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
-        continue;
-      }
-
-      if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
         continue;
       }
 
@@ -745,8 +803,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       }
 
       const sanitizedRow = {
-        timestamp: timestamp,
-        timestampMs,
+        timestamp,
+        timestampMs: effectiveTimestampMs,
         user: row.user,
         state,
         durationSec,
@@ -757,7 +815,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       };
       filteredRows.push(sanitizedRow);
       if (!exceededTimeBudget) {
-        registerFeedRow(sanitizedRow, timestampMs);
+        registerFeedRow(sanitizedRow, effectiveTimestampMs);
       }
     }
 
