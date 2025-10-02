@@ -53,15 +53,17 @@ const LUMINA_ENTITY_REGISTRY = (function buildEntityRegistry() {
   }
 
   var qualityTableName = (typeof QA_RECORDS === 'string' && QA_RECORDS) ? QA_RECORDS : 'Quality';
+  var qualitySchema = (typeof QA_HEADERS !== 'undefined' && Array.isArray(QA_HEADERS))
+    ? { headers: sliceHeaders(QA_HEADERS), idColumn: 'ID' }
+    : { idColumn: 'ID' };
+  qualitySchema.cacheTTL = 2700;
   registry.quality = {
     name: 'quality',
     tableName: qualityTableName,
     idColumn: 'ID',
     summaryColumns: ['ID', 'Timestamp', 'AgentName', 'TotalScore', 'Percentage', 'FeedbackShared'],
     summaryOptions: { sortBy: 'Timestamp', sortDesc: true },
-    schema: (typeof QA_HEADERS !== 'undefined' && Array.isArray(QA_HEADERS))
-      ? { headers: sliceHeaders(QA_HEADERS), idColumn: 'ID' }
-      : { idColumn: 'ID' },
+    schema: qualitySchema,
     normalizeSummary: function (row) {
       return {
         id: row.ID,
@@ -78,14 +80,16 @@ const LUMINA_ENTITY_REGISTRY = (function buildEntityRegistry() {
   registry.qualityrecords = registry.quality;
 
   var usersTableName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
+  var usersSchema = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
+    ? { headers: sliceHeaders(USERS_HEADERS), idColumn: 'ID' }
+    : { idColumn: 'ID' };
+  usersSchema.cacheTTL = 1800;
   registry.users = {
     name: 'users',
     tableName: usersTableName,
     idColumn: 'ID',
     summaryColumns: ['ID', 'FullName', 'UserName', 'CampaignID'],
-    schema: (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
-      ? { headers: sliceHeaders(USERS_HEADERS), idColumn: 'ID' }
-      : { idColumn: 'ID' },
+    schema: usersSchema,
     normalizeSummary: function (row) {
       var fullName = coerceString(row.FullName || row.fullName);
       var userName = coerceString(row.UserName || row.userName || row.Username);
