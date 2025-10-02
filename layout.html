@@ -1280,6 +1280,42 @@
       line-height: 1.65;
       color: rgba(226, 232, 240, 0.82);
       max-width: 70ch;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .lumina-banner__description[data-empty="true"] {
+      display: none;
+    }
+
+    .lumina-banner__description-text {
+      display: block;
+    }
+
+    .lumina-banner__description-text:not(:last-child) {
+      margin-bottom: 0.25rem;
+    }
+
+    .lumina-banner__rich-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      width: 100%;
+    }
+
+    .lumina-banner__rich-block > * {
+      margin: 0;
+      color: inherit;
+    }
+
+    .lumina-banner__rich-block .header-stats,
+    .lumina-banner__rich-block .stats-grid,
+    .lumina-banner__rich-block .quick-stats,
+    .lumina-banner__rich-block .summary-grid,
+    .lumina-banner__rich-block .info-grid,
+    .lumina-banner__rich-block .agent-info {
+      width: 100%;
     }
 
     .lumina-banner__actions {
@@ -1587,7 +1623,7 @@
             <h1 class="lumina-banner__title" id="luminaBannerTitle">LuminaHQ</h1>
             <div class="lumina-banner__actions" id="luminaBannerActions" aria-label="Banner actions"></div>
           </div>
-          <p class="lumina-banner__description" id="luminaBannerDescription"></p>
+          <div class="lumina-banner__description" id="luminaBannerDescription"></div>
         </div>
         <div class="lumina-banner__meta">
           <div class="lumina-banner__meta-item">
@@ -1651,10 +1687,303 @@
             }
         }
 
+        const REMOVABLE_BANNER_BUTTON_CLASSES = [
+            'btn',
+            'btn-sm',
+            'btn-lg',
+            'btn-primary',
+            'btn-secondary',
+            'btn-success',
+            'btn-danger',
+            'btn-outline-primary',
+            'btn-outline-secondary',
+            'btn-outline-light',
+            'btn-outline-dark',
+            'btn-modern',
+            'btn-modern-primary',
+            'btn-modern-secondary',
+            'btn-light',
+            'btn-dark',
+            'shadow-sm',
+            'shadow',
+            'text-uppercase'
+        ];
+
+        function absorbLocalBanners() {
+            const selectors = [
+                '.page-header',
+                '.modern-page-header',
+                '.dashboard-header',
+                '.content-header',
+                '.schedule-header',
+                '.app-header',
+                '.task-header',
+                '.ack-header',
+                '.coaching-header',
+                '.security-header',
+                '.eod-header',
+                '.global-page-header',
+                '.hero-header',
+                '.page-hero'
+            ];
+
+            const bannerData = {
+                titleText: '',
+                titleFragments: [],
+                descriptionText: '',
+                descriptionElements: [],
+                eyebrowText: '',
+                actions: []
+            };
+
+            const processedHeaders = new Set();
+            const processedButtons = new Set();
+            const actionContainerClassHints = [
+                'actions',
+                'toolbar',
+                'buttons',
+                'cta',
+                'header-actions',
+                'page-actions',
+                'button-group',
+                'btn-group',
+                'control-bar',
+                'filter-actions'
+            ];
+
+            const shouldSkipHeader = (header) => {
+                if (!header) return true;
+                if (processedHeaders.has(header)) return true;
+                if (header.closest('#luminaBanner')) return true;
+                if (header.closest('.modal')) return true;
+                if (header.hasAttribute('data-banner-ignore')) return true;
+                return false;
+            };
+
+            const isActionCandidate = (element) => {
+                if (!element || element.closest('.modal')) return false;
+                if (processedButtons.has(element)) return false;
+                if (!(element instanceof HTMLElement)) return false;
+                if (element.dataset && element.dataset.bannerAction === 'false') return false;
+
+                if (element.matches('a[data-banner-action], button[data-banner-action]')) {
+                    return true;
+                }
+
+                const classList = Array.from(element.classList || []);
+                const parentClassList = Array.from((element.parentElement && element.parentElement.classList) || []);
+
+                const hasButtonClass = classList.some(cls => cls.startsWith('btn')) || parentClassList.some(cls => cls.startsWith('btn'));
+                const insideActionContainer = actionContainerClassHints.some(hint => element.closest(`[class*="${hint}"]`));
+
+                return hasButtonClass || insideActionContainer;
+            };
+
+            const cleanupButton = (button, variant) => {
+                REMOVABLE_BANNER_BUTTON_CLASSES.forEach(cls => button.classList.remove(cls));
+                button.classList.add('lumina-banner__action', `lumina-banner__action--${variant}`);
+            };
+
+            const extractActionsFrom = (root) => {
+                if (!root || !(root instanceof Element)) return;
+
+                const candidates = Array.from(root.querySelectorAll('a, button'))
+                    .filter(isActionCandidate);
+
+                candidates.forEach(button => {
+                    processedButtons.add(button);
+
+                    const isLink = button.tagName.toLowerCase() === 'a';
+                    const iconEl = button.querySelector('i');
+                    const storedIcon = button.getAttribute('data-banner-icon');
+                    const action = {
+                        element: button,
+                        label: (button.getAttribute('data-banner-label') || button.textContent || '').trim(),
+                        icon: storedIcon || (iconEl ? iconEl.className : ''),
+                        variant: button.getAttribute('data-banner-variant') ||
+                            (button.classList.contains('btn-primary') ||
+                             button.classList.contains('btn-success') ||
+                             (button.classList.contains('btn-modern') && !button.classList.contains('btn-outline-primary'))
+                                ? 'primary'
+                                : 'secondary')
+                    };
+
+                    if (button.id) {
+                        action.id = button.id;
+                    }
+
+                    if (isLink) {
+                        const href = button.getAttribute('href');
+                        if (href) {
+                            action.href = href;
+                        }
+                        const target = button.getAttribute('target');
+                        const rel = button.getAttribute('rel');
+                        if (target) action.target = target;
+                        if (rel) action.rel = rel;
+                    }
+
+                    if (!action.label && button.getAttribute('aria-label')) {
+                        action.label = button.getAttribute('aria-label');
+                    }
+
+                    if (!action.label) {
+                        action.label = 'Action';
+                    }
+
+                    if (iconEl) {
+                        iconEl.remove();
+                    }
+
+                    button.remove();
+                    cleanupButton(button, action.variant);
+                    bannerData.actions.push(action);
+                });
+            };
+
+            const isEmptyElement = (element) => {
+                if (!element) return true;
+                if (!(element instanceof Element)) return false;
+                if (element.childNodes.length === 0) return true;
+                if (element.childNodes.length === 1) {
+                    const child = element.childNodes[0];
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        return !child.textContent.trim();
+                    }
+                }
+                return false;
+            };
+
+            const harvestHeader = (header) => {
+                if (shouldSkipHeader(header)) return;
+
+                processedHeaders.add(header);
+
+                const eyebrowAttr = header.getAttribute('data-banner-eyebrow');
+                if (eyebrowAttr && !bannerData.eyebrowText) {
+                    bannerData.eyebrowText = eyebrowAttr.trim();
+                }
+
+                const eyebrowEl = header.querySelector('[data-banner-eyebrow]');
+                if (eyebrowEl && !bannerData.eyebrowText) {
+                    bannerData.eyebrowText = eyebrowEl.textContent.trim();
+                }
+
+                const titleEl = header.querySelector('[data-banner-title], h1, h2, h3, h4');
+                if (titleEl) {
+                    const titleText = titleEl.textContent.trim();
+                    if (titleText && !bannerData.titleText) {
+                        bannerData.titleText = titleText;
+                    }
+
+                    if (!bannerData.titleFragments.length) {
+                        const fragments = [];
+                        while (titleEl.firstChild) {
+                            fragments.push(titleEl.firstChild);
+                        }
+                        bannerData.titleFragments = fragments;
+                    }
+
+                    titleEl.remove();
+                }
+
+                const descriptionAttr = header.getAttribute('data-banner-description');
+                if (descriptionAttr && !bannerData.descriptionText) {
+                    bannerData.descriptionText = descriptionAttr.trim();
+                }
+
+                extractActionsFrom(header);
+
+                const wrapper = document.createElement('div');
+                wrapper.classList.add('lumina-banner__rich-block');
+
+                Array.from(header.childNodes).forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const element = node;
+                        if (element.matches('script, style')) {
+                            element.remove();
+                            return;
+                        }
+
+                        extractActionsFrom(element);
+
+                        if (isEmptyElement(element)) {
+                            element.remove();
+                            return;
+                        }
+
+                        if (!bannerData.descriptionText) {
+                            const snippet = element.textContent ? element.textContent.trim() : '';
+                            if (snippet) {
+                                bannerData.descriptionText = snippet;
+                            }
+                        }
+
+                        wrapper.appendChild(element);
+                        return;
+                    }
+
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.textContent.trim();
+                        node.remove();
+                        if (text) {
+                            const span = document.createElement('span');
+                            span.classList.add('lumina-banner__description-text');
+                            span.textContent = text;
+                            wrapper.appendChild(span);
+
+                            if (!bannerData.descriptionText) {
+                                bannerData.descriptionText = text;
+                            }
+                        }
+                        return;
+                    }
+
+                    wrapper.appendChild(node);
+                });
+
+                if (wrapper.childNodes.length) {
+                    bannerData.descriptionElements.push(wrapper);
+                }
+
+                header.remove();
+            };
+
+            selectors.forEach(selector => {
+                document.querySelectorAll(selector).forEach(harvestHeader);
+            });
+
+            return bannerData;
+        }
+
         function initializeGlobalBanner(config = {}) {
             const banner = document.getElementById('luminaBanner');
             if (!banner) {
                 return;
+            }
+
+            const stored = window.__absorbedBannerData || {};
+            const finalConfig = Object.assign({}, stored, config || {});
+
+            finalConfig.titleFragments = (config && config.titleFragments) || stored.titleFragments || [];
+            finalConfig.descriptionElements = (config && config.descriptionElements) || stored.descriptionElements || [];
+
+            const includeAbsorbedActions = config && config.includeAbsorbedActions === false ? false : true;
+            const providedActions = (config && Array.isArray(config.actions)) ? config.actions.filter(Boolean) : null;
+            const baseActions = includeAbsorbedActions ? (Array.isArray(stored.actions) ? stored.actions.slice() : []) : [];
+
+            if (providedActions) {
+                const combined = baseActions.concat(providedActions);
+                const seen = new Set();
+                finalConfig.actions = combined.filter(action => {
+                    if (!action) return false;
+                    const key = action.id ? `id:${action.id}` : `${action.label || ''}|${action.href || ''}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            } else {
+                finalConfig.actions = baseActions;
             }
 
             const titleEl = document.getElementById('luminaBannerTitle');
@@ -1664,24 +1993,64 @@
             const dateEl = document.getElementById('luminaBannerDate');
             const dstEl = document.getElementById('luminaBannerDst');
             const actionsEl = document.getElementById('luminaBannerActions');
-            const resolvedTitle = config.title || document.title || 'LuminaHQ';
+
+            const resolvedTitle = finalConfig.title || stored.titleText || stored.title || document.title || 'LuminaHQ';
             if (titleEl) {
-                titleEl.textContent = resolvedTitle.trim() || 'LuminaHQ';
+                if (Array.isArray(finalConfig.titleFragments) && finalConfig.titleFragments.length) {
+                    titleEl.innerHTML = '';
+                    finalConfig.titleFragments.forEach(fragment => {
+                        if (!fragment) return;
+                        if (fragment instanceof Node) {
+                            titleEl.appendChild(fragment);
+                            return;
+                        }
+                        titleEl.appendChild(document.createTextNode(String(fragment)));
+                    });
+                } else {
+                    titleEl.textContent = String(resolvedTitle || 'LuminaHQ').trim() || 'LuminaHQ';
+                }
             }
 
             if (descEl) {
-                const description = config.description ? String(config.description).trim() : '';
+                const description = finalConfig.description !== undefined
+                    ? String(finalConfig.description || '').trim()
+                    : String(stored.descriptionText || '').trim();
+
+                const fragments = Array.isArray(finalConfig.descriptionElements)
+                    ? finalConfig.descriptionElements
+                    : [];
+
+                descEl.innerHTML = '';
+
+                let hasContent = false;
+
                 if (description) {
-                    descEl.textContent = description;
+                    const textSpan = document.createElement('span');
+                    textSpan.classList.add('lumina-banner__description-text');
+                    textSpan.textContent = description;
+                    descEl.appendChild(textSpan);
+                    hasContent = true;
+                }
+
+                fragments.forEach(node => {
+                    if (!node) return;
+                    if (node instanceof Node) {
+                        descEl.appendChild(node);
+                        hasContent = true;
+                    }
+                });
+
+                if (hasContent) {
                     descEl.style.display = '';
+                    descEl.dataset.empty = 'false';
                 } else {
-                    descEl.textContent = '';
                     descEl.style.display = 'none';
+                    descEl.dataset.empty = 'true';
                 }
             }
 
             if (eyebrowEl && eyebrowText) {
-                const eyebrowValue = config.eyebrow || config.campaignName || '';
+                const eyebrowValue = finalConfig.eyebrow || finalConfig.campaignName || stored.eyebrowText || '';
                 const fallback = 'Lumina Sheets';
                 const text = String(eyebrowValue || fallback).trim();
                 eyebrowText.textContent = text;
@@ -1710,51 +2079,107 @@
 
             if (actionsEl) {
                 actionsEl.innerHTML = '';
-                const actions = Array.isArray(config.actions) ? config.actions.filter(Boolean) : [];
+                const actions = Array.isArray(finalConfig.actions) ? finalConfig.actions.filter(Boolean) : [];
                 const variants = ['primary', 'secondary'];
 
                 actions.forEach((action, index) => {
-                    const isLink = Boolean(action && action.href);
-                    const element = document.createElement(isLink ? 'a' : 'button');
-                    element.classList.add('lumina-banner__action');
+                    let element = null;
+                    let isLink = false;
 
-                    const variant = (action && action.variant) || variants[Math.min(index, variants.length - 1)] || 'primary';
-                    element.classList.add(`lumina-banner__action--${variant}`);
+                    if (action && action.element && action.element instanceof HTMLElement) {
+                        element = action.element;
+                        isLink = element.tagName.toLowerCase() === 'a';
 
-                    if (!isLink) {
-                        element.type = 'button';
-                    }
+                        const variant = action.variant || element.getAttribute('data-banner-variant') || variants[Math.min(index, variants.length - 1)] || 'primary';
+                        REMOVABLE_BANNER_BUTTON_CLASSES.forEach(cls => element.classList.remove(cls));
+                        element.classList.add('lumina-banner__action', `lumina-banner__action--${variant}`);
 
-                    if (action && action.id) {
-                        element.id = action.id;
-                    }
+                        if (!element.hasAttribute('data-banner-action-prepared')) {
+                            const labelText = action.label || element.getAttribute('data-banner-label') || element.textContent.trim() || 'Action';
+                            const iconClasses = action.icon || element.getAttribute('data-banner-icon') || '';
 
-                    if (isLink) {
-                        element.href = action.href;
-                        if (action.target) {
-                            element.target = action.target;
+                            element.innerHTML = '';
+                            if (iconClasses) {
+                                const iconEl = document.createElement('i');
+                                String(iconClasses)
+                                    .split(/\s+/)
+                                    .filter(Boolean)
+                                    .forEach(cls => iconEl.classList.add(cls));
+                                element.appendChild(iconEl);
+                            }
+
+                            const label = document.createElement('span');
+                            label.textContent = labelText;
+                            element.appendChild(label);
+
+                            element.setAttribute('data-banner-action-prepared', 'true');
                         }
-                        if (action.rel) {
-                            element.rel = action.rel;
+
+                        if (!isLink) {
+                            element.type = 'button';
+                        }
+
+                        if (action && action.id) {
+                            element.id = action.id;
+                        }
+
+                        if (isLink && action) {
+                            if (action.href) element.href = action.href;
+                            if (action.target) element.target = action.target;
+                            if (action.rel) element.rel = action.rel;
+                        }
+                    } else {
+                        isLink = Boolean(action && action.href);
+                        element = document.createElement(isLink ? 'a' : 'button');
+                        element.classList.add('lumina-banner__action');
+
+                        const variant = (action && action.variant) || variants[Math.min(index, variants.length - 1)] || 'primary';
+                        element.classList.add(`lumina-banner__action--${variant}`);
+
+                        if (!isLink) {
+                            element.type = 'button';
+                        }
+
+                        if (action && action.id) {
+                            element.id = action.id;
+                        }
+
+                        if (isLink) {
+                            element.href = action.href;
+                            if (action.target) {
+                                element.target = action.target;
+                            }
+                            if (action.rel) {
+                                element.rel = action.rel;
+                            }
+                        }
+
+                        if (action && action.className) {
+                            element.classList.add(...String(action.className).split(/\s+/).filter(Boolean));
+                        }
+
+                        if (action && action.icon) {
+                            const iconEl = document.createElement('i');
+                            String(action.icon)
+                                .split(/\s+/)
+                                .filter(Boolean)
+                                .forEach(cls => iconEl.classList.add(cls));
+                            element.appendChild(iconEl);
+                        }
+
+                        const label = document.createElement('span');
+                        label.textContent = action && action.label ? String(action.label) : 'Action';
+                        element.appendChild(label);
+                    }
+
+                    if (action && typeof action.onClick === 'function') {
+                        if (!element.hasAttribute('data-banner-action-handler')) {
+                            element.addEventListener('click', (event) => {
+                                action.onClick.call(element, event);
+                            });
+                            element.setAttribute('data-banner-action-handler', 'true');
                         }
                     }
-
-                    if (action && action.className) {
-                        element.classList.add(...String(action.className).split(/\s+/).filter(Boolean));
-                    }
-
-                    if (action && action.icon) {
-                        const iconEl = document.createElement('i');
-                        String(action.icon)
-                            .split(/\s+/)
-                            .filter(Boolean)
-                            .forEach(cls => iconEl.classList.add(cls));
-                        element.appendChild(iconEl);
-                    }
-
-                    const label = document.createElement('span');
-                    label.textContent = action && action.label ? String(action.label) : 'Action';
-                    element.appendChild(label);
 
                     actionsEl.appendChild(element);
                 });
@@ -1980,11 +2405,36 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 VLBPO Dashboard initializing...');
 
-            initializeGlobalBanner({
-                title: <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>,
-                description: <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>,
-                campaignName: <?!= JSON.stringify(__layoutCampaignName || '') ?>
+            const absorbed = absorbLocalBanners();
+
+            const defaultTitle = <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>;
+            const defaultDescription = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
+
+            const combinedDescription = [defaultDescription, absorbed.descriptionText]
+                .map(part => String(part || '').trim())
+                .filter(Boolean)
+                .join(' • ');
+
+            const initialConfig = {
+                title: absorbed.titleText || defaultTitle,
+                titleFragments: absorbed.titleFragments,
+                description: combinedDescription,
+                descriptionElements: absorbed.descriptionElements,
+                eyebrow: absorbed.eyebrowText,
+                campaignName: <?!= JSON.stringify(__layoutCampaignName || '') ?>,
+                actions: absorbed.actions
+            };
+
+            window.__absorbedBannerData = Object.assign({}, absorbed, {
+                titleText: initialConfig.title,
+                titleFragments: initialConfig.titleFragments,
+                descriptionText: combinedDescription,
+                descriptionElements: absorbed.descriptionElements,
+                actions: absorbed.actions,
+                eyebrowText: initialConfig.eyebrow || absorbed.eyebrowText
             });
+
+            initializeGlobalBanner(initialConfig);
 
             // Initialize tooltips
             [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function(tooltipTriggerEl) {
@@ -2045,6 +2495,7 @@
         window.handleLogout = handleLogout;
         window.updateUserDisplaySafely = updateUserDisplaySafely;
         window.initializeGlobalBanner = initializeGlobalBanner;
+        window.absorbLocalBanners = absorbLocalBanners;
 
         console.log('✨ Simplified header system loaded successfully');
     </script>
