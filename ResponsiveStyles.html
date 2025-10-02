@@ -284,6 +284,25 @@
     color: var(--lumina-primary-dark);
   }
 
+  .lumina-fluid-grid,
+  .lumina-auto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: clamp(1rem, 2.5vw, 2rem);
+  }
+
+  .lumina-responsive-stack,
+  .stack-responsive {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(0.75rem, 2vw, 1.25rem);
+  }
+
+  .lumina-responsive-stack > *,
+  .stack-responsive > * {
+    flex: 1 1 min(320px, 100%);
+  }
+
   .flex-grid,
   .responsive-grid,
   .card-grid,
@@ -656,6 +675,107 @@
     .nav-tabs,
     .tabstrip {
       gap: 0.35rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    dl {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    dl dt {
+      margin-bottom: 0.15rem;
+    }
+
+    dl dd {
+      margin-bottom: 0.75rem;
+    }
+  }
+
+  table[data-stack],
+  .table-stack,
+  .table-stack-sm {
+    width: 100%;
+  }
+
+  @media (max-width: 640px) {
+    table[data-stack="sm"],
+    table[data-stack="true"],
+    .table-stack,
+    .table-stack-sm {
+      display: block;
+    }
+
+    table[data-stack="sm"] thead,
+    table[data-stack="true"] thead,
+    .table-stack thead,
+    .table-stack-sm thead {
+      display: none;
+    }
+
+    table[data-stack="sm"] tbody,
+    table[data-stack="true"] tbody,
+    .table-stack tbody,
+    .table-stack-sm tbody {
+      display: grid;
+      gap: 1rem;
+    }
+
+    table[data-stack="sm"] tr,
+    table[data-stack="true"] tr,
+    .table-stack tr,
+    .table-stack-sm tr {
+      display: grid;
+      gap: 0.5rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--lumina-border-color);
+      border-radius: var(--lumina-radius);
+      background: var(--lumina-surface);
+      box-shadow: var(--lumina-shadow-sm);
+    }
+
+    table[data-stack="sm"] td,
+    table[data-stack="true"] td,
+    .table-stack td,
+    .table-stack-sm td {
+      display: block;
+      border: none;
+      padding: 0;
+    }
+
+    table[data-stack="sm"] td + td,
+    table[data-stack="true"] td + td,
+    .table-stack td + td,
+    .table-stack-sm td + td {
+      margin-top: 0.5rem;
+    }
+
+    table[data-stack="sm"] td[data-label],
+    table[data-stack="true"] td[data-label],
+    .table-stack td[data-label],
+    .table-stack-sm td[data-label] {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    table[data-stack="sm"] td[data-label]::before,
+    table[data-stack="true"] td[data-label]::before,
+    .table-stack td[data-label]::before,
+    .table-stack-sm td[data-label]::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--lumina-muted-text);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.75rem;
+    }
+  }
+
+  @media (min-width: 1600px) {
+    :root {
+      --lumina-container-max: 1400px;
     }
   }
 
