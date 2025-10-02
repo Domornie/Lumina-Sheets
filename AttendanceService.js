@@ -23,6 +23,8 @@
 
 const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting'];
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
+const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES, 'Break'];
+const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES, 'Break'])];
 const END_SHIFT_STATES = ['End of Shift'];
 
 // Resolve a safe global scope reference for Apps Script V8
@@ -645,8 +647,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
     }
 
-    let prodSecs = 0;
-    let nonProdSecs = 0;
     let violationDays = 0;
 
     userDayMetrics.forEach(metrics => {
@@ -654,21 +654,19 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       const breakExcess = Math.max(0, metrics.break - DAILY_BREAKS_SECS);
       const lunchExcess = Math.max(0, metrics.lunch - DAILY_LUNCH_SECS);
 
-      let dayProdSecs = metrics.prod + paidBreak - breakExcess - lunchExcess;
-      dayProdSecs = Math.max(0, dayProdSecs);
-      const capped = Math.min(dayProdSecs, DAILY_SHIFT_SECS);
-      prodSecs += capped;
-
-      const excessProd = dayProdSecs - capped;
-      nonProdSecs += breakExcess + metrics.lunch + Math.max(0, excessProd);
-
       if (breakExcess > 0 || lunchExcess > 0) {
         violationDays++;
       }
     });
 
-    const totalProductiveHours = Math.round((prodSecs / 3600) * 100) / 100;
-    const totalNonProductiveHours = Math.round((nonProdSecs / 3600) * 100) / 100;
+    const breakSecs = stateDuration['Break'] || 0;
+    const lunchSecs = stateDuration['Lunch'] || 0;
+    const billableWithBreakSecs = totalBillableSecs + breakSecs;
+    const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
+    const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+
+    const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
+    const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
 
     const userCompliance = Array.from(userComplianceMap.entries()).map(([user, stats]) => ({
       user,
@@ -698,7 +696,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const attendanceStats = [{
       periodLabel: periodId,
-      OnWork: Math.round((totalBillableSecs / 3600) * 100) / 100,
+      OnWork: Math.round((billableWithBreakSecs / 3600) * 100) / 100,
       OverTime: 0,
       Leave: 0,
       EarlyEntry: 0,
@@ -731,8 +729,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         LateCount: metrics.lateCount || 0
       }));
 
-    const totalHours = totalProductiveHours + totalNonProductiveHours;
-    const efficiencyRate = totalHours > 0 ? (totalProductiveHours / totalHours) * 100 : 0;
+    const totalHours = totalBillableHours + totalNonProductiveHours;
+    const efficiencyRate = totalHours > 0 ? (totalBillableHours / totalHours) * 100 : 0;
     const totalUserDays = userDayMetrics.size;
     const complianceRate = totalUserDays > 0 ? ((totalUserDays - violationDays) / totalUserDays) * 100 : 100;
 
@@ -742,19 +740,37 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         complianceRate,
         totalEmployees: uniqueUsers.size,
         activeEmployees: uniqueUsers.size,
-        productiveHours: totalProductiveHours,
-        nonProductiveHours: totalNonProductiveHours
+        billableHours: totalBillableHours,
+        productiveHours: totalBillableHours,
+        nonProductiveHours: totalNonProductiveHours,
+        breakHours: Math.round((breakSecs / 3600) * 100) / 100,
+        lunchHours: Math.round((lunchSecs / 3600) * 100) / 100
       },
       violations: {
         totalViolations: violationDays
+      },
+      timeBreakdown: {
+        billable: billableBreakdown,
+        nonProductive: nonProductiveBreakdown
       }
     };
+
+    const intelligence = generateAttendanceIntelligence(filteredRows, {
+      periodStart,
+      periodEnd,
+      billableBreakdown,
+      nonProductiveBreakdown,
+      stateDuration
+    });
 
     const analytics = {
       summary,
       stateDuration,
-      totalProductiveHours,
+      totalBillableHours,
+      totalProductiveHours: totalBillableHours,
       totalNonProductiveHours,
+      billableHoursBreakdown: billableBreakdown,
+      nonProductiveHoursBreakdown: nonProductiveBreakdown,
       filteredRows,
       filteredRowCount: filteredRows.length,
       userCompliance,
@@ -765,6 +781,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       shiftMetrics: {},
       enhanced: true,
       executiveMetrics,
+      intelligence,
       periodInfo: {
         granularity,
         periodId,
@@ -912,57 +929,29 @@ function generateDailyBreakdownData() {
 }
 
 function calculateProductivityMetrics(filtered) {
-    const BREAK_CAP_SECS = 30 * 60;  // 30 minutes in seconds
-    const LUNCH_CAP_SECS = 30 * 60;  // 30 minutes in seconds
-    const DAILY_CAP_SECS = 8 * 3600; // 8 hours in seconds
+    const stateDuration = {};
 
-    const userDayMetrics = new Map();
-
-    // Process records efficiently
     filtered.forEach(r => {
-        // Use configured timezone for day of week calculation
-        const attendanceDayOfWeek = getAttendanceDayOfWeek(r.timestamp);
-        if (attendanceDayOfWeek < 1 || attendanceDayOfWeek > 5) return; // Weekdays only (Monday=1, Friday=5)
-
-        const dayKey = Utilities.formatDate(r.timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
-        const userDayKey = `${r.user}:${dayKey}`;
-
-        if (!userDayMetrics.has(userDayKey)) {
-            userDayMetrics.set(userDayKey, { prod: 0, break: 0, lunch: 0 });
-        }
-
-        const metrics = userDayMetrics.get(userDayKey);
-
-        // r.durationSec is in seconds (despite DurationMin column name)
-        if (BILLABLE_STATES.includes(r.state)) {
-            metrics.prod += r.durationSec;
-        } else if (r.state === 'Break') {
-            metrics.break += r.durationSec;
-        } else if (r.state === 'Lunch') {
-            metrics.lunch += r.durationSec;
-        }
+        if (!r) return;
+        const durationSec = typeof r.durationSec === 'number' ? r.durationSec : parseFloat(r.durationSec) || 0;
+        const state = r.state || 'Unknown';
+        stateDuration[state] = (stateDuration[state] || 0) + durationSec;
     });
 
-    // Calculate totals with caps
-    let prodSecs = 0, nonProdSecs = 0;
+    const breakSecs = stateDuration['Break'] || 0;
+    const lunchSecs = stateDuration['Lunch'] || 0;
+    const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
+    const billableWithBreakSecs = billableSecs + breakSecs;
 
-    userDayMetrics.forEach(metrics => {
-        const paidBreak = Math.min(metrics.break, BREAK_CAP_SECS);
-        const breakExcess = Math.max(0, metrics.break - BREAK_CAP_SECS);
-        const lunchExcess = Math.max(0, metrics.lunch - LUNCH_CAP_SECS);
-
-        let dayProdSecs = metrics.prod + paidBreak - breakExcess - lunchExcess;
-        dayProdSecs = Math.max(0, dayProdSecs);
-        const capped = Math.min(dayProdSecs, DAILY_CAP_SECS);
-        prodSecs += capped;
-
-        const excessProd = dayProdSecs - capped;
-        nonProdSecs += breakExcess + metrics.lunch + Math.max(0, excessProd);
-    });
+    const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
+    const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
 
     return {
-        totalProductiveHours: Math.round(prodSecs / 3600 * 100) / 100,
-        totalNonProductiveHours: Math.round(nonProdSecs / 3600 * 100) / 100
+        totalBillableHours,
+        totalProductiveHours: totalBillableHours,
+        totalNonProductiveHours,
+        billableHoursBreakdown: buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration),
+        nonProductiveHoursBreakdown: buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration)
     };
 }
 
@@ -1021,6 +1010,232 @@ function formatSecsAsHhMm(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
   return `${hours}h ${minutes}m`;
+}
+
+function buildHourBreakdown(stateList, durationMap) {
+  const breakdown = {};
+  if (!Array.isArray(stateList) || !durationMap) {
+    return breakdown;
+  }
+
+  stateList.forEach(state => {
+    const seconds = typeof durationMap[state] === 'number' ? durationMap[state] : 0;
+    breakdown[state] = Math.round((seconds / 3600) * 100) / 100;
+  });
+
+  return breakdown;
+}
+
+function resolveAnalyticsDateKey(row) {
+  if (!row) return null;
+
+  if (typeof row.dateString === 'string' && row.dateString) {
+    return row.dateString;
+  }
+
+  let timestampMs = null;
+  if (typeof row.timestampMs === 'number') {
+    timestampMs = row.timestampMs;
+  } else if (row.timestamp instanceof Date) {
+    timestampMs = row.timestamp.getTime();
+  } else if (typeof row.timestamp === 'number') {
+    timestampMs = row.timestamp;
+  }
+
+  if (!Number.isFinite(timestampMs)) {
+    return null;
+  }
+
+  try {
+    if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+      return Utilities.formatDate(new Date(timestampMs), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+    }
+  } catch (err) {
+    try {
+      console.warn('resolveAnalyticsDateKey timezone formatting failed:', err);
+    } catch (_) {}
+  }
+
+  const date = new Date(timestampMs);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString().split('T')[0];
+}
+
+function generateAttendanceIntelligence(filteredRows, context) {
+  try {
+    const rows = Array.isArray(filteredRows) ? filteredRows : [];
+    if (rows.length === 0) {
+      return { insights: [], employeeTrends: [] };
+    }
+
+    const billableStates = new Set(BILLABLE_DISPLAY_STATES);
+    const nonProdStates = new Set(NON_PRODUCTIVE_DISPLAY_STATES);
+
+    const perUser = new Map();
+
+    rows.forEach(row => {
+      if (!row || !row.user) return;
+      const durationSec = typeof row.durationSec === 'number' ? row.durationSec : parseFloat(row.durationSec) || 0;
+      if (!Number.isFinite(durationSec) || durationSec <= 0) return;
+
+      if (!perUser.has(row.user)) {
+        perUser.set(row.user, {
+          total: 0,
+          billable: 0,
+          nonProd: 0,
+          breakSecs: 0,
+          lunchSecs: 0,
+          stateMap: {},
+          days: new Set()
+        });
+      }
+
+      const stats = perUser.get(row.user);
+      stats.total += durationSec;
+      stats.stateMap[row.state || 'Unknown'] = (stats.stateMap[row.state || 'Unknown'] || 0) + durationSec;
+      if (billableStates.has(row.state)) {
+        stats.billable += durationSec;
+      }
+      if (nonProdStates.has(row.state)) {
+        stats.nonProd += durationSec;
+      }
+      if (row.state === 'Break') {
+        stats.breakSecs += durationSec;
+      }
+      if (row.state === 'Lunch') {
+        stats.lunchSecs += durationSec;
+      }
+
+      const dateKey = resolveAnalyticsDateKey(row);
+      if (dateKey) {
+        stats.days.add(dateKey);
+      }
+    });
+
+    const toHours = (secs) => Math.round((secs / 3600) * 100) / 100;
+
+    const employeeTrends = Array.from(perUser.entries()).map(([user, stats]) => {
+      const daysActive = stats.days.size || 0;
+      const activeDays = daysActive > 0 ? daysActive : 1;
+      const billableHours = toHours(stats.billable);
+      const nonProdHours = toHours(stats.nonProd);
+      const efficiencyRate = (billableHours + nonProdHours) > 0
+        ? Math.round((billableHours / (billableHours + nonProdHours)) * 1000) / 10
+        : 0;
+
+      const averageBillablePerDay = Math.round((billableHours / activeDays) * 100) / 100;
+      const averageBreakPerDay = Math.round((toHours(stats.breakSecs) / activeDays) * 100) / 100;
+      const averageLunchPerDay = Math.round((toHours(stats.lunchSecs) / activeDays) * 100) / 100;
+
+      const sortedStates = Object.entries(stats.stateMap)
+        .sort((a, b) => (b[1] || 0) - (a[1] || 0));
+      const focusArea = sortedStates.length > 0 ? sortedStates[0][0] : null;
+
+      let trendDirection = 'stable';
+      if (averageBillablePerDay >= 7.5) {
+        trendDirection = 'up';
+      } else if (averageBillablePerDay <= 5) {
+        trendDirection = 'down';
+      }
+
+      const trendSummary = `${averageBillablePerDay.toFixed(2)}h billable / day, ${averageBreakPerDay.toFixed(2)}h break` +
+        `, ${averageLunchPerDay.toFixed(2)}h lunch`;
+
+      return {
+        user,
+        billableHours,
+        nonProductiveHours: nonProdHours,
+        efficiencyRate,
+        averageBillablePerDay,
+        averageBreakPerDay,
+        averageLunchPerDay,
+        daysActive,
+        focusArea,
+        trendDirection,
+        trendSummary
+      };
+    });
+
+    employeeTrends.sort((a, b) => (b.billableHours || 0) - (a.billableHours || 0));
+
+    const insights = [];
+
+    if (employeeTrends.length > 0) {
+      const topPerformer = [...employeeTrends].sort((a, b) => (b.averageBillablePerDay || 0) - (a.averageBillablePerDay || 0))[0];
+      if (topPerformer) {
+        insights.push({
+          priority: 'high',
+          title: 'Top Billable Performer',
+          description: `${topPerformer.user} averaged ${topPerformer.averageBillablePerDay.toFixed(2)} billable hours per active day (${topPerformer.billableHours.toFixed(2)}h total).`,
+          recommendation: 'Recognize this trend and consider sharing best practices with the wider team.'
+        });
+      }
+
+      const downtimeThreshold = 0.35;
+      const downtimeAlerts = employeeTrends
+        .map(trend => {
+          const total = trend.billableHours + trend.nonProductiveHours;
+          const ratio = total > 0 ? trend.nonProductiveHours / total : 0;
+          return { trend, ratio };
+        })
+        .filter(item => item.ratio > downtimeThreshold)
+        .sort((a, b) => b.ratio - a.ratio);
+
+      if (downtimeAlerts.length > 0) {
+        const names = downtimeAlerts.slice(0, 3).map(item => item.trend.user).join(', ');
+        const percentage = Math.round(downtimeAlerts[0].ratio * 100);
+        insights.push({
+          priority: 'critical',
+          title: 'Extended Non-Productive Time Detected',
+          description: `${downtimeAlerts.length} employee(s) spent over ${percentage}% of tracked time in lunch or break (${names}${downtimeAlerts.length > 3 ? ', …' : ''}).`,
+          recommendation: 'Review schedules and coaching plans to bring downtime back within policy thresholds.'
+        });
+      }
+
+      const breakOutliers = employeeTrends.filter(trend => trend.averageBreakPerDay > 1);
+      if (breakOutliers.length > 0) {
+        insights.push({
+          priority: 'medium',
+          title: 'High Daily Break Usage',
+          description: `${breakOutliers.length} employee(s) average more than 1.00 hour of breaks per day.`,
+          recommendation: 'Confirm coverage plans and reinforce standard break allocations.'
+        });
+      }
+
+      const teamAverageBillable = employeeTrends.reduce((sum, trend) => sum + (trend.averageBillablePerDay || 0), 0) / employeeTrends.length;
+      const topBillableState = context && context.billableBreakdown
+        ? Object.entries(context.billableBreakdown).sort((a, b) => (b[1] || 0) - (a[1] || 0))[0]
+        : null;
+
+      insights.push({
+        priority: 'medium',
+        title: 'Team Billable Average',
+        description: `Across ${employeeTrends.length} employees the team averages ${teamAverageBillable.toFixed(2)} billable hours per active day.`,
+        recommendation: 'Use this baseline to set goals for upcoming periods.'
+      });
+
+      if (topBillableState && topBillableState[1] > 0) {
+        insights.push({
+          priority: 'low',
+          title: 'Primary Billable Activity',
+          description: `${topBillableState[0]} contributed ${topBillableState[1].toFixed(2)} billable hours for the period.`,
+          recommendation: 'Ensure support resources remain aligned to this activity.'
+        });
+      }
+    }
+
+    return {
+      insights,
+      employeeTrends
+    };
+  } catch (error) {
+    try {
+      console.error('generateAttendanceIntelligence failed:', error);
+    } catch (_) {}
+    return { insights: [], employeeTrends: [] };
+  }
 }
 
 function generateTopPerformers(filtered, periodStart, periodEnd) {
@@ -1777,13 +1992,15 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     stateDuration[state] = (stateDuration[state] || 0) + durationSec;
   });
 
-  const totalProd = rows
-    .filter(r => BILLABLE_STATES.includes(r.state))
-    .reduce((sum, r) => sum + (r.durationSec || 0), 0) / 3600;
+  const breakSecs = stateDuration['Break'] || 0;
+  const lunchSecs = stateDuration['Lunch'] || 0;
+  const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
+  const billableWithBreakSecs = billableSecs + breakSecs;
+  const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
+  const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
 
-  const totalNonProd = rows
-    .filter(r => NON_PRODUCTIVE_STATES.includes(r.state))
-    .reduce((sum, r) => sum + (r.durationSec || 0), 0) / 3600;
+  const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
+  const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
 
   const workingDays = periodStart && periodEnd
     ? countWeekdaysInclusive(periodStart, periodEnd)
@@ -1804,15 +2021,26 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     periodInfo.endDateIso = periodEnd.toISOString();
   }
 
-  const totalHours = totalProd + totalNonProd;
-  const efficiencyRate = totalHours > 0 ? (totalProd / totalHours) * 100 : 0;
+  const totalHours = totalBillableHours + totalNonProductiveHours;
+  const efficiencyRate = totalHours > 0 ? (totalBillableHours / totalHours) * 100 : 0;
   const complianceRate = 100; // Default compliance placeholder
+
+  const intelligence = generateAttendanceIntelligence(rows, {
+    periodStart,
+    periodEnd,
+    billableBreakdown,
+    nonProductiveBreakdown,
+    stateDuration
+  });
 
   return {
     summary,
     stateDuration,
-    totalProductiveHours: Math.round(totalProd * 100) / 100,
-    totalNonProductiveHours: Math.round(totalNonProd * 100) / 100,
+    totalBillableHours,
+    totalProductiveHours: totalBillableHours,
+    totalNonProductiveHours,
+    billableHoursBreakdown: billableBreakdown,
+    nonProductiveHoursBreakdown: nonProductiveBreakdown,
     filteredRows: rows.slice(0, 100).map(r => ({
       timestampMs: r.timestampMs || (r.timestamp instanceof Date ? r.timestamp.getTime() : null),
       user: r.user,
@@ -1837,13 +2065,21 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
         complianceRate,
         totalEmployees: new Set(rows.map(r => r.user)).size,
         activeEmployees: new Set(rows.map(r => r.user)).size,
-        productiveHours: Math.round(totalProd * 100) / 100,
-        nonProductiveHours: Math.round(totalNonProd * 100) / 100
+        billableHours: totalBillableHours,
+        productiveHours: totalBillableHours,
+        nonProductiveHours: totalNonProductiveHours,
+        breakHours: Math.round((breakSecs / 3600) * 100) / 100,
+        lunchHours: Math.round((lunchSecs / 3600) * 100) / 100
       },
       violations: {
         totalViolations: 0
+      },
+      timeBreakdown: {
+        billable: billableBreakdown,
+        nonProductive: nonProductiveBreakdown
       }
     },
+    intelligence,
     periodInfo
   };
 }
@@ -1860,8 +2096,11 @@ function createEmptyAnalytics() {
       'End of Shift': 0
     },
     stateDuration: {},
+    totalBillableHours: 0,
     totalProductiveHours: 0,
     totalNonProductiveHours: 0,
+    billableHoursBreakdown: {},
+    nonProductiveHoursBreakdown: {},
     top5Attendance: [],
     attendanceStats: [],
     attendanceFeed: [],
@@ -1877,13 +2116,21 @@ function createEmptyAnalytics() {
         complianceRate: 100,
         totalEmployees: 0,
         activeEmployees: 0,
+        billableHours: 0,
         productiveHours: 0,
-        nonProductiveHours: 0
+        nonProductiveHours: 0,
+        breakHours: 0,
+        lunchHours: 0
       },
       violations: {
         totalViolations: 0
+      },
+      timeBreakdown: {
+        billable: {},
+        nonProductive: {}
       }
     },
+    intelligence: { insights: [], employeeTrends: [] },
     periodInfo: {
       granularity: 'Week',
       periodId: '',
@@ -1916,6 +2163,24 @@ function derivePeriodBounds(granularity, id) {
     start.setDate(start.getDate() + (w - 1) * 7);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return [start, end];
+  }
+
+  if (granularity === 'BiWeekly') {
+    const [yearStr, biStr] = id.split('-BW');
+    const year = Number(yearStr);
+    const biIndex = Number(biStr);
+    if (!Number.isFinite(year) || !Number.isFinite(biIndex) || biIndex < 1) {
+      throw new Error(`Invalid bi-week period: ${id}`);
+    }
+
+    const jan4 = new Date(year, 0, 4, 0, 0, 0, 0);
+    const isoWeek1Mon = weekStartLocal(jan4);
+    const start = new Date(isoWeek1Mon);
+    start.setDate(start.getDate() + (biIndex - 1) * 14);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 13);
     end.setHours(23, 59, 59, 999);
     return [start, end];
   }
