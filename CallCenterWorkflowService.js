@@ -136,27 +136,27 @@
 
   function tableDefinitions() {
     var defs = [
-      { key: 'users', name: global.USERS_SHEET || 'Users', headerVar: 'USERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 1800 },
-      { key: 'roles', name: global.ROLES_SHEET || 'Roles', headerVar: 'ROLES_HEADER', idColumn: 'ID', cacheTTL: 3600 },
-      { key: 'userRoles', name: global.USER_ROLES_SHEET || 'UserRoles', headerVar: 'USER_ROLES_HEADER', idColumn: null, cacheTTL: 1800 },
-      { key: 'userClaims', name: global.USER_CLAIMS_SHEET || 'UserClaims', headerVar: 'CLAIMS_HEADERS', idColumn: 'ID', cacheTTL: 1800 },
+      { key: 'users', name: global.USERS_SHEET || 'Users', headerVar: 'USERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'roles', name: global.ROLES_SHEET || 'Roles', headerVar: 'ROLES_HEADER', idColumn: 'ID' },
+      { key: 'userRoles', name: global.USER_ROLES_SHEET || 'UserRoles', headerVar: 'USER_ROLES_HEADER', idColumn: null },
+      { key: 'userClaims', name: global.USER_CLAIMS_SHEET || 'UserClaims', headerVar: 'CLAIMS_HEADERS', idColumn: 'ID' },
       { key: 'sessions', name: global.SESSIONS_SHEET || 'Sessions', headerVar: 'SESSIONS_HEADERS', idColumn: 'Token' },
-      { key: 'campaigns', name: global.CAMPAIGNS_SHEET || 'Campaigns', headerVar: 'CAMPAIGNS_HEADERS', idColumn: 'ID', requireTenant: false, cacheTTL: 3600 },
-      { key: 'campaignPermissions', name: global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', headerVar: 'CAMPAIGN_USER_PERMISSIONS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: true, cacheTTL: 2700 },
-      { key: 'userCampaigns', name: global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', headerVar: 'USER_CAMPAIGNS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignId', 'CampaignID'], requireTenant: true, cacheTTL: 1800 },
-      { key: 'userManagers', name: global.USER_MANAGERS_SHEET || 'UserManagers', headerVar: 'USER_MANAGERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: true, cacheTTL: 2700 },
-      { key: 'notifications', name: global.NOTIFICATIONS_SHEET || 'Notifications', headerVar: 'NOTIFICATIONS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 1800 },
+      { key: 'campaigns', name: global.CAMPAIGNS_SHEET || 'Campaigns', headerVar: 'CAMPAIGNS_HEADERS', idColumn: 'ID', requireTenant: false },
+      { key: 'campaignPermissions', name: global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', headerVar: 'CAMPAIGN_USER_PERMISSIONS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: true },
+      { key: 'userCampaigns', name: global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', headerVar: 'USER_CAMPAIGNS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignId', 'CampaignID'], requireTenant: true },
+      { key: 'userManagers', name: global.USER_MANAGERS_SHEET || 'UserManagers', headerVar: 'USER_MANAGERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: true },
+      { key: 'notifications', name: global.NOTIFICATIONS_SHEET || 'Notifications', headerVar: 'NOTIFICATIONS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'schedules', name: typeof global.SCHEDULE_GENERATION_SHEET === 'string' ? global.SCHEDULE_GENERATION_SHEET : 'GeneratedSchedules', headerVar: 'SCHEDULE_GENERATION_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'shiftSlots', name: typeof global.SHIFT_SLOTS_SHEET === 'string' ? global.SHIFT_SLOTS_SHEET : 'ShiftSlots', headerVar: 'SHIFT_SLOTS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'adherence', name: typeof global.SCHEDULE_ADHERENCE_SHEET === 'string' ? global.SCHEDULE_ADHERENCE_SHEET : 'ScheduleAdherence', headerVar: 'SCHEDULE_ADHERENCE_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'attendanceLog', name: typeof global.ATTENDANCE_LOG_SHEET === 'string' ? global.ATTENDANCE_LOG_SHEET : (global.ATTENDANCE_SHEET || 'AttendanceLog'), headerVar: 'ATTENDANCE_LOG_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'attendanceStatus', name: typeof global.ATTENDANCE_STATUS_SHEET === 'string' ? global.ATTENDANCE_STATUS_SHEET : 'AttendanceStatus', headerVar: 'ATTENDANCE_STATUS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
-      { key: 'qaRecords', name: typeof global.QA_RECORDS === 'string' ? global.QA_RECORDS : 'QA Records', headerVar: 'QA_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 2700 },
-      { key: 'coaching', name: typeof global.COACHING_SHEET === 'string' ? global.COACHING_SHEET : 'CoachingRecords', headerVar: 'COACHING_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 2700 },
+      { key: 'qaRecords', name: typeof global.QA_RECORDS === 'string' ? global.QA_RECORDS : 'QA Records', headerVar: 'QA_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'coaching', name: typeof global.COACHING_SHEET === 'string' ? global.COACHING_SHEET : 'CoachingRecords', headerVar: 'COACHING_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'chatMessages', name: global.CHAT_MESSAGES_SHEET || 'ChatMessages', headerVar: 'CHAT_MESSAGES_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
-      { key: 'chatChannels', name: global.CHAT_CHANNELS_SHEET || 'ChatChannels', headerVar: 'CHAT_CHANNELS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 1800 },
-      { key: 'chatGroups', name: global.CHAT_GROUPS_SHEET || 'ChatGroups', headerVar: 'CHAT_GROUPS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 1800 },
-      { key: 'chatMemberships', name: global.CHAT_CHANNEL_MEMBERS_SHEET || 'ChatChannelMembers', headerVar: 'CHAT_CHANNEL_MEMBERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 1800 }
+      { key: 'chatChannels', name: global.CHAT_CHANNELS_SHEET || 'ChatChannels', headerVar: 'CHAT_CHANNELS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'chatGroups', name: global.CHAT_GROUPS_SHEET || 'ChatGroups', headerVar: 'CHAT_GROUPS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'chatMemberships', name: global.CHAT_CHANNEL_MEMBERS_SHEET || 'ChatChannelMembers', headerVar: 'CHAT_CHANNEL_MEMBERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false }
     ];
     return defs;
   }
@@ -190,9 +190,6 @@
     } else if (typeof def.requireTenant !== 'undefined') {
       config.requireTenant = def.requireTenant;
     }
-    if (typeof def.cacheTTL === 'number' && isFinite(def.cacheTTL) && def.cacheTTL > 0) {
-      config.cacheTTL = def.cacheTTL;
-    }
     try {
       if (typeof global.registerTableSchema === 'function') {
         var schema = global.registerTableSchema(def.name, config);
@@ -201,8 +198,7 @@
           idColumn: schema && Object.prototype.hasOwnProperty.call(schema, 'idColumn') ? schema.idColumn : config.idColumn,
           tenantColumn: schema && schema.tenantColumn ? schema.tenantColumn : tenantColumn,
           headers: schema && schema.headers ? schema.headers.slice() : headers.slice(),
-          requireTenant: schema && Object.prototype.hasOwnProperty.call(schema, 'requireTenant') ? schema.requireTenant : config.requireTenant,
-          cacheTTL: schema && Object.prototype.hasOwnProperty.call(schema, 'cacheTTL') ? schema.cacheTTL : config.cacheTTL
+          requireTenant: schema && Object.prototype.hasOwnProperty.call(schema, 'requireTenant') ? schema.requireTenant : config.requireTenant
         };
         return;
       }
@@ -214,8 +210,7 @@
       idColumn: config.idColumn,
       tenantColumn: tenantColumn,
       headers: headers.slice(),
-      requireTenant: config.requireTenant,
-      cacheTTL: config.cacheTTL
+      requireTenant: config.requireTenant
     };
   }
 

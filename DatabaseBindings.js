@@ -51,10 +51,10 @@
   }
 
   function attemptRegisterKnownSchemas() {
-    registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID');
     registerIfDefined(global.ROLES_SHEET || 'Roles', global.ROLES_HEADER, 'ID', { cacheTTL: 3600 });
-    registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'UserId', { cacheTTL: 1800 });
-    registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'UserId');
+    registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID');
     registerIfDefined(global.SESSIONS_SHEET || 'Sessions', global.SESSIONS_HEADERS, 'Token');
     registerIfDefined(global.CAMPAIGNS_SHEET || 'Campaigns', global.CAMPAIGNS_HEADERS, 'ID', { cacheTTL: 3600 });
     registerIfDefined(global.PAGES_SHEET || 'Pages', global.PAGES_HEADERS, 'PageKey', { cacheTTL: 3600 });
@@ -63,18 +63,18 @@
     registerIfDefined(global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', global.CAMPAIGN_USER_PERMISSIONS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 2700 });
     registerIfDefined(global.USER_MANAGERS_SHEET || 'UserManagers', global.USER_MANAGERS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 2700 });
     registerIfDefined(global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', global.USER_CAMPAIGNS_HEADERS, 'ID', { tenantColumn: 'CampaignId', requireTenant: true, cacheTTL: 1800 });
-    registerIfDefined(global.NOTIFICATIONS_SHEET || 'Notifications', global.NOTIFICATIONS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.NOTIFICATIONS_SHEET || 'Notifications', global.NOTIFICATIONS_HEADERS, 'ID');
     registerIfDefined(global.DEBUG_LOGS_SHEET || 'DebugLogs', global.DEBUG_LOGS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
     registerIfDefined(global.ERROR_LOGS_SHEET || 'ErrorLogs', global.ERROR_LOGS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
 
-    registerIfDefined(global.CHAT_GROUPS_SHEET || 'ChatGroups', global.CHAT_GROUPS_HEADERS, 'ID', { cacheTTL: 1800 });
-    registerIfDefined(global.CHAT_CHANNELS_SHEET || 'ChatChannels', global.CHAT_CHANNELS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.CHAT_GROUPS_SHEET || 'ChatGroups', global.CHAT_GROUPS_HEADERS, 'ID');
+    registerIfDefined(global.CHAT_CHANNELS_SHEET || 'ChatChannels', global.CHAT_CHANNELS_HEADERS, 'ID');
     registerIfDefined(global.CHAT_MESSAGES_SHEET || 'ChatMessages', global.CHAT_MESSAGES_HEADERS, 'ID');
-    registerIfDefined(global.CHAT_GROUP_MEMBERS_SHEET || 'ChatGroupMembers', global.CHAT_GROUP_MEMBERS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.CHAT_GROUP_MEMBERS_SHEET || 'ChatGroupMembers', global.CHAT_GROUP_MEMBERS_HEADERS, 'ID');
     registerIfDefined(global.CHAT_MESSAGE_REACTIONS_SHEET || 'ChatMessageReactions', global.CHAT_MESSAGE_REACTIONS_HEADERS, 'ID');
     registerIfDefined(global.CHAT_USER_PREFERENCES_SHEET || 'ChatUserPreferences', global.CHAT_USER_PREFERENCES_HEADERS, 'UserId');
     registerIfDefined(global.CHAT_ANALYTICS_SHEET || 'ChatAnalytics', global.CHAT_ANALYTICS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
-    registerIfDefined(global.CHAT_CHANNEL_MEMBERS_SHEET || 'ChatChannelMembers', global.CHAT_CHANNEL_MEMBERS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.CHAT_CHANNEL_MEMBERS_SHEET || 'ChatChannelMembers', global.CHAT_CHANNEL_MEMBERS_HEADERS, 'ID');
 
     registerIfDefined(global.ATTENDANCE_LOG_SHEET || global.ATTENDANCE_SHEET || 'AttendanceLog', global.ATTENDANCE_LOG_HEADERS, 'ID');
   }
