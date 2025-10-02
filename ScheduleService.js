@@ -47,28 +47,17 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 
     // Apply manager permissions using MainUtilities functions
     if (requestingUserId) {
-      const requestingUser = allUsers.find(u => String(u.ID) === String(requestingUserId));
-      
+      const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+      const requestingUser = allUsers.find(u => normalizeUserIdValue(u.ID) === normalizedManagerId);
+
       if (requestingUser) {
-        // Use MainUtilities admin check
-        if (requestingUser.IsAdmin === 'TRUE' || requestingUser.IsAdmin === true) {
-          // Admin can see all users - no additional filtering needed
-        } else {
-          // Check managed campaigns using MainUtilities
-          const managedCampaigns = getUserManagedCampaigns(requestingUserId);
-          const managedCampaignIds = new Set(managedCampaigns.map(c => c.ID));
-          
-          // Get users from managed campaigns plus requesting user
-          const userCampaigns = getUserCampaignsSafe(requestingUserId).map(uc => uc.campaignId);
-          const accessibleUsers = new Set([requestingUserId]);
-          
-          // Add users from managed campaigns
-          managedCampaignIds.forEach(campaignId => {
-            const campaignUsers = getUsersByCampaign(campaignId);
-            campaignUsers.forEach(u => accessibleUsers.add(u.ID));
-          });
-          
-          filteredUsers = filteredUsers.filter(user => accessibleUsers.has(user.ID));
+        const isAdmin = requestingUser.IsAdmin === true || String(requestingUser.IsAdmin).toUpperCase() === 'TRUE';
+
+        if (!isAdmin) {
+          const managedUserIds = getDirectManagedUserIds(normalizedManagerId);
+          managedUserIds.add(normalizedManagerId);
+
+          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user.ID)));
         }
       }
     }
@@ -197,11 +186,40 @@ function clientCreateShiftSlot(slotData) {
     const now = new Date();
     const slotId = Utilities.getUuid();
 
+    const toNumber = (value, fallback = '') => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : fallback;
+    };
+
+    const toBoolean = (value, fallback = false) => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value !== 0;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (!normalized) return fallback;
+        return ['true', 'yes', '1', 'y'].includes(normalized);
+      }
+      return fallback;
+    };
+
     // Process days of week
     let daysOfWeek = '1,2,3,4,5'; // Default to weekdays
     if (slotData.daysOfWeek && Array.isArray(slotData.daysOfWeek)) {
       daysOfWeek = slotData.daysOfWeek.join(',');
     }
+
+    const maxCapacity = toNumber(
+      slotData.maxCapacity,
+      SCHEDULE_CONFIG.DEFAULT_SHIFT_CAPACITY
+    );
+    const breakDuration = toNumber(
+      slotData.breakDuration !== undefined ? slotData.breakDuration : slotData.break1Duration,
+      SCHEDULE_CONFIG.DEFAULT_BREAK_MINUTES
+    );
+    const lunchDuration = toNumber(
+      slotData.lunchDuration,
+      SCHEDULE_CONFIG.DEFAULT_LUNCH_MINUTES
+    );
 
     const slot = {
       ID: slotId,
@@ -211,11 +229,32 @@ function clientCreateShiftSlot(slotData) {
       DaysOfWeek: daysOfWeek,
       Department: slotData.department || 'General',
       Location: slotData.location || 'Office',
-      MaxCapacity: slotData.maxCapacity || SCHEDULE_CONFIG.DEFAULT_SHIFT_CAPACITY,
+      MaxCapacity: maxCapacity,
+      MinCoverage: toNumber(slotData.minCoverage, ''),
+      Priority: toNumber(slotData.priority, 2),
       Description: slotData.description || '',
-      BreakDuration: slotData.breakDuration || SCHEDULE_CONFIG.DEFAULT_BREAK_MINUTES,
-      LunchDuration: slotData.lunchDuration || SCHEDULE_CONFIG.DEFAULT_LUNCH_MINUTES,
-      OvertimePolicy: slotData.overtimePolicy || 'LIMITED_30',
+      BreakDuration: breakDuration,
+      LunchDuration: lunchDuration,
+      Break1Duration: toNumber(slotData.break1Duration, breakDuration),
+      Break2Duration: toNumber(slotData.break2Duration, 0),
+      EnableStaggeredBreaks: toBoolean(slotData.enableStaggeredBreaks, true),
+      BreakGroups: toNumber(slotData.breakGroups, 3),
+      StaggerInterval: toNumber(slotData.staggerInterval, 15),
+      MinCoveragePct: toNumber(slotData.minCoveragePct, 70),
+      EnableOvertime: toBoolean(slotData.enableOvertime, false),
+      MaxDailyOT: toNumber(slotData.maxDailyOT, 0),
+      MaxWeeklyOT: toNumber(slotData.maxWeeklyOT, 0),
+      OTApproval: slotData.otApproval || slotData.overtimeApproval || 'supervisor',
+      OTRate: toNumber(slotData.otRate, 1.5),
+      OTPolicy: slotData.otPolicy || slotData.overtimePolicy || 'MANDATORY',
+      AllowSwaps: toBoolean(slotData.allowSwaps, true),
+      WeekendPremium: toBoolean(slotData.weekendPremium, false),
+      HolidayPremium: toBoolean(slotData.holidayPremium, true),
+      AutoAssignment: toBoolean(slotData.autoAssignment, false),
+      RestPeriod: toNumber(slotData.restPeriod, 8),
+      NotificationLead: toNumber(slotData.notificationLead, 24),
+      HandoverTime: toNumber(slotData.handoverTime, 15),
+      OvertimePolicy: slotData.overtimePolicy || slotData.otPolicy || 'LIMITED_30',
       IsActive: true,
       CreatedBy: slotData.createdBy || 'System',
       CreatedAt: now,
@@ -223,7 +262,9 @@ function clientCreateShiftSlot(slotData) {
     };
 
     // Create row data using proper header order
-    const rowData = SHIFT_SLOTS_HEADERS.map(header => slot[header] || '');
+    const rowData = SHIFT_SLOTS_HEADERS.map(header =>
+      Object.prototype.hasOwnProperty.call(slot, header) ? slot[header] : ''
+    );
     sheet.appendRow(rowData);
     SpreadsheetApp.flush();
 
@@ -248,6 +289,104 @@ function clientCreateShiftSlot(slotData) {
   }
 }
 
+function normalizeUserIdValue(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const str = typeof value === 'number' && Number.isFinite(value)
+    ? String(Math.trunc(value))
+    : String(value);
+
+  return str.trim();
+}
+
+function getDirectManagedUserIds(managerId) {
+  const normalizedManagerId = normalizeUserIdValue(managerId);
+  const managedUsers = new Set();
+
+  if (!normalizedManagerId) {
+    return managedUsers;
+  }
+
+  const appendFromRows = (rows) => {
+    if (!Array.isArray(rows)) {
+      return;
+    }
+
+    rows.forEach(row => {
+      if (!row || typeof row !== 'object') {
+        return;
+      }
+
+      const managerCandidates = [
+        row.ManagerUserID, row.ManagerUserId, row.managerUserId,
+        row.ManagerID, row.ManagerId, row.managerId, row.manager_id,
+        row.UserManagerID, row.UserManagerId, row.userManagerId
+      ].map(normalizeUserIdValue).filter(Boolean);
+
+      const managedCandidates = [
+        row.UserID, row.UserId, row.userId,
+        row.ManagedUserID, row.ManagedUserId, row.managedUserId,
+        row.ManagedUserID, row.managed_user_id,
+        row.ManagedID, row.ManagedId
+      ].map(normalizeUserIdValue).filter(Boolean);
+
+      const managerMatch = managerCandidates.find(candidate => candidate === normalizedManagerId);
+
+      if (managerMatch && managedCandidates.length) {
+        managedCandidates.forEach(candidate => {
+          if (candidate && candidate !== normalizedManagerId) {
+            managedUsers.add(candidate);
+          }
+        });
+      }
+
+      // Some datasets may store the relationship reversed
+      const reversedManager = managedCandidates.find(candidate => candidate === normalizedManagerId);
+      if (reversedManager) {
+        managerCandidates.forEach(candidate => {
+          if (candidate && candidate !== normalizedManagerId) {
+            managedUsers.add(candidate);
+          }
+        });
+      }
+    });
+  };
+
+  try {
+    if (typeof readManagerAssignments_ === 'function') {
+      appendFromRows(readManagerAssignments_());
+    }
+  } catch (error) {
+    safeWriteError && safeWriteError('getDirectManagedUserIds.readManagerAssignments', error);
+  }
+
+  const candidateSheets = Array.from(new Set([
+    typeof getManagerUsersSheetName_ === 'function' ? getManagerUsersSheetName_() : null,
+    typeof G !== 'undefined' && G ? G.MANAGER_USERS_SHEET : null,
+    typeof USER_MANAGERS_SHEET !== 'undefined' ? USER_MANAGERS_SHEET : null,
+    'MANAGER_USERS',
+    'ManagerUsers',
+    'manager_users',
+    'UserManagers'
+  ].filter(Boolean)));
+
+  candidateSheets.forEach(sheetName => {
+    try {
+      appendFromRows(readSheet(sheetName));
+    } catch (error) {
+      console.warn(`Unable to read manager assignments from ${sheetName}:`, error && error.message ? error.message : error);
+    }
+  });
+
+  return managedUsers;
+}
+
+function clientCreateEnhancedShiftSlot(slotData) {
+  return clientCreateShiftSlot(slotData);
+}
+
 /**
  * Get all shift slots - uses ScheduleUtilities
  */
@@ -265,12 +404,72 @@ function clientGetAllShiftSlots() {
       slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
     }
 
-    return slots.map(slot => ({
-      ...slot,
-      DaysOfWeekArray: slot.DaysOfWeek ? 
-        slot.DaysOfWeek.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d)) : 
-        [1, 2, 3, 4, 5]
-    }));
+    const normalizeBoolean = value => {
+      if (value === true || value === false) return value;
+      if (typeof value === 'number') return value !== 0;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (!normalized) return false;
+        return ['true', 'yes', '1', 'y'].includes(normalized);
+      }
+      return false;
+    };
+
+    const normalizeNumber = value => {
+      if (value === null || typeof value === 'undefined' || value === '') {
+        return '';
+      }
+      if (typeof value === 'number') return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : value;
+    };
+
+    return slots.map(slot => {
+      const normalizedSlot = {
+        ...slot,
+        DaysOfWeekArray: slot.DaysOfWeek ?
+          slot.DaysOfWeek.split(',').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d)) :
+          [1, 2, 3, 4, 5]
+      };
+
+      normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
+      normalizedSlot.EnableOvertime = normalizeBoolean(slot.EnableOvertime);
+      normalizedSlot.AllowSwaps = normalizeBoolean(slot.AllowSwaps);
+      normalizedSlot.WeekendPremium = normalizeBoolean(slot.WeekendPremium);
+      normalizedSlot.HolidayPremium = normalizeBoolean(slot.HolidayPremium);
+      normalizedSlot.AutoAssignment = normalizeBoolean(slot.AutoAssignment);
+      const isActive = slot.IsActive === '' ? true : normalizeBoolean(slot.IsActive);
+      normalizedSlot.IsActive = isActive;
+
+      normalizedSlot.MaxCapacity = normalizeNumber(slot.MaxCapacity);
+      normalizedSlot.MinCoverage = normalizeNumber(slot.MinCoverage);
+      normalizedSlot.Priority = normalizeNumber(slot.Priority);
+      normalizedSlot.BreakDuration = normalizeNumber(slot.BreakDuration);
+      normalizedSlot.LunchDuration = normalizeNumber(slot.LunchDuration);
+      normalizedSlot.Break1Duration = normalizeNumber(slot.Break1Duration);
+      normalizedSlot.Break2Duration = normalizeNumber(slot.Break2Duration);
+      normalizedSlot.BreakGroups = normalizeNumber(slot.BreakGroups);
+      normalizedSlot.StaggerInterval = normalizeNumber(slot.StaggerInterval);
+      normalizedSlot.MinCoveragePct = normalizeNumber(slot.MinCoveragePct);
+      normalizedSlot.MaxDailyOT = normalizeNumber(slot.MaxDailyOT);
+      normalizedSlot.MaxWeeklyOT = normalizeNumber(slot.MaxWeeklyOT);
+      normalizedSlot.OTRate = normalizeNumber(slot.OTRate);
+      normalizedSlot.RestPeriod = normalizeNumber(slot.RestPeriod);
+      normalizedSlot.NotificationLead = normalizeNumber(slot.NotificationLead);
+      normalizedSlot.HandoverTime = normalizeNumber(slot.HandoverTime);
+
+      if (slot.CreatedAt) {
+        const createdDate = new Date(slot.CreatedAt);
+        normalizedSlot.CreatedAt = isNaN(createdDate.getTime()) ? slot.CreatedAt : createdDate;
+      }
+
+      if (slot.UpdatedAt) {
+        const updatedDate = new Date(slot.UpdatedAt);
+        normalizedSlot.UpdatedAt = isNaN(updatedDate.getTime()) ? slot.UpdatedAt : updatedDate;
+      }
+
+      return normalizedSlot;
+    });
 
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
