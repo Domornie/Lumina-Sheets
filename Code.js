@@ -1320,6 +1320,10 @@ function canonicalizePageKey(k) {
     case 'slotmanagement':
       return 'schedule.slots';
 
+    case 'importattendance':
+    case 'import-attendance':
+      return 'importattendance';
+
     // Dashboard
     case 'dashboard':
       return 'dashboard';
@@ -1617,16 +1621,6 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case "incentives":
         return serveCampaignPage('Incentives', e, baseUrl, user, campaignIdFromCaller);
 
-      case 'import':
-        return serveAdminPage('ImportCsv', e, baseUrl, user);
-
-      case 'importattendance':
-        return serveAdminPage('ImportAttendance', e, baseUrl, user, {
-          allowManagers: true,
-          allowSupervisors: true,
-          accessDeniedMessage: 'You need manager or supervisor privileges to import attendance data.'
-        });
-
       case 'slotmanagement':
         return serveShiftSlotManagement(e, baseUrl, user, campaignIdFromCaller);
 
@@ -1645,6 +1639,7 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
         }
 
       case 'importattendance':
+      case 'import-attendance':
         // Allow managers and supervisors for attendance imports
         if (isSystemAdmin(user) || hasManagerRole(user) || hasSupervisorRole(user)) {
           return serveAdminPage('ImportAttendance', e, baseUrl, user, {

@@ -486,11 +486,21 @@
 <!-- MAIN CONTAINER -->
 <div class="container-fluid px-4 py-3">
 
+<?
+  var __importAttendanceUrl = (function(base) {
+    base = base || '';
+    if (!base) {
+      return '?page=import-attendance';
+    }
+
+    var hasQuery = base.indexOf('?') !== -1;
+    var separator = hasQuery ? (/[?&]$/.test(base) ? '' : '&') : '?';
+    return base + separator + 'page=import-attendance';
+  })(typeof baseUrl !== 'undefined' ? baseUrl : '');
+?>
+
 <div class="modern-page-header">
   <div class="d-flex gap-3 mb-4 flex-wrap">
-    <button class="btn btn-light" onclick="window.location='?page=importattendance'" title="Import CSV">
-      <i class="fas fa-file-import me-2"></i>Import Data
-    </button>
     <button id="exportBtn" class="btn btn-light" onclick="showEnhancedExportModal()">
       <i class="fas fa-table me-2"></i>Export Matrix
     </button>
@@ -500,6 +510,9 @@
     <button id="refreshBtn" class="btn btn-light" onclick="refreshData()">
       <i class="fas fa-sync me-2"></i>Refresh
     </button>
+    <a class="btn btn-warning text-dark" href="<?= __importAttendanceUrl ?>">
+      <i class="fas fa-file-upload me-2"></i>Import Attendance
+    </a>
   </div>
 </div>
 
