@@ -50,6 +50,7 @@ const ATTENDANCE_SHEET_NAME = (typeof GLOBAL_SCOPE.ATTENDANCE === 'string' && GL
   ? GLOBAL_SCOPE.ATTENDANCE
   : 'AttendanceLog';
 
+
 // Performance optimization constants
 const MAX_PROCESSING_TIME = 25000; // 25 seconds max execution time
 const CHUNK_SIZE = 1000; // Process data in chunks
@@ -115,6 +116,39 @@ function writeLargeCache(cache, baseKey, value, ttlSeconds) {
       console.warn('Large cache write failed:', err);
     } catch (_) {}
   }
+}
+
+function resolveAttendanceSpreadsheet() {
+  if (typeof getIBTRSpreadsheet === 'function') {
+    try {
+      const ss = getIBTRSpreadsheet();
+      if (ss) {
+        return ss;
+      }
+    } catch (err) {
+      try {
+        console.warn('getIBTRSpreadsheet() failed, attempting SpreadsheetApp fallback', err);
+      } catch (_) {}
+    }
+  }
+
+  if (typeof SpreadsheetApp !== 'undefined') {
+    try {
+      if (typeof GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID === 'string' && GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID) {
+        return SpreadsheetApp.openById(GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID);
+      }
+    } catch (openErr) {
+      try {
+        console.warn('SpreadsheetApp.openById fallback failed:', openErr);
+      } catch (_) {}
+    }
+
+    if (typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
+      return SpreadsheetApp.getActiveSpreadsheet();
+    }
+  }
+
+  throw new Error('Unable to resolve attendance spreadsheet. Ensure IBTRUtilities is loaded.');
 }
 
 function resolveAttendanceSpreadsheet() {
@@ -391,6 +425,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const periodStartMs = periodStart.getTime();
     const periodEndMs = periodEnd.getTime();
+
+    const allRows = fetchAllAttendanceRows();
+    const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
 
     const allRows = fetchAllAttendanceRows();
     const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
@@ -2022,6 +2059,7 @@ function debugDatabaseStructure() {
   try {
     const ss = resolveAttendanceSpreadsheet();
     const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
+
     if (!sheet) {
       return { error: 'Attendance sheet not found' };
     }
