@@ -150,6 +150,7 @@ function resolveAttendanceSpreadsheet() {
   throw new Error('Unable to resolve attendance spreadsheet. Ensure IBTRUtilities is loaded.');
 }
 
+
 // ────────────────────────────────────────────────────────────────────────────
 // RPC WITH TIMEOUT PROTECTION
 // ────────────────────────────────────────────────────────────────────────────
@@ -421,6 +422,7 @@ function findLastIndexOnOrBeforeTimestamp(rows, targetMs) {
   return low - 1;
 }
 
+
 // ────────────────────────────────────────────────────────────────────────────
 // ANALYTICS ENGINE
 // ────────────────────────────────────────────────────────────────────────────
@@ -545,6 +547,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       if (normalizedAgentFilter && row.user !== normalizedAgentFilter) {
         continue;
       }
+
 
       totalRowsConsidered++;
 
@@ -2084,6 +2087,7 @@ function debugDatabaseStructure() {
   try {
     const ss = resolveAttendanceSpreadsheet();
     const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
+    
     if (!sheet) {
       return { error: 'Attendance sheet not found' };
     }
