@@ -2673,3 +2673,33 @@
 
         console.log('✨ Simplified header system loaded successfully');
     </script>
+    <script>
+        (function registerGlobalChannelClosedHandler() {
+            var CHANNEL_CLOSED_REGEX = /message channel closed/i;
+            var ASYNC_RESPONSE_REGEX = /listener indicated an asynchronous response/i;
+
+            function isGoogleChannelClosure(message) {
+                if (!message) {
+                    return false;
+                }
+                var normalized = String(message);
+                return CHANNEL_CLOSED_REGEX.test(normalized) || ASYNC_RESPONSE_REGEX.test(normalized);
+            }
+
+            window.addEventListener('unhandledrejection', function (event) {
+                if (!event || typeof event.preventDefault !== 'function') {
+                    return;
+                }
+
+                var reason = event.reason;
+                var message = (reason && reason.message) ? reason.message : String(reason || '');
+
+                if (isGoogleChannelClosure(message)) {
+                    if (window.console && typeof console.debug === 'function') {
+                        console.debug('Suppressed benign google.script.run channel closure:', message);
+                    }
+                    event.preventDefault();
+                }
+            });
+        })();
+    </script>
