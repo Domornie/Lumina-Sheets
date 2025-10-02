@@ -2090,7 +2090,10 @@
               return;
             }
 
-            const timestamp = new Date(r.timestampMs || r.timestamp);
+          const timestampSource = (typeof r.timestampMs === 'number' && !isNaN(r.timestampMs))
+            ? r.timestampMs
+            : (r.timestampIso || r.timestamp);
+          const timestamp = new Date(timestampSource);
             
             if (isNaN(timestamp.getTime())) {
               console.warn('Invalid timestamp in record:', r);

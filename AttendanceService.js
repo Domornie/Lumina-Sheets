@@ -58,7 +58,7 @@ const CHUNK_SIZE = 1000; // Process data in chunks
 const CACHE_TTL_SHORT = 60; // 1 minute cache
 const CACHE_TTL_MEDIUM = 300; // 5 minute cache
 const LARGE_CACHE_CHUNK_SIZE = 90000; // stay below 100k Apps Script cache limit per entry
-const ATTENDANCE_CACHE_VERSION = 'v4';
+const ATTENDANCE_CACHE_VERSION = 'v5';
 
 function cloneDate(value) {
   if (value instanceof Date && !isNaN(value.getTime())) {
@@ -69,19 +69,6 @@ function cloneDate(value) {
     return isNaN(dateFromNumber.getTime()) ? null : dateFromNumber;
   }
   return null;
-}
-
-function createDateInLocalTime(year, month, day, hour, minute, second) {
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-    return null;
-  }
-
-  const safeHour = Number.isFinite(hour) ? hour : 0;
-  const safeMinute = Number.isFinite(minute) ? minute : 0;
-  const safeSecond = Number.isFinite(second) ? second : 0;
-
-  const date = new Date(year, month - 1, day, safeHour, safeMinute, safeSecond, 0);
-  return isNaN(date.getTime()) ? null : date;
 }
 
 function normalizeDateValue(value) {
@@ -98,65 +85,17 @@ function normalizeDateValue(value) {
       return null;
     }
 
-    const isoDateOnlyMatch = trimmed.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})$/);
-    if (isoDateOnlyMatch) {
-      const year = Number(isoDateOnlyMatch[1]);
-      const month = Number(isoDateOnlyMatch[2]);
-      const day = Number(isoDateOnlyMatch[3]);
-      const localDate = createDateInLocalTime(year, month, day, 0, 0, 0);
-      if (localDate) {
-        return localDate;
-      }
-    }
-
-    const isoDateTimeMatch = trimmed.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})[ T]([0-9]{1,2}):([0-9]{2})(?::([0-9]{2}))?$/);
-    if (isoDateTimeMatch) {
-      const year = Number(isoDateTimeMatch[1]);
-      const month = Number(isoDateTimeMatch[2]);
-      const day = Number(isoDateTimeMatch[3]);
-      const hour = Number(isoDateTimeMatch[4]);
-      const minute = Number(isoDateTimeMatch[5]);
-      const second = isoDateTimeMatch[6] ? Number(isoDateTimeMatch[6]) : 0;
-      const localDateTime = createDateInLocalTime(year, month, day, hour, minute, second);
-      if (localDateTime) {
-        return localDateTime;
-      }
-    }
-
-    const slashFormatMatch = trimmed.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})(?:[ ,T]+([0-9]{1,2}):([0-9]{2})(?::([0-9]{2}))?\s*(AM|PM)?)?$/i);
-    if (slashFormatMatch) {
-      const month = Number(slashFormatMatch[1]);
-      const day = Number(slashFormatMatch[2]);
-      const year = Number(slashFormatMatch[3]);
-      let hour = slashFormatMatch[4] ? Number(slashFormatMatch[4]) : 0;
-      const minute = slashFormatMatch[5] ? Number(slashFormatMatch[5]) : 0;
-      const second = slashFormatMatch[6] ? Number(slashFormatMatch[6]) : 0;
-      const meridiem = slashFormatMatch[7] ? slashFormatMatch[7].toUpperCase() : '';
-
-      if (meridiem === 'PM' && hour < 12) {
-        hour += 12;
-      }
-      if (meridiem === 'AM' && hour === 12) {
-        hour = 0;
-      }
-
-      const localFromSlash = createDateInLocalTime(year, month, day, hour, minute, second);
-      if (localFromSlash) {
-        return localFromSlash;
-      }
-    }
-
-    const parsed = Date.parse(trimmed);
+    const cleaned = trimmed.replace(/,/g, ' ');
+    const parsed = Date.parse(cleaned);
     if (!Number.isNaN(parsed)) {
       const dateFromParse = new Date(parsed);
       return isNaN(dateFromParse.getTime()) ? null : dateFromParse;
     }
 
-    const cleaned = trimmed.replace(/,/g, '');
-    const parsedCleaned = Date.parse(cleaned);
-    if (!Number.isNaN(parsedCleaned)) {
-      const cleanedDate = new Date(parsedCleaned);
-      return isNaN(cleanedDate.getTime()) ? null : cleanedDate;
+    const fallbackParsed = Date.parse(trimmed.replace(/[AP]M$/i, ' $&'));
+    if (!Number.isNaN(fallbackParsed)) {
+      const fallbackDate = new Date(fallbackParsed);
+      return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
     }
   }
 
@@ -324,7 +263,7 @@ function rpc(label, fn, fallback, maxTime = 20000) {
 // In AttendanceService.gs, update the fetchAllAttendanceRows function around line 100-150
 function fetchAllAttendanceRows() {
   return rpc('fetchAllAttendanceRows', () => {
-    const CACHE_KEY = 'ATTENDANCE_ROWS_CACHE_FINAL_V4';
+    const CACHE_KEY = 'ATTENDANCE_ROWS_CACHE_FINAL_V5';
 
     // Try cache first
     try {
@@ -332,43 +271,46 @@ function fetchAllAttendanceRows() {
       const cached = readLargeCache(cache, CACHE_KEY);
       if (cached && cached.timestamp && Array.isArray(cached.rows)) {
         console.log('Using cached attendance data');
-        const mapped = cached.rows.map(row => {
-          const timestampMsRaw = typeof row.t === 'number' ? row.t : parseFloat(row.t);
-          const timestampMs = Number.isFinite(timestampMsRaw) ? timestampMsRaw : undefined;
-          const timestamp = typeof timestampMs === 'number' ? new Date(timestampMs) : null;
-          const durationSec = coerceDurationSeconds(row.d);
-          let dayOfWeek = typeof row.dow === 'number' && Number.isFinite(row.dow)
-            ? row.dow
-            : undefined;
+        const mapped = cached.rows
+          .map(row => {
+            const timestampMsRaw = typeof row.t === 'number' ? row.t : parseFloat(row.t);
+            const timestampMs = Number.isFinite(timestampMsRaw) ? timestampMsRaw : NaN;
+            if (!Number.isFinite(timestampMs)) {
+              return null;
+            }
 
-          const cachedDate = normalizeDateValue(row.ds);
-          if (!dayOfWeek && cachedDate) {
-            dayOfWeek = toIsoDayOfWeek(cachedDate);
-          }
+            const durationSec = coerceDurationSeconds(row.d);
+            const dayOfWeek = typeof row.dow === 'number' && Number.isFinite(row.dow)
+              ? row.dow
+              : undefined;
+            const dateString = typeof row.ds === 'string' && row.ds
+              ? row.ds
+              : '';
+            const isWeekend = typeof row.w === 'boolean'
+              ? row.w
+              : (typeof dayOfWeek === 'number' ? dayOfWeek >= 6 : undefined);
 
-          const dateString = (typeof row.ds === 'string' && row.ds)
-            ? row.ds
-            : (cachedDate ? toIsoDateString(cachedDate) : '');
+            const timestampIso = (typeof row.i === 'string' && row.i)
+              ? row.i
+              : new Date(timestampMs).toISOString();
 
-          const isWeekend = typeof row.w === 'boolean'
-            ? row.w
-            : (typeof dayOfWeek === 'number' ? dayOfWeek >= 6 : undefined);
+            return {
+              timestamp: new Date(timestampMs),
+              timestampMs,
+              timestampIso,
+              user: row.u,
+              state: row.s,
+              durationSec,
+              durationMin: durationSec / 60,
+              durationHours: durationSec / 3600,
+              dateString,
+              dayOfWeek,
+              isWeekend
+            };
+          })
+          .filter(Boolean);
 
-          return {
-            timestamp,
-            timestampMs,
-            user: row.u,
-            state: row.s,
-            durationSec,
-            durationMin: durationSec / 60,
-            durationHours: durationSec / 3600,
-            dateString,
-            dayOfWeek,
-            isWeekend
-          };
-        });
-
-        mapped.sort((a, b) => ensureTimestampMs(a) - ensureTimestampMs(b));
+        mapped.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
         return mapped;
       }
     } catch (e) {
@@ -382,10 +324,14 @@ function fetchAllAttendanceRows() {
       return [];
     }
 
-    const values = sheet.getDataRange().getValues();
-    if (values.length < 2) return [];
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+    if (lastRow <= 1 || lastColumn === 0) {
+      return [];
+    }
 
-    const headers = values[0].map(h => h.toString().trim());
+    const headerRange = sheet.getRange(1, 1, 1, lastColumn).getValues();
+    const headers = headerRange[0].map(h => String(h || '').trim());
     const timestampIdx = headers.indexOf('Timestamp');
     const userIdx = headers.indexOf('User');
     const stateIdx = headers.indexOf('State');
@@ -396,74 +342,98 @@ function fetchAllAttendanceRows() {
       throw new Error('Required columns not found');
     }
 
+    const rowCount = lastRow - 1;
+    if (rowCount <= 0) {
+      return [];
+    }
+
+    const dataRange = sheet.getRange(2, 1, rowCount, lastColumn).getValues();
     const out = [];
+    const dateCache = new Map();
     const startTime = Date.now();
 
-    for (let i = 1; i < values.length; i += CHUNK_SIZE) {
-      if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.8) {
-        console.warn('Processing timeout approaching, stopping at row', i);
+    for (let r = 0; r < dataRange.length; r++) {
+      if ((r % CHUNK_SIZE === 0) && (Date.now() - startTime > MAX_PROCESSING_TIME * 0.8)) {
+        console.warn('Processing timeout approaching, stopping at row', r + 2);
         break;
       }
 
-      const chunk = values.slice(i, Math.min(i + CHUNK_SIZE, values.length));
+      const row = dataRange[r];
 
-      chunk.forEach((row, rowIndex) => {
-        try {
-          const timestampVal = row[timestampIdx];
-          const timestamp = normalizeDateValue(timestampVal);
-          if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
-            console.warn(`Row ${i + rowIndex}: Could not parse timestamp:`, timestampVal);
-            return;
-          }
-
-          const durationSeconds = coerceDurationSeconds(row[durationIdx]);
-          const user = String(row[userIdx] || '').trim();
-          const state = String(row[stateIdx] || '').trim();
-
-          if (!user || !state) {
-            console.warn(`Row ${i + rowIndex}: Missing user or state:`, { user, state });
-            return;
-          }
-
-          const timestampMs = timestamp.getTime();
-
-          let dateBasis = null;
-          if (dateIdx >= 0) {
-            dateBasis = normalizeDateValue(row[dateIdx]);
-          }
-          if (!(dateBasis instanceof Date) || isNaN(dateBasis.getTime())) {
-            dateBasis = new Date(timestampMs);
-          }
-
-          const dateString = toIsoDateString(dateBasis);
-          const dayOfWeek = toIsoDayOfWeek(dateBasis);
-          const isWeekend = typeof dayOfWeek === 'number' ? dayOfWeek >= 6 : undefined;
-
-          out.push({
-            timestamp,
-            timestampMs,
-            user,
-            state,
-            durationSec: durationSeconds,
-            durationMin: durationSeconds / 60,
-            durationHours: durationSeconds / 3600,
-            dateString,
-            dayOfWeek,
-            isWeekend
-          });
-        } catch (rowError) {
-          console.error(`Error processing row ${i + rowIndex}:`, rowError, row);
+      try {
+        const timestampVal = row[timestampIdx];
+        const timestamp = normalizeDateValue(timestampVal);
+        if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+          continue;
         }
-      });
+
+        const userRaw = row[userIdx];
+        const stateRaw = row[stateIdx];
+        const user = String(userRaw || '').trim();
+        const state = String(stateRaw || '').trim();
+        if (!user || !state) {
+          continue;
+        }
+
+        const durationSeconds = coerceDurationSeconds(row[durationIdx]);
+        const timestampMs = timestamp.getTime();
+
+        let dateString = '';
+        let dayOfWeek;
+        let isWeekend;
+
+        if (dateIdx >= 0) {
+          const dateBasis = normalizeDateValue(row[dateIdx]);
+          if (dateBasis instanceof Date && !isNaN(dateBasis.getTime())) {
+            dateString = toIsoDateString(dateBasis);
+          }
+        }
+
+        if (!dateString) {
+          dateString = Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+        }
+
+        if (dateCache.has(dateString)) {
+          const cached = dateCache.get(dateString);
+          dayOfWeek = cached.dayOfWeek;
+          isWeekend = cached.isWeekend;
+        } else {
+          const refDate = new Date(dateString + 'T00:00:00Z');
+          const dow = refDate.getUTCDay();
+          dayOfWeek = dow === 0 ? 7 : dow;
+          isWeekend = dayOfWeek >= 6;
+          dateCache.set(dateString, { dayOfWeek, isWeekend });
+        }
+
+        const timestampObj = new Date(timestampMs);
+        const timestampIso = timestampObj.toISOString();
+
+        out.push({
+          timestamp: timestampObj,
+          timestampMs,
+          timestampIso,
+          user,
+          state,
+          durationSec: durationSeconds,
+          durationMin: durationSeconds / 60,
+          durationHours: durationSeconds / 3600,
+          dateString,
+          dayOfWeek,
+          isWeekend
+        });
+      } catch (rowError) {
+        console.error(`Error processing row ${r + 2}:`, rowError);
+      }
     }
 
-    console.log(`Processed ${out.length} attendance records with enhanced timezone handling`);
+    console.log(`Processed ${out.length} attendance records with streamlined parsing`);
     
     // Cache the results (serialize timestamps for storage)
     try {
       const cache = CacheService.getScriptCache();
       const rowsForCache = out.map(row => ({
-        t: row.timestamp.getTime(),
+        t: row.timestampMs,
+        i: row.timestampIso,
         u: row.user,
         s: row.state,
         d: row.durationSec,
@@ -480,11 +450,7 @@ function fetchAllAttendanceRows() {
       console.warn('Cache write failed:', e);
     }
 
-    out.sort((a, b) => {
-      const aMs = typeof a.timestampMs === 'number' ? a.timestampMs : (a.timestamp instanceof Date ? a.timestamp.getTime() : 0);
-      const bMs = typeof b.timestampMs === 'number' ? b.timestampMs : (b.timestamp instanceof Date ? b.timestamp.getTime() : 0);
-      return aMs - bMs;
-    });
+    out.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
 
     return out;
   }, []);
@@ -495,8 +461,20 @@ function ensureTimestampMs(row) {
     return NaN;
   }
 
-  if (typeof row.timestampMs === 'number' && !isNaN(row.timestampMs)) {
+  if (typeof row.timestampMs === 'number' && Number.isFinite(row.timestampMs)) {
     return row.timestampMs;
+  }
+
+  if (typeof row.timestampIso === 'string' && row.timestampIso) {
+    const parsed = Date.parse(row.timestampIso);
+    if (!Number.isNaN(parsed)) {
+      row.timestampMs = parsed;
+      row.timestamp = new Date(parsed);
+      if (!row.timestampIso) {
+        row.timestampIso = row.timestamp.toISOString();
+      }
+      return parsed;
+    }
   }
 
   let timestamp = row.timestamp;
@@ -511,6 +489,9 @@ function ensureTimestampMs(row) {
   const ms = timestamp.getTime();
   row.timestamp = timestamp;
   row.timestampMs = ms;
+  if (!row.timestampIso) {
+    row.timestampIso = new Date(ms).toISOString();
+  }
   return ms;
 }
 
@@ -663,10 +644,25 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         continue;
       }
 
-      const timestamp = row.timestamp instanceof Date ? row.timestamp : new Date(timestampMs);
+      let timestamp = null;
+      if (typeof row.timestampIso === 'string' && row.timestampIso) {
+        const parsedIso = Date.parse(row.timestampIso);
+        if (!Number.isNaN(parsedIso)) {
+          timestamp = new Date(parsedIso);
+        }
+      }
+
+      if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+        timestamp = new Date(timestampMs);
+      }
+
       if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
         continue;
       }
+
+      const timestampIso = (typeof row.timestampIso === 'string' && row.timestampIso)
+        ? row.timestampIso
+        : timestamp.toISOString();
 
       if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
         continue;
@@ -745,7 +741,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       }
 
       const sanitizedRow = {
-        timestamp: timestamp,
+        timestamp,
+        timestampIso,
         timestampMs,
         user: row.user,
         state,
@@ -980,8 +977,34 @@ function generateDailyBreakdownData() {
       // Process all records consistently
       this.currentData.filteredRows.forEach(r => {
         try {
-          const timestamp = new Date(r.timestampMs || r.timestamp);
-          
+          let tsValue = null;
+          if (typeof r.timestampMs === 'number') {
+            tsValue = r.timestampMs;
+          } else if (r.timestamp instanceof Date && !isNaN(r.timestamp.getTime())) {
+            tsValue = r.timestamp.getTime();
+          } else if (typeof r.timestampIso === 'string' && r.timestampIso) {
+            const parsed = Date.parse(r.timestampIso);
+            if (!Number.isNaN(parsed)) {
+              tsValue = parsed;
+            }
+          } else if (typeof r.timestamp === 'number') {
+            tsValue = r.timestamp;
+          } else if (typeof r.timestamp === 'string') {
+            const parsed = Date.parse(r.timestamp);
+            if (!Number.isNaN(parsed)) {
+              tsValue = parsed;
+            }
+          }
+
+          if (!Number.isFinite(tsValue)) {
+            return;
+          }
+
+          const timestamp = new Date(tsValue);
+          if (isNaN(timestamp.getTime())) {
+            return;
+          }
+
           // Use consistent configured timezone date calculation
           const timezoneDateString = timestamp.toLocaleDateString('en-CA', {
             timeZone: ATTENDANCE_TIMEZONE
@@ -1165,6 +1188,11 @@ function resolveAnalyticsDateKey(row) {
   let timestampMs = null;
   if (typeof row.timestampMs === 'number') {
     timestampMs = row.timestampMs;
+  } else if (typeof row.timestampIso === 'string' && row.timestampIso) {
+    const parsed = Date.parse(row.timestampIso);
+    if (!Number.isNaN(parsed)) {
+      timestampMs = parsed;
+    }
   } else if (row.timestamp instanceof Date) {
     timestampMs = row.timestamp.getTime();
   } else if (typeof row.timestamp === 'number') {
@@ -2173,7 +2201,9 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     billableHoursBreakdown: billableBreakdown,
     nonProductiveHoursBreakdown: nonProductiveBreakdown,
     filteredRows: rows.slice(0, 100).map(r => ({
+      timestamp: r.timestamp instanceof Date ? r.timestamp : (r.timestampMs ? new Date(r.timestampMs) : (typeof r.timestampIso === 'string' ? new Date(r.timestampIso) : null)),
       timestampMs: r.timestampMs || (r.timestamp instanceof Date ? r.timestamp.getTime() : null),
+      timestampIso: r.timestampIso || (r.timestampMs ? new Date(r.timestampMs).toISOString() : (r.timestamp instanceof Date ? r.timestamp.toISOString() : null)),
       user: r.user,
       state: r.state,
       durationSec: r.durationSec,
