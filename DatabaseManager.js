@@ -20,7 +20,7 @@
 (function (global) {
   if (global.DatabaseManager) return;
 
-  var DEFAULT_CACHE_TTL = 300; // seconds
+  var DEFAULT_CACHE_TTL = 1200; // seconds (20 minutes)
   var DEFAULT_ID_COLUMN = 'ID';
   var DEFAULT_CREATED_AT = 'CreatedAt';
   var DEFAULT_UPDATED_AT = 'UpdatedAt';

@@ -52,17 +52,17 @@
 
   function attemptRegisterKnownSchemas() {
     registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID');
-    registerIfDefined(global.ROLES_SHEET || 'Roles', global.ROLES_HEADER, 'ID');
+    registerIfDefined(global.ROLES_SHEET || 'Roles', global.ROLES_HEADER, 'ID', { cacheTTL: 3600 });
     registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'UserId');
     registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID');
     registerIfDefined(global.SESSIONS_SHEET || 'Sessions', global.SESSIONS_HEADERS, 'Token');
-    registerIfDefined(global.CAMPAIGNS_SHEET || 'Campaigns', global.CAMPAIGNS_HEADERS, 'ID');
-    registerIfDefined(global.PAGES_SHEET || 'Pages', global.PAGES_HEADERS, 'PageKey');
-    registerIfDefined(global.CAMPAIGN_PAGES_SHEET || 'CampaignPages', global.CAMPAIGN_PAGES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
-    registerIfDefined(global.PAGE_CATEGORIES_SHEET || 'PageCategories', global.PAGE_CATEGORIES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
-    registerIfDefined(global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', global.CAMPAIGN_USER_PERMISSIONS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
-    registerIfDefined(global.USER_MANAGERS_SHEET || 'UserManagers', global.USER_MANAGERS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true });
-    registerIfDefined(global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', global.USER_CAMPAIGNS_HEADERS, 'ID', { tenantColumn: 'CampaignId', requireTenant: true });
+    registerIfDefined(global.CAMPAIGNS_SHEET || 'Campaigns', global.CAMPAIGNS_HEADERS, 'ID', { cacheTTL: 3600 });
+    registerIfDefined(global.PAGES_SHEET || 'Pages', global.PAGES_HEADERS, 'PageKey', { cacheTTL: 3600 });
+    registerIfDefined(global.CAMPAIGN_PAGES_SHEET || 'CampaignPages', global.CAMPAIGN_PAGES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 2700 });
+    registerIfDefined(global.PAGE_CATEGORIES_SHEET || 'PageCategories', global.PAGE_CATEGORIES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 3600 });
+    registerIfDefined(global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', global.CAMPAIGN_USER_PERMISSIONS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 2700 });
+    registerIfDefined(global.USER_MANAGERS_SHEET || 'UserManagers', global.USER_MANAGERS_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 2700 });
+    registerIfDefined(global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', global.USER_CAMPAIGNS_HEADERS, 'ID', { tenantColumn: 'CampaignId', requireTenant: true, cacheTTL: 1800 });
     registerIfDefined(global.NOTIFICATIONS_SHEET || 'Notifications', global.NOTIFICATIONS_HEADERS, 'ID');
     registerIfDefined(global.DEBUG_LOGS_SHEET || 'DebugLogs', global.DEBUG_LOGS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
     registerIfDefined(global.ERROR_LOGS_SHEET || 'ErrorLogs', global.ERROR_LOGS_HEADERS, 'Timestamp', { timestamps: false, idColumn: 'Timestamp' });
