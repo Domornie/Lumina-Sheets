@@ -254,6 +254,7 @@ function fetchAllAttendanceRows() {
 function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
   return rpc('getAttendanceAnalyticsByPeriod', () => {
     const startTime = Date.now();
+    const TIME_BUDGET_MS = 14000;
     console.log(`Analytics request: ${granularity}, ${periodId}, ${agentFilter || 'all'}`);
 
     if (!periodId) {
@@ -276,8 +277,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       console.warn('Analytics cache read failed:', e);
     }
 
-    const allRows = fetchAllAttendanceRows();
-
     let periodStart, periodEnd;
     try {
       [periodStart, periodEnd] = derivePeriodBounds(granularity, periodId);
@@ -287,6 +286,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const periodStartMs = periodStart.getTime();
     const periodEndMs = periodEnd.getTime();
+
+    const allRows = fetchAllAttendanceRows();
+    const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
 
     const summary = {};
     const stateDuration = {};
@@ -325,21 +327,42 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       feedBuffer.sort((a, b) => b.timestampMs - a.timestampMs);
     };
 
+    let exceededTimeBudget = false;
+
     for (let idx = 0; idx < allRows.length; idx++) {
+      if (!exceededTimeBudget && (Date.now() - startTime) > TIME_BUDGET_MS) {
+        console.warn('Analytics processing time budget exceeded, returning basic snapshot');
+        exceededTimeBudget = true;
+        break;
+      }
+
       const row = allRows[idx];
       if (!row) continue;
 
-      const timestamp = row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp);
-      if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+      let timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : null;
+      let timestamp = row.timestamp instanceof Date ? row.timestamp : null;
+
+      if (!timestampMs) {
+        if (!timestamp || !(timestamp instanceof Date)) {
+          timestamp = new Date(row.timestamp);
+        }
+        if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+          continue;
+        }
+        timestampMs = timestamp.getTime();
+      } else if (!timestamp) {
+        timestamp = new Date(timestampMs);
+      }
+
+      if (!(timestamp instanceof Date) || isNaN(timestampMs)) {
         continue;
       }
 
-      const timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : timestamp.getTime();
       if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
         continue;
       }
 
-      if (agentFilter && row.user !== agentFilter) {
+      if (normalizedAgentFilter && row.user !== normalizedAgentFilter) {
         continue;
       }
 
@@ -421,10 +444,16 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         isWeekend
       };
       filteredRows.push(sanitizedRow);
-      registerFeedRow(sanitizedRow, timestampMs);
+      if (!exceededTimeBudget) {
+        registerFeedRow(sanitizedRow, timestampMs);
+      }
     }
 
     console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total`);
+
+    if (exceededTimeBudget) {
+      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
+    }
 
     if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.6) {
       console.warn('Approaching timeout, returning basic analytics snapshot');
