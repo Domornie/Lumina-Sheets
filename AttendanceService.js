@@ -50,7 +50,6 @@ const ATTENDANCE_SHEET_NAME = (typeof GLOBAL_SCOPE.ATTENDANCE === 'string' && GL
   ? GLOBAL_SCOPE.ATTENDANCE
   : 'AttendanceLog';
 
-
 // Performance optimization constants
 const MAX_PROCESSING_TIME = 25000; // 25 seconds max execution time
 const CHUNK_SIZE = 1000; // Process data in chunks
@@ -151,38 +150,6 @@ function resolveAttendanceSpreadsheet() {
   throw new Error('Unable to resolve attendance spreadsheet. Ensure IBTRUtilities is loaded.');
 }
 
-function resolveAttendanceSpreadsheet() {
-  if (typeof getIBTRSpreadsheet === 'function') {
-    try {
-      const ss = getIBTRSpreadsheet();
-      if (ss) {
-        return ss;
-      }
-    } catch (err) {
-      try {
-        console.warn('getIBTRSpreadsheet() failed, attempting SpreadsheetApp fallback', err);
-      } catch (_) {}
-    }
-  }
-
-  if (typeof SpreadsheetApp !== 'undefined') {
-    try {
-      if (typeof GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID === 'string' && GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID) {
-        return SpreadsheetApp.openById(GLOBAL_SCOPE.CAMPAIGN_SPREADSHEET_ID);
-      }
-    } catch (openErr) {
-      try {
-        console.warn('SpreadsheetApp.openById fallback failed:', openErr);
-      } catch (_) {}
-    }
-
-    if (typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
-      return SpreadsheetApp.getActiveSpreadsheet();
-    }
-  }
-
-  throw new Error('Unable to resolve attendance spreadsheet. Ensure IBTRUtilities is loaded.');
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // RPC WITH TIMEOUT PROTECTION
@@ -225,7 +192,7 @@ function fetchAllAttendanceRows() {
       const cached = readLargeCache(cache, CACHE_KEY);
       if (cached && cached.timestamp && Array.isArray(cached.rows)) {
         console.log('Using cached attendance data');
-        return cached.rows.map(row => {
+        const mapped = cached.rows.map(row => {
           const timestampMsRaw = typeof row.t === 'number' ? row.t : parseFloat(row.t);
           const timestampMs = Number.isFinite(timestampMsRaw) ? timestampMsRaw : undefined;
           const timestamp = typeof timestampMs === 'number' ? new Date(timestampMs) : null;
@@ -248,6 +215,9 @@ function fetchAllAttendanceRows() {
             isWeekend: typeof row.w === 'boolean' ? row.w : (typeof dayOfWeek === 'number' && !isNaN(dayOfWeek) ? dayOfWeek >= 6 : undefined)
           };
         });
+
+        mapped.sort((a, b) => ensureTimestampMs(a) - ensureTimestampMs(b));
+        return mapped;
       }
     } catch (e) {
       console.warn('Cache read failed:', e);
@@ -382,9 +352,76 @@ function fetchAllAttendanceRows() {
       console.warn('Cache write failed:', e);
     }
 
+    out.sort((a, b) => {
+      const aMs = typeof a.timestampMs === 'number' ? a.timestampMs : (a.timestamp instanceof Date ? a.timestamp.getTime() : 0);
+      const bMs = typeof b.timestampMs === 'number' ? b.timestampMs : (b.timestamp instanceof Date ? b.timestamp.getTime() : 0);
+      return aMs - bMs;
+    });
+
     return out;
   }, []);
 }
+
+function ensureTimestampMs(row) {
+  if (!row || typeof row !== 'object') {
+    return NaN;
+  }
+
+  if (typeof row.timestampMs === 'number' && !isNaN(row.timestampMs)) {
+    return row.timestampMs;
+  }
+
+  let timestamp = row.timestamp;
+  if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+    timestamp = new Date(timestamp);
+  }
+
+  if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+    return NaN;
+  }
+
+  const ms = timestamp.getTime();
+  row.timestamp = timestamp;
+  row.timestampMs = ms;
+  return ms;
+}
+
+function findFirstIndexOnOrAfterTimestamp(rows, targetMs) {
+  let low = 0;
+  let high = rows.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    const value = ensureTimestampMs(rows[mid]);
+
+    if (!Number.isFinite(value) || value < targetMs) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
+function findLastIndexOnOrBeforeTimestamp(rows, targetMs) {
+  let low = 0;
+  let high = rows.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    const value = ensureTimestampMs(rows[mid]);
+
+    if (!Number.isFinite(value) || value > targetMs) {
+      high = mid;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return low - 1;
+}
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // ANALYTICS ENGINE
@@ -429,8 +466,13 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     const allRows = fetchAllAttendanceRows();
     const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
 
-    const allRows = fetchAllAttendanceRows();
-    const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
+    const firstCandidateIndex = findFirstIndexOnOrAfterTimestamp(allRows, periodStartMs);
+    const lastCandidateIndex = findLastIndexOnOrBeforeTimestamp(allRows, periodEndMs);
+    const hasCandidates = lastCandidateIndex >= firstCandidateIndex && firstCandidateIndex < allRows.length;
+
+    if (!hasCandidates) {
+      console.log('No attendance rows within requested period window.');
+    }
 
     const summary = {};
     const stateDuration = {};
@@ -471,9 +513,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     let exceededTimeBudget = false;
     let scannedRows = 0;
-    let reachedPeriodWindow = false;
 
-    for (let idx = allRows.length - 1; idx >= 0; idx--) {
+    const loopStart = hasCandidates ? Math.max(0, firstCandidateIndex) : allRows.length;
+    const loopEnd = hasCandidates ? lastCandidateIndex : -1;
+
+    for (let idx = loopEnd; idx >= loopStart; idx--) {
       if (!exceededTimeBudget && scannedRows > 0 && (scannedRows % 250 === 0)) {
         if ((Date.now() - startTime) > TIME_BUDGET_MS) {
           console.warn('Analytics processing time budget exceeded after scanning', scannedRows, 'rows. Returning snapshot.');
@@ -486,39 +530,24 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       if (!row) continue;
       scannedRows++;
 
-      let timestampMs = typeof row.timestampMs === 'number' ? row.timestampMs : null;
-      let timestamp = row.timestamp instanceof Date ? row.timestamp : null;
-
-      if (!timestampMs) {
-        if (!timestamp || !(timestamp instanceof Date)) {
-          timestamp = new Date(row.timestamp);
-        }
-        if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
-          continue;
-        }
-        timestampMs = timestamp.getTime();
-      } else if (!timestamp) {
-        timestamp = new Date(timestampMs);
-      }
-
-      if (!(timestamp instanceof Date) || isNaN(timestampMs)) {
+      const timestampMs = ensureTimestampMs(row);
+      if (!Number.isFinite(timestampMs)) {
         continue;
       }
 
-      if (timestampMs > periodEndMs) {
+      const timestamp = row.timestamp instanceof Date ? row.timestamp : new Date(timestampMs);
+      if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
         continue;
       }
 
-      if (timestampMs < periodStartMs) {
-        if (reachedPeriodWindow) {
-          break;
-        }
+      if (timestampMs < periodStartMs || timestampMs > periodEndMs) {
         continue;
       }
 
       if (normalizedAgentFilter && row.user !== normalizedAgentFilter) {
         continue;
       }
+
 
       totalRowsConsidered++;
 
@@ -598,7 +627,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         isWeekend
       };
       filteredRows.push(sanitizedRow);
-      reachedPeriodWindow = true;
       if (!exceededTimeBudget) {
         registerFeedRow(sanitizedRow, timestampMs);
       }
@@ -2059,7 +2087,7 @@ function debugDatabaseStructure() {
   try {
     const ss = resolveAttendanceSpreadsheet();
     const sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
-
+    
     if (!sheet) {
       return { error: 'Attendance sheet not found' };
     }
