@@ -58,6 +58,7 @@ function getUserCampaignsTable() {
       ? USER_CAMPAIGNS_HEADERS
       : ['ID', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'CreatedAt', 'UpdatedAt', 'DeletedAt'],
     idColumn: 'ID',
+    cacheTTL: 1800,
     defaults: {
       Role: USER_CAMPAIGN_DEFAULT_ROLE,
       IsPrimary: false,
@@ -78,7 +79,8 @@ function getCampaignsTable() {
     headers: Array.isArray(CAMPAIGNS_HEADERS) && CAMPAIGNS_HEADERS.length
       ? CAMPAIGNS_HEADERS
       : ['ID', 'Name', 'Description', 'ClientName', 'Status', 'Channel', 'Timezone', 'SlaTier', 'CreatedAt', 'UpdatedAt', 'DeletedAt'],
-    idColumn: 'ID'
+    idColumn: 'ID',
+    cacheTTL: 3600
   });
 }
 
