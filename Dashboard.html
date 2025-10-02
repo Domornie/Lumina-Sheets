@@ -848,7 +848,6 @@
                     timeRange: ''
                 };
                 this.isLoading = false;
-                this.autoRefreshInterval = null;
                 this.lastDataHash = null;
 
                 this.init();
@@ -866,9 +865,6 @@
 
                     // Load initial data
                     this.loadOverviewData();
-
-                    // Start auto-refresh
-                    this.startAutoRefresh();
 
                     console.log('Dashboard initialized successfully');
                 } catch (error) {
@@ -1874,46 +1870,6 @@
                 }
             }
 
-            startAutoRefresh() {
-                try {
-                    // Stop any existing refresh interval
-                    this.stopAutoRefresh();
-                    
-                    // Auto refresh every 15 seconds (reduced frequency to prevent conflicts)
-                    this.autoRefreshInterval = setInterval(async () => {
-                        // Skip if currently loading or if there's no network
-                        if (this.isLoading || !navigator.onLine) {
-                            console.log('Skipping auto-refresh: loading or offline');
-                            return;
-                        }
-
-                        try {
-                            console.log('Auto-refreshing dashboard data...');
-                            await this.loadOverviewData(false); // false = silent refresh
-                        } catch (error) {
-                            console.warn('Auto-refresh failed:', error);
-                            // Continue running but log the error
-                        }
-                    }, 15000); // 15 seconds instead of 10
-
-                    console.log('Auto-refresh started (15 seconds interval)');
-                } catch (error) {
-                    console.error('Error starting auto-refresh:', error);
-                }
-            }
-
-            stopAutoRefresh() {
-                try {
-                    if (this.autoRefreshInterval) {
-                        clearInterval(this.autoRefreshInterval);
-                        this.autoRefreshInterval = null;
-                    }
-                    console.log('Auto-refresh stopped');
-                } catch (error) {
-                    console.error('Error stopping auto-refresh:', error);
-                }
-            }
-
             showLoading(show, options = {}) {
                 try {
                     const loader = window.LuminaLoader;
@@ -1985,8 +1941,6 @@
 
             destroy() {
                 try {
-                    this.stopAutoRefresh();
-                    
                     // Destroy all charts
                     Object.values(this.charts).forEach(chart => {
                         if (chart && typeof chart.destroy === 'function') {
