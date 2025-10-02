@@ -683,7 +683,7 @@ function safeWriteError(context, error) {
 // ────────────────────────────────────────────────────────────────────────────
 const __readSheet = (function () {
   function readSheetImpl(sheetName, optionsOrCache) {
-    const { useCache, allowScriptCache, queryOptions, tenantContext: explicitTenantContext, campaignId: requestedCampaignId, userId: requestedUserId } = _normalizeReadSheetOptions_(optionsOrCache);
+    const { useCache, allowScriptCache, queryOptions, tenantContext: explicitTenantContext, campaignId: requestedCampaignId, userId: requestedUserId, suppressTenantContext } = _normalizeReadSheetOptions_(optionsOrCache);
     const cacheKey = allowScriptCache ? `DATA_${sheetName}` : null;
 
     if (allowScriptCache && cacheKey) {
@@ -706,9 +706,19 @@ const __readSheet = (function () {
     } catch (_) { schemaRegistry = null; }
     var schema = schemaRegistry ? schemaRegistry[sheetName] : null;
 
+    const guardActive = (function () {
+      try {
+        const globalObj = (typeof globalThis !== 'undefined') ? globalThis : this;
+        return Boolean(globalObj && Number(globalObj.__READ_SHEET_SUPPRESS_TENANT_CONTEXT__ || 0) > 0);
+      } catch (_) {
+        return false;
+      }
+    })();
+
     var tenantContext = explicitTenantContext || null;
     var currentUser = null;
-    if (!tenantContext && schema && schema.tenantColumn) {
+    const skipTenantContext = suppressTenantContext || guardActive;
+    if (!tenantContext && schema && schema.tenantColumn && !skipTenantContext) {
       var targetCampaignId = requestedCampaignId || null;
       var targetUserId = requestedUserId || null;
       if (!targetCampaignId && queryOptions && queryOptions.where) {
@@ -843,7 +853,9 @@ function _normalizeReadSheetOptions_(optionsOrCache) {
     ? String(options.userId)
     : null;
 
-  return { useCache, allowScriptCache, queryOptions, tenantContext, campaignId, userId };
+  const suppressTenantContext = Boolean(options && (options.suppressTenantContext || options.skipTenantContext));
+
+  return { useCache, allowScriptCache, queryOptions, tenantContext, campaignId, userId, suppressTenantContext };
 }
 
 function _legacyReadSheet_(sheetName) {
