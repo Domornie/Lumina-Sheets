@@ -377,6 +377,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
           exceededTimeBudget = true;
           break;
         }
+
       }
 
       const row = allRows[idx];
