@@ -25,7 +25,6 @@ const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meetin
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES, 'Break'];
 const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES, 'Break'])];
-const END_SHIFT_STATES = ['End of Shift'];
 
 // Resolve a safe global scope reference for Apps Script V8
 var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
@@ -642,7 +641,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const summary = {};
     const stateDuration = {};
-    const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES])];
+    const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES])];
     seedStates.forEach(state => {
       summary[state] = 0;
       stateDuration[state] = 0;
@@ -2189,7 +2188,7 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
   const rows = Array.isArray(filtered) ? filtered : [];
   const summary = {};
   const stateDuration = {};
-  const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES, ...END_SHIFT_STATES])];
+  const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES])];
   seedStates.forEach(state => {
     summary[state] = 0;
     stateDuration[state] = 0;
@@ -2313,8 +2312,7 @@ function createEmptyAnalytics() {
       'Training': 0,
       'Meeting': 0,
       'Break': 0,
-      'Lunch': 0,
-      'End of Shift': 0
+      'Lunch': 0
     },
     stateDuration: {},
     totalBillableHours: 0,

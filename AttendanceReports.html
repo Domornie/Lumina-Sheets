@@ -332,6 +332,42 @@
       box-shadow: 0 10px 25px rgba(102, 126, 234, .3);
     }
 
+    .bottom-action-bar {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1050;
+      pointer-events: none;
+    }
+
+    .bottom-action-bar .btn {
+      pointer-events: auto;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-insights .modal-header {
+      background: var(--ai-gradient);
+      color: #fff;
+    }
+
+    .modal-trends .modal-header {
+      background: var(--gradient-info);
+      color: #fff;
+    }
+
+    .modal-insights .modal-body,
+    .modal-trends .modal-body {
+      max-height: 65vh;
+      overflow-y: auto;
+    }
+
+    .modal-loading {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--gray-600);
+    }
+
     /* CHART CONTAINERS */
     .chart-container {
       position: relative;
@@ -552,16 +588,6 @@
       </div>
     </div>
   </div>
-</div>
-
-<!-- INTELLIGENT INSIGHTS PANEL -->
-<div id="intelligentInsightsPanel" class="intelligent-insights-panel" style="display: none;" data-active="0">
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h3><i class="fas fa-lightbulb me-2"></i>Analytics Insights</h3>
-    <small class="text-muted">Powered by corrected time calculations</small>
-  </div>
-  <div id="insightsContainer"></div>
-  <div id="employeeTrendsContainer" class="mt-4"></div>
 </div>
 
 <!-- EXECUTIVE PANEL -->
@@ -968,6 +994,52 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- Analytics Insights Modal -->
+<div class="modal fade modal-insights" id="analyticsModal" tabindex="-1" aria-labelledby="analyticsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="analyticsModalLabel"><i class="fas fa-lightbulb me-2"></i>Analytics Insights</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="insightsContainer" data-has-content="0">
+          <div class="modal-loading">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 mb-0">Preparing analytics...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Employee Trends Modal -->
+<div class="modal fade modal-trends" id="employeeTrendsModal" tabindex="-1" aria-labelledby="employeeTrendsLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="employeeTrendsLabel"><i class="fas fa-user-clock me-2"></i>Employee Trends</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="employeeTrendsContainer" data-has-content="0">
+          <div class="modal-loading">
+            <div class="spinner-border text-info" role="status"></div>
+            <p class="mt-3 mb-0">Analyzing employee trends...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-action-bar">
+  <button class="btn btn-ai" id="employeeTrendsBtn" onclick="showEmployeeTrends()">
+    <i class="fas fa-chart-area me-2"></i>View Employee Trends
+  </button>
 </div>
 
 <!-- Toast Container -->
@@ -1404,8 +1476,7 @@
           'Training': 0,
           'Meeting': 0,
           'Break': 0,
-          'Lunch': 0,
-          'End of Shift': 0
+          'Lunch': 0
         },
         stateDuration: {},
         totalProductiveHours: 0,
@@ -2196,47 +2267,40 @@
     }
     renderIntelligentInsights() {
       try {
-        const panel = document.getElementById('intelligentInsightsPanel');
         const container = document.getElementById('insightsContainer');
         const trendsContainer = document.getElementById('employeeTrendsContainer');
         const intelligence = this.currentData.intelligence || {};
         const insights = Array.isArray(intelligence.insights) ? intelligence.insights : [];
         const trends = Array.isArray(intelligence.employeeTrends) ? intelligence.employeeTrends : [];
 
-        if ((!insights.length && !trends.length) || !panel) {
-          if (panel) {
-            panel.style.display = 'none';
-            panel.dataset.active = '0';
-          }
-          if (trendsContainer) {
-            trendsContainer.innerHTML = '';
-          }
-          return;
-        }
-
-        panel.style.display = 'block';
-        panel.dataset.active = '1';
-
         if (container) {
-          container.innerHTML = insights.map(insight => `
-            <div class="insight-card ${insight.priority || 'medium'}">
-              <div class="d-flex">
-                <div class="me-3"><i class="fas fa-lightbulb text-primary"></i></div>
-                <div class="flex-grow-1">
-                  <h6 class="mb-2">${insight.title || 'Insight'}</h6>
-                  <p class="mb-2">${insight.description || 'Analysis in progress...'}</p>
-                  ${insight.recommendation ? `<small class="text-muted"><strong>Recommendation:</strong> ${insight.recommendation}</small>` : ''}
-                  <div class="mt-2"><small class="badge bg-info">Based on corrected time calculations</small></div>
+          if (!insights.length) {
+            container.dataset.hasContent = '0';
+            container.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No analytics insight data available.</div>';
+          } else {
+            container.dataset.hasContent = '1';
+            container.innerHTML = insights.map(insight => `
+              <div class="insight-card ${insight.priority || 'medium'}">
+                <div class="d-flex">
+                  <div class="me-3"><i class="fas fa-lightbulb text-primary"></i></div>
+                  <div class="flex-grow-1">
+                    <h6 class="mb-2">${insight.title || 'Insight'}</h6>
+                    <p class="mb-2">${insight.description || 'Analysis in progress...'}</p>
+                    ${insight.recommendation ? `<small class="text-muted"><strong>Recommendation:</strong> ${insight.recommendation}</small>` : ''}
+                    <div class="mt-2"><small class="badge bg-info">Based on corrected time calculations</small></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          `).join('');
+            `).join('');
+          }
         }
 
         if (trendsContainer) {
           if (!trends.length) {
+            trendsContainer.dataset.hasContent = '0';
             trendsContainer.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No employee trend data available.</div>';
           } else {
+            trendsContainer.dataset.hasContent = '1';
             const rows = trends.map(trend => {
               const directionIcon = trend.trendDirection === 'up'
                 ? '<i class="fas fa-arrow-up trend-up me-1"></i>'
@@ -2276,8 +2340,6 @@
             }).join('');
 
             trendsContainer.innerHTML = `
-              <hr class="my-4" />
-              <h4 class="mb-3"><i class="fas fa-user-clock me-2"></i>Employee Trends</h4>
               <div class="table-responsive">
                 <table class="table table-sm align-middle">
                   <thead>
@@ -2376,7 +2438,6 @@
     updateViewMode() {
       const sections = {
         executivePanel: document.getElementById('executivePanel'),
-        insights: document.getElementById('intelligentInsightsPanel'),
         stateSummary: document.getElementById('stateSummarySection'),
         billableSummary: document.getElementById('billableSummarySection'),
         dailyBreakdown: document.getElementById('dailyBreakdownSection'),
@@ -2386,17 +2447,17 @@
       };
 
       const viewConfig = {
-        executive: ['executivePanel', 'insights'],
-        summary: ['executivePanel', 'insights', 'billableSummary', 'stateSummary', 'dailyBreakdown'],
+        executive: ['executivePanel'],
+        summary: ['executivePanel', 'billableSummary', 'stateSummary', 'dailyBreakdown'],
         detailed: Object.keys(sections),
-        standard: ['executivePanel', 'insights', 'stateSummary', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
+        standard: ['executivePanel', 'stateSummary', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
       };
 
       const activeKeys = new Set(viewConfig[this.viewMode] || viewConfig.standard);
 
       Object.entries(sections).forEach(([key, element]) => {
         if (!element) return;
-        const shouldShow = activeKeys.has(key) && !(key === 'insights' && element.dataset.active === '0');
+        const shouldShow = activeKeys.has(key);
         element.style.display = shouldShow ? '' : 'none';
       });
     }
@@ -2428,10 +2489,16 @@
       });
       this.charts = {};
 
-      const insightsPanel = document.getElementById('intelligentInsightsPanel');
-      if (insightsPanel) {
-        insightsPanel.style.display = 'none';
-        insightsPanel.dataset.active = '0';
+      const insightsContainer = document.getElementById('insightsContainer');
+      if (insightsContainer) {
+        insightsContainer.dataset.hasContent = '0';
+        insightsContainer.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No analytics insight data available.</div>';
+      }
+
+      const trendsContainer = document.getElementById('employeeTrendsContainer');
+      if (trendsContainer) {
+        trendsContainer.dataset.hasContent = '0';
+        trendsContainer.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No employee trend data available.</div>';
       }
 
       this.updateViewMode();
@@ -2935,6 +3002,8 @@
 
   // GLOBAL FUNCTIONS
   let dashboard;
+  let analyticsModalInstance;
+  let employeeTrendsModalInstance;
 
   function showEnhancedExportModal() {
     const modal = new bootstrap.Modal(document.getElementById('exportModal'));
@@ -2945,9 +3014,48 @@
     showEnhancedExportModal();
   }
 
+  function showModalLoading(containerId, message) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.dataset.hasContent = '0';
+    container.innerHTML = `
+      <div class="modal-loading">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 mb-0">${message}</p>
+      </div>
+    `;
+  }
+
   function refreshAIInsights() {
+    if (!analyticsModalInstance) {
+      const modalEl = document.getElementById('analyticsModal');
+      if (modalEl) {
+        analyticsModalInstance = new bootstrap.Modal(modalEl);
+      }
+    }
+
+    showModalLoading('insightsContainer', 'Preparing analytics insights...');
+    analyticsModalInstance?.show();
+
     if (dashboard) {
       dashboard.showToast('Refreshing analytics...', 'info');
+      dashboard.loadDataDebounced();
+    }
+  }
+
+  function showEmployeeTrends() {
+    if (!employeeTrendsModalInstance) {
+      const modalEl = document.getElementById('employeeTrendsModal');
+      if (modalEl) {
+        employeeTrendsModalInstance = new bootstrap.Modal(modalEl);
+      }
+    }
+
+    showModalLoading('employeeTrendsContainer', 'Analyzing employee trends...');
+    employeeTrendsModalInstance?.show();
+
+    if (dashboard) {
+      dashboard.showToast('Refreshing employee trends...', 'info');
       dashboard.loadDataDebounced();
     }
   }
