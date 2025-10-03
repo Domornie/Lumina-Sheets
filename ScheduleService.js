@@ -799,6 +799,153 @@ function clientGetAllSchedules(filters = {}) {
   }
 }
 
+/**
+ * Import schedules from uploaded data
+ */
+function clientImportSchedules(importRequest = {}) {
+  try {
+    const schedules = Array.isArray(importRequest.schedules) ? importRequest.schedules : [];
+    if (schedules.length === 0) {
+      throw new Error('No schedules were provided for import.');
+    }
+
+    const metadata = importRequest.metadata || {};
+    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
+    const now = new Date();
+    const nowIso = Utilities.formatDate(now, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+
+    const userLookup = buildScheduleUserLookup();
+    const normalizedNew = schedules
+      .map(raw => normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, timeZone))
+      .filter(record => record);
+
+    if (normalizedNew.length === 0) {
+      throw new Error('No valid schedules were found in the uploaded file.');
+    }
+
+    const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    const replaceExisting = metadata.replaceExisting === true;
+
+    const dateObjects = normalizedNew
+      .map(record => new Date(record.Date))
+      .filter(date => !isNaN(date.getTime()));
+
+    let minDate = null;
+    let maxDate = null;
+    if (dateObjects.length > 0) {
+      minDate = new Date(Math.min.apply(null, dateObjects));
+      maxDate = new Date(Math.max.apply(null, dateObjects));
+    }
+
+    if (metadata.startDate) {
+      metadata.startDate = normalizeDateForSheet(metadata.startDate, timeZone);
+    } else if (metadata.startWeekDate) {
+      metadata.startDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
+    }
+
+    if (metadata.endDate) {
+      metadata.endDate = normalizeDateForSheet(metadata.endDate, timeZone);
+    } else if (metadata.endWeekDate) {
+      metadata.endDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
+    }
+
+    const newKeys = new Set(normalizedNew.map(record => `${normalizeUserKey(record.UserName || record.UserID)}::${record.Date}`));
+    let replacedCount = 0;
+
+    const retainedRecords = existingRecords.filter(existing => {
+      const existingDate = normalizeDateForSheet(existing.Date, timeZone);
+      if (!existingDate) {
+        return true;
+      }
+
+      const key = `${normalizeUserKey(existing.UserName || existing.UserID)}::${existingDate}`;
+
+      if (replaceExisting && minDate && maxDate) {
+        const existingDateObj = new Date(existingDate);
+        if (!isNaN(existingDateObj.getTime()) && existingDateObj >= minDate && existingDateObj <= maxDate) {
+          replacedCount++;
+          return false;
+        }
+      }
+
+      if (newKeys.has(key)) {
+        replacedCount++;
+        return false;
+      }
+
+      return true;
+    });
+
+    const normalizedMin = minDate ? normalizeDateForSheet(minDate, timeZone) : '';
+    const normalizedMax = maxDate ? normalizeDateForSheet(maxDate, timeZone) : '';
+
+    const summary = typeof metadata.summary === 'object' && metadata.summary !== null ? metadata.summary : {};
+    if (metadata.startDate && !summary.startDate) {
+      summary.startDate = metadata.startDate;
+    } else if (normalizedMin && !summary.startDate) {
+      summary.startDate = normalizedMin;
+    }
+    if (metadata.endDate && !summary.endDate) {
+      summary.endDate = metadata.endDate;
+    } else if (normalizedMax && !summary.endDate) {
+      summary.endDate = normalizedMax;
+    }
+    if (typeof summary.totalAssignments !== 'number') {
+      summary.totalAssignments = normalizedNew.length;
+    }
+    if (typeof summary.totalShifts !== 'number') {
+      summary.totalShifts = normalizedNew.length;
+    }
+    if (typeof summary.dayCount !== 'number' || summary.dayCount <= 0) {
+      summary.dayCount = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
+    }
+    metadata.summary = summary;
+
+    if (!metadata.dayCount) {
+      const computedDays = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
+      if (computedDays) {
+        metadata.dayCount = computedDays;
+      }
+    }
+
+    const combinedRecords = retainedRecords.concat(normalizedNew);
+
+    combinedRecords.sort((a, b) => {
+      const dateA = new Date(a.Date || 0);
+      const dateB = new Date(b.Date || 0);
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateA - dateB;
+      }
+      const nameA = (a.UserName || '').toString();
+      const nameB = (b.UserName || '').toString();
+      return nameA.localeCompare(nameB);
+    });
+
+    writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, combinedRecords);
+    invalidateScheduleCaches();
+
+    return {
+      success: true,
+      importedCount: normalizedNew.length,
+      replacedCount,
+      totalAfterImport: combinedRecords.length,
+      range: {
+        start: normalizedMin,
+        end: normalizedMax
+      },
+      metadata
+    };
+
+  } catch (error) {
+    console.error('❌ Error importing schedules:', error);
+    safeWriteError('clientImportSchedules', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // ATTENDANCE DASHBOARD WITH AI INSIGHTS - Enhanced
 // ────────────────────────────────────────────────────────────────────────────
@@ -1626,6 +1773,187 @@ function checkIfHoliday(dateStr) {
     console.warn('Error checking holiday:', error);
     return false;
   }
+}
+
+function normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, timeZone) {
+  if (!raw) {
+    return null;
+  }
+
+  const dateStr = normalizeDateForSheet(raw.Date, timeZone);
+  const userName = (raw.UserName || '').toString().trim();
+
+  if (!userName || !dateStr) {
+    return null;
+  }
+
+  const userKey = normalizeUserKey(userName);
+  const matchedUser = userLookup[userKey];
+
+  const notes = [];
+  if (metadata && metadata.sourceMonth) {
+    const monthName = getMonthNameFromNumber(metadata.sourceMonth);
+    const yearPart = metadata.sourceYear ? ` ${metadata.sourceYear}` : '';
+    notes.push(`Imported from ${monthName || 'prior schedule'}${yearPart}`.trim());
+  }
+
+  if (raw.SourceDayLabel) {
+    notes.push(`Original Day: ${raw.SourceDayLabel}`);
+  }
+
+  if (raw.SourceCell && !raw.StartTime) {
+    notes.push(`Source: ${raw.SourceCell}`);
+  }
+
+  if (raw.Break2Start || raw.Break2End) {
+    const break2Start = raw.Break2Start || '';
+    const break2End = raw.Break2End || '';
+    notes.push(`Break 2: ${break2Start}${break2End ? ` - ${break2End}` : ''}`.trim());
+  }
+
+  if (raw.Notes) {
+    notes.push(raw.Notes);
+  }
+
+  const defaultPriority = typeof metadata.defaultPriority === 'number' ? metadata.defaultPriority : 2;
+
+  return {
+    ID: raw.ID || Utilities.getUuid(),
+    UserID: raw.UserID || (matchedUser ? matchedUser.ID : ''),
+    UserName: matchedUser ? (matchedUser.UserName || matchedUser.FullName) : userName,
+    Date: dateStr,
+    SlotID: raw.SlotID || '',
+    SlotName: raw.SlotName || `Imported ${raw.SourceDayLabel || 'Shift'}`,
+    StartTime: raw.StartTime || '',
+    EndTime: raw.EndTime || '',
+    OriginalStartTime: raw.OriginalStartTime || raw.StartTime || '',
+    OriginalEndTime: raw.OriginalEndTime || raw.EndTime || '',
+    BreakStart: raw.BreakStart || '',
+    BreakEnd: raw.BreakEnd || '',
+    LunchStart: raw.LunchStart || '',
+    LunchEnd: raw.LunchEnd || '',
+    IsDST: raw.IsDST || '',
+    Status: raw.Status || 'PENDING',
+    GeneratedBy: raw.GeneratedBy || metadata.importedBy || 'Schedule Importer',
+    ApprovedBy: raw.ApprovedBy || '',
+    NotificationSent: raw.NotificationSent || '',
+    CreatedAt: raw.CreatedAt || nowIso,
+    UpdatedAt: nowIso,
+    RecurringScheduleID: raw.RecurringScheduleID || '',
+    SwapRequestID: raw.SwapRequestID || '',
+    Priority: typeof raw.Priority === 'number' ? raw.Priority : defaultPriority,
+    Notes: notes.filter(Boolean).join(' | '),
+    Location: raw.Location || metadata.location || '',
+    Department: raw.Department || metadata.department || ''
+  };
+}
+
+function buildScheduleUserLookup() {
+  try {
+    const users = clientGetScheduleUsers('system') || [];
+    const lookup = {};
+
+    users.forEach(user => {
+      const candidateNames = [
+        user.UserName,
+        user.FullName,
+        user.Email ? user.Email.split('@')[0] : null
+      ].filter(Boolean);
+
+      candidateNames.forEach(name => {
+        const key = normalizeUserKey(name);
+        if (key && !lookup[key]) {
+          lookup[key] = user;
+        }
+      });
+    });
+
+    return lookup;
+  } catch (error) {
+    console.warn('Unable to build user lookup for schedule import:', error);
+    return {};
+  }
+}
+
+function normalizeUserKey(value) {
+  return (value || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeDateForSheet(value, timeZone) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) {
+      return '';
+    }
+    return Utilities.formatDate(value, timeZone, 'yyyy-MM-dd');
+  }
+
+  if (typeof value === 'number') {
+    const dateFromNumber = new Date(value);
+    if (!isNaN(dateFromNumber.getTime())) {
+      return Utilities.formatDate(dateFromNumber, timeZone, 'yyyy-MM-dd');
+    }
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return Utilities.formatDate(parsed, timeZone, 'yyyy-MM-dd');
+    }
+
+    const maybeNumber = Number(trimmed);
+    if (!Number.isNaN(maybeNumber) && maybeNumber > 0) {
+      const baseDate = new Date('1899-12-30T00:00:00Z');
+      baseDate.setDate(baseDate.getDate() + maybeNumber);
+      return Utilities.formatDate(baseDate, timeZone, 'yyyy-MM-dd');
+    }
+  }
+
+  return '';
+}
+
+function calculateDaySpanCount(startDate, endDate, minDate, maxDate) {
+  let start = startDate ? new Date(startDate) : null;
+  let end = endDate ? new Date(endDate) : null;
+
+  if ((!start || isNaN(start.getTime())) && minDate instanceof Date && !isNaN(minDate.getTime())) {
+    start = new Date(minDate);
+  }
+
+  if ((!end || isNaN(end.getTime())) && maxDate instanceof Date && !isNaN(maxDate.getTime())) {
+    end = new Date(maxDate);
+  }
+
+  if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 0;
+  }
+
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const diff = end.getTime() - start.getTime();
+  const days = Math.floor(diff / millisecondsPerDay) + 1;
+  return days > 0 ? days : 0;
+}
+
+function getMonthNameFromNumber(monthNumber) {
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const index = Number(monthNumber) - 1;
+  return months[index] || '';
 }
 
 console.log('✅ Enhanced Schedule Management Backend v4.1 loaded successfully');
