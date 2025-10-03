@@ -1434,8 +1434,6 @@
           throw new Error('No data received from server');
         }
         
-        // Reset auto-refresh timer on successful load
-        this.startAutoRefresh();
         this.currentData = data;
         this.renderDashboard();
 
