@@ -1266,24 +1266,35 @@ function generateAttendanceIntelligence(filteredRows, context) {
           nonProd: 0,
           breakSecs: 0,
           lunchSecs: 0,
-          stateMap: {},
+          stateMap: Object.create(null),
           days: new Set()
         });
       }
 
       const stats = perUser.get(row.user);
+      const rawState = typeof row.state === 'string' ? row.state.trim() : '';
+      const normalizedState = rawState.toLowerCase();
+      const isEndOfShift = normalizedState === 'end of shift'
+        || normalizedState === 'end-of-shift'
+        || normalizedState === 'end shift';
+      if (isEndOfShift) {
+        return;
+      }
+
       stats.total += durationSec;
-      stats.stateMap[row.state || 'Unknown'] = (stats.stateMap[row.state || 'Unknown'] || 0) + durationSec;
-      if (billableStates.has(row.state)) {
+      if (rawState) {
+        stats.stateMap[rawState] = (stats.stateMap[rawState] || 0) + durationSec;
+      }
+      if (billableStates.has(rawState)) {
         stats.billable += durationSec;
       }
-      if (nonProdStates.has(row.state)) {
+      if (nonProdStates.has(rawState)) {
         stats.nonProd += durationSec;
       }
-      if (row.state === 'Break') {
+      if (rawState === 'Break') {
         stats.breakSecs += durationSec;
       }
-      if (row.state === 'Lunch') {
+      if (rawState === 'Lunch') {
         stats.lunchSecs += durationSec;
       }
 
@@ -1308,10 +1319,6 @@ function generateAttendanceIntelligence(filteredRows, context) {
       const averageBreakPerDay = Math.round((toHours(stats.breakSecs) / activeDays) * 100) / 100;
       const averageLunchPerDay = Math.round((toHours(stats.lunchSecs) / activeDays) * 100) / 100;
 
-      const sortedStates = Object.entries(stats.stateMap)
-        .sort((a, b) => (b[1] || 0) - (a[1] || 0));
-      const focusArea = sortedStates.length > 0 ? sortedStates[0][0] : null;
-
       let trendDirection = 'stable';
       if (averageBillablePerDay >= 7.5) {
         trendDirection = 'up';
@@ -1321,6 +1328,10 @@ function generateAttendanceIntelligence(filteredRows, context) {
 
       const trendSummary = `${averageBillablePerDay.toFixed(2)}h billable / day, ${averageBreakPerDay.toFixed(2)}h break` +
         `, ${averageLunchPerDay.toFixed(2)}h lunch`;
+
+      const sortedStates = Object.entries(stats.stateMap)
+        .sort((a, b) => (b[1] || 0) - (a[1] || 0));
+      const focusArea = sortedStates.length > 0 ? sortedStates[0][0] : null;
 
       return {
         user,
