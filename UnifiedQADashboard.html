@@ -1,6 +1,12 @@
     <?!= includeOnce('ResponsiveStyles') ?>
 <!-- UnifiedQADashboard.html - Updated for Independence QA with Campaign Filtering -->
-<?!= include("layout", { rawToken: rawToken, baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include("layout", {
+  rawToken: rawToken,
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'unifiedqadashboard'
+}) ?>
 
 <style>
     :root {

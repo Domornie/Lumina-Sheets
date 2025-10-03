@@ -1,5 +1,10 @@
 <!-- File: ImportAttendance.html -->
-<?!= include('layout', { baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'importattendance'
+}) ?>
 
 <style>
   /* Import-specific styles using the modern design system */

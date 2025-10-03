@@ -1,6 +1,11 @@
     <?!= includeOnce('ResponsiveStyles') ?>
 <!-- QAView.html -->
-<?!= include("layout", { baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include("layout", {
+  baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'qualityview'
+}) ?>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
