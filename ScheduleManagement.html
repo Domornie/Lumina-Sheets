@@ -898,14 +898,14 @@
                 <div class="modern-card-body">
                     <form id="scheduleImportForm" class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label-modern" for="importStartWeek">Start Week</label>
-                            <input type="date" class="form-control form-control-modern" id="importStartWeek" required>
-                            <div class="form-text">Select the Sunday that begins the first week you are importing.</div>
+                            <label class="form-label-modern" for="importStartDate">Start Date</label>
+                            <input type="date" class="form-control form-control-modern" id="importStartDate" required>
+                            <div class="form-text">Pick the first day covered by the schedule you are importing.</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label-modern" for="importEndWeek">End Week</label>
-                            <input type="date" class="form-control form-control-modern" id="importEndWeek" required>
-                            <div class="form-text">Select the Sunday that begins the final week included in the file.</div>
+                            <label class="form-label-modern" for="importEndDate">End Date</label>
+                            <input type="date" class="form-control form-control-modern" id="importEndDate" required>
+                            <div class="form-text">Any date within the final week is fine—the importer will align the days automatically.</div>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label-modern" for="importMonth">Source Month</label>
@@ -1638,20 +1638,14 @@
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
 
-                const importStartWeek = document.getElementById('importStartWeek');
-                const importEndWeek = document.getElementById('importEndWeek');
-                if (importStartWeek && importEndWeek) {
+                const importStartDate = document.getElementById('importStartDate');
+                const importEndDate = document.getElementById('importEndDate');
+                if (importStartDate && importEndDate) {
                     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
                     const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-                    const firstSunday = new Date(monthStart);
-                    firstSunday.setDate(monthStart.getDate() - monthStart.getDay());
-
-                    const lastSunday = new Date(monthEnd);
-                    lastSunday.setDate(monthEnd.getDate() - lastSunday.getDay());
-
-                    importStartWeek.valueAsDate = firstSunday;
-                    importEndWeek.valueAsDate = lastSunday >= firstSunday ? lastSunday : firstSunday;
+                    importStartDate.valueAsDate = monthStart;
+                    importEndDate.valueAsDate = monthEnd >= monthStart ? monthEnd : monthStart;
                 }
 
                 const importMonth = document.getElementById('importMonth');
@@ -2719,8 +2713,8 @@
                 try {
                     this.showLoading(true);
 
-                    const startWeek = document.getElementById('importStartWeek')?.value;
-                    const endWeek = document.getElementById('importEndWeek')?.value;
+                    const startDate = document.getElementById('importStartDate')?.value;
+                    const endDate = document.getElementById('importEndDate')?.value;
                     const sourceMonth = parseInt(document.getElementById('importMonth')?.value, 10);
                     const sourceYear = parseInt(document.getElementById('importYear')?.value, 10);
                     const replaceExisting = document.getElementById('importReplace')?.checked === true;
@@ -2730,16 +2724,16 @@
                     if (!file) {
                         throw new Error('Please select a schedule file to import.');
                     }
-                    if (!startWeek) {
-                        throw new Error('Please select the starting week.');
+                    if (!startDate) {
+                        throw new Error('Please select the starting date.');
                     }
-                    if (!endWeek) {
-                        throw new Error('Please select the ending week.');
+                    if (!endDate) {
+                        throw new Error('Please select the ending date.');
                     }
 
-                    const rangeValidation = this.validateImportWeekRange(startWeek, endWeek);
+                    const rangeValidation = this.validateImportDateRange(startDate, endDate);
                     if (!rangeValidation.valid) {
-                        throw new Error(rangeValidation.message || 'Please provide a valid week range.');
+                        throw new Error(rangeValidation.message || 'Please provide a valid date range.');
                     }
                     if (!sourceMonth || Number.isNaN(sourceMonth)) {
                         throw new Error('Please select the source month.');
@@ -2749,9 +2743,8 @@
                     }
 
                     const options = {
-                        startWeekDate: startWeek,
-                        endWeekDate: endWeek,
-                        weekStartDate: startWeek,
+                        startDate,
+                        endDate,
                         sourceMonth,
                         sourceYear,
                         fileName: file.name || ''
@@ -2767,20 +2760,19 @@
 
                     this.renderImportPreview(schedules, options, summary);
 
-                    const importWeeks = summary?.weekCount ?? this.countWeekRange(startWeek, endWeek);
-                    const dateStartLabel = summary?.startDate ? this.formatDate(summary.startDate) : this.formatDate(startWeek);
-                    const dateEndLabel = summary?.endDate ? this.formatDate(summary.endDate) : this.formatDate(endWeek);
-                    const message = `Import ${schedules.length} schedule${schedules.length === 1 ? '' : 's'} covering ${importWeeks} week${importWeeks === 1 ? '' : 's'} from ${dateStartLabel} to ${dateEndLabel}?`;
+                    const importDays = summary?.dayCount ?? this.countDaysInRange(startDate, endDate);
+                    const dateStartLabel = summary?.startDate ? this.formatDate(summary.startDate) : this.formatDate(startDate);
+                    const dateEndLabel = summary?.endDate ? this.formatDate(summary.endDate) : this.formatDate(endDate);
+                    const message = `Import ${schedules.length} schedule${schedules.length === 1 ? '' : 's'} covering ${importDays} day${importDays === 1 ? '' : 's'} from ${dateStartLabel} to ${dateEndLabel}?`;
                     if (!confirm(message)) {
                         return;
                     }
 
                     const payload = {
                         metadata: {
-                            weekStartDate: startWeek,
-                            startWeekDate: startWeek,
-                            endWeekDate: endWeek,
-                            weekCount: summary?.weekCount ?? importWeeks,
+                            startDate,
+                            endDate,
+                            dayCount: summary?.dayCount ?? importDays,
                             sourceMonth,
                             sourceYear,
                             fileName: file.name || '',
@@ -2916,7 +2908,7 @@
                     totalAssignments: 0,
                     skippedEntries: 0,
                     totalAgents: 0,
-                    weekCount: 0,
+                    dayCount: 0,
                     startDate: '',
                     endDate: '',
                     duplicatesSkipped: 0,
@@ -2951,12 +2943,24 @@
                 const slotIndex = headerKeys.findIndex(key => key.includes('slot') || key.includes('shift') || key.includes('time'));
                 const effectiveSlotIndex = slotIndex !== -1 ? slotIndex : 0;
 
-                const weekStarts = this.generateWeekStartDates(options.startWeekDate, options.endWeekDate);
-                if (weekStarts.length === 0) {
-                    throw new Error('Please provide a valid start and end week to import the monthly schedule.');
+                const dateRange = this.generateDateRange(options.startDate, options.endDate);
+                if (dateRange.length === 0) {
+                    throw new Error('Please provide a valid start and end date to import the monthly schedule.');
                 }
 
-                summary.weekCount = weekStarts.length;
+                const dayColumnMap = new Map();
+                dayColumns.forEach(column => {
+                    if (!dayColumnMap.has(column.dayOfWeek)) {
+                        dayColumnMap.set(column.dayOfWeek, column);
+                    }
+                });
+
+                const relevantDates = dateRange.filter(dateInfo => dayColumnMap.has(dateInfo.dayOfWeek));
+                if (relevantDates.length === 0) {
+                    throw new Error('The importer could not match the selected dates to any day columns in the file.');
+                }
+
+                summary.dayCount = relevantDates.length;
 
                 const schedules = [];
                 const agentSet = new Set();
@@ -2969,7 +2973,12 @@
 
                     let rowAssignments = 0;
 
-                    dayColumns.forEach(dayColumn => {
+                    relevantDates.forEach(dateInfo => {
+                        const dayColumn = dayColumnMap.get(dateInfo.dayOfWeek);
+                        if (!dayColumn) {
+                            return;
+                        }
+
                         const cellValue = this.normalizeCellValue(row[dayColumn.index]);
                         if (!cellValue) {
                             return;
@@ -2981,46 +2990,39 @@
                             return;
                         }
 
-                        weekStarts.forEach(weekStart => {
-                            const date = this.computeScheduleDate(weekStart, dayColumn.dayOfWeek);
-                            if (!date) {
-                                summary.skippedEntries++;
+                        agents.forEach(agentName => {
+                            const date = dateInfo.iso;
+                            const agentKey = this.normalizePersonKey(agentName);
+                            agentSet.add(agentKey);
+                            const assignmentKey = `${agentKey}::${date}`;
+                            if (seenAssignments.has(assignmentKey)) {
+                                summary.duplicatesSkipped++;
                                 return;
                             }
 
-                            agents.forEach(agentName => {
-                                const agentKey = this.normalizePersonKey(agentName);
-                                agentSet.add(agentKey);
-                                const assignmentKey = `${agentKey}::${date}`;
-                                if (seenAssignments.has(assignmentKey)) {
-                                    summary.duplicatesSkipped++;
-                                    return;
-                                }
+                            seenAssignments.add(assignmentKey);
 
-                                seenAssignments.add(assignmentKey);
+                            const schedule = {
+                                UserName: agentName,
+                                Date: date,
+                                StartTime: slotRange?.start || '',
+                                EndTime: slotRange?.end || '',
+                                SlotName: slotLabel,
+                                Status: 'PENDING',
+                                SourceDayLabel: dayColumn.label || '',
+                                SourceMonth: options.sourceMonth,
+                                SourceYear: options.sourceYear,
+                                SourceCell: cellValue
+                            };
 
-                                const schedule = {
-                                    UserName: agentName,
-                                    Date: date,
-                                    StartTime: slotRange?.start || '',
-                                    EndTime: slotRange?.end || '',
-                                    SlotName: slotLabel,
-                                    Status: 'PENDING',
-                                    SourceDayLabel: dayColumn.label || '',
-                                    SourceMonth: options.sourceMonth,
-                                    SourceYear: options.sourceYear,
-                                    SourceCell: cellValue
-                                };
+                            if (slotCellValue && !slotRange) {
+                                schedule.Notes = `Slot: ${slotCellValue}`;
+                            }
 
-                                if (slotCellValue && !slotRange) {
-                                    schedule.Notes = `Slot: ${slotCellValue}`;
-                                }
-
-                                schedules.push(schedule);
-                                summary.totalShifts++;
-                                summary.totalAssignments++;
-                                rowAssignments++;
-                            });
+                            schedules.push(schedule);
+                            summary.totalShifts++;
+                            summary.totalAssignments++;
+                            rowAssignments++;
                         });
                     });
 
@@ -3042,64 +3044,73 @@
                         summary.startDate = this.toIsoDateString(minDate);
                         summary.endDate = this.toIsoDateString(maxDate);
                     }
+                } else if (relevantDates.length > 0) {
+                    summary.startDate = relevantDates[0].iso;
+                    summary.endDate = relevantDates[relevantDates.length - 1].iso;
                 }
 
                 summary.totalAgents = agentSet.size;
                 return { schedules, summary };
             }
 
-            validateImportWeekRange(startWeek, endWeek) {
-                if (!startWeek || !endWeek) {
-                    return { valid: false, message: 'Start and end weeks are required.' };
+            validateImportDateRange(startDate, endDate) {
+                if (!startDate || !endDate) {
+                    return { valid: false, message: 'Start and end dates are required.' };
                 }
 
-                const start = new Date(startWeek);
-                const end = new Date(endWeek);
+                const start = new Date(startDate);
+                const end = new Date(endDate);
 
                 if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                    return { valid: false, message: 'Invalid week selection. Please use valid dates.' };
+                    return { valid: false, message: 'Invalid date selection. Please use valid dates.' };
                 }
 
                 if (end < start) {
-                    return { valid: false, message: 'The ending week must be the same as or after the starting week.' };
-                }
-
-                if (start.getDay() !== 0) {
-                    return { valid: false, message: 'The starting week should be a Sunday.' };
-                }
-
-                if (end.getDay() !== 0) {
-                    return { valid: false, message: 'The ending week should be a Sunday.' };
+                    return { valid: false, message: 'The ending date must be the same as or after the starting date.' };
                 }
 
                 return { valid: true };
             }
 
-            countWeekRange(startWeek, endWeek) {
-                const weeks = this.generateWeekStartDates(startWeek, endWeek);
-                return weeks.length;
+            countDaysInRange(startDate, endDate) {
+                if (!startDate || !endDate) {
+                    return 0;
+                }
+
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+                    return 0;
+                }
+
+                const diff = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+                return diff > 0 ? diff : 0;
             }
 
-            generateWeekStartDates(startWeek, endWeek) {
-                if (!startWeek || !endWeek) {
+            generateDateRange(startDate, endDate) {
+                if (!startDate || !endDate) {
                     return [];
                 }
 
-                const start = new Date(startWeek);
-                const end = new Date(endWeek);
-                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+
+                if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
                     return [];
                 }
 
-                const results = [];
+                const dates = [];
                 const cursor = new Date(start);
 
                 while (cursor <= end) {
-                    results.push(this.toIsoDateString(cursor));
-                    cursor.setDate(cursor.getDate() + 7);
+                    dates.push({
+                        iso: this.toIsoDateString(cursor),
+                        dayOfWeek: cursor.getDay()
+                    });
+                    cursor.setDate(cursor.getDate() + 1);
                 }
 
-                return results;
+                return dates;
             }
 
             extractAgentNames(cellValue) {
@@ -3171,21 +3182,6 @@
                 return { start, end, label: raw };
             }
 
-            computeScheduleDate(weekStartDate, dayOfWeek) {
-                if (!weekStartDate && weekStartDate !== 0) {
-                    return '';
-                }
-
-                const base = new Date(weekStartDate);
-                if (isNaN(base.getTime())) {
-                    return '';
-                }
-
-                const target = new Date(base);
-                target.setDate(base.getDate() + dayOfWeek);
-                return this.toIsoDateString(target);
-            }
-
             toIsoDateString(date) {
                 if (!(date instanceof Date) || isNaN(date.getTime())) {
                     return '';
@@ -3219,19 +3215,19 @@
                 const dateRange = summary?.startDate && summary?.endDate
                     ? `${this.formatDate(summary.startDate)} - ${this.formatDate(summary.endDate)}`
                     : '';
-                const startWeekLabel = this.formatDate(options.startWeekDate);
-                const endWeekLabel = this.formatDate(options.endWeekDate);
-                const fallbackRange = startWeekLabel && endWeekLabel
-                    ? `${startWeekLabel} - ${endWeekLabel}`
-                    : (startWeekLabel || endWeekLabel || '');
-                const weekCount = summary?.weekCount ?? this.countWeekRange(options.startWeekDate, options.endWeekDate);
+                const startDateLabel = this.formatDate(options.startDate);
+                const endDateLabel = this.formatDate(options.endDate);
+                const fallbackRange = startDateLabel && endDateLabel
+                    ? `${startDateLabel} - ${endDateLabel}`
+                    : (startDateLabel || endDateLabel || '');
+                const dayCount = summary?.dayCount ?? this.countDaysInRange(options.startDate, options.endDate);
 
                 container.innerHTML = `
                     <div class="alert alert-info-modern">
                         <div class="d-flex flex-wrap gap-3">
                             <span><strong>Date range:</strong> ${dateRange || fallbackRange || 'N/A'}</span>
                             <span><strong>Source month:</strong> ${monthName || 'N/A'} ${options.sourceYear || ''}</span>
-                            <span><strong>Weeks covered:</strong> ${weekCount}</span>
+                            <span><strong>Days covered:</strong> ${dayCount}</span>
                             <span><strong>Assignments:</strong> ${total}</span>
                             <span><strong>Unique agents:</strong> ${summary?.totalAgents ?? 0}</span>
                         </div>
@@ -3285,9 +3281,9 @@
                     : (result.range?.start ? this.formatDate(result.range.start) : '');
 
                 const metadata = result.metadata || {};
-                const weeksCovered = metadata?.summary?.weekCount ?? metadata.weekCount ?? '';
-                const startWeekLabel = metadata.startWeekDate ? this.formatDate(metadata.startWeekDate) : '';
-                const endWeekLabel = metadata.endWeekDate ? this.formatDate(metadata.endWeekDate) : '';
+                const daysCovered = metadata?.summary?.dayCount ?? metadata.dayCount ?? '';
+                const startDateLabel = metadata.startDate ? this.formatDate(metadata.startDate) : '';
+                const endDateLabel = metadata.endDate ? this.formatDate(metadata.endDate) : '';
 
                 container.innerHTML = `
                     <div class="alert alert-success-modern">
@@ -3297,8 +3293,8 @@
                             <li><strong>Replaced:</strong> ${result.replacedCount || 0}</li>
                             <li><strong>Total schedules now:</strong> ${result.totalAfterImport ?? 'N/A'}</li>
                             ${range ? `<li><strong>Date range affected:</strong> ${range}</li>` : ''}
-                            ${weeksCovered ? `<li><strong>Weeks covered:</strong> ${weeksCovered}</li>` : ''}
-                            ${startWeekLabel && endWeekLabel ? `<li><strong>Week span:</strong> ${startWeekLabel} - ${endWeekLabel}</li>` : ''}
+                            ${daysCovered ? `<li><strong>Days covered:</strong> ${daysCovered}</li>` : ''}
+                            ${startDateLabel && endDateLabel ? `<li><strong>Date span:</strong> ${startDateLabel} - ${endDateLabel}</li>` : ''}
                         </ul>
                     </div>
                 `;
