@@ -2981,6 +2981,16 @@
 
                 summary.dayCount = relevantDates.length;
 
+                const excludedColumns = new Set(dayColumnIndexes);
+                if (agentColumnIndex !== -1) {
+                    excludedColumns.add(agentColumnIndex);
+                }
+                if (effectiveSlotIndex !== -1) {
+                    excludedColumns.add(effectiveSlotIndex);
+                }
+
+                const breakColumns = this.identifyBreakAndLunchColumns(headerKeys, excludedColumns);
+
                 const schedules = [];
                 const agentSet = new Set();
                 const seenAssignments = new Set();
@@ -2996,6 +3006,10 @@
                     const slotCellValue = effectiveSlotIndex !== -1 ? this.normalizeCellValue(row[effectiveSlotIndex]) : '';
                     const slotRange = this.parseTimeRange(slotCellValue);
                     const baseSlotLabel = slotRange?.label || slotCellValue || '';
+
+                    const break1Times = this.extractTimeWindowFromRow(row, breakColumns.break1);
+                    const lunchTimes = this.extractTimeWindowFromRow(row, breakColumns.lunch);
+                    const break2Times = this.extractTimeWindowFromRow(row, breakColumns.break2);
 
                     let rowAssignments = 0;
                     let agentHasSchedule = false;
@@ -3044,6 +3058,25 @@
 
                         if (slotCellValue && !slotRange && slotCellValue !== cellValue) {
                             schedule.Notes = `Slot: ${slotCellValue}`;
+                        }
+
+                        if (break1Times.start) {
+                            schedule.BreakStart = break1Times.start;
+                        }
+                        if (break1Times.end) {
+                            schedule.BreakEnd = break1Times.end;
+                        }
+                        if (lunchTimes.start) {
+                            schedule.LunchStart = lunchTimes.start;
+                        }
+                        if (lunchTimes.end) {
+                            schedule.LunchEnd = lunchTimes.end;
+                        }
+                        if (break2Times.start) {
+                            schedule.Break2Start = break2Times.start;
+                        }
+                        if (break2Times.end) {
+                            schedule.Break2End = break2Times.end;
                         }
 
                         schedules.push(schedule);
@@ -3215,13 +3248,18 @@
                     return null;
                 }
 
-                const dashIndex = raw.indexOf('-');
+                const normalizedRaw = raw
+                    .replace(/[–—]/g, '-')
+                    .replace(/\bto\b/gi, '-')
+                    .replace(/\s+-\s+/g, ' - ');
+
+                const dashIndex = normalizedRaw.indexOf('-');
                 if (dashIndex === -1) {
                     return null;
                 }
 
-                const start = raw.slice(0, dashIndex).trim();
-                const endSegment = raw.slice(dashIndex + 1).trim();
+                const start = normalizedRaw.slice(0, dashIndex).trim();
+                const endSegment = normalizedRaw.slice(dashIndex + 1).trim();
                 const end = endSegment.split(/[(/]/)[0].trim();
 
                 if (!start || !end) {
@@ -3229,6 +3267,130 @@
                 }
 
                 return { start, end, label: raw };
+            }
+
+            identifyBreakAndLunchColumns(headerKeys, excludedColumns = new Set()) {
+                const findIndex = (keywords) => {
+                    return headerKeys.findIndex((key, index) => {
+                        if (excludedColumns.has(index)) {
+                            return false;
+                        }
+
+                        return keywords.some(keyword => key.includes(keyword));
+                    });
+                };
+
+                const break1RangeIndex = findIndex(['break1', 'firstbreak']);
+                const break1StartIndex = findIndex(['break1start', 'startbreak1', 'firstbreakstart']);
+                const break1EndIndex = findIndex(['break1end', 'endbreak1', 'firstbreakend']);
+
+                let genericBreakIndex = -1;
+                if (break1RangeIndex === -1) {
+                    genericBreakIndex = headerKeys.findIndex((key, index) => {
+                        if (excludedColumns.has(index)) {
+                            return false;
+                        }
+
+                        const matchesBreak = key.includes('break');
+                        const isBreak2 = key.includes('break2') || key.includes('secondbreak');
+                        return matchesBreak && !isBreak2;
+                    });
+                }
+
+                const lunchRangeIndex = findIndex(['lunch']);
+                const lunchStartIndex = findIndex(['lunchstart', 'startlunch']);
+                const lunchEndIndex = findIndex(['lunchend', 'endlunch']);
+
+                const break2RangeIndex = findIndex(['break2', 'secondbreak']);
+                const break2StartIndex = findIndex(['break2start', 'startbreak2', 'secondbreakstart']);
+                const break2EndIndex = findIndex(['break2end', 'endbreak2', 'secondbreakend']);
+
+                return {
+                    break1: {
+                        range: break1RangeIndex !== -1 ? break1RangeIndex : genericBreakIndex,
+                        start: break1StartIndex,
+                        end: break1EndIndex
+                    },
+                    lunch: {
+                        range: lunchRangeIndex,
+                        start: lunchStartIndex,
+                        end: lunchEndIndex
+                    },
+                    break2: {
+                        range: break2RangeIndex,
+                        start: break2StartIndex,
+                        end: break2EndIndex
+                    }
+                };
+            }
+
+            extractTimeWindowFromRow(row, columnConfig = {}) {
+                if (!columnConfig || Object.keys(columnConfig).length === 0) {
+                    return { start: '', end: '' };
+                }
+
+                const rangeValue = columnConfig.range !== undefined && columnConfig.range !== -1
+                    ? this.normalizeCellValue(row[columnConfig.range])
+                    : '';
+                const startValue = columnConfig.start !== undefined && columnConfig.start !== -1
+                    ? this.normalizeCellValue(row[columnConfig.start])
+                    : '';
+                const endValue = columnConfig.end !== undefined && columnConfig.end !== -1
+                    ? this.normalizeCellValue(row[columnConfig.end])
+                    : '';
+
+                let start = '';
+                let end = '';
+
+                const applyRange = (value) => {
+                    if (!value) {
+                        return false;
+                    }
+
+                    if (this.isSkippableAssignmentValue(value)) {
+                        return false;
+                    }
+
+                    const parsed = this.parseTimeRange(value);
+                    if (parsed) {
+                        start = start || parsed.start;
+                        end = end || parsed.end;
+                        return true;
+                    }
+
+                    if (!start) {
+                        start = value;
+                    }
+
+                    return false;
+                };
+
+                applyRange(rangeValue);
+
+                if (!start && startValue) {
+                    if (!applyRange(startValue)) {
+                        start = startValue || start;
+                    }
+                }
+
+                if (!end && endValue) {
+                    if (!applyRange(endValue)) {
+                        end = endValue || end;
+                    }
+                }
+
+                if (!end && rangeValue && start && rangeValue !== start && !this.isSkippableAssignmentValue(rangeValue)) {
+                    const normalized = rangeValue.replace(start, '').replace(/[–—]/g, '-');
+                    const parts = normalized.split('-').map(part => part.trim()).filter(Boolean);
+                    if (parts.length > 0) {
+                        end = parts[parts.length - 1];
+                    }
+                }
+
+                return {
+                    start: start || '',
+                    end: end || ''
+                };
             }
 
             toIsoDateString(date) {
