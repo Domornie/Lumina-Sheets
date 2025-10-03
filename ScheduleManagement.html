@@ -3079,6 +3079,12 @@
                     summary.endDate = relevantDates[relevantDates.length - 1].iso;
                 }
 
+                if (!summary.weekCount || summary.weekCount < 0) {
+                    const weekSpanStart = summary.startDate || options.startDate || (relevantDates[0]?.iso ?? '');
+                    const weekSpanEnd = summary.endDate || options.endDate || (relevantDates[relevantDates.length - 1]?.iso ?? '');
+                    summary.weekCount = this.calculateWeekSpanCount(weekSpanStart, weekSpanEnd);
+                }
+
                 summary.totalAgents = agentSet.size;
                 return { schedules, summary };
             }
@@ -3115,6 +3121,19 @@
 
                 const diff = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
                 return diff > 0 ? diff : 0;
+            }
+
+            calculateWeekSpanCount(startDate, endDate) {
+                if (!startDate || !endDate) {
+                    return 0;
+                }
+
+                const days = this.countDaysInRange(startDate, endDate);
+                if (days <= 0) {
+                    return 0;
+                }
+
+                return Math.ceil(days / 7);
             }
 
             generateDateRange(startDate, endDate) {
@@ -3875,6 +3894,21 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.scheduleManager = new LuminaScheduleManager();
+            window.calculateWeekSpanCount = (startDate, endDate) => {
+                if (window.scheduleManager && typeof window.scheduleManager.calculateWeekSpanCount === 'function') {
+                    return window.scheduleManager.calculateWeekSpanCount(startDate, endDate);
+                }
+                if (!startDate || !endDate) {
+                    return 0;
+                }
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+                    return 0;
+                }
+                const diff = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+                return diff > 0 ? Math.ceil(diff / 7) : 0;
+            };
             console.log('✅ LUMINA Schedule Management System v4.0 - Modern Edition initialized');
         });
     </script>
