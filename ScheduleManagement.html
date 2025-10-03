@@ -531,6 +531,12 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="import-tab" data-bs-toggle="pill" data-bs-target="#import" type="button" role="tab">
+                    <i class="fas fa-file-import"></i>
+                    <span class="d-none d-sm-inline ms-2">Import</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button" role="tab">
                     <i class="fas fa-calendar-check"></i>
                     <span class="d-none d-sm-inline ms-2">Attendance</span>
@@ -876,6 +882,98 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Schedules Tab -->
+        <div class="tab-pane fade" id="import" role="tabpanel">
+            <div class="modern-card">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-file-import text-primary"></i>
+                        Import Existing Schedules
+                    </h5>
+                </div>
+                <div class="modern-card-body">
+                    <form id="scheduleImportForm" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label-modern" for="importStartWeek">Start Week</label>
+                            <input type="date" class="form-control form-control-modern" id="importStartWeek" required>
+                            <div class="form-text">Select the Sunday that begins the first week you are importing.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-modern" for="importEndWeek">End Week</label>
+                            <input type="date" class="form-control form-control-modern" id="importEndWeek" required>
+                            <div class="form-text">Select the Sunday that begins the final week included in the file.</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label-modern" for="importMonth">Source Month</label>
+                            <select class="form-select form-control-modern" id="importMonth" required>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label-modern" for="importYear">Source Year</label>
+                            <input type="number" class="form-control form-control-modern" id="importYear" min="2000" max="2100" required>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="importReplace">
+                                <label class="form-check-label" for="importReplace">Replace existing</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label-modern" for="scheduleFile">Schedule File</label>
+                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt" required>
+                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents.</div>
+                        </div>
+
+                        <div class="col-12 d-flex flex-wrap gap-2 mt-2">
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>
+                                Import Schedules
+                            </button>
+                            <button type="button" class="btn btn-outline-modern" id="clearImportPreview">
+                                <i class="fas fa-eraser me-2"></i>
+                                Clear Preview
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="importPreview" class="mt-4"></div>
+                    <div id="importSummary" class="mt-3"></div>
+                </div>
+            </div>
+
+            <div class="modern-card mt-4">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-info-circle text-info"></i>
+                        Expected File Format
+                    </h5>
+                </div>
+                <div class="modern-card-body">
+                    <p class="text-muted">Use the monthly slot matrix exported from your scheduling sheet:</p>
+                    <ul class="mb-3">
+                        <li>The first column lists each shift slot or time range (e.g., <code>8:00 AM - 5:00 PM</code>).</li>
+                        <li>Columns for Monday through Friday contain the agent names assigned to that slot for the week. Separate multiple names with line breaks, commas, or slashes.</li>
+                        <li>Optional weekend columns are supported and will be imported when present.</li>
+                        <li>Cells marked <code>OFF</code>, <code>N/A</code>, <code>PTO</code>, or left blank will be skipped.</li>
+                    </ul>
+                    <p class="mb-0 text-muted">Select the first and last Sundays for the month you are importing and the importer will generate individual daily schedules for every assigned agent across that span.</p>
                 </div>
             </div>
         </div>
@@ -1514,6 +1612,9 @@
                 this.availableUsers = [];
                 this.availableCampaigns = [];
                 this.attendanceChart = null;
+                this.pendingImportSchedules = [];
+                this.pendingImportSummary = null;
+                this.lastImportResult = null;
                 this.init();
             }
 
@@ -1536,6 +1637,37 @@
                 document.getElementById('filterEndDate').valueAsDate = today;
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
+
+                const importStartWeek = document.getElementById('importStartWeek');
+                const importEndWeek = document.getElementById('importEndWeek');
+                if (importStartWeek && importEndWeek) {
+                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+                    const firstSunday = new Date(monthStart);
+                    firstSunday.setDate(monthStart.getDate() - monthStart.getDay());
+
+                    const lastSunday = new Date(monthEnd);
+                    lastSunday.setDate(monthEnd.getDate() - lastSunday.getDay());
+
+                    importStartWeek.valueAsDate = firstSunday;
+                    importEndWeek.valueAsDate = lastSunday >= firstSunday ? lastSunday : firstSunday;
+                }
+
+                const importMonth = document.getElementById('importMonth');
+                if (importMonth) {
+                    importMonth.value = today.getMonth() + 1;
+                }
+
+                const importYear = document.getElementById('importYear');
+                if (importYear) {
+                    importYear.value = today.getFullYear();
+                }
+
+                const importReplace = document.getElementById('importReplace');
+                if (importReplace) {
+                    importReplace.checked = false;
+                }
             }
 
             initEventListeners() {
@@ -1553,6 +1685,25 @@
                 document.getElementById('holidayImportForm')?.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.importHolidays();
+                });
+
+                document.getElementById('scheduleImportForm')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleScheduleImport();
+                });
+
+                document.getElementById('scheduleFile')?.addEventListener('change', (e) => {
+                    this.handleScheduleFileSelect(e);
+                });
+
+                document.getElementById('clearImportPreview')?.addEventListener('click', () => {
+                    this.clearImportPreview();
+                    this.clearImportSummary();
+                    const fileInput = document.getElementById('scheduleFile');
+                    if (fileInput) {
+                        fileInput.value = '';
+                    }
+                    this.updateImportFileName();
                 });
 
                 // Tab change listeners
@@ -2564,6 +2715,639 @@
                 }
             }
 
+            async handleScheduleImport() {
+                try {
+                    this.showLoading(true);
+
+                    const startWeek = document.getElementById('importStartWeek')?.value;
+                    const endWeek = document.getElementById('importEndWeek')?.value;
+                    const sourceMonth = parseInt(document.getElementById('importMonth')?.value, 10);
+                    const sourceYear = parseInt(document.getElementById('importYear')?.value, 10);
+                    const replaceExisting = document.getElementById('importReplace')?.checked === true;
+                    const fileInput = document.getElementById('scheduleFile');
+                    const file = fileInput?.files?.[0];
+
+                    if (!file) {
+                        throw new Error('Please select a schedule file to import.');
+                    }
+                    if (!startWeek) {
+                        throw new Error('Please select the starting week.');
+                    }
+                    if (!endWeek) {
+                        throw new Error('Please select the ending week.');
+                    }
+
+                    const rangeValidation = this.validateImportWeekRange(startWeek, endWeek);
+                    if (!rangeValidation.valid) {
+                        throw new Error(rangeValidation.message || 'Please provide a valid week range.');
+                    }
+                    if (!sourceMonth || Number.isNaN(sourceMonth)) {
+                        throw new Error('Please select the source month.');
+                    }
+                    if (!sourceYear || Number.isNaN(sourceYear)) {
+                        throw new Error('Please provide the source year.');
+                    }
+
+                    const options = {
+                        startWeekDate: startWeek,
+                        endWeekDate: endWeek,
+                        weekStartDate: startWeek,
+                        sourceMonth,
+                        sourceYear,
+                        fileName: file.name || ''
+                    };
+
+                    const { schedules, summary } = await this.parseScheduleFile(file, options);
+
+                    if (!schedules || schedules.length === 0) {
+                        this.renderImportPreview([], options, summary);
+                        this.showToast('No schedules were detected in the uploaded file.', 'warning');
+                        return;
+                    }
+
+                    this.renderImportPreview(schedules, options, summary);
+
+                    const importWeeks = summary?.weekCount ?? this.countWeekRange(startWeek, endWeek);
+                    const dateStartLabel = summary?.startDate ? this.formatDate(summary.startDate) : this.formatDate(startWeek);
+                    const dateEndLabel = summary?.endDate ? this.formatDate(summary.endDate) : this.formatDate(endWeek);
+                    const message = `Import ${schedules.length} schedule${schedules.length === 1 ? '' : 's'} covering ${importWeeks} week${importWeeks === 1 ? '' : 's'} from ${dateStartLabel} to ${dateEndLabel}?`;
+                    if (!confirm(message)) {
+                        return;
+                    }
+
+                    const payload = {
+                        metadata: {
+                            weekStartDate: startWeek,
+                            startWeekDate: startWeek,
+                            endWeekDate: endWeek,
+                            weekCount: summary?.weekCount ?? importWeeks,
+                            sourceMonth,
+                            sourceYear,
+                            fileName: file.name || '',
+                            importedBy: this.getCurrentUserId(),
+                            replaceExisting,
+                            summary
+                        },
+                        schedules
+                    };
+
+                    const result = await this.callServerFunction('clientImportSchedules', payload);
+
+                    if (result && result.success) {
+                        this.lastImportResult = result;
+                        this.showToast(`Imported ${result.importedCount} schedule${result.importedCount === 1 ? '' : 's'} successfully!`, 'success');
+                        this.renderImportSummary(result);
+
+                        const fileControl = document.getElementById('scheduleFile');
+                        if (fileControl) {
+                            fileControl.value = '';
+                        }
+                        this.updateImportFileName();
+
+                        await this.loadSchedules();
+                    } else {
+                        throw new Error(result?.error || 'Failed to import schedules.');
+                    }
+                } catch (error) {
+                    console.error('❌ Schedule import failed:', error);
+                    this.showToast('Schedule import failed: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            async parseScheduleFile(file, options) {
+                const text = await this.readFileAsText(file);
+                const rows = this.parseCsv(text);
+                if (!rows || rows.length === 0) {
+                    return {
+                        schedules: [],
+                        summary: {
+                            totalRows: 0,
+                            totalShifts: 0,
+                            skippedEntries: 0,
+                            totalAgents: 0,
+                            totalAssignments: 0,
+                            weekCount: 0,
+                            startDate: '',
+                            endDate: '',
+                            duplicatesSkipped: 0,
+                            unassignedSlots: []
+                        }
+                    };
+                }
+
+                const result = this.transformScheduleRows(rows, options || {});
+                this.pendingImportSchedules = result.schedules;
+                this.pendingImportSummary = result.summary;
+                return result;
+            }
+
+            readFileAsText(file) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(new Error('Unable to read the selected file.'));
+                        reader.readAsText(file);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            }
+
+            parseCsv(text) {
+                if (!text) {
+                    return [];
+                }
+
+                const rows = [];
+                let current = '';
+                let inQuotes = false;
+                let row = [];
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+
+                    if (char === '"') {
+                        if (inQuotes && text[i + 1] === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if ((char === ',' || char === '\t') && !inQuotes) {
+                        row.push(current);
+                        current = '';
+                    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                        if (char === '\r' && text[i + 1] === '\n') {
+                            i++;
+                        }
+                        row.push(current);
+                        rows.push(row);
+                        row = [];
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+
+                if (current.length > 0 || row.length > 0) {
+                    row.push(current);
+                    rows.push(row);
+                }
+
+                return rows.map(columns => columns.map(value => {
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    return value.toString().replace(/\uFEFF/g, '');
+                }));
+            }
+
+            transformScheduleRows(rows, options = {}) {
+                const cleanedRows = rows
+                    .map(row => row.map(cell => this.normalizeCellValue(cell)))
+                    .filter(row => row.some(cell => cell !== ''));
+
+                const summary = {
+                    totalRows: Math.max(cleanedRows.length - 1, 0),
+                    totalShifts: 0,
+                    totalAssignments: 0,
+                    skippedEntries: 0,
+                    totalAgents: 0,
+                    weekCount: 0,
+                    startDate: '',
+                    endDate: '',
+                    duplicatesSkipped: 0,
+                    unassignedSlots: [],
+                    sourceMonth: options.sourceMonth,
+                    sourceYear: options.sourceYear
+                };
+
+                if (cleanedRows.length <= 1) {
+                    return { schedules: [], summary };
+                }
+
+                const headerRow = cleanedRows[0];
+                const headerKeys = headerRow.map(value => this.normalizeHeaderKey(value));
+
+                const dayColumns = [];
+                headerKeys.forEach((key, index) => {
+                    if (!key) return;
+                    if (key.startsWith('sun')) dayColumns.push({ index, dayOfWeek: 0, label: headerRow[index] || 'Sunday' });
+                    else if (key.startsWith('mon')) dayColumns.push({ index, dayOfWeek: 1, label: headerRow[index] || 'Monday' });
+                    else if (key.startsWith('tue')) dayColumns.push({ index, dayOfWeek: 2, label: headerRow[index] || 'Tuesday' });
+                    else if (key.startsWith('wed')) dayColumns.push({ index, dayOfWeek: 3, label: headerRow[index] || 'Wednesday' });
+                    else if (key.startsWith('thu')) dayColumns.push({ index, dayOfWeek: 4, label: headerRow[index] || 'Thursday' });
+                    else if (key.startsWith('fri')) dayColumns.push({ index, dayOfWeek: 5, label: headerRow[index] || 'Friday' });
+                    else if (key.startsWith('sat')) dayColumns.push({ index, dayOfWeek: 6, label: headerRow[index] || 'Saturday' });
+                });
+
+                if (dayColumns.length === 0) {
+                    throw new Error('The importer could not find any day columns (Sunday through Saturday).');
+                }
+
+                const slotIndex = headerKeys.findIndex(key => key.includes('slot') || key.includes('shift') || key.includes('time'));
+                const effectiveSlotIndex = slotIndex !== -1 ? slotIndex : 0;
+
+                const weekStarts = this.generateWeekStartDates(options.startWeekDate, options.endWeekDate);
+                if (weekStarts.length === 0) {
+                    throw new Error('Please provide a valid start and end week to import the monthly schedule.');
+                }
+
+                summary.weekCount = weekStarts.length;
+
+                const schedules = [];
+                const agentSet = new Set();
+                const seenAssignments = new Set();
+
+                cleanedRows.slice(1).forEach((row, rowIndex) => {
+                    const slotCellValue = this.normalizeCellValue(row[effectiveSlotIndex]);
+                    const slotRange = this.parseTimeRange(slotCellValue);
+                    const slotLabel = slotRange?.label || slotCellValue || `Imported Slot ${rowIndex + 1}`;
+
+                    let rowAssignments = 0;
+
+                    dayColumns.forEach(dayColumn => {
+                        const cellValue = this.normalizeCellValue(row[dayColumn.index]);
+                        if (!cellValue) {
+                            return;
+                        }
+
+                        const agents = this.extractAgentNames(cellValue);
+                        if (agents.length === 0) {
+                            summary.skippedEntries++;
+                            return;
+                        }
+
+                        weekStarts.forEach(weekStart => {
+                            const date = this.computeScheduleDate(weekStart, dayColumn.dayOfWeek);
+                            if (!date) {
+                                summary.skippedEntries++;
+                                return;
+                            }
+
+                            agents.forEach(agentName => {
+                                const agentKey = this.normalizePersonKey(agentName);
+                                agentSet.add(agentKey);
+                                const assignmentKey = `${agentKey}::${date}`;
+                                if (seenAssignments.has(assignmentKey)) {
+                                    summary.duplicatesSkipped++;
+                                    return;
+                                }
+
+                                seenAssignments.add(assignmentKey);
+
+                                const schedule = {
+                                    UserName: agentName,
+                                    Date: date,
+                                    StartTime: slotRange?.start || '',
+                                    EndTime: slotRange?.end || '',
+                                    SlotName: slotLabel,
+                                    Status: 'PENDING',
+                                    SourceDayLabel: dayColumn.label || '',
+                                    SourceMonth: options.sourceMonth,
+                                    SourceYear: options.sourceYear,
+                                    SourceCell: cellValue
+                                };
+
+                                if (slotCellValue && !slotRange) {
+                                    schedule.Notes = `Slot: ${slotCellValue}`;
+                                }
+
+                                schedules.push(schedule);
+                                summary.totalShifts++;
+                                summary.totalAssignments++;
+                                rowAssignments++;
+                            });
+                        });
+                    });
+
+                    if (rowAssignments === 0) {
+                        if (!summary.unassignedSlots.includes(slotLabel)) {
+                            summary.unassignedSlots.push(slotLabel);
+                        }
+                    }
+                });
+
+                if (schedules.length > 0) {
+                    const dates = schedules
+                        .map(item => new Date(item.Date))
+                        .filter(date => !isNaN(date.getTime()));
+
+                    if (dates.length > 0) {
+                        const minDate = new Date(Math.min.apply(null, dates));
+                        const maxDate = new Date(Math.max.apply(null, dates));
+                        summary.startDate = this.toIsoDateString(minDate);
+                        summary.endDate = this.toIsoDateString(maxDate);
+                    }
+                }
+
+                summary.totalAgents = agentSet.size;
+                return { schedules, summary };
+            }
+
+            validateImportWeekRange(startWeek, endWeek) {
+                if (!startWeek || !endWeek) {
+                    return { valid: false, message: 'Start and end weeks are required.' };
+                }
+
+                const start = new Date(startWeek);
+                const end = new Date(endWeek);
+
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                    return { valid: false, message: 'Invalid week selection. Please use valid dates.' };
+                }
+
+                if (end < start) {
+                    return { valid: false, message: 'The ending week must be the same as or after the starting week.' };
+                }
+
+                if (start.getDay() !== 0) {
+                    return { valid: false, message: 'The starting week should be a Sunday.' };
+                }
+
+                if (end.getDay() !== 0) {
+                    return { valid: false, message: 'The ending week should be a Sunday.' };
+                }
+
+                return { valid: true };
+            }
+
+            countWeekRange(startWeek, endWeek) {
+                const weeks = this.generateWeekStartDates(startWeek, endWeek);
+                return weeks.length;
+            }
+
+            generateWeekStartDates(startWeek, endWeek) {
+                if (!startWeek || !endWeek) {
+                    return [];
+                }
+
+                const start = new Date(startWeek);
+                const end = new Date(endWeek);
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                    return [];
+                }
+
+                const results = [];
+                const cursor = new Date(start);
+
+                while (cursor <= end) {
+                    results.push(this.toIsoDateString(cursor));
+                    cursor.setDate(cursor.getDate() + 7);
+                }
+
+                return results;
+            }
+
+            extractAgentNames(cellValue) {
+                if (!cellValue) {
+                    return [];
+                }
+
+                const parts = cellValue
+                    .split(/[,&;\/\n]+/)
+                    .map(part => part.trim())
+                    .filter(part => part);
+
+                return parts.filter(part => !this.isSkippableAssignmentValue(part));
+            }
+
+            isSkippableAssignmentValue(value) {
+                const normalized = value.toLowerCase().replace(/[^a-z]/g, '');
+                if (!normalized) {
+                    return true;
+                }
+
+                const skipValues = new Set(['off', 'na', 'none', 'vacation', 'holiday', 'leave', 'pto']);
+                if (skipValues.has(normalized)) {
+                    return true;
+                }
+
+                return Array.from(skipValues).some(keyword => normalized.startsWith(keyword));
+            }
+
+            normalizePersonKey(value) {
+                return (value || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+            }
+
+            normalizeCellValue(value) {
+                if (value === undefined || value === null) {
+                    return '';
+                }
+                return value.toString().replace(/\uFEFF/g, '').trim();
+            }
+
+            normalizeHeaderKey(value) {
+                return this.normalizeCellValue(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+            }
+
+            parseTimeRange(value) {
+                if (value === undefined || value === null) {
+                    return null;
+                }
+
+                const raw = value.toString().trim();
+                if (!raw) return null;
+                if (/^(n\/a|na|off|-|none)$/i.test(raw)) {
+                    return null;
+                }
+
+                const dashIndex = raw.indexOf('-');
+                if (dashIndex === -1) {
+                    return null;
+                }
+
+                const start = raw.slice(0, dashIndex).trim();
+                const endSegment = raw.slice(dashIndex + 1).trim();
+                const end = endSegment.split(/[(/]/)[0].trim();
+
+                if (!start || !end) {
+                    return null;
+                }
+
+                return { start, end, label: raw };
+            }
+
+            computeScheduleDate(weekStartDate, dayOfWeek) {
+                if (!weekStartDate && weekStartDate !== 0) {
+                    return '';
+                }
+
+                const base = new Date(weekStartDate);
+                if (isNaN(base.getTime())) {
+                    return '';
+                }
+
+                const target = new Date(base);
+                target.setDate(base.getDate() + dayOfWeek);
+                return this.toIsoDateString(target);
+            }
+
+            toIsoDateString(date) {
+                if (!(date instanceof Date) || isNaN(date.getTime())) {
+                    return '';
+                }
+
+                const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                return local.toISOString().split('T')[0];
+            }
+
+            renderImportPreview(schedules, options = {}, summary = {}) {
+                const container = document.getElementById('importPreview');
+                if (!container) return;
+
+                if (!Array.isArray(schedules) || schedules.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning-modern">
+                            <i class="fas fa-info-circle me-2"></i>No schedules detected in the uploaded file.
+                        </div>
+                    `;
+                    this.pendingImportSchedules = [];
+                    this.pendingImportSummary = summary;
+                    return;
+                }
+
+                this.pendingImportSchedules = schedules;
+                this.pendingImportSummary = summary;
+
+                const total = schedules.length;
+                const sample = schedules.slice(0, Math.min(total, 10));
+                const monthName = this.getMonthName(options.sourceMonth);
+                const dateRange = summary?.startDate && summary?.endDate
+                    ? `${this.formatDate(summary.startDate)} - ${this.formatDate(summary.endDate)}`
+                    : '';
+                const startWeekLabel = this.formatDate(options.startWeekDate);
+                const endWeekLabel = this.formatDate(options.endWeekDate);
+                const fallbackRange = startWeekLabel && endWeekLabel
+                    ? `${startWeekLabel} - ${endWeekLabel}`
+                    : (startWeekLabel || endWeekLabel || '');
+                const weekCount = summary?.weekCount ?? this.countWeekRange(options.startWeekDate, options.endWeekDate);
+
+                container.innerHTML = `
+                    <div class="alert alert-info-modern">
+                        <div class="d-flex flex-wrap gap-3">
+                            <span><strong>Date range:</strong> ${dateRange || fallbackRange || 'N/A'}</span>
+                            <span><strong>Source month:</strong> ${monthName || 'N/A'} ${options.sourceYear || ''}</span>
+                            <span><strong>Weeks covered:</strong> ${weekCount}</span>
+                            <span><strong>Assignments:</strong> ${total}</span>
+                            <span><strong>Unique agents:</strong> ${summary?.totalAgents ?? 0}</span>
+                        </div>
+                        ${summary?.skippedEntries ? `<div class="mt-2 text-warning"><i class="fas fa-exclamation-triangle me-2"></i>${summary.skippedEntries} cell${summary.skippedEntries === 1 ? '' : 's'} skipped.</div>` : ''}
+                        ${summary?.duplicatesSkipped ? `<div class="mt-2 text-warning"><i class="fas fa-clone me-2"></i>${summary.duplicatesSkipped} duplicate assignment${summary.duplicatesSkipped === 1 ? '' : 's'} skipped.</div>` : ''}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-modern table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Agent</th>
+                                    <th>Date</th>
+                                    <th>Slot</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sample.map(item => `
+                                    <tr>
+                                        <td>${item.UserName}</td>
+                                        <td>${this.formatDate(item.Date)}</td>
+                                        <td>${item.SlotName || ''}</td>
+                                        <td>${item.StartTime || ''}</td>
+                                        <td>${item.EndTime || ''}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted small mb-0">Showing first ${sample.length} of ${total} schedule entries detected.</p>
+                    ${summary?.unassignedSlots && summary.unassignedSlots.length ? `
+                        <div class="alert alert-warning-modern mt-3">
+                            <strong>Heads up:</strong> ${summary.unassignedSlots.length} slot${summary.unassignedSlots.length === 1 ? '' : 's'} had no assigned agents: ${summary.unassignedSlots.join(', ')}.
+                        </div>
+                    ` : ''}
+                `;
+            }
+
+            renderImportSummary(result) {
+                const container = document.getElementById('importSummary');
+                if (!container) return;
+
+                if (!result || !result.success) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                const range = result.range?.start && result.range?.end
+                    ? `${this.formatDate(result.range.start)} - ${this.formatDate(result.range.end)}`
+                    : (result.range?.start ? this.formatDate(result.range.start) : '');
+
+                const metadata = result.metadata || {};
+                const weeksCovered = metadata?.summary?.weekCount ?? metadata.weekCount ?? '';
+                const startWeekLabel = metadata.startWeekDate ? this.formatDate(metadata.startWeekDate) : '';
+                const endWeekLabel = metadata.endWeekDate ? this.formatDate(metadata.endWeekDate) : '';
+
+                container.innerHTML = `
+                    <div class="alert alert-success-modern">
+                        <h6 class="mb-2"><i class="fas fa-check-circle me-2"></i>Import Complete</h6>
+                        <ul class="mb-0">
+                            <li><strong>Imported:</strong> ${result.importedCount}</li>
+                            <li><strong>Replaced:</strong> ${result.replacedCount || 0}</li>
+                            <li><strong>Total schedules now:</strong> ${result.totalAfterImport ?? 'N/A'}</li>
+                            ${range ? `<li><strong>Date range affected:</strong> ${range}</li>` : ''}
+                            ${weeksCovered ? `<li><strong>Weeks covered:</strong> ${weeksCovered}</li>` : ''}
+                            ${startWeekLabel && endWeekLabel ? `<li><strong>Week span:</strong> ${startWeekLabel} - ${endWeekLabel}</li>` : ''}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            clearImportPreview() {
+                const container = document.getElementById('importPreview');
+                if (container) {
+                    container.innerHTML = '';
+                }
+                this.pendingImportSchedules = [];
+                this.pendingImportSummary = null;
+            }
+
+            clearImportSummary() {
+                const container = document.getElementById('importSummary');
+                if (container) {
+                    container.innerHTML = '';
+                }
+            }
+
+            handleScheduleFileSelect(event) {
+                const file = event?.target?.files?.[0];
+                this.updateImportFileName(file?.name || '');
+                this.clearImportPreview();
+                this.clearImportSummary();
+            }
+
+            updateImportFileName(fileName) {
+                const label = document.getElementById('importFileName');
+                if (!label) return;
+
+                if (fileName) {
+                    label.textContent = `Selected file: ${fileName}`;
+                } else {
+                    label.textContent = 'Upload a CSV export of the schedule grid.';
+                }
+            }
+
+            getMonthName(monthNumber) {
+                const months = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+
+                const index = Number(monthNumber) - 1;
+                return months[index] || '';
+            }
+
             async importHolidays() {
                 try {
                     this.showLoading(true);
@@ -2683,6 +3467,9 @@
                         break;
                     case '#users':
                         this.loadUsers();
+                        break;
+                    case '#import':
+                        this.updateImportFileName();
                         break;
                 }
             }
