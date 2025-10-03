@@ -2208,7 +2208,79 @@ function buildManagerDirectory_() {
     normalizedEmails: new Set()
   };
 
+  const normalizeUserId = value => {
+    if (value == null) {
+      return '';
+    }
+    const str = String(value).trim();
+    return str;
+  };
+
+  const addUserToDirectory = user => {
+    if (!user) return;
+
+    [
+      user.FullName,
+      user.fullName,
+      user.UserName,
+      user.userName,
+      user.name,
+      user.DisplayName,
+      user.displayName,
+      user.PreferredName,
+      user.preferredName
+    ].forEach(candidate => {
+      const key = normalizePersonKey_(candidate);
+      if (key) {
+        directory.normalizedNames.add(key);
+      }
+    });
+
+    [
+      user.Email,
+      user.email,
+      user.WorkEmail,
+      user.workEmail
+    ].forEach(candidate => {
+      const key = normalizePersonKey_(candidate);
+      if (key) {
+        directory.normalizedEmails.add(key);
+      }
+    });
+  };
+
   try {
+    const managerPermissionLevels = new Set(['MANAGER', 'ADMIN', 'GUEST']);
+    const permissionUserIds = new Set();
+
+    try {
+      let permissions = [];
+      if (typeof readCampaignPermsSafely_ === 'function') {
+        permissions = readCampaignPermsSafely_() || [];
+      } else if (typeof readSheet === 'function') {
+        permissions = readSheet('CampaignUserPermissions') || [];
+      }
+
+      if (Array.isArray(permissions) && permissions.length) {
+        permissions.forEach(perm => {
+          if (!perm) return;
+          const level = String(perm.PermissionLevel || perm.permissionLevel || '').toUpperCase();
+          if (!managerPermissionLevels.has(level)) {
+            return;
+          }
+
+          const userId = [perm.UserID, perm.userId, perm.UserId]
+            .map(normalizeUserId)
+            .find(Boolean);
+          if (userId) {
+            permissionUserIds.add(userId);
+          }
+        });
+      }
+    } catch (permError) {
+      console.warn('buildManagerDirectory_ permissions fetch failed:', permError);
+    }
+
     if (typeof getUsers === 'function') {
       const users = getUsers() || [];
       users.forEach(user => {
@@ -2230,38 +2302,16 @@ function buildManagerDirectory_() {
           .filter(Boolean)
           .some(roleName => roleName.includes('manager') || roleName.includes('supervisor'));
 
-        if (!hasManagerRole) {
+        const userId = [user.ID, user.Id, user.id, user.UserID, user.userId]
+          .map(normalizeUserId)
+          .find(Boolean);
+        const hasPermission = userId ? permissionUserIds.has(userId) : false;
+
+        if (!hasManagerRole && !hasPermission) {
           return;
         }
 
-        [
-          user.FullName,
-          user.fullName,
-          user.UserName,
-          user.userName,
-          user.name,
-          user.DisplayName,
-          user.displayName,
-          user.PreferredName,
-          user.preferredName
-        ].forEach(candidate => {
-          const key = normalizePersonKey_(candidate);
-          if (key) {
-            directory.normalizedNames.add(key);
-          }
-        });
-
-        [
-          user.Email,
-          user.email,
-          user.WorkEmail,
-          user.workEmail
-        ].forEach(candidate => {
-          const key = normalizePersonKey_(candidate);
-          if (key) {
-            directory.normalizedEmails.add(key);
-          }
-        });
+        addUserToDirectory(user);
       });
     }
   } catch (error) {
@@ -2646,6 +2696,130 @@ function clientGetAssignedAgentNames(managerUserId) {
     includeSelf: false,
     display: 'FullName'
   });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TEST UTILITIES
+// ────────────────────────────────────────────────────────────────────────────
+
+function testManagerDirectoryCampaignPermissions() {
+  const originalGetUsers = GLOBAL_SCOPE.getUsers;
+  const originalReadCampaignPermsSafely = GLOBAL_SCOPE.readCampaignPermsSafely_;
+  const originalReadSheet = GLOBAL_SCOPE.readSheet;
+  const originalUtilities = GLOBAL_SCOPE.Utilities;
+  const originalGlobalGetUsers = (typeof globalThis !== 'undefined') ? globalThis.getUsers : undefined;
+  const originalGlobalReadCampaignPermsSafely = (typeof globalThis !== 'undefined') ? globalThis.readCampaignPermsSafely_ : undefined;
+  const originalGlobalReadSheet = (typeof globalThis !== 'undefined') ? globalThis.readSheet : undefined;
+
+  const stubUsers = [
+    {
+      ID: '1',
+      FullName: 'Alice Manager',
+      Email: 'alice.manager@example.com',
+      roleNames: []
+    },
+    {
+      ID: '2',
+      FullName: 'Bob Agent',
+      Email: 'bob.agent@example.com',
+      roleNames: []
+    }
+  ];
+
+  const stubPermissions = [
+    { UserID: '1', PermissionLevel: 'MANAGER' }
+  ];
+
+  try {
+    GLOBAL_SCOPE.getUsers = () => stubUsers;
+    GLOBAL_SCOPE.readCampaignPermsSafely_ = () => stubPermissions;
+    GLOBAL_SCOPE.readSheet = () => stubPermissions;
+    if (typeof globalThis !== 'undefined') {
+      globalThis.getUsers = GLOBAL_SCOPE.getUsers;
+      globalThis.readCampaignPermsSafely_ = GLOBAL_SCOPE.readCampaignPermsSafely_;
+      globalThis.readSheet = GLOBAL_SCOPE.readSheet;
+    }
+    GLOBAL_SCOPE.Utilities = GLOBAL_SCOPE.Utilities || {
+      formatDate: (date) => (date instanceof Date ? date.toISOString() : String(date))
+    };
+
+    const directory = buildManagerDirectory_();
+    const filteredTop = [
+      { user: 'Alice Manager', percentage: 99 },
+      { user: 'Bob Agent', percentage: 95 }
+    ].filter(entry => !isManagerPerson_(entry.user, directory));
+
+    const intelligence = generateAttendanceIntelligence([
+      { user: 'Alice Manager', state: 'Available', durationSec: 3600 },
+      { user: 'Bob Agent', state: 'Available', durationSec: 3600 }
+    ], {
+      periodStart: new Date(),
+      periodEnd: new Date()
+    }, directory);
+
+    const directoryIncludesManager = isManagerPerson_('Alice Manager', directory)
+      && isManagerPerson_('alice.manager@example.com', directory);
+    const topIncludesManager = filteredTop.some(entry => entry.user === 'Alice Manager');
+    const trendUsers = Array.isArray(intelligence.employeeTrends)
+      ? intelligence.employeeTrends.map(trend => trend.user)
+      : [];
+
+    return {
+      passed: directoryIncludesManager && !topIncludesManager && !trendUsers.includes('Alice Manager'),
+      directorySize: {
+        names: directory.normalizedNames.size,
+        emails: directory.normalizedEmails.size
+      },
+      filteredTop,
+      trendUsers
+    };
+  } catch (error) {
+    return { passed: false, error: error && error.message ? error.message : String(error) };
+  } finally {
+    if (typeof originalGetUsers === 'function') {
+      GLOBAL_SCOPE.getUsers = originalGetUsers;
+    } else {
+      delete GLOBAL_SCOPE.getUsers;
+    }
+
+    if (typeof originalReadCampaignPermsSafely === 'function') {
+      GLOBAL_SCOPE.readCampaignPermsSafely_ = originalReadCampaignPermsSafely;
+    } else {
+      delete GLOBAL_SCOPE.readCampaignPermsSafely_;
+    }
+
+    if (typeof originalReadSheet === 'function') {
+      GLOBAL_SCOPE.readSheet = originalReadSheet;
+    } else {
+      delete GLOBAL_SCOPE.readSheet;
+    }
+
+    if (typeof globalThis !== 'undefined') {
+      if (typeof originalGlobalGetUsers === 'function') {
+        globalThis.getUsers = originalGlobalGetUsers;
+      } else {
+        delete globalThis.getUsers;
+      }
+
+      if (typeof originalGlobalReadCampaignPermsSafely === 'function') {
+        globalThis.readCampaignPermsSafely_ = originalGlobalReadCampaignPermsSafely;
+      } else {
+        delete globalThis.readCampaignPermsSafely_;
+      }
+
+      if (typeof originalGlobalReadSheet === 'function') {
+        globalThis.readSheet = originalGlobalReadSheet;
+      } else {
+        delete globalThis.readSheet;
+      }
+    }
+
+    if (originalUtilities) {
+      GLOBAL_SCOPE.Utilities = originalUtilities;
+    } else {
+      delete GLOBAL_SCOPE.Utilities;
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
