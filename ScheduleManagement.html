@@ -2824,7 +2824,7 @@
                             startDate: '',
                             endDate: '',
                             duplicatesSkipped: 0,
-                            unassignedSlots: []
+                            agentsWithoutSchedules: []
                         }
                     };
                 }
@@ -2912,7 +2912,7 @@
                     startDate: '',
                     endDate: '',
                     duplicatesSkipped: 0,
-                    unassignedSlots: [],
+                    agentsWithoutSchedules: [],
                     sourceMonth: options.sourceMonth,
                     sourceYear: options.sourceYear
                 };
@@ -2940,8 +2940,27 @@
                     throw new Error('The importer could not find any day columns (Sunday through Saturday).');
                 }
 
-                const slotIndex = headerKeys.findIndex(key => key.includes('slot') || key.includes('shift') || key.includes('time'));
-                const effectiveSlotIndex = slotIndex !== -1 ? slotIndex : 0;
+                const dayColumnIndexes = new Set(dayColumns.map(column => column.index));
+
+                let agentColumnIndex = headerKeys.findIndex(key => key.includes('agent') || key.includes('employee') || key.includes('name'));
+                if (agentColumnIndex === -1 || dayColumnIndexes.has(agentColumnIndex)) {
+                    agentColumnIndex = headerKeys.findIndex((key, index) => !dayColumnIndexes.has(index));
+                }
+
+                if (agentColumnIndex === -1) {
+                    throw new Error('The importer could not identify an agent column in the uploaded file.');
+                }
+
+                const slotIndex = headerKeys.findIndex((key, index) => {
+                    if (dayColumnIndexes.has(index)) {
+                        return false;
+                    }
+                    if (index === agentColumnIndex) {
+                        return false;
+                    }
+                    return key.includes('slot') || key.includes('shift') || key.includes('time');
+                });
+                const effectiveSlotIndex = slotIndex !== -1 ? slotIndex : -1;
 
                 const dateRange = this.generateDateRange(options.startDate, options.endDate);
                 if (dateRange.length === 0) {
@@ -2967,11 +2986,19 @@
                 const seenAssignments = new Set();
 
                 cleanedRows.slice(1).forEach((row, rowIndex) => {
-                    const slotCellValue = this.normalizeCellValue(row[effectiveSlotIndex]);
+                    const agentName = agentColumnIndex !== -1 ? this.normalizeCellValue(row[agentColumnIndex]) : '';
+                    if (!agentName) {
+                        summary.skippedEntries++;
+                        return;
+                    }
+
+                    const agentKey = this.normalizePersonKey(agentName);
+                    const slotCellValue = effectiveSlotIndex !== -1 ? this.normalizeCellValue(row[effectiveSlotIndex]) : '';
                     const slotRange = this.parseTimeRange(slotCellValue);
-                    const slotLabel = slotRange?.label || slotCellValue || `Imported Slot ${rowIndex + 1}`;
+                    const baseSlotLabel = slotRange?.label || slotCellValue || '';
 
                     let rowAssignments = 0;
+                    let agentHasSchedule = false;
 
                     relevantDates.forEach(dateInfo => {
                         const dayColumn = dayColumnMap.get(dateInfo.dayOfWeek);
@@ -2984,51 +3011,54 @@
                             return;
                         }
 
-                        const agents = this.extractAgentNames(cellValue);
-                        if (agents.length === 0) {
+                        if (this.isSkippableAssignmentValue(cellValue)) {
                             summary.skippedEntries++;
                             return;
                         }
 
-                        agents.forEach(agentName => {
-                            const date = dateInfo.iso;
-                            const agentKey = this.normalizePersonKey(agentName);
-                            agentSet.add(agentKey);
-                            const assignmentKey = `${agentKey}::${date}`;
-                            if (seenAssignments.has(assignmentKey)) {
-                                summary.duplicatesSkipped++;
-                                return;
-                            }
+                        const assignmentRange = this.parseTimeRange(cellValue) || slotRange;
+                        const slotLabel = (assignmentRange?.label || baseSlotLabel || cellValue || `Imported Slot ${rowIndex + 1}`).trim();
+                        const date = dateInfo.iso;
+                        const assignmentKey = `${agentKey}::${date}`;
+                        if (seenAssignments.has(assignmentKey)) {
+                            summary.duplicatesSkipped++;
+                            return;
+                        }
 
-                            seenAssignments.add(assignmentKey);
+                        seenAssignments.add(assignmentKey);
+                        agentSet.add(agentKey);
+                        agentHasSchedule = true;
 
-                            const schedule = {
-                                UserName: agentName,
-                                Date: date,
-                                StartTime: slotRange?.start || '',
-                                EndTime: slotRange?.end || '',
-                                SlotName: slotLabel,
-                                Status: 'PENDING',
-                                SourceDayLabel: dayColumn.label || '',
-                                SourceMonth: options.sourceMonth,
-                                SourceYear: options.sourceYear,
-                                SourceCell: cellValue
-                            };
+                        const schedule = {
+                            UserName: agentName,
+                            Date: date,
+                            StartTime: assignmentRange?.start || '',
+                            EndTime: assignmentRange?.end || '',
+                            SlotName: slotLabel,
+                            Status: 'PENDING',
+                            SourceDayLabel: dayColumn.label || '',
+                            SourceMonth: options.sourceMonth,
+                            SourceYear: options.sourceYear,
+                            SourceCell: cellValue
+                        };
 
-                            if (slotCellValue && !slotRange) {
-                                schedule.Notes = `Slot: ${slotCellValue}`;
-                            }
+                        if (slotCellValue && !slotRange && slotCellValue !== cellValue) {
+                            schedule.Notes = `Slot: ${slotCellValue}`;
+                        }
 
-                            schedules.push(schedule);
-                            summary.totalShifts++;
-                            summary.totalAssignments++;
-                            rowAssignments++;
-                        });
+                        schedules.push(schedule);
+                        summary.totalShifts++;
+                        summary.totalAssignments++;
+                        rowAssignments++;
                     });
 
-                    if (rowAssignments === 0) {
-                        if (!summary.unassignedSlots.includes(slotLabel)) {
-                            summary.unassignedSlots.push(slotLabel);
+                    if (!agentHasSchedule) {
+                        if (!summary.agentsWithoutSchedules.includes(agentName)) {
+                            summary.agentsWithoutSchedules.push(agentName);
+                        }
+                    } else if (rowAssignments === 0 && baseSlotLabel) {
+                        if (!summary.agentsWithoutSchedules.includes(agentName)) {
+                            summary.agentsWithoutSchedules.push(agentName);
                         }
                     }
                 });
@@ -3259,9 +3289,9 @@
                         </table>
                     </div>
                     <p class="text-muted small mb-0">Showing first ${sample.length} of ${total} schedule entries detected.</p>
-                    ${summary?.unassignedSlots && summary.unassignedSlots.length ? `
+                    ${summary?.agentsWithoutSchedules && summary.agentsWithoutSchedules.length ? `
                         <div class="alert alert-warning-modern mt-3">
-                            <strong>Heads up:</strong> ${summary.unassignedSlots.length} slot${summary.unassignedSlots.length === 1 ? '' : 's'} had no assigned agents: ${summary.unassignedSlots.join(', ')}.
+                            <strong>Heads up:</strong> ${summary.agentsWithoutSchedules.length} agent${summary.agentsWithoutSchedules.length === 1 ? '' : 's'} had no scheduled days: ${summary.agentsWithoutSchedules.join(', ')}.
                         </div>
                     ` : ''}
                 `;
