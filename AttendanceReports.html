@@ -1177,9 +1177,6 @@
       this.charts = {};
       this.performanceMetrics = { loadStartTime: Date.now(), apiCalls: 0, errors: 0 };
 
-      // Add auto-refresh properties
-      this.autoRefreshInterval = null;
-
       this.pagination = {
         currentPage: 1,
         itemsPerPage: 10,
@@ -1208,30 +1205,8 @@
       }
 
       this.startPerformanceMonitoring();
-      this.startAutoRefresh(); // Initialize auto-refresh
       this.loadData();
     }
-
-    // Add auto-refresh methods inside the class
-    startAutoRefresh() {
-      // Clear any existing interval
-      if (this.autoRefreshInterval) {
-        clearInterval(this.autoRefreshInterval);
-      }
-      
-      // Auto-refresh every 5 minutes
-      this.autoRefreshInterval = setInterval(() => {
-        console.log('Auto-refreshing attendance data...');
-        this.loadDataDebounced();
-      }, 300000); // 5 minutes
-    }
-
-    stopAutoRefresh() {
-      if (this.autoRefreshInterval) {
-        clearInterval(this.autoRefreshInterval);
-        this.autoRefreshInterval = null;
-      }
-    }    
 
     setupEventListeners() {
       document.getElementById('granularitySelect').addEventListener('change', (e) => {
@@ -3080,7 +3055,6 @@
   window.addEventListener('beforeunload', () => {
     if (window.dashboard) {
       window.dashboard._reqSeq++;
-      window.dashboard.stopAutoRefresh(); // Clean up auto-refresh on unload
     }
   });
 
