@@ -837,6 +837,13 @@ function clientImportSchedules(importRequest = {}) {
       maxDate = new Date(Math.max.apply(null, dateObjects));
     }
 
+    if (metadata.startWeekDate) {
+      metadata.startWeekDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
+    }
+    if (metadata.endWeekDate) {
+      metadata.endWeekDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
+    }
+
     const newKeys = new Set(normalizedNew.map(record => `${normalizeUserKey(record.UserName || record.UserID)}::${record.Date}`));
     let replacedCount = 0;
 
@@ -864,6 +871,31 @@ function clientImportSchedules(importRequest = {}) {
       return true;
     });
 
+    const normalizedMin = minDate ? normalizeDateForSheet(minDate, timeZone) : '';
+    const normalizedMax = maxDate ? normalizeDateForSheet(maxDate, timeZone) : '';
+
+    const summary = typeof metadata.summary === 'object' && metadata.summary !== null ? metadata.summary : {};
+    if (normalizedMin && !summary.startDate) {
+      summary.startDate = normalizedMin;
+    }
+    if (normalizedMax && !summary.endDate) {
+      summary.endDate = normalizedMax;
+    }
+    if (typeof summary.totalAssignments !== 'number') {
+      summary.totalAssignments = normalizedNew.length;
+    }
+    if (typeof summary.totalShifts !== 'number') {
+      summary.totalShifts = normalizedNew.length;
+    }
+    metadata.summary = summary;
+
+    if (!metadata.weekCount) {
+      const computedWeeks = calculateWeekSpanCount(metadata.startWeekDate, metadata.endWeekDate, minDate, maxDate);
+      if (computedWeeks) {
+        metadata.weekCount = computedWeeks;
+      }
+    }
+
     const combinedRecords = retainedRecords.concat(normalizedNew);
 
     combinedRecords.sort((a, b) => {
@@ -886,8 +918,8 @@ function clientImportSchedules(importRequest = {}) {
       replacedCount,
       totalAfterImport: combinedRecords.length,
       range: {
-        start: minDate ? normalizeDateForSheet(minDate, timeZone) : '',
-        end: maxDate ? normalizeDateForSheet(maxDate, timeZone) : ''
+        start: normalizedMin,
+        end: normalizedMax
       },
       metadata
     };
@@ -1878,6 +1910,28 @@ function normalizeDateForSheet(value, timeZone) {
   }
 
   return '';
+}
+
+function calculateWeekSpanCount(startWeekDate, endWeekDate, minDate, maxDate) {
+  let start = startWeekDate ? new Date(startWeekDate) : null;
+  let end = endWeekDate ? new Date(endWeekDate) : null;
+
+  if ((!start || isNaN(start.getTime())) && minDate instanceof Date && !isNaN(minDate.getTime())) {
+    start = new Date(minDate);
+  }
+
+  if ((!end || isNaN(end.getTime())) && maxDate instanceof Date && !isNaN(maxDate.getTime())) {
+    end = new Date(maxDate);
+  }
+
+  if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 0;
+  }
+
+  const millisecondsPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const diff = end.getTime() - start.getTime();
+  const weeks = Math.floor(diff / millisecondsPerWeek) + 1;
+  return weeks > 0 ? weeks : 0;
 }
 
 function getMonthNameFromNumber(monthNumber) {
