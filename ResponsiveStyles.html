@@ -551,11 +551,14 @@
 
   .modal .modal-content,
   .dialog .dialog-content {
-    width: min(720px, 100%);
     border-radius: var(--lumina-radius-lg);
     background: #fff;
     padding: clamp(1.25rem, 3vw, 2rem);
     box-shadow: var(--lumina-shadow-md);
+  }
+
+  .dialog .dialog-content {
+    width: min(720px, 100%);
   }
 
   .mobile-hidden {
