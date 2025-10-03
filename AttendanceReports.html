@@ -478,36 +478,358 @@
     }
 
     /* Export Modal Specific Styles */
-    .export-format-badge {
-      display: inline-block;
-      background: var(--gradient-primary);
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 15px;
-      font-size: 0.75rem;
+    #exportModal .modal-dialog {
+      max-width: 1080px;
+    }
+
+    .export-modal-content {
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.18);
+      background: radial-gradient(120% 120% at 0% 0%, #ffffff 0%, #f8fbff 55%, #eef2ff 100%);
+      overflow: hidden;
+    }
+
+    .export-modal-header {
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(14, 116, 144, 0.08) 100%);
+      padding: 1.75rem 2rem;
+    }
+
+    .export-modal-header .modal-title {
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--gray-800);
+    }
+
+    .export-modal-header .modal-title i {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(14, 165, 233, 0.9) 100%);
+      color: #fff;
+      font-size: 1.1rem;
+      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+    }
+
+    .export-modal-header .btn-close {
+      filter: invert(0.4);
+      opacity: 0.6;
+      transition: opacity 0.2s ease;
+    }
+
+    .export-modal-header .btn-close:hover {
+      opacity: 1;
+    }
+
+    .export-modal-body {
+      padding: 2rem;
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.92) 0%, #ffffff 100%);
+    }
+
+    .export-modal-footer {
+      border-top: 1px solid rgba(148, 163, 184, 0.18);
+      background: linear-gradient(180deg, rgba(241, 245, 249, 0.9) 0%, #ffffff 100%);
+      padding: 1.5rem 2rem;
+    }
+
+    #exportModal .form-label {
       font-weight: 600;
-      margin-left: 0.5rem;
+      letter-spacing: 0.02em;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      font-size: 0.75rem;
     }
 
-    .data-type-checkbox {
-      margin-bottom: 0.75rem;
+    #exportModal .form-select,
+    #exportModal .form-control {
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .data-type-checkbox .form-check-label {
-      font-weight: 500;
+    #exportModal .form-select:focus,
+    #exportModal .form-control:focus {
+      border-color: rgba(37, 99, 235, 0.65);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    .export-format-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(14, 165, 233, 0.25) 100%);
+      color: var(--navy-primary);
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .option-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .futuristic-option {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.7) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 20px;
+      padding: 1rem 1.25rem;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      position: relative;
+    }
+
+    .futuristic-option:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(59, 130, 246, 0.35);
+    }
+
+    .futuristic-option .form-check-input {
+      width: 1.05rem;
+      height: 1.05rem;
+      margin-top: 0.2rem;
+    }
+
+    .futuristic-option .form-check-label {
+      font-weight: 600;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--gray-700);
     }
 
-    .data-type-checkbox .form-check-label i {
-      width: 20px;
+    .futuristic-option .form-check-label i {
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: rgba(59, 130, 246, 0.12);
+    }
+
+    .futuristic-option .form-check-input:checked + .form-check-label {
+      color: var(--navy-primary);
+    }
+
+    .futuristic-option small {
+      color: var(--gray-500);
+      margin-left: 1.8rem;
+      display: block;
+      margin-top: 0.35rem;
+    }
+
+    .period-toggle .btn {
+      border-radius: 999px !important;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 0.75rem 1.25rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      transition: all 0.2s ease;
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    .period-toggle .btn:hover {
+      color: var(--navy-primary);
+      border-color: rgba(59, 130, 246, 0.35);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .period-toggle .btn-check:checked + .btn {
+      color: var(--navy-primary);
+      border-color: transparent;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(14, 165, 233, 0.24) 100%);
+      box-shadow: 0 12px 24px rgba(59, 130, 246, 0.2);
+    }
+
+    .export-intro-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(14, 165, 233, 0.08) 100%);
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      border-radius: 22px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    .export-intro-card .intro-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.85) 0%, rgba(14, 165, 233, 0.85) 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.25rem;
+      box-shadow: 0 15px 30px rgba(37, 99, 235, 0.25);
+    }
+
+    .export-intro-card h6 {
+      margin-bottom: 0.25rem;
+      font-weight: 700;
+      color: var(--navy-primary);
+      letter-spacing: 0.02em;
+    }
+
+    .export-intro-card p {
+      margin-bottom: 0;
+      color: var(--gray-600);
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.9rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--gray-500);
+      margin-bottom: 1.25rem;
+    }
+
+    .section-heading i {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(14, 165, 233, 0.18) 100%);
+      color: var(--navy-primary);
+      font-size: 0.85rem;
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
     }
 
     .pivot-preview-card {
-      background: linear-gradient(135deg, #e3f2fd 0%, #f8fafc 100%);
-      border: 1px solid #bbdefb;
-      border-radius: 12px;
-      padding: 1rem;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(14, 165, 233, 0.12) 100%);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 22px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    .pivot-preview-card h6 {
+      color: var(--navy-primary);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .pivot-preview-card p {
+      color: var(--gray-700);
+    }
+
+    .hour-legend {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
       margin-top: 1rem;
+    }
+
+    .legend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.05);
+    }
+
+    .legend-pill.legend-low {
+      border-color: rgba(248, 113, 113, 0.35);
+      color: #b91c1c;
+    }
+
+    .legend-pill.legend-low .legend-dot {
+      background: #ef4444;
+    }
+
+    .legend-pill.legend-target {
+      border-color: rgba(34, 197, 94, 0.35);
+      color: #15803d;
+    }
+
+    .legend-pill.legend-target .legend-dot {
+      background: #22c55e;
+    }
+
+    .legend-pill.legend-over {
+      border-color: rgba(168, 85, 247, 0.35);
+      color: #6b21a8;
+    }
+
+    .legend-pill.legend-over .legend-dot {
+      background: #a855f7;
+    }
+
+    .legend-note {
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(15, 23, 42, 0.55);
+      margin-top: 0.75rem;
+    }
+
+    #exportModal .btn-success {
+      background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+      border: none;
+      box-shadow: 0 18px 40px rgba(16, 185, 129, 0.32);
+      font-weight: 600;
+      padding: 0.85rem 1.75rem;
+    }
+
+    #exportModal .btn-success:hover {
+      box-shadow: 0 22px 48px rgba(16, 185, 129, 0.45);
+    }
+
+    #exportModal .btn-secondary {
+      border-radius: 999px;
+      padding: 0.8rem 1.6rem;
+      font-weight: 600;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--gray-600);
+      transition: all 0.2s ease;
+    }
+
+    #exportModal .btn-secondary:hover {
+      color: var(--navy-primary);
+      border-color: rgba(59, 130, 246, 0.35);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
     }
   </style>
 
@@ -745,27 +1067,34 @@
 <!-- Enhanced Export Modal -->
 <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
+    <div class="modal-content export-modal-content">
+      <div class="modal-header export-modal-header">
         <h5 class="modal-title" id="exportModalLabel">
-          <i class="fas fa-table me-2"></i>Enhanced Daily Matrix Export
+          <i class="fas fa-table"></i>
+          Enhanced Daily Matrix Export
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <div class="alert alert-modern alert-info" role="alert">
-          <i class="fas fa-info-circle me-2"></i>
-          <strong>Daily Pivot Matrix:</strong> Export users as rows × days as columns showing productive hours. Data converted from seconds to decimal hours.
+      <div class="modal-body export-modal-body">
+        <div class="export-intro-card">
+          <div class="intro-icon">
+            <i class="fas fa-magic"></i>
+          </div>
+          <div>
+            <h6>Futuristic Matrix Export</h6>
+            <p class="mb-1">Generate a polished users × days matrix with intelligent color coding, weekend insights, and total hour summaries.</p>
+            <p class="mb-0"><strong>All durations</strong> are auto-converted from seconds into decimal hours for instant spreadsheet readiness.</p>
+          </div>
         </div>
 
         <form id="exportForm">
           <!-- Export Format Selection -->
           <div class="row mb-4">
             <div class="col-12">
-              <h6 class="text-primary mb-3"><i class="fas fa-table me-2"></i>Export Format</h6>
+              <h6 class="section-heading"><i class="fas fa-table"></i>Export Format</h6>
               <div class="row">
                 <div class="col-md-6">
-                  <div class="form-check mb-3 p-3 border rounded" style="background: linear-gradient(135deg, #e3f2fd 0%, #f8fafc 100%);">
+                  <div class="form-check mb-3 p-3 border rounded futuristic-option">
                     <input class="form-check-input" type="radio" name="exportFormat" id="dailyPivot" value="daily_pivot" checked>
                     <label class="form-check-label fw-bold" for="dailyPivot">
                       <i class="fas fa-table text-primary me-2"></i>Daily Pivot Matrix
@@ -775,7 +1104,7 @@
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="form-check mb-3 p-3 border rounded">
+                  <div class="form-check mb-3 p-3 border rounded futuristic-option">
                     <input class="form-check-input" type="radio" name="exportFormat" id="standardCsv" value="csv">
                     <label class="form-check-label fw-bold" for="standardCsv">
                       <i class="fas fa-file-csv text-success me-2"></i>Standard CSV
@@ -790,57 +1119,61 @@
           <!-- Matrix Options -->
           <div id="pivotMatrixOptions" class="row mb-4">
             <div class="col-12">
-              <h6 class="text-primary mb-3"><i class="fas fa-cogs me-2"></i>Matrix Options</h6>
+              <h6 class="section-heading"><i class="fas fa-cogs"></i>Matrix Options</h6>
               <div class="row">
                 <div class="col-md-6">
-                  <div class="form-check data-type-checkbox">
-                    <input class="form-check-input" type="checkbox" id="highlightLowHours" checked>
-                    <label class="form-check-label" for="highlightLowHours">
-                      <i class="fas fa-exclamation-triangle text-warning me-1"></i>Mark Hours Under 8.00*
-                    </label>
-                    <small class="text-muted d-block">Adds asterisk to hours below 8.00 on weekdays</small>
-                  </div>
-                  
-                  <div class="form-check data-type-checkbox">
-                    <input class="form-check-input" type="checkbox" id="includeWeekends" checked>
-                    <label class="form-check-label" for="includeWeekends">
-                      <i class="fas fa-calendar-weekend text-secondary me-1"></i>Show Weekend Columns
-                    </label>
-                    <small class="text-muted d-block">Include Saturday and Sunday columns</small>
-                  </div>
-                  
-                  <div class="form-check data-type-checkbox">
-                    <input class="form-check-input" type="checkbox" id="includeTotalHours" checked>
-                    <label class="form-check-label" for="includeTotalHours">
-                      <i class="fas fa-clock text-success me-1"></i>Total Hours Column
-                    </label>
-                    <small class="text-muted d-block">Sum of all productive hours</small>
+                  <div class="option-grid">
+                    <div class="form-check futuristic-option">
+                      <input class="form-check-input" type="checkbox" id="highlightLowHours" checked>
+                      <label class="form-check-label" for="highlightLowHours">
+                        <i class="fas fa-palette text-danger me-1"></i>Color-Code Daily Hours
+                      </label>
+                      <small class="text-muted d-block">Applies 🔴 under 8h, 🟢 exactly 8h, and 🟣 overtime accents in the export.</small>
+                    </div>
+
+                    <div class="form-check futuristic-option">
+                      <input class="form-check-input" type="checkbox" id="includeWeekends" checked>
+                      <label class="form-check-label" for="includeWeekends">
+                        <i class="fas fa-calendar-weekend text-secondary me-1"></i>Show Weekend Columns
+                      </label>
+                      <small class="text-muted d-block">Include Saturday and Sunday columns</small>
+                    </div>
+
+                    <div class="form-check futuristic-option">
+                      <input class="form-check-input" type="checkbox" id="includeTotalHours" checked>
+                      <label class="form-check-label" for="includeTotalHours">
+                        <i class="fas fa-clock text-success me-1"></i>Total Hours Column
+                      </label>
+                      <small class="text-muted d-block">Sum of all productive hours</small>
+                    </div>
                   </div>
                 </div>
-                
+
                 <div class="col-md-6">
-                  <div class="form-check data-type-checkbox">
-                    <input class="form-check-input" type="checkbox" id="includeDiscrepancy" checked>
-                    <label class="form-check-label" for="includeDiscrepancy">
-                      <i class="fas fa-chart-line text-warning me-1"></i>Discrepancy Count
-                    </label>
-                    <small class="text-muted d-block">Days with less than 8 hours</small>
-                  </div>
-                  
-                  <div class="form-check data-type-checkbox">
-                    <input class="form-check-input" type="checkbox" id="includeOvertime" checked>
-                    <label class="form-check-label" for="includeOvertime">
-                      <i class="fas fa-plus-circle text-info me-1"></i>Overtime Hours
-                    </label>
-                    <small class="text-muted d-block">Hours over 8.00 per day</small>
-                  </div>
-                  
-                  <div class="form-check data-type-checkbox">
-                    <input class="form-check-input" type="checkbox" id="includeTotalsRow" checked>
-                    <label class="form-check-label" for="includeTotalsRow">
-                      <i class="fas fa-calculator text-primary me-1"></i>Daily Totals Row
-                    </label>
-                    <small class="text-muted d-block">Sum totals for each day column</small>
+                  <div class="option-grid">
+                    <div class="form-check futuristic-option">
+                      <input class="form-check-input" type="checkbox" id="includeDiscrepancy" checked>
+                      <label class="form-check-label" for="includeDiscrepancy">
+                        <i class="fas fa-chart-line text-warning me-1"></i>Discrepancy Count
+                      </label>
+                      <small class="text-muted d-block">Days with less than 8 hours</small>
+                    </div>
+
+                    <div class="form-check futuristic-option">
+                      <input class="form-check-input" type="checkbox" id="includeOvertime" checked>
+                      <label class="form-check-label" for="includeOvertime">
+                        <i class="fas fa-plus-circle text-info me-1"></i>Overtime Hours
+                      </label>
+                      <small class="text-muted d-block">Hours over 8.00 per day</small>
+                    </div>
+
+                    <div class="form-check futuristic-option">
+                      <input class="form-check-input" type="checkbox" id="includeTotalsRow" checked>
+                      <label class="form-check-label" for="includeTotalsRow">
+                        <i class="fas fa-calculator text-primary me-1"></i>Daily Totals Row
+                      </label>
+                      <small class="text-muted d-block">Sum totals for each day column</small>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -850,8 +1183,8 @@
           <!-- Time Period Selection -->
           <div class="row mb-4">
             <div class="col-12">
-              <h6 class="text-primary mb-3"><i class="fas fa-calendar-alt me-2"></i>Time Period</h6>
-              <div class="btn-group w-100" role="group" aria-label="Export type">
+              <h6 class="section-heading"><i class="fas fa-calendar-alt"></i>Time Period</h6>
+              <div class="btn-group w-100 period-toggle" role="group" aria-label="Export type">
                 <input type="radio" class="btn-check" name="exportType" id="weekly" value="Week" checked>
                 <label class="btn btn-outline-primary" for="weekly">Weekly</label>
 
@@ -877,11 +1210,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label fw-bold">Year</label>
-              <select class="form-select" id="yearSelect">
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-                <option value="2023">2023</option>
-              </select>
+              <select class="form-select" id="yearSelect"></select>
             </div>
           </div>
 
@@ -950,9 +1279,9 @@
           <!-- Preview Section -->
           <div class="row mb-3">
             <div class="col-12">
-              <div class="alert alert-modern alert-success" role="alert">
-                <h6 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Export Preview (<span id="previewTimezoneLabel">Company Time</span>)</h6>
-                <div class="row">
+              <div class="pivot-preview-card">
+                <h6><i class="fas fa-check-circle me-2"></i>Export Preview (<span id="previewTimezoneLabel">Company Time</span>)</h6>
+                <div class="row g-3 align-items-center">
                   <div class="col-md-6">
                     <p class="mb-1"><strong>Format:</strong> <span id="previewFormat">Daily Pivot Matrix</span></p>
                     <p class="mb-1"><strong>Layout:</strong> <span id="previewLayout">Users × Days Matrix</span></p>
@@ -964,17 +1293,19 @@
                     <p class="mb-0"><strong>Timezone:</strong> <span id="previewTimezoneDetail">Company Time</span></p>
                   </div>
                 </div>
-                <hr>
-                <small class="text-success">
-                  <i class="fas fa-info-circle me-1"></i>
-                  <strong>Data Accuracy:</strong> All duration values converted from seconds to decimal hours for accurate reporting.
-                </small>
+                <p class="mt-3 mb-0 text-muted small"><i class="fas fa-info-circle me-1"></i><strong>Data Accuracy:</strong> Seconds are automatically converted to decimal hours for every cell.</p>
+                <div class="hour-legend" id="hourColorLegend" style="display: none;">
+                  <span class="legend-pill legend-low"><span class="legend-dot"></span>Under 8 hours</span>
+                  <span class="legend-pill legend-target"><span class="legend-dot"></span>Exactly 8 hours</span>
+                  <span class="legend-pill legend-over"><span class="legend-dot"></span>Over 8 hours</span>
+                </div>
+                <p class="legend-note" id="legendNote" style="display: none;">Color accents apply directly to the exported matrix when enabled.</p>
               </div>
             </div>
           </div>
         </form>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer export-modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           <i class="fas fa-times me-2"></i>Cancel
         </button>
@@ -2515,10 +2846,44 @@
     }
 
     init() {
+      this.initializeYearSelector();
       this.loadUserList();
       this.setupEventListeners();
       this.updatePeriodOptions();
       this.updatePreview();
+    }
+
+    initializeYearSelector() {
+      const yearSelect = document.getElementById('yearSelect');
+      if (!yearSelect) {
+        return;
+      }
+
+      const currentYear = new Date().getFullYear();
+      const existing = Array.from(yearSelect.querySelectorAll('option'))
+        .map(option => parseInt(option.value, 10))
+        .filter(year => Number.isFinite(year));
+
+      const yearSet = new Set(existing);
+      for (let offset = -2; offset <= 1; offset++) {
+        yearSet.add(currentYear + offset);
+      }
+
+      const sortedYears = Array.from(yearSet)
+        .filter(year => year >= 2000)
+        .sort((a, b) => b - a);
+
+      yearSelect.innerHTML = '';
+      sortedYears.forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearSelect.appendChild(option);
+      });
+
+      if (sortedYears.length > 0) {
+        yearSelect.value = currentYear.toString();
+      }
     }
 
     async loadUserList() {
@@ -2611,7 +2976,7 @@
       });
 
       const matrixCheckboxes = [
-        'highlightLowHours', 'includeWeekends', 'includeTotalHours', 
+        'highlightLowHours', 'includeWeekends', 'includeTotalHours',
         'includeDiscrepancy', 'includeOvertime', 'includeTotalsRow'
       ];
 
@@ -2622,12 +2987,21 @@
         }
       });
 
-      ['periodSelect', 'yearSelect', 'startDate', 'endDate', 'singleUserSelect'].forEach(id => {
+      ['periodSelect', 'startDate', 'endDate', 'singleUserSelect'].forEach(id => {
         const element = document.getElementById(id);
         if (element) {
           element.addEventListener('change', () => this.updatePreview());
         }
       });
+
+      const yearSelect = document.getElementById('yearSelect');
+      if (yearSelect) {
+        yearSelect.addEventListener('change', () => {
+          const exportType = document.querySelector('input[name="exportType"]:checked')?.value || 'Week';
+          this.populatePeriodOptions(exportType, { resetSelection: true });
+          this.updatePreview();
+        });
+      }
 
       const userCheckboxes = document.getElementById('userCheckboxes');
       if (userCheckboxes) {
@@ -2666,47 +3040,71 @@
       } else {
         if (periodSection) periodSection.style.display = 'block';
         if (customSection) customSection.style.display = 'none';
-        this.populatePeriodOptions(exportType);
+        this.populatePeriodOptions(exportType, { resetSelection: true });
       }
     }
 
-    populatePeriodOptions(type) {
+    populatePeriodOptions(type, options = {}) {
       const select = document.getElementById('periodSelect');
       if (!select) return;
 
-      const year = document.getElementById('yearSelect')?.value || new Date().getFullYear();
+      const { resetSelection = false } = options;
+      const yearValue = document.getElementById('yearSelect')?.value || new Date().getFullYear().toString();
+      const fallbackYear = new Date().getFullYear();
+      const year = parseInt(yearValue, 10) || fallbackYear;
+      const previousValue = select.value;
 
       select.innerHTML = '<option value="">Select a period...</option>';
 
+      const fragment = document.createDocumentFragment();
+
       switch (type) {
-        case 'Week':
-          for (let week = 1; week <= 52; week++) {
+        case 'Week': {
+          const totalWeeks = this.getISOWeeksInYear(year);
+          for (let week = 1; week <= totalWeeks; week++) {
             const option = document.createElement('option');
             option.value = `${year}-W${week.toString().padStart(2, '0')}`;
             option.textContent = `Week ${week}, ${year}`;
-            select.appendChild(option);
+            fragment.appendChild(option);
           }
           break;
+        }
 
-        case 'Month':
+        case 'Month': {
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           for (let month = 1; month <= 12; month++) {
             const option = document.createElement('option');
             option.value = `${year}-${month.toString().padStart(2, '0')}`;
             option.textContent = `${months[month - 1]} ${year}`;
-            select.appendChild(option);
+            fragment.appendChild(option);
           }
           break;
+        }
 
-        case 'Quarter':
+        case 'Quarter': {
           for (let quarter = 1; quarter <= 4; quarter++) {
             const option = document.createElement('option');
             option.value = `Q${quarter}-${year}`;
             option.textContent = `Q${quarter} ${year}`;
-            select.appendChild(option);
+            fragment.appendChild(option);
           }
           break;
+        }
       }
+
+      select.appendChild(fragment);
+
+      let newValue = '';
+      if (!resetSelection && previousValue && select.querySelector(`[value="${previousValue}"]`)) {
+        newValue = previousValue;
+      } else {
+        newValue = this.getDefaultPeriodForType(type, year);
+        if (newValue && !select.querySelector(`[value="${newValue}"]`)) {
+          newValue = '';
+        }
+      }
+
+      select.value = newValue;
     }
 
     updateUserSelectionVisibility() {
@@ -2734,8 +3132,14 @@
       const previewFormat = document.getElementById('previewFormat');
       if (previewFormat) previewFormat.textContent = formatText;
 
+      const highlightActive = document.getElementById('highlightLowHours')?.checked || false;
+
       let layoutText = 'Users × Days Matrix';
-      if (format === 'csv') layoutText = 'Standard Rows';
+      if (format === 'csv') {
+        layoutText = 'Standard Rows';
+      } else if (highlightActive) {
+        layoutText = 'Users × Days Matrix • Color-coded Hours';
+      }
 
       const previewLayout = document.getElementById('previewLayout');
       if (previewLayout) previewLayout.textContent = layoutText;
@@ -2764,6 +3168,21 @@
       }
       const previewUsers = document.getElementById('previewUsers');
       if (previewUsers) previewUsers.textContent = usersText;
+
+      this.updateLegendPreview(format === 'daily_pivot' && highlightActive);
+    }
+
+    updateLegendPreview(isEnabled) {
+      const legend = document.getElementById('hourColorLegend');
+      const note = document.getElementById('legendNote');
+
+      if (legend) {
+        legend.style.display = isEnabled ? 'flex' : 'none';
+      }
+
+      if (note) {
+        note.style.display = isEnabled ? 'block' : 'none';
+      }
     }
 
     collectExportParameters() {
@@ -2906,13 +3325,47 @@
       }
     }
 
-    getCurrentWeek() {
+    getDefaultPeriodForType(type, year) {
       const today = new Date();
-      const dayNum = today.getUTCDay() || 7;
-      today.setUTCDate(today.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil(((today - yearStart) / 86400000 + 1) / 7);
-      return `${today.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+      if (today.getFullYear() !== year) {
+        return '';
+      }
+
+      switch (type) {
+        case 'Week':
+          return this.getIsoWeekFromDate(today);
+        case 'Month': {
+          const month = today.getMonth() + 1;
+          return `${year}-${month.toString().padStart(2, '0')}`;
+        }
+        case 'Quarter': {
+          const quarter = Math.floor(today.getMonth() / 3) + 1;
+          return `Q${quarter}-${year}`;
+        }
+        default:
+          return '';
+      }
+    }
+
+    getIsoWeekFromDate(date) {
+      const tempDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNumber = tempDate.getUTCDay() || 7;
+      tempDate.setUTCDate(tempDate.getUTCDate() + 4 - dayNumber);
+      const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((tempDate - yearStart) / 86400000 + 1) / 7);
+      return `${tempDate.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    }
+
+    getISOWeeksInYear(year) {
+      const dec28 = new Date(Date.UTC(year, 11, 28));
+      const isoWeek = this.getIsoWeekFromDate(dec28);
+      const parts = isoWeek.split('-W');
+      const weekNumber = parts.length === 2 ? parseInt(parts[1], 10) : 52;
+      return Number.isFinite(weekNumber) ? weekNumber : 52;
+    }
+
+    getCurrentWeek() {
+      return this.getIsoWeekFromDate(new Date());
     }
 
     validateExportParameters(params) {
