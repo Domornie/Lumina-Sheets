@@ -1654,6 +1654,29 @@ function generateDateRangeForPeriod(granularity, periodValue) {
   return dateRange;
 }
 
+function determineDailyPerformanceStatus(hours, isWeekend) {
+  if (isWeekend) {
+    return 'weekend';
+  }
+
+  if (!hours || hours <= 0) {
+    return 'empty';
+  }
+
+  const roundedHours = Math.round(hours * 100) / 100;
+  const diffFromTarget = Math.abs(roundedHours - 8);
+
+  if (diffFromTarget <= 0.001) {
+    return 'target';
+  }
+
+  if (roundedHours < 8) {
+    return 'under';
+  }
+
+  return 'over';
+}
+
 function generateDailyPivotMatrix(filteredRows, granularity, periodValue, options = {}) {
   // Generate date range for the period with proper configured timezone handling
   const dateRange = generateDateRangeForPeriod(granularity, periodValue);
@@ -1730,15 +1753,17 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       const hours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
       const lunchMin = userLunchMin.get(dateInfo.date) || 0;
-      
+      const performanceStatus = determineDailyPerformanceStatus(hours, dateInfo.isWeekend);
+
       if (dateInfo.isWeekend) {
         weekendHours += hours;
         if (!options.includeWeekends) {
-          return { 
-            date: dateInfo.date, 
-            value: 'OFF', 
-            isStatus: true, 
+          return {
+            date: dateInfo.date,
+            value: 'OFF',
+            isStatus: true,
             isWeekend: true,
+            performanceStatus: performanceStatus,
             breakMin: 0,
             lunchMin: 0
           };
@@ -1747,38 +1772,36 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         // Weekday processing
         weekdayHours += hours;
         totalHours += hours;
-        
-        // Check for discrepancies (less than 8 hours on weekday with some work)
-        if (hours > 0 && hours < 8.0) {
+
+        if (performanceStatus === 'under') {
           discrepancyDays++;
         }
-        
-        // Check for overtime (more than 8 hours)
-        if (hours > 8.0) {
-          overtimeHours += (hours - 8.0);
+
+        if (performanceStatus === 'over') {
+          const hoursOverTarget = Math.max(0, hours - 8.0);
+          overtimeHours += hoursOverTarget;
         }
-        
-        // Check for perfect attendance (8+ hours with reasonable breaks/lunch)
-        if (hours >= 8.0 && breakMin <= 30 && lunchMin <= 60) {
+
+        if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 60) {
           perfectAttendanceDays++;
         }
-        
-        // Check for policy violations
+
         if (breakMin > 30 || lunchMin > 60) {
           violationDays++;
         }
       }
-      
+
       const formattedHours = hours.toFixed(2);
-      const isLow = hours > 0 && hours < 8.0 && !dateInfo.isWeekend;
-      
-      return { 
-        date: dateInfo.date, 
+      const isLow = performanceStatus === 'under';
+
+      return {
+        date: dateInfo.date,
         value: formattedHours,
         numericValue: hours,
         isStatus: false,
         isLow: isLow,
         isWeekend: dateInfo.isWeekend,
+        performanceStatus: performanceStatus,
         breakMin: Math.round(breakMin),
         lunchMin: Math.round(lunchMin),
         hasViolations: (breakMin > 30 || lunchMin > 60)
@@ -1852,7 +1875,12 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
   const now = new Date();
   const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
   const options = params.dailyPivotOptions || {};
-  
+  const performanceIcons = {
+    under: '🔴',
+    target: '🟢',
+    over: '🟣'
+  };
+
   let csv = '';
   
   // Header section
@@ -1900,12 +1928,15 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
     userData.dailyData.forEach(dayData => {
       if (!dayData.isWeekend || options.includeWeekends) {
         let cellValue = dayData.value;
-        
+
         // Add markers for special conditions
-        if (options.highlightLowHours && dayData.isLow) {
-          cellValue += '*';
+        if (options.highlightLowHours && !dayData.isStatus) {
+          const icon = performanceIcons[dayData.performanceStatus];
+          if (icon) {
+            cellValue = `${icon} ${cellValue}`;
+          }
         }
-        
+
         // Show violations in parentheses if requested
         if (dayData.hasViolations && !dayData.isStatus) {
           cellValue += ` (B${dayData.breakMin}m L${dayData.lunchMin}m)`;
@@ -1990,7 +2021,9 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
   csv += `\n"OFF" = Weekend or non-working day`;
   csv += `\n"0.00" = No productive hours recorded`;
   if (options.highlightLowHours) {
-    csv += `\n"*" = Hours below 8.00 on weekdays (potential discrepancy)`;
+    csv += `\n"🔴" = Weekday hours below 8.00 (attention)`;
+    csv += `\n"🟢" = Weekday hours meeting the 8.00 target`;
+    csv += `\n"🟣" = Weekday overtime above 8.00`;
   }
   csv += `\n"(B##m L##m)" = Break and lunch minutes if violations detected`;
   csv += `\n"Low Days" = Number of weekdays with less than 8 hours`;
