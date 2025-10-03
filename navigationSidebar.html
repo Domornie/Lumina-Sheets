@@ -275,8 +275,24 @@
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+  function removeExistingPageParam(url) {
+    if (!url) {
+      return '';
+    }
+
+    var cleaned = url.replace(/([?&])page=[^&#]*(&)?/gi, function (match, prefix, suffix) {
+      if (prefix === '?') {
+        return suffix ? '?' : '';
+      }
+
+      return suffix ? prefix : '';
+    });
+
+    return cleaned.replace(/[?&]$/, '');
+  }
+
   function generateLink(page) {
-    var target = __navLinkBase;
+    var target = removeExistingPageParam(__navLinkBase);
     if (!target) {
       return '?page=' + encodeURIComponent(page);
     }
