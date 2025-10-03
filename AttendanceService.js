@@ -659,6 +659,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     let totalBillableSecs = 0;
     let totalRowsConsidered = 0;
 
+    const managerDirectory = buildManagerDirectory_();
+
     const registerFeedRow = (row, timestampMs) => {
       if (!timestampMs) return;
       if (feedBuffer.length < FEED_LIMIT) {
@@ -816,12 +818,12 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     console.log(`Filtered ${totalRowsConsidered} records from ${allRows.length} total (scanned ${scannedRows})`);
 
     if (exceededTimeBudget) {
-      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
+      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd, managerDirectory);
     }
 
     if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.6) {
       console.warn('Approaching timeout, returning basic analytics snapshot');
-      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd);
+      return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd, managerDirectory);
     }
 
     let violationDays = 0;
@@ -868,6 +870,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
         user,
         percentage: expectedCapacitySecs > 0 ? Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
       }))
+      .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
 
@@ -938,7 +941,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       billableBreakdown,
       nonProductiveBreakdown,
       stateDuration
-    });
+    }, managerDirectory);
 
     const analytics = {
       summary,
@@ -1242,13 +1245,14 @@ function resolveAnalyticsDateKey(row) {
   return date.toISOString().split('T')[0];
 }
 
-function generateAttendanceIntelligence(filteredRows, context) {
+function generateAttendanceIntelligence(filteredRows, context, managerDirectory) {
   try {
     const rows = Array.isArray(filteredRows) ? filteredRows : [];
     if (rows.length === 0) {
       return { insights: [], employeeTrends: [] };
     }
 
+    const directory = managerDirectory || buildManagerDirectory_();
     const billableStates = new Set(BILLABLE_DISPLAY_STATES);
     const nonProdStates = new Set(NON_PRODUCTIVE_DISPLAY_STATES);
 
@@ -1256,6 +1260,7 @@ function generateAttendanceIntelligence(filteredRows, context) {
 
     rows.forEach(row => {
       if (!row || !row.user) return;
+      if (isManagerPerson_(row.user, directory)) return;
       const durationSec = typeof row.durationSec === 'number' ? row.durationSec : parseFloat(row.durationSec) || 0;
       if (!Number.isFinite(durationSec) || durationSec <= 0) return;
 
@@ -2193,7 +2198,97 @@ function importAttendance(rows) {
 // FALLBACK FUNCTIONS
 // ────────────────────────────────────────────────────────────────────────────
 
-function createBasicAnalytics(filtered, granularity, periodId, agentFilter, periodStart, periodEnd) {
+function normalizePersonKey_(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function buildManagerDirectory_() {
+  const directory = {
+    normalizedNames: new Set(),
+    normalizedEmails: new Set()
+  };
+
+  try {
+    if (typeof getUsers === 'function') {
+      const users = getUsers() || [];
+      users.forEach(user => {
+        if (!user) return;
+
+        const roleCandidates = [];
+        if (Array.isArray(user.roleNames)) {
+          roleCandidates.push(...user.roleNames);
+        }
+        if (typeof user.Role !== 'undefined') {
+          roleCandidates.push(user.Role);
+        }
+        if (typeof user.role !== 'undefined') {
+          roleCandidates.push(user.role);
+        }
+
+        const hasManagerRole = roleCandidates
+          .map(roleName => normalizePersonKey_(roleName))
+          .filter(Boolean)
+          .some(roleName => roleName.includes('manager') || roleName.includes('supervisor'));
+
+        if (!hasManagerRole) {
+          return;
+        }
+
+        [
+          user.FullName,
+          user.fullName,
+          user.UserName,
+          user.userName,
+          user.name,
+          user.DisplayName,
+          user.displayName,
+          user.PreferredName,
+          user.preferredName
+        ].forEach(candidate => {
+          const key = normalizePersonKey_(candidate);
+          if (key) {
+            directory.normalizedNames.add(key);
+          }
+        });
+
+        [
+          user.Email,
+          user.email,
+          user.WorkEmail,
+          user.workEmail
+        ].forEach(candidate => {
+          const key = normalizePersonKey_(candidate);
+          if (key) {
+            directory.normalizedEmails.add(key);
+          }
+        });
+      });
+    }
+  } catch (error) {
+    console.warn('buildManagerDirectory_ failed:', error);
+  }
+
+  return directory;
+}
+
+function isManagerPerson_(name, directory) {
+  if (!directory) {
+    return false;
+  }
+
+  const normalized = normalizePersonKey_(name);
+  if (normalized && directory.normalizedNames && directory.normalizedNames.has(normalized)) {
+    return true;
+  }
+
+  if (normalized && directory.normalizedEmails && directory.normalizedEmails.has(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
+function createBasicAnalytics(filtered, granularity, periodId, agentFilter, periodStart, periodEnd, managerDirectory) {
   console.log('Creating basic analytics fallback');
 
   const rows = Array.isArray(filtered) ? filtered : [];
@@ -2252,7 +2347,7 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     billableBreakdown,
     nonProductiveBreakdown,
     stateDuration
-  });
+  }, managerDirectory || buildManagerDirectory_());
 
   return {
     summary,
