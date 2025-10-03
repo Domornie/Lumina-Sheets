@@ -1,5 +1,11 @@
 <!-- Enhanced Search.html with Proxy Integration -->
-<?!= include('layout', {rawToken: rawToken, baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include('layout', {
+  rawToken: rawToken,
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'search'
+}) ?>
 
 <!-- Google Font -->
 <link

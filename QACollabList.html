@@ -1,5 +1,11 @@
 <!-- QAList.html -->
-<?!= include('layout', { rawToken: rawToken, baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include('layout', {
+  rawToken: rawToken,
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'qacollablist'
+}) ?>
 
 <div class="container my-4">
   <div class="card shadow-sm">

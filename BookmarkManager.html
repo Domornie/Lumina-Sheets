@@ -1,5 +1,10 @@
 <!-- BookmarkManager.html -->
-<?!= include('layout', {baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'bookmarks'
+}) ?>
 
 <link
   rel="stylesheet"

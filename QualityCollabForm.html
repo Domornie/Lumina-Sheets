@@ -1,6 +1,11 @@
     <?!= includeOnce('ResponsiveStyles') ?>
 <!-- Quality Form--->
-<?!= include("layout", { baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include("layout", {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'QualityCollabForm'
+}) ?>
 <?  
   // server‐side templating:
   // recordId   is a string ("" or your UUID)

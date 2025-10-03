@@ -1,5 +1,10 @@
     <?!= includeOnce('ResponsiveStyles') ?>
-<?!= include("layout",{ baseUrl: baseUrl, scriptUrl: scriptUrl, user: user, currentPage: currentPage }) ?>
+<?!= include("layout",{
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'escalations'
+}) ?>
 
 <!-- Quill Snow theme CSS -->
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
