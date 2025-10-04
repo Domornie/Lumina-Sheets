@@ -1,5 +1,15 @@
 <!-- File: ImportCallReport.html -->
 <?!= include('layout', { baseUrl: baseUrl, scriptUrl: scriptUrl, rawToken: rawToken, user: user, currentPage: "Import Call Report" }) ?>
+<? const __callReportsPageUrl = (function(base) {
+  if (!base) {
+    return '?page=CallReports';
+  }
+
+  var hasQuery = base.indexOf('?') !== -1;
+  var separator = hasQuery ? (/[?&]$/.test(base) ? '' : '&') : '?';
+  return base + separator + 'page=CallReports';
+})(typeof baseUrl !== 'undefined' ? baseUrl : '');
+?>
 
 <style>
   /* Call Report Import specific styles using the modern design system */
@@ -17,6 +27,43 @@
     transition: var(--transition-smooth);
     overflow: hidden;
     position: relative;
+  }
+
+  .import-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1.5rem;
+  }
+
+  .import-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(14, 165, 233, 0.35);
+    background: rgba(14, 165, 233, 0.08);
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .import-back-link:hover {
+    background: rgba(14, 165, 233, 0.15);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .import-back-link i {
+    font-size: 0.9rem;
+  }
+
+  .import-feedback-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
   }
 
   .modern-card::before {
@@ -621,6 +668,12 @@
 </style>
 
 <div class="import-container">
+  <div class="import-toolbar">
+    <a class="import-back-link" href="<?= __callReportsPageUrl ?>">
+      <i class="fas fa-arrow-left"></i>
+      Back to Call Reports
+    </a>
+  </div>
   <!-- Main Import Card -->
   <div class="modern-card">
     <div class="card-header-modern">
@@ -1199,9 +1252,18 @@
         // PRESERVE EXACT BACKEND CALL - importCallReports function
         const result = await this.callServerFunction('importCallReports', [this.parsedRows]);
         
+        const skippedMessage = result.skipped > 0
+          ? `<br><small>Skipped ${result.skipped} duplicate records.</small>`
+          : '';
+        const successActions = `
+          <div class="import-feedback-actions">
+            <a class="import-back-link" href="<?= __callReportsPageUrl ?>">
+              <i class="fas fa-chart-line"></i>
+              View Call Reports
+            </a>
+          </div>`;
         this.showFeedback(
-          `Successfully imported <strong>${result.imported}</strong> call reports!` + 
-          (result.skipped > 0 ? `<br><small>Skipped ${result.skipped} duplicate records.</small>` : ''),
+          `Successfully imported <strong>${result.imported}</strong> call reports!${skippedMessage}${successActions}`,
           "success"
         );
 
