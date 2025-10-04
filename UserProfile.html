@@ -3015,23 +3015,30 @@
     }
 
     const descriptionElements = [];
-    if (chipsRow.childNodes.length) descriptionElements.push(chipsRow);
-    if (metaRow.childNodes.length) descriptionElements.push(metaRow);
-    if (contactsRow.childNodes.length) descriptionElements.push(contactsRow);
+    const bannerBlock = document.createElement('div');
+    bannerBlock.className = 'lumina-banner__rich-block';
+    if (chipsRow.childNodes.length) bannerBlock.appendChild(chipsRow);
+    if (metaRow.childNodes.length) bannerBlock.appendChild(metaRow);
+    if (contactsRow.childNodes.length) bannerBlock.appendChild(contactsRow);
+    if (bannerBlock.childNodes.length) {
+      descriptionElements.push(bannerBlock);
+    }
 
     const actions = [];
     const addAction = (href, label, icon, variant) => {
-      if (!href) {
+      const safeHref = safeString(href);
+      const safeLabel = safeString(label);
+      if (!safeHref || !safeLabel) {
         return;
       }
-      const action = document.createElement('a');
-      action.href = href;
-      action.target = '_top';
-      action.textContent = label;
-      action.setAttribute('data-banner-icon', icon);
-      action.setAttribute('data-banner-variant', variant);
-      action.setAttribute('data-banner-label', label);
-      actions.push(action);
+      actions.push({
+        href: safeHref,
+        label: safeLabel,
+        icon,
+        variant: variant || 'primary',
+        target: '_top',
+        rel: 'noopener'
+      });
     };
 
     try {
