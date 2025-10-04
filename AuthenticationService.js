@@ -18,13 +18,46 @@ const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SESSION_COLUMNS = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length)
   ? SESSIONS_HEADERS.slice()
-  : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress'];
+  : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress', 'ServerIp'];
 
 const MFA_CHALLENGE_TTL_SECONDS = 5 * 60; // 5 minutes
 const MFA_MAX_ATTEMPTS = 5;
 const MFA_MAX_DELIVERIES = 5;
 const MFA_CODE_LENGTH = 6;
 const MFA_STORAGE_PREFIX = 'AUTH_MFA_CHALLENGE:';
+
+const DEVICE_VERIFICATION_CODE_LENGTH = 6;
+const DEVICE_VERIFICATION_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const TRUSTED_DEVICE_TABLE = (typeof TRUSTED_DEVICES_SHEET === 'string' && TRUSTED_DEVICES_SHEET)
+  ? TRUSTED_DEVICES_SHEET
+  : 'TrustedDevices';
+const TRUSTED_DEVICE_COLUMNS = [
+  'ID',
+  'UserId',
+  'Fingerprint',
+  'IpAddress',
+  'ServerIp',
+  'UserAgent',
+  'Platform',
+  'Languages',
+  'TimezoneOffsetMinutes',
+  'Status',
+  'CreatedAt',
+  'UpdatedAt',
+  'ConfirmedAt',
+  'LastSeenAt',
+  'PendingVerificationId',
+  'PendingVerificationExpiresAt',
+  'PendingVerificationCodeHash',
+  'PendingMetadataJson',
+  'PendingRememberMe',
+  'MetadataJson',
+  'DeniedAt',
+  'DenialReason'
+];
+
+const LOGIN_CONTEXT_CACHE_PREFIX = 'AUTH_LOGIN_CONTEXT:';
+const LOGIN_CONTEXT_CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
 
 // ───────────────────────────────────────────────────────────────────────────────
 // IMPROVED AUTHENTICATION SERVICE
@@ -129,11 +162,788 @@ var AuthenticationService = (function () {
     if (metadata.ipAddress) {
       sanitized.ipAddress = String(metadata.ipAddress).slice(0, 100);
     }
+    if (metadata.serverIp || metadata.serverObservedIp) {
+      sanitized.serverIp = String(metadata.serverIp || metadata.serverObservedIp).slice(0, 100);
+    }
     if (metadata.platform) {
       sanitized.platform = String(metadata.platform).slice(0, 100);
     }
+    if (metadata.language) {
+      sanitized.language = String(metadata.language).slice(0, 50);
+    }
+    if (Array.isArray(metadata.languages) && metadata.languages.length) {
+      sanitized.languages = metadata.languages.slice(0, 5).map(function (lang) {
+        return String(lang).slice(0, 50);
+      }).filter(function (lang) { return lang.length > 0; });
+    }
+    if (typeof metadata.timezoneOffsetMinutes === 'number' && isFinite(metadata.timezoneOffsetMinutes)) {
+      sanitized.timezoneOffsetMinutes = Math.round(metadata.timezoneOffsetMinutes);
+    }
+    if (metadata.originHost) {
+      sanitized.originHost = String(metadata.originHost).slice(0, 200);
+    }
+    if (typeof metadata.deviceMemory === 'number' && isFinite(metadata.deviceMemory)) {
+      sanitized.deviceMemory = Math.max(0, Math.round(metadata.deviceMemory));
+    }
+    if (typeof metadata.hardwareConcurrency === 'number' && isFinite(metadata.hardwareConcurrency)) {
+      sanitized.hardwareConcurrency = Math.max(1, Math.round(metadata.hardwareConcurrency));
+    }
+    if (metadata.serverObservedAt) {
+      sanitized.serverObservedAt = String(metadata.serverObservedAt);
+    }
+    if (metadata.observedAt) {
+      sanitized.observedAt = String(metadata.observedAt);
+    }
 
     return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  function sanitizeServerMetadata(metadata) {
+    if (!metadata || typeof metadata !== 'object') {
+      return null;
+    }
+
+    const sanitized = {};
+    if (metadata.clientAddress) {
+      sanitized.serverIp = String(metadata.clientAddress).slice(0, 100);
+    }
+    if (metadata.forwardedFor) {
+      sanitized.forwardedFor = String(metadata.forwardedFor).slice(0, 250);
+    }
+    if (metadata.userAgent) {
+      sanitized.serverUserAgent = String(metadata.userAgent).slice(0, 500);
+    }
+    if (metadata.host) {
+      sanitized.host = String(metadata.host).slice(0, 200);
+    }
+    sanitized.serverObservedAt = new Date().toISOString();
+
+    return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  function mergeClientAndServerMetadata(clientMetadata, serverMetadata) {
+    const client = sanitizeClientMetadata(clientMetadata) || {};
+    const server = sanitizeServerMetadata(serverMetadata) || {};
+    const merged = {};
+
+    Object.keys(client).forEach(function (key) {
+      merged[key] = client[key];
+    });
+
+    Object.keys(server).forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(merged, key) || !merged[key]) {
+        merged[key] = server[key];
+      }
+    });
+
+    if (server && server.serverIp) {
+      merged.serverIp = server.serverIp;
+    }
+
+    return Object.keys(merged).length ? merged : null;
+  }
+
+  function getLoginContextCacheKey() {
+    try {
+      if (typeof Session !== 'undefined' && Session && typeof Session.getTemporaryActiveUserKey === 'function') {
+        const key = Session.getTemporaryActiveUserKey();
+        if (key) {
+          return LOGIN_CONTEXT_CACHE_PREFIX + String(key);
+        }
+      }
+    } catch (err) {
+      console.warn('getLoginContextCacheKey: unable to derive key', err);
+    }
+    return null;
+  }
+
+  function persistLoginContext(metadata) {
+    const key = getLoginContextCacheKey();
+    if (!key) {
+      return;
+    }
+
+    try {
+      const serialized = JSON.stringify(metadata || {});
+      if (typeof CacheService !== 'undefined' && CacheService) {
+        try {
+          CacheService.getUserCache().put(key, serialized, LOGIN_CONTEXT_CACHE_TTL_SECONDS);
+        } catch (cacheError) {
+          console.warn('persistLoginContext: cache put failed', cacheError);
+        }
+      }
+      if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+        try {
+          PropertiesService.getUserProperties().setProperty(key, serialized);
+        } catch (propError) {
+          console.warn('persistLoginContext: property set failed', propError);
+        }
+      }
+    } catch (err) {
+      console.warn('persistLoginContext: failed to serialize metadata', err);
+    }
+  }
+
+  function consumeLoginContext() {
+    const key = getLoginContextCacheKey();
+    if (!key) {
+      return null;
+    }
+
+    let raw = null;
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      try {
+        raw = CacheService.getUserCache().get(key);
+        CacheService.getUserCache().remove(key);
+      } catch (cacheError) {
+        console.warn('consumeLoginContext: cache get/remove failed', cacheError);
+      }
+    }
+
+    if (!raw && typeof PropertiesService !== 'undefined' && PropertiesService) {
+      try {
+        const props = PropertiesService.getUserProperties();
+        raw = props.getProperty(key);
+        props.deleteProperty(key);
+      } catch (propError) {
+        console.warn('consumeLoginContext: property read/delete failed', propError);
+      }
+    }
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch (parseError) {
+      console.warn('consumeLoginContext: failed to parse metadata', parseError);
+      return null;
+    }
+  }
+
+  function captureLoginRequestContext(event) {
+    try {
+      const serverContext = event && event.context ? {
+        clientAddress: event.context.clientAddress,
+        forwardedFor: event.context.forwardedFor,
+        host: event.context.host,
+        userAgent: event.context.userAgent
+      } : null;
+      const sanitized = sanitizeServerMetadata(serverContext);
+      if (sanitized) {
+        persistLoginContext(sanitized);
+      }
+      return sanitized;
+    } catch (error) {
+      console.warn('captureLoginRequestContext: failed to capture context', error);
+      return null;
+    }
+  }
+
+  function maskEmail(email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized) {
+      return '';
+    }
+
+    const parts = normalized.split('@');
+    if (parts.length !== 2) {
+      return normalized;
+    }
+
+    const local = parts[0];
+    const domain = parts[1];
+    if (local.length <= 2) {
+      return local.charAt(0) + '***@' + domain;
+    }
+    return local.charAt(0) + '***' + local.charAt(local.length - 1) + '@' + domain;
+  }
+
+  function buildDeviceFingerprint(userId, metadata) {
+    if (!userId || !metadata || typeof metadata !== 'object') {
+      return null;
+    }
+
+    try {
+      const parts = [
+        normalizeString(userId),
+        normalizeString(metadata.userAgent),
+        normalizeString(metadata.platform),
+        normalizeString(metadata.language),
+        Array.isArray(metadata.languages) ? metadata.languages.join(',') : '',
+        metadata.timezoneOffsetMinutes !== null && typeof metadata.timezoneOffsetMinutes !== 'undefined'
+          ? String(metadata.timezoneOffsetMinutes)
+          : '',
+        normalizeString(metadata.serverIp || metadata.ipAddress)
+      ];
+
+      const source = parts.join('|');
+      if (!source.trim()) {
+        return null;
+      }
+
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, source);
+      return Utilities.base64EncodeWebSafe(digest);
+    } catch (error) {
+      console.warn('buildDeviceFingerprint: failed to generate fingerprint', error);
+      return null;
+    }
+  }
+
+  function ensureTrustedDevicesSheet() {
+    try {
+      if (typeof ensureSheetWithHeaders === 'function') {
+        return ensureSheetWithHeaders(TRUSTED_DEVICE_TABLE, TRUSTED_DEVICE_COLUMNS);
+      }
+    } catch (error) {
+      console.warn('ensureTrustedDevicesSheet: ensureSheetWithHeaders failed', error);
+    }
+
+    if (typeof SpreadsheetApp === 'undefined') {
+      throw new Error('SpreadsheetApp not available for trusted device storage');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(TRUSTED_DEVICE_TABLE);
+    if (!sheet) {
+      sheet = ss.insertSheet(TRUSTED_DEVICE_TABLE);
+      sheet.getRange(1, 1, 1, TRUSTED_DEVICE_COLUMNS.length).setValues([TRUSTED_DEVICE_COLUMNS]);
+      sheet.setFrozenRows(1);
+    }
+
+    const lastCol = sheet.getLastColumn();
+    const headers = lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+    const normalizedHeaders = headers.map(function (value) { return String(value || '').trim(); });
+    let modified = false;
+    TRUSTED_DEVICE_COLUMNS.forEach(function (column) {
+      if (normalizedHeaders.indexOf(column) === -1) {
+        normalizedHeaders.push(column);
+        modified = true;
+      }
+    });
+    if (modified) {
+      sheet.getRange(1, 1, 1, normalizedHeaders.length).setValues([normalizedHeaders]);
+    }
+
+    return sheet;
+  }
+
+  function readTrustedDevices() {
+    const sheet = ensureTrustedDevicesSheet();
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+    if (lastRow < 2 || lastColumn === 0) {
+      return [];
+    }
+
+    const range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
+    const values = range.getValues();
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function (value) {
+      return String(value || '').trim();
+    });
+
+    return values.map(function (row, index) {
+      const record = {};
+      headers.forEach(function (header, colIndex) {
+        record[header] = row[colIndex];
+      });
+      record.__rowNumber = index + 2;
+      return record;
+    });
+  }
+
+  function writeTrustedDeviceRecord(record) {
+    if (!record || typeof record !== 'object') {
+      throw new Error('writeTrustedDeviceRecord: record must be an object');
+    }
+
+    const sheet = ensureTrustedDevicesSheet();
+    const headersRange = sheet.getRange(1, 1, 1, sheet.getLastColumn() || TRUSTED_DEVICE_COLUMNS.length);
+    const headers = headersRange.getValues()[0].map(function (value) { return String(value || '').trim(); });
+    const rowValues = headers.map(function (header) {
+      return Object.prototype.hasOwnProperty.call(record, header) ? record[header] : '';
+    });
+
+    if (record.__rowNumber) {
+      sheet.getRange(record.__rowNumber, 1, 1, headers.length).setValues([rowValues]);
+      return record;
+    }
+
+    sheet.appendRow(rowValues);
+    record.__rowNumber = sheet.getLastRow();
+    return record;
+  }
+
+  function saveTrustedDeviceRecord(record, updates) {
+    const nowIso = new Date().toISOString();
+    const merged = Object.assign({}, record || {});
+    Object.keys(updates || {}).forEach(function (key) {
+      merged[key] = updates[key];
+    });
+    if (!merged.CreatedAt) {
+      merged.CreatedAt = nowIso;
+    }
+    merged.UpdatedAt = nowIso;
+    return writeTrustedDeviceRecord(merged);
+  }
+
+  function findTrustedDeviceRecord(userId, fingerprint) {
+    if (!userId || !fingerprint) {
+      return null;
+    }
+
+    const records = readTrustedDevices();
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      if (String(record.UserId) === String(userId) && String(record.Fingerprint) === String(fingerprint)) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  function findDeviceByVerificationId(verificationId) {
+    if (!verificationId) {
+      return null;
+    }
+
+    const records = readTrustedDevices();
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      if (String(record.PendingVerificationId || '') === String(verificationId)) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  function sendDeviceVerificationEmailSafe(user, metadata, verificationCode, expiresAtIso) {
+    if (typeof sendDeviceVerificationEmail !== 'function') {
+      console.warn('sendDeviceVerificationEmailSafe: EmailService not available');
+      return { success: false, error: 'EMAIL_SERVICE_UNAVAILABLE' };
+    }
+
+    try {
+      const result = sendDeviceVerificationEmail(user.Email, {
+        fullName: user.FullName || user.UserName || user.Email,
+        verificationCode: verificationCode,
+        expiresAt: expiresAtIso,
+        ipAddress: metadata.serverIp || metadata.ipAddress || 'Unknown',
+        userAgent: metadata.userAgent || 'Unknown',
+        platform: metadata.platform || '',
+        originHost: metadata.originHost || '',
+        languages: Array.isArray(metadata.languages) ? metadata.languages : (metadata.language ? [metadata.language] : [])
+      });
+      if (result === false || (result && result.success === false)) {
+        return { success: false, error: (result && result.error) || 'EMAIL_SEND_FAILED' };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('sendDeviceVerificationEmailSafe: failed to send email', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  function evaluateTrustedDevice(user, metadata, rememberMe) {
+    if (!metadata) {
+      return { trusted: true, metadata: null };
+    }
+
+    const fingerprint = buildDeviceFingerprint(user.ID, metadata);
+    if (!fingerprint) {
+      return { trusted: true, metadata: metadata };
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    let record = findTrustedDeviceRecord(user.ID, fingerprint);
+
+    const status = record && record.Status ? String(record.Status).toLowerCase() : '';
+    if (record && status === 'trusted') {
+      const updated = saveTrustedDeviceRecord(record, {
+        LastSeenAt: nowIso,
+        IpAddress: metadata.ipAddress || record.IpAddress || '',
+        ServerIp: metadata.serverIp || metadata.ipAddress || record.ServerIp || '',
+        UserAgent: metadata.userAgent || record.UserAgent || '',
+        Platform: metadata.platform || record.Platform || '',
+        Languages: Array.isArray(metadata.languages) ? metadata.languages.join(',') : (metadata.language || record.Languages || ''),
+        TimezoneOffsetMinutes: typeof metadata.timezoneOffsetMinutes === 'number'
+          ? String(metadata.timezoneOffsetMinutes)
+          : (record.TimezoneOffsetMinutes || ''),
+        MetadataJson: JSON.stringify(metadata || {}),
+        PendingVerificationId: '',
+        PendingVerificationExpiresAt: '',
+        PendingVerificationCodeHash: '',
+        PendingMetadataJson: '',
+        PendingRememberMe: ''
+      });
+      return { trusted: true, metadata: metadata, record: updated };
+    }
+
+    const verificationId = Utilities.getUuid();
+    const verificationCode = generateOneTimeNumericCode(DEVICE_VERIFICATION_CODE_LENGTH);
+    const codeHash = hashMfaCode(verificationCode, verificationId);
+    if (!codeHash) {
+      console.error('evaluateTrustedDevice: unable to hash verification code');
+      return {
+        trusted: false,
+        error: 'Failed to initiate verification.',
+        errorCode: 'DEVICE_VERIFICATION_ERROR'
+      };
+    }
+
+    const expiresAtIso = new Date(now.getTime() + DEVICE_VERIFICATION_TTL_MS).toISOString();
+
+    const baseUpdates = {
+      UserId: user.ID,
+      Fingerprint: fingerprint,
+      Status: 'pending',
+      PendingVerificationId: verificationId,
+      PendingVerificationExpiresAt: expiresAtIso,
+      PendingVerificationCodeHash: codeHash,
+      PendingMetadataJson: JSON.stringify(metadata || {}),
+      PendingRememberMe: rememberMe ? 'TRUE' : 'FALSE',
+      IpAddress: metadata.ipAddress || '',
+      ServerIp: metadata.serverIp || metadata.ipAddress || '',
+      UserAgent: metadata.userAgent || '',
+      Platform: metadata.platform || '',
+      Languages: Array.isArray(metadata.languages) ? metadata.languages.join(',') : (metadata.language || ''),
+      TimezoneOffsetMinutes: typeof metadata.timezoneOffsetMinutes === 'number'
+        ? String(metadata.timezoneOffsetMinutes)
+        : (record && record.TimezoneOffsetMinutes ? record.TimezoneOffsetMinutes : ''),
+      DeniedAt: '',
+      DenialReason: ''
+    };
+
+    if (!record) {
+      record = saveTrustedDeviceRecord({
+        ID: Utilities.getUuid(),
+        CreatedAt: nowIso
+      }, baseUpdates);
+    } else {
+      record = saveTrustedDeviceRecord(record, baseUpdates);
+    }
+
+    const emailResult = sendDeviceVerificationEmailSafe(user, metadata, verificationCode, expiresAtIso);
+    if (!emailResult || emailResult.success === false) {
+      console.error('evaluateTrustedDevice: verification email failed', emailResult && emailResult.error);
+      return {
+        trusted: false,
+        error: 'We were unable to send the verification email. Please try again later.',
+        errorCode: 'DEVICE_EMAIL_FAILED'
+      };
+    }
+
+    return {
+      trusted: false,
+      verification: {
+        id: verificationId,
+        expiresAt: expiresAtIso,
+        maskedEmail: maskEmail(user.Email),
+        ipAddress: metadata.serverIp || metadata.ipAddress || '',
+        codeLength: DEVICE_VERIFICATION_CODE_LENGTH,
+        message: 'We emailed a verification code to confirm this device.'
+      }
+    };
+  }
+
+  function parseMetadataJson(value) {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      console.warn('parseMetadataJson: failed to parse metadata', error);
+      return null;
+    }
+  }
+
+  function mergeMetadataForSession(recordMetadata, clientMetadata, serverMetadata) {
+    const merged = {};
+
+    const sources = [
+      sanitizeClientMetadata(recordMetadata) || {},
+      sanitizeServerMetadata(serverMetadata) || {},
+      sanitizeClientMetadata(clientMetadata) || {}
+    ];
+
+    for (let i = 0; i < sources.length; i++) {
+      const source = sources[i];
+      Object.keys(source).forEach(function (key) {
+        if (!source[key] && source[key] !== 0) {
+          return;
+        }
+        merged[key] = source[key];
+      });
+    }
+
+    return Object.keys(merged).length ? merged : null;
+  }
+
+  function confirmDeviceVerification(verificationId, code, clientMetadata) {
+    const normalizedId = normalizeString(verificationId);
+    const normalizedCode = normalizeMfaCode(code);
+
+    if (!normalizedId) {
+      return {
+        success: false,
+        error: 'Verification reference is required.',
+        errorCode: 'INVALID_VERIFICATION'
+      };
+    }
+
+    if (!normalizedCode) {
+      return {
+        success: false,
+        error: 'Please provide the verification code from your email.',
+        errorCode: 'MISSING_CODE'
+      };
+    }
+
+    const record = findDeviceByVerificationId(normalizedId);
+    if (!record) {
+      return {
+        success: false,
+        error: 'Verification request not found or already processed.',
+        errorCode: 'INVALID_VERIFICATION'
+      };
+    }
+
+    const expiresAt = record.PendingVerificationExpiresAt ? Date.parse(record.PendingVerificationExpiresAt) : NaN;
+    if (!isNaN(expiresAt) && expiresAt < Date.now()) {
+      saveTrustedDeviceRecord(record, {
+        Status: 'expired',
+        PendingVerificationId: '',
+        PendingVerificationExpiresAt: '',
+        PendingVerificationCodeHash: '',
+        PendingMetadataJson: '',
+        PendingRememberMe: ''
+      });
+      return {
+        success: false,
+        error: 'This verification request expired. Please try signing in again.',
+        errorCode: 'VERIFICATION_EXPIRED'
+      };
+    }
+
+    const expectedHash = record.PendingVerificationCodeHash;
+    const providedHash = hashMfaCode(normalizedCode, normalizedId);
+
+    if (!expectedHash || expectedHash !== providedHash) {
+      return {
+        success: false,
+        error: 'The verification code is incorrect. Double-check the email and try again.',
+        errorCode: 'INVALID_CODE'
+      };
+    }
+
+    const storedMetadata = parseMetadataJson(record.PendingMetadataJson) || parseMetadataJson(record.MetadataJson) || {};
+    const serverContext = consumeLoginContext();
+    const mergedMetadata = mergeMetadataForSession(storedMetadata, clientMetadata, serverContext);
+
+    const rememberMe = String(record.PendingRememberMe || '').toUpperCase() === 'TRUE';
+
+    const user = findUserById(record.UserId);
+    if (!user) {
+      return {
+        success: false,
+        error: 'User not found for verification request.',
+        errorCode: 'INVALID_USER'
+      };
+    }
+
+    const canLogin = toBool(user.CanLogin);
+    const emailConfirmed = toBool(user.EmailConfirmed);
+    const resetRequired = toBool(user.ResetRequired);
+
+    if (!canLogin) {
+      return {
+        success: false,
+        error: 'Your account is disabled. Contact support for assistance.',
+        errorCode: 'ACCOUNT_DISABLED'
+      };
+    }
+
+    if (!emailConfirmed) {
+      return {
+        success: false,
+        error: 'Please confirm your email address before signing in.',
+        errorCode: 'EMAIL_NOT_CONFIRMED'
+      };
+    }
+
+    if (resetRequired) {
+      return {
+        success: false,
+        error: 'You must reset your password before accessing the system.',
+        errorCode: 'PASSWORD_RESET_REQUIRED'
+      };
+    }
+
+    const tenantAccess = resolveTenantAccess(user, null);
+    if (!tenantAccess || !tenantAccess.success) {
+      const tenantError = formatTenantAccessError(tenantAccess);
+      return {
+        success: false,
+        error: tenantError.error,
+        errorCode: tenantError.errorCode || 'TENANT_ACCESS_DENIED'
+      };
+    }
+
+    const tenantSummary = Object.assign({}, tenantAccess.clientPayload, {
+      tenantContext: tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+        ? tenantAccess.sessionScope.tenantContext
+        : null
+    });
+    if (Array.isArray(tenantAccess.warnings)) {
+      tenantSummary.warnings = tenantAccess.warnings.slice();
+    }
+    tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+    const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, mergedMetadata);
+    if (!sessionResult || !sessionResult.token) {
+      return {
+        success: false,
+        error: 'We were unable to start your session. Please try again.',
+        errorCode: 'SESSION_CREATION_FAILED'
+      };
+    }
+
+    try {
+      updateLastLogin(user.ID);
+    } catch (lastLoginError) {
+      console.warn('confirmDeviceVerification: Failed to update last login', lastLoginError);
+    }
+
+    const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+    if (userPayload && userPayload.CampaignScope) {
+      userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+        ? tenantAccess.sessionScope.tenantContext
+        : null;
+      if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.assignments) && !userPayload.CampaignScope.assignments.length) {
+        userPayload.CampaignScope.assignments = tenantAccess.sessionScope.assignments.slice();
+      }
+      if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.permissions) && !userPayload.CampaignScope.permissions.length) {
+        userPayload.CampaignScope.permissions = tenantAccess.sessionScope.permissions.slice();
+      }
+    }
+
+    const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+    const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+    const nowIso = new Date().toISOString();
+    saveTrustedDeviceRecord(record, {
+      Status: 'trusted',
+      ConfirmedAt: record.ConfirmedAt || nowIso,
+      LastSeenAt: nowIso,
+      PendingVerificationId: '',
+      PendingVerificationExpiresAt: '',
+      PendingVerificationCodeHash: '',
+      PendingMetadataJson: '',
+      PendingRememberMe: '',
+      MetadataJson: JSON.stringify(mergedMetadata || {}),
+      IpAddress: (mergedMetadata && mergedMetadata.ipAddress) || record.IpAddress || '',
+      ServerIp: (mergedMetadata && mergedMetadata.serverIp) || record.ServerIp || '',
+      UserAgent: (mergedMetadata && mergedMetadata.userAgent) || record.UserAgent || '',
+      Platform: (mergedMetadata && mergedMetadata.platform) || record.Platform || '',
+      Languages: mergedMetadata && Array.isArray(mergedMetadata.languages)
+        ? mergedMetadata.languages.join(',')
+        : (mergedMetadata && mergedMetadata.language) || record.Languages || '',
+      TimezoneOffsetMinutes: mergedMetadata && typeof mergedMetadata.timezoneOffsetMinutes === 'number'
+        ? String(mergedMetadata.timezoneOffsetMinutes)
+        : (record.TimezoneOffsetMinutes || '')
+    });
+
+    const loginMessage = needsCampaignAssignment
+      ? 'Login approved. Your account is not yet assigned to any campaigns.'
+      : 'Login successful';
+
+    return {
+      success: true,
+      sessionToken: sessionResult.token,
+      user: userPayload,
+      message: loginMessage,
+      rememberMe: !!rememberMe,
+      sessionExpiresAt: sessionResult.expiresAt,
+      sessionTtlSeconds: sessionResult.ttlSeconds,
+      tenant: tenantSummary,
+      campaignScope: userPayload ? userPayload.CampaignScope : null,
+      warnings: warnings,
+      needsCampaignAssignment: needsCampaignAssignment,
+      trustedDeviceVerified: true
+    };
+  }
+
+  function sendDeniedDeviceAlertEmailSafe(user, record, metadata) {
+    if (typeof sendDeniedDeviceAlertEmail !== 'function') {
+      console.warn('sendDeniedDeviceAlertEmailSafe: EmailService notifier unavailable');
+      return;
+    }
+
+    try {
+      sendDeniedDeviceAlertEmail({
+        userEmail: user ? (user.Email || user.UserName || user.ID) : 'Unknown',
+        userName: user ? (user.FullName || user.UserName || user.Email || user.ID) : 'Unknown User',
+        ipAddress: (metadata && metadata.serverIp) || record.ServerIp || record.IpAddress || 'Unknown',
+        clientIp: (metadata && metadata.ipAddress) || record.IpAddress || '',
+        userAgent: (metadata && metadata.userAgent) || record.UserAgent || '',
+        platform: (metadata && metadata.platform) || record.Platform || '',
+        occurredAt: new Date().toISOString(),
+        verificationId: record.PendingVerificationId || '',
+        fingerprint: record.Fingerprint || ''
+      });
+    } catch (error) {
+      console.error('sendDeniedDeviceAlertEmailSafe: Failed to notify admins', error);
+    }
+  }
+
+  function denyDeviceVerification(verificationId, clientMetadata) {
+    const normalizedId = normalizeString(verificationId);
+    if (!normalizedId) {
+      return {
+        success: false,
+        error: 'Verification reference is required.',
+        errorCode: 'INVALID_VERIFICATION'
+      };
+    }
+
+    const record = findDeviceByVerificationId(normalizedId);
+    if (!record) {
+      return {
+        success: false,
+        error: 'Verification request not found or already processed.',
+        errorCode: 'INVALID_VERIFICATION'
+      };
+    }
+
+    const storedMetadata = parseMetadataJson(record.PendingMetadataJson) || parseMetadataJson(record.MetadataJson) || {};
+    const serverContext = consumeLoginContext();
+    const mergedMetadata = mergeMetadataForSession(storedMetadata, clientMetadata, serverContext);
+
+    const nowIso = new Date().toISOString();
+    saveTrustedDeviceRecord(record, {
+      Status: 'denied',
+      PendingVerificationId: '',
+      PendingVerificationExpiresAt: '',
+      PendingVerificationCodeHash: '',
+      PendingMetadataJson: '',
+      PendingRememberMe: '',
+      DeniedAt: nowIso,
+      DenialReason: 'User denied via login prompt'
+    });
+
+    const user = findUserById(record.UserId);
+    if (user) {
+      sendDeniedDeviceAlertEmailSafe(user, record, mergedMetadata || storedMetadata);
+    }
+
+    return {
+      success: true,
+      message: 'Thanks for letting us know. We have blocked that sign-in attempt.'
+    };
   }
 
   function normalizeMfaDeliveryPreference(value) {
@@ -1568,7 +2378,10 @@ var AuthenticationService = (function () {
         RememberMe: rememberMe ? 'TRUE' : 'FALSE',
         CampaignScope: serializeCampaignScope(scopeData),
         UserAgent: metadata && metadata.userAgent ? metadata.userAgent : 'Google Apps Script',
-        IpAddress: metadata && metadata.ipAddress ? metadata.ipAddress : 'N/A'
+        IpAddress: metadata && metadata.ipAddress ? metadata.ipAddress : 'N/A',
+        ServerIp: metadata && metadata.serverIp
+          ? metadata.serverIp
+          : (metadata && metadata.serverObservedIp ? metadata.serverObservedIp : 'N/A')
       };
 
       const tableName = (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions';
@@ -1815,6 +2628,29 @@ var AuthenticationService = (function () {
             deliveriesRemaining: Math.max(0, (challenge.maxDeliveries || MFA_MAX_DELIVERIES) - (challenge.deliveries || 0)),
             backupCodesRemaining: mfaConfig.backupCodes.length
           }
+        };
+      }
+
+      const deviceEvaluation = evaluateTrustedDevice(user, sanitizedMetadata, rememberMe);
+      if (deviceEvaluation && deviceEvaluation.error) {
+        console.warn('login: Device evaluation error:', deviceEvaluation.errorCode || deviceEvaluation.error);
+        return {
+          success: false,
+          error: deviceEvaluation.error,
+          errorCode: deviceEvaluation.errorCode || 'DEVICE_VERIFICATION_ERROR'
+        };
+      }
+
+      if (deviceEvaluation && deviceEvaluation.trusted === false) {
+        console.log('login: Device verification required for user');
+        return {
+          success: false,
+          needsVerification: true,
+          errorCode: 'DEVICE_VERIFICATION_REQUIRED',
+          message: (deviceEvaluation.verification && deviceEvaluation.verification.message)
+            || 'We need to confirm this device before completing your login.',
+          verification: deviceEvaluation.verification || null,
+          rememberMe: !!rememberMe
         };
       }
 
@@ -2166,7 +3002,11 @@ var AuthenticationService = (function () {
     getUserByEmail: findUserByEmail,
     findUserByPrincipal: findUserByEmail,
     beginMfaChallenge: beginMfaChallenge,
-    verifyMfaCode: verifyMfaCode
+    verifyMfaCode: verifyMfaCode,
+    captureLoginRequestContext: captureLoginRequestContext,
+    consumeLoginRequestContext: consumeLoginContext,
+    confirmDeviceVerification: confirmDeviceVerification,
+    denyDeviceVerification: denyDeviceVerification
   };
 
 })();
@@ -2178,7 +3018,39 @@ var AuthenticationService = (function () {
 function loginUser(email, password, rememberMe = false, clientMetadata) {
   try {
     console.log('=== loginUser wrapper START ===');
-    const result = AuthenticationService.login(email, password, rememberMe, clientMetadata);
+    let mergedMetadata = null;
+    try {
+      if (clientMetadata && typeof clientMetadata === 'object') {
+        mergedMetadata = Object.assign({}, clientMetadata);
+      }
+
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.consumeLoginRequestContext === 'function') {
+        const serverContext = AuthenticationService.consumeLoginRequestContext();
+        if (serverContext && typeof serverContext === 'object') {
+          mergedMetadata = mergedMetadata || {};
+          if (serverContext.serverIp) {
+            mergedMetadata.serverIp = serverContext.serverIp;
+            mergedMetadata.serverObservedIp = serverContext.serverIp;
+          }
+          if (serverContext.forwardedFor) {
+            mergedMetadata.forwardedFor = serverContext.forwardedFor;
+          }
+          if (serverContext.serverUserAgent && !mergedMetadata.serverUserAgent) {
+            mergedMetadata.serverUserAgent = serverContext.serverUserAgent;
+          }
+          if (serverContext.host && !mergedMetadata.host) {
+            mergedMetadata.host = serverContext.host;
+          }
+          mergedMetadata.serverObservedAt = serverContext.serverObservedAt || new Date().toISOString();
+        }
+      }
+    } catch (metadataMergeError) {
+      console.warn('loginUser: Failed to merge server metadata', metadataMergeError);
+    }
+
+    const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
     console.log('=== loginUser wrapper END ===');
     return result;
   } catch (error) {
@@ -2187,6 +3059,32 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
       success: false,
       error: 'Login failed. Please try again.',
       errorCode: 'WRAPPER_ERROR'
+    };
+  }
+}
+
+function confirmDeviceVerification(verificationId, code, clientMetadata) {
+  try {
+    return AuthenticationService.confirmDeviceVerification(verificationId, code, clientMetadata);
+  } catch (error) {
+    console.error('confirmDeviceVerification wrapper error:', error);
+    return {
+      success: false,
+      error: 'We were unable to confirm the device. Please try again.',
+      errorCode: 'DEVICE_CONFIRM_ERROR'
+    };
+  }
+}
+
+function denyDeviceVerification(verificationId, clientMetadata) {
+  try {
+    return AuthenticationService.denyDeviceVerification(verificationId, clientMetadata);
+  } catch (error) {
+    console.error('denyDeviceVerification wrapper error:', error);
+    return {
+      success: false,
+      error: 'We were unable to record your response. Please contact support if this persists.',
+      errorCode: 'DEVICE_DENY_ERROR'
     };
   }
 }
