@@ -2710,6 +2710,15 @@
     allUsers = users || [];
     filteredUsers = allUsers.slice();
     usersPage = 1;
+    const missingIdUsers = allUsers.filter(user => !user || !user.ID);
+    if (missingIdUsers.length) {
+      logGroup('handleUsersLoaded.missingIds', safeForLog({
+        count: missingIdUsers.length,
+        examples: missingIdUsers.slice(0, 3)
+      }), 'warn');
+    } else {
+      logGroup('handleUsersLoaded.summary', safeForLog({ count: allUsers.length }));
+    }
     renderUsersPage();
     $('#userCount').text(`(${allUsers.length})`);
   }
@@ -4411,7 +4420,19 @@
   }
 
   // ---------- Refresh button(s) ----------
-  function refreshUsers() { loadAllData(); }
+  function refreshUsers() {
+    showLoading(true);
+    callGoogleScript('clientGetAllUsers')
+      .then(usersData => {
+        handleUsersLoaded(usersData || []);
+        applyUserFilters();
+      })
+      .catch(err => {
+        console.error('Refresh users failed:', err);
+        showAlert('error', err?.message || 'Failed to refresh users');
+      })
+      .finally(() => showLoading(false));
+  }
 </script>
 
 </body>

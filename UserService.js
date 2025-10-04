@@ -1171,10 +1171,50 @@ function clientGetAllUsers(requestingUserId) {
     for (let i = 0; i < users.length; i++) {
       try {
         const u = users[i];
-        if (!u || !u.ID) continue;
+        if (!u || typeof u !== 'object') {
+          _userLog_('clientGetAllUsers.invalidRow', { index: i, row: _userSanitizeForLog_(u) }, 'warn');
+          enhancedUsers.push(createMinimalUserObject(u || {}));
+          continue;
+        }
+
+        if (!u.ID) {
+          const coercedId = u.Id || u.id;
+          if (coercedId) {
+            u.ID = coercedId;
+            users[i] = u;
+          }
+        }
+
+        if (!u.ID) {
+          try {
+            ensureUsersHaveIds();
+          } catch (ensureLoopError) {
+            try {
+              writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError);
+            } catch (_) { }
+          }
+
+          if (!u.ID) {
+            const refreshedId = u.Id || u.id;
+            if (refreshedId) {
+              u.ID = refreshedId;
+              users[i] = u;
+            }
+          }
+        }
+
+        if (!u.ID) {
+          _userLog_('clientGetAllUsers.rowMissingId', {
+            index: i,
+            row: _userSanitizeForLog_(u)
+          }, 'warn');
+          enhancedUsers.push(createMinimalUserObject(u));
+          continue;
+        }
+
         enhancedUsers.push(createSafeUserObject(u));
       } catch (userErr) {
-        enhancedUsers.push(createMinimalUserObject(users[i]));
+        enhancedUsers.push(createMinimalUserObject(users[i] || {}));
       }
     }
 
