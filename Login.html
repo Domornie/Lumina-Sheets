@@ -2385,7 +2385,9 @@
           }
 
           hideAllAlerts();
-          setupRedirect(buildPageUrl('dashboard'), resumedUser);
+          const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
+          const resumeUrl = normalizeRedirectUrl(resumeInput);
+          setupRedirect(resumeUrl, resumedUser);
         })
         .withFailureHandler(error => {
           finalizeResumeAttempt();
@@ -3582,7 +3584,8 @@
         response.sessionIdleTimeoutMinutes
       );
 
-      const destinationUrl = normalizeRedirectUrl(response.redirectUrl);
+      const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
+      const destinationUrl = normalizeRedirectUrl(redirectInput);
       setupRedirect(destinationUrl, response.user);
       hideNextSteps();
     }
