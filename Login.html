@@ -922,7 +922,7 @@
           <span class="feature-badge">
             <i class="fas fa-sparkles"></i> LuminaHQ Platform
           </span>
-          <h2 class="feature-heading">Clarity for every customer conversation</h2>
+          <h2 class="feature-heading">Centralized clarity to lead every client partnership</h2>
           <p class="feature-text">Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
           <ul class="feature-list">
             <li><i class="fas fa-chart-line"></i><span>Real-time insight into quality, productivity, and coaching impact.</span></li>
@@ -2148,6 +2148,27 @@
       } catch (err) {
         console.warn('Unable to clear auth cookie', err);
       }
+
+      try {
+        if (window.localStorage) {
+          localStorage.removeItem('lumina.session.token');
+          localStorage.removeItem('lumina.auth.sessionToken');
+          localStorage.removeItem('lumina.auth.fallbackToken');
+        }
+      } catch (err) {
+        console.warn('Unable to clear auth token from localStorage', err);
+      }
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.removeItem('lumina.session.token');
+          sessionStorage.removeItem('lumina.auth.sessionToken');
+          sessionStorage.removeItem('lumina.auth.fallbackToken');
+        }
+      } catch (err) {
+        console.warn('Unable to clear auth token from sessionStorage', err);
+      }
+
       state.authToken = '';
       state.sessionIdleTimeoutMinutes = null;
       state.sessionTtlSeconds = null;
@@ -2191,6 +2212,26 @@
         }
       } catch (err) {
         console.warn('Unable to persist auth cookie', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.setItem('lumina.session.token', token);
+          localStorage.setItem('lumina.auth.sessionToken', token);
+          localStorage.setItem('lumina.auth.fallbackToken', token);
+        }
+      } catch (err) {
+        console.warn('Unable to persist auth token in localStorage', err);
+      }
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem('lumina.session.token', token);
+          sessionStorage.setItem('lumina.auth.sessionToken', token);
+          sessionStorage.setItem('lumina.auth.fallbackToken', token);
+        }
+      } catch (err) {
+        console.warn('Unable to persist auth token in sessionStorage', err);
       }
 
       restartSessionHeartbeat();
