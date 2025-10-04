@@ -929,12 +929,25 @@
       padding: 1.5rem;
       display: flex;
       align-items: center;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      border: none;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(15px);
       transition: var(--transition-smooth);
       position: relative;
       z-index: 3;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .user-panel:focus-visible {
+      outline: 2px solid var(--sidebar-active);
+      outline-offset: 3px;
     }
 
     .user-panel::before {
