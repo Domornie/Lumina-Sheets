@@ -2931,6 +2931,57 @@ function handleSearchData(tpl, e) {
   }
 }
 
+function computeUserProfileSlug(userRecord, detailRecord) {
+  try {
+    const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const candidates = [];
+
+    const pushCandidate = (value) => {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+      const text = String(value).trim();
+      if (text) {
+        candidates.push(text);
+      }
+    };
+
+    pushCandidate(userRecord && (userRecord.UserName || userRecord.userName || userRecord.username));
+    pushCandidate(record && (record.UserName || record.userName || record.username));
+    pushCandidate(userRecord && (userRecord.DisplayName || userRecord.displayName));
+    pushCandidate(record && (record.DisplayName || record.displayName));
+
+    const firstName = userRecord && (userRecord.FirstName || userRecord.firstName);
+    const lastName = userRecord && (userRecord.LastName || userRecord.lastName);
+    if (firstName || lastName) {
+      pushCandidate([firstName, lastName].filter(Boolean).join(' '));
+    }
+
+    const recordFirstName = record && (record.FirstName || record.firstName);
+    const recordLastName = record && (record.LastName || record.lastName);
+    if (recordFirstName || recordLastName) {
+      pushCandidate([recordFirstName, recordLastName].filter(Boolean).join(' '));
+    }
+
+    pushCandidate(userRecord && (userRecord.Email || userRecord.email));
+    pushCandidate(record && (record.Email || record.email));
+
+    for (let i = 0; i < candidates.length; i++) {
+      const slug = candidates[i]
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      if (slug) {
+        return slug;
+      }
+    }
+  } catch (error) {
+    console.warn('computeUserProfileSlug: failed to compute slug', error);
+  }
+
+    return 'user';
+}
+
 function handleUserProfileData(tpl, e, user) {
   try {
     const bootstrap = {
@@ -3003,6 +3054,9 @@ function handleUserProfileData(tpl, e, user) {
         console.warn('handleUserProfileData: unable to load manager summary', managerSummaryError);
       }
     }
+
+    bootstrap.profileId = userId;
+    bootstrap.profileSlug = computeUserProfileSlug(user, bootstrap.detail);
 
     tpl.profileBootstrap = _stringifyForTemplate_(bootstrap);
   } catch (error) {

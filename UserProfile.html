@@ -846,7 +846,11 @@
     loadingEquipment: false,
     loadingManagerSummary: false,
     managerPagination: { page: 1, pageSize: 6 },
-    profileId: safeString(PROFILE_BOOTSTRAP.profileId) || '',
+    profileSlug: safeString(PROFILE_BOOTSTRAP.profileSlug || PROFILE_BOOTSTRAP.profileId) || '',
+    profileIdentifier: safeString(
+      (PROFILE_BOOTSTRAP && PROFILE_BOOTSTRAP.profileId) ||
+      (CURRENT_USER && (CURRENT_USER.ID || CURRENT_USER.Id || CURRENT_USER.id))
+    ) || '',
     profileSummary: null
   };
 
@@ -951,56 +955,70 @@
   function slugifyProfileBase(value) {
     const base = safeString(value).toLowerCase();
     if (!base) {
-      return 'user';
+      return '';
     }
-    const normalized = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    return normalized || 'user';
+    return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   }
 
-  function computeProfileId(userRecord, detailRecord) {
+  function computeProfileSlug(userRecord, detailRecord) {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
-    const usernameCandidate =
-      getField(userRecord, ['UserName', 'userName', 'username']) ||
-      getField(record, ['UserName', 'userName', 'username']) ||
-      getField(userRecord, ['Email', 'email']) ||
-      getField(record, ['Email', 'email']) ||
-      'user';
-    const username = safeString(usernameCandidate) || 'user';
+    const candidates = [];
 
-    const identifierCandidate =
+    candidates.push(
+      getField(userRecord, ['UserName', 'userName', 'username']) ||
+      getField(record, ['UserName', 'userName', 'username'])
+    );
+
+    candidates.push(
+      getField(userRecord, ['DisplayName', 'displayName', 'FullName', 'fullName']) ||
+      getField(record, ['DisplayName', 'displayName', 'FullName', 'fullName'])
+    );
+
+    candidates.push([
+      getField(userRecord, ['FirstName', 'firstName', 'GivenName', 'givenName']),
+      getField(userRecord, ['LastName', 'lastName', 'Surname', 'surname', 'FamilyName', 'familyName'])
+    ].filter(Boolean).join(' '));
+
+    candidates.push([
+      getField(record, ['FirstName', 'firstName', 'GivenName', 'givenName']),
+      getField(record, ['LastName', 'lastName', 'Surname', 'surname', 'FamilyName', 'familyName'])
+    ].filter(Boolean).join(' '));
+
+    candidates.push(
+      getField(userRecord, ['Email', 'email']) ||
+      getField(record, ['Email', 'email'])
+    );
+
+    for (let i = 0; i < candidates.length; i++) {
+      const slug = slugifyProfileBase(candidates[i]);
+      if (slug) {
+        return slug;
+      }
+    }
+
+    return 'user';
+  }
+
+  function resolveProfileIdentifier(userRecord, detailRecord) {
+    const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const identifier =
       getField(userRecord, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']) ||
       getField(record, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']) ||
-      username;
-    const identifier = safeString(identifierCandidate) || username;
-
-    const seed = `${username}|${identifier}`;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-      hash |= 0;
-    }
-
-    const modulo = Math.abs(hash % 1000000);
-    let digits = String(modulo);
-    while (digits.length < 6) {
-      digits = `0${digits}`;
-    }
-
-    const base = slugifyProfileBase(username);
-    return `${base}-${digits}`;
+      '';
+    return safeString(identifier);
   }
 
-  function ensureProfileIdInUrl(profileId) {
-    if (!profileId || typeof window === 'undefined' || !window.location || !window.history) {
+  function ensureProfileSlugInUrl(profileSlug) {
+    if (!profileSlug || typeof window === 'undefined' || !window.location || !window.history) {
       return;
     }
 
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('profileId') === profileId) {
+      if (url.searchParams.get('profileId') === profileSlug) {
         return;
       }
-      url.searchParams.set('profileId', profileId);
+      url.searchParams.set('profileId', profileSlug);
       window.history.replaceState({}, document.title, url.toString());
     } catch (err) {
       const href = String(window.location.href || '');
@@ -1009,11 +1027,11 @@
       }
       const hasParam = /([?&])profileId=/i.test(href);
       if (hasParam) {
-        const updated = href.replace(/([?&]profileId=)[^&#]*/i, `$1${encodeURIComponent(profileId)}`);
+        const updated = href.replace(/([?&]profileId=)[^&#]*/i, `$1${encodeURIComponent(profileSlug)}`);
         window.history.replaceState({}, document.title, updated);
       } else {
         const separator = href.indexOf('?') === -1 ? '?' : '&';
-        window.history.replaceState({}, document.title, `${href}${separator}profileId=${encodeURIComponent(profileId)}`);
+        window.history.replaceState({}, document.title, `${href}${separator}profileId=${encodeURIComponent(profileSlug)}`);
       }
     }
   }
@@ -1196,7 +1214,8 @@
 
     summary = summary || {};
 
-    pushItem('Profile ID', summary.profileId, { code: true });
+    const profileReference = summary.profileSlug || summary.profileId;
+    pushItem('Profile Slug', profileReference, { code: true });
     pushItem('Work Email', summary.email, { isLink: true, href: summary.email ? `mailto:${summary.email}` : '' });
     pushItem('Manager', summary.manager);
     pushItem('Location', summary.location);
@@ -1688,7 +1707,7 @@
     const status = summary.status || '';
     const startDate = summary.startDate || '';
     const tenure = summary.tenure || '';
-    const profileId = summary.profileId || '';
+    const profileSlug = summary.profileSlug || summary.profileId || '';
     const username = safeString(summary.username);
     const location = summary.location || '';
     const manager = summary.manager || '';
@@ -1791,7 +1810,7 @@
       metaRow.appendChild(item);
     };
 
-    appendMeta('fa-solid fa-id-badge', 'Profile ID', profileId, { code: true });
+    appendMeta('fa-solid fa-id-badge', 'Profile Slug', profileSlug, { code: true });
     appendMeta('fa-solid fa-user-tie', 'Manager', manager);
     appendMeta('fa-solid fa-location-dot', 'Location', location);
 
@@ -1896,15 +1915,26 @@
       getField(userRecord, ['Phone', 'phone', 'Mobile', 'mobile'])
     );
 
-    const computedProfileId = computeProfileId(userRecord, detailRecord);
-    if (computedProfileId && computedProfileId !== state.profileId) {
-      state.profileId = computedProfileId;
+    const computedProfileIdentifier = resolveProfileIdentifier(userRecord, detailRecord);
+    if (computedProfileIdentifier && computedProfileIdentifier !== state.profileIdentifier) {
+      state.profileIdentifier = computedProfileIdentifier;
     }
-    ensureProfileIdInUrl(state.profileId);
+
+    const computedProfileSlug = computeProfileSlug(userRecord, detailRecord);
+    if (computedProfileSlug && computedProfileSlug !== state.profileSlug) {
+      state.profileSlug = computedProfileSlug;
+    }
+    ensureProfileSlugInUrl(state.profileSlug);
 
     const sidebarPanel = document.getElementById('userPanel');
-    if (sidebarPanel && state.profileId) {
-      sidebarPanel.setAttribute('data-profile-id', state.profileId);
+    if (sidebarPanel) {
+      if (state.profileSlug) {
+        sidebarPanel.setAttribute('data-profile-slug', state.profileSlug);
+        sidebarPanel.setAttribute('data-profile-id', state.profileSlug);
+      }
+      if (state.profileIdentifier) {
+        sidebarPanel.setAttribute('data-profile-identifier', state.profileIdentifier);
+      }
     }
 
     const summary = {
@@ -1915,7 +1945,9 @@
       startDate,
       tenure,
       username,
-      profileId: state.profileId,
+      profileSlug: state.profileSlug,
+      profileId: state.profileSlug,
+      profileIdentifier: state.profileIdentifier,
       manager,
       location,
       email,
