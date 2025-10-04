@@ -2738,6 +2738,180 @@
         }
 
         // ──────────────────────────────────────────────────────────────────────────────
+        // AUTHENTICATION GUARD – PREVENT ACCESS AFTER LOGOUT
+        // ──────────────────────────────────────────────────────────────────────────────
+        const AUTH_FALLBACK_STORAGE_KEYS = [
+            'lumina.session.token',
+            'lumina.auth.sessionToken',
+            'lumina.auth.fallbackToken'
+        ];
+
+        function shouldEnforceAuthGuard() {
+            if (window.__LUMINA_DISABLE_AUTH_GUARD === true || window.disableLuminaAuthGuard === true) {
+                return false;
+            }
+
+            const body = document.body;
+            if (body) {
+                const publicPageAttr = body.getAttribute('data-public-page');
+                if ((body.dataset && body.dataset.publicPage === 'true') || publicPageAttr === 'true') {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function readAuthTokenForGuard() {
+            let token = '';
+
+            try {
+                if (window.CookieHandler && typeof window.CookieHandler.readAuthToken === 'function') {
+                    token = window.CookieHandler.readAuthToken();
+                }
+            } catch (cookieError) {
+                console.warn('AuthGuard: unable to read auth cookie', cookieError);
+            }
+
+            if (token) {
+                return token;
+            }
+
+            try {
+                if (window.localStorage) {
+                    for (let i = 0; i < AUTH_FALLBACK_STORAGE_KEYS.length; i++) {
+                        const key = AUTH_FALLBACK_STORAGE_KEYS[i];
+                        const value = window.localStorage.getItem(key);
+                        if (value) {
+                            token = value;
+                            break;
+                        }
+                    }
+                }
+            } catch (storageError) {
+                console.warn('AuthGuard: unable to read localStorage token', storageError);
+            }
+
+            if (token) {
+                return token;
+            }
+
+            try {
+                if (window.sessionStorage) {
+                    for (let i = 0; i < AUTH_FALLBACK_STORAGE_KEYS.length; i++) {
+                        const key = AUTH_FALLBACK_STORAGE_KEYS[i];
+                        const value = window.sessionStorage.getItem(key);
+                        if (value) {
+                            token = value;
+                            break;
+                        }
+                    }
+                }
+            } catch (sessionError) {
+                console.warn('AuthGuard: unable to read sessionStorage token', sessionError);
+            }
+
+            return token;
+        }
+
+        function clearClientAuthState(reason) {
+            try {
+                if (typeof stopSessionHeartbeat === 'function') {
+                    stopSessionHeartbeat(reason || 'auth-guard');
+                } else if (window.LuminaSessionHeartbeat && typeof window.LuminaSessionHeartbeat.stop === 'function') {
+                    window.LuminaSessionHeartbeat.stop({ clearAuth: true, reason: reason || 'auth-guard' });
+                }
+            } catch (heartbeatError) {
+                console.warn('AuthGuard: unable to stop session heartbeat', heartbeatError);
+            }
+
+            try {
+                if (window.CookieHandler && typeof window.CookieHandler.clearAuthToken === 'function') {
+                    window.CookieHandler.clearAuthToken();
+                }
+            } catch (cookieError) {
+                console.warn('AuthGuard: unable to clear auth cookie', cookieError);
+            }
+
+            try {
+                if (window.localStorage) {
+                    AUTH_FALLBACK_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+                }
+            } catch (localStorageError) {
+                console.warn('AuthGuard: unable to clear localStorage tokens', localStorageError);
+            }
+
+            try {
+                if (window.sessionStorage) {
+                    AUTH_FALLBACK_STORAGE_KEYS.forEach(key => window.sessionStorage.removeItem(key));
+                }
+            } catch (sessionStorageError) {
+                console.warn('AuthGuard: unable to clear sessionStorage tokens', sessionStorageError);
+            }
+        }
+
+        function redirectToLogin() {
+            const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL || '/';
+            try {
+                if (window.location && typeof window.location.replace === 'function') {
+                    window.location.replace(target);
+                } else {
+                    window.location.href = target;
+                }
+            } catch (redirectError) {
+                console.warn('AuthGuard: redirect failed, attempting fallback', redirectError);
+                window.location.href = target;
+            }
+        }
+
+        function enforceAuthenticatedView(context) {
+            if (!shouldEnforceAuthGuard()) {
+                return true;
+            }
+
+            const token = readAuthTokenForGuard();
+            if (token) {
+                return true;
+            }
+
+            console.log('🔒 AuthGuard: missing auth token, enforcing logout redirect', context);
+            clearClientAuthState(context || 'auth-guard');
+            redirectToLogin();
+            return false;
+        }
+
+        function scheduleAuthGuardCheck(context) {
+            if (!shouldEnforceAuthGuard()) {
+                return;
+            }
+            window.setTimeout(function () {
+                enforceAuthenticatedView(context);
+            }, 0);
+        }
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+                scheduleAuthGuardCheck('visibilitychange');
+            }
+        });
+
+        window.addEventListener('focus', function () {
+            scheduleAuthGuardCheck('window-focus');
+        });
+
+        window.addEventListener('pageshow', function (event) {
+            if (event && event.persisted) {
+                scheduleAuthGuardCheck('history-return');
+            } else {
+                scheduleAuthGuardCheck('pageshow');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            scheduleAuthGuardCheck('dom-ready');
+        });
+
+        // ──────────────────────────────────────────────────────────────────────────────
         // DOCUMENT READY INITIALIZATION
         // ──────────────────────────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
