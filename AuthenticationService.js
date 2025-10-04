@@ -20,6 +20,12 @@ const SESSION_COLUMNS = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArra
   ? SESSIONS_HEADERS.slice()
   : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress'];
 
+const MFA_CHALLENGE_TTL_SECONDS = 5 * 60; // 5 minutes
+const MFA_MAX_ATTEMPTS = 5;
+const MFA_MAX_DELIVERIES = 5;
+const MFA_CODE_LENGTH = 6;
+const MFA_STORAGE_PREFIX = 'AUTH_MFA_CHALLENGE:';
+
 // ───────────────────────────────────────────────────────────────────────────────
 // IMPROVED AUTHENTICATION SERVICE
 // ───────────────────────────────────────────────────────────────────────────────
@@ -107,6 +113,948 @@ var AuthenticationService = (function () {
     if (value === true || value === false) return value;
     const str = normalizeString(value).toUpperCase();
     return str === 'TRUE' || str === '1' || str === 'YES' || str === 'Y';
+  }
+
+  const MFA_ALLOWED_METHODS = ['email', 'sms', 'totp'];
+
+  function sanitizeClientMetadata(metadata) {
+    if (!metadata || typeof metadata !== 'object') {
+      return null;
+    }
+
+    const sanitized = {};
+    if (metadata.userAgent) {
+      sanitized.userAgent = String(metadata.userAgent).slice(0, 500);
+    }
+    if (metadata.ipAddress) {
+      sanitized.ipAddress = String(metadata.ipAddress).slice(0, 100);
+    }
+    if (metadata.platform) {
+      sanitized.platform = String(metadata.platform).slice(0, 100);
+    }
+
+    return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  function normalizeMfaDeliveryPreference(value) {
+    const normalized = normalizeString(value).toLowerCase();
+    if (!normalized) return '';
+    if (MFA_ALLOWED_METHODS.indexOf(normalized) !== -1) {
+      return normalized;
+    }
+    return '';
+  }
+
+  function normalizeMfaCode(code) {
+    if (code === null || typeof code === 'undefined') {
+      return '';
+    }
+    return String(code).replace(/[^0-9a-z]/gi, '').trim();
+  }
+
+  function generateOneTimeNumericCode(length) {
+    const digits = Math.max(4, length || MFA_CODE_LENGTH);
+    let code = '';
+    while (code.length < digits) {
+      const randomChunk = Utilities.getUuid().replace(/[^0-9]/g, '');
+      code += randomChunk;
+    }
+    return code.substring(0, digits);
+  }
+
+  function padNumber(value, width) {
+    const str = String(value);
+    if (str.length >= width) {
+      return str;
+    }
+    return '0'.repeat(width - str.length) + str;
+  }
+
+  function hashMfaCode(code, challengeId) {
+    const normalized = normalizeMfaCode(code);
+    if (!normalized) {
+      return null;
+    }
+    try {
+      const digest = Utilities.computeDigest(
+        Utilities.DigestAlgorithm.SHA_256,
+        normalized + '|' + String(challengeId || '')
+      );
+      return Utilities.base64Encode(digest);
+    } catch (error) {
+      console.warn('hashMfaCode failed:', error);
+      return null;
+    }
+  }
+
+  function constantTimeEquals(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') {
+      return false;
+    }
+    if (a.length !== b.length) {
+      return false;
+    }
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+  }
+
+  function base32ToBytes(base32) {
+    if (!base32) return [];
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    const clean = String(base32).replace(/[^A-Z2-7]/gi, '').toUpperCase();
+    let bits = '';
+    for (let i = 0; i < clean.length; i++) {
+      const val = alphabet.indexOf(clean.charAt(i));
+      if (val === -1) {
+        return [];
+      }
+      bits += padNumber(val.toString(2), 5);
+    }
+    const bytes = [];
+    for (let j = 0; j + 8 <= bits.length; j += 8) {
+      bytes.push(parseInt(bits.substring(j, j + 8), 2));
+    }
+    return bytes;
+  }
+
+  function generateTotpCode(secret, timestamp, digits, stepSeconds) {
+    const keyBytes = base32ToBytes(secret);
+    if (!keyBytes.length) {
+      return null;
+    }
+
+    const step = Math.max(15, (stepSeconds || 30)) * 1000;
+    const counter = Math.floor((timestamp || Date.now()) / step);
+    const counterBytes = new Array(8).fill(0);
+    let tempCounter = counter;
+    for (let i = 7; i >= 0; i--) {
+      counterBytes[i] = tempCounter & 0xff;
+      tempCounter = tempCounter >> 8;
+    }
+
+    let signature;
+    try {
+      signature = Utilities.computeHmacSha1Signature(counterBytes, keyBytes);
+    } catch (error) {
+      console.warn('generateTotpCode: Failed to compute HMAC:', error);
+      return null;
+    }
+
+    if (!signature || !signature.length) {
+      return null;
+    }
+
+    const offset = signature[signature.length - 1] & 0x0f;
+    const binary = ((signature[offset] & 0x7f) << 24)
+      | ((signature[offset + 1] & 0xff) << 16)
+      | ((signature[offset + 2] & 0xff) << 8)
+      | (signature[offset + 3] & 0xff);
+
+    const modulo = Math.pow(10, digits || MFA_CODE_LENGTH);
+    const otp = binary % modulo;
+    return padNumber(otp, digits || MFA_CODE_LENGTH);
+  }
+
+  function verifyTotpCode(secret, code, windowSize) {
+    const normalizedCode = normalizeMfaCode(code);
+    if (!normalizedCode) {
+      return false;
+    }
+
+    const window = typeof windowSize === 'number' ? Math.max(0, windowSize) : 1;
+    for (let errorWindow = -window; errorWindow <= window; errorWindow++) {
+      const timestamp = Date.now() + (errorWindow * 30 * 1000);
+      const expected = generateTotpCode(secret, timestamp, normalizedCode.length, 30);
+      if (expected && constantTimeEquals(expected, normalizedCode)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function parseMfaBackupCodes(raw) {
+    if (!raw && raw !== 0) {
+      return [];
+    }
+
+    if (Array.isArray(raw)) {
+      return raw
+        .map(value => normalizeMfaCode(value))
+        .filter(Boolean);
+    }
+
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed) {
+        return [];
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(value => normalizeMfaCode(value))
+            .filter(Boolean);
+        }
+      } catch (_) {
+        // Ignore JSON parse errors — treat as delimited string
+      }
+      return trimmed
+        .split(/[\s,;]+/)
+        .map(value => normalizeMfaCode(value))
+        .filter(Boolean);
+    }
+
+    if (typeof raw === 'object' && raw) {
+      if (Array.isArray(raw.codes)) {
+        return raw.codes
+          .map(value => normalizeMfaCode(value))
+          .filter(Boolean);
+      }
+    }
+
+    return [];
+  }
+
+  function getUserMfaConfig(user) {
+    if (!user || typeof user !== 'object') {
+      return {
+        enabled: false,
+        secret: '',
+        backupCodes: [],
+        deliveryPreference: ''
+      };
+    }
+
+    const secret = normalizeString(user.MFASecret || user.MfaSecret || user.mfaSecret);
+    const deliveryPreference = normalizeMfaDeliveryPreference(
+      user.MFADeliveryPreference || user.MfaDeliveryPreference || user.mfaDeliveryPreference
+    );
+    const backupCodes = parseMfaBackupCodes(
+      user.MFABackupCodes || user.MfaBackupCodes || user.mfaBackupCodes
+    );
+    const smsNumber = normalizeString(user.MFAPhone || user.mfaPhone || user.Phone || user.phoneNumber);
+    const explicitEnabled = toBool(user.MFAEnabled || user.mfaEnabled || user.RequireMfa || user.requireMfa);
+
+    return {
+      enabled: explicitEnabled || !!secret || backupCodes.length > 0 || !!deliveryPreference,
+      secret: secret,
+      backupCodes: backupCodes,
+      deliveryPreference: deliveryPreference || (secret ? 'totp' : 'email'),
+      smsNumber: smsNumber
+    };
+  }
+
+  function selectMfaDeliveryMethod(config, override) {
+    const preferred = normalizeMfaDeliveryPreference(override) || config.deliveryPreference || 'email';
+    if (preferred === 'totp' && !config.secret) {
+      return config.backupCodes.length ? 'email' : 'email';
+    }
+    if (preferred === 'sms' && !config.smsNumber) {
+      return config.secret ? 'totp' : 'email';
+    }
+    return preferred;
+  }
+
+  function maskEmailAddress(value) {
+    const email = normalizeEmail(value);
+    if (!email) return '';
+    const parts = email.split('@');
+    if (parts.length !== 2) {
+      return email.replace(/.(?=.{2})/g, '*');
+    }
+    const local = parts[0];
+    const domain = parts[1];
+    if (local.length <= 2) {
+      return local.charAt(0) + '***@' + domain;
+    }
+    return local.substring(0, 2) + '***@' + domain;
+  }
+
+  function maskPhoneNumber(value) {
+    const digits = normalizeString(value).replace(/\D/g, '');
+    if (!digits) return '';
+    const visible = digits.slice(-4);
+    return '***-***-' + visible;
+  }
+
+  function maskDeliveryDestination(method, user) {
+    if (!user) return '';
+    if (method === 'email') {
+      return maskEmailAddress(user.Email || user.email || user.EmailAddress);
+    }
+    if (method === 'sms') {
+      return maskPhoneNumber(user.MFAPhone || user.mfaPhone || user.Phone || user.phoneNumber);
+    }
+    return '';
+  }
+
+  function getMfaStorage() {
+    let cache = null;
+    let properties = null;
+
+    try {
+      if (typeof CacheService !== 'undefined' && CacheService) {
+        cache = CacheService.getScriptCache();
+      }
+    } catch (error) {
+      console.warn('getMfaStorage: CacheService unavailable', error);
+    }
+
+    try {
+      if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+        properties = PropertiesService.getScriptProperties();
+      }
+    } catch (error) {
+      console.warn('getMfaStorage: PropertiesService unavailable', error);
+    }
+
+    return {
+      get: function (key) {
+        if (cache) {
+          const cached = cache.get(key);
+          if (cached) {
+            return cached;
+          }
+        }
+        if (properties) {
+          return properties.getProperty(key);
+        }
+        return null;
+      },
+      put: function (key, value, ttlSeconds) {
+        const ttl = Math.max(60, Math.min(ttlSeconds || 300, 6 * 60 * 60));
+        if (cache) {
+          try {
+            cache.put(key, value, ttl);
+          } catch (error) {
+            console.warn('getMfaStorage: Failed to put cache value', error);
+          }
+        }
+        if (properties) {
+          try {
+            properties.setProperty(key, value);
+          } catch (error) {
+            console.warn('getMfaStorage: Failed to persist property', error);
+          }
+        }
+      },
+      remove: function (key) {
+        if (cache) {
+          try {
+            cache.remove(key);
+          } catch (error) {
+            console.warn('getMfaStorage: Failed to remove cache entry', error);
+          }
+        }
+        if (properties) {
+          try {
+            properties.deleteProperty(key);
+          } catch (error) {
+            console.warn('getMfaStorage: Failed to remove property', error);
+          }
+        }
+      }
+    };
+  }
+
+  function getMfaStorageKey(challengeId) {
+    return MFA_STORAGE_PREFIX + String(challengeId || '').trim();
+  }
+
+  function loadMfaChallenge(challengeId) {
+    if (!challengeId) {
+      return null;
+    }
+
+    const storage = getMfaStorage();
+    const raw = storage.get(getMfaStorageKey(challengeId));
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.expiresAt && Date.now() > parsed.expiresAt) {
+        storage.remove(getMfaStorageKey(challengeId));
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      console.warn('loadMfaChallenge: Failed to parse stored challenge', error);
+      storage.remove(getMfaStorageKey(challengeId));
+      return null;
+    }
+  }
+
+  function saveMfaChallenge(challenge, ttlSeconds) {
+    if (!challenge || !challenge.id) {
+      return;
+    }
+
+    const storage = getMfaStorage();
+    const expiresAt = challenge.expiresAt || (Date.now() + MFA_CHALLENGE_TTL_SECONDS * 1000);
+    const payload = Object.assign({}, challenge, { expiresAt: expiresAt });
+    storage.put(getMfaStorageKey(challenge.id), JSON.stringify(payload), ttlSeconds || MFA_CHALLENGE_TTL_SECONDS + 120);
+  }
+
+  function deleteMfaChallenge(challengeId) {
+    if (!challengeId) return;
+    const storage = getMfaStorage();
+    storage.remove(getMfaStorageKey(challengeId));
+  }
+
+  function ensureMfaUserColumns() {
+    if (typeof SpreadsheetApp === 'undefined') {
+      return;
+    }
+
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss) return;
+      const sheet = ss.getSheetByName('Users');
+      if (!sheet) return;
+
+      const lastColumn = sheet.getLastColumn();
+      const headers = sheet.getRange(1, 1, 1, lastColumn || 1).getValues()[0];
+      const normalizedHeaders = headers.map(header => normalizeString(header).toLowerCase());
+      const requiredColumns = ['mfasecret', 'mfabackupcodes', 'mfadeliverypreference', 'mfaenabled'];
+      const headerLabels = {
+        mfasecret: 'MFASecret',
+        mfabackupcodes: 'MFABackupCodes',
+        mfadeliverypreference: 'MFADeliveryPreference',
+        mfaenabled: 'MFAEnabled'
+      };
+
+      requiredColumns.forEach(function (column) {
+        if (normalizedHeaders.indexOf(column) === -1) {
+          sheet.insertColumnAfter(sheet.getLastColumn() || 1);
+          const newIndex = sheet.getLastColumn();
+          sheet.getRange(1, newIndex).setValue(headerLabels[column] || column);
+          normalizedHeaders.push(column);
+        }
+      });
+    } catch (error) {
+      console.warn('ensureMfaUserColumns failed:', error);
+    }
+  }
+
+  function updateUserMfaFields(userId, updates) {
+    if (!userId || !updates || typeof updates !== 'object') {
+      return false;
+    }
+
+    if (typeof SpreadsheetApp === 'undefined') {
+      return false;
+    }
+
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss) return false;
+      const sheet = ss.getSheetByName('Users');
+      if (!sheet) return false;
+
+      const lastColumn = Math.max(sheet.getLastColumn(), 1);
+      let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+      headers = headers.map(header => String(header || ''));
+
+      const normalizedMap = {};
+      headers.forEach(function (header, index) {
+        normalizedMap[normalizeString(header).toLowerCase()] = index + 1;
+      });
+
+      const ensureColumn = function (name) {
+        const key = normalizeString(name).toLowerCase();
+        if (!normalizedMap[key]) {
+          sheet.insertColumnAfter(sheet.getLastColumn());
+          const columnIndex = sheet.getLastColumn();
+          sheet.getRange(1, columnIndex).setValue(name);
+          normalizedMap[key] = columnIndex;
+        }
+        return normalizedMap[key];
+      };
+
+      const idColumnIndex = normalizedMap.id || normalizedMap['userid'] || normalizedMap['user id'];
+      if (!idColumnIndex) {
+        return false;
+      }
+
+      const dataRange = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 0), sheet.getLastColumn());
+      const dataValues = dataRange.getValues();
+
+      for (let rowIndex = 0; rowIndex < dataValues.length; rowIndex++) {
+        if (String(dataValues[rowIndex][idColumnIndex - 1]) !== String(userId)) {
+          continue;
+        }
+
+        const rowNumber = rowIndex + 2;
+        Object.keys(updates).forEach(function (field) {
+          const columnIndex = ensureColumn(field);
+          sheet.getRange(rowNumber, columnIndex).setValue(updates[field]);
+        });
+        return true;
+      }
+    } catch (error) {
+      console.warn('updateUserMfaFields failed:', error);
+    }
+
+    return false;
+  }
+
+  function consumeBackupCode(userId, code, config) {
+    if (!config || !config.backupCodes || !config.backupCodes.length) {
+      return false;
+    }
+
+    const normalized = normalizeMfaCode(code);
+    if (!normalized) return false;
+
+    const remaining = config.backupCodes.filter(existing => existing !== normalized);
+    if (remaining.length === config.backupCodes.length) {
+      return false;
+    }
+
+    const updated = remaining.join('\n');
+    ensureMfaUserColumns();
+    updateUserMfaFields(userId, { MFABackupCodes: updated });
+    config.backupCodes = remaining;
+    return true;
+  }
+
+  function deliverOutOfBandCode(method, user, code, expiresAt) {
+    const fallbackMessage = 'Verification code sent.';
+    if (method === 'email') {
+      const recipient = user.Email || user.email || user.EmailAddress || user.username || '';
+      if (!recipient) {
+        return { success: false, error: 'No email address configured for MFA delivery.' };
+      }
+
+      const payload = {
+        code: code,
+        expiresAt: new Date(expiresAt).toISOString(),
+        fullName: user.FullName || user.UserName || user.username || recipient,
+        deliveryMethod: 'email'
+      };
+
+      if (typeof sendMfaCodeEmail === 'function') {
+        try {
+          const result = sendMfaCodeEmail(recipient, payload);
+          if (!result || result.success === false) {
+            return { success: false, error: (result && result.error) || 'Unable to send MFA email.' };
+          }
+          return {
+            success: true,
+            message: (result && result.message) || fallbackMessage
+          };
+        } catch (error) {
+          console.warn('deliverOutOfBandCode: sendMfaCodeEmail failed', error);
+          return { success: false, error: error.message || 'Failed to send MFA email.' };
+        }
+      }
+
+      if (typeof MailApp !== 'undefined' && MailApp && typeof MailApp.sendEmail === 'function') {
+        try {
+          MailApp.sendEmail({
+            to: recipient,
+            subject: 'Your LuminaHQ verification code',
+            htmlBody: '<p>Your verification code is <strong>' + code + '</strong>.</p><p>This code expires in 5 minutes.</p>',
+            body: 'Your verification code is ' + code + '. It expires in 5 minutes.'
+          });
+          return { success: true, message: fallbackMessage };
+        } catch (error) {
+          console.warn('deliverOutOfBandCode: MailApp sendEmail failed', error);
+          return { success: false, error: 'Unable to send MFA email.' };
+        }
+      }
+
+      return { success: false, error: 'Email delivery service unavailable.' };
+    }
+
+    if (method === 'sms') {
+      const phone = user.MFAPhone || user.mfaPhone || user.Phone || user.phoneNumber;
+      if (!phone) {
+        return { success: false, error: 'No phone number configured for SMS delivery.' };
+      }
+
+      if (typeof SmsService !== 'undefined' && SmsService && typeof SmsService.sendMfaCode === 'function') {
+        try {
+          const result = SmsService.sendMfaCode(phone, code, { expiresAt: expiresAt });
+          if (!result || result.success === false) {
+            return { success: false, error: (result && result.error) || 'Unable to send SMS code.' };
+          }
+          return {
+            success: true,
+            message: (result && result.message) || 'Verification code sent via SMS.'
+          };
+        } catch (error) {
+          console.warn('deliverOutOfBandCode: SmsService failed', error);
+          return { success: false, error: error.message || 'Unable to send SMS code.' };
+        }
+      }
+
+      console.warn('deliverOutOfBandCode: SMS delivery requested but SmsService not available.');
+      return { success: false, error: 'SMS delivery is not available.' };
+    }
+
+    return { success: false, error: 'Unsupported MFA delivery method.' };
+  }
+
+  function createMfaChallenge(user, tenantAccess, rememberMe, metadata, configOverride) {
+    const config = configOverride || getUserMfaConfig(user);
+    if (!config.enabled) {
+      return { success: false, reason: 'MFA_NOT_ENABLED', config: config };
+    }
+
+    const userId = user.ID || user.Id || user.id;
+    if (!userId) {
+      return { success: false, reason: 'INVALID_USER', config: config };
+    }
+
+    const sanitizedMetadata = sanitizeClientMetadata(metadata);
+    const now = Date.now();
+    const challengeId = Utilities.getUuid();
+    const deliveryMethod = selectMfaDeliveryMethod(config, null);
+
+    const challenge = {
+      id: challengeId,
+      userId: userId,
+      userEmail: normalizeEmail(user.Email || user.email || user.EmailAddress),
+      rememberMe: !!rememberMe,
+      metadata: sanitizedMetadata,
+      createdAt: now,
+      expiresAt: now + MFA_CHALLENGE_TTL_SECONDS * 1000,
+      attempts: 0,
+      maxAttempts: MFA_MAX_ATTEMPTS,
+      deliveries: 0,
+      maxDeliveries: MFA_MAX_DELIVERIES,
+      deliveryMethod: deliveryMethod,
+      maskedDestination: maskDeliveryDestination(deliveryMethod, user),
+      totpEnabled: deliveryMethod === 'totp',
+      backupCodesRemaining: config.backupCodes.length,
+      tenant: {
+        sessionScope: tenantAccess.sessionScope || null,
+        clientPayload: tenantAccess.clientPayload || null,
+        warnings: Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [],
+        needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true
+      }
+    };
+
+    saveMfaChallenge(challenge);
+
+    return {
+      success: true,
+      challenge: challenge,
+      config: config
+    };
+  }
+
+  function issueMfaChallengeCode(challenge, user, config, deliveryOverride) {
+    if (!challenge || !challenge.id) {
+      return { success: false, error: 'Invalid MFA challenge.' };
+    }
+
+    const deliveries = challenge.deliveries || 0;
+    const maxDeliveries = challenge.maxDeliveries || MFA_MAX_DELIVERIES;
+    if (deliveries >= maxDeliveries) {
+      return {
+        success: false,
+        error: 'Maximum number of MFA code deliveries reached.',
+        deliveriesRemaining: 0
+      };
+    }
+
+    const method = selectMfaDeliveryMethod(config, deliveryOverride || challenge.deliveryMethod);
+    if (!method) {
+      return { success: false, error: 'No MFA delivery method available.' };
+    }
+
+    const now = Date.now();
+    let expiresAt = now + MFA_CHALLENGE_TTL_SECONDS * 1000;
+    let message = '';
+    let totp = false;
+
+    if (method === 'totp') {
+      challenge.codeHash = null;
+      challenge.totpEnabled = true;
+      challenge.expiresAt = expiresAt;
+      totp = true;
+      message = 'Open your authenticator app to retrieve the current verification code.';
+    } else {
+      const code = generateOneTimeNumericCode(MFA_CODE_LENGTH);
+      const hashed = hashMfaCode(code, challenge.id);
+      if (!hashed) {
+        return { success: false, error: 'Failed to generate verification code.' };
+      }
+      challenge.codeHash = hashed;
+      challenge.expiresAt = expiresAt;
+      const deliveryResult = deliverOutOfBandCode(method, user, code, expiresAt);
+      if (!deliveryResult || deliveryResult.success === false) {
+        return {
+          success: false,
+          error: (deliveryResult && deliveryResult.error) || 'Failed to deliver verification code.'
+        };
+      }
+      message = deliveryResult.message || 'Verification code sent.';
+    }
+
+    challenge.deliveryMethod = method;
+    challenge.maskedDestination = maskDeliveryDestination(method, user);
+    challenge.deliveries = deliveries + 1;
+    challenge.lastDeliveryAt = now;
+    challenge.backupCodesRemaining = config.backupCodes.length;
+    saveMfaChallenge(challenge);
+
+    return {
+      success: true,
+      method: method,
+      challengeId: challenge.id,
+      expiresAt: new Date(challenge.expiresAt).toISOString(),
+      message: message,
+      maskedDestination: challenge.maskedDestination,
+      totp: totp,
+      deliveriesRemaining: Math.max(0, (challenge.maxDeliveries || MFA_MAX_DELIVERIES) - challenge.deliveries),
+      backupCodesRemaining: config.backupCodes.length
+    };
+  }
+
+  function beginMfaChallenge(challengeId, options) {
+    try {
+      if (!challengeId) {
+        return {
+          success: false,
+          error: 'MFA challenge id is required.',
+          errorCode: 'MFA_CHALLENGE_REQUIRED'
+        };
+      }
+
+      const challenge = loadMfaChallenge(challengeId);
+      if (!challenge) {
+        return {
+          success: false,
+          error: 'The verification challenge has expired. Please sign in again.',
+          errorCode: 'MFA_CHALLENGE_NOT_FOUND',
+          challengeExpired: true
+        };
+      }
+
+      const user = findUserById(challenge.userId);
+      if (!user) {
+        deleteMfaChallenge(challengeId);
+        return {
+          success: false,
+          error: 'User account could not be located for verification.',
+          errorCode: 'USER_NOT_FOUND'
+        };
+      }
+
+      const config = getUserMfaConfig(user);
+      if (!config.enabled) {
+        deleteMfaChallenge(challengeId);
+        return {
+          success: false,
+          error: 'Multi-factor authentication is not configured for this account.',
+          errorCode: 'MFA_NOT_ENABLED'
+        };
+      }
+
+      const deliveryOverride = options && options.deliveryMethod ? options.deliveryMethod : null;
+      const issueResult = issueMfaChallengeCode(challenge, user, config, deliveryOverride);
+      if (!issueResult || issueResult.success === false) {
+        return Object.assign({
+          success: false,
+          errorCode: issueResult && issueResult.errorCode ? issueResult.errorCode : 'MFA_DELIVERY_FAILED'
+        }, issueResult || { error: 'Failed to send MFA code.' });
+      }
+
+      return Object.assign({
+        success: true,
+        challengeId: challengeId,
+        maskedDestination: issueResult.maskedDestination,
+        backupCodesRemaining: config.backupCodes.length
+      }, issueResult);
+    } catch (error) {
+      console.error('beginMfaChallenge error:', error);
+      return {
+        success: false,
+        error: error.message || 'Unable to deliver verification code.',
+        errorCode: 'MFA_DELIVERY_ERROR'
+      };
+    }
+  }
+
+  function verifyMfaCode(challengeId, code, metadata) {
+    try {
+      const normalizedCode = normalizeMfaCode(code);
+      if (!challengeId) {
+        return {
+          success: false,
+          error: 'Verification challenge is required.',
+          errorCode: 'MFA_CHALLENGE_REQUIRED'
+        };
+      }
+
+      if (!normalizedCode) {
+        return {
+          success: false,
+          error: 'Enter the verification code from your authenticator or message.',
+          errorCode: 'MFA_CODE_REQUIRED'
+        };
+      }
+
+      const challenge = loadMfaChallenge(challengeId);
+      if (!challenge) {
+        return {
+          success: false,
+          error: 'The verification session has expired. Please sign in again.',
+          errorCode: 'MFA_CHALLENGE_NOT_FOUND',
+          challengeExpired: true
+        };
+      }
+
+      if (challenge.expiresAt && Date.now() > challenge.expiresAt) {
+        deleteMfaChallenge(challengeId);
+        return {
+          success: false,
+          error: 'The verification code has expired. Please start again.',
+          errorCode: 'MFA_CODE_EXPIRED',
+          challengeExpired: true
+        };
+      }
+
+      const maxAttempts = challenge.maxAttempts || MFA_MAX_ATTEMPTS;
+      const attempts = challenge.attempts || 0;
+      if (attempts >= maxAttempts) {
+        deleteMfaChallenge(challengeId);
+        return {
+          success: false,
+          error: 'Too many invalid verification attempts. Please sign in again.',
+          errorCode: 'MFA_TOO_MANY_ATTEMPTS',
+          challengeExpired: true
+        };
+      }
+
+      const user = findUserById(challenge.userId);
+      if (!user) {
+        deleteMfaChallenge(challengeId);
+        return {
+          success: false,
+          error: 'User account could not be located for verification.',
+          errorCode: 'USER_NOT_FOUND'
+        };
+      }
+
+      const config = getUserMfaConfig(user);
+      let verified = false;
+      let usedBackup = false;
+
+      if (!verified && challenge.totpEnabled && config.secret) {
+        verified = verifyTotpCode(config.secret, normalizedCode, 1);
+      }
+
+      if (!verified && challenge.codeHash) {
+        const hashed = hashMfaCode(normalizedCode, challenge.id);
+        if (hashed && constantTimeEquals(hashed, challenge.codeHash)) {
+          verified = true;
+        }
+      }
+
+      if (!verified && config.backupCodes.length) {
+        if (config.backupCodes.indexOf(normalizedCode) !== -1) {
+          verified = true;
+          usedBackup = true;
+        }
+      }
+
+      if (!verified) {
+        challenge.attempts = attempts + 1;
+        saveMfaChallenge(challenge);
+        const remaining = Math.max(0, (challenge.maxAttempts || MFA_MAX_ATTEMPTS) - challenge.attempts);
+        return {
+          success: false,
+          error: 'The verification code you entered is not valid.',
+          errorCode: 'MFA_CODE_INVALID',
+          remainingAttempts: remaining
+        };
+      }
+
+      if (usedBackup) {
+        consumeBackupCode(challenge.userId, normalizedCode, config);
+      }
+
+      deleteMfaChallenge(challengeId);
+
+      const sessionMetadata = sanitizeClientMetadata(metadata) || challenge.metadata || null;
+      const sessionResult = createSession(
+        challenge.userId,
+        !!challenge.rememberMe,
+        challenge.tenant ? challenge.tenant.sessionScope : null,
+        sessionMetadata
+      );
+
+      if (!sessionResult || !sessionResult.token) {
+        return {
+          success: false,
+          error: 'Failed to create a session after verification.',
+          errorCode: 'SESSION_CREATION_FAILED'
+        };
+      }
+
+      try {
+        updateLastLogin(challenge.userId);
+      } catch (error) {
+        console.warn('verifyMfaCode: Failed to update last login', error);
+      }
+
+      const tenantPayload = challenge.tenant || {};
+      const tenantSummary = Object.assign({}, tenantPayload.clientPayload || {}, {
+        tenantContext: tenantPayload.sessionScope && tenantPayload.sessionScope.tenantContext
+          ? tenantPayload.sessionScope.tenantContext
+          : null
+      });
+      if (Array.isArray(tenantPayload.warnings)) {
+        tenantSummary.warnings = tenantPayload.warnings.slice();
+      }
+      tenantSummary.needsCampaignAssignment = tenantPayload.needsCampaignAssignment === true;
+
+      const userPayload = buildUserPayload(user, tenantPayload.clientPayload || null);
+
+      if (userPayload && userPayload.CampaignScope) {
+        userPayload.CampaignScope.tenantContext = tenantPayload.sessionScope && tenantPayload.sessionScope.tenantContext
+          ? tenantPayload.sessionScope.tenantContext
+          : null;
+        if (tenantPayload.sessionScope && Array.isArray(tenantPayload.sessionScope.assignments) && !userPayload.CampaignScope.assignments.length) {
+          userPayload.CampaignScope.assignments = tenantPayload.sessionScope.assignments.slice();
+        }
+        if (tenantPayload.sessionScope && Array.isArray(tenantPayload.sessionScope.permissions) && !userPayload.CampaignScope.permissions.length) {
+          userPayload.CampaignScope.permissions = tenantPayload.sessionScope.permissions.slice();
+        }
+      }
+
+      const warnings = Array.isArray(tenantPayload.warnings) ? tenantPayload.warnings.slice() : [];
+
+      return {
+        success: true,
+        sessionToken: sessionResult.token,
+        sessionExpiresAt: sessionResult.expiresAt,
+        sessionTtlSeconds: sessionResult.ttlSeconds,
+        rememberMe: !!challenge.rememberMe,
+        user: userPayload,
+        tenant: tenantSummary,
+        campaignScope: userPayload ? userPayload.CampaignScope : null,
+        warnings: warnings,
+        needsCampaignAssignment: tenantPayload.needsCampaignAssignment === true,
+        message: 'Verification successful. You are now signed in.'
+      };
+    } catch (error) {
+      console.error('verifyMfaCode error:', error);
+      return {
+        success: false,
+        error: error.message || 'Unable to verify the authentication code.',
+        errorCode: 'MFA_VERIFY_ERROR'
+      };
+    }
   }
 
   // ─── Improved user lookup with fallbacks ─────────────────────────────────────
@@ -703,7 +1651,7 @@ var AuthenticationService = (function () {
 
   // ─── Main login function ─────────────────────────────────────────────────────
 
-  function login(email, password, rememberMe = false) {
+  function login(email, password, rememberMe = false, clientMetadata) {
     console.log('=== AuthenticationService.login START ===');
     console.log('Email:', email ? 'PROVIDED' : 'EMPTY');
     console.log('Password:', password ? 'PROVIDED' : 'EMPTY');
@@ -713,6 +1661,7 @@ var AuthenticationService = (function () {
       // Input validation
       const normalizedEmail = normalizeEmail(email);
       const passwordStr = normalizeString(password);
+      const sanitizedMetadata = sanitizeClientMetadata(clientMetadata);
 
       if (!normalizedEmail) {
         console.log('login: Invalid email provided');
@@ -836,9 +1785,42 @@ var AuthenticationService = (function () {
         };
       }
 
+      const mfaConfig = getUserMfaConfig(user);
+      if (mfaConfig && mfaConfig.enabled) {
+        console.log('login: MFA required for user:', user.Email || user.UserName || user.ID);
+        const challengeResult = createMfaChallenge(user, tenantAccess, rememberMe, sanitizedMetadata, mfaConfig);
+
+        if (!challengeResult || !challengeResult.success) {
+          console.warn('login: Failed to create MFA challenge. Reason:', challengeResult && challengeResult.reason);
+          return {
+            success: false,
+            error: 'We were unable to start the verification process. Please try again in a moment.',
+            errorCode: 'MFA_CHALLENGE_FAILED'
+          };
+        }
+
+        const challenge = challengeResult.challenge;
+        return {
+          success: false,
+          needsMfa: true,
+          errorCode: 'MFA_REQUIRED',
+          message: 'Additional verification is required to finish signing in.',
+          rememberMe: !!rememberMe,
+          mfa: {
+            challengeId: challenge.id,
+            deliveryMethod: challenge.deliveryMethod,
+            maskedDestination: challenge.maskedDestination,
+            totp: challenge.totpEnabled,
+            expiresAt: new Date(challenge.expiresAt).toISOString(),
+            deliveriesRemaining: Math.max(0, (challenge.maxDeliveries || MFA_MAX_DELIVERIES) - (challenge.deliveries || 0)),
+            backupCodesRemaining: mfaConfig.backupCodes.length
+          }
+        };
+      }
+
       // Create session
       console.log('login: Creating session...');
-      const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope);
+      const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, sanitizedMetadata);
 
       if (!sessionResult || !sessionResult.token) {
         console.log('login: Failed to create session');
@@ -1182,7 +2164,9 @@ var AuthenticationService = (function () {
     findUserById: findUserById,
     verifyUserPassword: verifyUserPassword,
     getUserByEmail: findUserByEmail,
-    findUserByPrincipal: findUserByEmail
+    findUserByPrincipal: findUserByEmail,
+    beginMfaChallenge: beginMfaChallenge,
+    verifyMfaCode: verifyMfaCode
   };
 
 })();
@@ -1191,10 +2175,10 @@ var AuthenticationService = (function () {
 // CLIENT-ACCESSIBLE FUNCTIONS
 // ───────────────────────────────────────────────────────────────────────────────
 
-function loginUser(email, password, rememberMe = false) {
+function loginUser(email, password, rememberMe = false, clientMetadata) {
   try {
     console.log('=== loginUser wrapper START ===');
-    const result = AuthenticationService.login(email, password, rememberMe);
+    const result = AuthenticationService.login(email, password, rememberMe, clientMetadata);
     console.log('=== loginUser wrapper END ===');
     return result;
   } catch (error) {
@@ -1203,6 +2187,32 @@ function loginUser(email, password, rememberMe = false) {
       success: false,
       error: 'Login failed. Please try again.',
       errorCode: 'WRAPPER_ERROR'
+    };
+  }
+}
+
+function beginMfaChallenge(challengeId, options) {
+  try {
+    return AuthenticationService.beginMfaChallenge(challengeId, options);
+  } catch (error) {
+    console.error('beginMfaChallenge wrapper error:', error);
+    return {
+      success: false,
+      error: error.message || 'Unable to send verification code.',
+      errorCode: 'MFA_DELIVERY_ERROR'
+    };
+  }
+}
+
+function verifyMfaCode(challengeId, code, clientMetadata) {
+  try {
+    return AuthenticationService.verifyMfaCode(challengeId, code, clientMetadata);
+  } catch (error) {
+    console.error('verifyMfaCode wrapper error:', error);
+    return {
+      success: false,
+      error: error.message || 'Unable to verify the authentication code.',
+      errorCode: 'MFA_VERIFY_ERROR'
     };
   }
 }

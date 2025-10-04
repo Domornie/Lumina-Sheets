@@ -52,7 +52,11 @@ const OPTIONAL_USER_COLUMNS = [
   'InsuranceEligibleDate',
   'InsuranceQualified',
   'InsuranceEnrolled',
-  'InsuranceCardReceivedDate'
+  'InsuranceCardReceivedDate',
+  'MFASecret',
+  'MFABackupCodes',
+  'MFADeliveryPreference',
+  'MFAEnabled'
 ];
 
 const USER_LOG_MAX_DEPTH = 4;
