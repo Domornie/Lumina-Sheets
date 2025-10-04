@@ -140,7 +140,7 @@
       { key: 'roles', name: global.ROLES_SHEET || 'Roles', headerVar: 'ROLES_HEADER', idColumn: 'ID', cacheTTL: 3600 },
       { key: 'userRoles', name: global.USER_ROLES_SHEET || 'UserRoles', headerVar: 'USER_ROLES_HEADER', idColumn: null, cacheTTL: 1800 },
       { key: 'userClaims', name: global.USER_CLAIMS_SHEET || 'UserClaims', headerVar: 'CLAIMS_HEADERS', idColumn: 'ID', cacheTTL: 1800 },
-      { key: 'sessions', name: global.SESSIONS_SHEET || 'Sessions', headerVar: 'SESSIONS_HEADERS', idColumn: 'Token' },
+      { key: 'sessions', name: global.SESSIONS_SHEET || 'Sessions', headerVar: 'SESSIONS_HEADERS', idColumn: 'TokenHash' },
       { key: 'campaigns', name: global.CAMPAIGNS_SHEET || 'Campaigns', headerVar: 'CAMPAIGNS_HEADERS', idColumn: 'ID', requireTenant: false, cacheTTL: 3600 },
       { key: 'campaignPermissions', name: global.CAMPAIGN_USER_PERMISSIONS_SHEET || 'CampaignUserPermissions', headerVar: 'CAMPAIGN_USER_PERMISSIONS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: true, cacheTTL: 2700 },
       { key: 'userCampaigns', name: global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', headerVar: 'USER_CAMPAIGNS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignId', 'CampaignID'], requireTenant: true, cacheTTL: 1800 },

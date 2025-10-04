@@ -1108,7 +1108,13 @@
       mfaCountdownTimer: null,
       mfaBaseMessage: '',
       pendingDeviceVerification: null,
-      deviceVerificationInFlight: false
+      deviceVerificationInFlight: false,
+      keepAliveTimer: null,
+      keepAliveIntervalMs: null,
+      sessionIdleTimeoutMinutes: null,
+      sessionTtlSeconds: null,
+      sessionExpiresAt: null,
+      lastRememberMe: false
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -2001,6 +2007,7 @@
     }
 
     function clearAuthCookie() {
+      stopKeepAliveHeartbeat();
       try {
         if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
           CookieHandler.clearAuthToken();
@@ -2009,22 +2016,32 @@
         console.warn('Unable to clear auth cookie', err);
       }
       state.authToken = '';
+      state.sessionIdleTimeoutMinutes = null;
+      state.sessionTtlSeconds = null;
+      state.sessionExpiresAt = null;
     }
 
-    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds) {
+    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
       if (!token) {
         clearAuthCookie();
         return;
       }
 
       state.authToken = token;
+      state.lastRememberMe = typeof rememberMe === 'boolean' ? rememberMe : state.lastRememberMe;
+      state.sessionExpiresAt = expiresAtIso || null;
+      state.sessionTtlSeconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0) ? ttlSeconds : null;
 
-      let maxAgeSeconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0)
-        ? Math.floor(ttlSeconds)
-        : (rememberMe ? REMEMBER_COOKIE_MAX_AGE : SESSION_COOKIE_MAX_AGE);
+      if (typeof idleTimeoutMinutes === 'number' && isFinite(idleTimeoutMinutes) && idleTimeoutMinutes > 0) {
+        state.sessionIdleTimeoutMinutes = Math.max(1, Math.round(idleTimeoutMinutes));
+      }
 
-      if (expiresAtIso) {
-        const expiryTime = Date.parse(expiresAtIso);
+      let maxAgeSeconds = state.sessionTtlSeconds
+        ? Math.floor(state.sessionTtlSeconds)
+        : (state.lastRememberMe ? REMEMBER_COOKIE_MAX_AGE : SESSION_COOKIE_MAX_AGE);
+
+      if (state.sessionExpiresAt) {
+        const expiryTime = Date.parse(state.sessionExpiresAt);
         if (!isNaN(expiryTime)) {
           const delta = Math.floor((expiryTime - Date.now()) / 1000);
           if (delta > 0) {
@@ -2033,7 +2050,7 @@
         }
       }
 
-      maxAgeSeconds = Math.max(300, maxAgeSeconds); // ensure at least 5 minutes
+      maxAgeSeconds = Math.max(300, maxAgeSeconds);
 
       try {
         if (window.CookieHandler && typeof CookieHandler.persistAuthToken === 'function') {
@@ -2041,6 +2058,110 @@
         }
       } catch (err) {
         console.warn('Unable to persist auth cookie', err);
+      }
+
+      restartSessionHeartbeat();
+    }
+
+    function stopKeepAliveHeartbeat() {
+      if (state.keepAliveTimer) {
+        clearTimeout(state.keepAliveTimer);
+        state.keepAliveTimer = null;
+      }
+    }
+
+    function scheduleKeepAliveHeartbeat(delayMs) {
+      stopKeepAliveHeartbeat();
+      if (!delayMs || !isFinite(delayMs) || delayMs <= 0) {
+        return;
+      }
+
+      state.keepAliveIntervalMs = delayMs;
+      state.keepAliveTimer = setTimeout(() => {
+        const tokenForPing = state.authToken || readAuthCookie();
+        if (!tokenForPing) {
+          stopKeepAliveHeartbeat();
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(handleKeepAliveSuccess)
+          .withFailureHandler(handleKeepAliveFailure)
+          .keepAlive(tokenForPing);
+      }, delayMs);
+    }
+
+    function restartSessionHeartbeat() {
+      stopKeepAliveHeartbeat();
+
+      const tokenForPing = state.authToken || readAuthCookie();
+      if (!tokenForPing) {
+        return;
+      }
+
+      const idleMinutes = (state.sessionIdleTimeoutMinutes && state.sessionIdleTimeoutMinutes > 0)
+        ? state.sessionIdleTimeoutMinutes
+        : 30;
+      const idleMs = Math.max(1, idleMinutes) * 60 * 1000;
+
+      let ttlMs = null;
+      if (state.sessionTtlSeconds && state.sessionTtlSeconds > 0) {
+        ttlMs = state.sessionTtlSeconds * 1000;
+      } else if (state.sessionExpiresAt) {
+        const expiryTime = Date.parse(state.sessionExpiresAt);
+        if (!isNaN(expiryTime)) {
+          ttlMs = Math.max(0, expiryTime - Date.now());
+        }
+      }
+
+      let intervalMs = Math.max(60000, Math.floor(idleMs / 2));
+      if (ttlMs !== null && ttlMs > 0) {
+        intervalMs = Math.min(intervalMs, Math.max(60000, Math.floor(ttlMs / 2)));
+      }
+
+      const safetyWindow = Math.max(60000, Math.floor(idleMs * 0.2));
+      intervalMs = Math.min(intervalMs, Math.max(60000, idleMs - safetyWindow));
+
+      if (!isFinite(intervalMs) || intervalMs <= 0) {
+        intervalMs = 60000;
+      }
+
+      scheduleKeepAliveHeartbeat(intervalMs);
+    }
+
+    function handleKeepAliveSuccess(result) {
+      if (!result || !result.success) {
+        if (result && result.expired) {
+          handleSessionExpired(result.reason || 'SESSION_EXPIRED');
+        } else {
+          console.warn('Keep-alive returned unexpected response', result);
+          scheduleKeepAliveHeartbeat(Math.min(state.keepAliveIntervalMs || 300000, 300000));
+        }
+        return;
+      }
+
+      persistSessionToken(
+        result.sessionToken || state.authToken || readAuthCookie(),
+        state.lastRememberMe,
+        result.sessionExpiresAt,
+        result.sessionTtlSeconds,
+        result.idleTimeoutMinutes
+      );
+    }
+
+    function handleKeepAliveFailure(error) {
+      console.warn('Keep-alive failed:', error);
+      const retryDelay = Math.max(60000, Math.min((state.keepAliveIntervalMs || 300000) / 2, 300000));
+      scheduleKeepAliveHeartbeat(retryDelay);
+    }
+
+    function handleSessionExpired(reason) {
+      console.log('Session expired:', reason);
+      clearAuthCookie();
+      try {
+        showAlert('info', 'Your session has expired. Please sign in again.');
+      } catch (err) {
+        console.warn('handleSessionExpired: unable to show alert', err);
       }
     }
 
@@ -2078,7 +2199,7 @@
           const resolvedToken = result.sessionToken || cookieToken;
           const rememberFlag = result.rememberMe !== undefined ? !!result.rememberMe : true;
 
-          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds);
+          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds, result.idleTimeoutMinutes);
 
           const resumedUser = result.user || {};
           const resumedEmail = (resumedUser.Email || resumedUser.email || '').trim();
@@ -3283,7 +3404,8 @@
         response.sessionToken,
         response.rememberMe !== undefined ? !!response.rememberMe : !!rememberMeFallback,
         response.sessionExpiresAt,
-        response.sessionTtlSeconds
+        response.sessionTtlSeconds,
+        response.sessionIdleTimeoutMinutes
       );
 
       const destinationUrl = normalizeRedirectUrl(response.redirectUrl);

@@ -82,13 +82,18 @@ if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = [
 if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ["ID", "UserId", "ClaimType", "CreatedAt", "UpdatedAt"];
 if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
   "Token",
+  "TokenHash",
+  "TokenSalt",
   "UserId",
   "CreatedAt",
+  "LastActivityAt",
   "ExpiresAt",
+  "IdleTimeoutMinutes",
   "RememberMe",
   "CampaignScope",
   "UserAgent",
-  "IpAddress"
+  "IpAddress",
+  "ServerIp"
 ];
 
 if (typeof CHAT_GROUPS_HEADERS === 'undefined') var CHAT_GROUPS_HEADERS = ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
