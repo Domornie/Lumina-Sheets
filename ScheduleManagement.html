@@ -2529,20 +2529,28 @@
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
 
-                    const { schedules, total, error, errorSeverity } = this.parseSchedulesResponse(result);
+                    const { schedules, total, error, errorSeverity, notice } = this.parseSchedulesResponse(result);
 
                     const safeSchedules = Array.isArray(schedules) ? schedules : [];
 
                     if (error) {
-                        console.warn('⚠️ Schedule response warning:', error);
-                        this.showToast(`Failed to load some schedules: ${error}`, errorSeverity || 'warning');
+                        const severity = errorSeverity || 'warning';
+                        const logMethod = severity === 'danger' ? 'error' : 'warn';
+                        console[logMethod]('⚠️ Schedule response issue:', error);
+
+                        if (severity === 'danger') {
+                            this.showToast(`Failed to load schedules: ${error}`, severity);
+                        }
+                    } else if (notice) {
+                        console.info('ℹ️ Schedule response notice:', notice);
                     }
 
                     this.displaySchedules(safeSchedules);
 
                     const totalElement = document.getElementById('totalSchedules');
                     if (totalElement) {
-                        const safeTotal = Number.isFinite(total) ? total : safeSchedules.length;
+                        const numericTotal = Number(total);
+                        const safeTotal = Number.isFinite(numericTotal) && numericTotal >= 0 ? numericTotal : safeSchedules.length;
                         totalElement.textContent = safeTotal;
                     }
 
@@ -2610,14 +2618,14 @@
                     schedules: [],
                     total: 0,
                     error: null,
-                    errorSeverity: 'warning'
+                    errorSeverity: 'warning',
+                    notice: null
                 };
 
                 if (result == null) {
                     return {
                         ...baseResponse,
-                        error: 'No response was returned from the server.',
-                        errorSeverity: 'danger'
+                        notice: 'No schedules were returned by the server. Retaining the current table view.'
                     };
                 }
 
@@ -2645,12 +2653,16 @@
                     const nestedDataSources = [
                         result.schedules,
                         result.data?.schedules,
+                        result.data?.items,
                         result.data,
                         result.items,
-                        result.records
+                        result.records,
+                        result.payload,
+                        result.results
                     ];
 
-                    const scheduleArray = nestedDataSources.find(Array.isArray);
+                    const scheduleArray = nestedDataSources.find(Array.isArray) ||
+                        Object.values(result).find(value => Array.isArray(value) && value.every(item => item && typeof item === 'object'));
 
                     if (scheduleArray) {
                         const totalCandidates = [
@@ -2660,16 +2672,17 @@
                             scheduleArray.length
                         ];
 
-                        const resolvedTotal = totalCandidates.find(value => Number.isFinite(value));
+                        const resolvedTotal = totalCandidates.find(value => Number.isFinite(Number(value)));
 
                         const severity = result.success === false ? 'danger' : 'warning';
 
                         return {
                             ...baseResponse,
                             schedules: scheduleArray,
-                            total: Number.isFinite(resolvedTotal) ? resolvedTotal : scheduleArray.length,
+                            total: Number.isFinite(Number(resolvedTotal)) ? Number(resolvedTotal) : scheduleArray.length,
                             error: result.success === false ? (result.error || result.message || 'Server returned a failure response.') : null,
-                            errorSeverity: severity
+                            errorSeverity: severity,
+                            notice: result.success === true && !scheduleArray.length ? 'No schedules matched the selected filters.' : null
                         };
                     }
 
@@ -2684,14 +2697,15 @@
                     if (result.success === true) {
                         return {
                             ...baseResponse,
-                            error: 'The server reported success but did not return any schedule data.'
+                            notice: 'The server reported success but did not include schedule details. Displaying the previous data.'
                         };
                     }
                 }
 
                 return {
                     ...baseResponse,
-                    error: 'Unexpected response format received while loading schedules.'
+                    error: 'Unexpected response format received while loading schedules.',
+                    errorSeverity: 'danger'
                 };
             }
 
