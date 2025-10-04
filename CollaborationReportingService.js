@@ -36,6 +36,8 @@ function clientGetCollaborationReportingData(options) {
     }
   }
 
+  var campaigns = sanitizeWorkspaceCampaigns_(workspace);
+
   return {
     user: {
       id: userId,
@@ -44,11 +46,11 @@ function clientGetCollaborationReportingData(options) {
       campaignId: currentUser.CampaignID || currentUser.CampaignId || '',
       roles: currentUser.roleNames || []
     },
-    qa: buildCollaborationQaPayload_(qaRecords, workspace),
+    qa: buildCollaborationQaPayload_(qaRecords, workspace, campaigns),
     attendance: buildCollaborationAttendancePayload_(workspace),
     executive: buildCollaborationExecutivePayload_(userId, workspace),
     chat: buildCollaborationChatPayload_(workspace),
-    campaigns: workspace && Array.isArray(workspace.campaigns) ? workspace.campaigns : [],
+    campaigns: campaigns,
     generatedAt: new Date().toISOString()
   };
 }
@@ -129,7 +131,7 @@ function clientPostCollaborationThreadMessage(request) {
   };
 }
 
-function buildCollaborationQaPayload_(records, workspace) {
+function buildCollaborationQaPayload_(records, workspace, campaigns) {
   var sorted = Array.isArray(records) ? records.slice() : [];
   sorted.sort(function (a, b) {
     var da = collabToDate_(a && (a.AuditDate || a.Timestamp || a.UpdatedAt || a.CreatedAt));
@@ -140,6 +142,17 @@ function buildCollaborationQaPayload_(records, workspace) {
   });
 
   var limited = sorted.slice(0, 50);
+  var normalizedCampaigns = Array.isArray(campaigns) ? campaigns : sanitizeWorkspaceCampaigns_(workspace);
+  var campaignById = {};
+  var campaignByName = {};
+  normalizedCampaigns.forEach(function (campaign) {
+    if (!campaign) return;
+    var cid = collabToStr_(campaign.id || '');
+    var name = collabToStr_(campaign.name || '');
+    if (cid) campaignById[cid] = { id: cid, name: name || cid };
+    if (name) campaignByName[name.toLowerCase()] = { id: cid || name, name: name };
+  });
+
   var mapped = [];
   limited.forEach(function (row) {
     var mappedRow = mapCollaborationQaRecord_(row);
@@ -156,12 +169,59 @@ function buildCollaborationQaPayload_(records, workspace) {
   var agentSet = {};
   var reviewerSet = {};
   var collaboratorSet = {};
-  var campaignSet = {};
+  var campaignDirectoryMap = {};
+
+  function registerCampaignOption(id, name) {
+    var normalizedId = id ? String(id).toLowerCase() : '';
+    var normalizedName = name ? String(name).toLowerCase() : '';
+    var existing = null;
+    if (normalizedId && campaignDirectoryMap['id:' + normalizedId]) {
+      existing = campaignDirectoryMap['id:' + normalizedId];
+    } else if (normalizedName && campaignDirectoryMap['name:' + normalizedName]) {
+      existing = campaignDirectoryMap['name:' + normalizedName];
+    }
+    if (!existing) {
+      existing = {
+        id: id || name || '',
+        name: name || id || ''
+      };
+    } else {
+      if (id && !existing.id) existing.id = id;
+      if (name && !existing.name) existing.name = name;
+    }
+    if (normalizedId) campaignDirectoryMap['id:' + normalizedId] = existing;
+    if (normalizedName) campaignDirectoryMap['name:' + normalizedName] = existing;
+  }
+
+  normalizedCampaigns.forEach(function (campaign) {
+    if (!campaign) return;
+    registerCampaignOption(campaign.id, campaign.name);
+  });
 
   mapped.forEach(function (item) {
     if (item.agent) agentSet[item.agent] = true;
     if (item.reviewer) reviewerSet[item.reviewer] = true;
-    if (item.campaignName) campaignSet[item.campaignName] = true;
+    if (item.campaignId) {
+      item.campaignId = collabToStr_(item.campaignId);
+    }
+    if (item.campaignId && campaignById[item.campaignId]) {
+      var match = campaignById[item.campaignId];
+      if (!item.campaignName) item.campaignName = match.name;
+      item.campaignId = match.id;
+    } else if (item.campaignName) {
+      var nameKey = item.campaignName.toLowerCase();
+      var lookup = campaignByName[nameKey];
+      if (lookup) {
+        item.campaignId = lookup.id;
+        item.campaignName = lookup.name;
+      }
+    }
+    if (!item.campaignId && item.campaignName) {
+      item.campaignId = item.campaignName;
+    }
+    if (item.campaignId || item.campaignName) {
+      registerCampaignOption(item.campaignId, item.campaignName);
+    }
     if (item.collaborators && item.collaborators.length) {
       item.collaborators.forEach(function (collab) {
         if (collab) collaboratorSet[collab] = true;
@@ -179,13 +239,6 @@ function buildCollaborationQaPayload_(records, workspace) {
     });
   }
 
-  if (workspace && Array.isArray(workspace.campaigns)) {
-    workspace.campaigns.forEach(function (campaign) {
-      var name = collabToStr_(campaign.name || campaign.Name || '');
-      if (name) campaignSet[name] = true;
-    });
-  }
-
   directory.agents = Object.keys(agentSet).sort().map(function (name) {
     return { id: name, name: name };
   });
@@ -195,8 +248,26 @@ function buildCollaborationQaPayload_(records, workspace) {
   directory.collaborators = Object.keys(collaboratorSet).sort().map(function (name) {
     return { id: name, name: name };
   });
-  directory.campaigns = Object.keys(campaignSet).sort().map(function (name) {
-    return { id: name, name: name };
+
+  var addedCampaigns = {};
+  Object.keys(campaignDirectoryMap).forEach(function (key) {
+    var entry = campaignDirectoryMap[key];
+    if (!entry) return;
+    var dedupeKey = (entry.id || '') + '|' + (entry.name || '');
+    if (addedCampaigns[dedupeKey]) return;
+    addedCampaigns[dedupeKey] = true;
+    directory.campaigns.push({
+      id: entry.id || entry.name,
+      name: entry.name || entry.id || ''
+    });
+  });
+
+  directory.campaigns.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
   });
 
   var metrics = computeCollaborationQaMetrics_(mapped, workspace);
@@ -255,6 +326,7 @@ function mapCollaborationQaRecord_(row) {
   return {
     id: id,
     agent: collabToStr_(row.AgentName || row.Agent || ''),
+    campaignId: collabToStr_(row.CampaignId || row.CampaignID || row.ClientId || row.ClientID || ''),
     campaignName: collabToStr_(row.ClientName || row.Campaign || row.CampaignName || ''),
     reviewer: collabToStr_(row.AuditorName || row.Reviewer || row.ReviewedBy || ''),
     collaborators: collaborators,
@@ -472,6 +544,42 @@ function buildCollaborationAttendancePayload_(workspace) {
   }
 
   return payload;
+}
+
+function sanitizeWorkspaceCampaigns_(workspace) {
+  if (!workspace || !Array.isArray(workspace.campaigns)) {
+    return [];
+  }
+
+  var seen = {};
+  var list = [];
+
+  workspace.campaigns.forEach(function (campaign) {
+    if (!campaign) return;
+    var id = collabToStr_(campaign.id || campaign.ID || campaign.Id || campaign.CampaignId || campaign.CampaignID || '');
+    var name = collabToStr_(campaign.name || campaign.Name || campaign.ClientName || '');
+    var key = id || name;
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    list.push({
+      id: id || name,
+      name: name || id || '',
+      description: collabToStr_(campaign.description || campaign.Description || ''),
+      isManaged: !!campaign.isManaged,
+      isAdmin: !!campaign.isAdmin,
+      isDefault: !!campaign.isDefault
+    });
+  });
+
+  list.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  return list;
 }
 
 function buildCollaborationExecutivePayload_(userId, workspace) {

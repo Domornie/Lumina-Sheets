@@ -365,6 +365,51 @@
     height: 12px;
     border-radius: 50%;
   }
+
+  .connectivity-container {
+    width: 100%;
+  }
+
+  .connectivity-container.connectivity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+
+  .connectivity-card {
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.05) 0%, rgba(14, 165, 233, 0.05) 100%);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 170px;
+  }
+
+  .connectivity-card .badge {
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .connectivity-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .connectivity-actions .btn {
+    border-radius: 999px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+  }
+
+  .connectivity-actions .btn i {
+    font-size: 0.85rem;
+  }
 </style>
 
 <div class="collab-wrapper">
@@ -560,6 +605,21 @@
     </div>
   </div>
 
+  <div class="row g-4 mt-2">
+    <div class="col-12">
+      <div class="card section-card h-100">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
+          <h2 class="mt-3">Navigate the web app by campaign</h2>
+          <p class="mb-0">Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
+        </div>
+        <div class="card-body">
+          <div id="campaignConnectivity" class="connectivity-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-4 mt-2 align-items-stretch">
     <div class="col-xl-7">
       <div class="card section-card h-100">
@@ -650,6 +710,7 @@
       executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '' },
       chat: { personas: [], threads: {} },
       charts: { qaTrend: null, attendance: null, executive: null },
+      campaigns: [],
       activePersona: null,
       activeThreadId: null,
       isLoading: false
@@ -699,9 +760,21 @@
     const chatAudienceLabel = document.getElementById('chatAudienceLabel');
     const chatSubmitButton = chatComposer.querySelector('button[type="submit"]');
 
+    const campaignConnectivityContainer = document.getElementById('campaignConnectivity');
+
     const alertsContainer = document.getElementById('collabAlerts');
     const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
     const chartColors = ['#38bdf8', '#34d399', '#facc15', '#f97316', '#8b5cf6', '#f472b6'];
+
+    const campaignActions = [
+      { key: 'dashboard', label: 'Dashboard', icon: 'fas fa-chart-line' },
+      { key: 'qualitylist', label: 'Quality', icon: 'fas fa-star' },
+      { key: 'coachingdashboard', label: 'Coaching', icon: 'fas fa-chalkboard-user' },
+      { key: 'attendancereports', label: 'Attendance', icon: 'fas fa-calendar-check' },
+      { key: 'qacollablist', label: 'Collab', icon: 'fas fa-people-arrows' }
+    ];
+
+    const navigationBaseUrl = computeNavigationBase();
 
     function clearAlerts() {
       alertsContainer.innerHTML = '';
@@ -763,6 +836,48 @@
       return 'status-pill status-draft';
     }
 
+    function stripHash(url) {
+      if (!url) return '';
+      return String(url).replace(/#.*$/, '');
+    }
+
+    function removeExistingPageParam(url) {
+      if (!url) return '';
+      return url
+        .replace(/([?&])(page|campaign)=[^&#]*(&)?/gi, function (match, prefix, _key, suffix) {
+          if (prefix === '?') {
+            return suffix ? '?' : '';
+          }
+          return suffix ? prefix : '';
+        })
+        .replace(/[?&]$/, '');
+    }
+
+    function computeNavigationBase() {
+      const scriptCandidate = removeExistingPageParam(stripHash(typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL ? SCRIPT_URL : ''));
+      if (scriptCandidate) return scriptCandidate;
+      return removeExistingPageParam(stripHash(typeof BASE_URL !== 'undefined' && BASE_URL ? BASE_URL : ''));
+    }
+
+    function buildCampaignUrl(pageKey, campaignId) {
+      const page = pageKey || 'dashboard';
+      const base = navigationBaseUrl;
+      if (!base) {
+        let query = '?page=' + encodeURIComponent(page);
+        if (campaignId) {
+          query += '&campaign=' + encodeURIComponent(campaignId);
+        }
+        return query;
+      }
+      const hasQuery = base.indexOf('?') !== -1;
+      const separator = hasQuery ? (/[?&]$/.test(base) ? '' : '&') : '?';
+      let url = base + separator + 'page=' + encodeURIComponent(page);
+      if (campaignId) {
+        url += '&campaign=' + encodeURIComponent(campaignId);
+      }
+      return url;
+    }
+
     function populateSelectOptions(select, items, placeholder, isMultiple) {
       select.innerHTML = '';
       if (!isMultiple) {
@@ -805,9 +920,91 @@
       chatSubmitButton.disabled = !enabled;
     }
 
+    function getCampaignOptions() {
+      const options = [];
+      const dedupe = {};
+
+      function registerOption(id, name) {
+        const safeId = id || name || '';
+        const safeName = name || id || '';
+        if (!safeId && !safeName) return;
+        const key = (safeId + '|' + safeName).toLowerCase();
+        if (dedupe[key]) return;
+        dedupe[key] = true;
+        options.push({ id: safeId || safeName, name: safeName || safeId });
+      }
+
+      (state.campaigns || []).forEach(function (campaign) {
+        if (!campaign) return;
+        registerOption(campaign.id, campaign.name);
+      });
+
+      (state.qa.directory.campaigns || []).forEach(function (campaign) {
+        if (!campaign) return;
+        const optionId = campaign.id || campaign.value || campaign.name || campaign.label;
+        const optionName = campaign.name || campaign.label || campaign.id || campaign.value || '';
+        registerOption(optionId, optionName);
+      });
+
+      options.sort(function (a, b) {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+      });
+
+      return options;
+    }
+
+    function renderCampaignConnectivity() {
+      if (!campaignConnectivityContainer) return;
+      const campaigns = state.campaigns || [];
+      campaignConnectivityContainer.innerHTML = '';
+      campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
+
+      if (!campaigns.length) {
+        campaignConnectivityContainer.classList.add('connectivity-empty');
+        campaignConnectivityContainer.innerHTML = '<div class="text-secondary small text-center py-3">No campaign access detected yet.</div>';
+        return;
+      }
+
+      campaignConnectivityContainer.classList.add('connectivity-grid');
+      const fragment = document.createDocumentFragment();
+
+      campaigns.forEach(function (campaign) {
+        const card = document.createElement('div');
+        card.className = 'connectivity-card';
+        const badges = [];
+        if (campaign.isDefault) badges.push('<span class="badge bg-primary-subtle text-primary">Default</span>');
+        if (campaign.isManaged) badges.push('<span class="badge bg-success-subtle text-success">Managed</span>');
+        if (campaign.isAdmin) badges.push('<span class="badge bg-warning-subtle text-warning">Admin</span>');
+        const description = campaign.description ? `<div class="text-secondary small mt-1">${campaign.description}</div>` : '';
+        const actionsMarkup = campaignActions.map(function (action) {
+          const href = buildCampaignUrl(action.key, campaign.id);
+          return `<a href="${href}" target="_top" class="btn btn-light btn-sm"><i class="${action.icon}"></i>${action.label}</a>`;
+        }).join('');
+        card.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="fw-semibold">${campaign.name || 'Campaign'}</div>
+              ${description}
+            </div>
+            <div class="d-flex flex-wrap gap-1">${badges.join('')}</div>
+          </div>
+          <div class="connectivity-actions mt-3">
+            ${actionsMarkup}
+          </div>
+        `;
+        fragment.appendChild(card);
+      });
+
+      campaignConnectivityContainer.appendChild(fragment);
+    }
+
     function renderQADirectory() {
       populateSelectOptions(qaAgentSelect, state.qa.directory.agents, 'Select an agent');
-      populateSelectOptions(qaCampaignSelect, state.qa.directory.campaigns, 'Choose campaign');
+      populateSelectOptions(qaCampaignSelect, getCampaignOptions(), 'Choose campaign');
       populateSelectOptions(qaReviewerSelect, state.qa.directory.reviewers, 'Assign reviewer');
       populateSelectOptions(qaCollaboratorSelect, state.qa.directory.collaborators, '', true);
     }
@@ -824,13 +1021,17 @@
         const collaborators = (record.collaborators || []).map(function (name) {
           return `<span class="collaborator"><i class="fas fa-user-circle"></i>${name}</span>`;
         }).join('');
+        const campaignLabel = record.campaignName || '';
+        const campaignLink = campaignLabel
+          ? `<a href="${buildCampaignUrl('dashboard', record.campaignId)}" target="_top" class="text-decoration-none">${campaignLabel}${record.campaignId ? '<i class="fas fa-arrow-up-right-from-square ms-1 text-primary"></i>' : ''}</a>`
+          : '—';
         tr.innerHTML = `
           <td class="fw-semibold">${record.id || '—'}</td>
           <td>
             <div class="fw-semibold">${record.agent || '—'}</div>
             <small class="text-secondary">${record.reviewer || ''}</small>
           </td>
-          <td>${record.campaignName || '—'}</td>
+          <td>${campaignLink}</td>
           <td><span class="fw-bold">${record.score != null ? formatNumber(record.score, 1) : '—'}</span></td>
           <td>${record.focus || '—'}</td>
           <td>${collaborators}</td>
@@ -1299,20 +1500,28 @@
       chatThreadList.innerHTML = loadingMessage;
       chatStream.innerHTML = loadingMessage;
       setChatComposerEnabled(false);
+      if (campaignConnectivityContainer) {
+        campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
+        campaignConnectivityContainer.innerHTML = loadingMessage;
+      }
 
       google.script.run
         .withSuccessHandler(function (response) {
           state.isLoading = false;
           response = response || {};
+          state.campaigns = Array.isArray(response.campaigns) ? response.campaigns : [];
+          renderCampaignConnectivity();
           if (response.qa) applyQaData(response.qa);
           if (response.attendance) applyAttendanceData(response.attendance);
           if (response.executive) applyExecutiveData(response.executive);
           if (response.chat) applyChatData(response.chat);
+          renderQADirectory();
         })
         .withFailureHandler(function (err) {
           state.isLoading = false;
           console.error(err);
           showAlert(err && err.message ? err.message : 'Unable to load collaboration reporting data.', 'danger');
+          renderCampaignConnectivity();
         })
         .clientGetCollaborationReportingData({});
     }
