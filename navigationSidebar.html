@@ -492,8 +492,7 @@
     </div>
   </div>
 
-  <button type="button" class="user-panel" id="userPanel" data-initialized="true"
-    onclick="navigateToPage('userprofile')"
+  <div class="user-panel" id="userPanel" data-initialized="true"
     data-name="<?= displayPrimaryNameValue ?>"
     data-first-name="<?= firstNameValue ?>"
     data-last-name="<?= lastNameValue ?>"
@@ -508,7 +507,10 @@
         <? if (primaryRoleNameValue) { ?>
         <div class="name-line role-name" id="userRoleNameDisplay"><?= primaryRoleNameValue ?></div>
         <? } ?>
-        <div class="name-line full-name" id="userFullName"><?= displayFullNameValue ?></div>
+        <button type="button" class="user-name-trigger" id="userProfileTrigger" aria-haspopup="true" aria-expanded="false">
+          <span class="name-line full-name" id="userFullName"><?= displayFullNameValue ?></span>
+          <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="role" id="userRole" title="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>">
         <div class="role-badges" id="userRoleBadges">
@@ -531,7 +533,17 @@
         <? } ?>
       </div>
     </div>
-  </button>
+    <div class="user-panel-menu" id="userPanelMenu" role="menu" aria-labelledby="userProfileTrigger" hidden>
+      <button type="button" class="user-panel-menu__item" data-menu-action="profile">
+        <i class="fa-solid fa-id-badge"></i>
+        View Profile
+      </button>
+      <button type="button" class="user-panel-menu__item" data-menu-action="logout">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        Sign Out
+      </button>
+    </div>
+  </div>
 </nav>
 
 <script>
