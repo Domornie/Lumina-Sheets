@@ -2529,22 +2529,27 @@
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
 
-                    const { schedules, total, error } = this.parseSchedulesResponse(result);
+                    const { schedules, total, error, errorSeverity } = this.parseSchedulesResponse(result);
 
-                    if (!schedules) {
-                        throw new Error(error || 'Failed to load schedules');
+                    const safeSchedules = Array.isArray(schedules) ? schedules : [];
+
+                    if (error) {
+                        console.warn('⚠️ Schedule response warning:', error);
+                        this.showToast(`Failed to load some schedules: ${error}`, errorSeverity || 'warning');
                     }
 
-                    this.displaySchedules(schedules);
+                    this.displaySchedules(safeSchedules);
 
                     const totalElement = document.getElementById('totalSchedules');
                     if (totalElement) {
-                        totalElement.textContent = Number.isFinite(total) ? total : schedules.length;
+                        const safeTotal = Number.isFinite(total) ? total : safeSchedules.length;
+                        totalElement.textContent = safeTotal;
                     }
 
                 } catch (error) {
                     console.error('❌ Error loading schedules:', error);
                     this.displaySchedules([]);
+                    this.showToast('Failed to load schedules: ' + (error.message || 'Unexpected error'), 'danger');
                 }
             }
 
@@ -2601,44 +2606,92 @@
             }
 
             parseSchedulesResponse(result) {
-                if (Array.isArray(result)) {
+                const baseResponse = {
+                    schedules: [],
+                    total: 0,
+                    error: null,
+                    errorSeverity: 'warning'
+                };
+
+                if (result == null) {
                     return {
-                        schedules: result,
-                        total: result.length || 0,
-                        error: null
+                        ...baseResponse,
+                        error: 'No response was returned from the server.',
+                        errorSeverity: 'danger'
                     };
                 }
 
-                if (result && typeof result === 'object') {
-                    if (Array.isArray(result.schedules)) {
+                if (Array.isArray(result)) {
+                    return {
+                        ...baseResponse,
+                        schedules: result,
+                        total: result.length
+                    };
+                }
+
+                if (typeof result === 'string') {
+                    try {
+                        return this.parseSchedulesResponse(JSON.parse(result));
+                    } catch (parseError) {
                         return {
-                            schedules: result.schedules,
-                            total: Number.isFinite(result.total) ? result.total : result.schedules.length,
-                            error: null
+                            ...baseResponse,
+                            error: result,
+                            errorSeverity: 'danger'
                         };
                     }
+                }
 
-                    if (Array.isArray(result.data)) {
+                if (typeof result === 'object') {
+                    const nestedDataSources = [
+                        result.schedules,
+                        result.data?.schedules,
+                        result.data,
+                        result.items,
+                        result.records
+                    ];
+
+                    const scheduleArray = nestedDataSources.find(Array.isArray);
+
+                    if (scheduleArray) {
+                        const totalCandidates = [
+                            result.total,
+                            result.count,
+                            result.data?.total,
+                            scheduleArray.length
+                        ];
+
+                        const resolvedTotal = totalCandidates.find(value => Number.isFinite(value));
+
+                        const severity = result.success === false ? 'danger' : 'warning';
+
                         return {
-                            schedules: result.data,
-                            total: Number.isFinite(result.total) ? result.total : result.data.length,
-                            error: null
+                            ...baseResponse,
+                            schedules: scheduleArray,
+                            total: Number.isFinite(resolvedTotal) ? resolvedTotal : scheduleArray.length,
+                            error: result.success === false ? (result.error || result.message || 'Server returned a failure response.') : null,
+                            errorSeverity: severity
                         };
                     }
 
                     if (result.success === false) {
                         return {
-                            schedules: null,
-                            total: 0,
-                            error: result.error || null
+                            ...baseResponse,
+                            error: result.error || result.message || 'Server returned a failure response.',
+                            errorSeverity: 'danger'
+                        };
+                    }
+
+                    if (result.success === true) {
+                        return {
+                            ...baseResponse,
+                            error: 'The server reported success but did not return any schedule data.'
                         };
                     }
                 }
 
                 return {
-                    schedules: null,
-                    total: 0,
-                    error: null
+                    ...baseResponse,
+                    error: 'Unexpected response format received while loading schedules.'
                 };
             }
 
