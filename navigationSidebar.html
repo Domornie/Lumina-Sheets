@@ -141,6 +141,11 @@
       return 'user';
     }
 
+    var identifier = computeProfileIdentifierValue(user);
+    if (identifier) {
+      return identifier;
+    }
+
     var candidates = [];
     var pushCandidate = function (value) {
       var normalized = safeUserString(value);

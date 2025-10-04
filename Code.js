@@ -2934,6 +2934,26 @@ function handleSearchData(tpl, e) {
 function computeUserProfileSlug(userRecord, detailRecord) {
   try {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const normalize = (value) => {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+      const text = String(value).trim();
+      return text ? text : '';
+    };
+
+    const identifierCandidates = [
+      userRecord && (userRecord.ID || userRecord.Id || userRecord.id || userRecord.EmployeeID || userRecord.employeeId || userRecord.ProfileID || userRecord.profileId),
+      record && (record.ID || record.Id || record.id || record.EmployeeID || record.employeeId || record.ProfileID || record.profileId)
+    ];
+
+    for (let idx = 0; idx < identifierCandidates.length; idx++) {
+      const normalizedId = normalize(identifierCandidates[idx]);
+      if (normalizedId) {
+        return normalizedId;
+      }
+    }
+
     const candidates = [];
 
     const pushCandidate = (value) => {
@@ -2986,6 +3006,7 @@ function handleUserProfileData(tpl, e, user) {
   try {
     const bootstrap = {
       user: user || null,
+      viewer: user || null,
       detail: null,
       pages: [],
       equipment: [],
@@ -2995,27 +3016,87 @@ function handleUserProfileData(tpl, e, user) {
       generatedAt: new Date().toISOString()
     };
 
-    const userId = user && user.ID ? String(user.ID) : '';
+    const viewerId = user && user.ID ? String(user.ID) : '';
+    const requestedProfileId = (e && e.parameter && (e.parameter.profileId || e.parameter.userId || e.parameter.id)) || '';
+    const normalizedRequested = requestedProfileId ? String(requestedProfileId).trim() : '';
+    const profileId = normalizedRequested || viewerId;
+    const normalizedProfileId = profileId ? profileId.toString().trim().toLowerCase() : '';
+    const requestingUserId = viewerId || profileId;
 
-    if (userId && typeof clientGetUserDetail === 'function') {
+    const extractProfileId = (record) => {
+      if (!record || typeof record !== 'object') {
+        return '';
+      }
+      const keys = ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId', 'UserID', 'userId'];
+      for (let i = 0; i < keys.length; i++) {
+        const value = record[keys[i]];
+        if (value !== undefined && value !== null) {
+          const text = String(value).trim();
+          if (text) {
+            return text;
+          }
+        }
+      }
+      return '';
+    };
+
+    let profileRecord = null;
+
+    if (profileId && typeof getUsers === 'function') {
       try {
-        bootstrap.detail = clientGetUserDetail(userId, { requestingUserId: userId }) || null;
+        const roster = getUsers();
+        if (Array.isArray(roster) && roster.length) {
+          for (let idx = 0; idx < roster.length; idx++) {
+            const candidate = extractProfileId(roster[idx]);
+            if (candidate && candidate.toLowerCase() === normalizedProfileId) {
+              profileRecord = roster[idx];
+              break;
+            }
+          }
+        }
+      } catch (rosterError) {
+        console.warn('handleUserProfileData: unable to resolve profile user from roster', rosterError);
+      }
+    }
+
+    if (profileId && typeof clientGetUserDetail === 'function') {
+      try {
+        const detailOptions = requestingUserId ? { requestingUserId: requestingUserId } : {};
+        bootstrap.detail = clientGetUserDetail(profileId, detailOptions) || null;
+        if (!profileRecord && bootstrap.detail && bootstrap.detail.record) {
+          profileRecord = bootstrap.detail.record;
+        }
       } catch (detailError) {
         console.warn('handleUserProfileData: unable to load user detail', detailError);
       }
     }
 
-    if (userId && typeof clientGetUserPages === 'function') {
+    if (!profileRecord && viewerId && profileId && viewerId.toLowerCase() === normalizedProfileId) {
+      profileRecord = user || null;
+    }
+
+    if (!profileRecord && profileId && typeof clientGetUserProfile === 'function') {
       try {
-        bootstrap.pages = clientGetUserPages(userId) || [];
+        const fallbackRecord = clientGetUserProfile(profileId);
+        if (fallbackRecord) {
+          profileRecord = fallbackRecord;
+        }
+      } catch (profileError) {
+        console.warn('handleUserProfileData: fallback profile lookup failed', profileError);
+      }
+    }
+
+    if (profileId && typeof clientGetUserPages === 'function') {
+      try {
+        bootstrap.pages = clientGetUserPages(profileId) || [];
       } catch (pagesError) {
         console.warn('handleUserProfileData: unable to load user pages', pagesError);
       }
     }
 
-    if (userId && typeof clientGetUserEquipment === 'function') {
+    if (profileId && typeof clientGetUserEquipment === 'function') {
       try {
-        const equipmentResponse = clientGetUserEquipment(userId);
+        const equipmentResponse = clientGetUserEquipment(profileId);
         if (equipmentResponse && equipmentResponse.success && Array.isArray(equipmentResponse.items)) {
           bootstrap.equipment = equipmentResponse.items;
         }
@@ -3025,8 +3106,8 @@ function handleUserProfileData(tpl, e, user) {
     }
 
     let campaignId = '';
-    if (user && user.CampaignID) {
-      campaignId = String(user.CampaignID);
+    if (profileRecord && (profileRecord.CampaignID || profileRecord.campaignId)) {
+      campaignId = String(profileRecord.CampaignID || profileRecord.campaignId);
     }
 
     if (!campaignId && bootstrap.detail && bootstrap.detail.record) {
@@ -3036,17 +3117,17 @@ function handleUserProfileData(tpl, e, user) {
 
     bootstrap.campaignId = campaignId;
 
-    if (userId && campaignId && typeof getCampaignUserPermissions === 'function') {
+    if (profileId && campaignId && typeof getCampaignUserPermissions === 'function') {
       try {
-        bootstrap.permissions = getCampaignUserPermissions(campaignId, userId) || null;
+        bootstrap.permissions = getCampaignUserPermissions(campaignId, profileId) || null;
       } catch (permissionsError) {
         console.warn('handleUserProfileData: unable to load campaign permissions', permissionsError);
       }
     }
 
-    if (userId && typeof clientGetManagerTeamSummary === 'function') {
+    if (profileId && typeof clientGetManagerTeamSummary === 'function') {
       try {
-        const summary = clientGetManagerTeamSummary(userId);
+        const summary = clientGetManagerTeamSummary(profileId);
         if (summary && summary.success) {
           bootstrap.managerSummary = summary;
         }
@@ -3055,8 +3136,11 @@ function handleUserProfileData(tpl, e, user) {
       }
     }
 
-    bootstrap.profileId = userId;
-    bootstrap.profileSlug = computeUserProfileSlug(user, bootstrap.detail);
+    bootstrap.user = profileRecord || user || null;
+    bootstrap.profileId = profileId;
+    bootstrap.requestedProfileId = normalizedRequested;
+    const computedSlug = computeUserProfileSlug(bootstrap.user, bootstrap.detail);
+    bootstrap.profileSlug = computedSlug && computedSlug !== 'user' ? computedSlug : (profileId || computedSlug);
 
     tpl.profileBootstrap = _stringifyForTemplate_(bootstrap);
   } catch (error) {
