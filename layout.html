@@ -3233,8 +3233,10 @@
                     closeMenu();
                     if (action === 'profile') {
                         if (typeof navigateToPage === 'function') {
-                            const profileIdAttr = panel.getAttribute('data-profile-id') || '';
-                            const params = profileIdAttr ? { profileId: profileIdAttr } : {};
+                            const profileSlugAttr = panel.getAttribute('data-profile-slug')
+                                || panel.getAttribute('data-profile-id')
+                                || '';
+                            const params = profileSlugAttr ? { profileId: profileSlugAttr } : {};
                             navigateToPage('userprofile', null, params);
                         }
                     } else if (action === 'logout') {

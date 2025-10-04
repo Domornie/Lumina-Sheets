@@ -128,44 +128,61 @@
 
   var userInitialValue = (displayPrimaryNameValue || 'U').charAt(0).toUpperCase();
 
-  function slugifyProfileIdBase(value) {
+  function slugifyProfileValue(value) {
     var text = safeUserString(value).toLowerCase();
     if (!text) {
+      return '';
+    }
+    return text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  function computeProfileSlugValue(user) {
+    if (!user) {
       return 'user';
     }
-    var normalized = text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    return normalized || 'user';
+
+    var candidates = [];
+    var pushCandidate = function (value) {
+      var normalized = safeUserString(value);
+      if (normalized) {
+        candidates.push(normalized);
+      }
+    };
+
+    pushCandidate(getUserFieldValue(user, ['UserName', 'userName', 'username']));
+    pushCandidate(getUserFieldValue(user, ['DisplayName', 'displayName', 'FullName', 'fullName']));
+
+    var combinedName = [
+      getUserFieldValue(user, ['FirstName', 'firstName', 'GivenName', 'givenName']),
+      getUserFieldValue(user, ['LastName', 'lastName', 'Surname', 'surname', 'FamilyName', 'familyName'])
+    ].filter(function (part) { return safeUserString(part); }).join(' ');
+    pushCandidate(combinedName);
+
+    pushCandidate(getUserFieldValue(user, ['Email', 'email']));
+
+    for (var idx = 0; idx < candidates.length; idx++) {
+      var slug = slugifyProfileValue(candidates[idx]);
+      if (slug) {
+        return slug;
+      }
+    }
+
+    return 'user';
   }
 
-  function computeProfileIdValue(user) {
+  function computeProfileIdentifierValue(user) {
     if (!user) {
-      return 'user-000000';
+      return '';
     }
-
-    var username = safeUserString(getUserFieldValue(user, ['UserName', 'userName', 'username', 'Email', 'email'])) || 'user';
-    var identifier = safeUserString(getUserFieldValue(user, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']));
-    if (!identifier) {
-      identifier = username;
-    }
-
-    var seed = username + '|' + identifier;
-    var hash = 0;
-    for (var idx = 0; idx < seed.length; idx++) {
-      hash = ((hash << 5) - hash) + seed.charCodeAt(idx);
-      hash |= 0;
-    }
-
-    var modulo = Math.abs(hash % 1000000);
-    var digits = String(modulo);
-    while (digits.length < 6) {
-      digits = '0' + digits;
-    }
-
-    var base = slugifyProfileIdBase(username);
-    return base + '-' + digits;
+    return safeUserString(getUserFieldValue(user, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']));
   }
 
-  var profileIdValue = computeProfileIdValue(sidebarUser);
+  var profileSlugValue = computeProfileSlugValue(sidebarUser);
+  var profileIdentifierValue = computeProfileIdentifierValue(sidebarUser);
+
+  if (!profileSlugValue) {
+    profileSlugValue = slugifyProfileValue(profileIdentifierValue) || 'user';
+  }
 
   function isLikelyRoleIdentifier(value) {
     var text = safeUserString(value);
@@ -538,7 +555,9 @@
     data-full-name="<?= displayFullNameValue ?>"
     data-roles="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>"
     data-status="<?= sidebarUser.EmploymentStatus || '' ?>" data-country="<?= sidebarUser.Country || '' ?>"
-    data-profile-id="<?= profileIdValue ?>">
+    data-profile-id="<?= profileSlugValue ?>"
+    data-profile-slug="<?= profileSlugValue ?>"
+    data-profile-identifier="<?= profileIdentifierValue ?>">
     <div class="user-avatar-side" id="userAvatar">
       <?= userInitialValue ?>
     </div>
