@@ -153,6 +153,17 @@
         66% { transform: translate(-20px, 20px) rotate(240deg); }
     }
 
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
     .modern-page-header h1 {
         margin: 0 0 0.5rem 0;
         display: flex;
@@ -684,6 +695,219 @@
         }
     }
 
+    /* Action Buttons */
+    .btn-ai {
+        background: var(--gradient-info);
+        color: #ffffff;
+        border: none;
+        border-radius: var(--radius-full);
+        padding-inline: 1.2rem;
+        font-weight: 600;
+        box-shadow: var(--shadow-md);
+        transition: var(--transition-bounce);
+    }
+
+    .btn-ai:hover,
+    .btn-ai:focus {
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .btn-outline-glass {
+        border-radius: var(--radius-full);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.45);
+        color: var(--gray-700);
+        font-weight: 600;
+        box-shadow: var(--shadow-md);
+        backdrop-filter: blur(12px);
+        transition: var(--transition-fast);
+    }
+
+    .btn-outline-glass:hover,
+    .btn-outline-glass:focus {
+        color: var(--gray-800);
+        background: rgba(255, 255, 255, 0.85);
+        border-color: rgba(37, 99, 235, 0.35);
+        transform: translateY(-1px);
+    }
+
+    .filter-toolbar .form-select,
+    .filter-toolbar .form-control {
+        min-width: 160px;
+    }
+
+    /* AI Analyzer Panel */
+    .ai-analytics-panel {
+        background: var(--gradient-surface);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: var(--radius-2xl);
+        padding: 2.5rem 2rem;
+        margin-bottom: 2.5rem;
+        box-shadow: var(--shadow-xl);
+        position: relative;
+        overflow: hidden;
+        animation: fadeIn 0.5s ease;
+    }
+
+    .ai-analytics-panel::before {
+        content: '';
+        position: absolute;
+        inset: -40% 60% auto -30%;
+        height: 320px;
+        background: radial-gradient(circle at center, rgba(37, 99, 235, 0.15), transparent 70%);
+        z-index: 0;
+    }
+
+    .ai-analytics-panel.active {
+        border-color: rgba(37, 99, 235, 0.35);
+        box-shadow: var(--shadow-2xl);
+    }
+
+    .ai-panel-header {
+        position: relative;
+        z-index: 1;
+    }
+
+    .ai-panel-header h2 {
+        font-size: clamp(1.5rem, 3vw, 2.25rem);
+        font-weight: 700;
+        color: var(--gray-900);
+    }
+
+    .ai-confidence-chip {
+        background: rgba(14, 165, 233, 0.15);
+        border: 1px solid rgba(14, 165, 233, 0.4);
+        border-radius: var(--radius-full);
+        padding: 0.5rem 1.25rem;
+        font-weight: 600;
+        color: var(--info);
+        box-shadow: var(--shadow-md);
+    }
+
+    .ai-metric-card {
+        position: relative;
+        z-index: 1;
+        background: #ffffff;
+        border-radius: var(--radius-xl);
+        padding: 1.75rem;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-height: 140px;
+        transition: var(--transition-normal);
+    }
+
+    .ai-metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-xl);
+    }
+
+    .ai-metric-card .metric-label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--gray-500);
+        font-weight: 600;
+    }
+
+    .ai-metric-card .metric-value {
+        font-size: clamp(1.5rem, 2.5vw, 2.5rem);
+        font-weight: 700;
+        color: var(--gray-900);
+    }
+
+    .ai-metric-card .metric-subtext {
+        font-size: 0.9rem;
+        color: var(--gray-600);
+    }
+
+    .ai-insight-card {
+        position: relative;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: var(--radius-xl);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: var(--shadow-lg);
+        padding: 1.75rem;
+        height: 100%;
+        backdrop-filter: blur(8px);
+    }
+
+    .ai-section-title {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--gray-700);
+    }
+
+    .ai-insight-list {
+        margin: 0;
+        padding-left: 1.25rem;
+        list-style: none;
+    }
+
+    .ai-insight-list li {
+        position: relative;
+        padding-left: 1.75rem;
+        margin-bottom: 0.9rem;
+        font-weight: 500;
+        color: var(--gray-700);
+    }
+
+    .ai-insight-list li i {
+        position: absolute;
+        left: 0;
+        top: 0.15rem;
+    }
+
+    .ai-insight-list li:last-child {
+        margin-bottom: 0;
+    }
+
+    .ai-metric-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--primary);
+        padding: 0.35rem 0.75rem;
+        border-radius: var(--radius-full);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    @media (max-width: 992px) {
+        .filter-toolbar {
+            width: 100%;
+        }
+
+        .filter-toolbar .form-select,
+        .filter-toolbar .form-control {
+            width: 100%;
+        }
+
+        .ai-analytics-panel {
+            padding: 2rem 1.5rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .btn-ai,
+        .btn-outline-glass,
+        #exportCallCsvBtn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .ai-panel-header h2 {
+            font-size: 1.5rem;
+        }
+    }
+
     /* Enhanced Focus Styles for Accessibility */
     .btn:focus,
     .form-select:focus,
@@ -714,8 +938,19 @@
 
 </style>
 
+<? const __importCallReportUrl = (function(base) {
+      if (!base) {
+        return '?page=ImportCsv';
+      }
+
+      var hasQuery = base.indexOf('?') !== -1;
+      var separator = hasQuery ? (/[?&]$/.test(base) ? '' : '&') : '?';
+      return base + separator + 'page=ImportCsv';
+    })(typeof baseUrl !== 'undefined' ? baseUrl : '');
+?>
+
 <div class="align-items-center px-4 py-3 pb-3 mb-3">
-    <div class="d-flex align-items-center">
+    <div class="d-flex flex-wrap align-items-center gap-3 w-100">
         <!-- Report-Type Switcher -->
         <div class="ms-4" hidden>
             <select id="reportTypeSelect" class="form-select form-select-sm ms-4">
@@ -726,62 +961,110 @@
                 <option value="Incentives" <?= currentPage==="Incentives" ? "selected":"" ?>>🎯 Incentives</option>
             </select>
         </div>
-    </div>
-    <div class="d-flex align-items-center ms-auto">
-        <div>
-            <select class="form-select form-select-sm" id="granularitySelect">
-                <option value="Week" selected>📅 Week</option>
-                <option value="Month">📆 Month</option>
-                <option value="Quarter">📋 Quarter</option>
-                <option value="Year">📊 Year</option>
-            </select>
+
+        <div class="d-flex flex-wrap gap-2" role="group" aria-label="Call report actions">
+            <button type="button" class="btn btn-ai btn-sm" id="aiAnalyzerBtn" aria-expanded="false">
+                <i class="fas fa-robot me-2"></i><span class="btn-label">AI Analyzer</span>
+            </button>
+            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsvBtn">
+                <i class="fas fa-file-export me-2"></i>Export CSV
+            </button>
+            <a class="btn btn-outline-glass btn-sm" id="importCallReportsLink" href="<?= __importCallReportUrl ?>">
+                <i class="fas fa-file-import me-2"></i>Import Call Reports
+            </a>
         </div>
 
-        <!-- AGENT FILTER -->
-        <div class="ms-3">
-            <select class="form-select form-select-sm" id="agentSelect">
-                <option value="">👥 All Agents</option>
-                <? userList.forEach(function(u) { ?>
-                    <option value="<?= u ?>" <?= u === selectedAgent ? "selected" : "" ?>>
-                        <?= u ?>
-                    </option>
-                <? }); ?>
-            </select>
-        </div>
-
-        <!-- PERIOD PICKERS -->
-        <div class="ms-3" id="weekPicker" style="display: none;">
-            <input type="week" class="form-control form-control-sm" id="weekInput" />
-        </div>
-        <div class="ms-3" id="monthPicker" style="display: none;">
-            <input type="month" class="form-control form-control-sm" id="monthInput" />
-        </div>
-        <div class="ms-3" id="quarterPicker" style="display: none;">
-            <div class="d-flex">
-                <select class="form-select form-select-sm" id="quarterSelect">
-                    <option value="Q1">Q1</option>
-                    <option value="Q2">Q2</option>
-                    <option value="Q3">Q3</option>
-                    <option value="Q4">Q4</option>
+        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto filter-toolbar">
+            <div>
+                <select class="form-select form-select-sm" id="granularitySelect">
+                    <option value="Week" selected>📅 Weekly</option>
+                    <option value="BiWeekly">📅 Bi-Weekly</option>
+                    <option value="Month">📆 Monthly</option>
+                    <option value="Quarter">📋 Quarterly</option>
+                    <option value="Year">📊 Yearly</option>
                 </select>
-                <input
-                    type="number"
-                    class="form-control form-control-sm ms-2"
-                    id="quarterYearInput"
+            </div>
+
+            <!-- AGENT FILTER -->
+            <div class="ms-0 ms-sm-2">
+                <select class="form-select form-select-sm" id="agentSelect">
+                    <option value="">👥 All Agents</option>
+                    <? userList.forEach(function(u) { ?>
+                        <option value="<?= u ?>" <?= u === selectedAgent ? "selected" : "" ?>>
+                            <?= u ?>
+                        </option>
+                    <? }); ?>
+                </select>
+            </div>
+
+            <!-- PERIOD PICKERS -->
+            <div class="ms-0 ms-sm-2" id="weekPicker" style="display: none;">
+                <input type="week" class="form-control form-control-sm" id="weekInput" />
+            </div>
+            <div class="ms-0 ms-sm-2" id="biWeekPicker" style="display: none;">
+                <select class="form-select form-select-sm" id="biWeekSelect"></select>
+            </div>
+            <div class="ms-0 ms-sm-2" id="monthPicker" style="display: none;">
+                <input type="month" class="form-control form-control-sm" id="monthInput" />
+            </div>
+            <div class="ms-0 ms-sm-2" id="quarterPicker" style="display: none;">
+                <div class="d-flex">
+                    <select class="form-select form-select-sm" id="quarterSelect">
+                        <option value="Q1">Q1</option>
+                        <option value="Q2">Q2</option>
+                        <option value="Q3">Q3</option>
+                        <option value="Q4">Q4</option>
+                    </select>
+                    <input
+                        type="number"
+                        class="form-control form-control-sm ms-2"
+                        id="quarterYearInput"
+                        placeholder="YYYY"
+                        min="2000"
+                        max="2100"
+                        style="width: 80px;"
+                    />
+                </div>
+            </div>
+            <div class="ms-0 ms-sm-2" id="yearPicker" style="display: none;">
+                <input type="number"
+                    class="form-control form-control-sm"
+                    id="yearInput"
                     placeholder="YYYY"
                     min="2000"
-                    max="2100"
-                    style="width: 80px;"
-                />
+                    max="2100"/>
             </div>
         </div>
-        <div class="ms-3" id="yearPicker" style="display: none;">
-            <input type="number"
-                class="form-control form-control-sm"
-                id="yearInput"
-                placeholder="YYYY"
-                min="2000"
-                max="2100"/>
+    </div>
+</div>
+
+<div id="aiInsightPanel" class="ai-analytics-panel d-none" aria-hidden="true">
+    <div class="ai-panel-header d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-robot me-2"></i>AI Call Performance Analyzer</h2>
+            <p class="mb-0">Autonomous insights synthesised from your imported call reports and live metrics.</p>
+        </div>
+        <div class="ai-confidence-chip" id="aiConfidenceChip">Confidence: Collecting data…</div>
+    </div>
+    <div class="row g-3 mt-2" id="aiSummaryStats">
+        <!-- Dynamically populated -->
+    </div>
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="ai-insight-card">
+                <h6 class="ai-section-title"><i class="fas fa-lightbulb me-2 text-warning"></i>Key Insights</h6>
+                <ul class="ai-insight-list" id="aiInsightList">
+                    <li class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Insights will appear once data loads.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="ai-insight-card">
+                <h6 class="ai-section-title"><i class="fas fa-magic me-2 text-primary"></i>AI Recommendations</h6>
+                <ul class="ai-insight-list" id="aiRecommendationList">
+                    <li class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Recommendations will appear once data loads.</li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>
@@ -985,8 +1268,9 @@
         window.location.href = "<?= baseUrl ?>&page=" + rpt;
       });
 
-    document.getElementById("granularitySelect")
-      .addEventListener("change", onGranChange);
+    const granularitySelect = document.getElementById("granularitySelect");
+    granularitySelect.addEventListener("change", onGranChange);
+    currentGran = granularitySelect.value || currentGran;
 
     document.getElementById("agentSelect")
       .addEventListener("change", e => {
@@ -998,6 +1282,12 @@
     const wk = document.getElementById("weekInput");
     wk.addEventListener("change", () => {
       currentPeriod = wk.value;
+      triggerLoadAnalytics();
+    });
+
+    const bi = document.getElementById("biWeekSelect");
+    bi.addEventListener("change", () => {
+      currentPeriod = bi.value;
       triggerLoadAnalytics();
     });
 
@@ -1030,14 +1320,24 @@
 
     // Keep existing picker initialization
     document.getElementById("weekPicker").style.display = "none";
+    document.getElementById("biWeekPicker").style.display = "none";
     document.getElementById("monthPicker").style.display = "none";
     document.getElementById("quarterPicker").style.display = "none";
     document.getElementById("yearPicker").style.display = "none";
 
+    populateBiWeeklyOptions();
+
     const today = new Date();
-    const isoWeek = weekStringFromDate(today);
-    wk.value = isoWeek;
-    currentPeriod = isoWeek;
+    const weekPattern = /^\d{4}-W\d{2}$/i;
+    if (currentPeriod && weekPattern.test(currentPeriod)) {
+      wk.value = currentPeriod;
+    } else {
+      const isoWeek = weekStringFromDate(today);
+      wk.value = isoWeek;
+      if (!currentPeriod || !currentPeriod.length) {
+        currentPeriod = isoWeek;
+      }
+    }
     document.getElementById("weekPicker").style.display = "block";
 
     document
@@ -1051,6 +1351,28 @@
           + "&agent=" + encodeURIComponent(currentAgent);
         window.open(url, "_blank");
       });
+
+    const aiAnalyzerBtn = document.getElementById("aiAnalyzerBtn");
+    const aiInsightPanel = document.getElementById("aiInsightPanel");
+    if (aiAnalyzerBtn && aiInsightPanel) {
+      aiInsightPanel.setAttribute("aria-hidden", "true");
+      aiAnalyzerBtn.addEventListener("click", () => {
+        const isHidden = aiInsightPanel.classList.toggle("d-none");
+        const expanded = !isHidden;
+        aiAnalyzerBtn.setAttribute("aria-expanded", expanded.toString());
+        aiInsightPanel.setAttribute("aria-hidden", (!expanded).toString());
+        aiInsightPanel.classList.toggle("active", expanded);
+
+        const label = aiAnalyzerBtn.querySelector('.btn-label');
+        if (label) {
+          label.textContent = expanded ? 'Hide AI Analyzer' : 'AI Analyzer';
+        }
+
+        if (expanded) {
+          aiInsightPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
 
     // Add enhanced keyboard navigation
     document.querySelectorAll('.kpi-card').forEach(card => {
@@ -1073,7 +1395,7 @@
 
   // Keep all existing functions exactly as they were, just enhance the rendering
   function onGranChange() {
-    ["weekPicker", "monthPicker", "quarterPicker", "yearPicker"].forEach(id => {
+    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker"].forEach(id => {
       document.getElementById(id).style.display = "none";
     });
 
@@ -1083,6 +1405,13 @@
       document.getElementById("weekPicker").style.display = "block";
       const wk = document.getElementById("weekInput");
       currentPeriod = wk.value;
+    } else if (currentGran === "BiWeekly") {
+      document.getElementById("biWeekPicker").style.display = "block";
+      const bi = document.getElementById("biWeekSelect");
+      if (!bi.options.length) {
+        populateBiWeeklyOptions();
+      }
+      currentPeriod = bi.value;
     } else if (currentGran === "Month") {
       document.getElementById("monthPicker").style.display = "block";
       const m = document.getElementById("monthInput");
@@ -1110,6 +1439,7 @@
   }
 
   function renderEverything(analytics) {
+    renderAiInsights(analytics);
     renderKpiCards(analytics);
     renderPolicyDistChart(analytics.policyDist);
     renderWrapupDistChart(analytics.wrapDist);
@@ -1117,6 +1447,237 @@
     renderCallTrendChart(analytics.callTrend);
     renderTalkTrendChart(analytics.talkTrend);
     renderRepMetricsTable(analytics.repMetrics);
+  }
+
+  function renderAiInsights(analytics = {}) {
+    const summaryContainer = document.getElementById("aiSummaryStats");
+    const insightList = document.getElementById("aiInsightList");
+    const recommendationList = document.getElementById("aiRecommendationList");
+    const confidenceChip = document.getElementById("aiConfidenceChip");
+
+    if (!summaryContainer || !insightList || !recommendationList) {
+      return;
+    }
+
+    const repMetrics = Array.isArray(analytics.repMetrics) ? analytics.repMetrics : [];
+    const callTrend = Array.isArray(analytics.callTrend) ? analytics.callTrend : [];
+    const talkTrend = Array.isArray(analytics.talkTrend) ? analytics.talkTrend : [];
+    const wrapDist = Array.isArray(analytics.wrapDist) ? analytics.wrapDist : [];
+    const policyDist = Array.isArray(analytics.policyDist) ? analytics.policyDist : [];
+    const csatDist = Array.isArray(analytics.csatDist) ? analytics.csatDist : [];
+
+    const totalCalls = repMetrics.reduce((sum, r) => sum + (Number(r.totalCalls) || 0), 0);
+    const totalTalkMinutes = talkTrend.reduce((sum, entry) => sum + (Number(entry.totalTalk) || 0), 0);
+    const avgTalkMinutes = totalCalls > 0 ? totalTalkMinutes / totalCalls : 0;
+
+    const yesCount = csatDist.reduce((sum, entry) => {
+      const label = String(entry.csat ?? '').toLowerCase();
+      return label === 'yes' || label === 'y' || label === 'positive'
+        ? sum + (Number(entry.count) || 0)
+        : sum;
+    }, 0);
+    const totalCsatResponses = csatDist.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+    const noCount = Math.max(totalCsatResponses - yesCount, 0);
+    const yesRate = totalCsatResponses > 0 ? (yesCount / totalCsatResponses) * 100 : 0;
+
+    const topAgent = repMetrics.reduce((best, item) =>
+      (Number(item.totalCalls) || 0) > (Number(best?.totalCalls) || 0) ? item : best
+    , null);
+
+    const longestTalkAgent = repMetrics.reduce((best, item) =>
+      (Number(item.totalTalk) || 0) > (Number(best?.totalTalk) || 0) ? item : best
+    , null);
+
+    const wrapTotal = wrapDist.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+    const topWrap = wrapDist.reduce((best, item) =>
+      (Number(item.count) || 0) > (Number(best?.count) || 0) ? item : best
+    , null);
+
+    const policyTotal = policyDist.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+    const topPolicy = policyDist.reduce((best, item) =>
+      (Number(item.count) || 0) > (Number(best?.count) || 0) ? item : best
+    , null);
+
+    const busiestPeriod = callTrend.reduce((best, item) =>
+      (Number(item.callCount) || 0) > (Number(best?.callCount) || 0) ? item : best
+    , null);
+
+    const firstTrend = callTrend.length ? callTrend[0] : null;
+    const lastTrend = callTrend.length ? callTrend[callTrend.length - 1] : null;
+    const firstCount = Number(firstTrend?.callCount) || 0;
+    const lastCount = Number(lastTrend?.callCount) || 0;
+    const callDelta = lastCount - firstCount;
+    const callDeltaPct = firstCount ? (callDelta / firstCount) * 100 : (lastCount ? 100 : 0);
+
+    const volumeTrendDescriptor = callTrend.length > 1
+      ? `${callDelta > 0 ? '▲' : callDelta < 0 ? '▼' : '■'} ${Math.abs(callDelta).toLocaleString()} calls (${Math.abs(callDeltaPct).toFixed(1)}%)`
+      : 'Stable range';
+    const peakPeriodLabel = busiestPeriod?.periodLabel || 'N/A';
+    const peakPeriodCount = Number(busiestPeriod?.callCount) || 0;
+
+    summaryContainer.innerHTML = `
+      <div class="col-lg-3 col-md-6">
+        <div class="ai-metric-card">
+          <div class="metric-label">Total Calls Analyzed</div>
+          <div class="metric-value">${totalCalls.toLocaleString()}</div>
+          <div class="metric-subtext">Trend: ${volumeTrendDescriptor} • Peak: ${peakPeriodLabel}</div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="ai-metric-card">
+          <div class="metric-label">Yes Conversion</div>
+          <div class="metric-value">${yesRate.toFixed(1)}%</div>
+          <div class="metric-subtext">Yes: ${yesCount.toLocaleString()} • No: ${noCount.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="ai-metric-card">
+          <div class="metric-label">Top Performing Agent</div>
+          <div class="metric-value">${topAgent ? topAgent.agent : '—'}</div>
+          <div class="metric-subtext">${topAgent
+            ? `${Number(topAgent.totalCalls || 0).toLocaleString()} calls • ${formatMinutesToReadable(Number(topAgent.totalTalk || 0))} talk`
+            : 'Performance data pending'}</div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="ai-metric-card">
+          <div class="metric-label">Avg Talk Time</div>
+          <div class="metric-value">${formatMinutesToReadable(avgTalkMinutes)}</div>
+          <div class="metric-subtext">${totalTalkMinutes
+            ? `Total: ${formatMinutesToReadable(totalTalkMinutes)}`
+            : 'Awaiting talk data'}</div>
+        </div>
+      </div>
+    `;
+
+    if (confidenceChip) {
+      if (totalCalls > 0) {
+        const confidenceScore = Math.min(98, Math.round(60 + Math.min(totalCalls, 1500) / 15));
+        confidenceChip.textContent = `Confidence: ${confidenceScore}%`;
+      } else {
+        confidenceChip.textContent = 'Confidence: Collecting data…';
+      }
+    }
+
+    const insights = [];
+
+    if (totalCsatResponses > 0) {
+      insights.push(`Yes conversion is <strong>${yesRate.toFixed(1)}%</strong> (${yesCount.toLocaleString()} yes vs ${noCount.toLocaleString()} no).`);
+    } else if (totalCalls > 0) {
+      insights.push(`Analyzed <strong>${totalCalls.toLocaleString()}</strong> calls with no CSAT responses recorded.`);
+    }
+
+    if (callTrend.length > 1) {
+      const direction = callDelta > 0 ? 'increased' : callDelta < 0 ? 'decreased' : 'remained stable';
+      const deltaText = callDelta === 0
+        ? 'remained stable across the selected period'
+        : `${direction} by <strong>${Math.abs(callDelta).toLocaleString()}</strong> calls (<strong>${Math.abs(callDeltaPct).toFixed(1)}%</strong>)`;
+      insights.push(`Call volume ${deltaText}.`);
+    }
+
+    if (busiestPeriod && peakPeriodCount > 0) {
+      insights.push(`Busiest period: <strong>${peakPeriodLabel}</strong> with <strong>${peakPeriodCount.toLocaleString()}</strong> calls.`);
+    }
+
+    if (topAgent && Number(topAgent.totalCalls || 0) > 0) {
+      insights.push(`Top performer <strong>${topAgent.agent}</strong> handled ${Number(topAgent.totalCalls || 0).toLocaleString()} calls with ${formatMinutesToReadable(Number(topAgent.totalTalk || 0))} of talk time.`);
+    }
+
+    if (topWrap && Number(topWrap.count || 0) > 0) {
+      const wrapShare = wrapTotal > 0 ? ((Number(topWrap.count) || 0) / wrapTotal) * 100 : 0;
+      insights.push(`Most common wrap-up: <strong>${topWrap.wrapup}</strong> (${Number(topWrap.count || 0).toLocaleString()} calls • ${wrapShare.toFixed(1)}%).`);
+    }
+
+    if (topPolicy && Number(topPolicy.count || 0) > 0) {
+      const policyShare = policyTotal > 0 ? ((Number(topPolicy.count) || 0) / policyTotal) * 100 : 0;
+      insights.push(`Policy focus: <strong>${topPolicy.policy}</strong> drives ${policyShare.toFixed(1)}% of calls.`);
+    }
+
+    const recommendations = [];
+
+    if (totalCsatResponses === 0) {
+      recommendations.push('Capture more CSAT responses to unlock sentiment-driven coaching insights.');
+    } else if (yesRate < 80) {
+      recommendations.push('Launch targeted objection-handling coaching to lift the yes conversion above 80%.');
+    } else if (yesRate < 90) {
+      recommendations.push(`Replicate the winning moments from ${topAgent ? topAgent.agent : 'top performers'} to push conversions closer to 90%.`);
+    } else {
+      recommendations.push('Celebrate and document high-performing call flows to preserve this conversion streak.');
+    }
+
+    if (callTrend.length > 1) {
+      if (callDelta > 0 && busiestPeriod) {
+        recommendations.push(`Plan staffing around <strong>${peakPeriodLabel}</strong> to absorb the +${Math.abs(callDelta).toLocaleString()} call surge.`);
+      } else if (callDelta < 0) {
+        recommendations.push('Re-engage dormant campaigns or cross-sell initiatives to stabilise declining call volume.');
+      }
+    }
+
+    if (topWrap && Number(topWrap.count || 0) > 0) {
+      recommendations.push(`Audit workflows tagged “${topWrap.wrapup}” to uncover quick wins for converting more calls to yes outcomes.`);
+    }
+
+    if (avgTalkMinutes > 8) {
+      recommendations.push(`Coach teams on concise storytelling to reduce average talk time from ${formatMinutesToReadable(avgTalkMinutes)} toward a 6 minute target.`);
+    } else if (avgTalkMinutes > 0 && avgTalkMinutes < 4 && yesRate < 85) {
+      recommendations.push('Encourage deeper discovery questions—short calls with sub-85% yes rates signal missed opportunities.');
+    }
+
+    if (longestTalkAgent && Number(longestTalkAgent.totalTalk || 0) > 0 && (!topAgent || longestTalkAgent.agent !== topAgent.agent)) {
+      recommendations.push(`Pair ${longestTalkAgent.agent} with ${topAgent ? topAgent.agent : 'a peer'} to balance efficiency with effectiveness.`);
+    }
+
+    recommendations.push('Keep importing the latest call reports to continuously refine these AI-driven insights.');
+
+    renderInsightList(
+      insightList,
+      insights,
+      'fas fa-chart-line text-primary',
+      'Insights will appear once data loads.'
+    );
+
+    renderInsightList(
+      recommendationList,
+      recommendations,
+      'fas fa-bullseye text-success',
+      'Recommendations will appear once data loads.'
+    );
+  }
+
+  function renderInsightList(target, items, iconClass, emptyMessage) {
+    if (!target) return;
+
+    if (!items.length) {
+      target.innerHTML = `<li class="text-muted"><i class="fas fa-info-circle"></i>${emptyMessage || 'No insights available for the selected filters yet.'}</li>`;
+      return;
+    }
+
+    target.innerHTML = items
+      .map(item => `<li><i class="${iconClass}"></i>${item}</li>`)
+      .join('');
+  }
+
+  function formatMinutesToReadable(minutes) {
+    const value = Number(minutes) || 0;
+    const absValue = Math.abs(value);
+    const hours = Math.floor(absValue / 60);
+    const remainingMinutes = Math.floor(absValue % 60);
+    const sign = value < 0 ? '-' : '';
+
+    if (hours > 0) {
+      return `${sign}${hours}h ${remainingMinutes}m`;
+    }
+
+    if (absValue >= 1) {
+      const rounded = Math.round(absValue * 10) / 10;
+      return `${sign}${rounded.toLocaleString()} min`;
+    }
+
+    const seconds = Math.round(absValue * 60);
+    if (seconds === 0) {
+      return '0 min';
+    }
+    return `${sign}${seconds} sec`;
   }
 
   function renderKpiCards(analytics) {
@@ -1434,6 +1995,42 @@
     });
   }
 
+  function populateBiWeeklyOptions() {
+    const select = document.getElementById("biWeekSelect");
+    if (!select) return;
+
+    const currentYear = new Date().getFullYear();
+    const existingYear = Number(select.dataset.generatedYear || 0);
+
+    if (select.options.length && existingYear === currentYear) {
+      if (currentPeriod && Array.from(select.options).some(opt => opt.value === currentPeriod)) {
+        select.value = currentPeriod;
+      }
+      return;
+    }
+
+    select.innerHTML = "";
+    const years = [currentYear, currentYear - 1];
+
+    years.forEach(year => {
+      for (let i = 1; i <= 26; i++) {
+        const idx = i.toString().padStart(2, '0');
+        const option = document.createElement('option');
+        option.value = `${year}-BW${idx}`;
+        option.textContent = `Bi-Week ${idx} • ${year}`;
+        select.appendChild(option);
+      }
+    });
+
+    select.dataset.generatedYear = String(currentYear);
+
+    if (currentPeriod && Array.from(select.options).some(opt => opt.value === currentPeriod)) {
+      select.value = currentPeriod;
+    } else if (select.options.length) {
+      select.selectedIndex = 0;
+    }
+  }
+
   // Enhanced showToast function
   function showToast(message, type = 'info') {
     if (window.showLuminaToast) {
@@ -1488,6 +2085,8 @@
           if (agent === currentAgent) opt.selected = true;
           agentSelect.appendChild(opt);
         });
+
+        populateBiWeeklyOptions();
 
         renderEverything(result);
         showToast("Dashboard updated successfully", "success");
