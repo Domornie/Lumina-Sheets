@@ -1646,6 +1646,8 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case "agent-schedule":
         return serveAgentSchedulePage(e, baseUrl, e.parameter.token);
 
+      case 'importcsv':
+      case 'import-csv':
       case 'import':
         // Mirror Import Attendance authentication so managers and supervisors can import call reports
         if (isSystemAdmin(user) || hasManagerRole(user) || hasSupervisorRole(user)) {
