@@ -1,0 +1,294 @@
+<!-- Terms of Service -->
+<?!= include('layout', {
+  baseUrl: baseUrl || '',
+  scriptUrl: scriptUrl,
+  user: user || {},
+  currentPage: currentPage || 'terms-of-service',
+  pageTitle: 'Terms of Service',
+  pageDescription: 'Usage conditions for the Lumina HQ transparency platform.'
+}) ?>
+
+<style>
+  :root {
+    --tos-bg: #f6f8fb;
+    --tos-card: #ffffff;
+    --tos-border: #dde6f7;
+    --tos-primary: #003177;
+    --tos-accent: #00BFFF;
+    --tos-muted: #5f6d87;
+  }
+
+  body {
+    background: var(--tos-bg);
+  }
+
+  .tos-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 4rem;
+    font-family: 'Inter', Arial, sans-serif;
+    color: #1a2640;
+  }
+
+  .tos-hero {
+    background: linear-gradient(135deg, rgba(0, 49, 119, 0.92), rgba(0, 191, 255, 0.88));
+    color: #fff;
+    padding: 2.5rem;
+    border-radius: 24px;
+    box-shadow: 0 24px 48px rgba(0, 49, 119, 0.18);
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tos-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.25), transparent 55%);
+  }
+
+  .tos-hero h1 {
+    font-size: 2.45rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .tos-hero p {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    max-width: 760px;
+  }
+
+  .tos-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2.5rem;
+    margin-top: 1.5rem;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .tos-section {
+    background: var(--tos-card);
+    border-radius: 20px;
+    padding: 2rem 2.5rem;
+    margin-bottom: 1.75rem;
+    border: 1px solid var(--tos-border);
+    box-shadow: 0 10px 30px rgba(20, 40, 80, 0.06);
+  }
+
+  .tos-section h2 {
+    font-size: 1.55rem;
+    margin-bottom: 1rem;
+    color: var(--tos-primary);
+  }
+
+  .tos-section h3 {
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    color: #1a2640;
+  }
+
+  .tos-section p,
+  .tos-section li {
+    color: var(--tos-muted);
+    line-height: 1.7;
+    font-size: 1rem;
+  }
+
+  .tos-section ul {
+    margin: 0.75rem 0 0;
+    padding-left: 1.25rem;
+  }
+
+  .tos-highlight {
+    background: linear-gradient(135deg, rgba(0, 191, 255, 0.18), rgba(0, 49, 119, 0.12));
+    border: 1px solid rgba(0, 191, 255, 0.35);
+    border-radius: 16px;
+    padding: 1.35rem 1.5rem;
+    margin-top: 1.1rem;
+  }
+
+  .definition-list {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .definition-item {
+    border-left: 4px solid var(--tos-accent);
+    padding-left: 1rem;
+  }
+
+  .definition-item h4 {
+    margin: 0 0 0.35rem;
+    color: #0b284d;
+    font-size: 1.05rem;
+  }
+
+  @media (max-width: 768px) {
+    .tos-hero {
+      padding: 2.2rem;
+    }
+
+    .tos-section {
+      padding: 1.75rem;
+    }
+  }
+</style>
+
+<main class="tos-wrapper">
+  <section class="tos-hero">
+    <h1>Lumina HQ Terms of Service</h1>
+    <p>
+      These Terms govern your access to the Lumina HQ workforce transparency platform operated by our organization for the benefit of contracted call center and BPO clients. By using the service, you agree to uphold the accountability and confidentiality standards described here.
+    </p>
+    <div class="tos-meta">
+      <span>Audience: Internal leaders, QA teams, and authorized client stakeholders</span>
+      <span>Effective Date: <?= new Date().toISOString().slice(0, 10) ?></span>
+    </div>
+  </section>
+
+  <section class="tos-section" id="definitions">
+    <h2>1. Definitions</h2>
+    <div class="definition-list">
+      <div class="definition-item">
+        <h4>"Company"</h4>
+        <p>The managed services provider operating Lumina HQ and responsible for delivering call, chat, and digital engagement solutions.</p>
+      </div>
+      <div class="definition-item">
+        <h4>"Client"</h4>
+        <p>A business or organization that contracts the Company to provide business process outsourcing support and receives Lumina HQ access for transparency.</p>
+      </div>
+      <div class="definition-item">
+        <h4>"Authorized User"</h4>
+        <p>Any employee, contractor, QA coach, leader, or client stakeholder granted credentials to access Lumina HQ within an approved tenant.</p>
+      </div>
+      <div class="definition-item">
+        <h4>"Platform Data"</h4>
+        <p>Operational metrics, schedules, quality evaluations, coaching notes, and supporting documentation collected or generated within Lumina HQ.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tos-section" id="acceptance">
+    <h2>2. Acceptance of Terms</h2>
+    <p>
+      Accessing Lumina HQ signifies acceptance of these Terms, the Privacy Policy, and any supporting security standards communicated by the Company. Client administrators are responsible for ensuring that their Authorized Users review and comply with these requirements prior to receiving credentials.
+    </p>
+  </section>
+
+  <section class="tos-section" id="access">
+    <h2>3. Access & Account Management</h2>
+    <ul>
+      <li>Accounts are provisioned based on active campaigns and least-privilege roles.</li>
+      <li>Credentials are unique to each individual and may not be shared or transferred.</li>
+      <li>Authorized Users must use multi-factor authentication and secure workstations.</li>
+      <li>The Company may suspend access to protect platform integrity, address misuse, or comply with legal obligations.</li>
+      <li>Clients must notify the Company within one business day when a user’s role changes or no longer requires access.</li>
+    </ul>
+  </section>
+
+  <section class="tos-section" id="permitted-use">
+    <h2>4. Permitted Use & Restrictions</h2>
+    <p>
+      Lumina HQ may be used solely to coordinate, measure, and report on call center and BPO services delivered under signed statements of work. Users must not:
+    </p>
+    <ul>
+      <li>Export or redistribute Platform Data to unauthorized parties.</li>
+      <li>Attempt to access campaigns or data outside their assigned tenant.</li>
+      <li>Introduce malicious code, attempt to bypass security controls, or interfere with system stability.</li>
+      <li>Use the platform for unrelated marketing, personal projects, or competitive analysis.</li>
+    </ul>
+    <div class="tos-highlight">
+      <strong>Transparency commitment:</strong> Each coaching review, QA score, and escalation captured in Lumina HQ is visible to stakeholders with corresponding permissions. Altering or falsifying records violates these Terms and may trigger disciplinary action or contract remedies.
+    </div>
+  </section>
+
+  <section class="tos-section" id="data-ownership">
+    <h2>5. Data Ownership & Confidentiality</h2>
+    <ul>
+      <li>Clients retain ownership of campaign deliverables, scorecards, and any customer information they provide.</li>
+      <li>The Company retains ownership of platform architecture, templates, anonymized benchmarks, and internal process documentation.</li>
+      <li>All parties agree to maintain confidentiality of non-public information and apply equivalent safeguards when exporting reports.</li>
+      <li>Sharing Platform Data externally requires prior written consent except when mandated by law.</li>
+    </ul>
+  </section>
+
+  <section class="tos-section" id="compliance">
+    <h2>6. Regulatory & Contractual Compliance</h2>
+    <p>
+      The Company designs Lumina HQ to support industry obligations such as GDPR, CCPA, HIPAA (where applicable), PCI-DSS call handling standards, and local labor requirements. Clients remain responsible for determining whether the platform meets their specific regulatory expectations and for executing any required data processing agreements.
+    </p>
+    <p>
+      The Company will cooperate with audits or questionnaires reasonably necessary to validate compliance, subject to confidentiality and scheduling constraints.
+    </p>
+  </section>
+
+  <section class="tos-section" id="service-delivery">
+    <h2>7. Service Delivery & Availability</h2>
+    <ul>
+      <li>Standard availability targets align with Google Workspace service levels. Planned maintenance windows are communicated in advance when feasible.</li>
+      <li>Support is available through the operations command center and assigned account managers during agreed business hours.</li>
+      <li>The Company may enhance, modify, or deprecate features with reasonable notice. Material changes impacting contracted deliverables will be coordinated with clients.</li>
+      <li>Data backups leverage Google’s redundancy. Clients may request scheduled exports for archiving.</li>
+    </ul>
+  </section>
+
+  <section class="tos-section" id="auditing">
+    <h2>8. Auditing & Reporting</h2>
+    <p>
+      Lumina HQ logs sign-ins, configuration updates, and key coaching activities. The Company may review logs to uphold accountability, investigate incidents, or satisfy client audit requirements. Clients may request audit extracts related to their campaigns, subject to reasonable limits and security review.
+    </p>
+  </section>
+
+  <section class="tos-section" id="suspension">
+    <h2>9. Suspension & Termination</h2>
+    <ul>
+      <li>Either party may terminate platform access upon completion or termination of the underlying services agreement.</li>
+      <li>The Company may suspend or terminate individual accounts for breach of these Terms, suspected fraud, or security risk.</li>
+      <li>Upon termination, the Company will provide mutually agreed data exports and delete or anonymize remaining Platform Data per the Privacy Policy.</li>
+      <li>Sections concerning confidentiality, intellectual property, disclaimers, and limitation of liability survive termination.</li>
+    </ul>
+  </section>
+
+  <section class="tos-section" id="warranties">
+    <h2>10. Disclaimers & Limitation of Liability</h2>
+    <p>
+      Lumina HQ is provided “as is” for operational transparency. Except as expressly stated in the master services agreement, the Company disclaims warranties of merchantability, fitness for a particular purpose, and non-infringement. Liability for any claim arising from platform use is limited to direct damages and capped at the fees paid for the applicable services during the preceding twelve (12) months.
+    </p>
+  </section>
+
+  <section class="tos-section" id="indemnification">
+    <h2>11. Indemnification</h2>
+    <p>
+      Clients agree to indemnify and hold harmless the Company and its personnel against third-party claims arising from client instructions, unlawful data submissions, or misuse of the platform by the client’s Authorized Users. The Company will indemnify the client against third-party claims alleging that the platform infringes intellectual property rights, provided the client promptly notifies the Company and cooperates with the defense.
+    </p>
+  </section>
+
+  <section class="tos-section" id="modifications">
+    <h2>12. Changes to These Terms</h2>
+    <p>
+      The Company may update these Terms to reflect new features, regulatory requirements, or operational changes. Clients will receive at least 30 days’ notice for material updates. Continued use of the platform after the effective date constitutes acceptance of the revised Terms.
+    </p>
+  </section>
+
+  <section class="tos-section" id="governing-law">
+    <h2>13. Governing Law & Dispute Resolution</h2>
+    <p>
+      Unless otherwise specified in a master services agreement, these Terms are governed by the laws of the jurisdiction where the Company is headquartered, without regard to conflicts of law principles. Parties will first attempt to resolve disputes through executive escalation and mediation before initiating formal proceedings.
+    </p>
+  </section>
+
+  <section class="tos-section" id="contact">
+    <h2>14. Contact</h2>
+    <p>
+      Questions about these Terms should be directed to your account manager or to <a href="mailto:legal@lumina-hq.internal">legal@lumina-hq.internal</a>. Incident notifications should follow the security escalation process outlined in the Privacy Policy.
+    </p>
+  </section>
+</main>
+
+</body>
+</html>
