@@ -409,6 +409,7 @@
     }
 
     function clearAuthCookie() {
+      stopKeepAlive();
       try {
         if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
           CookieHandler.clearAuthToken();
@@ -416,6 +417,10 @@
       } catch (err) {
         console.warn('Unable to clear auth cookie', err);
       }
+      rawToken = '';
+      sessionIdleTimeoutMinutes = null;
+      sessionExpiresAt = null;
+      sessionTtlSeconds = null;
     }
 
     // collapse toggle
@@ -427,6 +432,12 @@
     const currentUrl = new URL(window.location.href);
     const urlToken = currentUrl.searchParams.get('token');
     let rawToken = readAuthCookie();
+    let keepAliveTimer = null;
+    let keepAliveIntervalMs = null;
+    let pendingKeepAliveToken = null;
+    let sessionIdleTimeoutMinutes = null;
+    let sessionExpiresAt = null;
+    let sessionTtlSeconds = null;
 
     if (urlToken) {
       rawToken = urlToken;
@@ -439,40 +450,115 @@
       persistAuthCookie(rawToken);
     }
 
-    function scheduleKeepAlive() {
-      if (!rawToken) {
+    function stopKeepAlive() {
+      if (keepAliveTimer) {
+        clearTimeout(keepAliveTimer);
+        keepAliveTimer = null;
+      }
+    }
+
+    function scheduleNextKeepAlive(delayMs) {
+      stopKeepAlive();
+      if (!delayMs || !isFinite(delayMs) || delayMs <= 0) {
         return;
       }
 
-      const ping = () => {
-        const tokenForPing = rawToken || readAuthCookie();
-        if (!tokenForPing) {
-          return;
-        }
-
-        google.script.run
-          .withSuccessHandler(result => {
-            if (result && result.success) {
-              rawToken = result.sessionToken || tokenForPing;
-              persistAuthCookie(rawToken, result.sessionTtlSeconds);
-            } else if (result && result.expired) {
-              clearAuthCookie();
-              const loginUrl = new URL(location.origin + location.pathname);
-              loginUrl.searchParams.set('page', 'login');
-              window.location.href = loginUrl.toString();
-            }
-          })
-          .withFailureHandler(err => {
-            console.warn('Keep-alive failed:', err);
-          })
-          .keepAlive(tokenForPing);
-      };
-
-      ping();
-      setInterval(ping, 10 * 60 * 1000);
+      keepAliveIntervalMs = delayMs;
+      keepAliveTimer = setTimeout(runKeepAlive, delayMs);
     }
 
-    scheduleKeepAlive();
+    function determineKeepAliveDelay() {
+      const idleMinutes = (sessionIdleTimeoutMinutes && sessionIdleTimeoutMinutes > 0)
+        ? sessionIdleTimeoutMinutes
+        : 30;
+      const idleMs = Math.max(1, idleMinutes) * 60 * 1000;
+
+      let ttlMs = null;
+      if (sessionTtlSeconds && sessionTtlSeconds > 0) {
+        ttlMs = sessionTtlSeconds * 1000;
+      } else if (sessionExpiresAt) {
+        const expiryTime = Date.parse(sessionExpiresAt);
+        if (!isNaN(expiryTime)) {
+          ttlMs = Math.max(0, expiryTime - Date.now());
+        }
+      }
+
+      let interval = Math.max(60000, Math.floor(idleMs / 2));
+      if (ttlMs !== null && ttlMs > 0) {
+        interval = Math.min(interval, Math.max(60000, Math.floor(ttlMs / 2)));
+      }
+
+      const safetyWindow = Math.max(60000, Math.floor(idleMs * 0.2));
+      interval = Math.min(interval, Math.max(60000, idleMs - safetyWindow));
+
+      if (!isFinite(interval) || interval <= 0) {
+        interval = 60000;
+      }
+
+      return interval;
+    }
+
+    function handleSessionExpired(reason) {
+      console.log('Session expired:', reason);
+      clearAuthCookie();
+      const loginUrl = new URL(location.origin + location.pathname);
+      loginUrl.searchParams.set('page', 'login');
+      window.location.href = loginUrl.toString();
+    }
+
+    function handleKeepAliveSuccess(result) {
+      if (!result || !result.success) {
+        if (result && result.expired) {
+          handleSessionExpired(result.reason || 'SESSION_EXPIRED');
+        } else {
+          console.warn('Keep-alive returned unexpected response', result);
+          scheduleNextKeepAlive(Math.min(keepAliveIntervalMs || 300000, 300000));
+        }
+        return;
+      }
+
+      rawToken = result.sessionToken || pendingKeepAliveToken || rawToken;
+      sessionIdleTimeoutMinutes = (typeof result.idleTimeoutMinutes === 'number' && result.idleTimeoutMinutes > 0)
+        ? Math.round(result.idleTimeoutMinutes)
+        : sessionIdleTimeoutMinutes;
+      sessionExpiresAt = result.sessionExpiresAt || sessionExpiresAt;
+      sessionTtlSeconds = (typeof result.sessionTtlSeconds === 'number' && result.sessionTtlSeconds > 0)
+        ? result.sessionTtlSeconds
+        : sessionTtlSeconds;
+
+      persistAuthCookie(rawToken, result.sessionTtlSeconds);
+      scheduleNextKeepAlive(determineKeepAliveDelay());
+    }
+
+    function handleKeepAliveFailure(error) {
+      console.warn('Keep-alive failed:', error);
+      const retryDelay = Math.max(60000, Math.min((keepAliveIntervalMs || 300000) / 2, 300000));
+      scheduleNextKeepAlive(retryDelay);
+    }
+
+    function runKeepAlive() {
+      const tokenForPing = rawToken || readAuthCookie();
+      if (!tokenForPing) {
+        stopKeepAlive();
+        return;
+      }
+
+      pendingKeepAliveToken = tokenForPing;
+      google.script.run
+        .withSuccessHandler(handleKeepAliveSuccess)
+        .withFailureHandler(handleKeepAliveFailure)
+        .keepAlive(tokenForPing);
+    }
+
+    function startKeepAlive() {
+      if (!rawToken) {
+        return;
+      }
+      stopKeepAlive();
+      runKeepAlive();
+    }
+
+    startKeepAlive();
 
     document.getElementById('logoutBtn').addEventListener('click', e => {
       e.preventDefault();
