@@ -2529,16 +2529,35 @@
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
 
-                    if (result && result.success) {
-                        this.displaySchedules(result.schedules);
-                        document.getElementById('totalSchedules').textContent = result.schedules.length;
-                    } else {
-                        throw new Error(result?.error || 'Failed to load schedules');
+                    const { schedules, total, error, errorSeverity, notice } = this.parseSchedulesResponse(result);
+
+                    const safeSchedules = Array.isArray(schedules) ? schedules : [];
+
+                    if (error) {
+                        const severity = errorSeverity || 'warning';
+                        const logMethod = severity === 'danger' ? 'error' : 'warn';
+                        console[logMethod]('⚠️ Schedule response issue:', error);
+
+                        if (severity === 'danger') {
+                            this.showToast(`Failed to load schedules: ${error}`, severity);
+                        }
+                    } else if (notice) {
+                        console.info('ℹ️ Schedule response notice:', notice);
+                    }
+
+                    this.displaySchedules(safeSchedules);
+
+                    const totalElement = document.getElementById('totalSchedules');
+                    if (totalElement) {
+                        const numericTotal = Number(total);
+                        const safeTotal = Number.isFinite(numericTotal) && numericTotal >= 0 ? numericTotal : safeSchedules.length;
+                        totalElement.textContent = safeTotal;
                     }
 
                 } catch (error) {
                     console.error('❌ Error loading schedules:', error);
                     this.displaySchedules([]);
+                    this.showToast('Failed to load schedules: ' + (error.message || 'Unexpected error'), 'danger');
                 }
             }
 
@@ -2592,6 +2611,102 @@
                             </td>
                         </tr>
                     `).join('');
+            }
+
+            parseSchedulesResponse(result) {
+                const baseResponse = {
+                    schedules: [],
+                    total: 0,
+                    error: null,
+                    errorSeverity: 'warning',
+                    notice: null
+                };
+
+                if (result == null) {
+                    return {
+                        ...baseResponse,
+                        notice: 'No schedules were returned by the server. Retaining the current table view.'
+                    };
+                }
+
+                if (Array.isArray(result)) {
+                    return {
+                        ...baseResponse,
+                        schedules: result,
+                        total: result.length
+                    };
+                }
+
+                if (typeof result === 'string') {
+                    try {
+                        return this.parseSchedulesResponse(JSON.parse(result));
+                    } catch (parseError) {
+                        return {
+                            ...baseResponse,
+                            error: result,
+                            errorSeverity: 'danger'
+                        };
+                    }
+                }
+
+                if (typeof result === 'object') {
+                    const nestedDataSources = [
+                        result.schedules,
+                        result.data?.schedules,
+                        result.data?.items,
+                        result.data,
+                        result.items,
+                        result.records,
+                        result.payload,
+                        result.results
+                    ];
+
+                    const scheduleArray = nestedDataSources.find(Array.isArray) ||
+                        Object.values(result).find(value => Array.isArray(value) && value.every(item => item && typeof item === 'object'));
+
+                    if (scheduleArray) {
+                        const totalCandidates = [
+                            result.total,
+                            result.count,
+                            result.data?.total,
+                            scheduleArray.length
+                        ];
+
+                        const resolvedTotal = totalCandidates.find(value => Number.isFinite(Number(value)));
+
+                        const severity = result.success === false ? 'danger' : 'warning';
+
+                        return {
+                            ...baseResponse,
+                            schedules: scheduleArray,
+                            total: Number.isFinite(Number(resolvedTotal)) ? Number(resolvedTotal) : scheduleArray.length,
+                            error: result.success === false ? (result.error || result.message || 'Server returned a failure response.') : null,
+                            errorSeverity: severity,
+                            notice: result.success === true && !scheduleArray.length ? 'No schedules matched the selected filters.' : null
+                        };
+                    }
+
+                    if (result.success === false) {
+                        return {
+                            ...baseResponse,
+                            error: result.error || result.message || 'Server returned a failure response.',
+                            errorSeverity: 'danger'
+                        };
+                    }
+
+                    if (result.success === true) {
+                        return {
+                            ...baseResponse,
+                            notice: 'The server reported success but did not include schedule details. Displaying the previous data.'
+                        };
+                    }
+                }
+
+                return {
+                    ...baseResponse,
+                    error: 'Unexpected response format received while loading schedules.',
+                    errorSeverity: 'danger'
+                };
             }
 
             async loadAttendanceCalendar() {
