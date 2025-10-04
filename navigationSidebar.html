@@ -128,6 +128,45 @@
 
   var userInitialValue = (displayPrimaryNameValue || 'U').charAt(0).toUpperCase();
 
+  function slugifyProfileIdBase(value) {
+    var text = safeUserString(value).toLowerCase();
+    if (!text) {
+      return 'user';
+    }
+    var normalized = text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return normalized || 'user';
+  }
+
+  function computeProfileIdValue(user) {
+    if (!user) {
+      return 'user-000000';
+    }
+
+    var username = safeUserString(getUserFieldValue(user, ['UserName', 'userName', 'username', 'Email', 'email'])) || 'user';
+    var identifier = safeUserString(getUserFieldValue(user, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']));
+    if (!identifier) {
+      identifier = username;
+    }
+
+    var seed = username + '|' + identifier;
+    var hash = 0;
+    for (var idx = 0; idx < seed.length; idx++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(idx);
+      hash |= 0;
+    }
+
+    var modulo = Math.abs(hash % 1000000);
+    var digits = String(modulo);
+    while (digits.length < 6) {
+      digits = '0' + digits;
+    }
+
+    var base = slugifyProfileIdBase(username);
+    return base + '-' + digits;
+  }
+
+  var profileIdValue = computeProfileIdValue(sidebarUser);
+
   function isLikelyRoleIdentifier(value) {
     var text = safeUserString(value);
     if (!text) {
@@ -498,7 +537,8 @@
     data-last-name="<?= lastNameValue ?>"
     data-full-name="<?= displayFullNameValue ?>"
     data-roles="<?= (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : (isAdminUser ? 'System Administrator' : 'User') ?>"
-    data-status="<?= sidebarUser.EmploymentStatus || '' ?>" data-country="<?= sidebarUser.Country || '' ?>">
+    data-status="<?= sidebarUser.EmploymentStatus || '' ?>" data-country="<?= sidebarUser.Country || '' ?>"
+    data-profile-id="<?= profileIdValue ?>">
     <div class="user-avatar-side" id="userAvatar">
       <?= userInitialValue ?>
     </div>

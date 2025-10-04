@@ -42,13 +42,257 @@
     color: var(--profile-text);
   }
 
+  .profile-page {
+    padding: clamp(1.5rem, 4vw, 3.5rem) 0 4rem;
+  }
+
   .profile-wrapper {
-    padding: clamp(1.5rem, 3vw, 3rem);
-    max-width: 1200px;
-    margin: 0 auto 3.5rem auto;
+    width: min(1280px, 100% - clamp(2rem, 7vw, 7.5rem));
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    gap: clamp(1.75rem, 2.5vw, 3rem);
+  }
+
+  .profile-essentials[hidden] {
+    display: none !important;
+  }
+
+  .profile-essentials {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+    background: var(--profile-surface);
+    border-radius: var(--profile-radius-lg);
+    padding: clamp(1.35rem, 2.2vw, 2rem) clamp(1.5rem, 3vw, 2.4rem);
+    box-shadow: var(--profile-shadow);
+    border: 1px solid rgba(11, 31, 51, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-essentials::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 60%);
+    opacity: 0.7;
+  }
+
+  .profile-essential {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.25rem 0;
+  }
+
+  .profile-essential__label {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--profile-text-secondary);
+  }
+
+  .profile-essential__value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--profile-text);
+    word-break: break-word;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .profile-essential__value--code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .profile-essential__value a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .profile-essential__value a:hover,
+  .profile-essential__value a:focus {
+    text-decoration: underline;
+  }
+
+  .profile-essential__meta {
+    font-size: 0.85rem;
+    color: var(--profile-text-secondary);
+  }
+
+  .profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.85fr) minmax(0, 1.15fr);
+    gap: clamp(1.5rem, 3vw, 2.5rem);
+    align-items: start;
+  }
+
+  .profile-column {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.35rem, 2.2vw, 2rem);
+  }
+
+  .profile-column--secondary {
+    position: relative;
+  }
+
+  .profile-banner__headline {
+    display: flex;
+    align-items: center;
+    gap: clamp(1rem, 2.5vw, 2rem);
+    flex-wrap: wrap;
+  }
+
+  .profile-banner__avatar {
+    width: clamp(72px, 8vw, 104px);
+    height: clamp(72px, 8vw, 104px);
+    border-radius: 28px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.35), rgba(99, 102, 241, 0.4));
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    font-weight: 700;
+    color: var(--profile-navy);
+    box-shadow: inset 0 18px 32px rgba(14, 165, 233, 0.12);
+  }
+
+  .profile-banner__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .profile-banner__name {
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    font-weight: 700;
+    color: var(--profile-navy);
+  }
+
+  .profile-banner__role {
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    color: var(--profile-text-secondary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .profile-banner__role i {
+    color: var(--profile-cyan);
+  }
+
+  .profile-banner__username {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.65);
+  }
+
+  .profile-banner__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.25rem;
+  }
+
+  .profile-banner__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    background: rgba(14, 165, 233, 0.15);
+    color: var(--profile-navy);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .profile-banner__chip i {
+    font-size: 0.85rem;
+  }
+
+  .profile-banner__meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    padding-top: 0.6rem;
+  }
+
+  .profile-banner__meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 150px;
+  }
+
+  .profile-banner__meta-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--profile-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .profile-banner__meta-label i {
+    color: var(--profile-cyan);
+    font-size: 0.85rem;
+  }
+
+  .profile-banner__meta-value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--profile-text);
+    word-break: break-word;
+  }
+
+  .profile-banner__meta-value--code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .profile-banner__contacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-top: 0.75rem;
+  }
+
+  .profile-banner__contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.95rem;
+    border-radius: 14px;
+    background: rgba(14, 165, 233, 0.1);
+    color: var(--profile-navy);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .profile-banner__contact i {
+    color: var(--profile-cyan);
+  }
+
+  .profile-banner__contact a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .profile-banner__contact a:hover,
+  .profile-banner__contact a:focus-visible {
+    text-decoration: underline;
   }
 
   .profile-hero {
@@ -76,169 +320,6 @@
     gap: clamp(1.5rem, 3vw, 3rem);
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .profile-summary-card {
-    background: var(--profile-surface);
-    border-radius: var(--profile-radius-lg);
-    padding: clamp(1.5rem, 2.5vw, 2.25rem);
-    box-shadow: var(--profile-shadow);
-    border: 1px solid rgba(11, 31, 51, 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 1.75rem;
-  }
-
-  .profile-summary-main {
-    display: flex;
-    align-items: center;
-    gap: clamp(1.25rem, 3vw, 2.5rem);
-    flex-wrap: wrap;
-  }
-
-  .profile-summary-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    min-width: 240px;
-  }
-
-  .profile-summary-details h1 {
-    font-size: clamp(2rem, 3vw, 2.6rem);
-    font-weight: 700;
-    margin: 0;
-    color: var(--profile-navy);
-  }
-
-  .profile-summary-details p {
-    margin: 0;
-    font-size: 1.05rem;
-    color: var(--profile-text-secondary);
-  }
-
-  .profile-summary-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .profile-summary-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.7rem 1.15rem;
-    border-radius: 999px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: var(--profile-transition);
-    border: 1px solid transparent;
-  }
-
-  .profile-summary-action.primary {
-    background: linear-gradient(135deg, #0ea5e9, #2563eb);
-    color: #fff;
-    border-color: rgba(14, 165, 233, 0.35);
-    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
-  }
-
-  .profile-summary-action.secondary {
-    background: rgba(14, 165, 233, 0.08);
-    color: var(--profile-navy);
-    border-color: rgba(14, 165, 233, 0.2);
-  }
-
-  .profile-summary-action:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
-  }
-
-  .profile-avatar {
-    width: clamp(88px, 9vw, 112px);
-    height: clamp(88px, 9vw, 112px);
-    border-radius: 28px;
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(99, 102, 241, 0.3));
-    border: 1px solid rgba(14, 165, 233, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(2.25rem, 3.5vw, 3rem);
-    font-weight: 700;
-    color: var(--profile-navy);
-    box-shadow: inset 0 12px 24px rgba(14, 165, 233, 0.08);
-  }
-
-  .profile-identity h1 {
-    font-size: clamp(2rem, 3.2vw, 2.8rem);
-    margin-bottom: 0.35rem;
-    font-weight: 700;
-  }
-
-  .profile-identity p {
-    margin: 0;
-    font-size: clamp(1rem, 1.4vw, 1.2rem);
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  .profile-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-  }
-
-  .profile-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: rgba(14, 165, 233, 0.12);
-    padding: 0.45rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--profile-navy);
-  }
-
-  .profile-action {
-    position: relative;
-    margin-left: auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: flex-end;
-  }
-
-  .profile-action a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.65rem 1.2rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    font-weight: 600;
-    text-decoration: none;
-    transition: var(--profile-transition);
-    border: 1px solid rgba(255, 255, 255, 0.32);
-    backdrop-filter: blur(6px);
-  }
-
-  .profile-action a.secondary {
-    background: rgba(2, 43, 91, 0.15);
-    border-color: rgba(255, 255, 255, 0.28);
-  }
-
-  .profile-action a:hover {
-    transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.26);
-  }
-
-  .profile-action a.secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .profile-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.75rem;
   }
 
   .profile-card {
@@ -633,23 +714,30 @@
     to { transform: rotate(360deg); }
   }
 
-  @media (max-width: 768px) {
-    .profile-summary-card {
-      padding: 1.5rem;
+  @media (max-width: 1200px) {
+    .profile-wrapper {
+      width: min(1200px, 100% - clamp(1.5rem, 6vw, 6rem));
     }
 
-    .profile-summary-main {
-      text-align: center;
-      justify-content: center;
+    .profile-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .profile-essentials {
+      padding: 1.25rem 1.5rem;
     }
 
-    .profile-summary-actions {
+    .profile-banner__headline {
       flex-direction: column;
+      align-items: flex-start;
     }
+  }
 
-    .profile-summary-action {
-      width: 100%;
-      justify-content: center;
+  @media (max-width: 768px) {
+    .profile-wrapper {
+      width: min(100%, 100% - 2rem);
     }
 
     .profile-card {
@@ -660,103 +748,88 @@
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     }
 
-    .manager-row {
+    .profile-banner__contacts {
       flex-direction: column;
-      align-items: flex-start;
-      gap: 1.25rem;
+      align-items: stretch;
     }
 
-    .manager-row .metrics {
-      width: 100%;
-      justify-content: space-between;
+    .profile-banner__contact {
+      justify-content: center;
     }
   }
 </style>
 
-<div class="profile-wrapper">
-  <div class="profile-summary-card">
-    <div class="profile-summary-main">
-      <div class="profile-avatar" id="profileAvatar">U</div>
-      <div class="profile-summary-details">
-        <h1 id="profileName">User</h1>
-        <p id="profileRole">Loading role…</p>
-        <div class="profile-chips" id="profileChips"></div>
+<main class="profile-page">
+  <div class="profile-wrapper">
+    <section class="profile-essentials" id="profileEssentials" aria-label="Profile essentials" hidden></section>
+
+    <div class="profile-layout">
+      <div class="profile-column profile-column--primary">
+        <section class="profile-card">
+          <h2><i class="fa-solid fa-id-card"></i> Personal Information</h2>
+          <div class="info-grid" id="personalDetails"></div>
+        </section>
+
+        <section class="profile-card">
+          <h2><i class="fa-solid fa-briefcase"></i> Employment</h2>
+          <div class="info-grid" id="employmentDetails"></div>
+        </section>
+
+        <section class="profile-card collapsible-card">
+          <div class="profile-card-header">
+            <h2><i class="fa-solid fa-user-shield"></i> Access &amp; Permissions</h2>
+            <button class="collapsible-toggle" type="button" data-target="accessPermissionsPanel"
+              data-collapsed-text="Show access" data-expanded-text="Hide access" aria-expanded="false">
+              <span class="collapsible-toggle__label">Show access</span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="profile-card-body" id="accessPermissionsPanel" hidden>
+            <div class="chip-row" id="roleChips"></div>
+            <div class="chip-row" id="pageChips"></div>
+            <div class="info-grid" id="accessDetails"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="profile-column profile-column--secondary">
+        <section class="profile-card">
+          <h2><i class="fa-solid fa-lock"></i> Security</h2>
+          <div class="info-grid" id="securityDetails"></div>
+        </section>
+
+        <section class="profile-card">
+          <h2><i class="fa-solid fa-laptop"></i> Equipment &amp; Resources</h2>
+          <ul class="equipment-list" id="equipmentList"></ul>
+          <div class="loader" id="equipmentLoader">
+            <div class="spinner"></div>
+            Fetching equipment…
+          </div>
+        </section>
+
+        <section class="profile-card manager-card hidden" id="managerSummaryCard">
+          <div class="manager-card-header">
+            <h2><i class="fa-solid fa-people-group"></i> Managed Team Overview</h2>
+            <span class="manager-chip" id="managerSummaryManagedCount">
+              <i class="fa-solid fa-user-group"></i>
+              0 Managed
+            </span>
+          </div>
+          <div class="manager-stats" id="managerSummaryStats"></div>
+          <div class="manager-list" id="managerSummaryList"></div>
+          <div class="manager-pagination hidden" id="managerSummaryPagination"></div>
+          <div class="empty-state manager-summary-empty hidden" id="managerSummaryEmpty">
+            No managed team members are assigned to you yet.
+          </div>
+          <div class="loader" id="managerSummaryLoader">
+            <div class="spinner"></div>
+            Compiling team performance…
+          </div>
+        </section>
       </div>
     </div>
-    <div class="profile-summary-actions">
-      <a id="agentExperienceLink" class="profile-summary-action primary" href="#" target="_top">
-        <i class="fa-solid fa-user-gear"></i>
-        Agent Experience
-      </a>
-      <a id="agentScheduleLink" class="profile-summary-action secondary" href="#" target="_top">
-        <i class="fa-solid fa-calendar-days"></i>
-        View Schedule
-      </a>
-    </div>
   </div>
-
-  <div class="profile-grid">
-    <section class="profile-card">
-      <h2><i class="fa-solid fa-id-card"></i> Personal Information</h2>
-      <div class="info-grid" id="personalDetails"></div>
-    </section>
-
-    <section class="profile-card">
-      <h2><i class="fa-solid fa-briefcase"></i> Employment</h2>
-      <div class="info-grid" id="employmentDetails"></div>
-    </section>
-
-    <section class="profile-card collapsible-card">
-      <div class="profile-card-header">
-        <h2><i class="fa-solid fa-user-shield"></i> Access &amp; Permissions</h2>
-        <button class="collapsible-toggle" type="button" data-target="accessPermissionsPanel"
-          data-collapsed-text="Show access" data-expanded-text="Hide access" aria-expanded="false">
-          <span class="collapsible-toggle__label">Show access</span>
-          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-        </button>
-      </div>
-      <div class="profile-card-body" id="accessPermissionsPanel" hidden>
-        <div class="chip-row" id="roleChips"></div>
-        <div class="chip-row" id="pageChips"></div>
-        <div class="info-grid" id="accessDetails"></div>
-      </div>
-    </section>
-
-    <section class="profile-card">
-      <h2><i class="fa-solid fa-lock"></i> Security</h2>
-      <div class="info-grid" id="securityDetails"></div>
-    </section>
-
-    <section class="profile-card">
-      <h2><i class="fa-solid fa-laptop"></i> Equipment &amp; Resources</h2>
-      <ul class="equipment-list" id="equipmentList"></ul>
-      <div class="loader" id="equipmentLoader">
-        <div class="spinner"></div>
-        Fetching equipment…
-      </div>
-    </section>
-
-    <section class="profile-card manager-card hidden" id="managerSummaryCard">
-      <div class="manager-card-header">
-        <h2><i class="fa-solid fa-people-group"></i> Managed Team Overview</h2>
-        <span class="manager-chip" id="managerSummaryManagedCount">
-          <i class="fa-solid fa-user-group"></i>
-          0 Managed
-        </span>
-      </div>
-      <div class="manager-stats" id="managerSummaryStats"></div>
-      <div class="manager-list" id="managerSummaryList"></div>
-      <div class="manager-pagination hidden" id="managerSummaryPagination"></div>
-      <div class="empty-state manager-summary-empty hidden" id="managerSummaryEmpty">
-        No managed team members are assigned to you yet.
-      </div>
-      <div class="loader" id="managerSummaryLoader">
-        <div class="spinner"></div>
-        Compiling team performance…
-      </div>
-    </section>
-  </div>
-</div>
+</main>
 
 <script>
   const CURRENT_USER = <?!= currentUserJson || '{}' ?>;
@@ -772,15 +845,10 @@
     managerSummary: PROFILE_BOOTSTRAP.managerSummary || null,
     loadingEquipment: false,
     loadingManagerSummary: false,
-    managerPagination: { page: 1, pageSize: 6 }
+    managerPagination: { page: 1, pageSize: 6 },
+    profileId: safeString(PROFILE_BOOTSTRAP.profileId) || '',
+    profileSummary: null
   };
-
-  function setText(id, value, fallback = '') {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const text = value === null || typeof value === 'undefined' ? fallback : String(value);
-    el.textContent = text || fallback;
-  }
 
   function safeString(value) {
     if (value === null || typeof value === 'undefined') return '';
@@ -878,6 +946,76 @@
       } catch (_) { /* ignore */ }
     }
     return text.split(/[,;|]+/).map(part => safeString(part)).filter(Boolean);
+  }
+
+  function slugifyProfileBase(value) {
+    const base = safeString(value).toLowerCase();
+    if (!base) {
+      return 'user';
+    }
+    const normalized = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return normalized || 'user';
+  }
+
+  function computeProfileId(userRecord, detailRecord) {
+    const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const usernameCandidate =
+      getField(userRecord, ['UserName', 'userName', 'username']) ||
+      getField(record, ['UserName', 'userName', 'username']) ||
+      getField(userRecord, ['Email', 'email']) ||
+      getField(record, ['Email', 'email']) ||
+      'user';
+    const username = safeString(usernameCandidate) || 'user';
+
+    const identifierCandidate =
+      getField(userRecord, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']) ||
+      getField(record, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']) ||
+      username;
+    const identifier = safeString(identifierCandidate) || username;
+
+    const seed = `${username}|${identifier}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+
+    const modulo = Math.abs(hash % 1000000);
+    let digits = String(modulo);
+    while (digits.length < 6) {
+      digits = `0${digits}`;
+    }
+
+    const base = slugifyProfileBase(username);
+    return `${base}-${digits}`;
+  }
+
+  function ensureProfileIdInUrl(profileId) {
+    if (!profileId || typeof window === 'undefined' || !window.location || !window.history) {
+      return;
+    }
+
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('profileId') === profileId) {
+        return;
+      }
+      url.searchParams.set('profileId', profileId);
+      window.history.replaceState({}, document.title, url.toString());
+    } catch (err) {
+      const href = String(window.location.href || '');
+      if (!href) {
+        return;
+      }
+      const hasParam = /([?&])profileId=/i.test(href);
+      if (hasParam) {
+        const updated = href.replace(/([?&]profileId=)[^&#]*/i, `$1${encodeURIComponent(profileId)}`);
+        window.history.replaceState({}, document.title, updated);
+      } else {
+        const separator = href.indexOf('?') === -1 ? '?' : '&';
+        window.history.replaceState({}, document.title, `${href}${separator}profileId=${encodeURIComponent(profileId)}`);
+      }
+    }
   }
 
   function formatDate(value) {
@@ -1039,6 +1177,80 @@
     }
 
     nodes.forEach(node => container.appendChild(node));
+  }
+
+  function renderProfileEssentials(summary) {
+    const container = document.getElementById('profileEssentials');
+    if (!container) {
+      return;
+    }
+
+    const items = [];
+    const pushItem = (label, value, options = {}) => {
+      const text = safeString(value);
+      if (!text) {
+        return;
+      }
+      items.push(Object.assign({ label, value: text }, options));
+    };
+
+    summary = summary || {};
+
+    pushItem('Profile ID', summary.profileId, { code: true });
+    pushItem('Work Email', summary.email, { isLink: true, href: summary.email ? `mailto:${summary.email}` : '' });
+    pushItem('Manager', summary.manager);
+    pushItem('Location', summary.location);
+    pushItem('Employment Status', summary.status);
+    pushItem('Tenure', summary.tenure, {
+      meta: summary.startDate ? `Started ${summary.startDate}` : ''
+    });
+
+    if (!items.length) {
+      container.hidden = true;
+      container.innerHTML = '';
+      return;
+    }
+
+    container.hidden = false;
+    container.innerHTML = '';
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'profile-essential';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'profile-essential__label';
+      labelEl.textContent = item.label;
+      card.appendChild(labelEl);
+
+      const valueEl = document.createElement('div');
+      valueEl.className = 'profile-essential__value';
+      if (item.code) {
+        valueEl.classList.add('profile-essential__value--code');
+      }
+
+      if (item.isLink && item.value) {
+        const link = document.createElement('a');
+        link.href = item.href || item.value;
+        link.target = '_top';
+        link.rel = 'noopener';
+        link.textContent = item.value;
+        valueEl.appendChild(link);
+      } else {
+        valueEl.textContent = item.value;
+      }
+
+      card.appendChild(valueEl);
+
+      if (item.meta) {
+        const metaEl = document.createElement('div');
+        metaEl.className = 'profile-essential__meta';
+        metaEl.textContent = item.meta;
+        card.appendChild(metaEl);
+      }
+
+      container.appendChild(card);
+    });
   }
 
   function renderChips(containerId, values, icon) {
@@ -1463,22 +1675,72 @@
     return false;
   }
 
-  function updateGlobalBannerFromProfile({ name, primaryRole, campaign, status, startDate }) {
+  function updateGlobalBannerFromProfile(summary) {
     if (typeof initializeGlobalBanner !== 'function') {
       return;
     }
 
-    const descriptionParts = [];
-    if (primaryRole) descriptionParts.push(primaryRole);
-    const description = descriptionParts.join(' • ');
+    summary = summary || {};
 
-    const chipRow = document.createElement('div');
-    chipRow.className = 'banner-chip-row';
+    const name = summary.name || 'My Profile';
+    const primaryRole = summary.primaryRole || 'Team Member';
+    const campaign = summary.campaign || '';
+    const status = summary.status || '';
+    const startDate = summary.startDate || '';
+    const tenure = summary.tenure || '';
+    const profileId = summary.profileId || '';
+    const username = safeString(summary.username);
+    const location = summary.location || '';
+    const manager = summary.manager || '';
+    const email = summary.email || '';
+    const phone = summary.phone || '';
+
+    const headline = document.createElement('div');
+    headline.className = 'profile-banner__headline';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'profile-banner__avatar';
+    avatar.textContent = safeString(name).charAt(0).toUpperCase() || 'U';
+    headline.appendChild(avatar);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'profile-banner__text';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'profile-banner__name';
+    nameEl.textContent = name;
+    textWrap.appendChild(nameEl);
+
+    if (primaryRole) {
+      const roleEl = document.createElement('div');
+      roleEl.className = 'profile-banner__role';
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-shield-halved';
+      roleEl.appendChild(icon);
+      const roleText = document.createElement('span');
+      roleText.textContent = primaryRole;
+      roleEl.appendChild(roleText);
+      textWrap.appendChild(roleEl);
+    }
+
+    if (username) {
+      const usernameEl = document.createElement('div');
+      usernameEl.className = 'profile-banner__username';
+      usernameEl.textContent = username.indexOf('@') === -1 ? `@${username}` : username;
+      textWrap.appendChild(usernameEl);
+    }
+
+    headline.appendChild(textWrap);
+
+    const chipsRow = document.createElement('div');
+    chipsRow.className = 'profile-banner__chips';
 
     const appendChip = (icon, label) => {
-      if (!label) return;
+      if (!label) {
+        return;
+      }
       const chip = document.createElement('span');
-      chip.className = 'banner-chip';
+      chip.className = 'profile-banner__chip';
       if (icon) {
         const iconEl = document.createElement('i');
         iconEl.className = icon;
@@ -1487,20 +1749,104 @@
       const text = document.createElement('span');
       text.textContent = label;
       chip.appendChild(text);
-      chipRow.appendChild(chip);
+      chipsRow.appendChild(chip);
     };
 
     appendChip('fa-solid fa-circle-check', status);
-    appendChip('fa-solid fa-calendar', startDate ? `Joined ${startDate}` : '');
+    appendChip('fa-solid fa-calendar-day', startDate ? `Joined ${startDate}` : '');
+    appendChip('fa-solid fa-hourglass-half', tenure);
+    appendChip('fa-solid fa-diagram-project', campaign);
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'profile-banner__meta-row';
+
+    const appendMeta = (icon, label, value, options = {}) => {
+      const textValue = safeString(value);
+      if (!textValue) {
+        return;
+      }
+      const item = document.createElement('div');
+      item.className = 'profile-banner__meta-item';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'profile-banner__meta-label';
+      if (icon) {
+        const iconEl = document.createElement('i');
+        iconEl.className = icon;
+        labelEl.appendChild(iconEl);
+      }
+      const labelText = document.createElement('span');
+      labelText.textContent = label;
+      labelEl.appendChild(labelText);
+      item.appendChild(labelEl);
+
+      const valueEl = document.createElement('div');
+      valueEl.className = 'profile-banner__meta-value';
+      if (options.code) {
+        valueEl.classList.add('profile-banner__meta-value--code');
+      }
+      valueEl.textContent = textValue;
+      item.appendChild(valueEl);
+
+      metaRow.appendChild(item);
+    };
+
+    appendMeta('fa-solid fa-id-badge', 'Profile ID', profileId, { code: true });
+    appendMeta('fa-solid fa-user-tie', 'Manager', manager);
+    appendMeta('fa-solid fa-location-dot', 'Location', location);
+
+    const contactsRow = document.createElement('div');
+    contactsRow.className = 'profile-banner__contacts';
+
+    const appendContact = (icon, label, value, href) => {
+      const textValue = safeString(value);
+      if (!textValue) {
+        return;
+      }
+      const contact = document.createElement('div');
+      contact.className = 'profile-banner__contact';
+      if (icon) {
+        const iconEl = document.createElement('i');
+        iconEl.className = icon;
+        contact.appendChild(iconEl);
+      }
+      const content = document.createElement(href ? 'a' : 'span');
+      if (href) {
+        content.href = href;
+        content.target = '_top';
+        content.rel = 'noopener';
+      }
+      content.textContent = textValue;
+      if (label) {
+        content.setAttribute('aria-label', `${label}: ${textValue}`);
+      }
+      contact.appendChild(content);
+      contactsRow.appendChild(contact);
+    };
+
+    appendContact('fa-solid fa-envelope', 'Email', email, email ? `mailto:${email}` : '');
+    if (phone) {
+      const tel = phone.replace(/[^0-9+]/g, '');
+      appendContact('fa-solid fa-phone', 'Phone', phone, tel ? `tel:${tel}` : '');
+    }
+
+    const descriptionElements = [];
+    if (chipsRow.childNodes.length) descriptionElements.push(chipsRow);
+    if (metaRow.childNodes.length) descriptionElements.push(metaRow);
+    if (contactsRow.childNodes.length) descriptionElements.push(contactsRow);
 
     const actions = [];
     const addAction = (href, label, icon, variant) => {
-      if (!href) return;
+      if (!href) {
+        return;
+      }
       const action = document.createElement('a');
       action.href = href;
+      action.target = '_top';
       action.textContent = label;
       action.setAttribute('data-banner-icon', icon);
       action.setAttribute('data-banner-variant', variant);
+      action.setAttribute('data-banner-label', label);
       actions.push(action);
     };
 
@@ -1511,74 +1857,82 @@
       console.warn('Unable to build banner actions', err);
     }
 
-    const descriptionElements = chipRow.childNodes.length ? [chipRow] : [];
-
     initializeGlobalBanner({
-      title: name || 'My Profile',
-      description,
+      eyebrow: 'Profile Overview',
+      titleFragments: [headline],
+      description: '',
       descriptionElements,
       campaignName: campaign,
       actions
     });
   }
 
-  function hydrateHero(userRecord, detailRecord) {
+  function hydrateProfileSummary(userRecord, detailRecord) {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
     const name = resolveDisplayName(userRecord) || resolveDisplayName(record) || 'Your profile';
     const primaryRole = resolvePrimaryRole(userRecord, record) || 'Team Member';
     const campaign = safeString(userRecord.campaignName || userRecord.CampaignName || record.CampaignName || record.campaignName || state.campaignId);
     const status = safeString(record.EmploymentStatus || record.Status || userRecord.Status || userRecord.status);
-    const startDate = formatDate(record.StartDate || record.HireDate || record.DateHired || record.OnboardDate || record.CreatedAt || record.createdAt);
+    const startDateRaw = record.StartDate || record.HireDate || record.DateHired || record.OnboardDate || record.CreatedAt || record.createdAt;
+    const startDate = formatDate(startDateRaw);
+    const tenure = formatTenure(startDateRaw);
+    const username = safeString(
+      getField(userRecord, ['UserName', 'userName', 'username']) ||
+      getField(record, ['UserName', 'userName', 'username'])
+    );
+    const manager = safeString(
+      getField(record, ['Manager', 'manager', 'ManagerName', 'managerName', 'Supervisor', 'supervisor'])
+    );
+    const location = safeString(
+      getField(record, ['Location', 'location', 'City', 'city', 'Country', 'country']) ||
+      getField(userRecord, ['Location', 'location', 'City', 'city', 'Country', 'country'])
+    );
+    const email = safeString(
+      getField(record, ['WorkEmail', 'Email', 'email']) ||
+      getField(userRecord, ['WorkEmail', 'Email', 'email'])
+    );
+    const phone = safeString(
+      getField(record, ['Phone', 'phone', 'Mobile', 'mobile', 'WorkPhone', 'workPhone']) ||
+      getField(userRecord, ['Phone', 'phone', 'Mobile', 'mobile'])
+    );
 
-    const chips = document.getElementById('profileChips');
-    if (chips) {
-      chips.innerHTML = '';
-      if (status) {
-        const statusChip = document.createElement('span');
-        statusChip.className = 'profile-chip';
-        statusChip.innerHTML = '<i class="fa-solid fa-circle-check"></i>' + status;
-        chips.appendChild(statusChip);
-      }
-      if (startDate) {
-        const startChip = document.createElement('span');
-        startChip.className = 'profile-chip';
-        startChip.innerHTML = '<i class="fa-solid fa-calendar"></i> Joined ' + startDate;
-        chips.appendChild(startChip);
-      }
-      if (campaign) {
-        const campaignChip = document.createElement('span');
-        campaignChip.className = 'profile-chip';
-        campaignChip.innerHTML = '<i class="fa-solid fa-diagram-project"></i> ' + campaign;
-        chips.appendChild(campaignChip);
-      }
+    const computedProfileId = computeProfileId(userRecord, detailRecord);
+    if (computedProfileId && computedProfileId !== state.profileId) {
+      state.profileId = computedProfileId;
+    }
+    ensureProfileIdInUrl(state.profileId);
+
+    const sidebarPanel = document.getElementById('userPanel');
+    if (sidebarPanel && state.profileId) {
+      sidebarPanel.setAttribute('data-profile-id', state.profileId);
     }
 
-    setText('profileName', name, 'Your profile');
-    setText('profileRole', primaryRole || 'Team Member');
+    const summary = {
+      name,
+      primaryRole,
+      campaign,
+      status,
+      startDate,
+      tenure,
+      username,
+      profileId: state.profileId,
+      manager,
+      location,
+      email,
+      phone
+    };
 
-    const avatar = document.getElementById('profileAvatar');
-    if (avatar) {
-      const initial = safeString(name).charAt(0).toUpperCase() || 'U';
-      avatar.textContent = initial;
-    }
+    state.profileSummary = summary;
 
-    const agentLink = document.getElementById('agentExperienceLink');
-    if (agentLink) {
-      agentLink.href = buildPageLink('agent-experience');
-    }
-
-    const scheduleLink = document.getElementById('agentScheduleLink');
-    if (scheduleLink) {
-      scheduleLink.href = buildPageLink('agentschedule');
-    }
-
-    updateGlobalBannerFromProfile({ name, primaryRole, campaign, status, startDate });
+    updateGlobalBannerFromProfile(summary);
+    renderProfileEssentials(summary);
   }
 
   function refreshSections() {
     const detailRecord = state.detail && state.detail.record ? state.detail.record : state.detail || {};
+    const combinedRecord = Object.assign({}, state.user, detailRecord);
 
-    hydrateHero(state.user, state.detail);
+    hydrateProfileSummary(state.user, state.detail);
 
     renderInfoGrid('personalDetails', [
       { label: 'Full Name', keys: ['FullName', 'fullName', 'DisplayName', 'displayName'] },
@@ -1587,7 +1941,7 @@
       { label: 'Phone', keys: ['Phone', 'phone', 'Mobile', 'mobile'] },
       { label: 'Username', keys: ['UserName', 'userName', 'username', 'Email'] },
       { label: 'Location', keys: ['Location', 'location', 'City', 'city', 'Country', 'country'] }
-    ], detailRecord);
+    ], combinedRecord);
 
     renderInfoGrid('employmentDetails', [
       { label: 'Employee ID', keys: ['EmployeeID', 'employeeId', 'ID', 'id'] },
@@ -1605,9 +1959,9 @@
         keys: ['StartDate', 'HireDate', 'DateHired', 'AnniversaryDate'],
         transform: (value) => formatTenure(value)
       }
-    ], detailRecord);
+    ], combinedRecord);
 
-    const roles = normalizeList(state.user.roleNames || detailRecord.roleNames || detailRecord.RoleNames || detailRecord.Roles || detailRecord.Role);
+    const roles = normalizeList(state.user.roleNames || combinedRecord.roleNames || combinedRecord.RoleNames || combinedRecord.Roles || combinedRecord.Role);
     renderChips('roleChips', roles, 'fa-solid fa-badge-check');
 
     renderChips('pageChips', state.pages, 'fa-solid fa-layer-group');
@@ -1630,7 +1984,7 @@
           return name || id;
         }
       }
-    ], Object.assign({}, detailRecord, { permissions: state.permissions }));
+    ], Object.assign({}, state.user, detailRecord, { permissions: state.permissions }));
 
     renderInfoGrid('securityDetails', [
       { label: 'Email Confirmed', keys: ['EmailConfirmed', 'emailConfirmed'], transform: (value) => formatBoolean(value) },
@@ -1638,7 +1992,7 @@
       { label: 'Last Login', keys: ['LastLoginAt', 'LastLogin', 'lastLoginAt', 'lastLogin'], transform: (value) => formatDate(value) },
       { label: 'Last Activity', keys: ['LastActivityAt', 'lastActivityAt'], transform: (value) => formatDate(value) },
       { label: 'Password Reset Required', keys: ['ResetRequired', 'resetRequired'], transform: (value) => formatBoolean(value, { positive: 'Required', negative: 'Not Required' }) }
-    ], Object.assign({}, state.user, detailRecord));
+    ], combinedRecord);
 
     renderEquipment(state.equipment);
     renderManagerSummary(state.managerSummary);

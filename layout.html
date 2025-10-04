@@ -3233,7 +3233,9 @@
                     closeMenu();
                     if (action === 'profile') {
                         if (typeof navigateToPage === 'function') {
-                            navigateToPage('userprofile');
+                            const profileIdAttr = panel.getAttribute('data-profile-id') || '';
+                            const params = profileIdAttr ? { profileId: profileIdAttr } : {};
+                            navigateToPage('userprofile', null, params);
                         }
                     } else if (action === 'logout') {
                         if (typeof handleLogout === 'function') {
