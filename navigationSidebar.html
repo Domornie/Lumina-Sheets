@@ -492,7 +492,8 @@
     </div>
   </div>
 
-  <div class="user-panel" id="userPanel" data-initialized="true"
+  <button type="button" class="user-panel" id="userPanel" data-initialized="true"
+    onclick="navigateToPage('userprofile')"
     data-name="<?= displayPrimaryNameValue ?>"
     data-first-name="<?= firstNameValue ?>"
     data-last-name="<?= lastNameValue ?>"
@@ -530,7 +531,7 @@
         <? } ?>
       </div>
     </div>
-  </div>
+  </button>
 </nav>
 
 <script>
