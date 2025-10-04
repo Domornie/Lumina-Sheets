@@ -955,25 +955,28 @@ function authenticateUser(e) {
 
 function getAuthenticatedUrl(page, campaignId, additionalParams = {}) {
   let url = SCRIPT_URL;
-  const params = new URLSearchParams();
-  
+  var queryParts = [];
+
   if (page) {
-    params.set('page', page);
+    queryParts.push('page=' + encodeURIComponent(page));
   }
-  
+
   if (campaignId) {
-    params.set('campaign', campaignId);
+    queryParts.push('campaign=' + encodeURIComponent(campaignId));
   }
-  
-  // Add additional parameters
-  Object.entries(additionalParams).forEach(([key, value]) => {
+
+  Object.keys(additionalParams || {}).forEach(function(key) {
+    var value = additionalParams[key];
     if (value !== null && value !== undefined) {
-      params.set(key, value);
+      queryParts.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
     }
   });
-  
-  const queryString = params.toString();
-  return queryString ? `${url}?${queryString}` : url;
+
+  if (queryParts.length > 0) {
+    return url + '?' + queryParts.join('&');
+  }
+
+  return url;
 }
 
 function getBaseUrl() {
