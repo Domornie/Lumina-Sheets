@@ -953,9 +953,6 @@ function authenticateUser(e) {
   }
 }
 
-/**
- * Generate URL with token if needed
- */
 function getAuthenticatedUrl(page, campaignId, additionalParams = {}) {
   let url = SCRIPT_URL;
   const params = new URLSearchParams();
@@ -1654,7 +1651,7 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       default:
         // Unknown page - redirect to dashboard
         const defaultCampaignId = user.CampaignID || '';
-        const redirectUrl = getCampaignUrl('dashboard', defaultCampaignId);
+        const redirectUrl = getAuthenticatedUrl('dashboard', defaultCampaignId);
 
         return HtmlService
           .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
