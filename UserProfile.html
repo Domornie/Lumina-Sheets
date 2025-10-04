@@ -19,33 +19,36 @@
 
 <style>
   :root {
-    --profile-navy: #022b5b;
-    --profile-cyan: #00bcd4;
-    --profile-mint: #31d0aa;
-    --profile-lavender: #7e8dfb;
+    --profile-navy: #0b1f33;
+    --profile-cyan: #0ea5e9;
+    --profile-mint: #22c55e;
+    --profile-lavender: #6366f1;
     --profile-surface: #ffffff;
-    --profile-soft: #f6f7fb;
-    --profile-border: #dbe4f3;
+    --profile-soft: #f3f5fb;
+    --profile-border: #d7deed;
     --profile-text: #0f172a;
     --profile-text-secondary: #475569;
-    --profile-shadow: 0 18px 35px rgba(2, 43, 91, 0.12);
-    --profile-radius-lg: 22px;
+    --profile-shadow: 0 22px 45px rgba(11, 31, 51, 0.12);
+    --profile-radius-lg: 20px;
     --profile-radius-md: 18px;
     --profile-radius-sm: 12px;
-    --profile-transition: all 0.25s ease;
-    --chip-bg: rgba(2, 43, 91, 0.08);
+    --profile-transition: all 0.2s ease;
+    --chip-bg: rgba(14, 165, 233, 0.1);
   }
 
   body {
     font-family: 'Inter', sans-serif;
-    background: linear-gradient(180deg, #eef2ff 0%, #f9fbff 100%);
+    background: linear-gradient(180deg, #f5f7fb 0%, #ffffff 60%);
     color: var(--profile-text);
   }
 
   .profile-wrapper {
     padding: clamp(1.5rem, 3vw, 3rem);
-    max-width: 1180px;
-    margin: 0 auto 4rem auto;
+    max-width: 1200px;
+    margin: 0 auto 3.5rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
   }
 
   .profile-hero {
@@ -75,19 +78,93 @@
     flex-wrap: wrap;
   }
 
+  .profile-summary-card {
+    background: var(--profile-surface);
+    border-radius: var(--profile-radius-lg);
+    padding: clamp(1.5rem, 2.5vw, 2.25rem);
+    box-shadow: var(--profile-shadow);
+    border: 1px solid rgba(11, 31, 51, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .profile-summary-main {
+    display: flex;
+    align-items: center;
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    flex-wrap: wrap;
+  }
+
+  .profile-summary-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-width: 240px;
+  }
+
+  .profile-summary-details h1 {
+    font-size: clamp(2rem, 3vw, 2.6rem);
+    font-weight: 700;
+    margin: 0;
+    color: var(--profile-navy);
+  }
+
+  .profile-summary-details p {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--profile-text-secondary);
+  }
+
+  .profile-summary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .profile-summary-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.15rem;
+    border-radius: 999px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--profile-transition);
+    border: 1px solid transparent;
+  }
+
+  .profile-summary-action.primary {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: #fff;
+    border-color: rgba(14, 165, 233, 0.35);
+    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
+  }
+
+  .profile-summary-action.secondary {
+    background: rgba(14, 165, 233, 0.08);
+    color: var(--profile-navy);
+    border-color: rgba(14, 165, 233, 0.2);
+  }
+
+  .profile-summary-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+  }
+
   .profile-avatar {
-    width: clamp(92px, 10vw, 120px);
-    height: clamp(92px, 10vw, 120px);
+    width: clamp(88px, 9vw, 112px);
+    height: clamp(88px, 9vw, 112px);
     border-radius: 28px;
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(99, 102, 241, 0.3));
+    border: 1px solid rgba(14, 165, 233, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    font-size: clamp(2.25rem, 3.5vw, 3rem);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.95);
-    box-shadow: inset 0 8px 24px rgba(2, 43, 91, 0.35);
+    color: var(--profile-navy);
+    box-shadow: inset 0 12px 24px rgba(14, 165, 233, 0.08);
   }
 
   .profile-identity h1 {
@@ -105,21 +182,19 @@
   .profile-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1.35rem;
+    gap: 0.6rem;
   }
 
   .profile-chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    background: rgba(255, 255, 255, 0.16);
-    padding: 0.45rem 0.85rem;
+    gap: 0.4rem;
+    background: rgba(14, 165, 233, 0.12);
+    padding: 0.45rem 0.75rem;
     border-radius: 999px;
     font-size: 0.9rem;
-    letter-spacing: 0.01em;
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    font-weight: 600;
+    color: var(--profile-navy);
   }
 
   .profile-action {
@@ -170,16 +245,19 @@
     background: var(--profile-surface);
     border-radius: var(--profile-radius-md);
     padding: 1.75rem;
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
-    border: 1px solid rgba(2, 43, 91, 0.05);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.05);
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
   }
 
   .profile-card h2 {
     font-size: 1.35rem;
     font-weight: 700;
-    margin-bottom: 1.25rem;
+    margin: 0;
     display: flex;
     align-items: center;
     gap: 0.65rem;
@@ -188,6 +266,49 @@
 
   .profile-card h2 i {
     color: var(--profile-navy);
+  }
+
+  .profile-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .profile-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .collapsible-card .profile-card-body[hidden] {
+    display: none;
+  }
+
+  .collapsible-toggle {
+    border: none;
+    background: rgba(14, 165, 233, 0.08);
+    color: var(--profile-navy);
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    transition: var(--profile-transition);
+  }
+
+  .collapsible-toggle:hover {
+    background: rgba(14, 165, 233, 0.16);
+  }
+
+  .collapsible-toggle i {
+    transition: transform 0.2s ease;
+  }
+
+  .collapsible-toggle[aria-expanded="true"] i {
+    transform: rotate(180deg);
   }
 
   .info-grid {
@@ -257,7 +378,7 @@
     font-size: 0.95rem;
     color: var(--profile-text-secondary);
     background: var(--profile-soft);
-    border: 1px dashed rgba(2, 43, 91, 0.2);
+    border: 1px dashed rgba(14, 165, 233, 0.25);
     border-radius: var(--profile-radius-sm);
     padding: 1rem;
     text-align: center;
@@ -275,7 +396,7 @@
     padding: 0.9rem 1rem;
     border-radius: var(--profile-radius-sm);
     background: var(--profile-soft);
-    border: 1px solid rgba(2, 43, 91, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.18);
     display: grid;
     gap: 0.25rem;
   }
@@ -306,7 +427,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1.5rem;
   }
 
   .manager-chip {
@@ -315,7 +435,7 @@
     gap: 0.45rem;
     padding: 0.45rem 0.9rem;
     border-radius: 999px;
-    background: rgba(2, 43, 91, 0.08);
+    background: rgba(14, 165, 233, 0.12);
     color: var(--profile-navy);
     font-weight: 600;
     font-size: 0.85rem;
@@ -331,7 +451,7 @@
   .manager-stat {
     background: var(--profile-soft);
     border-radius: var(--profile-radius-sm);
-    border: 1px solid rgba(2, 43, 91, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.18);
     padding: 0.9rem 1rem;
     display: flex;
     flex-direction: column;
@@ -348,7 +468,7 @@
   .manager-stat .value {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--profile-text);
+    color: var(--profile-navy);
   }
 
   .manager-list {
@@ -363,10 +483,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem 1.1rem;
+    padding: 1rem 1.15rem;
     border-radius: var(--profile-radius-sm);
-    border: 1px solid rgba(2, 43, 91, 0.08);
-    background: var(--profile-soft);
+    border: 1px solid rgba(14, 165, 233, 0.18);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.05), rgba(99, 102, 241, 0.05));
   }
 
   .manager-row .info {
@@ -408,7 +528,7 @@
   .manager-row .metric .value {
     font-weight: 700;
     font-size: 1.05rem;
-    color: var(--profile-text);
+    color: var(--profile-navy);
   }
 
   .manager-row .metric small {
@@ -418,6 +538,50 @@
 
   .manager-summary-empty {
     margin-top: 0.5rem;
+  }
+
+  .manager-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .manager-pagination.hidden {
+    display: none !important;
+  }
+
+  .manager-pagination__range {
+    font-size: 0.9rem;
+    color: var(--profile-text-secondary);
+  }
+
+  .manager-pagination__controls {
+    display: inline-flex;
+    gap: 0.5rem;
+  }
+
+  .manager-pagination__button {
+    border: 1px solid rgba(14, 165, 233, 0.35);
+    background: rgba(14, 165, 233, 0.12);
+    color: var(--profile-navy);
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: var(--profile-transition);
+  }
+
+  .manager-pagination__button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .manager-pagination__button:not(:disabled):hover {
+    background: rgba(14, 165, 233, 0.18);
   }
 
   .loader {
@@ -436,10 +600,33 @@
   .loader .spinner {
     width: 18px;
     height: 18px;
-    border: 3px solid rgba(2, 43, 91, 0.15);
+    border: 3px solid rgba(14, 165, 233, 0.18);
     border-top-color: var(--profile-cyan);
     border-radius: 50%;
     animation: spin 0.75s linear infinite;
+  }
+
+  .banner-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .banner-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(14, 165, 233, 0.12);
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
+    color: var(--profile-navy);
+    font-weight: 600;
+  }
+
+  .banner-chip i {
+    font-size: 0.8rem;
   }
 
   @keyframes spin {
@@ -447,19 +634,20 @@
   }
 
   @media (max-width: 768px) {
-    .profile-hero-content {
-      justify-content: center;
-      text-align: center;
+    .profile-summary-card {
+      padding: 1.5rem;
     }
 
-    .profile-action {
-      width: 100%;
-      margin: 1.5rem 0 0 0;
-      justify-content: center;
+    .profile-summary-main {
       text-align: center;
+      justify-content: center;
     }
 
-    .profile-action a {
+    .profile-summary-actions {
+      flex-direction: column;
+    }
+
+    .profile-summary-action {
       width: 100%;
       justify-content: center;
     }
@@ -475,6 +663,7 @@
     .manager-row {
       flex-direction: column;
       align-items: flex-start;
+      gap: 1.25rem;
     }
 
     .manager-row .metrics {
@@ -485,26 +674,26 @@
 </style>
 
 <div class="profile-wrapper">
-  <section class="profile-hero">
-    <div class="profile-hero-content">
+  <div class="profile-summary-card">
+    <div class="profile-summary-main">
       <div class="profile-avatar" id="profileAvatar">U</div>
-      <div class="profile-identity">
+      <div class="profile-summary-details">
         <h1 id="profileName">User</h1>
         <p id="profileRole">Loading role…</p>
-      <div class="profile-chips" id="profileChips"></div>
-      </div>
-      <div class="profile-action">
-        <a id="agentExperienceLink" href="#" target="_top">
-          <i class="fa-solid fa-compass"></i>
-          Open Agent Experience
-        </a>
-        <a id="agentScheduleLink" class="secondary" href="#" target="_top">
-          <i class="fa-solid fa-calendar-check"></i>
-          View My Schedule
-        </a>
+        <div class="profile-chips" id="profileChips"></div>
       </div>
     </div>
-  </section>
+    <div class="profile-summary-actions">
+      <a id="agentExperienceLink" class="profile-summary-action primary" href="#" target="_top">
+        <i class="fa-solid fa-user-gear"></i>
+        Agent Experience
+      </a>
+      <a id="agentScheduleLink" class="profile-summary-action secondary" href="#" target="_top">
+        <i class="fa-solid fa-calendar-days"></i>
+        View Schedule
+      </a>
+    </div>
+  </div>
 
   <div class="profile-grid">
     <section class="profile-card">
@@ -517,11 +706,20 @@
       <div class="info-grid" id="employmentDetails"></div>
     </section>
 
-    <section class="profile-card">
-      <h2><i class="fa-solid fa-user-shield"></i> Access &amp; Permissions</h2>
-      <div class="chip-row" id="roleChips"></div>
-      <div class="chip-row" id="pageChips"></div>
-      <div class="info-grid" id="accessDetails"></div>
+    <section class="profile-card collapsible-card">
+      <div class="profile-card-header">
+        <h2><i class="fa-solid fa-user-shield"></i> Access &amp; Permissions</h2>
+        <button class="collapsible-toggle" type="button" data-target="accessPermissionsPanel"
+          data-collapsed-text="Show access" data-expanded-text="Hide access" aria-expanded="false">
+          <span class="collapsible-toggle__label">Show access</span>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="profile-card-body" id="accessPermissionsPanel" hidden>
+        <div class="chip-row" id="roleChips"></div>
+        <div class="chip-row" id="pageChips"></div>
+        <div class="info-grid" id="accessDetails"></div>
+      </div>
     </section>
 
     <section class="profile-card">
@@ -548,6 +746,7 @@
       </div>
       <div class="manager-stats" id="managerSummaryStats"></div>
       <div class="manager-list" id="managerSummaryList"></div>
+      <div class="manager-pagination hidden" id="managerSummaryPagination"></div>
       <div class="empty-state manager-summary-empty hidden" id="managerSummaryEmpty">
         No managed team members are assigned to you yet.
       </div>
@@ -572,7 +771,8 @@
     campaignId: PROFILE_BOOTSTRAP.campaignId || (CURRENT_USER ? CURRENT_USER.CampaignID || CURRENT_USER.campaignId || '' : ''),
     managerSummary: PROFILE_BOOTSTRAP.managerSummary || null,
     loadingEquipment: false,
-    loadingManagerSummary: false
+    loadingManagerSummary: false,
+    managerPagination: { page: 1, pageSize: 6 }
   };
 
   function setText(id, value, fallback = '') {
@@ -851,6 +1051,7 @@
       container.classList.add('empty');
       return;
     }
+    container.classList.remove('empty');
 
     list.forEach(value => {
       const chip = document.createElement('span');
@@ -968,6 +1169,7 @@
     const listEl = document.getElementById('managerSummaryList');
     const emptyEl = document.getElementById('managerSummaryEmpty');
     const countEl = document.getElementById('managerSummaryManagedCount');
+    const paginationEl = document.getElementById('managerSummaryPagination');
 
     if (emptyEl && state.loadingManagerSummary) {
       emptyEl.classList.add('hidden');
@@ -978,6 +1180,10 @@
     }
     if (statsEl) statsEl.innerHTML = '';
     if (listEl) listEl.innerHTML = '';
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
+      paginationEl.classList.add('hidden');
+    }
 
     if (!summary) {
       if (emptyEl && !state.loadingManagerSummary) {
@@ -1055,6 +1261,10 @@
         emptyEl.textContent = 'No managed team members are assigned to you yet.';
         emptyEl.classList.remove('hidden');
       }
+      if (paginationEl) {
+        paginationEl.classList.add('hidden');
+      }
+      state.managerPagination.page = 1;
       return;
     }
 
@@ -1075,7 +1285,50 @@
       return aName.localeCompare(bName);
     });
 
-    users.forEach(user => {
+    const pageSize = state.managerPagination.pageSize || 6;
+    let currentPage = state.managerPagination.page || 1;
+    const totalPages = Math.max(1, Math.ceil(users.length / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    state.managerPagination.page = currentPage;
+
+    const startIndex = (currentPage - 1) * pageSize;
+    const pagedUsers = users.slice(startIndex, startIndex + pageSize);
+
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
+      if (users.length) {
+        const range = document.createElement('span');
+        range.className = 'manager-pagination__range';
+        const start = startIndex + 1;
+        const end = Math.min(startIndex + pageSize, users.length);
+        range.textContent = `Showing ${start}–${end} of ${users.length}`;
+        paginationEl.appendChild(range);
+
+        if (totalPages > 1) {
+          const controls = document.createElement('div');
+          controls.className = 'manager-pagination__controls';
+
+          const createButton = (action, label, icon, disabled) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'manager-pagination__button';
+            button.dataset.pageAction = action;
+            button.disabled = disabled;
+            button.innerHTML = `<i class="${icon}"></i><span>${label}</span>`;
+            controls.appendChild(button);
+          };
+
+          createButton('prev', 'Previous', 'fa-solid fa-arrow-left', currentPage === 1);
+          createButton('next', 'Next', 'fa-solid fa-arrow-right', currentPage === totalPages);
+          paginationEl.appendChild(controls);
+        }
+
+        paginationEl.classList.remove('hidden');
+      }
+    }
+
+    pagedUsers.forEach(user => {
       const row = document.createElement('div');
       row.className = 'manager-row';
 
@@ -1120,6 +1373,53 @@
     });
   }
 
+  function handleManagerPaginationClick(event) {
+    const button = event.target && event.target.closest ? event.target.closest('[data-page-action]') : null;
+    if (!button || button.disabled) {
+      return;
+    }
+
+    const action = button.getAttribute('data-page-action');
+    const currentPage = state.managerPagination.page || 1;
+    if (action === 'prev') {
+      state.managerPagination.page = Math.max(1, currentPage - 1);
+    } else if (action === 'next') {
+      state.managerPagination.page = currentPage + 1;
+    }
+
+    renderManagerSummary(state.managerSummary);
+  }
+
+  function setupCollapsibleCards() {
+    const toggles = document.querySelectorAll('.collapsible-toggle');
+    toggles.forEach(toggle => {
+      const targetId = toggle.getAttribute('data-target');
+      const panel = targetId ? document.getElementById(targetId) : null;
+      if (!panel) {
+        return;
+      }
+
+      const label = toggle.querySelector('.collapsible-toggle__label');
+      const collapsedText = toggle.getAttribute('data-collapsed-text') || 'Show';
+      const expandedText = toggle.getAttribute('data-expanded-text') || 'Hide';
+
+      const setState = expanded => {
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        panel.hidden = !expanded;
+        if (label) {
+          label.textContent = expanded ? expandedText : collapsedText;
+        }
+      };
+
+      setState(false);
+
+      toggle.addEventListener('click', () => {
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+        setState(!isExpanded);
+      });
+    });
+  }
+
   function resolveDisplayName(userRecord) {
     if (!userRecord || typeof userRecord !== 'object') {
       return '';
@@ -1161,6 +1461,65 @@
     if (roleMatch || permissionMatch || canManageUsers) return true;
     if (summary && summary.users && summary.users.length) return true;
     return false;
+  }
+
+  function updateGlobalBannerFromProfile({ name, primaryRole, campaign, status, startDate }) {
+    if (typeof initializeGlobalBanner !== 'function') {
+      return;
+    }
+
+    const descriptionParts = [];
+    if (primaryRole) descriptionParts.push(primaryRole);
+    const description = descriptionParts.join(' • ');
+
+    const chipRow = document.createElement('div');
+    chipRow.className = 'banner-chip-row';
+
+    const appendChip = (icon, label) => {
+      if (!label) return;
+      const chip = document.createElement('span');
+      chip.className = 'banner-chip';
+      if (icon) {
+        const iconEl = document.createElement('i');
+        iconEl.className = icon;
+        chip.appendChild(iconEl);
+      }
+      const text = document.createElement('span');
+      text.textContent = label;
+      chip.appendChild(text);
+      chipRow.appendChild(chip);
+    };
+
+    appendChip('fa-solid fa-circle-check', status);
+    appendChip('fa-solid fa-calendar', startDate ? `Joined ${startDate}` : '');
+
+    const actions = [];
+    const addAction = (href, label, icon, variant) => {
+      if (!href) return;
+      const action = document.createElement('a');
+      action.href = href;
+      action.textContent = label;
+      action.setAttribute('data-banner-icon', icon);
+      action.setAttribute('data-banner-variant', variant);
+      actions.push(action);
+    };
+
+    try {
+      addAction(buildPageLink('agent-experience'), 'Agent Experience', 'fa-solid fa-user-gear', 'primary');
+      addAction(buildPageLink('agentschedule'), 'View Schedule', 'fa-solid fa-calendar-days', 'secondary');
+    } catch (err) {
+      console.warn('Unable to build banner actions', err);
+    }
+
+    const descriptionElements = chipRow.childNodes.length ? [chipRow] : [];
+
+    initializeGlobalBanner({
+      title: name || 'My Profile',
+      description,
+      descriptionElements,
+      campaignName: campaign,
+      actions
+    });
   }
 
   function hydrateHero(userRecord, detailRecord) {
@@ -1212,6 +1571,8 @@
     if (scheduleLink) {
       scheduleLink.href = buildPageLink('agentschedule');
     }
+
+    updateGlobalBannerFromProfile({ name, primaryRole, campaign, status, startDate });
   }
 
   function refreshSections() {
@@ -1259,7 +1620,16 @@
       } },
       { label: 'Manage Users', keys: ['canManageUsers'], transform: () => formatBoolean(state.permissions && state.permissions.canManageUsers) },
       { label: 'Manage Pages', keys: ['canManagePages'], transform: () => formatBoolean(state.permissions && state.permissions.canManagePages) },
-      { label: 'Assigned Campaign', keys: ['CampaignID', 'campaignId'], transform: (value) => safeString(value || state.campaignId) }
+      {
+        label: 'Assigned Campaign',
+        keys: ['CampaignName', 'campaignName', 'CampaignID', 'campaignId'],
+        transform: (value, record, userData) => {
+          const name = safeString(record && (record.CampaignName || record.campaignName)) ||
+            safeString(userData && (userData.CampaignName || userData.campaignName));
+          const id = safeString(record && (record.CampaignID || record.campaignId)) || safeString(state.campaignId);
+          return name || id;
+        }
+      }
     ], Object.assign({}, detailRecord, { permissions: state.permissions }));
 
     renderInfoGrid('securityDetails', [
@@ -1370,10 +1740,13 @@
         state.loadingManagerSummary = false;
         if (result && result.success) {
           state.managerSummary = result;
+          state.managerPagination.page = 1;
         } else if (result) {
           state.managerSummary = Object.assign({ success: false }, result);
+          state.managerPagination.page = 1;
         } else {
           state.managerSummary = { success: false, error: 'Unable to load team summary right now.' };
+          state.managerPagination.page = 1;
         }
         renderManagerSummary(state.managerSummary);
       })
@@ -1405,6 +1778,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    setupCollapsibleCards();
+    const paginationEl = document.getElementById('managerSummaryPagination');
+    if (paginationEl) {
+      paginationEl.addEventListener('click', handleManagerPaginationClick);
+    }
+
     refreshSections();
     fetchUserDetail();
     fetchUserPages();
