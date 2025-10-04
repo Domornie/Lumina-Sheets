@@ -3701,7 +3701,16 @@ function cleanupExpiredSessionsJob() {
     if (typeof AuthenticationService !== 'undefined'
       && AuthenticationService
       && typeof AuthenticationService.cleanupExpiredSessions === 'function') {
-      return AuthenticationService.cleanupExpiredSessions();
+      const result = AuthenticationService.cleanupExpiredSessions();
+      if (result && result.success) {
+        const removed = typeof result.removed === 'number' ? result.removed : 0;
+        const evaluated = typeof result.evaluated === 'number' ? result.evaluated : 0;
+        const reasons = result.reasons ? JSON.stringify(result.reasons) : '{}';
+        console.log('cleanupExpiredSessionsJob: removed ' + removed + ' of ' + evaluated + ' sessions (reasons: ' + reasons + ').');
+      } else {
+        console.warn('cleanupExpiredSessionsJob: cleanup did not succeed', result);
+      }
+      return result;
     }
     console.warn('cleanupExpiredSessionsJob: AuthenticationService not available');
     return { success: false, error: 'AuthenticationService unavailable' };

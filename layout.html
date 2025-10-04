@@ -113,6 +113,7 @@
     }
   ?>
 
+  <?!= includeOnce('CookieHandler') ?>
   <?!= includeOnce('layoutAlerts') ?>
   <?!= includeOnce('ResponsiveStyles') ?>
 
@@ -157,6 +158,65 @@
 
     BASE_URL = __BASE_URL || __SCRIPT_URL || BASE_URL;
     SCRIPT_URL = __SCRIPT_URL || __BASE_URL || SCRIPT_URL;
+
+    function __appendLoginQuery(candidate) {
+      if (!candidate) {
+        return '';
+      }
+
+      try {
+        const url = new URL(candidate);
+        url.searchParams.set('page', 'login');
+        url.hash = '';
+        return url.toString();
+      } catch (err) {
+        const sanitized = String(candidate).replace(/#.*$/, '');
+        if (!sanitized) {
+          return '';
+        }
+        if (/[?&]page=/i.test(sanitized)) {
+          return sanitized.replace(/([?&]page=)([^&]*)/i, '$1login');
+        }
+        const separator = sanitized.indexOf('?') === -1 ? '?' : '&';
+        return sanitized + separator + 'page=login';
+      }
+    }
+
+    const LOGIN_URL = (function computeLoginUrl() {
+      const candidates = [];
+      if (typeof __RAW_RETURN_URL !== 'undefined' && __RAW_RETURN_URL) {
+        candidates.push(__RAW_RETURN_URL);
+      }
+      if (__BASE_URL) {
+        candidates.push(__BASE_URL);
+      }
+      if (__SCRIPT_URL && __SCRIPT_URL !== __BASE_URL) {
+        candidates.push(__SCRIPT_URL);
+      }
+      try {
+        if (window && window.location && window.location.href) {
+          candidates.push(window.location.href);
+        }
+      } catch (err) {
+        console.warn('Unable to derive login URL from location', err);
+      }
+
+      for (let i = 0; i < candidates.length; i += 1) {
+        const candidate = candidates[i];
+        if (!candidate) {
+          continue;
+        }
+        const sanitized = sanitizeNavigationUrl(candidate, '') || candidate;
+        const loginCandidate = __appendLoginQuery(sanitized);
+        if (loginCandidate) {
+          return loginCandidate;
+        }
+      }
+
+      return __appendLoginQuery(__SCRIPT_URL || __BASE_URL || '');
+    })();
+
+    window.__LUMINA_LOGIN_URL = LOGIN_URL;
 
     function createSlug(value, fallback) {
       const queue = [];
@@ -2584,16 +2644,42 @@
         // ──────────────────────────────────────────────────────────────────────────────
         // SIMPLIFIED LOGOUT FUNCTION
         // ──────────────────────────────────────────────────────────────────────────────
+        function stopSessionHeartbeat(reason) {
+            try {
+                if (window.LuminaSessionHeartbeat && typeof window.LuminaSessionHeartbeat.stop === 'function') {
+                    window.LuminaSessionHeartbeat.stop({ clearAuth: true, reason: reason || 'logout' });
+                } else if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+                    CookieHandler.clearAuthToken();
+                }
+            } catch (heartbeatError) {
+                console.warn('stopSessionHeartbeat: unable to stop session heartbeat', heartbeatError);
+            }
+
+            try {
+                if (window.localStorage) {
+                    localStorage.removeItem('lumina.auth.sessionToken');
+                    localStorage.removeItem('lumina.session.token');
+                    localStorage.removeItem('lumina.auth.fallbackToken');
+                }
+            } catch (storageError) {
+                console.warn('stopSessionHeartbeat: unable to clear fallback storage', storageError);
+            }
+        }
+
         function handleLogout() {
             if (!confirm('Are you sure you want to logout?')) return;
-            
+
             const btn = document.querySelector('.logout-btn-topbar');
-            btn.disabled = true;
-            const icon = btn.querySelector('i');
-            if (icon) icon.className = 'fas fa-spinner loading-spinner-head';
-            
+            if (btn) {
+                btn.disabled = true;
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = 'fas fa-spinner loading-spinner-head';
+            }
+
             console.log('🚪 Initiating logout...');
-            
+
+            stopSessionHeartbeat('logout-init');
+
             // Clear browser storage
             try {
                 localStorage.clear();
@@ -2618,7 +2704,9 @@
 
         function performLogout() {
             console.log('Performing logout...');
-            
+
+            stopSessionHeartbeat('logout-finalize');
+
             // Clear browser storage again
             try {
                 localStorage.clear();
@@ -2630,9 +2718,10 @@
             
             // Show logout message and redirect
             showLogoutMessage();
-            
+
             setTimeout(function() {
-                window.location.href = BASE_URL;
+                const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL;
+                window.location.href = target || BASE_URL;
             }, 2000);
         }
 
@@ -2852,6 +2941,530 @@
         });
 
         console.log('✨ Simplified header system loaded successfully');
+    </script>
+    <script>
+        (function initializeLuminaSessionHeartbeat(global) {
+            if (!global) {
+                return;
+            }
+            if (global.LuminaSessionHeartbeat) {
+                return;
+            }
+
+            const MIN_INTERVAL_MS = 60 * 1000;
+            const MAX_INTERVAL_MS = 5 * 60 * 1000;
+            const DEFAULT_IDLE_MINUTES = 30;
+            const FALLBACK_STORAGE_KEY = 'lumina.session.token';
+
+            const state = {
+                token: '',
+                remember: false,
+                idleMinutes: DEFAULT_IDLE_MINUTES,
+                ttlSeconds: null,
+                expiresAt: null,
+                timer: null,
+                intervalMs: null,
+                nextRunAt: null,
+                inFlight: false,
+                consecutiveFailures: 0,
+                started: false,
+                lastResult: null
+            };
+
+            function dispatchStatus(status, detail) {
+                const payload = Object.assign({
+                    status: status,
+                    timestamp: new Date().toISOString()
+                }, detail || {});
+
+                try {
+                    const event = new CustomEvent('lumina:session-status', { detail: payload });
+                    global.dispatchEvent(event);
+                } catch (err) {
+                    try {
+                        if (typeof document !== 'undefined' && typeof document.createEvent === 'function') {
+                            const fallbackEvent = document.createEvent('CustomEvent');
+                            fallbackEvent.initCustomEvent('lumina:session-status', true, true, payload);
+                            global.dispatchEvent(fallbackEvent);
+                        }
+                    } catch (fallbackError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to dispatch session-status event', fallbackError);
+                        }
+                    }
+                }
+            }
+
+            function readTokenFromStorage() {
+                let token = '';
+
+                try {
+                    if (global.CookieHandler && typeof global.CookieHandler.readAuthToken === 'function') {
+                        token = global.CookieHandler.readAuthToken();
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to read auth cookie', err);
+                    }
+                }
+
+                if (!token) {
+                    try {
+                        if (global.localStorage) {
+                            token = global.localStorage.getItem(FALLBACK_STORAGE_KEY) || '';
+                        }
+                    } catch (storageError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to read fallback token', storageError);
+                        }
+                    }
+                }
+
+                return token || '';
+            }
+
+            function persistToken(token, options) {
+                if (!token) {
+                    clearToken(options);
+                    return '';
+                }
+
+                try {
+                    if (global.CookieHandler && typeof global.CookieHandler.persistAuthToken === 'function') {
+                        global.CookieHandler.persistAuthToken(token, options || {});
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to persist auth cookie', err);
+                    }
+                }
+
+                try {
+                    if (global.localStorage) {
+                        global.localStorage.setItem(FALLBACK_STORAGE_KEY, token);
+                    }
+                } catch (storageError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to persist fallback token', storageError);
+                    }
+                }
+
+                state.token = token;
+                return token;
+            }
+
+            function clearToken(options) {
+                try {
+                    if (global.CookieHandler && typeof global.CookieHandler.clearAuthToken === 'function') {
+                        global.CookieHandler.clearAuthToken(options || {});
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to clear auth cookie', err);
+                    }
+                }
+
+                try {
+                    if (global.localStorage) {
+                        global.localStorage.removeItem(FALLBACK_STORAGE_KEY);
+                    }
+                } catch (storageError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to clear fallback token', storageError);
+                    }
+                }
+
+                state.token = '';
+            }
+
+            function clearTimer() {
+                if (state.timer) {
+                    global.clearTimeout(state.timer);
+                    state.timer = null;
+                }
+            }
+
+            function computeIdleMs() {
+                const minutes = (typeof state.idleMinutes === 'number' && state.idleMinutes > 0)
+                    ? state.idleMinutes
+                    : DEFAULT_IDLE_MINUTES;
+                return Math.max(1, minutes) * 60 * 1000;
+            }
+
+            function computeNextInterval() {
+                const idleMs = computeIdleMs();
+                let interval = Math.max(MIN_INTERVAL_MS, Math.floor(idleMs / 2));
+                let ttlMs = null;
+
+                if (typeof state.ttlSeconds === 'number' && state.ttlSeconds > 0) {
+                    ttlMs = state.ttlSeconds * 1000;
+                } else if (state.expiresAt) {
+                    const expiry = Date.parse(state.expiresAt);
+                    if (!isNaN(expiry)) {
+                        ttlMs = Math.max(0, expiry - Date.now());
+                    }
+                }
+
+                if (ttlMs !== null && ttlMs > 0) {
+                    interval = Math.min(interval, Math.max(MIN_INTERVAL_MS, Math.floor(ttlMs / 2)));
+                }
+
+                const safetyWindow = Math.max(MIN_INTERVAL_MS, Math.floor(idleMs * 0.2));
+                interval = Math.min(interval, Math.max(MIN_INTERVAL_MS, idleMs - safetyWindow));
+                interval = Math.min(Math.max(interval, MIN_INTERVAL_MS), MAX_INTERVAL_MS);
+                return interval;
+            }
+
+            function schedule(nextMs) {
+                const delay = Math.min(Math.max(MIN_INTERVAL_MS, Math.floor(nextMs || MIN_INTERVAL_MS)), MAX_INTERVAL_MS);
+                clearTimer();
+                state.intervalMs = delay;
+                state.nextRunAt = Date.now() + delay;
+                state.timer = global.setTimeout(runHeartbeat, delay);
+                return delay;
+            }
+
+            function notifyExpired(message) {
+                const text = message || 'Your session has expired. Please sign in again.';
+
+                try {
+                    if (typeof global.showLuminaToast === 'function') {
+                        global.showLuminaToast(text, {
+                            type: 'info',
+                            title: 'Session Expired'
+                        });
+                        return;
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: toast notification failed', err);
+                    }
+                }
+
+                try {
+                    if (typeof global.alert === 'function') {
+                        global.alert(text);
+                    }
+                } catch (alertError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to display alert', alertError);
+                    }
+                }
+            }
+
+            function redirectToLogin() {
+                const target = global.__LUMINA_LOGIN_URL || global.LOGIN_URL || global.BASE_URL || (global.location ? global.location.href : '/');
+                global.setTimeout(function () {
+                    try {
+                        global.location.href = target;
+                    } catch (err) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: redirect failed', err);
+                        }
+                    }
+                }, 500);
+            }
+
+            function stop(options) {
+                const opts = options || {};
+                clearTimer();
+                state.started = false;
+                state.inFlight = false;
+                state.intervalMs = null;
+                state.nextRunAt = null;
+
+                if (opts.clearAuth) {
+                    clearToken(opts);
+                }
+
+                if (!opts.silent) {
+                    dispatchStatus('stopped', {
+                        reason: opts.reason || 'manual'
+                    });
+                }
+
+                return true;
+            }
+
+            function handleExpired(result) {
+                const reason = result && result.reason ? String(result.reason) : 'EXPIRED';
+                dispatchStatus('expired', {
+                    result: result,
+                    reason: reason
+                });
+                stop({ clearAuth: true, reason: reason, silent: true });
+                notifyExpired(result && result.message ? result.message : 'Your session has expired. Please sign in again.');
+                redirectToLogin();
+            }
+
+            function handleSuccess(result) {
+                state.inFlight = false;
+
+                if (!result || result.success !== true) {
+                    if (result && result.expired) {
+                        handleExpired(result);
+                        return;
+                    }
+                    handleFailure(result || new Error('Unexpected keep-alive response'));
+                    return;
+                }
+
+                state.lastResult = result;
+                state.consecutiveFailures = 0;
+
+                const resolvedIdle = (typeof result.idleTimeoutMinutes === 'number' && result.idleTimeoutMinutes > 0)
+                    ? result.idleTimeoutMinutes
+                    : (typeof result.sessionIdleTimeoutMinutes === 'number' && result.sessionIdleTimeoutMinutes > 0
+                        ? result.sessionIdleTimeoutMinutes
+                        : state.idleMinutes);
+                state.idleMinutes = Math.max(1, Math.round(resolvedIdle));
+
+                if (typeof result.rememberMe === 'boolean') {
+                    state.remember = result.rememberMe;
+                }
+
+                if (typeof result.sessionTtlSeconds === 'number' && result.sessionTtlSeconds > 0) {
+                    state.ttlSeconds = result.sessionTtlSeconds;
+                }
+                if (result.sessionExpiresAt) {
+                    state.expiresAt = result.sessionExpiresAt;
+                }
+
+                const token = result.sessionToken || state.token || readTokenFromStorage();
+                if (token) {
+                    persistToken(token, {
+                        rememberMe: state.remember,
+                        ttlSeconds: state.ttlSeconds,
+                        expiresAt: state.expiresAt
+                    });
+                }
+
+                const nextDelay = computeNextInterval();
+                schedule(nextDelay);
+
+                dispatchStatus('active', {
+                    result: result,
+                    nextRunInMs: nextDelay,
+                    idleTimeoutMinutes: state.idleMinutes
+                });
+            }
+
+            function handleFailure(error) {
+                state.inFlight = false;
+                state.consecutiveFailures += 1;
+
+                const base = state.intervalMs || computeNextInterval();
+                const multiplier = Math.min(5, 1 + state.consecutiveFailures * 0.5);
+                const nextDelay = Math.min(MAX_INTERVAL_MS, Math.max(MIN_INTERVAL_MS, Math.floor(base * multiplier)));
+
+                schedule(nextDelay);
+
+                dispatchStatus('error', {
+                    error: error && error.message ? error.message : error,
+                    consecutiveFailures: state.consecutiveFailures,
+                    nextRunInMs: nextDelay
+                });
+            }
+
+            function runHeartbeat() {
+                if (!state.started) {
+                    return;
+                }
+
+                if (state.inFlight) {
+                    return;
+                }
+
+                const token = state.token || readTokenFromStorage();
+                if (!token) {
+                    dispatchStatus('missing-token', { message: 'No session token available' });
+                    stop({ clearAuth: true, reason: 'missing-token', silent: true });
+                    notifyExpired('Your session has ended. Please sign in again.');
+                    redirectToLogin();
+                    return;
+                }
+
+                state.token = token;
+
+                if (!global.google || !global.google.script || !global.google.script.run) {
+                    dispatchStatus('unavailable', { message: 'google.script.run not ready' });
+                    schedule(MAX_INTERVAL_MS);
+                    return;
+                }
+
+                state.inFlight = true;
+                try {
+                    global.google.script.run
+                        .withSuccessHandler(handleSuccess)
+                        .withFailureHandler(handleFailure)
+                        .keepAlive(token);
+                } catch (err) {
+                    state.inFlight = false;
+                    handleFailure(err);
+                }
+            }
+
+            function start(options) {
+                const opts = options || {};
+                const token = opts.token || state.token || readTokenFromStorage();
+                if (!token) {
+                    dispatchStatus('missing-token', { message: 'No session token available' });
+                    return false;
+                }
+
+                state.token = token;
+                state.started = true;
+
+                if (typeof opts.rememberMe === 'boolean') {
+                    state.remember = opts.rememberMe;
+                }
+                if (typeof opts.idleTimeoutMinutes === 'number' && opts.idleTimeoutMinutes > 0) {
+                    state.idleMinutes = Math.max(1, Math.round(opts.idleTimeoutMinutes));
+                }
+                if (typeof opts.sessionTtlSeconds === 'number' && opts.sessionTtlSeconds > 0) {
+                    state.ttlSeconds = opts.sessionTtlSeconds;
+                }
+                if (opts.sessionExpiresAt) {
+                    state.expiresAt = opts.sessionExpiresAt;
+                }
+
+                const initialDelay = computeNextInterval();
+                const scheduled = schedule(opts.immediate === true ? MIN_INTERVAL_MS : initialDelay);
+
+                if (opts.immediate === true) {
+                    global.setTimeout(runHeartbeat, 100);
+                }
+
+                dispatchStatus('started', {
+                    idleTimeoutMinutes: state.idleMinutes,
+                    nextRunInMs: scheduled,
+                    rememberMe: state.remember
+                });
+
+                return true;
+            }
+
+            function refreshFromResult(result) {
+                if (!result) {
+                    return;
+                }
+
+                if (typeof result.idleTimeoutMinutes === 'number' && result.idleTimeoutMinutes > 0) {
+                    state.idleMinutes = Math.max(1, Math.round(result.idleTimeoutMinutes));
+                } else if (typeof result.sessionIdleTimeoutMinutes === 'number' && result.sessionIdleTimeoutMinutes > 0) {
+                    state.idleMinutes = Math.max(1, Math.round(result.sessionIdleTimeoutMinutes));
+                }
+
+                if (typeof result.rememberMe === 'boolean') {
+                    state.remember = result.rememberMe;
+                }
+
+                if (typeof result.sessionTtlSeconds === 'number' && result.sessionTtlSeconds > 0) {
+                    state.ttlSeconds = result.sessionTtlSeconds;
+                }
+                if (result.sessionExpiresAt) {
+                    state.expiresAt = result.sessionExpiresAt;
+                }
+
+                if (result.sessionToken) {
+                    persistToken(result.sessionToken, {
+                        rememberMe: state.remember,
+                        ttlSeconds: state.ttlSeconds,
+                        expiresAt: state.expiresAt
+                    });
+                }
+
+                if (!state.started) {
+                    start({
+                        token: state.token,
+                        rememberMe: state.remember,
+                        idleTimeoutMinutes: state.idleMinutes,
+                        sessionTtlSeconds: state.ttlSeconds,
+                        sessionExpiresAt: state.expiresAt,
+                        immediate: true
+                    });
+                    return;
+                }
+
+                const nextDelay = computeNextInterval();
+                schedule(nextDelay);
+
+                dispatchStatus('refreshed', {
+                    result: result,
+                    nextRunInMs: nextDelay
+                });
+            }
+
+            function runNow() {
+                clearTimer();
+                if (!state.started) {
+                    const token = state.token || readTokenFromStorage();
+                    if (!token) {
+                        dispatchStatus('missing-token', { message: 'No session token available' });
+                        return false;
+                    }
+                    state.started = true;
+                    state.token = token;
+                }
+                runHeartbeat();
+                return true;
+            }
+
+            function getState() {
+                return Object.assign({}, state);
+            }
+
+            global.LuminaSessionHeartbeat = {
+                start: start,
+                stop: stop,
+                refreshFromResult: refreshFromResult,
+                runNow: runNow,
+                persistToken: persistToken,
+                getState: getState
+            };
+
+            const initialToken = readTokenFromStorage();
+            if (initialToken) {
+                state.token = initialToken;
+                start({ token: initialToken });
+            } else {
+                dispatchStatus('missing-token', { message: 'No session token found at initialization' });
+            }
+
+            global.addEventListener('lumina:session-refresh', function (event) {
+                try {
+                    refreshFromResult(event && event.detail ? event.detail : null);
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: session-refresh handler failed', err);
+                    }
+                }
+            });
+
+            global.addEventListener('lumina:session-start', function (event) {
+                try {
+                    start(event && event.detail ? event.detail : {});
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: session-start handler failed', err);
+                    }
+                }
+            });
+
+            global.addEventListener('lumina:session-stop', function (event) {
+                try {
+                    stop(event && event.detail ? event.detail : {});
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: session-stop handler failed', err);
+                    }
+                }
+            });
+
+            global.addEventListener('lumina:session-force-heartbeat', function () {
+                runNow();
+            });
+        })(typeof window !== 'undefined' ? window : this);
     </script>
     <script>
         (function registerGlobalChannelClosedHandler() {
