@@ -953,30 +953,30 @@ function authenticateUser(e) {
   }
 }
 
-/**
- * Generate URL with token if needed
- */
 function getAuthenticatedUrl(page, campaignId, additionalParams = {}) {
   let url = SCRIPT_URL;
-  const params = new URLSearchParams();
-  
+  var queryParts = [];
+
   if (page) {
-    params.set('page', page);
+    queryParts.push('page=' + encodeURIComponent(page));
   }
-  
+
   if (campaignId) {
-    params.set('campaign', campaignId);
+    queryParts.push('campaign=' + encodeURIComponent(campaignId));
   }
-  
-  // Add additional parameters
-  Object.entries(additionalParams).forEach(([key, value]) => {
+
+  Object.keys(additionalParams || {}).forEach(function(key) {
+    var value = additionalParams[key];
     if (value !== null && value !== undefined) {
-      params.set(key, value);
+      queryParts.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
     }
   });
-  
-  const queryString = params.toString();
-  return queryString ? `${url}?${queryString}` : url;
+
+  if (queryParts.length > 0) {
+    return url + '?' + queryParts.join('&');
+  }
+
+  return url;
 }
 
 function getBaseUrl() {
@@ -1320,6 +1320,9 @@ function canonicalizePageKey(k) {
     case 'slotmanagement':
       return 'schedule.slots';
 
+    case 'importcsv':
+    case 'import-csv':
+      return 'import';
     case 'importattendance':
     case 'import-attendance':
       return 'importattendance';
@@ -1631,11 +1634,15 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
         return serveAgentSchedulePage(e, baseUrl, e.parameter.token);
 
       case 'import':
-        // Allow both admin and campaign-level access for general imports
-        if (isSystemAdmin(user)) {
-          return serveAdminPage('ImportCsv', e, baseUrl, user);
+        // Mirror Import Attendance authentication so managers and supervisors can import call reports
+        if (isSystemAdmin(user) || hasManagerRole(user) || hasSupervisorRole(user)) {
+          return serveAdminPage('ImportCsv', e, baseUrl, user, {
+            allowManagers: true,
+            allowSupervisors: true,
+            accessDeniedMessage: 'You need manager or supervisor privileges to import call reports.'
+          });
         } else {
-          return serveCampaignPage('ImportCsv', e, baseUrl, user, campaignIdFromCaller);
+          return renderAccessDenied('You need manager or supervisor privileges to import call reports.');
         }
 
       case 'importattendance':
@@ -1654,7 +1661,7 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       default:
         // Unknown page - redirect to dashboard
         const defaultCampaignId = user.CampaignID || '';
-        const redirectUrl = getCampaignUrl('dashboard', defaultCampaignId);
+        const redirectUrl = getAuthenticatedUrl('dashboard', defaultCampaignId);
 
         return HtmlService
           .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
