@@ -2495,10 +2495,39 @@ function clientAdminResetPassword(userId, requestingUserId) {
     const canLogin = _strToBool_(row[idx['CanLogin']]);
     if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
 
-    const token = Utilities.getUuid();
-    if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-    if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
-    if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
+    let token = null;
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.beginPasswordReset === 'function') {
+      try {
+        const resetResult = IdentityService.beginPasswordReset(email, { sendEmail: false, returnTokens: true });
+        if (resetResult && resetResult.success !== false && resetResult.resetToken) {
+          token = resetResult.resetToken;
+        } else {
+          console.warn('clientAdminResetPassword: IdentityService returned unexpected result', resetResult);
+        }
+      } catch (identityErr) {
+        writeError && writeError('clientAdminResetPassword:IdentityService', identityErr);
+      }
+    }
+
+    if (!token) {
+      token = Utilities.getUuid();
+      const sentAt = new Date();
+      const expiresAtDate = new Date(sentAt.getTime() + 60 * 60000);
+      const sentAtIso = sentAt.toISOString();
+      const expiresAtIso = expiresAtDate.toISOString();
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
+      const tokenHash = digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+
+      if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
+      if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
+      if (idx['ResetPasswordTokenHash'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash);
+      if (idx['ResetPasswordSentAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordSentAt'] + 1).setValue(sentAtIso);
+      if (idx['ResetPasswordExpiresAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordExpiresAt'] + 1).setValue(expiresAtIso);
+      if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
+      if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(sentAtIso);
+    }
 
     invalidateCache && invalidateCache(G.USERS_SHEET);
 
