@@ -931,7 +931,7 @@
       align-items: center;
       width: 100%;
       text-align: left;
-      cursor: pointer;
+      cursor: default;
       color: inherit;
       font: inherit;
       border: none;
@@ -941,8 +941,6 @@
       transition: var(--transition-smooth);
       position: relative;
       z-index: 3;
-      appearance: none;
-      -webkit-appearance: none;
     }
 
     .user-panel:focus-visible {
@@ -998,6 +996,38 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .user-name-trigger {
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      padding: 0;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+    }
+
+    .user-name-trigger:hover i,
+    .user-name-trigger:focus i {
+      opacity: 0.9;
+    }
+
+    .user-name-trigger:focus-visible {
+      outline: 2px solid var(--sidebar-active);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+
+    .user-name-trigger i {
+      font-size: 0.85rem;
+      opacity: 0.6;
     }
 
     .user-info .role {
@@ -1026,6 +1056,55 @@
       font-size: 0.7rem;
       opacity: 0.9;
       margin-right: 0.25rem;
+    }
+
+    .user-panel-menu {
+      position: absolute;
+      bottom: calc(100% - 0.5rem);
+      right: 1.5rem;
+      display: none;
+      flex-direction: column;
+      gap: 0.25rem;
+      padding: 0.6rem;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.45);
+      min-width: 180px;
+      z-index: 5;
+    }
+
+    .user-panel.menu-open .user-panel-menu {
+      display: flex;
+    }
+
+    .user-panel-menu[hidden] {
+      display: none !important;
+    }
+
+    .user-panel-menu__item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.9);
+      font: inherit;
+      font-weight: 600;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .user-panel-menu__item i {
+      font-size: 0.9rem;
+    }
+
+    .user-panel-menu__item:hover,
+    .user-panel-menu__item:focus {
+      background: rgba(99, 102, 241, 0.18);
+      color: #fff;
     }
 
     /* Enhanced Employment Status Colors */
@@ -3091,10 +3170,92 @@
             }
 
             console.log('✅ Lumina Dashboard initialized');
-            
+
+            const setupUserMenu = () => {
+                const panel = document.getElementById('userPanel');
+                const trigger = document.getElementById('userProfileTrigger');
+                const menu = document.getElementById('userPanelMenu');
+                if (!panel || !trigger || !menu) {
+                    return;
+                }
+
+                const closeMenu = () => {
+                    if (menu.hidden) {
+                        return;
+                    }
+                    menu.hidden = true;
+                    panel.classList.remove('menu-open');
+                    trigger.setAttribute('aria-expanded', 'false');
+                };
+
+                const openMenu = () => {
+                    menu.hidden = false;
+                    panel.classList.add('menu-open');
+                    trigger.setAttribute('aria-expanded', 'true');
+                };
+
+                const toggleMenu = () => {
+                    if (menu.hidden) {
+                        openMenu();
+                    } else {
+                        closeMenu();
+                    }
+                };
+
+                trigger.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleMenu();
+                });
+
+                trigger.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleMenu();
+                    } else if (event.key === 'Escape') {
+                        event.preventDefault();
+                        closeMenu();
+                    }
+                });
+
+                menu.addEventListener('click', function(event) {
+                    const item = event.target && event.target.closest ? event.target.closest('.user-panel-menu__item') : null;
+                    if (!item) {
+                        return;
+                    }
+                    const action = item.getAttribute('data-menu-action');
+                    closeMenu();
+                    if (action === 'profile') {
+                        if (typeof navigateToPage === 'function') {
+                            const profileIdAttr = panel.getAttribute('data-profile-id') || '';
+                            const params = profileIdAttr ? { profileId: profileIdAttr } : {};
+                            navigateToPage('userprofile', null, params);
+                        }
+                    } else if (action === 'logout') {
+                        if (typeof handleLogout === 'function') {
+                            handleLogout();
+                        }
+                    }
+                });
+
+                document.addEventListener('click', function(event) {
+                    if (!menu.hidden && !panel.contains(event.target)) {
+                        closeMenu();
+                    }
+                });
+
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape') {
+                        closeMenu();
+                    }
+                });
+            };
+
+            setupUserMenu();
+
             // Mark as hydrated immediately to prevent any client updates
             window.__userHydrated = true;
-            
+
             // Check if user panel was properly rendered by server
             const userPanel = document.getElementById('userPanel');
             if (userPanel && userPanel.getAttribute('data-initialized') === 'true') {
