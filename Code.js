@@ -1258,6 +1258,14 @@ function canonicalizePageKey(k) {
     case 'campaigns':
       return 'admin.campaigns';
 
+    // Experience hubs
+    case 'agent-experience':
+      return 'workspace.agent';
+    case 'manager-executive-experience':
+      return 'workspace.executive';
+    case 'goalsetting':
+      return 'performance.goals';
+
     // Task Management (Default Pages)
     case 'tasklist':
     case 'task-list':
@@ -1289,6 +1297,8 @@ function canonicalizePageKey(k) {
     case 'schedule':
     case 'schedulemanagement':
       return 'global.schedule';
+    case 'agent-schedule':
+      return 'schedule.agent';
 
     // Other Global Pages
     case 'notifications':
@@ -1297,17 +1307,26 @@ function canonicalizePageKey(k) {
       return 'global.settings';
 
     // QA System Pages
+    case 'unifiedqadashboard':
     case 'qa-dashboard':
     case 'ibtrqualityreports':
       return 'qa.dashboard';
     case 'qualityform':
     case 'independencequality':
     case 'creditsuiteqa':
+    case 'groundingqaform':
       return 'qa.form';
+    case 'qualitycollabform':
+    case 'qacollabform':
+      return 'qa.collaboration.form';
     case 'qualityview':
       return 'qa.view';
     case 'qualitylist':
       return 'qa.list';
+    case 'qacollablist':
+      return 'qa.collaboration.list';
+    case 'qacollabview':
+      return 'qa.collaboration.view';
 
     // Report Pages
     case 'callreports':
@@ -1328,6 +1347,7 @@ function canonicalizePageKey(k) {
       return 'coaching.form';
 
     // Calendar and Schedule
+    case 'calendar':
     case 'attendancecalendar':
       return 'calendar.attendance';
     case 'slotmanagement':
@@ -1482,6 +1502,14 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
+    if (page === 'agent-experience') {
+      return serveGlobalPage('AgentExperience', e, baseUrl, user);
+    }
+
+    if (page === 'goalsetting') {
+      return serveGlobalPage('GoalSetting', e, baseUrl, user);
+    }
+
     // Task Management (Default Pages)
     if (page === "tasklist" || page === "task-list") {
       return serveGlobalPage('TaskList', e, baseUrl, user);
@@ -1513,6 +1541,14 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
     }
 
     // Administration (Default Pages)
+    if (page === 'manager-executive-experience') {
+      return serveAdminPage('ManagerExecutiveExperience', e, baseUrl, user, {
+        allowManagers: true,
+        allowSupervisors: true,
+        accessDeniedMessage: 'Manager or executive access required.'
+      });
+    }
+
     if (page === 'users' || page === 'manageuser') {
       return serveAdminPage('Users', e, baseUrl, user);
     }
@@ -1589,6 +1625,16 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case 'qualitylist':
         return routeQAList(e, baseUrl, user, campaignIdFromCaller);
 
+      case 'qacollablist':
+        return serveCampaignPage('QACollabList', e, baseUrl, user, campaignIdFromCaller);
+
+      case 'qacollabview':
+        return serveCampaignPage('QualityCollabView', e, baseUrl, user, campaignIdFromCaller);
+
+      case 'qualitycollabform':
+      case 'qacollabform':
+        return serveCampaignPage('QualityCollabForm', e, baseUrl, user, campaignIdFromCaller);
+
       case "independencequality":
         return serveCampaignPage('IndependenceQAForm', e, baseUrl, user, campaignIdFromCaller);
 
@@ -1598,8 +1644,14 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case "creditsuiteqa":
         return serveCampaignPage('CreditSuiteQAForm', e, baseUrl, user, campaignIdFromCaller);
 
+      case "groundingqaform":
+        return serveCampaignPage('GroundingQAForm', e, baseUrl, user, campaignIdFromCaller);
+
       case "qa-dashboard":
         return serveCampaignPage('CreditSuiteQADashboard', e, baseUrl, user, campaignIdFromCaller);
+
+      case "unifiedqadashboard":
+        return serveCampaignPage('UnifiedQADashboard', e, baseUrl, user, campaignIdFromCaller);
 
       case "callreports":
         return serveCampaignPage('CallReports', e, baseUrl, user, campaignIdFromCaller);
@@ -1628,6 +1680,7 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case "collaborationreporting":
         return serveGlobalPage('CollaborationReporting', e, baseUrl, user);
 
+      case "calendar":
       case "attendancecalendar":
         return serveCampaignPage('Calendar', e, baseUrl, user, campaignIdFromCaller);
 

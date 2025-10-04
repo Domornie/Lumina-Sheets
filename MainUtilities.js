@@ -1055,22 +1055,33 @@ function getAllPagesFromActualRouting() {
   const discoveredPages = [
     // DASHBOARD & ANALYTICS
     { key: 'dashboard', title: 'Dashboard', icon: 'fas fa-tachometer-alt', description: 'Main dashboard with OKR metrics and analytics', isSystem: true, requiresAdmin: false, category: 'Dashboard & Analytics', isMainPage: true },
+    { key: 'agent-experience', title: 'Agent Experience', icon: 'fas fa-user-headset', description: 'Personalized workspace for frontline specialists with schedules, tasks, and communications', isSystem: true, requiresAdmin: false, category: 'Dashboard & Analytics', isMainPage: true },
+    { key: 'goalsetting', title: 'Goal Setting', icon: 'fas fa-bullseye', description: 'Create, track, and update OKRs and performance targets', isSystem: true, requiresAdmin: false, category: 'Dashboard & Analytics' },
+
+    // LEADERSHIP & EXECUTIVE HUBS
+    { key: 'manager-executive-experience', title: 'Manager & Executive Experience', icon: 'fas fa-briefcase', description: 'Leadership analytics, coaching metrics, and cross-campaign oversight', isSystem: true, requiresAdmin: true, category: 'Dashboard & Analytics' },
 
     // QUALITY ASSURANCE
     { key: 'qualityform', title: 'Quality Form', icon: 'fas fa-clipboard-check', description: 'Quality assurance evaluation form (campaign-aware routing)', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
     { key: 'ibtrqualityreports', title: 'QA Dashboard', icon: 'fas fa-chart-pie', description: 'Quality assurance dashboard and reports (campaign-aware routing)', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
     { key: 'qualityview', title: 'Quality View', icon: 'fas fa-eye', description: 'View individual quality assurance records', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
     { key: 'qualitylist', title: 'Quality List', icon: 'fas fa-list-check', description: 'List all quality assurance records', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
+    { key: 'unifiedqadashboard', title: 'Unified QA Dashboard', icon: 'fas fa-layer-group', description: 'Cross-campaign QA dashboard for consolidated quality analytics', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
+    { key: 'qacollablist', title: 'QA Collaboration List', icon: 'fas fa-users-gear', description: 'Collaborative queue of QA audits and action items', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
+    { key: 'qacollabview', title: 'QA Collaboration View', icon: 'fas fa-users-viewfinder', description: 'Detailed view of collaborative QA audit items', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
+    { key: 'qualitycollabform', title: 'QA Collaboration Form', icon: 'fas fa-clipboard-list', description: 'Submit or update collaborative QA action plans', isSystem: true, requiresAdmin: false, category: 'Quality Assurance' },
 
     // CAMPAIGN-SPECIFIC QA
     { key: 'independencequality', title: 'Independence Insurance QA', icon: 'fas fa-shield-alt', description: 'Quality assurance form for Independence Insurance campaign', isSystem: true, requiresAdmin: false, category: 'Campaign QA' },
     { key: 'independenceqadashboard', title: 'Independence QA Dashboard', icon: 'fas fa-chart-line', description: 'Unified QA dashboard for Independence Insurance', isSystem: true, requiresAdmin: false, category: 'Campaign QA' },
     { key: 'creditsuiteqa', title: 'Credit Suite QA', icon: 'fas fa-credit-card', description: 'Quality assurance form for Credit Suite campaign', isSystem: true, requiresAdmin: false, category: 'Campaign QA' },
     { key: 'qa-dashboard', title: 'Credit Suite QA Dashboard', icon: 'fas fa-chart-area', description: 'QA dashboard for Credit Suite campaign', isSystem: true, requiresAdmin: false, category: 'Campaign QA' },
+    { key: 'groundingqaform', title: 'Grounding QA Form', icon: 'fas fa-seedling', description: 'Campaign-specific QA form for Grounding support teams', isSystem: true, requiresAdmin: false, category: 'Campaign QA' },
 
     // REPORTING
     { key: 'callreports', title: 'Call Reports', icon: 'fas fa-phone-volume', description: 'Call analytics and reporting dashboard with CSV export', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
     { key: 'attendancereports', title: 'Attendance Reports', icon: 'fas fa-chart-bar', description: 'Attendance analytics and reports with CSV export', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
+    { key: 'collaboration-reporting', title: 'Collaboration Reporting', icon: 'fas fa-people-arrows', description: 'Collaboration analytics, sentiment tracking, and engagement insights', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
 
     // COACHING
     { key: 'coachingdashboard', title: 'Coaching Dashboard', icon: 'fas fa-chalkboard-teacher', description: 'Coaching metrics and management dashboard', isSystem: true, requiresAdmin: false, category: 'Coaching & Development' },
@@ -1088,6 +1099,7 @@ function getAllPagesFromActualRouting() {
     { key: 'schedulemanagement', title: 'Schedule Management', icon: 'fas fa-calendar-week', description: 'Manage work schedules and shifts', isSystem: true, requiresAdmin: false, category: 'Scheduling & Time' },
     { key: 'attendancecalendar', title: 'Attendance Calendar', icon: 'fas fa-calendar-check', description: 'Calendar view for attendance tracking', isSystem: true, requiresAdmin: false, category: 'Scheduling & Time' },
     { key: 'slotmanagement', title: 'Shift Slot Management', icon: 'fas fa-clock', description: 'Manage shift slots and time allocations', isSystem: true, requiresAdmin: false, category: 'Scheduling & Time' },
+    { key: 'agent-schedule', title: 'Agent Schedule', icon: 'fas fa-calendar-day', description: 'Personal schedule and shift details for agents', isSystem: true, requiresAdmin: false, category: 'Scheduling & Time' },
 
     // WORKFLOW
     { key: 'escalations', title: 'Escalations', icon: 'fas fa-exclamation-triangle', description: 'Issue escalation management and tracking', isSystem: true, requiresAdmin: false, category: 'Workflow & Operations' },
@@ -1252,16 +1264,27 @@ function suggestIconForPageKey(key) {
     const k = String(key || '').toLowerCase();
     const iconMap = {
       dashboard: 'fa-tachometer-alt',
+      'agent-experience': 'fa-user-headset',
+      goalsetting: 'fa-bullseye',
+      'manager-executive-experience': 'fa-briefcase',
       qualityform: 'fa-clipboard-check',
       ibtrqualityreports: 'fa-chart-pie',
       qualityview: 'fa-eye',
       qualitylist: 'fa-list-check',
+      unifiedqadashboard: 'fa-layer-group',
+      qacollablist: 'fa-users-gear',
+      qacollabview: 'fa-users-viewfinder',
+      qualitycollabform: 'fa-clipboard-list',
+      qacollabform: 'fa-clipboard-list',
       independencequality: 'fa-shield-alt',
       independenceqadashboard: 'fa-chart-line',
       creditsuiteqa: 'fa-credit-card',
       'qa-dashboard': 'fa-chart-area',
+      groundingqaform: 'fa-seedling',
       callreports: 'fa-phone-volume',
       attendancereports: 'fa-chart-bar',
+      'collaboration-reporting': 'fa-people-arrows',
+      collaborationreporting: 'fa-people-arrows',
       coachingdashboard: 'fa-chalkboard-teacher',
       coachingview: 'fa-search-plus',
       coachinglist: 'fa-list-ul',
@@ -1272,7 +1295,9 @@ function suggestIconForPageKey(key) {
       taskform: 'fa-plus-square',
       schedulemanagement: 'fa-calendar-week',
       attendancecalendar: 'fa-calendar-check',
+      calendar: 'fa-calendar-days',
       slotmanagement: 'fa-clock',
+      'agent-schedule': 'fa-calendar-day',
       escalations: 'fa-exclamation-triangle',
       eodreport: 'fa-clipboard-check',
       incentives: 'fa-trophy',
