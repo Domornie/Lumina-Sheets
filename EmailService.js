@@ -957,6 +957,89 @@ function sendPasswordChangeConfirmation(email, data) {
   }
 }
 
+function sendMfaCodeEmail(email, data) {
+  try {
+    const recipient = String(email || '').trim();
+    if (!recipient) {
+      throw new Error('Recipient email is required for MFA delivery');
+    }
+
+    const payload = data || {};
+    const code = String(payload.code || '').trim();
+    if (!code) {
+      throw new Error('Verification code is required');
+    }
+
+    let expiresDisplay = '5 minutes';
+    if (payload.expiresAt) {
+      const expiresAt = new Date(payload.expiresAt);
+      if (!isNaN(expiresAt.getTime())) {
+        expiresDisplay = Utilities.formatDate(expiresAt, Session.getScriptTimeZone(), 'MMM d, yyyy h:mm a');
+      }
+    }
+
+    const friendlyName = (payload.fullName || '').trim();
+    const fullName = escapeHtml_(friendlyName);
+    const subject = (EMAIL_CONFIG.subjectPrefix || '') + 'Your LuminaHQ verification code';
+    const greetingName = fullName || 'Lumina teammate';
+
+    const htmlBody = `
+      <div class="email-container">
+        <div class="header">
+          <img src="${EMAIL_CONFIG.logoUrl}" alt="${EMAIL_CONFIG.brandName}" class="logo">
+          <h1 class="header-title">Multi-factor verification</h1>
+        </div>
+        <div class="content">
+          <div class="security-badge">🔐 Secure Sign-In</div>
+          <p>Hi ${greetingName},</p>
+          <p>Use the verification code below to finish signing in to <strong>${EMAIL_CONFIG.brandName}</strong>:</p>
+          <div style="margin: 32px 0; text-align: center;">
+            <div style="display: inline-block; padding: 18px 36px; font-size: 28px; font-weight: 700; letter-spacing: 6px; background: #0ea5e9; color: #fff; border-radius: 14px;">${escapeHtml_(code)}</div>
+          </div>
+          <p>This code expires at <strong>${expiresDisplay}</strong>. If you didn't request this code, please ignore this email.</p>
+          <hr class="divider">
+          <p style="font-size: 13px; color: #64748b;">Need help? Contact <a href="mailto:${EMAIL_CONFIG.supportEmail}">${EMAIL_CONFIG.supportEmail}</a>.</p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} ${EMAIL_CONFIG.orgName}. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    const textBody = [
+      `Hi ${friendlyName || 'there'},`,
+      '',
+      'Use the verification code below to finish signing in to ' + EMAIL_CONFIG.brandName + ':',
+      '',
+      code,
+      '',
+      'The code expires at ' + expiresDisplay + '.',
+      '',
+      'If you did not request this code, please ignore this email.',
+      '',
+      'Need help? Contact ' + EMAIL_CONFIG.supportEmail + '.',
+      '',
+      `— ${EMAIL_CONFIG.brandName} Team`
+    ].join('\n');
+
+    sendEmail_({
+      to: recipient,
+      subject: subject,
+      htmlBody: htmlBody,
+      textBody: textBody,
+      category: 'Security'
+    });
+
+    return { success: true, message: 'Verification code sent via email.' };
+  } catch (error) {
+    console.error('sendMfaCodeEmail failed:', error);
+    if (typeof writeError === 'function') {
+      writeError('sendMfaCodeEmail', error);
+    }
+    return { success: false, error: error.message || 'Failed to send MFA email.' };
+  }
+}
+
 /**
  * Send test email to verify email configuration
  * @param {string} email
