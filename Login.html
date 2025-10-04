@@ -53,6 +53,7 @@
     body,
     html {
       height: 100%;
+      min-height: 100vh;
       margin: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.6;
@@ -63,6 +64,11 @@
         linear-gradient(180deg, rgba(247, 249, 253, 0.96), rgba(242, 244, 249, 0.98));
       font-size: 15px;
       color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    .page-wrapper {
+      min-height: 100vh;
     }
 
     /* Modern Background with subtle pattern */
@@ -82,61 +88,154 @@
       opacity: 0.25;
     }
 
+    .feature-panel {
+      background: radial-gradient(circle at 10% 20%, rgba(4, 120, 211, 0.55), transparent 65%),
+        radial-gradient(circle at 75% 85%, rgba(3, 87, 153, 0.45), transparent 60%),
+        linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0b1120 100%);
+      color: #f8fafc;
+      padding: 0 3rem;
+      position: relative;
+      overflow: hidden;
+      min-height: 100vh;
+    }
+
+    .feature-panel::before,
+    .feature-panel::after {
+      content: '';
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.35), transparent 70%);
+      filter: blur(20px);
+      opacity: 0.55;
+      z-index: 0;
+    }
+
+    .feature-panel::before {
+      top: -80px;
+      left: -120px;
+    }
+
+    .feature-panel::after {
+      bottom: -100px;
+      right: -120px;
+    }
+
+    .feature-content {
+      position: relative;
+      z-index: 1;
+      max-width: 420px;
+    }
+
+    .feature-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-heading {
+      font-size: clamp(2rem, 3vw + 1rem, 2.85rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
+    }
+
+    .feature-text {
+      color: rgba(226, 232, 240, 0.85);
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 2.5rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      color: rgba(241, 245, 249, 0.9);
+      font-weight: 500;
+    }
+
+    .feature-list i {
+      color: #38bdf8;
+      font-size: 1.1rem;
+      margin-top: 0.2rem;
+    }
+
+    .feature-illustration {
+      position: relative;
+      border-radius: var(--border-radius-lg);
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      padding: 2rem;
+      box-shadow: 0 25px 55px rgba(2, 6, 23, 0.45);
+    }
+
+    .feature-illustration img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
     .form-column {
       position: relative;
-      padding: 0 3.5rem;
+      padding: clamp(2rem, 5vw, 4.5rem);
+      background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
     }
 
     .form-column::before {
       content: '';
       position: absolute;
-      inset: 12% 8% 14% 12%;
-      background: radial-gradient(circle at top left, rgba(4, 120, 211, 0.12), transparent 65%);
-      filter: blur(85px);
-      opacity: 0.4;
-      pointer-events: none;
-    }
-
-    .right-panel {
-      position: relative;
-      padding: 0 3.5rem;
-    }
-
-    .right-panel::after {
-      content: '';
-      position: absolute;
-      inset: 12% 12% 10% 40%;
-      background: radial-gradient(circle at center, rgba(4, 120, 211, 0.18), transparent 65%);
-      filter: blur(65px);
+      inset: 8% 6% 10% 8%;
+      background:
+        radial-gradient(circle at top left, rgba(4, 120, 211, 0.18), transparent 65%),
+        radial-gradient(circle at bottom right, rgba(3, 87, 153, 0.12), transparent 70%);
+      filter: blur(90px);
       opacity: 0.35;
       pointer-events: none;
     }
 
-    .right-panel img {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 520px;
-      filter: drop-shadow(0 35px 45px rgba(15, 23, 42, 0.18));
-      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .right-panel img:hover {
-      transform: translateY(-6px) scale(1.01);
-    }
-
     /* Modern Form Container */
     .login-container {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(18px);
-      border-radius: var(--border-radius-lg);
-      padding: 3.5rem 3.25rem;
-      width: 100%;
-      max-width: 460px;
+      width: min(520px, 100%);
+      padding: clamp(2.5rem, 5vw, 3.5rem) clamp(2rem, 4.5vw, 3.25rem);
       position: relative;
-      border: 1px solid rgba(226, 232, 240, 0.65);
-      box-shadow: var(--shadow-md);
       z-index: 1;
+    }
+
+    .consent-text {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 1.75rem;
+    }
+
+    .consent-text a {
+      color: var(--primary-blue);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .consent-text a:hover {
+      text-decoration: underline;
     }
 
     /* Enhanced Form Controls */
@@ -645,6 +744,12 @@
     }
 
     /* Enhanced Checkbox */
+    .form-check {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
     .form-check-input {
       border: 2px solid #cbd5e0;
       border-radius: 6px;
@@ -655,6 +760,16 @@
     .form-check-input:checked {
       background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
       border-color: var(--primary-blue);
+    }
+
+    @media (max-width: 991.98px) {
+      body {
+        overflow: auto;
+      }
+
+      .form-column {
+        min-height: auto;
+      }
     }
 
     .form-check-input:focus {
@@ -740,10 +855,6 @@
 
     /* Responsive Design */
     @media (max-width: 767.98px) {
-      .right-panel {
-        display: none;
-      }
-
       .form-column {
         padding: 0 1.5rem;
       }
@@ -755,6 +866,10 @@
       .login-container {
         margin: 1rem;
         padding: 2rem;
+      }
+
+      .consent-text {
+        text-align: center;
       }
 
       .logo-container img {
@@ -798,11 +913,31 @@
 
 <body class="bg-light">
 
-  <div class="container-fluid h-100">
+  <div class="container-fluid h-100 page-wrapper">
     <div class="row h-100">
 
-      <!-- LEFT: Modern Login Form -->
-      <div class="col-md-6 d-flex align-items-center justify-content-center bg-light form-column">
+      <!-- LEFT: Hero / Feature Panel -->
+      <div class="col-lg-5 d-none d-lg-flex align-items-center justify-content-center feature-panel">
+        <div class="feature-content text-center text-lg-start">
+          <span class="feature-badge">
+            <i class="fas fa-sparkles"></i> LuminaHQ Platform
+          </span>
+          <h2 class="feature-heading">Clarity for every customer conversation</h2>
+          <p class="feature-text">Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
+          <ul class="feature-list">
+            <li><i class="fas fa-chart-line"></i><span>Real-time insight into quality, productivity, and coaching impact.</span></li>
+            <li><i class="fas fa-people-group"></i><span>Streamlined workflows that keep support, QA, and operations aligned.</span></li>
+            <li><i class="fas fa-shield-check"></i><span>Enterprise-grade controls to protect sensitive customer data.</span></li>
+          </ul>
+          <div class="feature-illustration">
+            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
+                 alt="Team collaboration illustration" loading="lazy">
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Login Form -->
+      <div class="col-lg-7 col-xl-6 ms-auto d-flex align-items-center justify-content-center bg-light form-column">
         <div class="login-container">
 
           <!-- Logo Section -->
@@ -812,8 +947,8 @@
           </div>
 
           <div class="welcome-text">
-            <h1>Welcome back 👋</h1>
-            <p>Sign in to access your LuminaHQ workspace.</p>
+            <h1>Welcome back</h1>
+            <p>Log in to access your LuminaHQ operations hub.</p>
           </div>
 
           <!-- Enhanced Alerts -->
@@ -938,7 +1073,7 @@
             </div>
             <div class="d-grid mb-3">
               <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
-                <i class="fas fa-sign-in-alt me-2"></i>Sign in
+                <i class="fas fa-sign-in-alt me-2"></i>Log in
               </button>
             </div>
             <div id="feedback" class="text-danger small mb-3"></div>
@@ -951,18 +1086,16 @@
             </a>
           </div>
 
+          <p class="consent-text text-center">
+            By clicking <strong>Log in</strong>, you agree to our <a href="#">Terms &amp; Conditions</a> and acknowledge our <a href="#">Privacy Policy</a> on how we collect and handle data.
+          </p>
+
           <div class="footer-links text-center mt-4">
             <a href="#" class="small">Privacy Policy</a>
             <span class="small mx-2 text-muted">•</span>
             <a href="#" class="small">Terms of Service</a>
           </div>
         </div>
-      </div>
-
-      <!-- RIGHT: Illustration -->
-      <div class="col-md-6 gradient-bg d-none d-md-flex align-items-center justify-content-center right-panel">
-        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
-             alt="Welcome Illustration" class="img-fluid" loading="lazy">
       </div>
 
     </div>
@@ -1191,10 +1324,10 @@
 
         if (isLoading) {
           elements.loginBtn.classList.add('btn-loading');
-          elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>SIGNING IN…';
+          elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in…';
         } else {
           elements.loginBtn.classList.remove('btn-loading');
-          elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>SIGN IN';
+          elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
         }
       }
     }
@@ -1358,7 +1491,7 @@
       if (elements.loginBtn) {
         elements.loginBtn.classList.remove('d-none');
         elements.loginBtn.disabled = false;
-        elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Sign in';
+        elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
       }
     }
 
@@ -3552,7 +3685,7 @@
     if (elements.deviceModalCancelBtn) {
       elements.deviceModalCancelBtn.addEventListener('click', () => {
         hideDeviceVerificationPrompt();
-        showAlert('info', 'Sign in again if you still need access.');
+        showAlert('info', 'Log in again if you still need access.');
       });
     }
 
