@@ -546,6 +546,338 @@ function _scanSheet_(sheet) {
   const idx = {}; headers.forEach((h, i) => idx[h] = i);
   return { headers, values, idx };
 }
+
+function _normalizeUserIdHeaderKey_(header) {
+  return String(header || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function _isLikelyUserIdHeader_(normalizedKey, extraKeys) {
+  if (!normalizedKey) return false;
+  if (normalizedKey === 'id' || normalizedKey === 'userid') return true;
+  if (normalizedKey === 'useridentifier' || normalizedKey === 'useruniqueid') return true;
+  if (normalizedKey === 'useruuid' || normalizedKey === 'userguid' || normalizedKey === 'useridlegacy') return true;
+  if (normalizedKey.indexOf('user') !== -1 && /id$/.test(normalizedKey)) return true;
+  if (extraKeys && extraKeys[normalizedKey]) return true;
+  return false;
+}
+
+function _normalizePotentialIdValue_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') return '';
+    return trimmed;
+  }
+  if (typeof value === 'number') {
+    if (!isFinite(value)) return '';
+    return String(value);
+  }
+  if (value instanceof Date) {
+    return String(value.getTime());
+  }
+  try {
+    return String(value);
+  } catch (_) {
+    return '';
+  }
+}
+
+function _generateUniqueUserId_(usedIds) {
+  let attempts = 0;
+  while (attempts < 20) {
+    let candidate = '';
+    if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
+      candidate = Utilities.getUuid();
+    } else {
+      const rand = Math.random().toString(36).slice(2, 10);
+      candidate = 'USR-' + Date.now().toString(36) + '-' + rand;
+    }
+    candidate = _normalizePotentialIdValue_(candidate);
+    if (candidate && !usedIds[candidate]) {
+      return candidate;
+    }
+    attempts += 1;
+  }
+  const fallback = 'USR-' + (new Date().getTime()) + '-' + Math.floor(Math.random() * 1000000);
+  return _normalizePotentialIdValue_(fallback) || fallback;
+}
+
+function _collectUserIdCandidatesFromStructure_(value, addCandidate, seenObjects, extraKeys) {
+  if (value === null || typeof value === 'undefined') return;
+  const valueType = typeof value;
+  if (valueType === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (trimmed[0] === '{' || trimmed[0] === '[') {
+      try {
+        const parsed = JSON.parse(trimmed);
+        _collectUserIdCandidatesFromStructure_(parsed, addCandidate, seenObjects, extraKeys);
+      } catch (_) { /* ignore malformed JSON */ }
+    }
+    return;
+  }
+  if (valueType === 'number' || valueType === 'boolean') return;
+  if (valueType !== 'object') return;
+
+  if (typeof WeakSet !== 'undefined') {
+    if (!seenObjects) {
+      seenObjects = new WeakSet();
+    } else if (seenObjects.has(value)) {
+      return;
+    }
+    seenObjects.add(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      _collectUserIdCandidatesFromStructure_(value[i], addCandidate, seenObjects, extraKeys);
+    }
+    return;
+  }
+
+  for (const key in value) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+    const normalizedKey = _normalizeUserIdHeaderKey_(key);
+    if (_isLikelyUserIdHeader_(normalizedKey, extraKeys)) {
+      const candidate = _normalizePotentialIdValue_(value[key]);
+      if (candidate) addCandidate(candidate);
+    }
+    _collectUserIdCandidatesFromStructure_(value[key], addCandidate, seenObjects, extraKeys);
+  }
+}
+
+function _collectRowUserIdCandidates_(row, headerMeta, options) {
+  const candidates = [];
+  const seen = {};
+  const addCandidate = function (candidate) {
+    if (!candidate || seen[candidate]) return;
+    seen[candidate] = true;
+    candidates.push(candidate);
+  };
+
+  const candidateIndexes = headerMeta && headerMeta.candidateIndexes ? headerMeta.candidateIndexes : [];
+  for (let i = 0; i < candidateIndexes.length; i++) {
+    const idx = candidateIndexes[i];
+    if (idx < 0 || idx >= row.length) continue;
+    const candidate = _normalizePotentialIdValue_(row[idx]);
+    if (candidate) addCandidate(candidate);
+  }
+
+  const allowNestedScan = !options || options.scanNested !== false;
+  if (allowNestedScan) {
+    for (let i = 0; i < row.length; i++) {
+      const cell = row[i];
+      if (cell === null || typeof cell === 'undefined') continue;
+      if (typeof cell === 'string') {
+        const trimmed = cell.trim();
+        if (!trimmed) continue;
+        if (trimmed[0] !== '{' && trimmed[0] !== '[') continue;
+      } else if (typeof cell !== 'object') {
+        continue;
+      }
+      try {
+        _collectUserIdCandidatesFromStructure_(cell, addCandidate, null, headerMeta.extraCandidateKeys);
+      } catch (_) { /* ignore traversal issues */ }
+    }
+  }
+
+  return candidates;
+}
+
+function ensureUsersHaveIds(options) {
+  const summary = {
+    success: true,
+    total: 0,
+    updated: 0,
+    generated: 0,
+    reused: 0,
+    duplicatesResolved: 0,
+    details: []
+  };
+
+  if (typeof SpreadsheetApp === 'undefined') {
+    summary.success = false;
+    summary.error = 'SpreadsheetApp is not available in this context.';
+    return summary;
+  }
+
+  let sheet;
+  try {
+    sheet = _getSheet_(G.USERS_SHEET);
+  } catch (sheetError) {
+    summary.success = false;
+    summary.error = sheetError && sheetError.message ? sheetError.message : String(sheetError);
+    return summary;
+  }
+
+  let scan;
+  try {
+    scan = _scanSheet_(sheet);
+  } catch (scanError) {
+    summary.success = false;
+    summary.error = scanError && scanError.message ? scanError.message : String(scanError);
+    return summary;
+  }
+
+  const headers = scan.headers || [];
+  const values = scan.values || [];
+  if (values.length <= 1) {
+    return summary;
+  }
+
+  const normalizedHeaderKeys = headers.map(_normalizeUserIdHeaderKey_);
+  const headerMeta = {
+    normalizedHeaderKeys,
+    candidateIndexes: [],
+    extraCandidateKeys: {}
+  };
+
+  if (options && Array.isArray(options.extraCandidateHeaders)) {
+    options.extraCandidateHeaders.forEach(header => {
+      const key = _normalizeUserIdHeaderKey_(header);
+      if (key) headerMeta.extraCandidateKeys[key] = true;
+    });
+  }
+
+  let idColumnIndex = -1;
+  for (let i = 0; i < normalizedHeaderKeys.length; i++) {
+    const key = normalizedHeaderKeys[i];
+    if (key === 'id') {
+      idColumnIndex = i;
+      break;
+    }
+  }
+  if (idColumnIndex === -1 && typeof scan.idx.ID === 'number') {
+    idColumnIndex = scan.idx.ID;
+  }
+  if (idColumnIndex === -1) {
+    summary.success = false;
+    summary.error = 'Users sheet is missing an ID column.';
+    return summary;
+  }
+
+  for (let i = 0; i < normalizedHeaderKeys.length; i++) {
+    if (i === idColumnIndex) continue;
+    const key = normalizedHeaderKeys[i];
+    if (_isLikelyUserIdHeader_(key, headerMeta.extraCandidateKeys)) {
+      headerMeta.candidateIndexes.push(i);
+    }
+  }
+
+  const rows = values.slice(1);
+  summary.total = rows.length;
+
+  const idUsageCounts = {};
+  const originalIds = new Array(rows.length);
+  for (let r = 0; r < rows.length; r++) {
+    const original = _normalizePotentialIdValue_(rows[r][idColumnIndex]);
+    originalIds[r] = original;
+    if (!original) continue;
+    idUsageCounts[original] = (idUsageCounts[original] || 0) + 1;
+  }
+
+  const duplicateSeenCounts = {};
+  const usedIds = {};
+  const idColumnValues = new Array(rows.length);
+  const columnUpdates = {};
+  const columnDirtyFlags = {};
+  headerMeta.candidateIndexes.forEach(index => {
+    columnUpdates[index] = rows.map(row => row[index]);
+    columnDirtyFlags[index] = false;
+  });
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    const originalId = originalIds[r];
+    let finalId = originalId;
+    let action = 'kept';
+
+    if (finalId) {
+      if (idUsageCounts[finalId] > 1) {
+        duplicateSeenCounts[finalId] = (duplicateSeenCounts[finalId] || 0) + 1;
+        if (duplicateSeenCounts[finalId] === 1 && !usedIds[finalId]) {
+          usedIds[finalId] = true;
+          action = 'kept';
+        } else {
+          finalId = '';
+        }
+      } else if (usedIds[finalId]) {
+        finalId = '';
+      } else {
+        usedIds[finalId] = true;
+      }
+    }
+
+    if (!finalId) {
+      const candidates = _collectRowUserIdCandidates_(row, headerMeta, options || {});
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        if (!usedIds[candidate]) {
+          finalId = candidate;
+          usedIds[finalId] = true;
+          summary.reused += 1;
+          action = 'reused';
+          break;
+        }
+      }
+    }
+
+    if (!finalId) {
+      finalId = _generateUniqueUserId_(usedIds);
+      usedIds[finalId] = true;
+      summary.generated += 1;
+      action = 'generated';
+    }
+
+    if (originalId !== finalId) {
+      summary.updated += 1;
+      if (originalId && idUsageCounts[originalId] > 1) {
+        summary.duplicatesResolved += 1;
+      }
+      row[idColumnIndex] = finalId;
+    }
+
+    idColumnValues[r] = [finalId];
+    summary.details.push({
+      rowNumber: r + 2,
+      originalId: originalId,
+      finalId: finalId,
+      action: action
+    });
+
+    for (let c = 0; c < headerMeta.candidateIndexes.length; c++) {
+      const idx = headerMeta.candidateIndexes[c];
+      const current = _normalizePotentialIdValue_(row[idx]);
+      if (!current || current === originalId || current === finalId) {
+        if (_normalizePotentialIdValue_(columnUpdates[idx][r]) !== finalId) {
+          columnUpdates[idx][r] = finalId;
+          row[idx] = finalId;
+          columnDirtyFlags[idx] = true;
+        }
+      }
+    }
+  }
+
+  try {
+    if (summary.updated > 0) {
+      sheet.getRange(2, idColumnIndex + 1, rows.length, 1).setValues(idColumnValues);
+    }
+    Object.keys(columnUpdates).forEach(indexKey => {
+      if (!columnDirtyFlags[indexKey]) return;
+      const columnIndex = Number(indexKey);
+      const columnValues = columnUpdates[columnIndex].map(value => [value]);
+      sheet.getRange(2, columnIndex + 1, rows.length, 1).setValues(columnValues);
+    });
+  } catch (writeError) {
+    summary.success = false;
+    summary.error = writeError && writeError.message ? writeError.message : String(writeError);
+  }
+
+  return summary;
+}
 function ensureOptionalUserColumns_(sh, headers, idx) {
   let changed = false;
   const hdrs = headers.slice();
@@ -817,6 +1149,14 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
 // ───────────────────────────────────────────────────────────────────────────────
 function clientGetAllUsers(requestingUserId) {
   try {
+    try {
+      ensureUsersHaveIds();
+    } catch (ensureError) {
+      try {
+        writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError);
+      } catch (_) { }
+    }
+
     let users = [];
     try {
       if (typeof getAllUsersRaw === 'function') {
@@ -3100,6 +3440,11 @@ function _csvUnion_(a1, a2) { const set = new Set([...(a1 || []), ...(a2 || [])]
 function _now_() { return new Date(); }
 
 function _readUsersAsObjects_() {
+  try {
+    ensureUsersHaveIds();
+  } catch (ensureError) {
+    try { writeError && writeError('_readUsersAsObjects_.ensureUsersHaveIds', ensureError); } catch (_) { }
+  }
   try { if (typeof readSheet === 'function') return readSheet(G.USERS_SHEET) || []; } catch (e) { writeError && writeError('_readUsersAsObjects_', e); }
   const sh = _getSheet_(G.USERS_SHEET);
   const { headers, values } = _scanSheet_(sh);
