@@ -3161,7 +3161,6 @@ var AuthenticationService = (function () {
       }
 
       const sources = gatherLandingSources(primary, context);
-
       const explicitSourceCandidate = extractFirstLandingValue(sources, [
         'LandingSlug', 'landingSlug', 'PreferredLanding', 'preferredLanding',
         'PreferredLandingPage', 'preferredLandingPage', 'PreferredHome', 'preferredHome',
@@ -3173,34 +3172,25 @@ var AuthenticationService = (function () {
         return explicitSourceSlug;
       }
 
-      const roleNames = collectLandingRoleNames(primary, context);
-      const pageTokens = collectLandingPageTokens(primary, context);
+      const roleNames = collectLandingRoleNames(primary, context) || [];
+      const pageTokens = collectLandingPageTokens(primary, context) || new Set();
 
-      const jobTitleText = collectCombinedLandingText(sources, ['JobTitle', 'jobTitle', 'Title', 'title', 'Role', 'role', 'Position', 'position', 'PrimaryRole', 'primaryRole']);
-      const departmentText = collectCombinedLandingText(sources, ['Department', 'department', 'Dept', 'dept', 'Division', 'division', 'Team', 'team', 'Group', 'group', 'Organization', 'organization', 'Organisation']);
-      const personaText = collectCombinedLandingText(sources, ['Persona', 'persona', 'PrimaryPersona', 'primaryPersona', 'PersonaKey', 'personaKey', 'PersonaName', 'personaName', 'PersonaLabel', 'personaLabel', 'PersonaType', 'personaType', 'AccessPersona', 'accessPersona', 'WorkspacePersona', 'workspacePersona']);
-      const classificationText = collectCombinedLandingText(sources, ['Classification', 'classification', 'EmploymentStatus', 'employmentStatus', 'EmploymentType', 'employmentType', 'EmployeeType', 'employeeType', 'StaffType', 'staffType', 'UserType', 'userType', 'AccountType', 'accountType', 'AccessLevel', 'accessLevel']);
+      const jobTitleText = landingLowerText(
+        collectCombinedLandingText(sources, ['JobTitle', 'jobTitle', 'Title', 'title', 'Role', 'role', 'Position', 'position', 'PrimaryRole', 'primaryRole'])
+      );
+      const departmentText = landingLowerText(
+        collectCombinedLandingText(sources, ['Department', 'department', 'Dept', 'dept', 'Division', 'division', 'Team', 'team', 'Group', 'group', 'Organization', 'organization', 'Organisation'])
+      );
+      const personaText = landingLowerText(
+        collectCombinedLandingText(sources, ['Persona', 'persona', 'PrimaryPersona', 'primaryPersona', 'PersonaKey', 'personaKey', 'PersonaName', 'personaName', 'PersonaLabel', 'personaLabel', 'PersonaType', 'personaType', 'AccessPersona', 'accessPersona', 'WorkspacePersona', 'workspacePersona'])
+      );
+      const classificationText = landingLowerText(
+        collectCombinedLandingText(sources, ['Classification', 'classification', 'EmploymentStatus', 'employmentStatus', 'EmploymentType', 'employmentType', 'EmployeeType', 'employeeType', 'StaffType', 'staffType', 'UserType', 'userType', 'AccountType', 'accountType', 'AccessLevel', 'accessLevel'])
+      );
 
       const combinedPersonaText = [personaText, classificationText].filter(Boolean).join(' ');
 
-      const isGlobalAdmin = !!(
-        (context && context.tenantAccess && context.tenantAccess.sessionScope && context.tenantAccess.sessionScope.isGlobalAdmin)
-        || (context && context.tenant && context.tenant.sessionScope && context.tenant.sessionScope.isGlobalAdmin)
-        || (context && context.sessionScope && context.sessionScope.isGlobalAdmin)
-      );
-
-      const sourcesForAdminCheck = gatherLandingSources(primary, context);
-      const isAdminUser = isGlobalAdmin || sourcesForAdminCheck.some(function (source) {
-        if (!source || typeof source !== 'object') return false;
-        return toBool(source.IsAdmin)
-          || toBool(source.isAdmin)
-          || toBool(source.Admin)
-          || toBool(source.isAdministrator)
-          || toBool(source.administrator);
-      });
-
       function hasRoleMatch(patterns) {
-        if (!roleNames || !roleNames.length) return false;
         return roleNames.some(function (role) {
           return patterns.some(function (pattern) {
             return role.indexOf(pattern) !== -1;
@@ -3210,44 +3200,42 @@ var AuthenticationService = (function () {
 
       function hasPage(slug) {
         const token = landingMatchToken(slug);
-        if (!token) return false;
-        return pageTokens.has(token);
+        return token ? pageTokens.has(token) : false;
       }
 
-      function textHas(text, patterns) {
-        if (!text) return false;
+      function textHas(normalizedText, patterns) {
+        if (!normalizedText) return false;
         return patterns.some(function (pattern) {
-          return text.indexOf(pattern) !== -1;
+          return normalizedText.indexOf(pattern) !== -1;
         });
       }
 
-      const collabIndicators = hasPage('collaborationreporting')
-        || hasRoleMatch(['client', 'guest', 'partner', 'collab'])
-        || textHas(jobTitleText, ['client', 'guest', 'partner', 'collab'])
-        || textHas(departmentText, ['client', 'partner'])
-        || textHas(combinedPersonaText, ['client', 'guest', 'partner', 'collab']);
+      const agentPatterns = ['agent'];
+      const guestPatterns = ['guest', 'client', 'partner', 'collab'];
 
-      if (collabIndicators && !isAdminUser) {
-        return 'collaborationreporting';
-      }
+      const isAgent = hasRoleMatch(agentPatterns)
+        || hasPage('agentexperience')
+        || hasPage('workspaceagent')
+        || hasPage('userprofile')
+        || textHas(jobTitleText, agentPatterns)
+        || textHas(departmentText, agentPatterns)
+        || textHas(combinedPersonaText, agentPatterns);
 
-      const execIndicators = isAdminUser
-        || hasRoleMatch(['executive', 'chief', 'csuite', 'c-suite', 'director', 'vp', 'vicepresident', 'president', 'principal', 'leader', 'leadership', 'manager', 'supervisor', 'administrator', 'admin'])
-        || hasPage('dashboard')
-        || hasPage('managerexecutiveexperience')
-        || hasPage('executivedashboard')
-        || textHas(jobTitleText, ['executive', 'chief', 'director', 'vp', 'president', 'principal', 'leader'])
-        || textHas(combinedPersonaText, ['executive', 'leadership', 'management']);
-
-      if (execIndicators) {
-        return 'dashboard';
-      }
-
-      if (hasPage('agentexperience') || hasPage('workspaceagent') || hasPage('userprofile')) {
+      if (isAgent) {
         return 'userprofile';
       }
 
-      return 'userprofile';
+      const isGuest = hasPage('collaborationreporting')
+        || hasRoleMatch(guestPatterns)
+        || textHas(jobTitleText, guestPatterns)
+        || textHas(departmentText, guestPatterns)
+        || textHas(combinedPersonaText, guestPatterns);
+
+      if (isGuest) {
+        return 'collaborationreporting';
+      }
+
+      return 'dashboard';
     } catch (error) {
       console.warn('determineLandingSlug: failed to compute landing slug', error);
       return 'dashboard';
