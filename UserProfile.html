@@ -1,0 +1,913 @@
+<!-- UserProfile.html -->
+<?
+  var safeBaseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : (typeof scriptUrl !== 'undefined' && scriptUrl ? scriptUrl : '');
+  var initialBootstrap = (typeof profileBootstrap !== 'undefined' && profileBootstrap) ? profileBootstrap : '{}';
+?>
+<?!= include('layout', {
+  baseUrl: safeBaseUrl,
+  scriptUrl: scriptUrl,
+  user: user || {},
+  currentPage: currentPage || 'User Profile',
+  pageSlug: 'userprofile',
+  pageTitle: 'My Profile',
+  pageDescription: 'Review your personal details, access, and equipment in LuminaHQ.'
+}) ?>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-b7H3c5ZLfuD3yF5uxoFODdgNpTiFqouBZfyqCkCmZJLdnOjFkWDXLI4YAlnXrhIRbkIuAeGHGZMRYPdP4h4lrw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --profile-navy: #022b5b;
+    --profile-cyan: #00bcd4;
+    --profile-mint: #31d0aa;
+    --profile-lavender: #7e8dfb;
+    --profile-surface: #ffffff;
+    --profile-soft: #f6f7fb;
+    --profile-border: #dbe4f3;
+    --profile-text: #0f172a;
+    --profile-text-secondary: #475569;
+    --profile-shadow: 0 18px 35px rgba(2, 43, 91, 0.12);
+    --profile-radius-lg: 22px;
+    --profile-radius-md: 18px;
+    --profile-radius-sm: 12px;
+    --profile-transition: all 0.25s ease;
+    --chip-bg: rgba(2, 43, 91, 0.08);
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(180deg, #eef2ff 0%, #f9fbff 100%);
+    color: var(--profile-text);
+  }
+
+  .profile-wrapper {
+    padding: clamp(1.5rem, 3vw, 3rem);
+    max-width: 1180px;
+    margin: 0 auto 4rem auto;
+  }
+
+  .profile-hero {
+    background: linear-gradient(135deg, rgba(2, 43, 91, 0.95) 0%, rgba(17, 94, 185, 0.82) 45%, rgba(0, 188, 212, 0.75) 100%);
+    border-radius: var(--profile-radius-lg);
+    padding: clamp(1.75rem, 3vw, 3rem);
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--profile-shadow);
+    color: #fff;
+  }
+
+  .profile-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 55%);
+    opacity: 0.9;
+  }
+
+  .profile-hero-content {
+    position: relative;
+    display: flex;
+    gap: clamp(1.5rem, 3vw, 3rem);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .profile-avatar {
+    width: clamp(92px, 10vw, 120px);
+    height: clamp(92px, 10vw, 120px);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: inset 0 8px 24px rgba(2, 43, 91, 0.35);
+  }
+
+  .profile-identity h1 {
+    font-size: clamp(2rem, 3.2vw, 2.8rem);
+    margin-bottom: 0.35rem;
+    font-weight: 700;
+  }
+
+  .profile-identity p {
+    margin: 0;
+    font-size: clamp(1rem, 1.4vw, 1.2rem);
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .profile-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.35rem;
+  }
+
+  .profile-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: rgba(255, 255, 255, 0.16);
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+
+  .profile-action {
+    position: relative;
+    margin-left: auto;
+  }
+
+  .profile-action a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.2rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--profile-transition);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    backdrop-filter: blur(6px);
+  }
+
+  .profile-action a:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.24);
+  }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.75rem;
+  }
+
+  .profile-card {
+    background: var(--profile-surface);
+    border-radius: var(--profile-radius-md);
+    padding: 1.75rem;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+    border: 1px solid rgba(2, 43, 91, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-card h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--profile-text);
+  }
+
+  .profile-card h2 i {
+    color: var(--profile-navy);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.1rem 1.35rem;
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    background: var(--profile-soft);
+    border-radius: var(--profile-radius-sm);
+    padding: 0.95rem 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.04);
+  }
+
+  .info-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--profile-text-secondary);
+    font-weight: 600;
+  }
+
+  .info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--profile-text);
+    word-break: break-word;
+  }
+
+  .info-value a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .info-value a:hover {
+    text-decoration: underline;
+  }
+
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    background: var(--chip-bg);
+    color: var(--profile-navy);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .chip i {
+    font-size: 0.9rem;
+  }
+
+  .empty-state {
+    font-size: 0.95rem;
+    color: var(--profile-text-secondary);
+    background: var(--profile-soft);
+    border: 1px dashed rgba(2, 43, 91, 0.2);
+    border-radius: var(--profile-radius-sm);
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .equipment-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .equipment-item {
+    padding: 0.9rem 1rem;
+    border-radius: var(--profile-radius-sm);
+    background: var(--profile-soft);
+    border: 1px solid rgba(2, 43, 91, 0.08);
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .equipment-item strong {
+    font-size: 1rem;
+    color: var(--profile-text);
+  }
+
+  .equipment-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.8rem;
+    font-size: 0.85rem;
+    color: var(--profile-text-secondary);
+  }
+
+  .loader {
+    display: none;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 0.95rem;
+    color: var(--profile-text-secondary);
+    margin-top: 1rem;
+  }
+
+  .loader.show {
+    display: inline-flex;
+  }
+
+  .loader .spinner {
+    width: 18px;
+    height: 18px;
+    border: 3px solid rgba(2, 43, 91, 0.15);
+    border-top-color: var(--profile-cyan);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 768px) {
+    .profile-hero-content {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .profile-action {
+      width: 100%;
+      margin: 1.5rem 0 0 0;
+      text-align: center;
+    }
+
+    .profile-action a {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .profile-card {
+      padding: 1.5rem;
+    }
+
+    .info-grid {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+  }
+</style>
+
+<div class="profile-wrapper">
+  <section class="profile-hero">
+    <div class="profile-hero-content">
+      <div class="profile-avatar" id="profileAvatar">U</div>
+      <div class="profile-identity">
+        <h1 id="profileName">User</h1>
+        <p id="profileRole">Loading role…</p>
+        <div class="profile-chips" id="profileChips"></div>
+      </div>
+      <div class="profile-action">
+        <a id="agentExperienceLink" href="#" target="_top">
+          <i class="fa-solid fa-compass"></i>
+          Open Agent Experience
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="profile-grid">
+    <section class="profile-card">
+      <h2><i class="fa-solid fa-id-card"></i> Personal Information</h2>
+      <div class="info-grid" id="personalDetails"></div>
+    </section>
+
+    <section class="profile-card">
+      <h2><i class="fa-solid fa-briefcase"></i> Employment</h2>
+      <div class="info-grid" id="employmentDetails"></div>
+    </section>
+
+    <section class="profile-card">
+      <h2><i class="fa-solid fa-user-shield"></i> Access &amp; Permissions</h2>
+      <div class="chip-row" id="roleChips"></div>
+      <div class="chip-row" id="pageChips"></div>
+      <div class="info-grid" id="accessDetails"></div>
+    </section>
+
+    <section class="profile-card">
+      <h2><i class="fa-solid fa-lock"></i> Security</h2>
+      <div class="info-grid" id="securityDetails"></div>
+    </section>
+
+    <section class="profile-card">
+      <h2><i class="fa-solid fa-laptop"></i> Equipment &amp; Resources</h2>
+      <ul class="equipment-list" id="equipmentList"></ul>
+      <div class="loader" id="equipmentLoader">
+        <div class="spinner"></div>
+        Fetching equipment…
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const CURRENT_USER = <?!= currentUserJson || '{}' ?>;
+  const PROFILE_BOOTSTRAP = <?!= initialBootstrap || '{}' ?> || {};
+
+  const state = {
+    user: (PROFILE_BOOTSTRAP.user && Object.keys(PROFILE_BOOTSTRAP.user).length ? PROFILE_BOOTSTRAP.user : CURRENT_USER) || {},
+    detail: PROFILE_BOOTSTRAP.detail || null,
+    pages: PROFILE_BOOTSTRAP.pages || [],
+    equipment: PROFILE_BOOTSTRAP.equipment || [],
+    permissions: PROFILE_BOOTSTRAP.permissions || null,
+    campaignId: PROFILE_BOOTSTRAP.campaignId || (CURRENT_USER ? CURRENT_USER.CampaignID || CURRENT_USER.campaignId || '' : ''),
+    loadingEquipment: false
+  };
+
+  function setText(id, value, fallback = '') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const text = value === null || typeof value === 'undefined' ? fallback : String(value);
+    el.textContent = text || fallback;
+  }
+
+  function safeString(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    const text = String(value).trim();
+    if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') return '';
+    return text;
+  }
+
+  function caseInsensitiveLookup(source, key) {
+    if (!source || typeof source !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      return source[key];
+    }
+    const lower = String(key).toLowerCase();
+    const keys = Object.keys(source);
+    for (let i = 0; i < keys.length; i++) {
+      const candidate = keys[i];
+      if (String(candidate).toLowerCase() === lower) {
+        return source[candidate];
+      }
+    }
+    return undefined;
+  }
+
+  function getField(record, keys) {
+    if (!record || typeof record !== 'object') return '';
+    const list = Array.isArray(keys) ? keys : [keys];
+    for (let i = 0; i < list.length; i++) {
+      const key = list[i];
+      if (!key) continue;
+      let value = caseInsensitiveLookup(record, key);
+      if (value !== undefined && value !== null && safeString(value) !== '') {
+        return value;
+      }
+      if (record.sheetFieldMap) {
+        value = caseInsensitiveLookup(record.sheetFieldMap, key);
+        if (value !== undefined && value !== null && safeString(value) !== '') {
+          return value;
+        }
+      }
+      if (Array.isArray(record.sheetFields)) {
+        for (let f = 0; f < record.sheetFields.length; f++) {
+          const field = record.sheetFields[f];
+          if (!field || typeof field !== 'object') continue;
+          const normalizedKey = safeString(field.key);
+          if (normalizedKey && normalizedKey.toLowerCase() === String(key).toLowerCase()) {
+            const candidate = field.value;
+            if (candidate !== undefined && candidate !== null && safeString(candidate) !== '') {
+              return candidate;
+            }
+          }
+        }
+      }
+    }
+    return '';
+  }
+
+  function normalizeList(input) {
+    if (!input) return [];
+    if (Array.isArray(input)) {
+      return input
+        .map(value => safeString(value))
+        .filter(Boolean);
+    }
+    const text = safeString(input);
+    if (!text) return [];
+    if (text.startsWith('[') && text.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          return parsed.map(value => safeString(value)).filter(Boolean);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    return text.split(/[,;|]+/).map(part => safeString(part)).filter(Boolean);
+  }
+
+  function formatDate(value) {
+    if (!value) return '';
+    try {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function formatTenure(value) {
+    if (!value) return '';
+    try {
+      const start = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(start.getTime())) return '';
+
+      const now = new Date();
+      let years = now.getFullYear() - start.getFullYear();
+      let months = now.getMonth() - start.getMonth();
+      let days = now.getDate() - start.getDate();
+
+      if (days < 0) {
+        months -= 1;
+        const priorMonth = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+        days += priorMonth;
+      }
+
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+
+      const parts = [];
+      if (years > 0) {
+        parts.push(`${years} yr${years > 1 ? 's' : ''}`);
+      }
+      if (months > 0) {
+        parts.push(`${months} mo${months > 1 ? 's' : ''}`);
+      }
+      if (!parts.length && days > 0) {
+        parts.push(`${days} day${days > 1 ? 's' : ''}`);
+      }
+      if (!parts.length) {
+        parts.push('Less than a day');
+      }
+
+      return parts.join(' ');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function formatBoolean(value, { positive = 'Yes', negative = 'No' } = {}) {
+    const truthy = value === true || String(value).toLowerCase() === 'true' || String(value) === '1' || String(value).toLowerCase() === 'yes';
+    const falsy = value === false || String(value).toLowerCase() === 'false' || String(value) === '0' || String(value).toLowerCase() === 'no';
+    if (truthy) return positive;
+    if (falsy) return negative;
+    return '';
+  }
+
+  function createInfoItem(label, value, options = {}) {
+    const container = document.createElement('div');
+    container.className = 'info-item';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'info-label';
+    labelEl.textContent = label;
+    container.appendChild(labelEl);
+
+    const valueEl = document.createElement('div');
+    valueEl.className = 'info-value';
+    if (options.isLink) {
+      const link = document.createElement('a');
+      link.href = options.href || `mailto:${value}`;
+      link.textContent = value;
+      link.target = options.target || '_blank';
+      valueEl.appendChild(link);
+    } else {
+      valueEl.textContent = value;
+    }
+    container.appendChild(valueEl);
+
+    return container;
+  }
+
+  function renderInfoGrid(containerId, fields, record) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    const nodes = [];
+    fields.forEach(def => {
+      const raw = getField(record, def.keys);
+      let value = safeString(raw);
+
+      if (def.transform) {
+        value = def.transform(raw, record, state.user);
+      }
+
+      if (!value) return;
+      nodes.push(createInfoItem(def.label, value, def));
+    });
+
+    if (!nodes.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No details available yet.';
+      container.appendChild(empty);
+      return;
+    }
+
+    nodes.forEach(node => container.appendChild(node));
+  }
+
+  function renderChips(containerId, values, icon) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    const list = normalizeList(values);
+    if (!list.length) {
+      container.classList.add('empty');
+      return;
+    }
+
+    list.forEach(value => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      if (icon) {
+        const iconEl = document.createElement('i');
+        iconEl.className = icon;
+        chip.appendChild(iconEl);
+      }
+      const text = document.createElement('span');
+      text.textContent = value;
+      chip.appendChild(text);
+      container.appendChild(chip);
+    });
+  }
+
+  function renderEquipment(items) {
+    const listEl = document.getElementById('equipmentList');
+    const loader = document.getElementById('equipmentLoader');
+    if (loader) loader.classList.remove('show');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    if (state.loadingEquipment) {
+      return;
+    }
+
+    if (!Array.isArray(items) || !items.length) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = 'No assigned equipment on record.';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'equipment-item';
+      const name = safeString(item.ItemName || item.itemName || item.DisplayName || item.displayName || 'Equipment');
+      const type = safeString(item.ItemType || item.itemType);
+      const serial = safeString(item.SerialNumber || item.serialNumber);
+      const status = safeString(item.Status || item.status || item.Condition || item.condition);
+      const issued = formatDate(item.IssuedDate || item.issuedDate || item.CreatedAt || item.createdAt);
+      const returned = formatDate(item.ReturnedDate || item.returnedDate);
+
+      const heading = document.createElement('strong');
+      heading.textContent = name;
+      li.appendChild(heading);
+
+      const meta = document.createElement('div');
+      meta.className = 'equipment-meta';
+      if (type) meta.appendChild(document.createTextNode(type));
+      if (serial) meta.appendChild(document.createTextNode(`SN: ${serial}`));
+      if (status) meta.appendChild(document.createTextNode(`Status: ${status}`));
+      if (issued) meta.appendChild(document.createTextNode(`Issued ${issued}`));
+      if (returned) meta.appendChild(document.createTextNode(`Returned ${returned}`));
+      li.appendChild(meta);
+
+      if (safeString(item.Notes || item.notes)) {
+        const notes = document.createElement('div');
+        notes.textContent = safeString(item.Notes || item.notes);
+        notes.style.fontSize = '0.85rem';
+        notes.style.color = 'var(--profile-text-secondary)';
+        li.appendChild(notes);
+      }
+
+      listEl.appendChild(li);
+    });
+  }
+
+  function resolveDisplayName(userRecord) {
+    if (!userRecord || typeof userRecord !== 'object') {
+      return '';
+    }
+
+    const direct = safeString(userRecord.FullName || userRecord.fullName) ||
+      safeString(userRecord.DisplayName || userRecord.displayName);
+    if (direct) {
+      return direct;
+    }
+
+    const first = safeString(userRecord.FirstName || userRecord.firstName || userRecord.GivenName || userRecord.givenName);
+    const last = safeString(userRecord.LastName || userRecord.lastName || userRecord.Surname || userRecord.surname);
+    const combined = [first, last].filter(Boolean).join(' ');
+    if (combined) {
+      return combined;
+    }
+
+    return safeString(userRecord.UserName || userRecord.userName || userRecord.username || userRecord.Email || userRecord.email);
+  }
+
+  function resolvePrimaryRole(userRecord, detailRecord) {
+    const roleList = normalizeList(userRecord.roleNames || userRecord.RoleNames || (detailRecord && detailRecord.roleNames));
+    if (roleList.length) return roleList[0];
+    return safeString(userRecord.PrimaryRole || userRecord.primaryRole || userRecord.Role || userRecord.role || (detailRecord ? detailRecord.PrimaryRole || detailRecord.Role : ''));
+  }
+
+  function hydrateHero(userRecord, detailRecord) {
+    const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const name = resolveDisplayName(userRecord) || resolveDisplayName(record) || 'Your profile';
+    const primaryRole = resolvePrimaryRole(userRecord, record) || 'Team Member';
+    const campaign = safeString(userRecord.campaignName || userRecord.CampaignName || record.CampaignName || record.campaignName || state.campaignId);
+    const status = safeString(record.EmploymentStatus || record.Status || userRecord.Status || userRecord.status);
+    const startDate = formatDate(record.StartDate || record.HireDate || record.DateHired || record.OnboardDate || record.CreatedAt || record.createdAt);
+
+    const chips = document.getElementById('profileChips');
+    if (chips) {
+      chips.innerHTML = '';
+      if (status) {
+        const statusChip = document.createElement('span');
+        statusChip.className = 'profile-chip';
+        statusChip.innerHTML = '<i class="fa-solid fa-circle-check"></i>' + status;
+        chips.appendChild(statusChip);
+      }
+      if (startDate) {
+        const startChip = document.createElement('span');
+        startChip.className = 'profile-chip';
+        startChip.innerHTML = '<i class="fa-solid fa-calendar"></i> Joined ' + startDate;
+        chips.appendChild(startChip);
+      }
+      if (campaign) {
+        const campaignChip = document.createElement('span');
+        campaignChip.className = 'profile-chip';
+        campaignChip.innerHTML = '<i class="fa-solid fa-diagram-project"></i> ' + campaign;
+        chips.appendChild(campaignChip);
+      }
+    }
+
+    setText('profileName', name, 'Your profile');
+    setText('profileRole', primaryRole || 'Team Member');
+
+    const avatar = document.getElementById('profileAvatar');
+    if (avatar) {
+      const initial = safeString(name).charAt(0).toUpperCase() || 'U';
+      avatar.textContent = initial;
+    }
+
+    const agentLink = document.getElementById('agentExperienceLink');
+    if (agentLink) {
+      const base = (typeof BASE_URL !== 'undefined' && BASE_URL)
+        ? BASE_URL
+        : ((typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) ? SCRIPT_URL : '');
+      agentLink.href = base ? `${base}?page=agent-experience` : '?page=agent-experience';
+    }
+  }
+
+  function refreshSections() {
+    const detailRecord = state.detail && state.detail.record ? state.detail.record : state.detail || {};
+
+    hydrateHero(state.user, state.detail);
+
+    renderInfoGrid('personalDetails', [
+      { label: 'Full Name', keys: ['FullName', 'fullName', 'DisplayName', 'displayName'] },
+      { label: 'Preferred Name', keys: ['PreferredName', 'preferredName'] },
+      { label: 'Work Email', keys: ['Email', 'email'], isLink: true },
+      { label: 'Phone', keys: ['Phone', 'phone', 'Mobile', 'mobile'] },
+      { label: 'Username', keys: ['UserName', 'userName', 'username', 'Email'] },
+      { label: 'Location', keys: ['Location', 'location', 'City', 'city', 'Country', 'country'] }
+    ], detailRecord);
+
+    renderInfoGrid('employmentDetails', [
+      { label: 'Employee ID', keys: ['EmployeeID', 'employeeId', 'ID', 'id'] },
+      { label: 'Department', keys: ['Department', 'department', 'Team', 'team'] },
+      { label: 'Campaign', keys: ['CampaignName', 'campaignName', 'CampaignID', 'campaignId'] },
+      { label: 'Manager', keys: ['Manager', 'manager', 'ManagerName', 'managerName', 'Supervisor', 'supervisor'] },
+      { label: 'Employment Status', keys: ['EmploymentStatus', 'Status', 'status'] },
+      {
+        label: 'Start Date',
+        keys: ['StartDate', 'HireDate', 'DateHired', 'OnboardDate'],
+        transform: (value) => formatDate(value)
+      },
+      {
+        label: 'Tenure',
+        keys: ['StartDate', 'HireDate', 'DateHired', 'AnniversaryDate'],
+        transform: (value) => formatTenure(value)
+      }
+    ], detailRecord);
+
+    const roles = normalizeList(state.user.roleNames || detailRecord.roleNames || detailRecord.RoleNames || detailRecord.Roles || detailRecord.Role);
+    renderChips('roleChips', roles, 'fa-solid fa-badge-check');
+
+    renderChips('pageChips', state.pages, 'fa-solid fa-layer-group');
+
+    renderInfoGrid('accessDetails', [
+      { label: 'Permission Level', keys: ['permissionLevel'], transform: (value, record) => {
+        const source = state.permissions || record.permissions || {};
+        const level = source.permissionLevel || value;
+        return level ? level.toString().replace(/_/g, ' ').toUpperCase() : '';
+      } },
+      { label: 'Manage Users', keys: ['canManageUsers'], transform: () => formatBoolean(state.permissions && state.permissions.canManageUsers) },
+      { label: 'Manage Pages', keys: ['canManagePages'], transform: () => formatBoolean(state.permissions && state.permissions.canManagePages) },
+      { label: 'Assigned Campaign', keys: ['CampaignID', 'campaignId'], transform: (value) => safeString(value || state.campaignId) }
+    ], Object.assign({}, detailRecord, { permissions: state.permissions }));
+
+    renderInfoGrid('securityDetails', [
+      { label: 'Email Confirmed', keys: ['EmailConfirmed', 'emailConfirmed'], transform: (value) => formatBoolean(value) },
+      { label: 'MFA Enabled', keys: ['MFAEnabled', 'mfaEnabled'], transform: (value) => formatBoolean(value) },
+      { label: 'Last Login', keys: ['LastLoginAt', 'LastLogin', 'lastLoginAt', 'lastLogin'], transform: (value) => formatDate(value) },
+      { label: 'Last Activity', keys: ['LastActivityAt', 'lastActivityAt'], transform: (value) => formatDate(value) },
+      { label: 'Password Reset Required', keys: ['ResetRequired', 'resetRequired'], transform: (value) => formatBoolean(value, { positive: 'Required', negative: 'Not Required' }) }
+    ], Object.assign({}, state.user, detailRecord));
+
+    renderEquipment(state.equipment);
+  }
+
+  function fetchUserDetail() {
+    const userId = safeString(state.user && state.user.ID);
+    if (!userId || (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      refreshSections();
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => {
+        console.warn('Failed to load user detail', err);
+        refreshSections();
+      })
+      .withSuccessHandler(detail => {
+        state.detail = detail || state.detail;
+        refreshSections();
+      })
+      .clientGetUserDetail(userId, { requestingUserId: userId });
+  }
+
+  function fetchUserPages() {
+    const userId = safeString(state.user && state.user.ID);
+    if (!userId || (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      refreshSections();
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => {
+        console.warn('Failed to load user pages', err);
+      })
+      .withSuccessHandler(pages => {
+        if (Array.isArray(pages)) {
+          state.pages = pages;
+          refreshSections();
+        }
+      })
+      .clientGetUserPages(userId);
+  }
+
+  function fetchUserEquipment() {
+    const userId = safeString(state.user && state.user.ID);
+    const loader = document.getElementById('equipmentLoader');
+    if (loader) loader.classList.add('show');
+    if (!userId || (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      if (loader) loader.classList.remove('show');
+      refreshSections();
+      return;
+    }
+
+    state.loadingEquipment = true;
+    google.script.run
+      .withFailureHandler(err => {
+        console.warn('Failed to load equipment', err);
+        state.loadingEquipment = false;
+        if (loader) loader.classList.remove('show');
+        renderEquipment(state.equipment);
+      })
+      .withSuccessHandler(result => {
+        state.loadingEquipment = false;
+        if (loader) loader.classList.remove('show');
+        if (result && result.success && Array.isArray(result.items)) {
+          state.equipment = result.items;
+          renderEquipment(state.equipment);
+        } else {
+          renderEquipment(state.equipment);
+        }
+      })
+      .clientGetUserEquipment(userId);
+  }
+
+  function fetchPermissions() {
+    const userId = safeString(state.user && state.user.ID);
+    const campaignId = safeString(state.campaignId);
+    if (!userId || !campaignId || (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      refreshSections();
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => {
+        console.warn('Failed to load permissions', err);
+      })
+      .withSuccessHandler(perms => {
+        if (perms && typeof perms === 'object') {
+          state.permissions = perms;
+          refreshSections();
+        }
+      })
+      .clientGetUserPermissions(userId, campaignId);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    refreshSections();
+    fetchUserDetail();
+    fetchUserPages();
+    fetchUserEquipment();
+    fetchPermissions();
+  });
+</script>

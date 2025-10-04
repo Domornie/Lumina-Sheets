@@ -1260,6 +1260,7 @@ function canonicalizePageKey(k) {
 
     // Experience hubs
     case 'agent-experience':
+    case 'userprofile':
       return 'workspace.agent';
     case 'manager-executive-experience':
       return 'workspace.executive';
@@ -1448,13 +1449,35 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
 
-    // Default route: redirect to dashboard
+    // Default route: redirect to persona-specific landing page
     if (!page) {
       const userCampaignId = user.CampaignID || '';
-      const redirectUrl = getAuthenticatedUrl('dashboard', userCampaignId);
+      let landingSlug = '';
+
+      try {
+        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
+            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
+              user: user,
+              userPayload: user,
+              rawUser: user
+            });
+            if (landingInfo && landingInfo.slug) {
+              landingSlug = landingInfo.slug;
+            }
+          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
+            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
+          }
+        }
+      } catch (landingError) {
+        console.warn('doGet: failed to compute landing slug', landingError);
+      }
+
+      const redirectPage = landingSlug || 'dashboard';
+      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
       return HtmlService
         .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-        .setTitle('Redirecting to Dashboard...');
+        .setTitle('Redirecting...');
     }
 
     const campaignId = e.parameter.campaign || user.CampaignID || '';
@@ -1504,6 +1527,10 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
 
     if (page === 'agent-experience') {
       return serveGlobalPage('AgentExperience', e, baseUrl, user);
+    }
+
+    if (page === 'userprofile') {
+      return serveGlobalPage('UserProfile', e, baseUrl, user);
     }
 
     if (page === 'goalsetting') {
@@ -2273,6 +2300,10 @@ function handleTemplateSpecificData(tpl, templateName, e, user, campaignId) {
         handleSearchData(tpl, e);
         break;
 
+      case 'UserProfile':
+        handleUserProfileData(tpl, e, user);
+        break;
+
       case 'Chat':
         handleChatData(tpl, e, user);
         break;
@@ -2897,6 +2928,77 @@ function handleSearchData(tpl, e) {
     tpl.pageIndex = 1;
     tpl.error = error.message;
     tpl.scriptUrl = SCRIPT_URL;
+  }
+}
+
+function handleUserProfileData(tpl, e, user) {
+  try {
+    const bootstrap = {
+      user: user || null,
+      detail: null,
+      pages: [],
+      equipment: [],
+      permissions: null,
+      campaignId: '',
+      generatedAt: new Date().toISOString()
+    };
+
+    const userId = user && user.ID ? String(user.ID) : '';
+
+    if (userId && typeof clientGetUserDetail === 'function') {
+      try {
+        bootstrap.detail = clientGetUserDetail(userId, { requestingUserId: userId }) || null;
+      } catch (detailError) {
+        console.warn('handleUserProfileData: unable to load user detail', detailError);
+      }
+    }
+
+    if (userId && typeof clientGetUserPages === 'function') {
+      try {
+        bootstrap.pages = clientGetUserPages(userId) || [];
+      } catch (pagesError) {
+        console.warn('handleUserProfileData: unable to load user pages', pagesError);
+      }
+    }
+
+    if (userId && typeof clientGetUserEquipment === 'function') {
+      try {
+        const equipmentResponse = clientGetUserEquipment(userId);
+        if (equipmentResponse && equipmentResponse.success && Array.isArray(equipmentResponse.items)) {
+          bootstrap.equipment = equipmentResponse.items;
+        }
+      } catch (equipmentError) {
+        console.warn('handleUserProfileData: unable to load user equipment', equipmentError);
+      }
+    }
+
+    let campaignId = '';
+    if (user && user.CampaignID) {
+      campaignId = String(user.CampaignID);
+    }
+
+    if (!campaignId && bootstrap.detail && bootstrap.detail.record) {
+      const record = bootstrap.detail.record;
+      campaignId = String(record.CampaignID || record.campaignId || record.CampaignId || '');
+    }
+
+    bootstrap.campaignId = campaignId;
+
+    if (userId && campaignId && typeof getCampaignUserPermissions === 'function') {
+      try {
+        bootstrap.permissions = getCampaignUserPermissions(campaignId, userId) || null;
+      } catch (permissionsError) {
+        console.warn('handleUserProfileData: unable to load campaign permissions', permissionsError);
+      }
+    }
+
+    tpl.profileBootstrap = _stringifyForTemplate_(bootstrap);
+  } catch (error) {
+    console.error('Error handling user profile data:', error);
+    try {
+      writeError && writeError('handleUserProfileData', error);
+    } catch (_) { }
+    tpl.profileBootstrap = '{}';
   }
 }
 
