@@ -4154,6 +4154,12 @@ function initializeSystem() {
       AuthenticationService.ensureSheets();
     }
 
+    try {
+      ensureSessionCleanupTrigger();
+    } catch (triggerError) {
+      console.warn('initializeSystem: unable to ensure session cleanup trigger', triggerError);
+    }
+
     initializeMainSheets();
     initializeCampaignSystems();
 
@@ -4172,6 +4178,40 @@ function initializeSystem() {
     console.error('System initialization failed:', error);
     writeError('initializeSystem', error);
     return { success: false, error: error.message };
+  }
+}
+
+function ensureSessionCleanupTrigger() {
+  if (typeof ScriptApp === 'undefined' || !ScriptApp || typeof ScriptApp.getProjectTriggers !== 'function') {
+    console.warn('ensureSessionCleanupTrigger: ScriptApp not available; skipping trigger registration.');
+    return false;
+  }
+
+  var handlerName = 'cleanupExpiredSessionsJob';
+
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    var hasTrigger = triggers.some(function (trigger) {
+      return trigger && typeof trigger.getHandlerFunction === 'function'
+        ? trigger.getHandlerFunction() === handlerName
+        : false;
+    });
+
+    if (!hasTrigger) {
+      ScriptApp.newTrigger(handlerName)
+        .timeBased()
+        .everyHours(1)
+        .create();
+      console.log('ensureSessionCleanupTrigger: created hourly trigger for cleanupExpiredSessionsJob');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('ensureSessionCleanupTrigger: failed to ensure trigger', error);
+    if (typeof writeError === 'function') {
+      try { writeError('ensureSessionCleanupTrigger', error); } catch (loggingError) { console.warn('ensureSessionCleanupTrigger: unable to log error', loggingError); }
+    }
+    return false;
   }
 }
 
