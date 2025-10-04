@@ -389,6 +389,105 @@
       box-shadow: var(--shadow-md);
     }
 
+    .device-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+    }
+
+    .device-modal.show {
+      display: flex;
+    }
+
+    .device-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+    }
+
+    .device-modal-dialog {
+      position: relative;
+      z-index: 1;
+      background: #ffffff;
+      border-radius: var(--border-radius-lg);
+      box-shadow: var(--shadow-2xl);
+      padding: 2.5rem;
+      width: min(520px, 92%);
+      max-width: 520px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .device-modal-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--text-primary);
+    }
+
+    .device-modal-body {
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+
+    .device-meta-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+      border: 1px solid rgba(226, 232, 240, 0.7);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+    }
+
+    .device-meta-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      background: rgba(246, 249, 255, 0.55);
+    }
+
+    .device-meta-list li + li {
+      border-top: 1px solid rgba(226, 232, 240, 0.7);
+    }
+
+    .device-meta-label {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-right: 1rem;
+    }
+
+    .device-modal-code-input {
+      font-size: 1.35rem;
+      letter-spacing: 0.4rem;
+      text-align: center;
+      font-weight: 600;
+      padding: 0.85rem 1rem;
+    }
+
+    .device-modal-error {
+      color: var(--danger-red);
+      font-size: 0.9rem;
+      min-height: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .device-modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 576px) {
+      .device-modal-actions {
+        flex-direction: row;
+      }
+    }
+
     @media (max-width: 575.98px) {
       .next-steps-card .btn {
         width: 100%;
@@ -766,6 +865,38 @@
             </div>
           </div>
 
+          <div id="deviceVerificationModal" class="device-modal" aria-hidden="true">
+            <div class="device-modal-backdrop"></div>
+            <div class="device-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="deviceVerificationTitle">
+              <span class="badge bg-warning-subtle text-warning-emphasis mb-3" id="deviceVerificationBadge">
+                <i class="fas fa-shield-halved me-1"></i> Security Check
+              </span>
+              <h4 id="deviceVerificationTitle" class="device-modal-title">Confirm this sign-in</h4>
+              <p id="deviceVerificationMessage" class="device-modal-body">
+                We sent a verification code to your email address to confirm this device.
+              </p>
+              <ul id="deviceVerificationMeta" class="device-meta-list"></ul>
+              <div class="mb-3">
+                <label for="deviceVerificationCode" class="form-label">Verification code</label>
+                <input type="text" id="deviceVerificationCode" class="form-control device-modal-code-input"
+                       autocomplete="one-time-code" inputmode="numeric" maxlength="8"
+                       placeholder="Enter the code">
+              </div>
+              <div id="deviceVerificationError" class="device-modal-error"></div>
+              <div class="device-modal-actions">
+                <button type="button" id="deviceVerificationConfirmBtn" class="btn btn-primary flex-grow-1">
+                  <i class="fas fa-check me-2"></i>Yes, that was me
+                </button>
+                <button type="button" id="deviceVerificationDenyBtn" class="btn btn-outline-danger flex-grow-1">
+                  <i class="fas fa-ban me-2"></i>No, secure my account
+                </button>
+              </div>
+              <button type="button" id="deviceVerificationCancelBtn" class="btn btn-link text-muted mt-3 p-0">
+                Use a different account
+              </button>
+            </div>
+          </div>
+
           <!-- Login Form -->
           <form id="loginForm">
             <div class="mb-3">
@@ -838,6 +969,7 @@
   </div>
 
   <script>
+    const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
     // ───────────────────────────────────────────────────────────────────────────────
     // SIMPLIFIED AUTHENTICATION CONFIGURATION
     // ───────────────────────────────────────────────────────────────────────────────
@@ -941,7 +1073,16 @@
       mfaCodeInput: document.getElementById('mfaCode'),
       verifyMfaBtn: document.getElementById('verifyMfaBtn'),
       resendMfaBtn: document.getElementById('resendMfaBtn'),
-      mfaMessage: document.getElementById('mfaMessage')
+      mfaMessage: document.getElementById('mfaMessage'),
+      deviceModal: document.getElementById('deviceVerificationModal'),
+      deviceModalMessage: document.getElementById('deviceVerificationMessage'),
+      deviceModalMeta: document.getElementById('deviceVerificationMeta'),
+      deviceModalCodeInput: document.getElementById('deviceVerificationCode'),
+      deviceModalConfirmBtn: document.getElementById('deviceVerificationConfirmBtn'),
+      deviceModalDenyBtn: document.getElementById('deviceVerificationDenyBtn'),
+      deviceModalError: document.getElementById('deviceVerificationError'),
+      deviceModalCancelBtn: document.getElementById('deviceVerificationCancelBtn'),
+      deviceModalBadge: document.getElementById('deviceVerificationBadge')
     };
 
     // State management
@@ -965,7 +1106,9 @@
       mfaDeliveryInFlight: false,
       mfaVerifyInFlight: false,
       mfaCountdownTimer: null,
-      mfaBaseMessage: ''
+      mfaBaseMessage: '',
+      pendingDeviceVerification: null,
+      deviceVerificationInFlight: false
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1363,6 +1506,222 @@
       }
     }
 
+    function formatDateTime(value) {
+      if (!value) return '';
+      try {
+        const date = value instanceof Date ? value : new Date(value);
+        if (isNaN(date.getTime())) {
+          return '';
+        }
+        return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      } catch (err) {
+        console.warn('formatDateTime error', err);
+        return '';
+      }
+    }
+
+    function updateDeviceVerificationError(message) {
+      if (elements.deviceModalError) {
+        elements.deviceModalError.textContent = message || '';
+      }
+    }
+
+    function setDeviceVerificationLoading(isLoading) {
+      state.deviceVerificationInFlight = !!isLoading;
+      if (elements.deviceModalConfirmBtn) {
+        elements.deviceModalConfirmBtn.disabled = !!isLoading;
+        elements.deviceModalConfirmBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Verifying…'
+          : '<i class="fas fa-check me-2"></i>Yes, that was me';
+      }
+      if (elements.deviceModalDenyBtn) {
+        elements.deviceModalDenyBtn.disabled = !!isLoading;
+        elements.deviceModalDenyBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Processing…'
+          : '<i class="fas fa-ban me-2"></i>No, secure my account';
+      }
+    }
+
+    function hideDeviceVerificationPrompt({ resetState = true } = {}) {
+      if (elements.deviceModal) {
+        elements.deviceModal.classList.remove('show');
+        elements.deviceModal.setAttribute('aria-hidden', 'true');
+      }
+      state.deviceVerificationInFlight = false;
+      if (resetState) {
+        state.pendingDeviceVerification = null;
+        updateDeviceVerificationError('');
+        if (elements.deviceModalCodeInput) {
+          elements.deviceModalCodeInput.value = '';
+        }
+      }
+      if (elements.deviceModalConfirmBtn) {
+        elements.deviceModalConfirmBtn.disabled = false;
+        elements.deviceModalConfirmBtn.innerHTML = '<i class="fas fa-check me-2"></i>Yes, that was me';
+      }
+      if (elements.deviceModalDenyBtn) {
+        elements.deviceModalDenyBtn.disabled = false;
+        elements.deviceModalDenyBtn.innerHTML = '<i class="fas fa-ban me-2"></i>No, secure my account';
+      }
+    }
+
+    function showDeviceVerificationPrompt(response, email, rememberMe) {
+      const verification = response && response.verification ? response.verification : {};
+      const verificationId = verification.id || verification.verificationId || '';
+      if (!verificationId) {
+        showAlert('error', 'We were unable to start the verification process. Please try again.');
+        return;
+      }
+
+      const expiresAt = verification.expiresAt ? new Date(verification.expiresAt) : null;
+      state.pendingDeviceVerification = {
+        id: verificationId,
+        email: email,
+        rememberMe: !!rememberMe,
+        maskedEmail: verification.maskedEmail || '',
+        ipAddress: verification.ipAddress || '',
+        expiresAt: expiresAt,
+        message: response && response.message ? response.message : (verification.message || ''),
+        codeLength: verification.codeLength || 6
+      };
+
+      if (elements.deviceModalMessage) {
+        const primaryMessage = state.pendingDeviceVerification.message
+          || 'We sent a verification code to confirm this device.';
+        const destination = state.pendingDeviceVerification.maskedEmail
+          ? `Check ${state.pendingDeviceVerification.maskedEmail} for the code.`
+          : 'Check your email for the code.';
+        elements.deviceModalMessage.innerText = `${primaryMessage} ${destination}`.trim();
+      }
+
+      if (elements.deviceModalMeta) {
+        const metaItems = [];
+        if (state.pendingDeviceVerification.maskedEmail) {
+          metaItems.push({ label: 'Email', value: state.pendingDeviceVerification.maskedEmail });
+        }
+        if (state.pendingDeviceVerification.ipAddress) {
+          metaItems.push({ label: 'Observed IP', value: state.pendingDeviceVerification.ipAddress });
+        }
+        if (state.pendingDeviceVerification.expiresAt) {
+          metaItems.push({ label: 'Expires', value: formatDateTime(state.pendingDeviceVerification.expiresAt) });
+        }
+
+        if (metaItems.length) {
+          elements.deviceModalMeta.classList.remove('d-none');
+          elements.deviceModalMeta.innerHTML = metaItems.map(item => (
+            `<li><span class="device-meta-label">${item.label}</span><span>${item.value}</span></li>`
+          )).join('');
+        } else {
+          elements.deviceModalMeta.classList.add('d-none');
+          elements.deviceModalMeta.innerHTML = '';
+        }
+      }
+
+      if (elements.deviceModalCodeInput) {
+        elements.deviceModalCodeInput.value = '';
+        elements.deviceModalCodeInput.maxLength = state.pendingDeviceVerification.codeLength || 8;
+        elements.deviceModalCodeInput.placeholder = `Enter ${state.pendingDeviceVerification.codeLength || 6}-digit code`;
+        setTimeout(() => {
+          elements.deviceModalCodeInput.focus();
+          elements.deviceModalCodeInput.select();
+        }, 120);
+      }
+
+      updateDeviceVerificationError('');
+      if (elements.deviceModal) {
+        elements.deviceModal.classList.add('show');
+        elements.deviceModal.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    function submitDeviceVerification() {
+      if (state.deviceVerificationInFlight) {
+        return;
+      }
+
+      if (!state.pendingDeviceVerification || !state.pendingDeviceVerification.id) {
+        showAlert('error', 'We could not find that verification request. Please sign in again.');
+        hideDeviceVerificationPrompt();
+        return;
+      }
+
+      const codeValue = elements.deviceModalCodeInput ? elements.deviceModalCodeInput.value.trim() : '';
+      if (!codeValue) {
+        updateDeviceVerificationError('Enter the verification code from your email.');
+        if (elements.deviceModalCodeInput) {
+          elements.deviceModalCodeInput.focus();
+        }
+        return;
+      }
+
+      setDeviceVerificationLoading(true);
+      updateDeviceVerificationError('');
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setDeviceVerificationLoading(false);
+          if (response && response.success) {
+            hideDeviceVerificationPrompt();
+            completeAuthenticatedLogin(response, state.pendingDeviceVerification.rememberMe);
+            return;
+          }
+
+          if (response && response.error) {
+            updateDeviceVerificationError(response.error);
+            if (response.errorCode === 'VERIFICATION_EXPIRED') {
+              hideDeviceVerificationPrompt();
+              showAlert('warning', 'The verification request expired. Please sign in again.');
+            }
+            return;
+          }
+
+          updateDeviceVerificationError('We were unable to confirm the device. Please try again.');
+        })
+        .withFailureHandler(error => {
+          console.error('submitDeviceVerification error:', error);
+          setDeviceVerificationLoading(false);
+          updateDeviceVerificationError('A network error occurred while verifying. Please try again.');
+        })
+        .confirmDeviceVerification(state.pendingDeviceVerification.id, codeValue, collectClientMetadata());
+    }
+
+    function denyDeviceVerificationRequest() {
+      if (state.deviceVerificationInFlight) {
+        return;
+      }
+
+      if (!state.pendingDeviceVerification || !state.pendingDeviceVerification.id) {
+        hideDeviceVerificationPrompt();
+        showAlert('error', 'Verification request not found. Please sign in again.');
+        return;
+      }
+
+      setDeviceVerificationLoading(true);
+      updateDeviceVerificationError('');
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setDeviceVerificationLoading(false);
+          if (response && response.success) {
+            hideDeviceVerificationPrompt();
+            showAlert('warning', response.message || 'We blocked that sign-in attempt.');
+            clearAuthCookie();
+            if (elements.passwordInput) {
+              elements.passwordInput.value = '';
+            }
+            return;
+          }
+
+          const message = (response && response.error) || 'We were unable to record your response. Please try again.';
+          updateDeviceVerificationError(message);
+        })
+        .withFailureHandler(error => {
+          console.error('denyDeviceVerificationRequest error:', error);
+          setDeviceVerificationLoading(false);
+          updateDeviceVerificationError('Network error recording your response. Please try again.');
+        })
+        .denyDeviceVerification(state.pendingDeviceVerification.id, collectClientMetadata());
+    }
     function verifyMfaCodeInput() {
       if (!state.pendingMfa || state.mfaVerifyInFlight) {
         return;
@@ -1769,6 +2128,22 @@
         if (typeof nav.hardwareConcurrency === 'number') {
           metadata.hardwareConcurrency = nav.hardwareConcurrency;
         }
+        if (SERVER_OBSERVED_METADATA && typeof SERVER_OBSERVED_METADATA === 'object') {
+          if (SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress) {
+            metadata.serverObservedIp = SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress;
+            metadata.serverIp = metadata.serverIp || metadata.serverObservedIp;
+          }
+          if (SERVER_OBSERVED_METADATA.forwardedFor) {
+            metadata.forwardedFor = SERVER_OBSERVED_METADATA.forwardedFor;
+          }
+          if (SERVER_OBSERVED_METADATA.serverUserAgent && !metadata.serverUserAgent) {
+            metadata.serverUserAgent = SERVER_OBSERVED_METADATA.serverUserAgent;
+          }
+          if (SERVER_OBSERVED_METADATA.host) {
+            metadata.host = SERVER_OBSERVED_METADATA.host;
+          }
+          metadata.serverObservedAt = SERVER_OBSERVED_METADATA.serverObservedAt || new Date().toISOString();
+        }
         return metadata;
       } catch (err) {
         console.warn('collectClientMetadata: Unable to gather client details', err);
@@ -1952,6 +2327,9 @@
     function handleLoginFailure(response, email) {
       clearAuthCookie();
       resetMfaState();
+      if (state.pendingDeviceVerification) {
+        hideDeviceVerificationPrompt();
+      }
 
       const normalizedEmail = (email || '').trim();
       const displayEmail = normalizedEmail || 'your email address';
@@ -2935,6 +3313,11 @@
             return;
           }
 
+          if (response && response.needsVerification) {
+            showDeviceVerificationPrompt(response, email, rememberMe);
+            return;
+          }
+
           if (response && response.success) {
             console.log('Login successful');
             completeAuthenticatedLogin(response, rememberMe);
@@ -3000,6 +3383,7 @@
         }
 
         hideAllAlerts();
+        hideDeviceVerificationPrompt();
 
         if (!validateForm()) {
           return;
@@ -3032,6 +3416,30 @@
           return;
         }
         requestMfaCode({ silent: false });
+      });
+    }
+
+    if (elements.deviceModalConfirmBtn) {
+      elements.deviceModalConfirmBtn.addEventListener('click', submitDeviceVerification);
+    }
+
+    if (elements.deviceModalDenyBtn) {
+      elements.deviceModalDenyBtn.addEventListener('click', denyDeviceVerificationRequest);
+    }
+
+    if (elements.deviceModalCancelBtn) {
+      elements.deviceModalCancelBtn.addEventListener('click', () => {
+        hideDeviceVerificationPrompt();
+        showAlert('info', 'Sign in again if you still need access.');
+      });
+    }
+
+    if (elements.deviceModalCodeInput) {
+      elements.deviceModalCodeInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitDeviceVerification();
+        }
       });
     }
 

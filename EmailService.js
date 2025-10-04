@@ -957,6 +957,129 @@ function sendPasswordChangeConfirmation(email, data) {
   }
 }
 
+function sendDeviceVerificationEmail(email, data) {
+  try {
+    const safeName = escapeHtml_(data && data.fullName ? data.fullName : 'there');
+    const code = escapeHtml_(String((data && data.verificationCode) || ''));
+    const expiresAt = data && data.expiresAt ? new Date(data.expiresAt) : null;
+    const expiresText = expiresAt && !isNaN(expiresAt.getTime())
+      ? Utilities.formatDate(expiresAt, Session.getScriptTimeZone(), 'MMM d, yyyy h:mm a')
+      : '15 minutes';
+    const ipAddress = escapeHtml_((data && data.ipAddress) || 'Unknown');
+    const userAgent = escapeHtml_((data && data.userAgent) || 'Unknown');
+    const platform = escapeHtml_((data && data.platform) || 'Unknown device');
+    const languages = Array.isArray(data && data.languages) && data.languages.length
+      ? escapeHtml_(data.languages.join(', '))
+      : '';
+
+    const content = `
+<div class="security-badge">🛡️ New Device Sign-In Verification</div>
+<p class="subtitle">Hi <span class="emphasis">${safeName}</span>,</p>
+<p>We noticed a sign-in from a device or location we haven't seen before. To keep your account secure, please confirm it was you by entering the verification code below:</p>
+
+<div class="cta-wrap">
+  <div class="cta-button" style="font-size:26px;letter-spacing:4px;">${code}</div>
+</div>
+
+<div class="info-card">
+  <h3 style="color:#0ea5e9;margin-top:0;">🔍 Attempt details</h3>
+  <ul class="feature-list">
+    <li style="border-left-color:#0ea5e9;">Observed IP: <strong>${ipAddress}</strong></li>
+    <li style="border-left-color:#0ea5e9;">Device: <strong>${platform}</strong></li>
+    <li style="border-left-color:#0ea5e9;">Browser: <strong>${userAgent}</strong></li>
+    ${languages ? `<li style="border-left-color:#0ea5e9;">Languages: <strong>${languages}</strong></li>` : ''}
+    <li style="border-left-color:#0ea5e9;">Expires: <strong>${escapeHtml_(expiresText)}</strong></li>
+  </ul>
+</div>
+
+<p>If this was you, enter the code in the sign-in screen within the next few minutes. If it wasn’t you, deny the attempt immediately and our security team will be alerted.</p>
+`;
+
+    const htmlBody = renderEmail_({
+      headerTitle: 'Confirm New Sign-In',
+      headerGradient: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
+      logoUrl: EMAIL_CONFIG.logoUrl,
+      preheader: 'Confirm whether this new sign-in was you to keep your account secure.',
+      contentHtml: content
+    });
+
+    const subject = EMAIL_CONFIG.subjectPrefix + 'Confirm New Sign-In';
+    sendEmail_({
+      to: email,
+      subject: subject,
+      htmlBody: htmlBody,
+      category: 'Security'
+    });
+
+    console.log('Device verification email sent to', email);
+    return { success: true };
+  } catch (error) {
+    writeError('sendDeviceVerificationEmail', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function sendDeniedDeviceAlertEmail(details) {
+  try {
+    const recipient = (EMAIL_CONFIG.supportEmail || '').trim();
+    if (!recipient) {
+      console.warn('sendDeniedDeviceAlertEmail: support email not configured');
+      return false;
+    }
+
+    const userName = escapeHtml_((details && details.userName) || 'Unknown user');
+    const userEmail = escapeHtml_((details && details.userEmail) || '');
+    const ipAddress = escapeHtml_((details && details.ipAddress) || 'Unknown');
+    const clientIp = escapeHtml_((details && details.clientIp) || '');
+    const userAgent = escapeHtml_((details && details.userAgent) || 'Unknown');
+    const platform = escapeHtml_((details && details.platform) || 'Unknown');
+    const verificationId = escapeHtml_((details && details.verificationId) || '');
+    const fingerprint = escapeHtml_((details && details.fingerprint) || '');
+    const occurredAt = escapeHtml_((details && details.occurredAt) || new Date().toISOString());
+
+    const htmlBody = renderEmail_({
+      headerTitle: 'Device Verification Denied',
+      headerGradient: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+      logoUrl: EMAIL_CONFIG.logoUrl,
+      preheader: 'A user denied a new device sign-in attempt.',
+      contentHtml: `
+<div class="security-badge" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">🚨 User Denied Sign-In Attempt</div>
+<p><strong>${userName}</strong> (${userEmail || 'no email on file'}) denied a new device/IP attempting to access the system.</p>
+
+<div class="info-card">
+  <h3 style="margin-top:0;color:#b91c1c;">Attempt details</h3>
+  <ul class="feature-list">
+    <li style="border-left-color:#b91c1c;">Server-observed IP: <strong>${ipAddress}</strong></li>
+    ${clientIp ? `<li style="border-left-color:#b91c1c;">Client-reported IP: <strong>${clientIp}</strong></li>` : ''}
+    <li style="border-left-color:#b91c1c;">Platform: <strong>${platform}</strong></li>
+    <li style="border-left-color:#b91c1c;">User agent: <strong>${userAgent}</strong></li>
+    ${verificationId ? `<li style="border-left-color:#b91c1c;">Verification ID: <strong>${verificationId}</strong></li>` : ''}
+    ${fingerprint ? `<li style="border-left-color:#b91c1c;">Fingerprint: <strong>${fingerprint}</strong></li>` : ''}
+    <li style="border-left-color:#b91c1c;">Denied at: <strong>${occurredAt}</strong></li>
+  </ul>
+</div>
+
+<p>Please investigate this activity. If suspicious, lock the account and follow the incident response process.</p>
+`
+    });
+
+    const subject = EMAIL_CONFIG.subjectPrefix + 'Denied Device Sign-In Attempt';
+    sendEmail_({
+      to: recipient,
+      subject: subject,
+      htmlBody: htmlBody,
+      category: 'Security',
+      bcc: EMAIL_CONFIG.auditBcc || ''
+    });
+
+    console.log('Denied device alert sent for', userEmail || userName);
+    return true;
+  } catch (error) {
+    writeError('sendDeniedDeviceAlertEmail', error);
+    return false;
+  }
+}
+
 function sendMfaCodeEmail(email, data) {
   try {
     const recipient = String(email || '').trim();

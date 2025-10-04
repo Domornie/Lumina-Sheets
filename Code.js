@@ -1182,7 +1182,7 @@ function requireAuth(e) {
     const user = authenticateUser(e);
 
     if (!user) {
-      return renderLoginPage();
+      return renderLoginPage(e);
     }
 
     const pageParam = String(e?.parameter?.page || '').toLowerCase();
@@ -1218,10 +1218,23 @@ function requireAuth(e) {
   }
 }
 
-function renderLoginPage() {
+function renderLoginPage(e) {
+  let serverMetadata = null;
+
+  if (typeof AuthenticationService !== 'undefined'
+    && AuthenticationService
+    && typeof AuthenticationService.captureLoginRequestContext === 'function') {
+    try {
+      serverMetadata = AuthenticationService.captureLoginRequestContext(e) || null;
+    } catch (contextError) {
+      console.warn('renderLoginPage: unable to capture server metadata', contextError);
+    }
+  }
+
   const tpl = HtmlService.createTemplateFromFile('Login');
   tpl.baseUrl = getBaseUrl();
   tpl.scriptUrl = SCRIPT_URL;
+  tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
   return tpl.evaluate()
     .setTitle('Login - VLBPO LuminaHQ')
     .addMetaTag('viewport', 'width=device-width,initial-scale=1')
@@ -1382,7 +1395,7 @@ function doGet(e) {
     const page = (e.parameter.page || "").toLowerCase();
 
     if (page === 'login' || (!page)) {
-      return renderLoginPage();
+      return renderLoginPage(e);
     }
 
     // Handle other public pages
