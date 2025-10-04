@@ -269,12 +269,52 @@
 
     const PAGE_SLUG = createSlug(__PAGE_SLUG_SOURCES);
 
+    function stripUrlToNavigationBase(candidate) {
+      if (!candidate) {
+        return '';
+      }
+
+      try {
+        const base = (typeof window !== 'undefined' && window.location && window.location.href)
+          ? window.location.href
+          : undefined;
+        const parsed = new URL(candidate, base);
+        parsed.search = '';
+        parsed.hash = '';
+        return parsed.toString();
+      } catch (err) {
+        const sanitized = String(candidate).replace(/[?#].*$/, '').trim();
+        if (sanitized) {
+          return sanitized;
+        }
+      }
+
+      return '';
+    }
+
+    const NAVIGATION_BASE_URL = (function deriveNavigationBase() {
+      const primary = stripUrlToNavigationBase(BASE_URL || SCRIPT_URL);
+      if (primary) {
+        return primary;
+      }
+
+      if (BASE_URL) {
+        return BASE_URL;
+      }
+
+      if (SCRIPT_URL) {
+        return SCRIPT_URL;
+      }
+
+      return '';
+    })();
+
     /**
      * Generate URLs for navigation
      */
     function generateUrl(page, _campaign = null, additionalParams = {}) {
       // _campaign is kept for backward compatibility but intentionally unused to avoid exposing it in URLs
-      let url = BASE_URL || SCRIPT_URL;
+      let url = NAVIGATION_BASE_URL || BASE_URL || SCRIPT_URL;
       const params = new URLSearchParams();
 
       if (page) {
