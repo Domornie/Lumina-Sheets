@@ -125,6 +125,10 @@
   .profile-action {
     position: relative;
     margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-end;
   }
 
   .profile-action a {
@@ -133,7 +137,7 @@
     gap: 0.5rem;
     padding: 0.65rem 1.2rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.2);
     color: white;
     font-weight: 600;
     text-decoration: none;
@@ -142,9 +146,18 @@
     backdrop-filter: blur(6px);
   }
 
+  .profile-action a.secondary {
+    background: rgba(2, 43, 91, 0.15);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
   .profile-action a:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.26);
+  }
+
+  .profile-action a.secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
 
   .profile-grid {
@@ -280,6 +293,133 @@
     color: var(--profile-text-secondary);
   }
 
+  .hidden {
+    display: none !important;
+  }
+
+  .manager-card {
+    grid-column: 1 / -1;
+  }
+
+  .manager-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .manager-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(2, 43, 91, 0.08);
+    color: var(--profile-navy);
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .manager-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .manager-stat {
+    background: var(--profile-soft);
+    border-radius: var(--profile-radius-sm);
+    border: 1px solid rgba(2, 43, 91, 0.08);
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .manager-stat .label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--profile-text-secondary);
+  }
+
+  .manager-stat .value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--profile-text);
+  }
+
+  .manager-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .manager-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border-radius: var(--profile-radius-sm);
+    border: 1px solid rgba(2, 43, 91, 0.08);
+    background: var(--profile-soft);
+  }
+
+  .manager-row .info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .manager-row .info strong {
+    font-size: 1rem;
+    color: var(--profile-text);
+  }
+
+  .manager-row .info span {
+    font-size: 0.85rem;
+    color: var(--profile-text-secondary);
+  }
+
+  .manager-row .metrics {
+    display: flex;
+    align-items: center;
+    gap: 1.35rem;
+    flex-wrap: wrap;
+  }
+
+  .manager-row .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .manager-row .metric .label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--profile-text-secondary);
+  }
+
+  .manager-row .metric .value {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--profile-text);
+  }
+
+  .manager-row .metric small {
+    font-size: 0.75rem;
+    color: var(--profile-text-secondary);
+  }
+
+  .manager-summary-empty {
+    margin-top: 0.5rem;
+  }
+
   .loader {
     display: none;
     align-items: center;
@@ -315,6 +455,7 @@
     .profile-action {
       width: 100%;
       margin: 1.5rem 0 0 0;
+      justify-content: center;
       text-align: center;
     }
 
@@ -330,6 +471,16 @@
     .info-grid {
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     }
+
+    .manager-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .manager-row .metrics {
+      width: 100%;
+      justify-content: space-between;
+    }
   }
 </style>
 
@@ -340,12 +491,16 @@
       <div class="profile-identity">
         <h1 id="profileName">User</h1>
         <p id="profileRole">Loading role…</p>
-        <div class="profile-chips" id="profileChips"></div>
+      <div class="profile-chips" id="profileChips"></div>
       </div>
       <div class="profile-action">
         <a id="agentExperienceLink" href="#" target="_top">
           <i class="fa-solid fa-compass"></i>
           Open Agent Experience
+        </a>
+        <a id="agentScheduleLink" class="secondary" href="#" target="_top">
+          <i class="fa-solid fa-calendar-check"></i>
+          View My Schedule
         </a>
       </div>
     </div>
@@ -382,6 +537,25 @@
         Fetching equipment…
       </div>
     </section>
+
+    <section class="profile-card manager-card hidden" id="managerSummaryCard">
+      <div class="manager-card-header">
+        <h2><i class="fa-solid fa-people-group"></i> Managed Team Overview</h2>
+        <span class="manager-chip" id="managerSummaryManagedCount">
+          <i class="fa-solid fa-user-group"></i>
+          0 Managed
+        </span>
+      </div>
+      <div class="manager-stats" id="managerSummaryStats"></div>
+      <div class="manager-list" id="managerSummaryList"></div>
+      <div class="empty-state manager-summary-empty hidden" id="managerSummaryEmpty">
+        No managed team members are assigned to you yet.
+      </div>
+      <div class="loader" id="managerSummaryLoader">
+        <div class="spinner"></div>
+        Compiling team performance…
+      </div>
+    </section>
   </div>
 </div>
 
@@ -396,7 +570,9 @@
     equipment: PROFILE_BOOTSTRAP.equipment || [],
     permissions: PROFILE_BOOTSTRAP.permissions || null,
     campaignId: PROFILE_BOOTSTRAP.campaignId || (CURRENT_USER ? CURRENT_USER.CampaignID || CURRENT_USER.campaignId || '' : ''),
-    loadingEquipment: false
+    managerSummary: PROFILE_BOOTSTRAP.managerSummary || null,
+    loadingEquipment: false,
+    loadingManagerSummary: false
   };
 
   function setText(id, value, fallback = '') {
@@ -411,6 +587,28 @@
     const text = String(value).trim();
     if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') return '';
     return text;
+  }
+
+  function resolveBaseUrl() {
+    if (typeof safeBaseUrl !== 'undefined' && safeBaseUrl) return safeBaseUrl;
+    if (typeof BASE_URL !== 'undefined' && BASE_URL) return BASE_URL;
+    if (typeof scriptUrl !== 'undefined' && scriptUrl) return scriptUrl;
+    if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) return SCRIPT_URL;
+    return '';
+  }
+
+  function buildPageLink(slug, extraParams = {}) {
+    const params = Object.assign({ page: slug }, extraParams || {});
+    const query = Object.keys(params)
+      .filter(key => params[key] !== undefined && params[key] !== null && params[key] !== '')
+      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+      .join('&');
+    const base = resolveBaseUrl();
+    if (!base) {
+      return `?${query}`;
+    }
+    const joiner = base.includes('?') ? '&' : '?';
+    return `${base}${joiner}${query}`;
   }
 
   function caseInsensitiveLookup(source, key) {
@@ -541,6 +739,52 @@
     if (truthy) return positive;
     if (falsy) return negative;
     return '';
+  }
+
+  function formatRelativeTime(value) {
+    if (!value) return '';
+    try {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      const now = Date.now();
+      const diff = now - date.getTime();
+      const abs = Math.abs(diff);
+      const minute = 60 * 1000;
+      const hour = 60 * minute;
+      const day = 24 * hour;
+      const week = 7 * day;
+
+      let amount;
+      let unit;
+      if (abs < hour) {
+        amount = Math.max(1, Math.round(abs / minute));
+        unit = 'min';
+      } else if (abs < day) {
+        amount = Math.max(1, Math.round(abs / hour));
+        unit = 'hr';
+      } else if (abs < week) {
+        amount = Math.max(1, Math.round(abs / day));
+        unit = 'day';
+      } else {
+        amount = Math.max(1, Math.round(abs / week));
+        unit = 'wk';
+      }
+
+      const plural = amount === 1 ? '' : 's';
+      const suffix = diff >= 0 ? 'ago' : 'from now';
+      return `${amount} ${unit}${plural} ${suffix}`;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function formatScore(value, { decimals = 1 } = {}) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '—';
+    const factor = Math.pow(10, decimals);
+    const rounded = Math.round(num * factor) / factor;
+    const text = decimals === 0 ? String(Math.round(rounded)) : rounded.toFixed(decimals).replace(/\.0+$/, '');
+    return `${text}%`;
   }
 
   function createInfoItem(label, value, options = {}) {
@@ -677,6 +921,205 @@
     });
   }
 
+  function createManagerMetric(label, value, secondary) {
+    const metric = document.createElement('div');
+    metric.className = 'metric';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'label';
+    labelEl.textContent = label;
+    metric.appendChild(labelEl);
+
+    const valueEl = document.createElement('span');
+    valueEl.className = 'value';
+    valueEl.textContent = value;
+    metric.appendChild(valueEl);
+
+    if (secondary) {
+      const secondaryEl = document.createElement('small');
+      secondaryEl.textContent = secondary;
+      metric.appendChild(secondaryEl);
+    }
+
+    return metric;
+  }
+
+  function renderManagerSummary(summary) {
+    const card = document.getElementById('managerSummaryCard');
+    if (!card) return;
+
+    const loader = document.getElementById('managerSummaryLoader');
+    if (loader) {
+      if (state.loadingManagerSummary) {
+        loader.classList.add('show');
+      } else {
+        loader.classList.remove('show');
+      }
+    }
+
+    const shouldShow = isLikelyManager(summary);
+    if (!shouldShow) {
+      card.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+
+    const statsEl = document.getElementById('managerSummaryStats');
+    const listEl = document.getElementById('managerSummaryList');
+    const emptyEl = document.getElementById('managerSummaryEmpty');
+    const countEl = document.getElementById('managerSummaryManagedCount');
+
+    if (emptyEl && state.loadingManagerSummary) {
+      emptyEl.classList.add('hidden');
+    }
+
+    if (countEl) {
+      countEl.innerHTML = '<i class="fa-solid fa-user-group"></i> 0 Managed';
+    }
+    if (statsEl) statsEl.innerHTML = '';
+    if (listEl) listEl.innerHTML = '';
+
+    if (!summary) {
+      if (emptyEl && !state.loadingManagerSummary) {
+        emptyEl.textContent = 'Managed team insights will appear here once available.';
+        emptyEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (summary.success === false) {
+      if (emptyEl && !state.loadingManagerSummary) {
+        const message = summary && summary.error ? summary.error : 'We could not load your team summary right now.';
+        emptyEl.textContent = message;
+        emptyEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    const users = Array.isArray(summary.users) ? summary.users.slice() : [];
+    const totals = summary.totals || {};
+
+    const managedCount = typeof totals.managedCount === 'number' ? totals.managedCount : users.length;
+    const totalEvaluations = typeof totals.totalEvaluations === 'number'
+      ? totals.totalEvaluations
+      : users.reduce((sum, user) => sum + (Number(user && user.evaluations) || 0), 0);
+    const lastEvaluationDate = totals.lastEvaluation || (function () {
+      let latest = null;
+      users.forEach(user => {
+        if (!user || !user.lastEvaluation) return;
+        const date = new Date(user.lastEvaluation);
+        if (Number.isNaN(date.getTime())) return;
+        if (!latest || date > latest) latest = date;
+      });
+      return latest ? latest.toISOString() : '';
+    })();
+
+    if (countEl) {
+      countEl.innerHTML = `<i class="fa-solid fa-user-group"></i> ${managedCount} Managed`;
+    }
+
+    if (statsEl) {
+      const stats = [
+        { label: 'Managed Agents', value: managedCount },
+        { label: 'Team Avg Score', value: formatScore(totals.scoreAverage) },
+        { label: 'Total Evaluations', value: totalEvaluations },
+        { label: 'Last Evaluation', value: lastEvaluationDate ? (formatDate(lastEvaluationDate) || '—') : '—', secondary: lastEvaluationDate ? formatRelativeTime(lastEvaluationDate) : '' }
+      ];
+
+      stats.forEach(stat => {
+        const statEl = document.createElement('div');
+        statEl.className = 'manager-stat';
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'label';
+        labelEl.textContent = stat.label;
+        statEl.appendChild(labelEl);
+
+        const valueEl = document.createElement('span');
+        valueEl.className = 'value';
+        valueEl.textContent = stat.value;
+        statEl.appendChild(valueEl);
+
+        if (stat.secondary) {
+          const secondaryEl = document.createElement('small');
+          secondaryEl.textContent = stat.secondary;
+          statEl.appendChild(secondaryEl);
+        }
+
+        statsEl.appendChild(statEl);
+      });
+    }
+
+    if (!users.length) {
+      if (emptyEl) {
+        emptyEl.textContent = 'No managed team members are assigned to you yet.';
+        emptyEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (emptyEl) {
+      emptyEl.classList.add('hidden');
+    }
+
+    users.sort((a, b) => {
+      const aScore = Number(a && a.averageScore);
+      const bScore = Number(b && b.averageScore);
+      if (Number.isFinite(bScore) && Number.isFinite(aScore)) {
+        return bScore - aScore;
+      }
+      if (Number.isFinite(bScore)) return 1;
+      if (Number.isFinite(aScore)) return -1;
+      const aName = safeString(a && (a.name || a.FullName || a.fullName || a.UserName || a.userName));
+      const bName = safeString(b && (b.name || b.FullName || b.fullName || b.UserName || b.userName));
+      return aName.localeCompare(bName);
+    });
+
+    users.forEach(user => {
+      const row = document.createElement('div');
+      row.className = 'manager-row';
+
+      const info = document.createElement('div');
+      info.className = 'info';
+
+      const nameEl = document.createElement('strong');
+      nameEl.textContent = safeString(user && (user.name || user.FullName || user.fullName || user.UserName || user.userName || 'Team Member')) || 'Team Member';
+      info.appendChild(nameEl);
+
+      const detailParts = [];
+      const campaignName = safeString(user && (user.campaignName || user.CampaignName));
+      if (campaignName) detailParts.push(campaignName);
+      const roles = normalizeList(user && (user.roles || user.roleNames || user.RoleNames));
+      if (roles.length) detailParts.push(roles.join(', '));
+
+      if (detailParts.length) {
+        const detailsEl = document.createElement('span');
+        detailsEl.textContent = detailParts.join(' • ');
+        info.appendChild(detailsEl);
+      }
+
+      row.appendChild(info);
+
+      const metrics = document.createElement('div');
+      metrics.className = 'metrics';
+
+      metrics.appendChild(createManagerMetric('Avg Score', formatScore(user && user.averageScore)));
+
+      const evaluationCount = Number(user && user.evaluations) || 0;
+      metrics.appendChild(createManagerMetric('Evaluations', evaluationCount.toString()));
+
+      const lastEvalDate = user && user.lastEvaluation ? formatDate(user.lastEvaluation) : '';
+      const lastEvalRelative = user && user.lastEvaluation ? formatRelativeTime(user.lastEvaluation) : '';
+      metrics.appendChild(createManagerMetric('Last Eval', lastEvalDate || '—', lastEvalRelative));
+
+      row.appendChild(metrics);
+
+      if (listEl) {
+        listEl.appendChild(row);
+      }
+    });
+  }
+
   function resolveDisplayName(userRecord) {
     if (!userRecord || typeof userRecord !== 'object') {
       return '';
@@ -702,6 +1145,22 @@
     const roleList = normalizeList(userRecord.roleNames || userRecord.RoleNames || (detailRecord && detailRecord.roleNames));
     if (roleList.length) return roleList[0];
     return safeString(userRecord.PrimaryRole || userRecord.primaryRole || userRecord.Role || userRecord.role || (detailRecord ? detailRecord.PrimaryRole || detailRecord.Role : ''));
+  }
+
+  function isLikelyManager(summary = state.managerSummary) {
+    const roles = normalizeList(
+      (state.user && (state.user.roleNames || state.user.RoleNames)) ||
+      (summary && summary.roles) ||
+      (state.detail && state.detail.roleNames)
+    );
+    const roleMatch = roles.some(role => /manager|lead|supervisor|director|executive/i.test(role));
+    const permissions = state.permissions || {};
+    const permissionLevel = safeString(permissions.permissionLevel);
+    const permissionMatch = /manager|lead|supervisor/i.test(permissionLevel.toLowerCase ? permissionLevel.toLowerCase() : permissionLevel);
+    const canManageUsers = permissions && (permissions.canManageUsers === true || String(permissions.canManageUsers).toLowerCase() === 'true');
+    if (roleMatch || permissionMatch || canManageUsers) return true;
+    if (summary && summary.users && summary.users.length) return true;
+    return false;
   }
 
   function hydrateHero(userRecord, detailRecord) {
@@ -746,10 +1205,12 @@
 
     const agentLink = document.getElementById('agentExperienceLink');
     if (agentLink) {
-      const base = (typeof BASE_URL !== 'undefined' && BASE_URL)
-        ? BASE_URL
-        : ((typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) ? SCRIPT_URL : '');
-      agentLink.href = base ? `${base}?page=agent-experience` : '?page=agent-experience';
+      agentLink.href = buildPageLink('agent-experience');
+    }
+
+    const scheduleLink = document.getElementById('agentScheduleLink');
+    if (scheduleLink) {
+      scheduleLink.href = buildPageLink('agentschedule');
     }
   }
 
@@ -810,6 +1271,7 @@
     ], Object.assign({}, state.user, detailRecord));
 
     renderEquipment(state.equipment);
+    renderManagerSummary(state.managerSummary);
   }
 
   function fetchUserDetail() {
@@ -882,6 +1344,42 @@
       .clientGetUserEquipment(userId);
   }
 
+  function fetchManagerSummary(force = false) {
+    const userId = safeString(state.user && state.user.ID);
+    if (!userId || (typeof google === 'undefined' || !google.script || !google.script.run)) {
+      renderManagerSummary(state.managerSummary);
+      return;
+    }
+
+    if (!force && !isLikelyManager() && (!state.managerSummary || !state.managerSummary.users || !state.managerSummary.users.length)) {
+      renderManagerSummary(state.managerSummary);
+      return;
+    }
+
+    state.loadingManagerSummary = true;
+    renderManagerSummary(state.managerSummary);
+
+    google.script.run
+      .withFailureHandler(err => {
+        console.warn('Failed to load manager summary', err);
+        state.loadingManagerSummary = false;
+        state.managerSummary = { success: false, error: 'Unable to load team summary right now.' };
+        renderManagerSummary(state.managerSummary);
+      })
+      .withSuccessHandler(result => {
+        state.loadingManagerSummary = false;
+        if (result && result.success) {
+          state.managerSummary = result;
+        } else if (result) {
+          state.managerSummary = Object.assign({ success: false }, result);
+        } else {
+          state.managerSummary = { success: false, error: 'Unable to load team summary right now.' };
+        }
+        renderManagerSummary(state.managerSummary);
+      })
+      .clientGetManagerTeamSummary(userId);
+  }
+
   function fetchPermissions() {
     const userId = safeString(state.user && state.user.ID);
     const campaignId = safeString(state.campaignId);
@@ -898,6 +1396,9 @@
         if (perms && typeof perms === 'object') {
           state.permissions = perms;
           refreshSections();
+          if (!state.loadingManagerSummary && isLikelyManager() && (!state.managerSummary || state.managerSummary.success === false)) {
+            fetchManagerSummary(true);
+          }
         }
       })
       .clientGetUserPermissions(userId, campaignId);
@@ -908,6 +1409,7 @@
     fetchUserDetail();
     fetchUserPages();
     fetchUserEquipment();
+    fetchManagerSummary();
     fetchPermissions();
   });
 </script>
