@@ -1,10 +1,11 @@
-    <?!= includeOnce('ResponsiveStyles') ?>
-<!-- CoachingAckForm.html -->
-<?!= include("headerConf", {
+<?!= include('layout', {
   baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
   user: user,
   currentPage: currentPage || 'ackform'
 }) ?>
+
+<!-- CoachingAckForm.html -->
 
 <script>
   // Injected by doGet:

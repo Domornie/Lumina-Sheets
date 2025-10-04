@@ -114,6 +114,7 @@
   ?>
 
   <?!= includeOnce('layoutAlerts') ?>
+  <?!= includeOnce('CookieHandler') ?>
   <?!= includeOnce('ResponsiveStyles') ?>
 
   <script>
@@ -2593,7 +2594,23 @@
             if (icon) icon.className = 'fas fa-spinner loading-spinner-head';
             
             console.log('🚪 Initiating logout...');
-            
+
+            if (window.LuminaSessionHeartbeat && typeof window.LuminaSessionHeartbeat.stop === 'function') {
+                try {
+                    window.LuminaSessionHeartbeat.stop();
+                } catch (err) {
+                    console.warn('Unable to stop session heartbeat during logout:', err);
+                }
+            }
+
+            try {
+                if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+                    CookieHandler.clearAuthToken();
+                }
+            } catch (err) {
+                console.warn('Unable to clear auth cookie during logout:', err);
+            }
+
             // Clear browser storage
             try {
                 localStorage.clear();
@@ -2627,10 +2644,27 @@
             } catch (e) {
                 console.warn('Could not clear storage:', e);
             }
-            
+
+            if (window.LuminaSessionHeartbeat && typeof window.LuminaSessionHeartbeat.stop === 'function') {
+                try {
+                    window.LuminaSessionHeartbeat.stop();
+                } catch (err) {
+                    console.warn('Unable to stop session heartbeat after logout:', err);
+                }
+            }
+
+            try {
+                if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+                    CookieHandler.clearAuthToken();
+                    console.log('Auth cookie cleared');
+                }
+            } catch (err) {
+                console.warn('Unable to clear auth cookie after logout:', err);
+            }
+
             // Show logout message and redirect
             showLogoutMessage();
-            
+
             setTimeout(function() {
                 window.location.href = BASE_URL;
             }, 2000);
@@ -2852,6 +2886,369 @@
         });
 
         console.log('✨ Simplified header system loaded successfully');
+    </script>
+    <script>
+        (function initializeLuminaSessionHeartbeat() {
+            if (window.LuminaSessionHeartbeat) {
+                return;
+            }
+
+            const MIN_INTERVAL_MS = 60000;
+            const MAX_INTERVAL_MS = 300000;
+            const DEFAULT_IDLE_MINUTES = 30;
+
+            const state = {
+                timerId: null,
+                intervalMs: null,
+                idleMinutes: DEFAULT_IDLE_MINUTES,
+                sessionExpiresAt: null,
+                sessionTtlSeconds: null,
+                consecutiveFailures: 0,
+                redirecting: false
+            };
+
+            function readAuthToken() {
+                try {
+                    if (window.CookieHandler && typeof CookieHandler.readAuthToken === 'function') {
+                        return CookieHandler.readAuthToken();
+                    }
+                } catch (err) {
+                    console.warn('LuminaSessionHeartbeat: Unable to read auth cookie', err);
+                }
+                return '';
+            }
+
+            function clearAuthToken() {
+                try {
+                    if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+                        CookieHandler.clearAuthToken();
+                    }
+                } catch (err) {
+                    console.warn('LuminaSessionHeartbeat: Unable to clear auth cookie', err);
+                }
+            }
+
+            function persistAuthToken(token, metadata = {}) {
+                if (!token) {
+                    clearAuthToken();
+                    return;
+                }
+
+                const ttlSeconds = (typeof metadata.sessionTtlSeconds === 'number' && isFinite(metadata.sessionTtlSeconds))
+                    ? metadata.sessionTtlSeconds
+                    : (typeof state.sessionTtlSeconds === 'number' ? state.sessionTtlSeconds : undefined);
+                const expiresAt = metadata.sessionExpiresAt || state.sessionExpiresAt || undefined;
+
+                try {
+                    if (window.CookieHandler && typeof CookieHandler.persistAuthToken === 'function') {
+                        CookieHandler.persistAuthToken(token, {
+                            ttlSeconds: ttlSeconds,
+                            expiresAt: expiresAt
+                        });
+                    }
+                } catch (err) {
+                    console.warn('LuminaSessionHeartbeat: Unable to persist auth cookie', err);
+                }
+            }
+
+            function dispatchEvent(name, detail) {
+                if (typeof document === 'undefined') {
+                    return;
+                }
+
+                try {
+                    document.dispatchEvent(new CustomEvent(name, { detail: detail }));
+                } catch (err) {
+                    if (document.createEvent) {
+                        try {
+                            const evt = document.createEvent('CustomEvent');
+                            evt.initCustomEvent(name, false, false, detail);
+                            document.dispatchEvent(evt);
+                        } catch (fallbackErr) {
+                            console.warn('LuminaSessionHeartbeat: Unable to dispatch event', name, fallbackErr);
+                        }
+                    }
+                }
+            }
+
+            function computeNextDelay() {
+                const idleMinutes = (typeof state.idleMinutes === 'number' && state.idleMinutes > 0)
+                    ? state.idleMinutes
+                    : DEFAULT_IDLE_MINUTES;
+                const idleMs = Math.max(1, idleMinutes) * 60 * 1000;
+
+                let interval = Math.max(MIN_INTERVAL_MS, Math.floor(idleMs / 2));
+
+                let ttlMs = null;
+                if (typeof state.sessionTtlSeconds === 'number' && state.sessionTtlSeconds > 0) {
+                    ttlMs = state.sessionTtlSeconds * 1000;
+                } else if (state.sessionExpiresAt) {
+                    const expiryTime = Date.parse(state.sessionExpiresAt);
+                    if (!isNaN(expiryTime)) {
+                        ttlMs = Math.max(0, expiryTime - Date.now());
+                    }
+                }
+
+                if (ttlMs !== null) {
+                    interval = Math.min(interval, Math.max(MIN_INTERVAL_MS, Math.floor(ttlMs / 2)));
+                }
+
+                const safetyWindow = Math.max(MIN_INTERVAL_MS, Math.floor(idleMs * 0.2));
+                interval = Math.min(interval, Math.max(MIN_INTERVAL_MS, idleMs - safetyWindow));
+                interval = Math.max(MIN_INTERVAL_MS, Math.min(interval, MAX_INTERVAL_MS));
+
+                return interval;
+            }
+
+            function stopTimer() {
+                if (state.timerId) {
+                    clearTimeout(state.timerId);
+                    state.timerId = null;
+                }
+            }
+
+            function scheduleNext(delayMs) {
+                stopTimer();
+                const nextDelay = Math.max(MIN_INTERVAL_MS, delayMs || computeNextDelay());
+                state.intervalMs = nextDelay;
+                state.timerId = setTimeout(runHeartbeat, nextDelay);
+            }
+
+            function resolveLoginUrl() {
+                const current = window.location ? window.location.href : '';
+                const returnUrl = (typeof window.buildReturnUrl === 'function')
+                    ? window.buildReturnUrl({}, current)
+                    : current;
+
+                if (typeof window.generateUrl === 'function') {
+                    return window.generateUrl('login', null, { returnUrl: returnUrl });
+                }
+
+                if (typeof window.buildPageUrl === 'function') {
+                    return window.buildPageUrl('login', { returnUrl: returnUrl });
+                }
+
+                const base = (typeof BASE_URL !== 'undefined' && BASE_URL)
+                    ? BASE_URL
+                    : ((typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) ? SCRIPT_URL : current);
+
+                try {
+                    const url = new URL(base, current || window.location.href);
+                    url.searchParams.set('page', 'login');
+                    if (returnUrl) {
+                        url.searchParams.set('returnUrl', returnUrl);
+                    }
+                    return url.toString();
+                } catch (err) {
+                    return base || current;
+                }
+            }
+
+            function handleSessionExpired(reason, message) {
+                if (state.redirecting) {
+                    return;
+                }
+
+                state.redirecting = true;
+                stopTimer();
+                clearAuthToken();
+
+                const detail = {
+                    reason: reason || 'SESSION_EXPIRED',
+                    message: message || 'Your session has expired. Please sign in again.'
+                };
+                dispatchEvent('lumina:session-expired', detail);
+
+                if (typeof window.showLuminaToast === 'function') {
+                    window.showLuminaToast(detail.message, {
+                        type: 'warning',
+                        title: 'Session expired',
+                        autohide: false
+                    });
+                } else {
+                    alert(detail.message);
+                }
+
+                setTimeout(function redirectToLogin() {
+                    window.location.href = resolveLoginUrl();
+                }, 1500);
+            }
+
+            function extractIdleMinutes(result) {
+                if (result && typeof result.idleTimeoutMinutes === 'number' && isFinite(result.idleTimeoutMinutes)) {
+                    return result.idleTimeoutMinutes;
+                }
+
+                if (result && result.user && typeof result.user.sessionIdleTimeoutMinutes === 'number') {
+                    return result.user.sessionIdleTimeoutMinutes;
+                }
+
+                return state.idleMinutes;
+            }
+
+            function updateSessionState(result, tokenUsed) {
+                state.idleMinutes = extractIdleMinutes(result);
+                state.sessionExpiresAt = result.sessionExpiresAt
+                    || (result.user && (result.user.sessionExpiresAt || result.user.sessionExpiry))
+                    || state.sessionExpiresAt;
+                state.sessionTtlSeconds = (typeof result.sessionTtlSeconds === 'number' && isFinite(result.sessionTtlSeconds))
+                    ? result.sessionTtlSeconds
+                    : state.sessionTtlSeconds;
+
+                const token = result.sessionToken || tokenUsed;
+                if (token) {
+                    persistAuthToken(token, {
+                        sessionTtlSeconds: state.sessionTtlSeconds,
+                        sessionExpiresAt: state.sessionExpiresAt
+                    });
+                }
+
+                dispatchEvent('lumina:session-refreshed', {
+                    user: result.user || null,
+                    sessionToken: token || null,
+                    sessionExpiresAt: state.sessionExpiresAt,
+                    idleTimeoutMinutes: state.idleMinutes,
+                    lastActivityAt: result.lastActivityAt || null
+                });
+            }
+
+            function runHeartbeat() {
+                const token = readAuthToken();
+                if (!token) {
+                    stopTimer();
+                    return;
+                }
+
+                if (typeof google === 'undefined' || !google.script || !google.script.run) {
+                    scheduleNext(MIN_INTERVAL_MS);
+                    return;
+                }
+
+                google.script.run
+                    .withSuccessHandler(function onKeepAliveSuccess(result) {
+                        state.consecutiveFailures = 0;
+
+                        if (!result || !result.success) {
+                            const reason = result && result.reason ? result.reason : 'SESSION_EXPIRED';
+                            const message = result && result.message ? result.message : 'Your session has expired. Please sign in again.';
+                            handleSessionExpired(reason, message);
+                            return;
+                        }
+
+                        state.redirecting = false;
+                        updateSessionState(result, token);
+                        scheduleNext();
+                    })
+                    .withFailureHandler(function onKeepAliveFailure(error) {
+                        state.consecutiveFailures += 1;
+                        console.warn('LuminaSessionHeartbeat: keepAlive failed', error);
+                        const backoff = Math.min(
+                            MAX_INTERVAL_MS,
+                            Math.max(
+                                MIN_INTERVAL_MS,
+                                Math.floor((state.intervalMs || MIN_INTERVAL_MS) * Math.pow(1.5, state.consecutiveFailures))
+                            )
+                        );
+                        scheduleNext(backoff);
+                    })
+                    .keepAlive(token);
+            }
+
+            function start() {
+                const token = readAuthToken();
+                if (!token) {
+                    stopTimer();
+                    return;
+                }
+
+                state.redirecting = false;
+                state.consecutiveFailures = 0;
+                scheduleNext(computeNextDelay());
+            }
+
+            function refreshNow() {
+                stopTimer();
+                runHeartbeat();
+            }
+
+            function stop() {
+                state.redirecting = false;
+                stopTimer();
+            }
+
+            function update(metadata) {
+                if (!metadata || typeof metadata !== 'object') {
+                    return;
+                }
+
+                if (metadata.sessionToken) {
+                    persistAuthToken(metadata.sessionToken, metadata);
+                }
+
+                if (typeof metadata.idleTimeoutMinutes === 'number' && isFinite(metadata.idleTimeoutMinutes)) {
+                    state.idleMinutes = metadata.idleTimeoutMinutes;
+                }
+
+                if (metadata.sessionExpiresAt) {
+                    state.sessionExpiresAt = metadata.sessionExpiresAt;
+                }
+
+                if (typeof metadata.sessionTtlSeconds === 'number' && isFinite(metadata.sessionTtlSeconds)) {
+                    state.sessionTtlSeconds = metadata.sessionTtlSeconds;
+                }
+
+                if (metadata.refreshNow) {
+                    refreshNow();
+                } else {
+                    start();
+                }
+            }
+
+            window.LuminaSessionHeartbeat = {
+                start: start,
+                stop: stop,
+                restart: start,
+                refreshNow: refreshNow,
+                update: update,
+                getState: function () {
+                    return Object.assign({}, state);
+                }
+            };
+
+            function onVisibilityChange() {
+                if (document.visibilityState === 'visible') {
+                    start();
+                }
+            }
+
+            if (typeof document !== 'undefined') {
+                try {
+                    document.addEventListener('visibilitychange', onVisibilityChange);
+                    document.addEventListener('lumina:session-refresh', start);
+                    document.addEventListener('lumina:session-metadata', function (event) {
+                        update(event && event.detail ? event.detail : {});
+                    });
+                    document.addEventListener('DOMContentLoaded', start);
+                } catch (err) {
+                    document.addEventListener('visibilitychange', onVisibilityChange, false);
+                    document.addEventListener('lumina:session-refresh', start, false);
+                    document.addEventListener('lumina:session-metadata', function (event) {
+                        update(event && event.detail ? event.detail : {});
+                    }, false);
+                    document.addEventListener('DOMContentLoaded', start, false);
+                }
+            }
+
+            if (typeof window !== 'undefined') {
+                try {
+                    window.addEventListener('focus', start);
+                } catch (err) {
+                    window.attachEvent && window.attachEvent('onfocus', start);
+                }
+            }
+
+            start();
+        })();
     </script>
     <script>
         (function registerGlobalChannelClosedHandler() {

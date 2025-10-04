@@ -43,7 +43,7 @@ features are introduced.
 
 | Requirement focus | Primary services | Supporting assets |
 | --- | --- | --- |
-| In-app chat threads | `ChatService.js`, `Chat.html`, `ChatBubble.html`, `chatHeader.html` |
+| In-app chat threads | `ChatService.js`, `Chat.html`, `ChatBubble.html`, `layout.html` |
 | Notifications & broadcasts | `CallCenterWorkflowService.js`, `Notifications.html`, `BookmarkService.js`, `BookmarkManager.html` |
 | Searchable knowledge base | `SearchService.js`, `SearchDeploymentService.js`, `SearchSecurityService.js`, `Search.html`, `SearchSecurityDashboard.html` |
 

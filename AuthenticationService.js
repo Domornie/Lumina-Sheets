@@ -16,9 +16,32 @@
 
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DEFAULT_SESSION_COLUMNS = [
+  'Token',
+  'TokenHash',
+  'TokenSalt',
+  'UserId',
+  'CreatedAt',
+  'LastActivityAt',
+  'ExpiresAt',
+  'IdleTimeoutMinutes',
+  'RememberMe',
+  'CampaignScope',
+  'UserAgent',
+  'IpAddress',
+  'ServerIp'
+];
 const SESSION_COLUMNS = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length)
   ? SESSIONS_HEADERS.slice()
-  : ['Token', 'UserId', 'CreatedAt', 'ExpiresAt', 'RememberMe', 'CampaignScope', 'UserAgent', 'IpAddress', 'ServerIp'];
+  : DEFAULT_SESSION_COLUMNS.slice();
+
+DEFAULT_SESSION_COLUMNS.forEach(function (column) {
+  if (SESSION_COLUMNS.indexOf(column) === -1) {
+    SESSION_COLUMNS.push(column);
+  }
+});
+
+const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 
 const MFA_CHALLENGE_TTL_SECONDS = 5 * 60; // 5 minutes
 const MFA_MAX_ATTEMPTS = 5;
@@ -196,6 +219,540 @@ var AuthenticationService = (function () {
     }
 
     return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  // ─── Session storage helpers ────────────────────────────────────────────────
+
+  function getSessionTableName() {
+    return (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions';
+  }
+
+  function generateTokenSalt() {
+    try {
+      const source = Utilities.getUuid() + ':' + Utilities.getUuid() + ':' + Date.now();
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, source);
+      return Utilities.base64EncodeWebSafe(digest);
+    } catch (error) {
+      console.warn('generateTokenSalt: Falling back to UUID salt generation', error);
+      return (typeof Utilities !== 'undefined' && Utilities.getUuid)
+        ? Utilities.getUuid().replace(/[^A-Za-z0-9]/g, '').slice(0, 32)
+        : String(Math.random()).replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
+    }
+  }
+
+  function computeSessionTokenHash(token, salt) {
+    if (!token || !salt) return '';
+    try {
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + token);
+      return Utilities.base64EncodeWebSafe(digest);
+    } catch (error) {
+      console.warn('computeSessionTokenHash: Failed to compute digest', error);
+      return '';
+    }
+  }
+
+  function setRecordValue(record, key, value) {
+    if (!record || !key) return;
+    const normalized = String(key).trim();
+    if (!normalized) return;
+    record[normalized] = value;
+    const lower = normalized.toLowerCase();
+    if (lower !== normalized) {
+      record[lower] = value;
+    }
+  }
+
+  function getRecordValue(record, key) {
+    if (!record || !key) return null;
+    const normalized = String(key).trim();
+    if (!normalized) return null;
+    if (Object.prototype.hasOwnProperty.call(record, normalized)) {
+      return record[normalized];
+    }
+    const lower = normalized.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(record, lower)) {
+      return record[lower];
+    }
+    return null;
+  }
+
+  function parseDateValue(value) {
+    if (value instanceof Date) {
+      const ms = value.getTime();
+      return isNaN(ms) ? null : ms;
+    }
+    if (!value && value !== 0) return null;
+    const parsed = Date.parse(String(value));
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  function parseIdleTimeoutMinutes(value) {
+    if (value === null || typeof value === 'undefined' || value === '') {
+      return DEFAULT_IDLE_TIMEOUT_MINUTES;
+    }
+    const numeric = Number(value);
+    if (!isFinite(numeric) || numeric <= 0) {
+      return DEFAULT_IDLE_TIMEOUT_MINUTES;
+    }
+    return Math.max(1, Math.round(numeric));
+  }
+
+  function ensureSessionSheetContext() {
+    const tableName = getSessionTableName();
+    let sheet = null;
+
+    if (typeof ensureSheetWithHeaders === 'function') {
+      try {
+        sheet = ensureSheetWithHeaders(tableName, SESSION_COLUMNS);
+      } catch (ensureError) {
+        console.warn('ensureSessionSheetContext: ensureSheetWithHeaders failed', ensureError);
+      }
+    }
+
+    if (!sheet) {
+      if (typeof SpreadsheetApp === 'undefined') {
+        throw new Error('SpreadsheetApp not available for session storage');
+      }
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss) {
+        throw new Error('Active spreadsheet not available for session storage');
+      }
+      sheet = ss.getSheetByName(tableName);
+      if (!sheet) {
+        sheet = ss.insertSheet(tableName);
+        sheet.getRange(1, 1, 1, SESSION_COLUMNS.length).setValues([SESSION_COLUMNS]);
+      }
+    }
+
+    let headerValues = [];
+    try {
+      const lastColumn = sheet.getLastColumn();
+      headerValues = lastColumn > 0
+        ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0].slice()
+        : [];
+    } catch (headerError) {
+      console.warn('ensureSessionSheetContext: Failed to read existing headers', headerError);
+      headerValues = [];
+    }
+
+    const normalizedHeaders = headerValues.map(function (value) { return String(value || '').trim(); });
+    let headerUpdated = false;
+    DEFAULT_SESSION_COLUMNS.forEach(function (column) {
+      if (normalizedHeaders.indexOf(column) === -1) {
+        headerValues.push(column);
+        normalizedHeaders.push(column);
+        headerUpdated = true;
+      }
+    });
+
+    if (!headerValues.length) {
+      headerValues = DEFAULT_SESSION_COLUMNS.slice();
+      headerUpdated = true;
+    }
+
+    if (headerUpdated) {
+      try {
+        const width = headerValues.length;
+        sheet.getRange(1, 1, 1, width).setValues([headerValues]);
+      } catch (setHeaderError) {
+        console.warn('ensureSessionSheetContext: Failed to update headers', setHeaderError);
+      }
+    }
+
+    const headers = headerValues.map(function (value) { return String(value || '').trim(); });
+    return {
+      tableName: tableName,
+      sheet: sheet,
+      headers: headers
+    };
+  }
+
+  function buildHeaderMap(headers) {
+    const map = {};
+    if (!Array.isArray(headers)) return map;
+    headers.forEach(function (header, index) {
+      const normalized = String(header || '').trim();
+      if (!normalized) return;
+      if (!Object.prototype.hasOwnProperty.call(map, normalized)) {
+        map[normalized] = index;
+      }
+      const lower = normalized.toLowerCase();
+      if (!Object.prototype.hasOwnProperty.call(map, lower)) {
+        map[lower] = index;
+      }
+    });
+    return map;
+  }
+
+  function readSessionRecord(headers, rowValues) {
+    const record = {};
+    if (!Array.isArray(headers) || !Array.isArray(rowValues)) {
+      return record;
+    }
+    headers.forEach(function (header, index) {
+      const normalized = String(header || '').trim();
+      if (!normalized) return;
+      setRecordValue(record, normalized, rowValues[index]);
+    });
+    return record;
+  }
+
+  function sessionTokenMatches(record, sessionToken) {
+    if (!record || !sessionToken) {
+      return { matched: false };
+    }
+
+    const storedSalt = getRecordValue(record, 'TokenSalt');
+    const storedHash = getRecordValue(record, 'TokenHash');
+
+    if (storedSalt && storedHash) {
+      try {
+        const computed = computeSessionTokenHash(sessionToken, storedSalt);
+        if (computed && normalizeString(computed) === normalizeString(storedHash)) {
+          return { matched: true, method: 'hash' };
+        }
+      } catch (hashError) {
+        console.warn('sessionTokenMatches: hash comparison failed', hashError);
+      }
+    }
+
+    const legacyToken = normalizeString(getRecordValue(record, 'Token'));
+    if (legacyToken && normalizeString(sessionToken) === legacyToken) {
+      return { matched: true, method: 'legacy' };
+    }
+
+    return { matched: false };
+  }
+
+  function findSessionEntry(sessionToken) {
+    if (!sessionToken) return null;
+    try {
+      const context = ensureSessionSheetContext();
+      const sheet = context.sheet;
+      const headers = context.headers;
+      const columnCount = headers.length;
+      const lastRow = sheet.getLastRow();
+
+      if (lastRow < 2 || columnCount === 0) {
+        return null;
+      }
+
+      const range = sheet.getRange(2, 1, lastRow - 1, columnCount);
+      const values = range.getValues();
+      const headerMap = buildHeaderMap(headers);
+
+      for (let i = 0; i < values.length; i++) {
+        const rowValues = values[i];
+        const record = readSessionRecord(headers, rowValues);
+        const match = sessionTokenMatches(record, sessionToken);
+        if (match && match.matched) {
+          return {
+            tableName: context.tableName,
+            sheet: sheet,
+            headers: headers,
+            headerMap: headerMap,
+            rowIndex: i + 2,
+            record: record,
+            rowValues: Array.isArray(rowValues) ? rowValues.slice() : [],
+            matchMethod: match.method || 'hash'
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('findSessionEntry: Failed to locate session', error);
+      return null;
+    }
+  }
+
+  function updateSessionRow(entry) {
+    if (!entry || !entry.sheet || !Array.isArray(entry.headers)) return;
+    try {
+      const headers = entry.headers;
+      const rowValues = new Array(headers.length);
+
+      for (let i = 0; i < headers.length; i++) {
+        const header = String(headers[i] || '').trim();
+        if (!header) {
+          rowValues[i] = (entry.rowValues && typeof entry.rowValues[i] !== 'undefined') ? entry.rowValues[i] : '';
+          continue;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(entry.record, header)) {
+          rowValues[i] = entry.record[header];
+        } else {
+          const lower = header.toLowerCase();
+          if (Object.prototype.hasOwnProperty.call(entry.record, lower)) {
+            rowValues[i] = entry.record[lower];
+          } else if (entry.rowValues && typeof entry.rowValues[i] !== 'undefined') {
+            rowValues[i] = entry.rowValues[i];
+          } else {
+            rowValues[i] = '';
+          }
+        }
+      }
+
+      entry.sheet.getRange(entry.rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+      entry.rowValues = rowValues;
+    } catch (error) {
+      console.warn('updateSessionRow: Failed to update session row', error);
+    }
+  }
+
+  function removeSessionEntry(entry) {
+    if (!entry || !entry.sheet) return false;
+    try {
+      entry.sheet.deleteRow(entry.rowIndex);
+      if (typeof invalidateCache === 'function' && entry.tableName) {
+        try {
+          invalidateCache(entry.tableName);
+        } catch (cacheError) {
+          console.warn('removeSessionEntry: Cache invalidation failed', cacheError);
+        }
+      }
+      return true;
+    } catch (error) {
+      console.warn('removeSessionEntry: Failed to delete session row', error);
+      return false;
+    }
+  }
+
+  function resolveSessionRecord(sessionToken, options) {
+    if (!sessionToken) {
+      return { status: 'not_found', reason: 'NOT_FOUND' };
+    }
+
+    const touch = options && options.touch;
+    const entry = findSessionEntry(sessionToken);
+
+    if (!entry) {
+      return { status: 'not_found', reason: 'NOT_FOUND' };
+    }
+
+    const nowMs = Date.now();
+    const record = entry.record;
+    const expiryTime = parseDateValue(getRecordValue(record, 'ExpiresAt'));
+    const rememberFlag = toBool(getRecordValue(record, 'RememberMe'));
+    const idleTimeoutMinutes = parseIdleTimeoutMinutes(getRecordValue(record, 'IdleTimeoutMinutes'));
+    const lastActivityTime = parseDateValue(getRecordValue(record, 'LastActivityAt'))
+      || parseDateValue(getRecordValue(record, 'CreatedAt'));
+
+    if (!expiryTime || expiryTime < nowMs) {
+      removeSessionEntry(entry);
+      return {
+        status: 'expired',
+        reason: 'EXPIRED',
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
+      };
+    }
+
+    if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
+      removeSessionEntry(entry);
+      return {
+        status: 'expired',
+        reason: 'IDLE_TIMEOUT',
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
+      };
+    }
+
+    let expiresAtIso = getRecordValue(record, 'ExpiresAt');
+    let lastActivityIso = getRecordValue(record, 'LastActivityAt')
+      || (lastActivityTime ? new Date(lastActivityTime).toISOString() : null);
+
+    if (touch) {
+      const nowIso = new Date(nowMs).toISOString();
+      const ttl = rememberFlag ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
+      const nextExpiryIso = new Date(nowMs + ttl).toISOString();
+
+      setRecordValue(record, 'LastActivityAt', nowIso);
+      setRecordValue(record, 'ExpiresAt', nextExpiryIso);
+      setRecordValue(record, 'IdleTimeoutMinutes', String(idleTimeoutMinutes));
+
+      if (entry.matchMethod === 'legacy' || !getRecordValue(record, 'TokenHash') || !getRecordValue(record, 'TokenSalt')) {
+        const salt = generateTokenSalt();
+        const hash = computeSessionTokenHash(sessionToken, salt);
+        if (hash) {
+          setRecordValue(record, 'TokenSalt', salt);
+          setRecordValue(record, 'TokenHash', hash);
+        }
+      }
+
+      if (getRecordValue(record, 'Token')) {
+        setRecordValue(record, 'Token', '');
+      }
+
+      try {
+        updateSessionRow(entry);
+        if (typeof invalidateCache === 'function') {
+          try {
+            invalidateCache(entry.tableName);
+          } catch (cacheError) {
+            console.warn('resolveSessionRecord: Cache invalidation failed', cacheError);
+          }
+        }
+      } catch (updateError) {
+        console.warn('resolveSessionRecord: Failed to persist session updates', updateError);
+      }
+
+      expiresAtIso = nextExpiryIso;
+      lastActivityIso = nowIso;
+    }
+
+    return {
+      status: 'active',
+      entry: entry,
+      tableName: entry.tableName,
+      idleTimeoutMinutes: idleTimeoutMinutes,
+      lastActivityAt: lastActivityIso,
+      expiresAt: expiresAtIso,
+      rememberMe: rememberFlag
+    };
+  }
+
+  function buildSessionUserContext(entry, sessionToken, resolution) {
+    if (!entry || !entry.record) {
+      return null;
+    }
+
+    const record = entry.record;
+    const userId = getRecordValue(record, 'UserId');
+    if (!userId) {
+      return null;
+    }
+
+    const user = findUserById(userId) || findUserByEmail(userId);
+    if (!user) {
+      return null;
+    }
+
+    const rawScope = parseCampaignScope(
+      getRecordValue(record, 'CampaignScope') || getRecordValue(record, 'campaignScope')
+    );
+    const tenantPayload = buildTenantScopePayload(rawScope);
+    const userPayload = buildUserPayload(user, tenantPayload);
+
+    if (userPayload && userPayload.CampaignScope) {
+      userPayload.CampaignScope.tenantContext = rawScope && rawScope.tenantContext ? rawScope.tenantContext : null;
+      if (rawScope && Array.isArray(rawScope.assignments)) {
+        userPayload.CampaignScope.assignments = rawScope.assignments.slice();
+      }
+      if (rawScope && Array.isArray(rawScope.permissions)) {
+        userPayload.CampaignScope.permissions = rawScope.permissions.slice();
+      }
+    }
+
+    if (userPayload) {
+      userPayload.sessionToken = sessionToken;
+
+      const expiresIso = resolution && resolution.expiresAt
+        ? resolution.expiresAt
+        : (getRecordValue(record, 'ExpiresAt') || null);
+      if (expiresIso) {
+        userPayload.sessionExpiry = expiresIso;
+        userPayload.sessionExpiresAt = expiresIso;
+      }
+
+      const lastActivityIso = resolution && resolution.lastActivityAt
+        ? resolution.lastActivityAt
+        : (getRecordValue(record, 'LastActivityAt') || null);
+      if (lastActivityIso) {
+        userPayload.sessionLastActivityAt = lastActivityIso;
+      }
+
+      const idleTimeoutMinutes = resolution && typeof resolution.idleTimeoutMinutes !== 'undefined'
+        ? resolution.idleTimeoutMinutes
+        : parseIdleTimeoutMinutes(getRecordValue(record, 'IdleTimeoutMinutes'));
+      if (idleTimeoutMinutes) {
+        userPayload.sessionIdleTimeoutMinutes = idleTimeoutMinutes;
+      }
+
+      userPayload.sessionScope = rawScope || null;
+      userPayload.NeedsCampaignAssignment = userPayload.CampaignScope
+        ? !!userPayload.CampaignScope.needsCampaignAssignment
+        : false;
+    }
+
+    return {
+      user: userPayload,
+      tenant: tenantPayload,
+      rawScope: rawScope
+    };
+  }
+
+  function cleanupExpiredSessions() {
+    try {
+      const context = ensureSessionSheetContext();
+      const sheet = context.sheet;
+      const headers = context.headers;
+      const columnCount = headers.length;
+      const lastRow = sheet.getLastRow();
+
+      if (lastRow < 2 || columnCount === 0) {
+        console.log('cleanupExpiredSessions: No session rows to evaluate');
+        return { success: true, removed: 0, evaluated: 0 };
+      }
+
+      const range = sheet.getRange(2, 1, lastRow - 1, columnCount);
+      const values = range.getValues();
+      const nowMs = Date.now();
+      const rowsToDelete = [];
+      const reasonCounts = {};
+
+      for (let i = 0; i < values.length; i++) {
+        const rowValues = values[i];
+        const record = readSessionRecord(headers, rowValues);
+        const expiryTime = parseDateValue(getRecordValue(record, 'ExpiresAt'));
+        const idleTimeoutMinutes = parseIdleTimeoutMinutes(getRecordValue(record, 'IdleTimeoutMinutes'));
+        const lastActivityTime = parseDateValue(getRecordValue(record, 'LastActivityAt'))
+          || parseDateValue(getRecordValue(record, 'CreatedAt'));
+
+        let shouldRemove = false;
+        let reason = 'UNKNOWN';
+
+        if (!expiryTime || expiryTime < nowMs) {
+          shouldRemove = true;
+          reason = 'EXPIRED';
+        } else if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
+          shouldRemove = true;
+          reason = 'IDLE_TIMEOUT';
+        }
+
+        if (shouldRemove) {
+          rowsToDelete.push(i + 2);
+          reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+        }
+      }
+
+      let removed = 0;
+      if (rowsToDelete.length) {
+        rowsToDelete.sort(function (a, b) { return b - a; });
+        rowsToDelete.forEach(function (rowIndex) {
+          try {
+            sheet.deleteRow(rowIndex);
+            removed++;
+          } catch (deleteError) {
+            console.warn('cleanupExpiredSessions: Failed to delete row', rowIndex, deleteError);
+          }
+        });
+
+        if (removed && typeof invalidateCache === 'function') {
+          try {
+            invalidateCache(context.tableName);
+          } catch (cacheError) {
+            console.warn('cleanupExpiredSessions: Cache invalidation failed', cacheError);
+          }
+        }
+      }
+
+      console.log('cleanupExpiredSessions: Removed ' + removed + ' sessions (reasons: ' + JSON.stringify(reasonCounts) + ').');
+      return { success: true, removed: removed, evaluated: values.length, reasons: reasonCounts };
+    } catch (error) {
+      console.error('cleanupExpiredSessions: Error during cleanup', error);
+      return { success: false, error: error.message };
+    }
   }
 
   function sanitizeServerMetadata(metadata) {
@@ -869,6 +1426,7 @@ var AuthenticationService = (function () {
       rememberMe: !!rememberMe,
       sessionExpiresAt: sessionResult.expiresAt,
       sessionTtlSeconds: sessionResult.ttlSeconds,
+      sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
       tenant: tenantSummary,
       campaignScope: userPayload ? userPayload.CampaignScope : null,
       warnings: warnings,
@@ -1849,6 +2407,7 @@ var AuthenticationService = (function () {
         sessionToken: sessionResult.token,
         sessionExpiresAt: sessionResult.expiresAt,
         sessionTtlSeconds: sessionResult.ttlSeconds,
+        sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
         rememberMe: !!challenge.rememberMe,
         user: userPayload,
         tenant: tenantSummary,
@@ -2364,17 +2923,34 @@ var AuthenticationService = (function () {
       const token = Utilities.getUuid() + '_' + Date.now();
       const now = new Date();
       const ttl = rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
-      const expiresAt = new Date(now.getTime() + ttl);
+      let salt = generateTokenSalt();
+      let tokenHash = computeSessionTokenHash(token, salt);
+      if (!tokenHash) {
+        salt = generateTokenSalt();
+        tokenHash = computeSessionTokenHash(token, salt);
+      }
+
+      if (!tokenHash) {
+        throw new Error('Unable to compute session token hash');
+      }
+
+      const idleTimeoutMinutes = parseIdleTimeoutMinutes(metadata && metadata.idleTimeoutMinutes);
+      const nowIso = now.toISOString();
+      const expiresAtIso = new Date(now.getTime() + ttl).toISOString();
 
       const scopeData = campaignScope && typeof campaignScope === 'object'
         ? campaignScope
         : null;
 
       const sessionRecord = {
-        Token: token,
+        Token: '',
+        TokenHash: tokenHash,
+        TokenSalt: salt,
         UserId: userId,
-        CreatedAt: now.toISOString(),
-        ExpiresAt: expiresAt.toISOString(),
+        CreatedAt: nowIso,
+        LastActivityAt: nowIso,
+        ExpiresAt: expiresAtIso,
+        IdleTimeoutMinutes: String(idleTimeoutMinutes),
         RememberMe: rememberMe ? 'TRUE' : 'FALSE',
         CampaignScope: serializeCampaignScope(scopeData),
         UserAgent: metadata && metadata.userAgent ? metadata.userAgent : 'Google Apps Script',
@@ -2453,7 +3029,8 @@ var AuthenticationService = (function () {
         record: sessionRecord,
         expiresAt: sessionRecord.ExpiresAt,
         ttlSeconds: Math.max(60, Math.floor(ttl / 1000)),
-        campaignScope: scopeData
+        campaignScope: scopeData,
+        idleTimeoutMinutes: idleTimeoutMinutes
       };
 
     } catch (error) {
@@ -2712,6 +3289,7 @@ var AuthenticationService = (function () {
         rememberMe: !!rememberMe,
         sessionExpiresAt: sessionResult.expiresAt,
         sessionTtlSeconds: sessionResult.ttlSeconds,
+        sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
         tenant: tenantSummary,
         campaignScope: userPayload ? userPayload.CampaignScope : null,
         warnings: warnings,
@@ -2795,6 +3373,7 @@ var AuthenticationService = (function () {
         sessionToken: sessionResult.token,
         sessionExpiresAt: sessionResult.expiresAt,
         sessionTtlSeconds: sessionResult.ttlSeconds,
+        sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
         user: userPayload,
         tenant: tenantSummary,
         campaignScope: userPayload ? userPayload.CampaignScope : null,
@@ -2816,65 +3395,25 @@ var AuthenticationService = (function () {
     try {
       if (!sessionToken) return null;
 
-      // Find session
-      let sessions = [];
-      try {
-        sessions = readSheet('Sessions') || [];
-      } catch (error) {
-        console.warn('getSessionUser: Failed to read sessions:', error);
+      const resolution = resolveSessionRecord(sessionToken, { touch: true });
+
+      if (!resolution || resolution.status !== 'active' || !resolution.entry) {
+        if (resolution && resolution.status === 'expired') {
+          console.log('getSessionUser: Session expired (' + resolution.reason + ')');
+        } else {
+          console.log('getSessionUser: Session not found');
+        }
         return null;
       }
 
-      const session = sessions.find(s => 
-        normalizeString(s.Token) === normalizeString(sessionToken)
-      );
-
-      if (!session) {
-        console.log('getSessionUser: Session not found');
-        return null;
-      }
-
-      // Check expiry
-      const expiryTime = new Date(session.ExpiresAt).getTime();
-      const now = Date.now();
-
-      if (!expiryTime || isNaN(expiryTime) || expiryTime < now) {
-        console.log('getSessionUser: Session expired');
-        return null;
-      }
-
-      // Get user
-      const user = findUserById(session.UserId) || findUserByEmail(session.UserId);
-      if (!user) {
+      const context = buildSessionUserContext(resolution.entry, sessionToken, resolution);
+      if (!context || !context.user) {
         console.log('getSessionUser: User not found for session');
+        removeSessionEntry(resolution.entry);
         return null;
       }
 
-      const rawScope = parseCampaignScope(session.CampaignScope || session.campaignScope);
-      const tenantPayload = buildTenantScopePayload(rawScope);
-      const userPayload = buildUserPayload(user, tenantPayload);
-
-      if (userPayload && userPayload.CampaignScope) {
-        userPayload.CampaignScope.tenantContext = rawScope && rawScope.tenantContext ? rawScope.tenantContext : null;
-      }
-
-      if (rawScope && Array.isArray(rawScope.assignments) && userPayload && userPayload.CampaignScope) {
-        userPayload.CampaignScope.assignments = rawScope.assignments.slice();
-      }
-
-      if (rawScope && Array.isArray(rawScope.permissions) && userPayload && userPayload.CampaignScope) {
-        userPayload.CampaignScope.permissions = rawScope.permissions.slice();
-      }
-
-      if (userPayload) {
-        userPayload.sessionToken = sessionToken;
-        userPayload.sessionExpiry = session.ExpiresAt;
-        userPayload.sessionExpiresAt = session.ExpiresAt;
-        userPayload.sessionScope = rawScope || null;
-        userPayload.NeedsCampaignAssignment = userPayload.CampaignScope ? !!userPayload.CampaignScope.needsCampaignAssignment : false;
-      }
-
-      return userPayload;
+      return context.user;
 
     } catch (error) {
       console.error('getSessionUser: Error:', error);
@@ -2917,26 +3456,9 @@ var AuthenticationService = (function () {
         return { success: true, message: 'No session to logout' };
       }
 
-      // Remove session from sheet
-      try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ss.getSheetByName('Sessions');
-        if (sheet) {
-          const data = sheet.getDataRange().getValues();
-          const headers = data[0];
-          const tokenIndex = headers.indexOf('Token');
-
-          if (tokenIndex !== -1) {
-            for (let i = data.length - 1; i >= 1; i--) {
-              if (normalizeString(data[i][tokenIndex]) === normalizeString(sessionToken)) {
-                sheet.deleteRow(i + 1);
-                break;
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.warn('logout: Failed to remove session from sheet:', error);
+      const entry = findSessionEntry(sessionToken);
+      if (entry) {
+        removeSessionEntry(entry);
       }
 
       return { success: true, message: 'Logged out successfully' };
@@ -2949,16 +3471,35 @@ var AuthenticationService = (function () {
 
   function keepAlive(sessionToken) {
     try {
-      const user = getSessionUser(sessionToken);
-      
-      if (!user) {
+      const resolution = resolveSessionRecord(sessionToken, { touch: true });
+
+      if (!resolution || resolution.status !== 'active' || !resolution.entry) {
+        const reason = resolution ? resolution.reason : 'NOT_FOUND';
+        const message = reason === 'IDLE_TIMEOUT'
+          ? 'Session expired due to inactivity'
+          : 'Session expired or invalid';
         return {
           success: false,
           expired: true,
-          message: 'Session expired or invalid'
+          message: message,
+          reason: reason,
+          errorCode: reason ? 'SESSION_' + reason : 'SESSION_NOT_FOUND'
         };
       }
 
+      const context = buildSessionUserContext(resolution.entry, sessionToken, resolution);
+      if (!context || !context.user) {
+        removeSessionEntry(resolution.entry);
+        return {
+          success: false,
+          expired: true,
+          message: 'Session expired or invalid',
+          reason: 'USER_NOT_FOUND',
+          errorCode: 'SESSION_USER_NOT_FOUND'
+        };
+      }
+
+      const user = context.user;
       let ttlSeconds = null;
       if (user.sessionExpiresAt) {
         const expiryTime = Date.parse(user.sessionExpiresAt);
@@ -2977,7 +3518,9 @@ var AuthenticationService = (function () {
         tenant: user.CampaignScope || null,
         campaignScope: user.CampaignScope || null,
         warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
-        needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false
+        needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false,
+        idleTimeoutMinutes: resolution.idleTimeoutMinutes,
+        lastActivityAt: user.sessionLastActivityAt || null
       };
     } catch (error) {
       console.error('keepAlive: Error:', error);
@@ -3006,7 +3549,8 @@ var AuthenticationService = (function () {
     captureLoginRequestContext: captureLoginRequestContext,
     consumeLoginRequestContext: consumeLoginContext,
     confirmDeviceVerification: confirmDeviceVerification,
-    denyDeviceVerification: denyDeviceVerification
+    denyDeviceVerification: denyDeviceVerification,
+    cleanupExpiredSessions: cleanupExpiredSessions
   };
 
 })();
@@ -3150,6 +3694,21 @@ function logout(sessionToken) {
 
 function keepAlive(sessionToken) {
   return AuthenticationService.keepAlive(sessionToken);
+}
+
+function cleanupExpiredSessionsJob() {
+  try {
+    if (typeof AuthenticationService !== 'undefined'
+      && AuthenticationService
+      && typeof AuthenticationService.cleanupExpiredSessions === 'function') {
+      return AuthenticationService.cleanupExpiredSessions();
+    }
+    console.warn('cleanupExpiredSessionsJob: AuthenticationService not available');
+    return { success: false, error: 'AuthenticationService unavailable' };
+  } catch (error) {
+    console.error('cleanupExpiredSessionsJob error:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 console.log('Fixed AuthenticationService.gs loaded successfully');
