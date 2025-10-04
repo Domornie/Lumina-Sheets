@@ -2529,11 +2529,17 @@
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
 
-                    if (result && result.success) {
-                        this.displaySchedules(result.schedules);
-                        document.getElementById('totalSchedules').textContent = result.schedules.length;
-                    } else {
-                        throw new Error(result?.error || 'Failed to load schedules');
+                    const { schedules, total, error } = this.parseSchedulesResponse(result);
+
+                    if (!schedules) {
+                        throw new Error(error || 'Failed to load schedules');
+                    }
+
+                    this.displaySchedules(schedules);
+
+                    const totalElement = document.getElementById('totalSchedules');
+                    if (totalElement) {
+                        totalElement.textContent = Number.isFinite(total) ? total : schedules.length;
                     }
 
                 } catch (error) {
@@ -2592,6 +2598,48 @@
                             </td>
                         </tr>
                     `).join('');
+            }
+
+            parseSchedulesResponse(result) {
+                if (Array.isArray(result)) {
+                    return {
+                        schedules: result,
+                        total: result.length || 0,
+                        error: null
+                    };
+                }
+
+                if (result && typeof result === 'object') {
+                    if (Array.isArray(result.schedules)) {
+                        return {
+                            schedules: result.schedules,
+                            total: Number.isFinite(result.total) ? result.total : result.schedules.length,
+                            error: null
+                        };
+                    }
+
+                    if (Array.isArray(result.data)) {
+                        return {
+                            schedules: result.data,
+                            total: Number.isFinite(result.total) ? result.total : result.data.length,
+                            error: null
+                        };
+                    }
+
+                    if (result.success === false) {
+                        return {
+                            schedules: null,
+                            total: 0,
+                            error: result.error || null
+                        };
+                    }
+                }
+
+                return {
+                    schedules: null,
+                    total: 0,
+                    error: null
+                };
             }
 
             async loadAttendanceCalendar() {
