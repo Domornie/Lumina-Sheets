@@ -1320,6 +1320,9 @@ function canonicalizePageKey(k) {
     case 'slotmanagement':
       return 'schedule.slots';
 
+    case 'importcsv':
+    case 'import-csv':
+      return 'import';
     case 'importattendance':
     case 'import-attendance':
       return 'importattendance';
