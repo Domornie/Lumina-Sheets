@@ -4332,50 +4332,19 @@ function confirmEmail(token) {
       return false;
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sh = ss.getSheetByName('Users');
-    if (!sh) {
-      console.error('Users sheet not found');
-      return false;
-    }
-
-    const data = sh.getDataRange().getValues();
-    if (data.length < 2) {
-      console.warn('No users found in Users sheet');
-      return false;
-    }
-
-    const headers = data.shift();
-    const colTok = headers.indexOf('EmailConfirmation');
-    const colConf = headers.indexOf('EmailConfirmed');
-    const colUpd = headers.indexOf('UpdatedAt');
-    const colEmail = headers.indexOf('Email');
-
-    if (colTok < 0 || colConf < 0) {
-      console.error('Required columns not found in Users sheet');
-      return false;
-    }
-
-    let found = false;
-    let userEmail = null;
-
-    data.forEach((row, i) => {
-      if (String(row[colTok]) === String(token)) {
-        found = true;
-        userEmail = row[colEmail];
-        const rowNum = i + 2;
-
-        sh.getRange(rowNum, colConf + 1).setValue(true);
-
-        if (colUpd >= 0) {
-          sh.getRange(rowNum, colUpd + 1).setValue(new Date());
-        }
-
-        console.log(`Email confirmed for user: ${userEmail}`);
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.confirmEmail === 'function') {
+      const result = IdentityService.confirmEmail(token);
+      if (result && result.success) {
+        return true;
       }
-    });
+      console.warn('confirmEmail: IdentityService returned failure', result);
+      return false;
+    }
 
-    return found;
+    console.warn('confirmEmail: IdentityService unavailable; skipping confirmation');
+    return false;
   } catch (error) {
     console.error('Error confirming email:', error);
     writeError('confirmEmail', error);
