@@ -312,9 +312,35 @@
     /**
      * Generate URLs for navigation
      */
+    function resolveNavigationBaseUrl() {
+      const directBase = NAVIGATION_BASE_URL || BASE_URL || SCRIPT_URL;
+      if (directBase) {
+        return directBase;
+      }
+
+      if (typeof window !== 'undefined' && window.location) {
+        try {
+          const { origin, pathname, href } = window.location;
+          if (origin && pathname) {
+            return origin + pathname;
+          }
+          if (href) {
+            const parsed = new URL(href);
+            parsed.search = '';
+            parsed.hash = '';
+            return parsed.toString();
+          }
+        } catch (resolveErr) {
+          console.warn('Unable to derive navigation base URL from window.location', resolveErr);
+        }
+      }
+
+      return '';
+    }
+
     function generateUrl(page, _campaign = null, additionalParams = {}) {
       // _campaign is kept for backward compatibility but intentionally unused to avoid exposing it in URLs
-      let url = NAVIGATION_BASE_URL || BASE_URL || SCRIPT_URL;
+      let url = resolveNavigationBaseUrl();
       const params = new URLSearchParams();
 
       if (page) {
@@ -329,7 +355,13 @@
       });
       
       const queryString = params.toString();
-      return queryString ? `${url}?${queryString}` : url;
+
+      if (!url) {
+        return queryString ? `?${queryString}` : '';
+      }
+
+      const separator = url.includes('?') ? (/[?&]$/.test(url) ? '' : '&') : '?';
+      return queryString ? `${url}${separator}${queryString}` : url;
     }
 
     /**
