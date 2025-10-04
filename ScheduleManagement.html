@@ -1615,6 +1615,7 @@
                 this.pendingImportSchedules = [];
                 this.pendingImportSummary = null;
                 this.lastImportResult = null;
+                this.cachedSchedules = [];
                 this.init();
             }
 
@@ -2529,16 +2530,39 @@
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
 
-                    if (result && result.success) {
-                        this.displaySchedules(result.schedules);
-                        document.getElementById('totalSchedules').textContent = result.schedules.length;
-                    } else {
-                        throw new Error(result?.error || 'Failed to load schedules');
+                    const { schedules, total, error, errorSeverity, notice } = this.parseSchedulesResponse(result);
+
+                    const safeSchedules = Array.isArray(schedules) ? schedules : [];
+                    this.cachedSchedules = safeSchedules;
+
+                    if (error) {
+                        const severity = (errorSeverity || 'warning').toLowerCase();
+                        if (severity === 'danger' || severity === 'error') {
+                            console.error('⚠️ Schedule response issue:', error);
+                            this.showToast(`Failed to load schedules: ${error}`, 'danger');
+                        } else {
+                            console.info('ℹ️ Schedule response notice:', error);
+                        }
+                    }
+
+                    if (notice) {
+                        console.info('ℹ️ Schedule response notice:', notice);
+                    }
+
+                    this.displaySchedules(safeSchedules);
+
+                    const totalElement = document.getElementById('totalSchedules');
+                    if (totalElement) {
+                        const numericTotal = Number(total);
+                        const safeTotal = Number.isFinite(numericTotal) && numericTotal >= 0 ? numericTotal : safeSchedules.length;
+                        totalElement.textContent = safeTotal;
                     }
 
                 } catch (error) {
                     console.error('❌ Error loading schedules:', error);
-                    this.displaySchedules([]);
+                    this.displaySchedules(this.cachedSchedules || []);
+                    this.showToast('Failed to load schedules: ' + (error.message || 'Unexpected error'), 'danger');
+                    throw error;
                 }
             }
 
@@ -2551,11 +2575,13 @@
                     return;
                 }
 
-                tbody.innerHTML = schedules.map(schedule => `
+                const normalizedSchedules = schedules.map(schedule => this.normalizeScheduleRecord(schedule));
+
+                tbody.innerHTML = normalizedSchedules.map(schedule => `
                         <tr>
                             <td>
-                                <input type="checkbox" class="form-check-input schedule-checkbox" 
-                                      value="${schedule.ID}" 
+                                <input type="checkbox" class="form-check-input schedule-checkbox"
+                                      value="${schedule.ID || ''}"
                                       ${schedule.Status === 'PENDING' ? '' : 'disabled'}>
                             </td>
                             <td>${schedule.UserName || 'N/A'}</td>
@@ -2592,6 +2618,236 @@
                             </td>
                         </tr>
                     `).join('');
+            }
+
+            parseSchedulesResponse(result) {
+                const baseResponse = {
+                    schedules: [],
+                    total: 0,
+                    error: null,
+                    errorSeverity: 'warning',
+                    notice: null
+                };
+
+                if (result == null) {
+                    return {
+                        ...baseResponse,
+                        notice: 'No schedules were returned by the server. Retaining the current table view.'
+                    };
+                }
+
+                if (Array.isArray(result)) {
+                    return {
+                        ...baseResponse,
+                        schedules: result,
+                        total: result.length
+                    };
+                }
+
+                if (typeof result === 'string') {
+                    try {
+                        return this.parseSchedulesResponse(JSON.parse(result));
+                    } catch (parseError) {
+                        return {
+                            ...baseResponse,
+                            error: result,
+                            errorSeverity: 'danger'
+                        };
+                    }
+                }
+
+                if (typeof result === 'object') {
+                    const nestedDataSources = [
+                        result.schedules,
+                        result.Schedules,
+                        result.data?.schedules,
+                        result.data?.Schedules,
+                        result.data?.items,
+                        result.data,
+                        result.items,
+                        result.records,
+                        result.payload,
+                        result.results,
+                        result.response,
+                        result.body
+                    ];
+
+                    const candidateSource = nestedDataSources.find(source => this.isScheduleArrayLike(source)) ||
+                        Object.values(result).find(value => this.isScheduleArrayLike(value)) ||
+                        (this.isScheduleArrayLike(result) ? result : null);
+
+                    const normalizedSchedules = this.normalizeScheduleArray(candidateSource);
+
+                    if (normalizedSchedules.length) {
+                        const totalCandidates = [
+                            result.total,
+                            result.count,
+                            result.data?.total,
+                            candidateSource && typeof candidateSource.length === 'number' ? candidateSource.length : normalizedSchedules.length
+                        ];
+
+                        const resolvedTotal = totalCandidates.find(value => Number.isFinite(Number(value)));
+
+                        const severity = result.success === false ? 'danger' : 'warning';
+
+                        return {
+                            ...baseResponse,
+                            schedules: normalizedSchedules,
+                            total: Number.isFinite(Number(resolvedTotal)) ? Number(resolvedTotal) : normalizedSchedules.length,
+                            error: result.success === false ? (result.error || result.message || 'Server returned a failure response.') : null,
+                            errorSeverity: severity,
+                            notice: result.success === true && !normalizedSchedules.length ? 'No schedules matched the selected filters.' : null
+                        };
+                    }
+
+                    const textualMessage = [result.notice, result.message, result.error, result.warning]
+                        .find(value => typeof value === 'string' && value.trim().length);
+
+                    if (textualMessage) {
+                        const normalizedMessage = textualMessage.trim();
+                        const severityHint = String(
+                            result.errorSeverity ||
+                            result.severity ||
+                            result.status ||
+                            result.level ||
+                            result.type ||
+                            (result.success === false ? 'danger' : '')
+                        ).toLowerCase();
+
+                        const dangerKeywords = ['danger', 'error', 'critical', 'severe', 'fail', 'failure'];
+                        const isDanger = dangerKeywords.some(keyword => severityHint.includes(keyword));
+
+                        if (isDanger) {
+                            return {
+                                ...baseResponse,
+                                error: normalizedMessage,
+                                errorSeverity: 'danger'
+                            };
+                        }
+
+                        return {
+                            ...baseResponse,
+                            notice: normalizedMessage
+                        };
+                    }
+
+                    if (result.success === false) {
+                        return {
+                            ...baseResponse,
+                            error: result.error || result.message || 'Server returned a failure response.',
+                            errorSeverity: 'danger'
+                        };
+                    }
+
+                    if (result.success === true) {
+                        return {
+                            ...baseResponse,
+                            notice: 'The server reported success but did not include schedule details. Displaying the previous data.'
+                        };
+                    }
+                }
+
+                return {
+                    ...baseResponse,
+                    error: 'Unexpected response format received while loading schedules.',
+                    errorSeverity: 'danger'
+                };
+            }
+
+            isScheduleArrayLike(value) {
+                if (!value) {
+                    return false;
+                }
+
+                if (Array.isArray(value)) {
+                    return value.some(item => item && typeof item === 'object');
+                }
+
+                if (typeof value === 'object' && typeof value.length === 'number') {
+                    return value.length > 0;
+                }
+
+                if (typeof value === 'object') {
+                    const numericKeys = Object.keys(value).filter(key => /^\d+$/.test(key));
+                    return numericKeys.length > 0;
+                }
+
+                return false;
+            }
+
+            normalizeScheduleArray(source) {
+                if (!this.isScheduleArrayLike(source)) {
+                    return [];
+                }
+
+                let iterable = [];
+
+                if (Array.isArray(source)) {
+                    iterable = source;
+                } else if (typeof source.length === 'number') {
+                    iterable = Array.from({ length: source.length }, (_, index) => source[index]);
+                } else {
+                    const numericKeys = Object.keys(source)
+                        .filter(key => /^\d+$/.test(key))
+                        .sort((a, b) => Number(a) - Number(b));
+                    iterable = numericKeys.length ? numericKeys.map(key => source[key]) : Object.values(source);
+                }
+
+                return iterable
+                    .map(item => this.normalizeScheduleRecord(item))
+                    .filter(item => item && typeof item === 'object');
+            }
+
+            normalizeScheduleRecord(record) {
+                if (!record || typeof record !== 'object') {
+                    return {};
+                }
+
+                const normalized = { ...record };
+
+                const resolveValue = (keys, fallback = '') => {
+                    for (const key of keys) {
+                        if (!(key in record)) {
+                            continue;
+                        }
+
+                        const value = record[key];
+                        if (value === undefined || value === null) {
+                            continue;
+                        }
+
+                        if (typeof value === 'string') {
+                            const trimmed = value.trim();
+                            if (trimmed.length > 0) {
+                                return trimmed;
+                            }
+                            continue;
+                        }
+
+                        return value;
+                    }
+                    return fallback;
+                };
+
+                normalized.ID = resolveValue(['ID', 'Id', 'id', 'ScheduleID', 'ScheduleId', 'scheduleID', 'scheduleId', 'Schedule Id']);
+                normalized.UserName = resolveValue(['UserName', 'User', 'User Name', 'Agent', 'AgentName', 'Agent Name', 'Name']);
+                normalized.Date = resolveValue(['Date', 'date', 'ScheduleDate', 'Schedule Date', 'Day', 'ShiftDate']);
+                normalized.SlotName = resolveValue(['SlotName', 'slotName', 'Slot', 'Slot Name', 'Shift', 'ShiftName', 'Shift Name']);
+                normalized.StartTime = resolveValue(['StartTime', 'startTime', 'Start', 'Start Time', 'ShiftStart', 'Shift Start']);
+                normalized.EndTime = resolveValue(['EndTime', 'endTime', 'End', 'End Time', 'ShiftEnd', 'Shift End']);
+                const statusValue = resolveValue(['Status', 'status', 'ScheduleStatus', 'Schedule Status'], 'PENDING') || 'PENDING';
+                normalized.Status = typeof statusValue === 'string' ? statusValue.trim().toUpperCase() : String(statusValue || 'PENDING').toUpperCase();
+
+                const priorityValue = resolveValue(['Priority', 'priority', 'PriorityLevel', 'Priority Level', 'Rank', 'Importance'], 1);
+                const numericPriority = Number(priorityValue);
+                const safePriority = Number.isFinite(numericPriority) ? numericPriority : 1;
+                normalized.Priority = Math.min(Math.max(parseInt(safePriority, 10) || 1, 0), 4);
+
+                if (normalized.ID !== undefined && normalized.ID !== null) {
+                    normalized.ID = String(normalized.ID);
+                }
+
+                return normalized;
             }
 
             async loadAttendanceCalendar() {
@@ -3920,7 +4176,12 @@
 
         function refreshSchedules() {
             if (window.scheduleManager) {
-                window.scheduleManager.showToast('Schedules refreshed', 'info');
+                window.scheduleManager.loadSchedules()
+                    .then(() => window.scheduleManager.showToast('Schedules refreshed', 'success'))
+                    .catch(error => {
+                        console.error('❌ Failed to refresh schedules:', error);
+                        window.scheduleManager.showToast('Failed to refresh schedules. Please try again.', 'danger');
+                    });
             }
         }
 
@@ -3950,7 +4211,12 @@
 
         function applyScheduleFilters() {
             if (window.scheduleManager) {
-                window.scheduleManager.showToast('Filters applied', 'info');
+                window.scheduleManager.loadSchedules()
+                    .then(() => window.scheduleManager.showToast('Filters applied', 'success'))
+                    .catch(error => {
+                        console.error('❌ Failed to apply schedule filters:', error);
+                        window.scheduleManager.showToast('Failed to apply filters. Please try again.', 'danger');
+                    });
             }
         }
 
