@@ -2375,6 +2375,15 @@ function calculateDaySpanCount(startDate, endDate, minDate, maxDate) {
   return days > 0 ? days : 0;
 }
 
+function calculateWeekSpanCount(startDate, endDate, minDate, maxDate) {
+  const daySpan = calculateDaySpanCount(startDate, endDate, minDate, maxDate);
+  if (!daySpan || daySpan <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(daySpan / 7);
+}
+
 function getMonthNameFromNumber(monthNumber) {
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
