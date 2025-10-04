@@ -1484,17 +1484,22 @@
     return safeString(identifier);
   }
 
-  function ensureProfileSlugInUrl(profileSlug) {
-    if (!profileSlug || typeof window === 'undefined' || !window.location || !window.history) {
+  function ensureProfileIdentifierInUrl(profileIdentifier, profileSlug) {
+    if (typeof window === 'undefined' || !window.location || !window.history) {
+      return;
+    }
+
+    const preferred = safeString(profileIdentifier) || safeString(profileSlug);
+    if (!preferred) {
       return;
     }
 
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('profileId') === profileSlug) {
+      if (url.searchParams.get('profileId') === preferred) {
         return;
       }
-      url.searchParams.set('profileId', profileSlug);
+      url.searchParams.set('profileId', preferred);
       window.history.replaceState({}, document.title, url.toString());
     } catch (err) {
       const href = String(window.location.href || '');
@@ -1503,11 +1508,11 @@
       }
       const hasParam = /([?&])profileId=/i.test(href);
       if (hasParam) {
-        const updated = href.replace(/([?&]profileId=)[^&#]*/i, `$1${encodeURIComponent(profileSlug)}`);
+        const updated = href.replace(/([?&]profileId=)[^&#]*/i, `$1${encodeURIComponent(preferred)}`);
         window.history.replaceState({}, document.title, updated);
       } else {
         const separator = href.indexOf('?') === -1 ? '?' : '&';
-        window.history.replaceState({}, document.title, `${href}${separator}profileId=${encodeURIComponent(profileSlug)}`);
+        window.history.replaceState({}, document.title, `${href}${separator}profileId=${encodeURIComponent(preferred)}`);
       }
     }
   }
@@ -3101,13 +3106,16 @@
     if (computedProfileSlug && computedProfileSlug !== state.profileSlug) {
       state.profileSlug = computedProfileSlug;
     }
-    ensureProfileSlugInUrl(state.profileSlug);
+    ensureProfileIdentifierInUrl(state.profileIdentifier, state.profileSlug);
 
     const sidebarPanel = document.getElementById('userPanel');
+    const effectiveProfileId = state.profileIdentifier || state.profileSlug;
     if (sidebarPanel) {
       if (state.profileSlug) {
         sidebarPanel.setAttribute('data-profile-slug', state.profileSlug);
-        sidebarPanel.setAttribute('data-profile-id', state.profileSlug);
+      }
+      if (effectiveProfileId) {
+        sidebarPanel.setAttribute('data-profile-id', effectiveProfileId);
       }
       if (state.profileIdentifier) {
         sidebarPanel.setAttribute('data-profile-identifier', state.profileIdentifier);
@@ -3123,7 +3131,7 @@
       tenure,
       username,
       profileSlug: state.profileSlug,
-      profileId: state.profileSlug,
+      profileId: effectiveProfileId,
       profileIdentifier: state.profileIdentifier,
       manager,
       location,
