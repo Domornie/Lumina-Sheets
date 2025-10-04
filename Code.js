@@ -1260,6 +1260,7 @@ function canonicalizePageKey(k) {
 
     // Experience hubs
     case 'agent-experience':
+    case 'userprofile':
       return 'workspace.agent';
     case 'manager-executive-experience':
       return 'workspace.executive';
@@ -1448,13 +1449,35 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
 
-    // Default route: redirect to dashboard
+    // Default route: redirect to persona-specific landing page
     if (!page) {
       const userCampaignId = user.CampaignID || '';
-      const redirectUrl = getAuthenticatedUrl('dashboard', userCampaignId);
+      let landingSlug = '';
+
+      try {
+        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
+            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
+              user: user,
+              userPayload: user,
+              rawUser: user
+            });
+            if (landingInfo && landingInfo.slug) {
+              landingSlug = landingInfo.slug;
+            }
+          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
+            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
+          }
+        }
+      } catch (landingError) {
+        console.warn('doGet: failed to compute landing slug', landingError);
+      }
+
+      const redirectPage = landingSlug || 'dashboard';
+      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
       return HtmlService
         .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-        .setTitle('Redirecting to Dashboard...');
+        .setTitle('Redirecting...');
     }
 
     const campaignId = e.parameter.campaign || user.CampaignID || '';
@@ -1502,7 +1525,7 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    if (page === 'agent-experience') {
+    if (page === 'agent-experience' || page === 'userprofile') {
       return serveGlobalPage('AgentExperience', e, baseUrl, user);
     }
 

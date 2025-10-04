@@ -678,7 +678,8 @@ var AuthenticationService = (function () {
     return {
       user: userPayload,
       tenant: tenantPayload,
-      rawScope: rawScope
+      rawScope: rawScope,
+      rawUser: user
     };
   }
 
@@ -2402,6 +2403,19 @@ var AuthenticationService = (function () {
 
       const warnings = Array.isArray(tenantPayload.warnings) ? tenantPayload.warnings.slice() : [];
 
+      const landing = resolveLandingDestination(user, {
+        user: userPayload,
+        userPayload: userPayload,
+        rawUser: user,
+        tenantAccess: tenantPayload,
+        tenant: { clientPayload: tenantSummary, sessionScope: tenantPayload.sessionScope },
+        sessionScope: tenantPayload.sessionScope
+      });
+      const redirectSlug = landing && landing.slug ? landing.slug : 'dashboard';
+      const redirectUrl = landing && landing.redirectUrl
+        ? landing.redirectUrl
+        : buildLandingRedirectUrlFromSlug(redirectSlug);
+
       return {
         success: true,
         sessionToken: sessionResult.token,
@@ -2414,7 +2428,9 @@ var AuthenticationService = (function () {
         campaignScope: userPayload ? userPayload.CampaignScope : null,
         warnings: warnings,
         needsCampaignAssignment: tenantPayload.needsCampaignAssignment === true,
-        message: 'Verification successful. You are now signed in.'
+        message: 'Verification successful. You are now signed in.',
+        redirectSlug: redirectSlug,
+        redirectUrl: redirectUrl
       };
     } catch (error) {
       console.error('verifyMfaCode error:', error);
@@ -2833,6 +2849,423 @@ var AuthenticationService = (function () {
     }
 
     return payload;
+  }
+
+  // ─── Landing destination helpers ───────────────────────────────────────────
+
+  function landingNormalizeText(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    const str = String(value).trim();
+    if (!str || str.toLowerCase() === 'undefined' || str.toLowerCase() === 'null') {
+      return '';
+    }
+    return str;
+  }
+
+  function landingLowerText(value) {
+    const normalized = landingNormalizeText(value);
+    return normalized ? normalized.toLowerCase() : '';
+  }
+
+  function landingMatchToken(value) {
+    const lower = landingLowerText(value);
+    if (!lower) return '';
+    return lower.replace(/[^a-z0-9]/g, '');
+  }
+
+  function landingSanitizeSlug(value) {
+    const lower = landingLowerText(value);
+    if (!lower) return '';
+    return lower
+      .replace(/[^a-z0-9\-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function gatherLandingSources(primary, context) {
+    const sources = [];
+    const seen = new Set();
+
+    function add(source) {
+      if (!source || typeof source !== 'object') return;
+      if (seen.has(source)) return;
+      seen.add(source);
+      sources.push(source);
+    }
+
+    add(primary);
+
+    if (context && typeof context === 'object') {
+      add(context.user);
+      add(context.userPayload);
+      add(context.rawUser);
+
+      if (context.contextUser) add(context.contextUser);
+      if (context.contextPayload) add(context.contextPayload);
+    }
+
+    return sources;
+  }
+
+  function collectLandingRoleNames(primary, context) {
+    const sources = gatherLandingSources(primary, context);
+    const names = [];
+    const seenNames = {};
+    const collectedRoleIds = new Set();
+    const userIds = new Set();
+
+    function pushName(name) {
+      const normalized = landingLowerText(name);
+      if (!normalized) return;
+      if (seenNames[normalized]) return;
+      seenNames[normalized] = true;
+      names.push(normalized);
+    }
+
+    function collectRoleIds(list) {
+      if (!list && list !== 0) return;
+      if (Array.isArray(list)) {
+        list.forEach(collectRoleIds);
+        return;
+      }
+      if (typeof list === 'object') {
+        if (Object.prototype.hasOwnProperty.call(list, 'id')) {
+          collectRoleIds(list.id);
+        }
+        if (Object.prototype.hasOwnProperty.call(list, 'ID')) {
+          collectRoleIds(list.ID);
+        }
+        if (Object.prototype.hasOwnProperty.call(list, 'RoleId')) {
+          collectRoleIds(list.RoleId);
+        }
+        if (Object.prototype.hasOwnProperty.call(list, 'RoleID')) {
+          collectRoleIds(list.RoleID);
+        }
+        return;
+      }
+      const normalized = landingNormalizeText(list);
+      if (!normalized) return;
+      normalized.split(/[,;|]/).forEach(function (part) {
+        const trimmed = landingNormalizeText(part);
+        if (trimmed) {
+          collectedRoleIds.add(trimmed);
+        }
+      });
+    }
+
+    sources.forEach(function (source) {
+      if (!source || typeof source !== 'object') return;
+
+      if (Array.isArray(source.roleNames)) {
+        source.roleNames.forEach(pushName);
+      }
+      if (Array.isArray(source.RoleNames)) {
+        source.RoleNames.forEach(pushName);
+      }
+
+      pushName(source.RoleName);
+      pushName(source.roleName);
+      pushName(source.PrimaryRole);
+      pushName(source.primaryRole);
+
+      collectRoleIds(source.RoleIds || source.roleIds || source.RoleIDs || source.roleIDs);
+      collectRoleIds(source.Roles || source.roles);
+
+      const possibleUserId = landingNormalizeText(
+        source.ID || source.Id || source.id || source.UserId || source.UserID
+      );
+      if (possibleUserId) {
+        userIds.add(possibleUserId);
+      }
+    });
+
+    if (context && typeof context === 'object') {
+      if (Array.isArray(context.roleNames)) {
+        context.roleNames.forEach(pushName);
+      }
+      collectRoleIds(context.roleIds);
+
+      if (Array.isArray(context.userIds)) {
+        context.userIds.forEach(function (userId) {
+          const normalized = landingNormalizeText(userId);
+          if (normalized) {
+            userIds.add(normalized);
+          }
+        });
+      }
+    }
+
+    if (collectedRoleIds.size && typeof getRolesMapping === 'function') {
+      try {
+        const mapping = getRolesMapping();
+        collectedRoleIds.forEach(function (roleId) {
+          if (!roleId) return;
+          const direct = mapping[roleId];
+          if (direct) {
+            pushName(direct);
+            return;
+          }
+          const lowerKey = roleId.toLowerCase();
+          if (mapping[lowerKey]) {
+            pushName(mapping[lowerKey]);
+          }
+        });
+      } catch (mappingError) {
+        console.warn('collectLandingRoleNames: getRolesMapping failed', mappingError);
+      }
+    }
+
+    if (typeof getUserRolesSafe === 'function') {
+      userIds.forEach(function (userId) {
+        try {
+          const roles = getUserRolesSafe(userId) || [];
+          roles.forEach(function (role) {
+            if (!role) return;
+            pushName(role.name || role.Name || role.title || role.Title);
+          });
+        } catch (roleError) {
+          console.warn('collectLandingRoleNames: getUserRolesSafe failed', roleError);
+        }
+      });
+    }
+
+    return names;
+  }
+
+  function collectLandingPageTokens(primary, context) {
+    const sources = gatherLandingSources(primary, context);
+    const tokens = new Set();
+
+    function addValue(value) {
+      if (value === null || typeof value === 'undefined') return;
+
+      if (Array.isArray(value)) {
+        value.forEach(addValue);
+        return;
+      }
+
+      if (typeof value === 'object') {
+        if (Object.prototype.hasOwnProperty.call(value, 'slug')) addValue(value.slug);
+        if (Object.prototype.hasOwnProperty.call(value, 'Slug')) addValue(value.Slug);
+        if (Object.prototype.hasOwnProperty.call(value, 'key')) addValue(value.key);
+        if (Object.prototype.hasOwnProperty.call(value, 'Key')) addValue(value.Key);
+        if (Object.prototype.hasOwnProperty.call(value, 'page')) addValue(value.page);
+        if (Object.prototype.hasOwnProperty.call(value, 'Page')) addValue(value.Page);
+        if (Object.prototype.hasOwnProperty.call(value, 'defaultPage')) addValue(value.defaultPage);
+        if (Object.prototype.hasOwnProperty.call(value, 'DefaultPage')) addValue(value.DefaultPage);
+        return;
+      }
+
+      const text = landingNormalizeText(value);
+      if (!text) return;
+
+      const directToken = landingMatchToken(text);
+      if (directToken) {
+        tokens.add(directToken);
+      }
+
+      text.split(/[,;|]/).forEach(function (part) {
+        const token = landingMatchToken(part);
+        if (token) {
+          tokens.add(token);
+        }
+      });
+    }
+
+    const candidateKeys = [
+      'Pages', 'pages', 'Page', 'DefaultPage', 'defaultPage', 'HomePage', 'homePage',
+      'LandingPage', 'landingPage', 'Landing', 'landing', 'LandingSlug', 'landingSlug',
+      'PreferredLanding', 'preferredLanding', 'PreferredLandingPage', 'preferredLandingPage',
+      'PreferredHome', 'preferredHome', 'PrimaryPage', 'primaryPage'
+    ];
+
+    sources.forEach(function (source) {
+      if (!source || typeof source !== 'object') return;
+      candidateKeys.forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          addValue(source[key]);
+        }
+      });
+
+      addValue(source.allowedPages || source.AllowedPages);
+      addValue(source.pagesAssigned || source.PagesAssigned);
+      addValue(source.pageAssignments || source.PageAssignments);
+    });
+
+    if (context && typeof context === 'object') {
+      addValue(context.pages);
+      addValue(context.assignedPages);
+      addValue(context.availablePages);
+      addValue(context.userPages);
+
+      if (context.tenantAccess && context.tenantAccess.clientPayload) {
+        addValue(context.tenantAccess.clientPayload.pages);
+        addValue(context.tenantAccess.clientPayload.allowedPages);
+      }
+
+      if (context.tenant && context.tenant.clientPayload) {
+        addValue(context.tenant.clientPayload.pages);
+        addValue(context.tenant.clientPayload.allowedPages);
+      }
+    }
+
+    return tokens;
+  }
+
+  function extractFirstLandingValue(sources, keys) {
+    for (let i = 0; i < sources.length; i++) {
+      const source = sources[i];
+      if (!source || typeof source !== 'object') continue;
+      for (let j = 0; j < keys.length; j++) {
+        const key = keys[j];
+        if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+        const text = landingNormalizeText(source[key]);
+        if (text) {
+          return text;
+        }
+      }
+    }
+    return '';
+  }
+
+  function collectCombinedLandingText(sources, keys) {
+    const parts = [];
+    const seen = new Set();
+
+    sources.forEach(function (source) {
+      if (!source || typeof source !== 'object') return;
+      keys.forEach(function (key) {
+        if (!Object.prototype.hasOwnProperty.call(source, key)) return;
+        const text = landingLowerText(source[key]);
+        if (!text || seen.has(text)) return;
+        seen.add(text);
+        parts.push(text);
+      });
+    });
+
+    return parts.join(' ');
+  }
+
+  function determineLandingSlug(primary, context) {
+    try {
+      if (context && typeof context === 'object') {
+        const explicitCandidate = landingSanitizeSlug(
+          context.preferredSlug
+            || context.landingSlug
+            || (context.user && (context.user.landingSlug || context.user.LandingSlug))
+            || (context.userPayload && (context.userPayload.landingSlug || context.userPayload.LandingSlug))
+        );
+        if (explicitCandidate) {
+          return explicitCandidate;
+        }
+      }
+
+      const sources = gatherLandingSources(primary, context);
+
+      const explicitSourceCandidate = extractFirstLandingValue(sources, [
+        'LandingSlug', 'landingSlug', 'PreferredLanding', 'preferredLanding',
+        'PreferredLandingPage', 'preferredLandingPage', 'PreferredHome', 'preferredHome',
+        'HomePage', 'homePage', 'DefaultPage', 'defaultPage', 'LandingPage', 'landingPage'
+      ]);
+      const explicitSourceSlug = landingSanitizeSlug(explicitSourceCandidate);
+
+      if (explicitSourceSlug) {
+        return explicitSourceSlug;
+      }
+
+      const roleNames = collectLandingRoleNames(primary, context);
+      const pageTokens = collectLandingPageTokens(primary, context);
+
+      const jobTitleText = collectCombinedLandingText(sources, ['JobTitle', 'jobTitle', 'Title', 'title', 'Role', 'role', 'Position', 'position', 'PrimaryRole', 'primaryRole']);
+      const departmentText = collectCombinedLandingText(sources, ['Department', 'department', 'Dept', 'dept', 'Division', 'division', 'Team', 'team', 'Group', 'group', 'Organization', 'organization', 'Organisation']);
+      const personaText = collectCombinedLandingText(sources, ['Persona', 'persona', 'PrimaryPersona', 'primaryPersona', 'PersonaKey', 'personaKey', 'PersonaName', 'personaName', 'PersonaLabel', 'personaLabel', 'PersonaType', 'personaType', 'AccessPersona', 'accessPersona', 'WorkspacePersona', 'workspacePersona']);
+      const classificationText = collectCombinedLandingText(sources, ['Classification', 'classification', 'EmploymentStatus', 'employmentStatus', 'EmploymentType', 'employmentType', 'EmployeeType', 'employeeType', 'StaffType', 'staffType', 'UserType', 'userType', 'AccountType', 'accountType', 'AccessLevel', 'accessLevel']);
+
+      const combinedPersonaText = [personaText, classificationText].filter(Boolean).join(' ');
+
+      const isGlobalAdmin = !!(
+        (context && context.tenantAccess && context.tenantAccess.sessionScope && context.tenantAccess.sessionScope.isGlobalAdmin)
+        || (context && context.tenant && context.tenant.sessionScope && context.tenant.sessionScope.isGlobalAdmin)
+        || (context && context.sessionScope && context.sessionScope.isGlobalAdmin)
+      );
+
+      const sourcesForAdminCheck = gatherLandingSources(primary, context);
+      const isAdminUser = isGlobalAdmin || sourcesForAdminCheck.some(function (source) {
+        if (!source || typeof source !== 'object') return false;
+        return toBool(source.IsAdmin)
+          || toBool(source.isAdmin)
+          || toBool(source.Admin)
+          || toBool(source.isAdministrator)
+          || toBool(source.administrator);
+      });
+
+      function hasRoleMatch(patterns) {
+        if (!roleNames || !roleNames.length) return false;
+        return roleNames.some(function (role) {
+          return patterns.some(function (pattern) {
+            return role.indexOf(pattern) !== -1;
+          });
+        });
+      }
+
+      function hasPage(slug) {
+        const token = landingMatchToken(slug);
+        if (!token) return false;
+        return pageTokens.has(token);
+      }
+
+      function textHas(text, patterns) {
+        if (!text) return false;
+        return patterns.some(function (pattern) {
+          return text.indexOf(pattern) !== -1;
+        });
+      }
+
+      const collabIndicators = hasPage('collaborationreporting')
+        || hasRoleMatch(['client', 'guest', 'partner', 'collab'])
+        || textHas(jobTitleText, ['client', 'guest', 'partner', 'collab'])
+        || textHas(departmentText, ['client', 'partner'])
+        || textHas(combinedPersonaText, ['client', 'guest', 'partner', 'collab']);
+
+      if (collabIndicators && !isAdminUser) {
+        return 'collaborationreporting';
+      }
+
+      const execIndicators = isAdminUser
+        || hasRoleMatch(['executive', 'chief', 'csuite', 'c-suite', 'director', 'vp', 'vicepresident', 'president', 'principal', 'leader', 'leadership', 'manager', 'supervisor', 'administrator', 'admin'])
+        || hasPage('dashboard')
+        || hasPage('managerexecutiveexperience')
+        || hasPage('executivedashboard')
+        || textHas(jobTitleText, ['executive', 'chief', 'director', 'vp', 'president', 'principal', 'leader'])
+        || textHas(combinedPersonaText, ['executive', 'leadership', 'management']);
+
+      if (execIndicators) {
+        return 'dashboard';
+      }
+
+      if (hasPage('agentexperience') || hasPage('workspaceagent') || hasPage('userprofile')) {
+        return 'userprofile';
+      }
+
+      return 'userprofile';
+    } catch (error) {
+      console.warn('determineLandingSlug: failed to compute landing slug', error);
+      return 'dashboard';
+    }
+  }
+
+  function buildLandingRedirectUrlFromSlug(slug) {
+    const sanitized = landingSanitizeSlug(slug);
+    const finalSlug = sanitized || 'dashboard';
+    return '?page=' + encodeURIComponent(finalSlug);
+  }
+
+  function resolveLandingDestination(primary, context) {
+    const slug = determineLandingSlug(primary, context);
+    return {
+      slug: landingSanitizeSlug(slug) || 'dashboard',
+      redirectUrl: buildLandingRedirectUrlFromSlug(slug)
+    };
   }
 
   // ─── Improved password verification ─────────────────────────────────────────
@@ -3278,6 +3711,19 @@ var AuthenticationService = (function () {
         ? 'Login successful, but your account is not yet assigned to any campaigns. You may have limited access until an administrator completes the assignment.'
         : 'Login successful';
 
+      const landing = resolveLandingDestination(user, {
+        user: userPayload,
+        userPayload: userPayload,
+        rawUser: user,
+        tenantAccess: tenantAccess,
+        tenant: { clientPayload: tenantSummary, sessionScope: tenantAccess.sessionScope },
+        sessionScope: tenantAccess.sessionScope
+      });
+      const redirectSlug = landing && landing.slug ? landing.slug : 'dashboard';
+      const redirectUrl = landing && landing.redirectUrl
+        ? landing.redirectUrl
+        : buildLandingRedirectUrlFromSlug(redirectSlug);
+
       console.log('login: Login successful for user:', userPayload.FullName);
       console.log('=== AuthenticationService.login SUCCESS ===');
 
@@ -3293,7 +3739,9 @@ var AuthenticationService = (function () {
         tenant: tenantSummary,
         campaignScope: userPayload ? userPayload.CampaignScope : null,
         warnings: warnings,
-        needsCampaignAssignment: needsCampaignAssignment
+        needsCampaignAssignment: needsCampaignAssignment,
+        redirectSlug: redirectSlug,
+        redirectUrl: redirectUrl
       };
 
     } catch (error) {
@@ -3368,6 +3816,19 @@ var AuthenticationService = (function () {
       const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
       const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
+      const landing = resolveLandingDestination(user, {
+        user: userPayload,
+        userPayload: userPayload,
+        rawUser: user,
+        tenantAccess: tenantAccess,
+        tenant: { clientPayload: tenantSummary, sessionScope: tenantAccess.sessionScope },
+        sessionScope: tenantAccess.sessionScope
+      });
+      const redirectSlug = landing && landing.slug ? landing.slug : 'dashboard';
+      const redirectUrl = landing && landing.redirectUrl
+        ? landing.redirectUrl
+        : buildLandingRedirectUrlFromSlug(redirectSlug);
+
       return {
         success: true,
         sessionToken: sessionResult.token,
@@ -3378,7 +3839,9 @@ var AuthenticationService = (function () {
         tenant: tenantSummary,
         campaignScope: userPayload ? userPayload.CampaignScope : null,
         warnings: warnings,
-        needsCampaignAssignment: needsCampaignAssignment
+        needsCampaignAssignment: needsCampaignAssignment,
+        redirectSlug: redirectSlug,
+        redirectUrl: redirectUrl
       };
 
     } catch (error) {
@@ -3508,6 +3971,19 @@ var AuthenticationService = (function () {
         }
       }
 
+      const landing = resolveLandingDestination(context.rawUser || context.user, {
+        user: context.user,
+        userPayload: context.user,
+        rawUser: context.rawUser,
+        tenantAccess: { sessionScope: context.rawScope, clientPayload: context.tenant },
+        tenant: { sessionScope: context.rawScope, clientPayload: context.tenant },
+        sessionScope: context.rawScope
+      });
+      const redirectSlug = landing && landing.slug ? landing.slug : 'dashboard';
+      const redirectUrl = landing && landing.redirectUrl
+        ? landing.redirectUrl
+        : buildLandingRedirectUrlFromSlug(redirectSlug);
+
       return {
         success: true,
         message: 'Session active',
@@ -3520,7 +3996,9 @@ var AuthenticationService = (function () {
         warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
         needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false,
         idleTimeoutMinutes: resolution.idleTimeoutMinutes,
-        lastActivityAt: user.sessionLastActivityAt || null
+        lastActivityAt: user.sessionLastActivityAt || null,
+        redirectSlug: redirectSlug,
+        redirectUrl: redirectUrl
       };
     } catch (error) {
       console.error('keepAlive: Error:', error);
@@ -3546,6 +4024,9 @@ var AuthenticationService = (function () {
     findUserByPrincipal: findUserByEmail,
     beginMfaChallenge: beginMfaChallenge,
     verifyMfaCode: verifyMfaCode,
+    resolveLandingDestination: resolveLandingDestination,
+    getLandingSlug: determineLandingSlug,
+    buildLandingRedirectUrl: buildLandingRedirectUrlFromSlug,
     captureLoginRequestContext: captureLoginRequestContext,
     consumeLoginRequestContext: consumeLoginContext,
     confirmDeviceVerification: confirmDeviceVerification,
