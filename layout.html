@@ -2206,7 +2206,13 @@
                     if (!bannerData.titleFragments.length) {
                         const fragments = [];
                         while (titleEl.firstChild) {
-                            fragments.push(titleEl.firstChild);
+                            const node = titleEl.firstChild;
+                            if (!node) {
+                                break;
+                            }
+
+                            fragments.push(node);
+                            titleEl.removeChild(node);
                         }
                         bannerData.titleFragments = fragments;
                     }
