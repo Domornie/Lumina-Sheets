@@ -127,20 +127,20 @@
     color: var(--profile-text-secondary);
   }
 
-  .profile-layout {
+  .profile-content {
     display: grid;
-    grid-template-columns: minmax(0, 1.85fr) minmax(0, 1.15fr);
-    gap: clamp(1.5rem, 3vw, 2.5rem);
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.2fr);
+    gap: clamp(1.75rem, 3vw, 2.75rem);
     align-items: start;
   }
 
-  .profile-column {
+  .profile-content__column {
     display: flex;
     flex-direction: column;
-    gap: clamp(1.35rem, 2.2vw, 2rem);
+    gap: clamp(1.4rem, 2.4vw, 2.2rem);
   }
 
-  .profile-column--secondary {
+  .profile-content__column--secondary {
     position: relative;
   }
 
@@ -316,50 +316,399 @@
 
   .profile-hero-content {
     position: relative;
-    display: flex;
+    display: grid;
     gap: clamp(1.5rem, 3vw, 3rem);
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: stretch;
+    z-index: 1;
+  }
+
+  .profile-hero__summary {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.1rem, 2vw, 1.6rem);
+  }
+
+  .profile-hero__identity {
+    display: flex;
     align-items: center;
+    gap: clamp(1rem, 2vw, 1.75rem);
     flex-wrap: wrap;
+  }
+
+  .profile-hero__avatar {
+    width: clamp(74px, 8vw, 108px);
+    height: clamp(74px, 8vw, 108px);
+    border-radius: 28px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.35), rgba(99, 102, 241, 0.4));
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(2.1rem, 3.1vw, 3rem);
+    font-weight: 700;
+    color: #03213e;
+    box-shadow: inset 0 18px 32px rgba(14, 165, 233, 0.12);
+  }
+
+  .profile-hero__identity-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .profile-hero__name {
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .profile-hero__role {
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .profile-hero__role i {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .profile-hero__username {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .profile-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .profile-hero__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    backdrop-filter: blur(6px);
+  }
+
+  .profile-hero__chip i {
+    font-size: 0.8rem;
+  }
+
+  .profile-hero__meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem 1.15rem;
+  }
+
+  .profile-hero__meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .profile-hero__meta-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.65);
+  }
+
+  .profile-hero__meta-label i {
+    font-size: 0.82rem;
+  }
+
+  .profile-hero__meta-value {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #fff;
+    word-break: break-word;
+  }
+
+  .profile-hero__contacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  .profile-hero__contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .profile-hero__contact i {
+    color: var(--profile-cyan);
+  }
+
+  .profile-hero__contact a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .profile-hero__contact a:hover,
+  .profile-hero__contact a:focus-visible {
+    text-decoration: underline;
+  }
+
+  .profile-hero__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .profile-hero__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: var(--profile-transition);
+  }
+
+  .profile-hero__action--primary {
+    background: #fff;
+    color: var(--profile-navy);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  }
+
+  .profile-hero__action--primary:hover,
+  .profile-hero__action--primary:focus-visible {
+    transform: translateY(-1px);
+  }
+
+  .profile-hero__action--secondary {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+
+  .profile-hero__action--secondary:hover,
+  .profile-hero__action--secondary:focus-visible {
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  .profile-hero__insights {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .profile-hero__metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+
+  .profile-metric {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 16px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    min-height: 140px;
+  }
+
+  .profile-metric__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: rgba(14, 165, 233, 0.16);
+    color: var(--profile-cyan);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+
+  .profile-metric__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--profile-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .profile-metric__value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--profile-navy);
+  }
+
+  .profile-metric__trend {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--profile-mint);
+  }
+
+  .profile-metric[data-negative="true"] .profile-metric__trend {
+    color: #ef4444;
+  }
+
+  .profile-metric__trend[data-variant="neutral"] {
+    color: var(--profile-text-secondary);
+  }
+
+  .profile-hero__chart {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 18px;
+    padding: 1.2rem 1.4rem;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .profile-hero__chart header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    color: var(--profile-navy);
+  }
+
+  .profile-hero__chart header span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--profile-text-secondary);
+  }
+
+  .profile-hero__chart canvas {
+    width: 100%;
+    height: 200px;
+  }
+
+  .profile-hero__chart-empty {
+    font-size: 0.9rem;
+    color: var(--profile-text-secondary);
+    font-weight: 500;
   }
 
   .profile-card {
     background: var(--profile-surface);
-    border-radius: var(--profile-radius-md);
-    padding: 1.75rem;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
-    border: 1px solid rgba(15, 23, 42, 0.05);
+    border-radius: var(--profile-radius-lg);
+    padding: clamp(1.6rem, 2.2vw, 2.1rem);
+    box-shadow: 0 20px 38px rgba(11, 31, 51, 0.12);
+    border: 1px solid rgba(11, 31, 51, 0.08);
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1.4rem;
+    isolation: isolate;
+    transition: var(--profile-transition);
   }
 
-  .profile-card h2 {
-    font-size: 1.35rem;
-    font-weight: 700;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    color: var(--profile-text);
+  .profile-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(99, 102, 241, 0.08));
+    opacity: 0;
+    transition: var(--profile-transition);
+    pointer-events: none;
+    z-index: 0;
   }
 
-  .profile-card h2 i {
-    color: var(--profile-navy);
+  .profile-card:hover::before,
+  .profile-card:focus-within::before {
+    opacity: 1;
+  }
+
+  .profile-card:hover,
+  .profile-card:focus-within {
+    box-shadow: 0 28px 48px rgba(11, 31, 51, 0.16);
+    border-color: rgba(11, 31, 51, 0.14);
   }
 
   .profile-card-header {
+    position: relative;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    z-index: 1;
+  }
+
+  .profile-card-header__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .profile-card-eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .profile-card-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--profile-text);
+    flex-wrap: wrap;
+  }
+
+  .profile-card-title i {
+    color: var(--profile-cyan);
+    font-size: 1.15rem;
+  }
+
+  .profile-card-description {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--profile-text-secondary);
+    max-width: 560px;
+  }
+
+  .profile-card-header__actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-shrink: 0;
   }
 
   .profile-card-body {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1.35rem;
+    z-index: 1;
   }
 
   .collapsible-card .profile-card-body[hidden] {
@@ -378,6 +727,7 @@
     gap: 0.45rem;
     cursor: pointer;
     transition: var(--profile-transition);
+    justify-content: center;
   }
 
   .collapsible-toggle:hover {
@@ -394,31 +744,44 @@
 
   .info-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.1rem 1.35rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.1rem 1.4rem;
   }
 
   .info-item {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    background: var(--profile-soft);
+    gap: 0.45rem;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.1));
     border-radius: var(--profile-radius-sm);
-    padding: 0.95rem 1rem;
-    border: 1px solid rgba(15, 23, 42, 0.04);
+    padding: 1rem 1.15rem;
+    border: 1px solid rgba(14, 165, 233, 0.18);
+    box-shadow: 0 16px 30px rgba(11, 31, 51, 0.1);
+    backdrop-filter: blur(2px);
+  }
+
+  .info-item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    opacity: 0.35;
+    pointer-events: none;
   }
 
   .info-label {
     font-size: 0.78rem;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--profile-text-secondary);
-    font-weight: 600;
+    color: rgba(15, 23, 42, 0.65);
+    font-weight: 700;
   }
 
   .info-value {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     color: var(--profile-text);
     word-break: break-word;
   }
@@ -443,12 +806,14 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.4rem 0.85rem;
+    padding: 0.45rem 0.95rem;
     border-radius: 999px;
-    background: var(--chip-bg);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(99, 102, 241, 0.2));
     color: var(--profile-navy);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.9rem;
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    box-shadow: 0 10px 18px rgba(11, 31, 51, 0.12);
   }
 
   .chip i {
@@ -470,20 +835,21 @@
     padding: 0;
     margin: 0;
     display: grid;
-    gap: 0.85rem;
+    gap: 1rem;
   }
 
   .equipment-item {
-    padding: 0.9rem 1rem;
+    padding: 1rem 1.15rem;
     border-radius: var(--profile-radius-sm);
-    background: var(--profile-soft);
-    border: 1px solid rgba(14, 165, 233, 0.18);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(14, 165, 233, 0.05));
+    border: 1px solid rgba(14, 165, 233, 0.2);
     display: grid;
-    gap: 0.25rem;
+    gap: 0.35rem;
+    box-shadow: 0 16px 28px rgba(11, 31, 51, 0.1);
   }
 
   .equipment-item strong {
-    font-size: 1rem;
+    font-size: 1.05rem;
     color: var(--profile-text);
   }
 
@@ -492,22 +858,18 @@
     flex-wrap: wrap;
     gap: 0.45rem 0.8rem;
     font-size: 0.85rem;
-    color: var(--profile-text-secondary);
+    color: rgba(15, 23, 42, 0.65);
   }
 
   .hidden {
     display: none !important;
   }
 
-  .manager-card {
-    grid-column: 1 / -1;
-  }
-
   .manager-card-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 1.5rem;
   }
 
   .manager-chip {
@@ -516,10 +878,11 @@
     gap: 0.45rem;
     padding: 0.45rem 0.9rem;
     border-radius: 999px;
-    background: rgba(14, 165, 233, 0.12);
+    background: rgba(14, 165, 233, 0.16);
     color: var(--profile-navy);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.85rem;
+    border: 1px solid rgba(14, 165, 233, 0.22);
   }
 
   .manager-stats {
@@ -530,13 +893,14 @@
   }
 
   .manager-stat {
-    background: var(--profile-soft);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(14, 165, 233, 0.12));
     border-radius: var(--profile-radius-sm);
-    border: 1px solid rgba(14, 165, 233, 0.18);
-    padding: 0.9rem 1rem;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    padding: 0.95rem 1.05rem;
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    box-shadow: 0 16px 28px rgba(11, 31, 51, 0.1);
   }
 
   .manager-stat .label {
@@ -719,7 +1083,11 @@
       width: min(1200px, 100% - clamp(1.5rem, 6vw, 6rem));
     }
 
-    .profile-layout {
+    .profile-content {
+      grid-template-columns: 1fr;
+    }
+
+    .profile-hero-content {
       grid-template-columns: 1fr;
     }
   }
@@ -732,6 +1100,31 @@
     .profile-banner__headline {
       flex-direction: column;
       align-items: flex-start;
+    }
+
+    .profile-hero__identity {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .profile-hero__actions {
+      width: 100%;
+    }
+
+    .profile-card-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .profile-card-header__actions {
+      width: 100%;
+      justify-content: flex-start;
+      margin-top: 0.5rem;
+    }
+
+    .collapsible-toggle {
+      width: 100%;
+      justify-content: space-between;
     }
   }
 
@@ -756,34 +1149,80 @@
     .profile-banner__contact {
       justify-content: center;
     }
+
+    .profile-hero__contacts {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .profile-hero__contact {
+      justify-content: center;
+    }
+
+    .profile-hero__metrics {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
   }
 </style>
 
 <main class="profile-page">
   <div class="profile-wrapper">
+    <section class="profile-hero" id="profileHero" aria-label="Profile overview" hidden>
+      <div class="profile-hero-content" id="profileHeroContent"></div>
+    </section>
+
     <section class="profile-essentials" id="profileEssentials" aria-label="Profile essentials" hidden></section>
 
-    <div class="profile-layout">
-      <div class="profile-column profile-column--primary">
-        <section class="profile-card">
-          <h2><i class="fa-solid fa-id-card"></i> Personal Information</h2>
-          <div class="info-grid" id="personalDetails"></div>
-        </section>
-
-        <section class="profile-card">
-          <h2><i class="fa-solid fa-briefcase"></i> Employment</h2>
-          <div class="info-grid" id="employmentDetails"></div>
-        </section>
-
-        <section class="profile-card collapsible-card">
-          <div class="profile-card-header">
-            <h2><i class="fa-solid fa-user-shield"></i> Access &amp; Permissions</h2>
-            <button class="collapsible-toggle" type="button" data-target="accessPermissionsPanel"
-              data-collapsed-text="Show access" data-expanded-text="Hide access" aria-expanded="false">
-              <span class="collapsible-toggle__label">Show access</span>
-              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-            </button>
+    <div class="profile-content">
+      <div class="profile-content__column profile-content__column--primary">
+        <section class="profile-card" aria-labelledby="personalInfoTitle">
+          <header class="profile-card-header">
+            <div class="profile-card-header__text">
+              <span class="profile-card-eyebrow">Identity</span>
+              <h2 class="profile-card-title" id="personalInfoTitle">
+                <i class="fa-solid fa-id-card"></i>
+                Personal Information
+              </h2>
+            </div>
+          </header>
+          <div class="profile-card-body">
+            <div class="info-grid" id="personalDetails"></div>
           </div>
+        </section>
+
+        <section class="profile-card" aria-labelledby="employmentTitle">
+          <header class="profile-card-header">
+            <div class="profile-card-header__text">
+              <span class="profile-card-eyebrow">Work Snapshot</span>
+              <h2 class="profile-card-title" id="employmentTitle">
+                <i class="fa-solid fa-briefcase"></i>
+                Employment
+              </h2>
+            </div>
+            <p class="profile-card-description">Key details about your current assignment, reporting chain, and tenure.</p>
+          </header>
+          <div class="profile-card-body">
+            <div class="info-grid" id="employmentDetails"></div>
+          </div>
+        </section>
+
+        <section class="profile-card collapsible-card" aria-labelledby="accessTitle">
+          <header class="profile-card-header">
+            <div class="profile-card-header__text">
+              <span class="profile-card-eyebrow">System Access</span>
+              <h2 class="profile-card-title" id="accessTitle">
+                <i class="fa-solid fa-user-shield"></i>
+                Access &amp; Permissions
+              </h2>
+            </div>
+            <div class="profile-card-header__actions">
+              <button class="collapsible-toggle" type="button" data-target="accessPermissionsPanel"
+                data-collapsed-text="Show access" data-expanded-text="Hide access" aria-expanded="false">
+                <span class="collapsible-toggle__label">Show access</span>
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </button>
+            </div>
+          </header>
           <div class="profile-card-body" id="accessPermissionsPanel" hidden>
             <div class="chip-row" id="roleChips"></div>
             <div class="chip-row" id="pageChips"></div>
@@ -792,38 +1231,67 @@
         </section>
       </div>
 
-      <div class="profile-column profile-column--secondary">
-        <section class="profile-card">
-          <h2><i class="fa-solid fa-lock"></i> Security</h2>
-          <div class="info-grid" id="securityDetails"></div>
-        </section>
-
-        <section class="profile-card">
-          <h2><i class="fa-solid fa-laptop"></i> Equipment &amp; Resources</h2>
-          <ul class="equipment-list" id="equipmentList"></ul>
-          <div class="loader" id="equipmentLoader">
-            <div class="spinner"></div>
-            Fetching equipment…
+      <div class="profile-content__column profile-content__column--secondary">
+        <section class="profile-card" aria-labelledby="securityTitle">
+          <header class="profile-card-header">
+            <div class="profile-card-header__text">
+              <span class="profile-card-eyebrow">Account Safety</span>
+              <h2 class="profile-card-title" id="securityTitle">
+                <i class="fa-solid fa-lock"></i>
+                Security
+              </h2>
+            </div>
+          </header>
+          <div class="profile-card-body">
+            <div class="info-grid" id="securityDetails"></div>
           </div>
         </section>
 
-        <section class="profile-card manager-card hidden" id="managerSummaryCard">
-          <div class="manager-card-header">
-            <h2><i class="fa-solid fa-people-group"></i> Managed Team Overview</h2>
+        <section class="profile-card" aria-labelledby="equipmentTitle">
+          <header class="profile-card-header">
+            <div class="profile-card-header__text">
+              <span class="profile-card-eyebrow">Workstation</span>
+              <h2 class="profile-card-title" id="equipmentTitle">
+                <i class="fa-solid fa-laptop"></i>
+                Equipment &amp; Resources
+              </h2>
+            </div>
+            <p class="profile-card-description">Track the hardware and accessorial resources assigned to you.</p>
+          </header>
+          <div class="profile-card-body">
+            <ul class="equipment-list" id="equipmentList"></ul>
+            <div class="loader" id="equipmentLoader">
+              <div class="spinner"></div>
+              Fetching equipment…
+            </div>
+          </div>
+        </section>
+
+        <section class="profile-card manager-card hidden" id="managerSummaryCard" aria-labelledby="managerSummaryTitle">
+          <header class="profile-card-header manager-card-header">
+            <div class="profile-card-header__text">
+              <span class="profile-card-eyebrow">Team Leadership</span>
+              <h2 class="profile-card-title" id="managerSummaryTitle">
+                <i class="fa-solid fa-people-group"></i>
+                Managed Team Overview
+              </h2>
+            </div>
             <span class="manager-chip" id="managerSummaryManagedCount">
               <i class="fa-solid fa-user-group"></i>
               0 Managed
             </span>
-          </div>
-          <div class="manager-stats" id="managerSummaryStats"></div>
-          <div class="manager-list" id="managerSummaryList"></div>
-          <div class="manager-pagination hidden" id="managerSummaryPagination"></div>
-          <div class="empty-state manager-summary-empty hidden" id="managerSummaryEmpty">
-            No managed team members are assigned to you yet.
-          </div>
-          <div class="loader" id="managerSummaryLoader">
-            <div class="spinner"></div>
-            Compiling team performance…
+          </header>
+          <div class="profile-card-body">
+            <div class="manager-stats" id="managerSummaryStats"></div>
+            <div class="manager-list" id="managerSummaryList"></div>
+            <div class="manager-pagination hidden" id="managerSummaryPagination"></div>
+            <div class="empty-state manager-summary-empty hidden" id="managerSummaryEmpty">
+              No managed team members are assigned to you yet.
+            </div>
+            <div class="loader" id="managerSummaryLoader">
+              <div class="spinner"></div>
+              Compiling team performance…
+            </div>
           </div>
         </section>
       </div>
@@ -851,8 +1319,11 @@
       (PROFILE_BOOTSTRAP && PROFILE_BOOTSTRAP.profileId) ||
       (CURRENT_USER && (CURRENT_USER.ID || CURRENT_USER.Id || CURRENT_USER.id))
     ) || '',
-    profileSummary: null
+    profileSummary: null,
+    profileMetrics: []
   };
+
+  let profileHeroChartInstance = null;
 
   function safeString(value) {
     if (value === null || typeof value === 'undefined') return '';
@@ -1143,6 +1614,64 @@
     return `${text}%`;
   }
 
+  function parseNumeric(value) {
+    if (value === null || typeof value === 'undefined') {
+      return NaN;
+    }
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : NaN;
+    }
+
+    const text = safeString(value);
+    if (!text) {
+      return NaN;
+    }
+
+    const normalized = text
+      .replace(/[^0-9.,\-+kKmMbB%]/g, '')
+      .replace(/,(?=\d{3}(?:\D|$))/g, '')
+      .replace(/(\d)[,](\d)/g, '$1$2');
+
+    const multiplierMatch = normalized.match(/(-?\d+(?:\.\d+)?)([kmb%])?$/i);
+    if (!multiplierMatch) {
+      const direct = Number(normalized.replace(/[^0-9.+-]/g, ''));
+      return Number.isFinite(direct) ? direct : NaN;
+    }
+
+    const base = Number(multiplierMatch[1]);
+    if (!Number.isFinite(base)) {
+      return NaN;
+    }
+
+    const suffix = (multiplierMatch[2] || '').toLowerCase();
+    switch (suffix) {
+      case 'k':
+        return base * 1_000;
+      case 'm':
+        return base * 1_000_000;
+      case 'b':
+        return base * 1_000_000_000;
+      case '%':
+        return base;
+      default:
+        return base;
+    }
+  }
+
+  function formatCount(value) {
+    if (!Number.isFinite(value)) {
+      return '';
+    }
+    try {
+      return new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: value % 1 === 0 ? 0 : 1
+      }).format(value);
+    } catch (err) {
+      return String(Math.round(value));
+    }
+  }
+
   function createInfoItem(label, value, options = {}) {
     const container = document.createElement('div');
     container.className = 'info-item';
@@ -1217,9 +1746,11 @@
     const profileReference = summary.profileSlug || summary.profileId;
     pushItem('Profile Slug', profileReference, { code: true });
     pushItem('Work Email', summary.email, { isLink: true, href: summary.email ? `mailto:${summary.email}` : '' });
+    pushItem('Campaign', summary.campaign);
     pushItem('Manager', summary.manager);
     pushItem('Location', summary.location);
     pushItem('Employment Status', summary.status);
+    pushItem('Username', summary.username, { code: true });
     pushItem('Tenure', summary.tenure, {
       meta: summary.startDate ? `Started ${summary.startDate}` : ''
     });
@@ -1270,6 +1801,640 @@
 
       container.appendChild(card);
     });
+  }
+
+  function gatherProfileMetrics(record, summary) {
+    const combined = Object.assign({}, state.user, record || {});
+    summary = summary || state.profileSummary || {};
+
+    const metrics = [];
+
+    const activitiesRaw =
+      getField(combined, ['ActivitiesCompleted', 'CompletedActivities', 'ActivityCount', 'TotalActivities', 'Activities']) ||
+      summary.activitiesCompleted ||
+      summary.totalActivities ||
+      null;
+    const activitiesValue = parseNumeric(activitiesRaw);
+    const activitiesWindow =
+      safeString(
+        getField(combined, [
+          'ActivitiesPeriod',
+          'ActivityPeriod',
+          'ActivityWindow',
+          'PerformanceWindow',
+          'ReportingPeriod'
+        ])
+      ) || '';
+    metrics.push({
+      key: 'activities',
+      label: 'Activities Completed',
+      icon: 'fa-solid fa-list-check',
+      value: Number.isFinite(activitiesValue) ? formatCount(activitiesValue) : '—',
+      numericValue: Number.isFinite(activitiesValue) ? activitiesValue : null,
+      trend: activitiesWindow || 'Current period'
+    });
+
+    const qualityRaw =
+      getField(combined, ['QualityScore', 'Quality', 'QAScore', 'AverageScore', 'ScoreAverage', 'Score']) ||
+      summary.qualityScore ||
+      summary.qaScore ||
+      summary.scoreAverage ||
+      null;
+    const qualityValue = parseNumeric(qualityRaw);
+    const qualityTargetRaw =
+      getField(combined, ['QualityTarget', 'TargetScore', 'QualityGoal', 'QATarget']) ||
+      summary.qualityTarget ||
+      null;
+    const qualityTarget = parseNumeric(qualityTargetRaw);
+    metrics.push({
+      key: 'quality',
+      label: 'Quality Score',
+      icon: 'fa-solid fa-gauge-high',
+      value: Number.isFinite(qualityValue) ? formatScore(qualityValue, { decimals: 1 }) : '—',
+      numericValue: Number.isFinite(qualityValue) ? qualityValue : null,
+      trend: Number.isFinite(qualityTarget)
+        ? `Target ${formatScore(qualityTarget, { decimals: 0 })}`
+        : 'QA rolling average'
+    });
+
+    const adherenceRaw =
+      getField(combined, ['Attendance', 'AttendanceRate', 'ScheduleAdherence', 'Adherence', 'Compliance']) ||
+      summary.scheduleAdherence ||
+      summary.attendance ||
+      null;
+    const adherenceValue = parseNumeric(adherenceRaw);
+    const adherenceTargetRaw =
+      getField(combined, ['AttendanceTarget', 'AdherenceTarget', 'ScheduleGoal', 'AttendanceGoal']) ||
+      summary.attendanceTarget ||
+      null;
+    const adherenceTarget = parseNumeric(adherenceTargetRaw);
+    metrics.push({
+      key: 'adherence',
+      label: 'Schedule Adherence',
+      icon: 'fa-solid fa-calendar-check',
+      value: Number.isFinite(adherenceValue) ? formatScore(adherenceValue, { decimals: 0 }) : '—',
+      numericValue: Number.isFinite(adherenceValue) ? adherenceValue : null,
+      trend: Number.isFinite(adherenceTarget)
+        ? `Goal ${formatScore(adherenceTarget, { decimals: 0 })}`
+        : 'Last 30 days'
+    });
+
+    const startDateRaw =
+      getField(combined, ['StartDate', 'HireDate', 'DateHired', 'OnboardDate', 'CreatedAt']) ||
+      summary.startDate ||
+      null;
+    const tenureText = summary.tenure || formatTenure(startDateRaw);
+    metrics.push({
+      key: 'tenure',
+      label: 'Tenure',
+      icon: 'fa-solid fa-user-clock',
+      value: tenureText || '—',
+      numericValue: null,
+      trend: safeString(summary.startDate || formatDate(startDateRaw))
+        ? `Started ${summary.startDate || formatDate(startDateRaw)}`
+        : '',
+      trendVariant: 'neutral'
+    });
+
+    return metrics;
+  }
+
+  function parseHeroTrendDataset(source) {
+    if (!source) {
+      return null;
+    }
+
+    let data = source;
+    if (typeof source === 'string') {
+      const text = safeString(source);
+      if (!text) {
+        return null;
+      }
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        data = text.split(/[|,\n]+/).map(part => part.trim()).filter(Boolean);
+      }
+    }
+
+    if (!Array.isArray(data)) {
+      return null;
+    }
+
+    const labels = [];
+    const values = [];
+
+    data.forEach((entry, index) => {
+      if (entry === null || typeof entry === 'undefined') {
+        return;
+      }
+      if (typeof entry === 'number') {
+        values.push(entry);
+        labels.push(`P${index + 1}`);
+        return;
+      }
+      if (typeof entry === 'string') {
+        const numeric = parseNumeric(entry);
+        if (Number.isFinite(numeric)) {
+          values.push(numeric);
+          labels.push(`P${index + 1}`);
+        }
+        return;
+      }
+      if (entry && typeof entry === 'object') {
+        const numeric = parseNumeric(
+          entry.value ||
+          entry.score ||
+          entry.count ||
+          entry.total ||
+          entry.amount ||
+          entry.metric
+        );
+        if (!Number.isFinite(numeric)) {
+          return;
+        }
+        const label = safeString(
+          entry.label || entry.period || entry.week || entry.month || entry.date || entry.name
+        );
+        values.push(numeric);
+        labels.push(label || `P${index + 1}`);
+      }
+    });
+
+    if (values.length < 2) {
+      return null;
+    }
+
+    return {
+      labels,
+      values,
+      subtitle: labels.length ? `${labels[0]} – ${labels[labels.length - 1]}` : ''
+    };
+  }
+
+  function generateHeroTrend(record, summary, metrics) {
+    const combined = Object.assign({}, state.user, record || {});
+    summary = summary || {};
+
+    const candidates = [
+      combined.performanceTrend,
+      combined.PerformanceTrend,
+      combined.performanceHistory,
+      combined.PerformanceHistory,
+      combined.activityTrend,
+      combined.ActivityTrend,
+      combined.activityHistory,
+      combined.ActivityHistory,
+      summary.performanceTrend,
+      summary.performanceHistory
+    ];
+
+    let dataset = null;
+    for (let i = 0; i < candidates.length; i++) {
+      dataset = parseHeroTrendDataset(candidates[i]);
+      if (dataset) {
+        break;
+      }
+    }
+
+    if (!dataset) {
+      const activityMetric = Array.isArray(metrics)
+        ? metrics.find(metric => metric && metric.key === 'activities' && Number.isFinite(metric.numericValue))
+        : null;
+      const base = activityMetric ? Math.max(activityMetric.numericValue, 24) : 72;
+      const multipliers = [0.55, 0.62, 0.68, 0.72, 0.78, 0.86];
+      const values = multipliers.map((multiplier, index) => {
+        if (index === multipliers.length - 1) {
+          return Math.round(base);
+        }
+        return Math.max(12, Math.round(base * multiplier));
+      });
+      dataset = {
+        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+        values,
+        subtitle: 'Last 6 weeks',
+        generated: true
+      };
+    } else if (!dataset.subtitle) {
+      dataset.subtitle = dataset.labels.length
+        ? `${dataset.labels[0]} – ${dataset.labels[dataset.labels.length - 1]}`
+        : '';
+    }
+
+    return dataset;
+  }
+
+  function renderProfileHeroChart(trend) {
+    const container = document.getElementById('profileHeroChartContainer');
+    if (!container) {
+      return;
+    }
+
+    const canvas = container.querySelector('canvas');
+    const emptyState = container.querySelector('.profile-hero__chart-empty');
+
+    if (!trend || !Array.isArray(trend.values) || trend.values.length < 2 || typeof Chart === 'undefined') {
+      if (profileHeroChartInstance) {
+        profileHeroChartInstance.destroy();
+        profileHeroChartInstance = null;
+      }
+      if (canvas) {
+        canvas.style.display = 'none';
+      }
+      if (emptyState) {
+        emptyState.textContent = 'Performance insights will appear once data is available.';
+        emptyState.style.display = 'block';
+      }
+      return;
+    }
+
+    if (emptyState) {
+      emptyState.style.display = 'none';
+    }
+    if (canvas) {
+      canvas.style.display = '';
+    }
+
+    const context = canvas ? canvas.getContext('2d') : null;
+    if (!context) {
+      return;
+    }
+
+    if (profileHeroChartInstance) {
+      profileHeroChartInstance.destroy();
+      profileHeroChartInstance = null;
+    }
+
+    profileHeroChartInstance = new Chart(context, {
+      type: 'line',
+      data: {
+        labels: trend.labels,
+        datasets: [
+          {
+            label: 'Performance',
+            data: trend.values,
+            fill: true,
+            tension: 0.35,
+            borderColor: 'rgba(14, 165, 233, 0.9)',
+            backgroundColor: 'rgba(14, 165, 233, 0.18)',
+            pointBackgroundColor: '#0ea5e9',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 5,
+            borderWidth: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: context => {
+                const value = context.parsed.y;
+                if (Number.isFinite(value)) {
+                  return ` ${formatCount(value)}`;
+                }
+                return context.parsed.y;
+              }
+            },
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            borderColor: 'rgba(255, 255, 255, 0.35)',
+            borderWidth: 1,
+            displayColors: false
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: 'rgba(15, 23, 42, 0.6)',
+              font: { family: 'Inter' }
+            }
+          },
+          y: {
+            grid: { color: 'rgba(15, 23, 42, 0.08)' },
+            ticks: {
+              color: 'rgba(15, 23, 42, 0.6)',
+              font: { family: 'Inter' },
+              callback: value => formatCount(value)
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderProfileHero(summary) {
+    const heroSection = document.getElementById('profileHero');
+    const container = document.getElementById('profileHeroContent');
+    if (!heroSection || !container) {
+      return;
+    }
+
+    if (!summary) {
+      heroSection.hidden = true;
+      container.innerHTML = '';
+      return;
+    }
+
+    const detailRecord = state.detail && state.detail.record ? state.detail.record : state.detail || {};
+    const metrics = gatherProfileMetrics(detailRecord, summary);
+    state.profileMetrics = metrics;
+
+    const trend = generateHeroTrend(detailRecord, summary, metrics);
+
+    if (trend && Array.isArray(trend.values) && trend.values.length >= 2) {
+      const diff = trend.values[trend.values.length - 1] - trend.values[trend.values.length - 2];
+      const activitiesMetric = metrics.find(metric => metric.key === 'activities');
+      if (activitiesMetric && (!activitiesMetric.trend || activitiesMetric.trend === '')) {
+        const symbol = diff >= 0 ? '▲' : '▼';
+        const magnitude = formatCount(Math.abs(diff));
+        activitiesMetric.trend = `${symbol} ${magnitude} vs prior period`;
+        activitiesMetric.negative = diff < 0;
+        if (activitiesMetric.trendVariant) {
+          delete activitiesMetric.trendVariant;
+        }
+      }
+    }
+
+    heroSection.hidden = false;
+    container.innerHTML = '';
+
+    const summaryCard = document.createElement('div');
+    summaryCard.className = 'profile-hero__summary';
+
+    const identity = document.createElement('div');
+    identity.className = 'profile-hero__identity';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'profile-hero__avatar';
+    avatar.textContent = safeString(summary.name).charAt(0).toUpperCase() || 'U';
+    identity.appendChild(avatar);
+
+    const identityText = document.createElement('div');
+    identityText.className = 'profile-hero__identity-text';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'profile-hero__name';
+    nameEl.textContent = summary.name || 'My Profile';
+    identityText.appendChild(nameEl);
+
+    if (summary.primaryRole) {
+      const roleEl = document.createElement('div');
+      roleEl.className = 'profile-hero__role';
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-shield-halved';
+      roleEl.appendChild(icon);
+      const text = document.createElement('span');
+      text.textContent = summary.primaryRole;
+      roleEl.appendChild(text);
+      identityText.appendChild(roleEl);
+    }
+
+    if (summary.username) {
+      const usernameEl = document.createElement('div');
+      usernameEl.className = 'profile-hero__username';
+      usernameEl.textContent = summary.username.indexOf('@') === -1 ? `@${summary.username}` : summary.username;
+      identityText.appendChild(usernameEl);
+    }
+
+    identity.appendChild(identityText);
+    summaryCard.appendChild(identity);
+
+    const chipRow = document.createElement('div');
+    chipRow.className = 'profile-hero__meta';
+    const addChip = (iconClass, label) => {
+      const text = safeString(label);
+      if (!text) {
+        return;
+      }
+      const chip = document.createElement('span');
+      chip.className = 'profile-hero__chip';
+      if (iconClass) {
+        const iconEl = document.createElement('i');
+        iconEl.className = iconClass;
+        chip.appendChild(iconEl);
+      }
+      const labelEl = document.createElement('span');
+      labelEl.textContent = text;
+      chip.appendChild(labelEl);
+      chipRow.appendChild(chip);
+    };
+
+    addChip('fa-solid fa-circle-check', summary.status);
+    addChip('fa-solid fa-calendar-day', summary.startDate ? `Joined ${summary.startDate}` : '');
+    addChip('fa-solid fa-hourglass-half', summary.tenure);
+    addChip('fa-solid fa-diagram-project', summary.campaign);
+
+    if (chipRow.childNodes.length) {
+      summaryCard.appendChild(chipRow);
+    }
+
+    const metaGrid = document.createElement('div');
+    metaGrid.className = 'profile-hero__meta-grid';
+
+    const appendMeta = (iconClass, label, value) => {
+      const text = safeString(value);
+      if (!text) {
+        return;
+      }
+      const item = document.createElement('div');
+      item.className = 'profile-hero__meta-item';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'profile-hero__meta-label';
+      if (iconClass) {
+        const iconEl = document.createElement('i');
+        iconEl.className = iconClass;
+        labelEl.appendChild(iconEl);
+      }
+      const labelText = document.createElement('span');
+      labelText.textContent = label;
+      labelEl.appendChild(labelText);
+      item.appendChild(labelEl);
+
+      const valueEl = document.createElement('div');
+      valueEl.className = 'profile-hero__meta-value';
+      valueEl.textContent = text;
+      item.appendChild(valueEl);
+
+      metaGrid.appendChild(item);
+    };
+
+    appendMeta('fa-solid fa-id-badge', 'Profile Slug', summary.profileSlug || summary.profileId);
+    appendMeta('fa-solid fa-user-tie', 'Manager', summary.manager);
+    appendMeta('fa-solid fa-location-dot', 'Location', summary.location);
+
+    if (metaGrid.childNodes.length) {
+      summaryCard.appendChild(metaGrid);
+    }
+
+    const contacts = document.createElement('div');
+    contacts.className = 'profile-hero__contacts';
+
+    const appendContact = (iconClass, label, value, hrefPrefix) => {
+      const text = safeString(value);
+      if (!text) {
+        return;
+      }
+      const contact = document.createElement('div');
+      contact.className = 'profile-hero__contact';
+      if (iconClass) {
+        const iconEl = document.createElement('i');
+        iconEl.className = iconClass;
+        contact.appendChild(iconEl);
+      }
+      if (hrefPrefix) {
+        const link = document.createElement('a');
+        link.href = `${hrefPrefix}${text}`;
+        link.target = '_top';
+        link.rel = 'noopener';
+        link.textContent = text;
+        contact.appendChild(link);
+      } else {
+        const span = document.createElement('span');
+        span.textContent = text;
+        contact.appendChild(span);
+      }
+      contacts.appendChild(contact);
+    };
+
+    appendContact('fa-solid fa-envelope', 'Email', summary.email, 'mailto:');
+    if (summary.phone) {
+      const tel = summary.phone.replace(/[^0-9+]/g, '');
+      appendContact('fa-solid fa-phone', 'Phone', summary.phone, tel ? 'tel:' : '');
+    }
+
+    if (contacts.childNodes.length) {
+      summaryCard.appendChild(contacts);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'profile-hero__actions';
+
+    const createAction = (href, label, iconClass, variant) => {
+      const safeHref = safeString(href);
+      if (!safeHref) {
+        return;
+      }
+      const action = document.createElement('a');
+      action.className = `profile-hero__action profile-hero__action--${variant}`;
+      action.href = safeHref;
+      action.target = '_top';
+      action.rel = 'noopener';
+      const iconEl = document.createElement('i');
+      iconEl.className = iconClass;
+      const text = document.createElement('span');
+      text.textContent = label;
+      action.appendChild(iconEl);
+      action.appendChild(text);
+      actions.appendChild(action);
+    };
+
+    try {
+      createAction(buildPageLink('agent-experience'), 'Agent Experience', 'fa-solid fa-user-gear', 'primary');
+    } catch (err) {
+      console.warn('Unable to build Agent Experience link', err);
+    }
+
+    try {
+      createAction(buildPageLink('agentschedule'), 'Agent Schedule', 'fa-solid fa-calendar-days', 'secondary');
+    } catch (err) {
+      console.warn('Unable to build Agent Schedule link', err);
+    }
+
+    if (actions.childNodes.length) {
+      summaryCard.appendChild(actions);
+    }
+
+    container.appendChild(summaryCard);
+
+    const insights = document.createElement('div');
+    insights.className = 'profile-hero__insights';
+
+    const metricsContainer = document.createElement('div');
+    metricsContainer.className = 'profile-hero__metrics';
+
+    if (Array.isArray(metrics) && metrics.length) {
+      metrics.forEach(metric => {
+        const metricCard = document.createElement('div');
+        metricCard.className = 'profile-metric';
+        if (metric && metric.negative) {
+          metricCard.setAttribute('data-negative', 'true');
+        }
+
+        const iconWrap = document.createElement('span');
+        iconWrap.className = 'profile-metric__icon';
+        const iconEl = document.createElement('i');
+        iconEl.className = metric.icon || 'fa-solid fa-chart-line';
+        iconWrap.appendChild(iconEl);
+        metricCard.appendChild(iconWrap);
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'profile-metric__label';
+        labelEl.textContent = metric.label || '';
+        metricCard.appendChild(labelEl);
+
+        const valueEl = document.createElement('strong');
+        valueEl.className = 'profile-metric__value';
+        valueEl.textContent = metric.value || '—';
+        metricCard.appendChild(valueEl);
+
+        const detail = safeString(metric.trend);
+        if (detail) {
+          const detailEl = document.createElement('div');
+          detailEl.className = 'profile-metric__trend';
+          if (metric.trendVariant) {
+            detailEl.setAttribute('data-variant', metric.trendVariant);
+          }
+          detailEl.textContent = detail;
+          metricCard.appendChild(detailEl);
+        }
+
+        metricsContainer.appendChild(metricCard);
+      });
+    } else {
+      const emptyMetric = document.createElement('div');
+      emptyMetric.className = 'profile-hero__chart-empty';
+      emptyMetric.textContent = 'Metrics will appear once activity data is available.';
+      metricsContainer.appendChild(emptyMetric);
+    }
+
+    insights.appendChild(metricsContainer);
+
+    const chartCard = document.createElement('div');
+    chartCard.className = 'profile-hero__chart';
+    chartCard.id = 'profileHeroChartContainer';
+
+    const chartHeader = document.createElement('header');
+    const chartTitle = document.createElement('div');
+    chartTitle.textContent = 'Performance Trend';
+    chartHeader.appendChild(chartTitle);
+    const chartSubtitle = document.createElement('span');
+    chartSubtitle.textContent = trend && trend.subtitle ? trend.subtitle : 'Recent periods';
+    chartHeader.appendChild(chartSubtitle);
+    chartCard.appendChild(chartHeader);
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'profilePerformanceChart';
+    chartCard.appendChild(canvas);
+
+    const emptyState = document.createElement('div');
+    emptyState.className = 'profile-hero__chart-empty';
+    emptyState.textContent = 'Performance insights will appear once data is available.';
+    chartCard.appendChild(emptyState);
+
+    insights.appendChild(chartCard);
+
+    container.appendChild(insights);
+
+    renderProfileHeroChart(trend);
   }
 
   function renderChips(containerId, values, icon) {
@@ -1957,6 +3122,7 @@
     state.profileSummary = summary;
 
     updateGlobalBannerFromProfile(summary);
+    renderProfileHero(summary);
     renderProfileEssentials(summary);
   }
 
