@@ -1305,6 +1305,7 @@
 
   const state = {
     user: (PROFILE_BOOTSTRAP.user && Object.keys(PROFILE_BOOTSTRAP.user).length ? PROFILE_BOOTSTRAP.user : CURRENT_USER) || {},
+    viewer: (PROFILE_BOOTSTRAP.viewer && Object.keys(PROFILE_BOOTSTRAP.viewer).length ? PROFILE_BOOTSTRAP.viewer : CURRENT_USER) || {},
     detail: PROFILE_BOOTSTRAP.detail || null,
     pages: PROFILE_BOOTSTRAP.pages || [],
     equipment: PROFILE_BOOTSTRAP.equipment || [],
@@ -1433,6 +1434,10 @@
 
   function computeProfileSlug(userRecord, detailRecord) {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const identifier = resolveProfileIdentifier(userRecord, detailRecord);
+    if (identifier) {
+      return identifier;
+    }
     const candidates = [];
 
     candidates.push(
