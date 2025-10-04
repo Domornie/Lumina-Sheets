@@ -3115,7 +3115,7 @@
                 if (!summary.weekCount || summary.weekCount < 0) {
                     const weekSpanStart = summary.startDate || options.startDate || (relevantDates[0]?.iso ?? '');
                     const weekSpanEnd = summary.endDate || options.endDate || (relevantDates[relevantDates.length - 1]?.iso ?? '');
-                    summary.weekCount = this.calculateWeekSpanCount(weekSpanStart, weekSpanEnd);
+                    summary.weekCount = this.calculateWeekSpanCount(weekSpanStart, weekSpanEnd, options.startDate, options.endDate);
                 }
 
                 summary.totalAgents = agentSet.size;
@@ -3141,14 +3141,34 @@
                 return { valid: true };
             }
 
-            countDaysInRange(startDate, endDate) {
-                if (!startDate || !endDate) {
-                    return 0;
+            resolveDateInput(value) {
+                if (value === undefined || value === null || value === '') {
+                    return null;
                 }
 
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-                if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+                if (value instanceof Date) {
+                    const clone = new Date(value);
+                    return isNaN(clone.getTime()) ? null : clone;
+                }
+
+                if (typeof value === 'object' && value.iso) {
+                    return this.resolveDateInput(value.iso);
+                }
+
+                if (typeof value === 'number' && !Number.isNaN(value)) {
+                    const asDate = new Date(value);
+                    return isNaN(asDate.getTime()) ? null : asDate;
+                }
+
+                const parsed = new Date(value);
+                return isNaN(parsed.getTime()) ? null : parsed;
+            }
+
+            countDaysInRange(startDate, endDate) {
+                const start = this.resolveDateInput(startDate);
+                const end = this.resolveDateInput(endDate);
+
+                if (!start || !end || end < start) {
                     return 0;
                 }
 
@@ -3156,33 +3176,28 @@
                 return diff > 0 ? diff : 0;
             }
 
-            calculateWeekSpanCount(startDate, endDate) {
-                if (!startDate || !endDate) {
+            calculateWeekSpanCount(startDate, endDate, minDate, maxDate) {
+                let start = this.resolveDateInput(startDate) || this.resolveDateInput(minDate);
+                let end = this.resolveDateInput(endDate) || this.resolveDateInput(maxDate);
+
+                if (!start || !end || end < start) {
                     return 0;
                 }
 
-                const days = this.countDaysInRange(startDate, endDate);
-                if (days <= 0) {
-                    return 0;
-                }
-
-                return Math.ceil(days / 7);
+                const diff = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+                return diff > 0 ? Math.ceil(diff / 7) : 0;
             }
 
             generateDateRange(startDate, endDate) {
-                if (!startDate || !endDate) {
-                    return [];
-                }
+                const start = this.resolveDateInput(startDate);
+                const end = this.resolveDateInput(endDate);
 
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-
-                if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+                if (!start || !end || end < start) {
                     return [];
                 }
 
                 const dates = [];
-                const cursor = new Date(start);
+                const cursor = new Date(start.getTime());
 
                 while (cursor <= end) {
                     dates.push({
@@ -4056,18 +4071,40 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.scheduleManager = new LuminaScheduleManager();
-            window.calculateWeekSpanCount = (startDate, endDate) => {
+            window.calculateWeekSpanCount = (startDate, endDate, minDate, maxDate) => {
                 if (window.scheduleManager && typeof window.scheduleManager.calculateWeekSpanCount === 'function') {
-                    return window.scheduleManager.calculateWeekSpanCount(startDate, endDate);
+                    return window.scheduleManager.calculateWeekSpanCount(startDate, endDate, minDate, maxDate);
                 }
-                if (!startDate || !endDate) {
+
+                const resolveDate = (value) => {
+                    if (value === undefined || value === null || value === '') {
+                        return null;
+                    }
+
+                    if (value instanceof Date) {
+                        const clone = new Date(value);
+                        return isNaN(clone.getTime()) ? null : clone;
+                    }
+
+                    if (typeof value === 'object' && value.iso) {
+                        return resolveDate(value.iso);
+                    }
+
+                    if (typeof value === 'number' && !Number.isNaN(value)) {
+                        const fromNumber = new Date(value);
+                        return isNaN(fromNumber.getTime()) ? null : fromNumber;
+                    }
+
+                    const parsed = new Date(value);
+                    return isNaN(parsed.getTime()) ? null : parsed;
+                };
+
+                const start = resolveDate(startDate) || resolveDate(minDate);
+                const end = resolveDate(endDate) || resolveDate(maxDate);
+                if (!start || !end || end < start) {
                     return 0;
                 }
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-                if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
-                    return 0;
-                }
+
                 const diff = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
                 return diff > 0 ? Math.ceil(diff / 7) : 0;
             };
