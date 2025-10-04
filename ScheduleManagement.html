@@ -2534,14 +2534,16 @@
                     const safeSchedules = Array.isArray(schedules) ? schedules : [];
 
                     if (error) {
-                        const severity = errorSeverity || 'warning';
-                        const logMethod = severity === 'danger' ? 'error' : 'warn';
-                        console[logMethod]('⚠️ Schedule response issue:', error);
-
-                        if (severity === 'danger') {
-                            this.showToast(`Failed to load schedules: ${error}`, severity);
+                        const severity = (errorSeverity || 'warning').toLowerCase();
+                        if (severity === 'danger' || severity === 'error') {
+                            console.error('⚠️ Schedule response issue:', error);
+                            this.showToast(`Failed to load schedules: ${error}`, 'danger');
+                        } else {
+                            console.info('ℹ️ Schedule response notice:', error);
                         }
-                    } else if (notice) {
+                    }
+
+                    if (notice) {
                         console.info('ℹ️ Schedule response notice:', notice);
                     }
 
@@ -2683,6 +2685,37 @@
                             error: result.success === false ? (result.error || result.message || 'Server returned a failure response.') : null,
                             errorSeverity: severity,
                             notice: result.success === true && !scheduleArray.length ? 'No schedules matched the selected filters.' : null
+                        };
+                    }
+
+                    const textualMessage = [result.notice, result.message, result.error, result.warning]
+                        .find(value => typeof value === 'string' && value.trim().length);
+
+                    if (textualMessage) {
+                        const normalizedMessage = textualMessage.trim();
+                        const severityHint = String(
+                            result.errorSeverity ||
+                            result.severity ||
+                            result.status ||
+                            result.level ||
+                            result.type ||
+                            (result.success === false ? 'danger' : '')
+                        ).toLowerCase();
+
+                        const dangerKeywords = ['danger', 'error', 'critical', 'severe', 'fail', 'failure'];
+                        const isDanger = dangerKeywords.some(keyword => severityHint.includes(keyword));
+
+                        if (isDanger) {
+                            return {
+                                ...baseResponse,
+                                error: normalizedMessage,
+                                errorSeverity: 'danger'
+                            };
+                        }
+
+                        return {
+                            ...baseResponse,
+                            notice: normalizedMessage
                         };
                     }
 
