@@ -2590,6 +2590,239 @@ function clientGetManagedUsers(managerUserId) {
     return { success: true, users: managedUsers };
   } catch (e) { writeError && writeError('clientGetManagedUsers', e); return { success: false, error: e.message }; }
 }
+
+function clientGetManagerTeamSummary(managerUserId) {
+  try {
+    if (!managerUserId) return { success: false, error: 'Manager ID is required' };
+
+    const managedResponse = clientGetManagedUsers(managerUserId);
+    if (!managedResponse || managedResponse.success === false) {
+      return managedResponse || { success: false, error: 'Unable to load managed users' };
+    }
+
+    const managedUsers = Array.isArray(managedResponse.users) ? managedResponse.users : [];
+    const qualityRecords = _loadQualityRecordsForManagerSummary_();
+    const summary = _buildManagerTeamSummary_(managedUsers, qualityRecords);
+    if (summary && typeof summary === 'object') {
+      summary.generatedAt = new Date().toISOString();
+    }
+    return summary;
+  } catch (e) {
+    if (typeof writeError === 'function') writeError('clientGetManagerTeamSummary', e);
+    return { success: false, error: e && e.message ? e.message : 'Failed to build manager team summary' };
+  }
+}
+
+function _loadQualityRecordsForManagerSummary_() {
+  const sheetName = (typeof QA_RECORDS === 'string' && QA_RECORDS) ? QA_RECORDS : 'Quality';
+  try {
+    if (typeof readSheet === 'function') {
+      const rows = readSheet(sheetName);
+      return Array.isArray(rows) ? rows : [];
+    }
+  } catch (err) {
+    if (typeof writeError === 'function') writeError('_loadQualityRecordsForManagerSummary_', err);
+  }
+  return [];
+}
+
+function _buildManagerTeamSummary_(managedUsers, qualityRows) {
+  const metrics = [];
+  const idMap = Object.create(null);
+  const emailMap = Object.create(null);
+  const usernameMap = Object.create(null);
+  const nameMap = Object.create(null);
+
+  (managedUsers || []).forEach(user => {
+    const safeUser = (typeof createSafeUserObject === 'function') ? createSafeUserObject(user) : (user || {});
+    const metric = {
+      id: _managerSummaryNormalize_(safeUser.ID || safeUser.id),
+      name: _managerSummaryNormalize_(safeUser.FullName || safeUser.fullName || safeUser.DisplayName || safeUser.displayName || safeUser.UserName || safeUser.userName),
+      email: _managerSummaryNormalize_(safeUser.Email || safeUser.email),
+      campaignName: _managerSummaryNormalize_(safeUser.campaignName || safeUser.CampaignName),
+      roles: _managerSummaryParseList_(safeUser.roleNames || safeUser.roles),
+      evaluations: 0,
+      scoreSum: 0,
+      scoreCount: 0,
+      lastEvaluation: null
+    };
+    metric.roles = metric.roles.filter(Boolean);
+    metrics.push(metric);
+
+    if (metric.id) {
+      idMap[metric.id] = metric;
+    }
+    const emailKey = _managerSummaryNormalizeLower_(metric.email);
+    if (emailKey) _managerSummaryMapPush_(emailMap, emailKey, metric);
+    const usernameKey = _managerSummaryNormalizeLower_(safeUser.UserName || safeUser.userName || safeUser.Username);
+    if (usernameKey) _managerSummaryMapPush_(usernameMap, usernameKey, metric);
+    const nameKey = _managerSummaryNormalizeLower_(metric.name);
+    if (nameKey) _managerSummaryMapPush_(nameMap, nameKey, metric);
+  });
+
+  (Array.isArray(qualityRows) ? qualityRows : []).forEach(record => {
+    if (!record || typeof record !== 'object') return;
+    const matches = [];
+
+    const idCandidates = [
+      record.AgentUserID, record.AgentUserId, record.AgentId,
+      record.UserID, record.UserId, record.EmployeeID, record.EmployeeId
+    ];
+    idCandidates.forEach(candidate => {
+      const key = _managerSummaryNormalize_(candidate);
+      if (key && idMap[key]) matches.push(idMap[key]);
+    });
+
+    const emailCandidates = [
+      record.AgentEmail, record.Email, record.AgentWorkEmail,
+      record.UserEmail, record.ContactEmail
+    ];
+    emailCandidates.forEach(candidate => {
+      const key = _managerSummaryNormalizeLower_(candidate);
+      if (key && emailMap[key]) Array.prototype.push.apply(matches, emailMap[key]);
+    });
+
+    const usernameCandidates = [record.AgentUsername, record.UserName, record.Username, record.AgentUserName];
+    usernameCandidates.forEach(candidate => {
+      const key = _managerSummaryNormalizeLower_(candidate);
+      if (key && usernameMap[key]) Array.prototype.push.apply(matches, usernameMap[key]);
+    });
+
+    const nameCandidates = [record.AgentName, record.AgentFullName, record.FullName, record.Agent];
+    nameCandidates.forEach(candidate => {
+      const key = _managerSummaryNormalizeLower_(candidate);
+      if (key && nameMap[key]) Array.prototype.push.apply(matches, nameMap[key]);
+    });
+
+    if (!matches.length) return;
+    const uniqueMatches = [];
+    const seen = new Set();
+    matches.forEach(metric => {
+      if (metric && !seen.has(metric)) {
+        seen.add(metric);
+        uniqueMatches.push(metric);
+      }
+    });
+
+    if (!uniqueMatches.length) return;
+
+    const score = _managerSummaryNumber_(
+      record.Percentage || record.PercentageScore || record.AgentScore ||
+      record.Score || record.TotalScore || record.OverallScore || record.QualityScore || record.AgentPercentage
+    );
+    const fallbackScore = _managerSummaryNumber_(record.AverageScore || record.AgentAverage || record.QAScore);
+    const resolvedScore = score !== null ? score : fallbackScore;
+    const evaluatedAt = _managerSummaryDate_(
+      record.Timestamp || record.AssessmentDate || record.EvaluatedAt ||
+      record.EvaluationDate || record.CreatedAt || record.SubmittedAt || record.UpdatedAt
+    );
+
+    uniqueMatches.forEach(metric => {
+      metric.evaluations += 1;
+      if (resolvedScore !== null) {
+        metric.scoreSum += resolvedScore;
+        metric.scoreCount += 1;
+      }
+      if (evaluatedAt && (!metric.lastEvaluation || evaluatedAt > metric.lastEvaluation)) {
+        metric.lastEvaluation = evaluatedAt;
+      }
+    });
+  });
+
+  let totalEvaluations = 0;
+  let totalScoreSum = 0;
+  let totalScoreCount = 0;
+  let latestEvaluation = null;
+
+  const users = metrics.map(metric => {
+    const average = metric.scoreCount ? metric.scoreSum / metric.scoreCount : null;
+    totalEvaluations += metric.evaluations;
+    if (metric.scoreCount) {
+      totalScoreSum += metric.scoreSum;
+      totalScoreCount += metric.scoreCount;
+    }
+    if (metric.lastEvaluation && (!latestEvaluation || metric.lastEvaluation > latestEvaluation)) {
+      latestEvaluation = metric.lastEvaluation;
+    }
+    return {
+      id: metric.id,
+      name: metric.name || '',
+      email: metric.email || '',
+      campaignName: metric.campaignName || '',
+      roles: metric.roles,
+      evaluations: metric.evaluations,
+      averageScore: average !== null ? (Math.round(average * 10) / 10) : null,
+      lastEvaluation: metric.lastEvaluation ? metric.lastEvaluation.toISOString() : null
+    };
+  });
+
+  const teamAverage = totalScoreCount ? (totalScoreSum / totalScoreCount) : null;
+
+  return {
+    success: true,
+    users: users,
+    totals: {
+      managedCount: metrics.length,
+      evaluatedUsers: metrics.filter(metric => metric.evaluations > 0).length,
+      totalEvaluations: totalEvaluations,
+      scoreAverage: teamAverage !== null ? (Math.round(teamAverage * 10) / 10) : null,
+      lastEvaluation: latestEvaluation ? latestEvaluation.toISOString() : null
+    }
+  };
+}
+
+function _managerSummaryMapPush_(map, key, metric) {
+  if (!key || !metric) return;
+  if (!map[key]) {
+    map[key] = [metric];
+    return;
+  }
+  if (map[key].indexOf(metric) === -1) {
+    map[key].push(metric);
+  }
+}
+
+function _managerSummaryNormalize_(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) {
+    return String(value.getTime());
+  }
+  const text = String(value);
+  return text ? text.trim() : '';
+}
+
+function _managerSummaryNormalizeLower_(value) {
+  const text = _managerSummaryNormalize_(value);
+  return text ? text.toLowerCase() : '';
+}
+
+function _managerSummaryParseList_(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).map(v => _managerSummaryNormalize_(v)).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(/[,;|]/).map(part => _managerSummaryNormalize_(part)).filter(Boolean);
+  }
+  return [];
+}
+
+function _managerSummaryNumber_(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number' && !isNaN(value)) return value;
+  const parsed = parseFloat(String(value).replace(/[^0-9.+-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function _managerSummaryDate_(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(value.getTime());
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 function clientAssignUsersToManager(managerUserId, userIds) {
   try {
     if (!managerUserId || !Array.isArray(userIds)) return { success: false, error: 'Invalid parameters' };

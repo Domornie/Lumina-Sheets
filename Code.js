@@ -1525,12 +1525,12 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    if (page === 'agent-experience' || page === 'userprofile') {
-      return serveGlobalPage('AgentExperience', e, baseUrl, user);
-    }
-
     if (page === 'userprofile') {
       return serveGlobalPage('UserProfile', e, baseUrl, user);
+    }
+
+    if (page === 'agent-experience') {
+      return serveGlobalPage('AgentExperience', e, baseUrl, user);
     }
 
     if (page === 'goalsetting') {
@@ -2939,6 +2939,7 @@ function handleUserProfileData(tpl, e, user) {
       pages: [],
       equipment: [],
       permissions: null,
+      managerSummary: null,
       campaignId: '',
       generatedAt: new Date().toISOString()
     };
@@ -2989,6 +2990,17 @@ function handleUserProfileData(tpl, e, user) {
         bootstrap.permissions = getCampaignUserPermissions(campaignId, userId) || null;
       } catch (permissionsError) {
         console.warn('handleUserProfileData: unable to load campaign permissions', permissionsError);
+      }
+    }
+
+    if (userId && typeof clientGetManagerTeamSummary === 'function') {
+      try {
+        const summary = clientGetManagerTeamSummary(userId);
+        if (summary && summary.success) {
+          bootstrap.managerSummary = summary;
+        }
+      } catch (managerSummaryError) {
+        console.warn('handleUserProfileData: unable to load manager summary', managerSummaryError);
       }
     }
 
