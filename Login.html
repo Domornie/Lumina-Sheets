@@ -399,19 +399,6 @@
       color: var(--text-secondary);
     }
 
-    /* Enhanced Redirect Section */
-    .redirect-section {
-      display: none;
-      background: rgba(240, 253, 244, 0.9);
-      border: 1px solid rgba(31, 146, 84, 0.35);
-      border-radius: var(--border-radius-lg);
-      padding: 2.5rem;
-      margin-top: 2rem;
-      text-align: center;
-      box-shadow: var(--shadow-lg);
-      animation: slideInUp 0.6s ease-out;
-    }
-
     .next-steps-card {
       border-radius: var(--border-radius-lg);
       border: 1px solid rgba(4, 120, 211, 0.16);
@@ -591,67 +578,6 @@
       .next-steps-card .btn {
         width: 100%;
       }
-    }
-
-    @keyframes slideInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    .redirect-section.show {
-      display: block !important;
-    }
-
-    .redirect-button {
-      background: var(--success-green);
-      color: #fff;
-      padding: 1.25rem 2.5rem;
-      border: none;
-      border-radius: var(--border-radius);
-      font-weight: 600;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      transition: var(--transition);
-      box-shadow: var(--shadow-md);
-      font-size: 1.1rem;
-      letter-spacing: 0.025em;
-    }
-
-    .redirect-button:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-xl);
-      color: #fff;
-      background: #177644;
-    }
-
-    .redirect-button:active {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    /* Enhanced Countdown */
-    .countdown-display {
-      background: rgba(4, 120, 211, 0.08);
-      border-radius: var(--border-radius);
-      padding: 1.5rem;
-      margin: 1.5rem 0;
-      font-weight: 600;
-      border: 1px solid rgba(4, 120, 211, 0.15);
-    }
-
-    .countdown-number {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--success-green);
     }
 
     /* Logo Enhancement */
@@ -979,27 +905,6 @@
             <div id="nextStepsActions" class="d-flex flex-column flex-md-row gap-2"></div>
           </div>
 
-          <!-- Success Redirect Section -->
-          <div id="redirectSection" class="redirect-section">
-            <i class="fas fa-check-circle fa-4x mb-4 text-success success-icon"></i>
-            <h4 class="text-success fw-bold mb-3">Login Successful!</h4>
-            <div class="countdown-display">
-              <div id="countdown">Preparing your dashboard...</div>
-              <div class="mt-2">
-                <span class="countdown-number" id="countdownNumber">3</span>
-                <small class="text-muted">seconds remaining</small>
-              </div>
-            </div>
-            <a id="continueButton" class="redirect-button" target="_top" href="#">
-              <i class="fas fa-arrow-right"></i>Continue to Dashboard
-            </a>
-            <div class="mt-3">
-              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelRedirect()">
-                <i class="fas fa-times me-1"></i>Cancel Auto-Redirect
-              </button>
-            </div>
-          </div>
-
           <div id="deviceVerificationModal" class="device-modal" aria-hidden="true">
             <div class="device-modal-backdrop"></div>
             <div class="device-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="deviceVerificationTitle">
@@ -1191,11 +1096,7 @@
       emailInput: document.getElementById('email'),
       passwordInput: document.getElementById('password'),
       rememberMeCheckbox: document.getElementById('rememberMe'),
-      redirectSection: document.getElementById('redirectSection'),
-      continueButton: document.getElementById('continueButton'),
       loginForm: document.getElementById('loginForm'),
-      countdown: document.getElementById('countdown'),
-      countdownNumber: document.getElementById('countdownNumber'),
       nextStepsCard: document.getElementById('nextStepsCard'),
       nextStepsTitle: document.getElementById('nextStepsTitle'),
       nextStepsSubtitle: document.getElementById('nextStepsSubtitle'),
@@ -1221,10 +1122,6 @@
     // State management
     let state = {
       lastEmail: '',
-      redirectTimer: null,
-      isRedirecting: false,
-      redirectUrl: '',
-      countdownValue: 3,
       authToken: '',
       hasAttemptedResume: false,
       loginRequestTimer: null,
@@ -2387,7 +2284,7 @@
           hideAllAlerts();
           const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
           const resumeUrl = normalizeRedirectUrl(resumeInput);
-          setupRedirect(resumeUrl, resumedUser);
+          setupRedirect(resumeUrl);
         })
         .withFailureHandler(error => {
           finalizeResumeAttempt();
@@ -3394,105 +3291,40 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // REDIRECT MANAGEMENT
     // ───────────────────────────────────────────────────────────────────────────────
-    function setupRedirect(url, userInfo = {}) {
+    function setupRedirect(url) {
       const safeUrl = stripTokenFromUrl(url);
-      console.log('Setting up redirect to:', safeUrl);
 
-      state.redirectUrl = safeUrl;
-      state.isRedirecting = true;
-      state.countdownValue = 3;
-
-      // Update UI
-      if (elements.continueButton) {
-        elements.continueButton.href = safeUrl;
+      if (!safeUrl) {
+        console.warn('No redirect URL provided.');
+        setLoading(false);
+        return;
       }
+
+      console.log('Redirecting immediately to:', safeUrl);
 
       if (elements.loginForm) {
         elements.loginForm.classList.add('form-slide-out');
+      }
 
-        setTimeout(() => {
-          if (elements.loginForm) {
-            elements.loginForm.style.display = 'none';
-          }
-          if (elements.redirectSection) {
-            elements.redirectSection.classList.add('show');
-          }
-          startCountdown();
-        }, 500);
-      } else {
-        if (elements.redirectSection) {
-          elements.redirectSection.classList.add('show');
+      try {
+        if (
+          typeof google !== 'undefined' &&
+          google.script &&
+          google.script.host &&
+          typeof google.script.host.setLocation === 'function'
+        ) {
+          google.script.host.setLocation(safeUrl);
+        } else {
+          window.location.href = safeUrl;
+
+          setTimeout(() => {
+            window.location.assign(safeUrl);
+          }, 100);
         }
-        startCountdown();
-      }
-    }
-
-    function startCountdown() {
-      if (elements.countdown) {
-        elements.countdown.textContent = 'Redirecting to your dashboard...';
-      }
-      if (elements.countdownNumber) {
-        elements.countdownNumber.textContent = state.countdownValue;
-      }
-
-      if (state.redirectTimer) {
-        clearInterval(state.redirectTimer);
-      }
-
-      state.redirectTimer = setInterval(() => {
-        state.countdownValue--;
-        if (elements.countdownNumber) {
-          elements.countdownNumber.textContent = state.countdownValue;
-        }
-
-        if (state.countdownValue <= 0) {
-          clearInterval(state.redirectTimer);
-          state.redirectTimer = null;
-          executeRedirect();
-        }
-      }, 1000);
-    }
-
-    function executeRedirect() {
-      if (state.redirectUrl && state.isRedirecting) {
-        console.log('Executing redirect to:', state.redirectUrl);
-        if (elements.countdown) {
-          elements.countdown.textContent = 'Redirecting now...';
-        }
-
-        try {
-          if (
-            typeof google !== 'undefined' &&
-            google.script &&
-            google.script.host &&
-            typeof google.script.host.setLocation === 'function'
-          ) {
-            google.script.host.setLocation(state.redirectUrl);
-          } else {
-            window.location.href = state.redirectUrl;
-
-            setTimeout(() => {
-              window.location.assign(state.redirectUrl);
-            }, 100);
-          }
-        } catch (error) {
-          console.error('Redirect failed:', error);
-          showAlert('error', 'Redirect failed. Please click the button below to continue.');
-        }
-      }
-    }
-
-    function cancelRedirect() {
-      if (state.redirectTimer) {
-        clearInterval(state.redirectTimer);
-        state.redirectTimer = null;
-      }
-      state.isRedirecting = false;
-      if (elements.countdown) {
-        elements.countdown.textContent = 'Auto-redirect cancelled. Click the button when ready.';
-      }
-      if (elements.countdownNumber) {
-        elements.countdownNumber.textContent = '∞';
+      } catch (error) {
+        console.error('Redirect failed:', error);
+        showAlert('error', 'Redirect failed. Please try again.');
+        setLoading(false);
       }
     }
 
@@ -3586,7 +3418,7 @@
 
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
       const destinationUrl = normalizeRedirectUrl(redirectInput);
-      setupRedirect(destinationUrl, response.user);
+      setupRedirect(destinationUrl);
       hideNextSteps();
     }
 
@@ -3783,11 +3615,6 @@
           e.preventDefault();
           elements.passwordInput.focus();
         }
-        
-        // Escape key cancels redirect
-        if (e.key === 'Escape' && state.isRedirecting) {
-          cancelRedirect();
-        }
       });
 
       if (elements.rememberMeCheckbox) {
@@ -3804,17 +3631,6 @@
 
       console.log('Login page initialized successfully');
     });
-
-
-    // ───────────────────────────────────────────────────────────────────────────────
-    // CLEANUP ON PAGE UNLOAD
-    // ───────────────────────────────────────────────────────────────────────────────
-    window.addEventListener('beforeunload', function() {
-      if (state.redirectTimer) {
-        clearInterval(state.redirectTimer);
-      }
-    });
-
     // ───────────────────────────────────────────────────────────────────────────────
     // ERROR HANDLING
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3828,7 +3644,6 @@
 
     // Make functions globally available
     window.togglePassword = togglePassword;
-    window.cancelRedirect = cancelRedirect;
 
     console.log('Simplified login system loaded successfully');
   </script>
