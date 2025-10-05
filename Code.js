@@ -940,6 +940,20 @@ function authenticateUser(e) {
       return null;
     }
 
+    if (typeof AuthenticationService !== 'undefined'
+      && AuthenticationService
+      && typeof AuthenticationService.userHasActiveSession === 'function') {
+      try {
+        const hasActiveSession = AuthenticationService.userHasActiveSession(user);
+        if (!hasActiveSession) {
+          return null;
+        }
+      } catch (sessionCheckError) {
+        console.warn('authenticateUser: active session verification failed', sessionCheckError);
+        return null;
+      }
+    }
+
     // Check if user can login
     if (!_truthy(user.CanLogin)) {
       return null;
@@ -1220,6 +1234,7 @@ function requireAuth(e) {
 
 function renderLoginPage(e) {
   let serverMetadata = null;
+  let initialReturnUrl = '';
 
   if (typeof AuthenticationService !== 'undefined'
     && AuthenticationService
@@ -1231,19 +1246,205 @@ function renderLoginPage(e) {
     }
   }
 
+  if (typeof AuthenticationService !== 'undefined'
+    && AuthenticationService
+    && typeof AuthenticationService.deriveLoginReturnUrlFromEvent === 'function') {
+    try {
+      initialReturnUrl = AuthenticationService.deriveLoginReturnUrlFromEvent(e) || '';
+    } catch (returnError) {
+      console.warn('renderLoginPage: deriveLoginReturnUrlFromEvent failed', returnError);
+    }
+  }
+
+  if (!initialReturnUrl && e && e.parameter) {
+    try {
+      const directReturn = sanitizeLoginReturnUrl(e.parameter.returnUrl || e.parameter.ReturnUrl || '');
+      if (directReturn) {
+        initialReturnUrl = directReturn;
+      }
+    } catch (directError) {
+      console.warn('renderLoginPage: unable to sanitize direct returnUrl', directError);
+    }
+  }
+
+  if (!initialReturnUrl && e && e.parameter) {
+    const requestedPage = String(e.parameter.page || e.parameter.Page || '').trim();
+    if (requestedPage && requestedPage.toLowerCase() !== 'login') {
+      const additionalParams = {};
+      let campaignId = '';
+
+      Object.keys(e.parameter).forEach(function (key) {
+        if (!key) return;
+        if (/^page$/i.test(key)) return;
+        if (/^token$/i.test(key)) return;
+        if (/^returnurl$/i.test(key)) return;
+
+        const value = e.parameter[key];
+        if (value === null || typeof value === 'undefined' || value === '') {
+          return;
+        }
+
+        if (!campaignId && /^campaign$/i.test(key)) {
+          campaignId = value;
+          return;
+        }
+
+        additionalParams[key] = value;
+      });
+
+      try {
+        const builtUrl = getAuthenticatedUrl(requestedPage, campaignId, additionalParams);
+        const sanitizedBuilt = sanitizeLoginReturnUrl(builtUrl);
+        if (sanitizedBuilt) {
+          initialReturnUrl = sanitizedBuilt;
+        }
+      } catch (buildReturnError) {
+        console.warn('renderLoginPage: unable to build fallback return URL', buildReturnError);
+      }
+    }
+  }
+
   const tpl = HtmlService.createTemplateFromFile('Login');
   tpl.baseUrl = getBaseUrl();
   tpl.scriptUrl = SCRIPT_URL;
   tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
+  tpl.initialReturnUrl = initialReturnUrl || '';
   return tpl.evaluate()
     .setTitle('Login - VLBPO LuminaHQ')
     .addMetaTag('viewport', 'width=device-width,initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+function sanitizeLoginReturnUrl(raw) {
+  try {
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+      return IdentityService.sanitizeLoginReturnUrl(raw);
+    }
+  } catch (identityError) {
+    console.warn('sanitizeLoginReturnUrl: IdentityService helper failed', identityError);
+  }
+
+  if (!raw && raw !== 0) {
+    return '';
+  }
+
+  try {
+    var value = String(raw).trim();
+    if (!value) {
+      return '';
+    }
+
+    if (/^javascript:/i.test(value)) {
+      return '';
+    }
+
+    if (/^https?:/i.test(value)) {
+      try {
+        var base = getBaseUrl() || '';
+        if (!base && typeof SCRIPT_URL === 'string') {
+          base = SCRIPT_URL;
+        }
+
+        if (base) {
+          var baseMatch = /^https?:\/\/[^/]+/i.exec(base);
+          var targetMatch = /^https?:\/\/[^/]+/i.exec(value);
+          if (baseMatch && targetMatch && baseMatch[0].toLowerCase() !== targetMatch[0].toLowerCase()) {
+            return '';
+          }
+        }
+      } catch (originError) {
+        console.warn('sanitizeLoginReturnUrl fallback origin check failed', originError);
+      }
+    }
+
+    if (value.length > 500) {
+      value = value.slice(0, 500);
+    }
+
+    return value;
+  } catch (error) {
+    console.warn('sanitizeLoginReturnUrl fallback failed', error);
+    return '';
+  }
+}
+
+function buildLoginPageUrl(options) {
+  var base = getBaseUrl() || SCRIPT_URL || '';
+  var parts = ['page=login'];
+
+  if (options && options.returnUrl) {
+    var sanitized = sanitizeLoginReturnUrl(options.returnUrl);
+    if (sanitized) {
+      parts.push('returnUrl=' + encodeURIComponent(sanitized));
+    }
+  }
+
+  if (options && options.message) {
+    parts.push('message=' + encodeURIComponent(String(options.message)));
+  }
+
+  if (options && options.error) {
+    parts.push('error=' + encodeURIComponent(String(options.error)));
+  }
+
+  var query = parts.join('&');
+  if (!base) {
+    return '?' + query;
+  }
+
+  return base + (base.indexOf('?') === -1 ? '?' : '&') + query;
+}
+
+function handleLogoutRequest(e) {
+  try {
+    var token = (e && e.parameter && e.parameter.token) ? String(e.parameter.token) : '';
+
+    try {
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.logout === 'function') {
+        AuthenticationService.logout(token || '');
+      } else if (typeof identitySignOut === 'function') {
+        identitySignOut(token || '');
+      }
+    } catch (logoutError) {
+      console.warn('handleLogoutRequest: server logout failed', logoutError);
+    }
+
+    var returnCandidate = (e && e.parameter && e.parameter.returnUrl) ? e.parameter.returnUrl : '';
+    var loginUrl = buildLoginPageUrl({ returnUrl: returnCandidate });
+
+    return HtmlService
+      .createHtmlOutput('<script>window.top.location.href = ' + JSON.stringify(loginUrl) + ';</script>')
+      .setTitle('Logging out…')
+      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (error) {
+    console.error('handleLogoutRequest: unexpected failure', error);
+    writeError('handleLogoutRequest', error);
+    return renderLoginPage({ parameter: { page: 'login' } });
+  }
+}
+
 function canonicalizePageKey(k) {
-  const key = String(k || '').trim().toLowerCase();
+  const original = String(k || '').trim();
+  const key = original.toLowerCase()
+    .replace(/%2f/g, '/')
+    .replace(/%5c/g, '\\')
+    .replace(/%3a/g, ':')
+    .replace(/%7c/g, '|')
+    .replace(/%40/g, '@');
   if (!key) return key;
+
+  if (/^(userprofile|user-profile|profile)(?:[:\/@|\\-]+.+)?$/.test(key)) {
+    return 'userprofile';
+  }
+
+  if (/^(agent-experience|workspace.agent)(?:[:\/@|\\-]+.+)?$/.test(key)) {
+    return 'agent-experience';
+  }
 
   // Map legacy slugs/aliases → canonical keys used by the Access Engine
   switch (key) {
@@ -1260,8 +1461,12 @@ function canonicalizePageKey(k) {
 
     // Experience hubs
     case 'agent-experience':
+    case 'workspace.agent':
+      return 'agent-experience';
     case 'userprofile':
-      return 'workspace.agent';
+    case 'user-profile':
+    case 'profile':
+      return 'userprofile';
     case 'manager-executive-experience':
       return 'workspace.executive';
     case 'goalsetting':
@@ -1374,6 +1579,109 @@ function canonicalizePageKey(k) {
   }
 }
 
+function __normalizeProfileIdentifierValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+
+  try {
+    const decoded = decodeURIComponent(text);
+    return decoded && decoded.trim() ? decoded.trim() : text;
+  } catch (_) {
+    return text;
+  }
+}
+
+function __extractProfileIdentifierFromPageKey(rawPage) {
+  if (rawPage === null || typeof rawPage === 'undefined') {
+    return '';
+  }
+
+  const text = String(rawPage).trim();
+  if (!text) {
+    return '';
+  }
+
+  const sanitized = text.replace(/\+/g, ' ');
+  const lowered = sanitized.toLowerCase();
+  const prefixes = ['userprofile', 'user-profile', 'profile', 'agent-experience', 'workspace.agent'];
+
+  for (let idx = 0; idx < prefixes.length; idx++) {
+    const prefix = prefixes[idx];
+    if (!lowered.startsWith(prefix)) {
+      continue;
+    }
+
+    const remainder = sanitized.slice(prefix.length);
+    if (!remainder) {
+      continue;
+    }
+
+    const cleaned = remainder
+      .replace(/^[\s:\/@|\\-]+/, '')
+      .split(/[?#]/)[0];
+
+    const normalized = __normalizeProfileIdentifierValue(cleaned);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function resolveProfileIdentifierFromRequest(e, rawPage) {
+  try {
+    const params = (e && e.parameter) ? e.parameter : {};
+    const candidateKeys = [
+      'profileId', 'profileID', 'profileid', 'ProfileID', 'ProfileId',
+      'profile', 'Profile',
+      'profileSlug', 'ProfileSlug', 'profileslug',
+      'slug', 'Slug',
+      'handle', 'Handle',
+      'userId', 'userID', 'userid', 'UserID', 'UserId',
+      'ID', 'Id', 'id'
+    ];
+
+    for (let idx = 0; idx < candidateKeys.length; idx++) {
+      const key = candidateKeys[idx];
+      if (Object.prototype.hasOwnProperty.call(params, key)) {
+        const normalized = __normalizeProfileIdentifierValue(params[key]);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+
+    const pathCandidates = [
+      rawPage,
+      params && params.page,
+      params && params.path,
+      params && params.route,
+      params && params.profilePath,
+      params && params.profileSlug,
+      params && params.slug,
+      params && params.handle
+    ];
+
+    for (let i = 0; i < pathCandidates.length; i++) {
+      const extracted = __extractProfileIdentifierFromPageKey(pathCandidates[i]);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  } catch (err) {
+    console.warn('resolveProfileIdentifierFromRequest: failed to resolve identifier', err);
+  }
+
+    return '';
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // ENHANCED doGet WITH SIMPLIFIED ROUTING
 // ───────────────────────────────────────────────────────────────────────────────
@@ -1381,6 +1689,36 @@ function canonicalizePageKey(k) {
 function doGet(e) {
   try {
     const baseUrl = getBaseUrl();
+
+    function redirectToLanding(user) {
+      const userCampaignId = user.CampaignID || '';
+      let landingSlug = '';
+
+      try {
+        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
+            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
+              user: user,
+              userPayload: user,
+              rawUser: user
+            });
+            if (landingInfo && landingInfo.slug) {
+              landingSlug = landingInfo.slug;
+            }
+          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
+            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
+          }
+        }
+      } catch (landingError) {
+        console.warn('doGet: failed to compute landing slug', landingError);
+      }
+
+      const redirectPage = landingSlug || 'dashboard';
+      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
+      return HtmlService
+        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
+        .setTitle('Redirecting...');
+    }
 
     // Initialize system
     // initializeSystem();
@@ -1416,14 +1754,28 @@ function doGet(e) {
     }
 
     // Handle public pages
-    const page = (e.parameter.page || "").toLowerCase();
+    const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
+    const page = rawPageParam.toLowerCase();
 
-    if (page === 'login' || (!page)) {
+    if (!page) {
+      return handlePublicPage('landing', e, baseUrl);
+    }
+
+    if (page === 'login') {
+      try {
+        const existingSession = authenticateUser(e);
+        if (existingSession && existingSession.ID) {
+          return redirectToLanding(existingSession);
+        }
+      } catch (sessionError) {
+        console.warn('doGet: session probe failed for login/default route', sessionError);
+      }
+
       return renderLoginPage(e);
     }
 
     // Handle other public pages
-    const publicPages = ['setpassword', 'resetpassword', 'resend-verification', 'resendverification',
+    const publicPages = ['landing', 'setpassword', 'resetpassword', 'resend-verification', 'resendverification',
       'forgotpassword', 'forgot-password', 'emailconfirmed', 'email-confirmed'];
 
     if (publicPages.includes(page)) {
@@ -1447,37 +1799,6 @@ function doGet(e) {
         .setTitle('Change Password')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
-    // Default route: redirect to persona-specific landing page
-    if (!page) {
-      const userCampaignId = user.CampaignID || '';
-      let landingSlug = '';
-
-      try {
-        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
-          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
-            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
-              user: user,
-              userPayload: user,
-              rawUser: user
-            });
-            if (landingInfo && landingInfo.slug) {
-              landingSlug = landingInfo.slug;
-            }
-          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
-            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
-          }
-        }
-      } catch (landingError) {
-        console.warn('doGet: failed to compute landing slug', landingError);
-      }
-
-      const redirectPage = landingSlug || 'dashboard';
-      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
-      return HtmlService
-        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-        .setTitle('Redirecting...');
     }
 
     const campaignId = e.parameter.campaign || user.CampaignID || '';
@@ -1520,16 +1841,31 @@ function doGet(e) {
 function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
   try {
     const raw = String(page || '').trim();
+    const canonicalPage = canonicalizePageKey(raw);
+    const resolvedProfileId = resolveProfileIdentifierFromRequest(e, raw);
+    const hasProfileParameter = resolvedProfileId !== '';
+
+    if (hasProfileParameter && e) {
+      if (!e.parameter) {
+        e.parameter = {};
+      }
+
+      const targetParam = e.parameter;
+      const existingProfileId = targetParam.profileId || targetParam.profileID || targetParam.ProfileID || targetParam.ProfileId;
+      if (!existingProfileId) {
+        targetParam.profileId = resolvedProfileId;
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    if (page === 'userprofile') {
+    if (canonicalPage === 'userprofile' || (canonicalPage === 'agent-experience' && hasProfileParameter)) {
       return serveGlobalPage('UserProfile', e, baseUrl, user);
     }
 
-    if (page === 'agent-experience') {
+    if (canonicalPage === 'agent-experience') {
       return serveGlobalPage('AgentExperience', e, baseUrl, user);
     }
 
@@ -1957,6 +2293,40 @@ function handlePublicPage(page, e, baseUrl) {
   const scriptUrl = SCRIPT_URL;
 
   switch (page) {
+    case 'landing':
+      const landingTpl = HtmlService.createTemplateFromFile('Landing');
+      landingTpl.baseUrl = baseUrl;
+      landingTpl.scriptUrl = scriptUrl;
+
+      return landingTpl.evaluate()
+        .setTitle('LuminaHQ – Intelligent Workforce Command Center')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-about':
+    case 'about':
+    case 'about-luminahq':
+      const aboutTpl = HtmlService.createTemplateFromFile('LandingAbout');
+      aboutTpl.baseUrl = baseUrl;
+      aboutTpl.scriptUrl = scriptUrl;
+
+      return aboutTpl.evaluate()
+        .setTitle('About LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-capabilities':
+    case 'capabilities':
+    case 'explore-capabilities':
+      const capabilitiesTpl = HtmlService.createTemplateFromFile('LandingCapabilities');
+      capabilitiesTpl.baseUrl = baseUrl;
+      capabilitiesTpl.scriptUrl = scriptUrl;
+
+      return capabilitiesTpl.evaluate()
+        .setTitle('Explore LuminaHQ Capabilities')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
     case 'setpassword':
     case 'resetpassword':
       const resetToken = e.parameter.token || '';
@@ -2931,10 +3301,82 @@ function handleSearchData(tpl, e) {
   }
 }
 
+function computeUserProfileSlug(userRecord, detailRecord) {
+  try {
+    const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const normalize = (value) => {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+      const text = String(value).trim();
+      return text ? text : '';
+    };
+
+    const identifierCandidates = [
+      userRecord && (userRecord.ID || userRecord.Id || userRecord.id || userRecord.EmployeeID || userRecord.employeeId || userRecord.ProfileID || userRecord.profileId),
+      record && (record.ID || record.Id || record.id || record.EmployeeID || record.employeeId || record.ProfileID || record.profileId)
+    ];
+
+    for (let idx = 0; idx < identifierCandidates.length; idx++) {
+      const normalizedId = normalize(identifierCandidates[idx]);
+      if (normalizedId) {
+        return normalizedId;
+      }
+    }
+
+    const candidates = [];
+
+    const pushCandidate = (value) => {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+      const text = String(value).trim();
+      if (text) {
+        candidates.push(text);
+      }
+    };
+
+    pushCandidate(userRecord && (userRecord.UserName || userRecord.userName || userRecord.username));
+    pushCandidate(record && (record.UserName || record.userName || record.username));
+    pushCandidate(userRecord && (userRecord.DisplayName || userRecord.displayName));
+    pushCandidate(record && (record.DisplayName || record.displayName));
+
+    const firstName = userRecord && (userRecord.FirstName || userRecord.firstName);
+    const lastName = userRecord && (userRecord.LastName || userRecord.lastName);
+    if (firstName || lastName) {
+      pushCandidate([firstName, lastName].filter(Boolean).join(' '));
+    }
+
+    const recordFirstName = record && (record.FirstName || record.firstName);
+    const recordLastName = record && (record.LastName || record.lastName);
+    if (recordFirstName || recordLastName) {
+      pushCandidate([recordFirstName, recordLastName].filter(Boolean).join(' '));
+    }
+
+    pushCandidate(userRecord && (userRecord.Email || userRecord.email));
+    pushCandidate(record && (record.Email || record.email));
+
+    for (let i = 0; i < candidates.length; i++) {
+      const slug = candidates[i]
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      if (slug) {
+        return slug;
+      }
+    }
+  } catch (error) {
+    console.warn('computeUserProfileSlug: failed to compute slug', error);
+  }
+
+    return 'user';
+}
+
 function handleUserProfileData(tpl, e, user) {
   try {
     const bootstrap = {
       user: user || null,
+      viewer: user || null,
       detail: null,
       pages: [],
       equipment: [],
@@ -2944,27 +3386,88 @@ function handleUserProfileData(tpl, e, user) {
       generatedAt: new Date().toISOString()
     };
 
-    const userId = user && user.ID ? String(user.ID) : '';
+    const viewerId = user && user.ID ? String(user.ID) : '';
+    const rawPageParam = (e && e.parameter && e.parameter.page) || '';
+    const requestedProfileId = resolveProfileIdentifierFromRequest(e, rawPageParam);
+    const normalizedRequested = requestedProfileId ? String(requestedProfileId).trim() : '';
+    const profileId = normalizedRequested || viewerId;
+    const normalizedProfileId = profileId ? profileId.toString().trim().toLowerCase() : '';
+    const requestingUserId = viewerId || profileId;
 
-    if (userId && typeof clientGetUserDetail === 'function') {
+    const extractProfileId = (record) => {
+      if (!record || typeof record !== 'object') {
+        return '';
+      }
+      const keys = ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId', 'UserID', 'userId'];
+      for (let i = 0; i < keys.length; i++) {
+        const value = record[keys[i]];
+        if (value !== undefined && value !== null) {
+          const text = String(value).trim();
+          if (text) {
+            return text;
+          }
+        }
+      }
+      return '';
+    };
+
+    let profileRecord = null;
+
+    if (profileId && typeof getUsers === 'function') {
       try {
-        bootstrap.detail = clientGetUserDetail(userId, { requestingUserId: userId }) || null;
+        const roster = getUsers();
+        if (Array.isArray(roster) && roster.length) {
+          for (let idx = 0; idx < roster.length; idx++) {
+            const candidate = extractProfileId(roster[idx]);
+            if (candidate && candidate.toLowerCase() === normalizedProfileId) {
+              profileRecord = roster[idx];
+              break;
+            }
+          }
+        }
+      } catch (rosterError) {
+        console.warn('handleUserProfileData: unable to resolve profile user from roster', rosterError);
+      }
+    }
+
+    if (profileId && typeof clientGetUserDetail === 'function') {
+      try {
+        const detailOptions = requestingUserId ? { requestingUserId: requestingUserId } : {};
+        bootstrap.detail = clientGetUserDetail(profileId, detailOptions) || null;
+        if (!profileRecord && bootstrap.detail && bootstrap.detail.record) {
+          profileRecord = bootstrap.detail.record;
+        }
       } catch (detailError) {
         console.warn('handleUserProfileData: unable to load user detail', detailError);
       }
     }
 
-    if (userId && typeof clientGetUserPages === 'function') {
+    if (!profileRecord && viewerId && profileId && viewerId.toLowerCase() === normalizedProfileId) {
+      profileRecord = user || null;
+    }
+
+    if (!profileRecord && profileId && typeof clientGetUserProfile === 'function') {
       try {
-        bootstrap.pages = clientGetUserPages(userId) || [];
+        const fallbackRecord = clientGetUserProfile(profileId);
+        if (fallbackRecord) {
+          profileRecord = fallbackRecord;
+        }
+      } catch (profileError) {
+        console.warn('handleUserProfileData: fallback profile lookup failed', profileError);
+      }
+    }
+
+    if (profileId && typeof clientGetUserPages === 'function') {
+      try {
+        bootstrap.pages = clientGetUserPages(profileId) || [];
       } catch (pagesError) {
         console.warn('handleUserProfileData: unable to load user pages', pagesError);
       }
     }
 
-    if (userId && typeof clientGetUserEquipment === 'function') {
+    if (profileId && typeof clientGetUserEquipment === 'function') {
       try {
-        const equipmentResponse = clientGetUserEquipment(userId);
+        const equipmentResponse = clientGetUserEquipment(profileId);
         if (equipmentResponse && equipmentResponse.success && Array.isArray(equipmentResponse.items)) {
           bootstrap.equipment = equipmentResponse.items;
         }
@@ -2974,8 +3477,8 @@ function handleUserProfileData(tpl, e, user) {
     }
 
     let campaignId = '';
-    if (user && user.CampaignID) {
-      campaignId = String(user.CampaignID);
+    if (profileRecord && (profileRecord.CampaignID || profileRecord.campaignId)) {
+      campaignId = String(profileRecord.CampaignID || profileRecord.campaignId);
     }
 
     if (!campaignId && bootstrap.detail && bootstrap.detail.record) {
@@ -2985,17 +3488,17 @@ function handleUserProfileData(tpl, e, user) {
 
     bootstrap.campaignId = campaignId;
 
-    if (userId && campaignId && typeof getCampaignUserPermissions === 'function') {
+    if (profileId && campaignId && typeof getCampaignUserPermissions === 'function') {
       try {
-        bootstrap.permissions = getCampaignUserPermissions(campaignId, userId) || null;
+        bootstrap.permissions = getCampaignUserPermissions(campaignId, profileId) || null;
       } catch (permissionsError) {
         console.warn('handleUserProfileData: unable to load campaign permissions', permissionsError);
       }
     }
 
-    if (userId && typeof clientGetManagerTeamSummary === 'function') {
+    if (profileId && typeof clientGetManagerTeamSummary === 'function') {
       try {
-        const summary = clientGetManagerTeamSummary(userId);
+        const summary = clientGetManagerTeamSummary(profileId);
         if (summary && summary.success) {
           bootstrap.managerSummary = summary;
         }
@@ -3003,6 +3506,12 @@ function handleUserProfileData(tpl, e, user) {
         console.warn('handleUserProfileData: unable to load manager summary', managerSummaryError);
       }
     }
+
+    bootstrap.user = profileRecord || user || null;
+    bootstrap.profileId = profileId;
+    bootstrap.requestedProfileId = normalizedRequested;
+    const computedSlug = computeUserProfileSlug(bootstrap.user, bootstrap.detail);
+    bootstrap.profileSlug = computedSlug && computedSlug !== 'user' ? computedSlug : (profileId || computedSlug);
 
     tpl.profileBootstrap = _stringifyForTemplate_(bootstrap);
   } catch (error) {
@@ -4194,50 +4703,19 @@ function confirmEmail(token) {
       return false;
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sh = ss.getSheetByName('Users');
-    if (!sh) {
-      console.error('Users sheet not found');
-      return false;
-    }
-
-    const data = sh.getDataRange().getValues();
-    if (data.length < 2) {
-      console.warn('No users found in Users sheet');
-      return false;
-    }
-
-    const headers = data.shift();
-    const colTok = headers.indexOf('EmailConfirmation');
-    const colConf = headers.indexOf('EmailConfirmed');
-    const colUpd = headers.indexOf('UpdatedAt');
-    const colEmail = headers.indexOf('Email');
-
-    if (colTok < 0 || colConf < 0) {
-      console.error('Required columns not found in Users sheet');
-      return false;
-    }
-
-    let found = false;
-    let userEmail = null;
-
-    data.forEach((row, i) => {
-      if (String(row[colTok]) === String(token)) {
-        found = true;
-        userEmail = row[colEmail];
-        const rowNum = i + 2;
-
-        sh.getRange(rowNum, colConf + 1).setValue(true);
-
-        if (colUpd >= 0) {
-          sh.getRange(rowNum, colUpd + 1).setValue(new Date());
-        }
-
-        console.log(`Email confirmed for user: ${userEmail}`);
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.confirmEmail === 'function') {
+      const result = IdentityService.confirmEmail(token);
+      if (result && result.success) {
+        return true;
       }
-    });
+      console.warn('confirmEmail: IdentityService returned failure', result);
+      return false;
+    }
 
-    return found;
+    console.warn('confirmEmail: IdentityService unavailable; skipping confirmation');
+    return false;
   } catch (error) {
     console.error('Error confirming email:', error);
     writeError('confirmEmail', error);
@@ -4650,6 +5128,27 @@ function queueBackgroundInitialization(options) {
       });
     }
 
+    if (manager && typeof manager.backfillAllMissingIds === 'function') {
+      tasks.push({
+        label: 'DatabaseManager.backfillAllMissingIds',
+        run: function () {
+          var maintenanceContext = Object.assign({ allowAllTenants: true }, context || {});
+          var summaries = manager.backfillAllMissingIds(maintenanceContext);
+          if (safeConsole && typeof safeConsole.log === 'function') {
+            safeConsole.log('DatabaseManager.backfillAllMissingIds summaries:', summaries);
+          }
+          if (Array.isArray(summaries)) {
+            for (var i = 0; i < summaries.length; i++) {
+              var summary = summaries[i];
+              if (summary && summary.error && safeConsole && typeof safeConsole.error === 'function') {
+                safeConsole.error('ID backfill error for table ' + summary.table + ': ' + summary.error);
+              }
+            }
+          }
+        }
+      });
+    }
+
     if (typeof QualityService !== 'undefined' && QualityService && typeof QualityService.queueBackgroundInitialization === 'function') {
       tasks.push({
         label: 'QualityService.queueBackgroundInitialization',
@@ -4697,6 +5196,39 @@ function scheduledWarmup() {
       }
     }
     return false;
+  }
+}
+
+function runDatabaseIdBackfill() {
+  var safeConsole = (typeof console !== 'undefined' && console) ? console : {
+    error: function () { },
+    warn: function () { },
+    log: function () { }
+  };
+
+  try {
+    if (typeof DatabaseManager === 'undefined' || !DatabaseManager || typeof DatabaseManager.backfillAllMissingIds !== 'function') {
+      throw new Error('DatabaseManager.backfillAllMissingIds is not available');
+    }
+    var summaries = DatabaseManager.backfillAllMissingIds({ allowAllTenants: true });
+    if (safeConsole && typeof safeConsole.log === 'function') {
+      safeConsole.log('runDatabaseIdBackfill summaries:', summaries);
+    }
+    return summaries;
+  } catch (error) {
+    if (safeConsole && typeof safeConsole.error === 'function') {
+      safeConsole.error('runDatabaseIdBackfill failed:', error);
+    }
+    if (typeof writeError === 'function') {
+      try {
+        writeError('runDatabaseIdBackfill', error);
+      } catch (loggingError) {
+        if (safeConsole && typeof safeConsole.error === 'function') {
+          safeConsole.error('Failed to log runDatabaseIdBackfill error:', loggingError);
+        }
+      }
+    }
+    throw error;
   }
 }
 

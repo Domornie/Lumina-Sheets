@@ -81,7 +81,12 @@
   }
   if (typeof G.QA_COLLAB_HEADERS === 'undefined') G.QA_COLLAB_HEADERS = G.QA_HEADERS.slice();
   if (typeof G.ESCALATIONS_HEADERS === 'undefined') G.ESCALATIONS_HEADERS = ['ID','Timestamp','User','Type','Notes','CreatedAt','UpdatedAt'];
-  if (typeof G.BOOKMARKS_HEADERS === 'undefined') G.BOOKMARKS_HEADERS = ['ID','UserEmail','Title','URL','Description','Tags','Created','LastAccessed','AccessCount','Folder'];
+if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
+  G.BOOKMARKS_HEADERS = [
+    'ID', 'UserID', 'UserEmail', 'Title', 'URL', 'Description', 'Tags',
+    'Folder', 'Created', 'LastAccessed', 'AccessCount'
+  ];
+}
 
   // Attendance-related headers (used by ensure/setup)
   if (typeof G.ATTENDANCE_LOG_HEADERS === 'undefined') G.ATTENDANCE_LOG_HEADERS = ['Timestamp','User','State','DurationMin'];

@@ -118,6 +118,141 @@
   <?!= includeOnce('ResponsiveStyles') ?>
 
   <script>
+    (function initializeLuminaTheme() {
+      const STORAGE_KEY = 'lumina-theme';
+      const docEl = document.documentElement;
+
+      const readStoredTheme = () => {
+        try {
+          return window.localStorage.getItem(STORAGE_KEY);
+        } catch (err) {
+          console.warn('Lumina theme: unable to read stored theme', err);
+          return null;
+        }
+      };
+
+      const writeStoredTheme = (theme) => {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, theme);
+        } catch (err) {
+          console.warn('Lumina theme: unable to persist theme', err);
+        }
+      };
+
+      const applyTheme = (theme) => {
+        const next = theme === 'dark' ? 'dark' : 'light';
+        docEl.setAttribute('data-theme', next);
+        if (document.body) {
+          document.body.setAttribute('data-theme', next);
+        }
+        return next;
+      };
+
+      const ensureBodySync = () => {
+        if (document.body) {
+          document.body.setAttribute('data-theme', docEl.getAttribute('data-theme') || 'light');
+        }
+      };
+
+      const stored = readStoredTheme();
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const initial = stored || (prefersDark ? 'dark' : 'light');
+      applyTheme(initial);
+
+      if (document.readyState !== 'loading') {
+        ensureBodySync();
+      } else {
+        document.addEventListener('DOMContentLoaded', ensureBodySync, { once: true });
+      }
+
+      const notify = (theme, meta) => {
+        try {
+          const detail = Object.assign({ theme }, meta || {});
+          window.dispatchEvent(new CustomEvent('lumina:theme-changed', { detail }));
+        } catch (err) {
+          console.warn('Lumina theme: unable to dispatch theme change', err);
+        }
+      };
+
+      const setTheme = (theme, meta) => {
+        const options = Object.assign({}, meta || {});
+        const next = applyTheme(theme);
+        if (options.persist === false) {
+          // Respect caller request to skip persistence (used for system preference follow).
+        } else {
+          writeStoredTheme(next);
+        }
+        notify(next, options);
+        return next;
+      };
+
+      const themeApi = {
+        get() {
+          return docEl.getAttribute('data-theme') || 'light';
+        },
+        set(theme, meta) {
+          const options = Object.assign({ source: 'manual' }, meta || {});
+          return setTheme(theme, options);
+        },
+        toggle() {
+          const current = themeApi.get();
+          const next = current === 'dark' ? 'light' : 'dark';
+          return setTheme(next, { source: 'toggle' });
+        },
+        apply: applyTheme
+      };
+
+      window.__luminaTheme = themeApi;
+
+      const mediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+      if (mediaQuery && typeof mediaQuery.addEventListener === 'function') {
+        mediaQuery.addEventListener('change', (event) => {
+          if (readStoredTheme()) {
+            return;
+          }
+          setTheme(event.matches ? 'dark' : 'light', { source: 'system', persist: false });
+        });
+      }
+
+      const updateToggleButtons = () => {
+        const isDark = themeApi.get() === 'dark';
+        const title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+        const state = isDark ? 'dark' : 'light';
+        document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
+          button.setAttribute('aria-pressed', String(isDark));
+          button.setAttribute('title', title);
+          button.setAttribute('aria-label', title);
+          button.setAttribute('data-theme-state', state);
+          button.setAttribute('data-bs-original-title', title);
+          const icon = button.querySelector('i');
+          if (icon) {
+            icon.classList.toggle('fa-moon', !isDark);
+            icon.classList.toggle('fa-sun', isDark);
+          }
+          if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            const tooltip = bootstrap.Tooltip.getInstance(button);
+            if (tooltip && typeof tooltip.setContent === 'function') {
+              tooltip.setContent({ '.tooltip-inner': title });
+            }
+          }
+        });
+      };
+
+      document.addEventListener('DOMContentLoaded', () => {
+        updateToggleButtons();
+        document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.preventDefault();
+            themeApi.toggle();
+          });
+        });
+      });
+
+      window.addEventListener('lumina:theme-changed', updateToggleButtons);
+    })();
+  </script>
+
+  <script>
     // Base URLs for navigation
     let BASE_URL = '<?= baseUrl ?>';
     let SCRIPT_URL = '<?= scriptUrl || baseUrl ?>';
@@ -269,12 +404,78 @@
 
     const PAGE_SLUG = createSlug(__PAGE_SLUG_SOURCES);
 
+    function stripUrlToNavigationBase(candidate) {
+      if (!candidate) {
+        return '';
+      }
+
+      try {
+        const base = (typeof window !== 'undefined' && window.location && window.location.href)
+          ? window.location.href
+          : undefined;
+        const parsed = new URL(candidate, base);
+        parsed.search = '';
+        parsed.hash = '';
+        return parsed.toString();
+      } catch (err) {
+        const sanitized = String(candidate).replace(/[?#].*$/, '').trim();
+        if (sanitized) {
+          return sanitized;
+        }
+      }
+
+      return '';
+    }
+
+    const NAVIGATION_BASE_URL = (function deriveNavigationBase() {
+      const primary = stripUrlToNavigationBase(BASE_URL || SCRIPT_URL);
+      if (primary) {
+        return primary;
+      }
+
+      if (BASE_URL) {
+        return BASE_URL;
+      }
+
+      if (SCRIPT_URL) {
+        return SCRIPT_URL;
+      }
+
+      return '';
+    })();
+
     /**
      * Generate URLs for navigation
      */
+    function resolveNavigationBaseUrl() {
+      const directBase = NAVIGATION_BASE_URL || BASE_URL || SCRIPT_URL;
+      if (directBase) {
+        return directBase;
+      }
+
+      if (typeof window !== 'undefined' && window.location) {
+        try {
+          const { origin, pathname, href } = window.location;
+          if (origin && pathname) {
+            return origin + pathname;
+          }
+          if (href) {
+            const parsed = new URL(href);
+            parsed.search = '';
+            parsed.hash = '';
+            return parsed.toString();
+          }
+        } catch (resolveErr) {
+          console.warn('Unable to derive navigation base URL from window.location', resolveErr);
+        }
+      }
+
+      return '';
+    }
+
     function generateUrl(page, _campaign = null, additionalParams = {}) {
       // _campaign is kept for backward compatibility but intentionally unused to avoid exposing it in URLs
-      let url = BASE_URL || SCRIPT_URL;
+      let url = resolveNavigationBaseUrl();
       const params = new URLSearchParams();
 
       if (page) {
@@ -289,7 +490,15 @@
       });
       
       const queryString = params.toString();
-      return queryString ? `${url}?${queryString}` : url;
+
+      if (!url) {
+        const relativeUrl = queryString ? `?${queryString}` : '';
+        return appendSessionTokenToUrl(relativeUrl);
+      }
+
+      const separator = url.includes('?') ? (/[?&]$/.test(url) ? '' : '&') : '?';
+      const builtUrl = queryString ? `${url}${separator}${queryString}` : url;
+      return appendSessionTokenToUrl(builtUrl);
     }
 
     /**
@@ -360,15 +569,27 @@
     };
 
     if (typeof document !== 'undefined') {
-      if (document.body) {
+      const handleDomReady = () => {
         __applySlugMetadata();
+        applySessionTokenToLinks();
+      };
+
+      if (document.body) {
+        handleDomReady();
       } else {
         try {
-          document.addEventListener('DOMContentLoaded', __applySlugMetadata, { once: true });
+          document.addEventListener('DOMContentLoaded', handleDomReady, { once: true });
         } catch (err) {
-          document.addEventListener('DOMContentLoaded', __applySlugMetadata, false);
+          document.addEventListener('DOMContentLoaded', handleDomReady, false);
         }
       }
+    }
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('lumina:session-token', function(event) {
+        const detailToken = event && event.detail ? event.detail.token : '';
+        applySessionTokenToLinks(detailToken);
+      });
     }
 
     // Make utilities available globally
@@ -380,6 +601,256 @@
     window.deriveReturnUrl = (rawUrl, slug = PAGE_SLUG) => deriveReturnUrl(rawUrl, slug);
     window.buildReturnUrl = buildReturnUrl;
     window.getReturnUrl = buildReturnUrl;
+
+    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
+    const SESSION_TOKEN_QUERY_PARAM = 'token';
+    const SESSION_TOKEN_STORAGE_KEYS = [
+      'lumina.session.token',
+      'lumina.auth.sessionToken',
+      'lumina.auth.fallbackToken'
+    ];
+
+    function setLogoutReason(reason) {
+      try {
+        if (!window.sessionStorage) {
+          return;
+        }
+        if (!reason) {
+          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+        } else {
+          window.sessionStorage.setItem(LOGOUT_REASON_STORAGE_KEY, String(reason));
+        }
+      } catch (err) {
+        console.warn('setLogoutReason: unable to persist logout reason', err);
+      }
+    }
+
+    function getLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
+        }
+      } catch (err) {
+        console.warn('getLogoutReason: unable to read logout reason', err);
+      }
+      return '';
+    }
+
+    function clearLogoutReason() {
+      setLogoutReason('');
+    }
+
+    function resolveClientSessionToken(providedToken) {
+      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
+      if (normalizedProvided) {
+        return normalizedProvided;
+      }
+
+      try {
+        if (typeof window !== 'undefined' && window.__LUMINA_SESSION_TOKEN__) {
+          const globalToken = String(window.__LUMINA_SESSION_TOKEN__).trim();
+          if (globalToken) {
+            return globalToken;
+          }
+        }
+      } catch (_) {
+        // Ignore global token resolution errors
+      }
+
+      try {
+        if (typeof window !== 'undefined'
+          && window.CookieHandler
+          && typeof window.CookieHandler.readAuthToken === 'function') {
+          const cookieToken = window.CookieHandler.readAuthToken();
+          if (cookieToken) {
+            return cookieToken;
+          }
+        }
+      } catch (_) {
+        // Ignore cookie resolution errors
+      }
+
+      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
+
+      for (let i = 0; i < storageKeys.length; i += 1) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            const value = window.localStorage.getItem(storageKeys[i]);
+            if (value) {
+              return value;
+            }
+          }
+        } catch (_) {
+          // Ignore localStorage errors
+        }
+      }
+
+      for (let i = 0; i < storageKeys.length; i += 1) {
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            const value = window.sessionStorage.getItem(storageKeys[i]);
+            if (value) {
+              return value;
+            }
+          }
+        } catch (_) {
+          // Ignore sessionStorage errors
+        }
+      }
+
+      return '';
+    }
+
+    function broadcastSessionTokenChange(token) {
+      try {
+        if (typeof window === 'undefined') {
+          return;
+        }
+
+        window.__LUMINA_SESSION_TOKEN__ = token || '';
+
+        if (typeof window.dispatchEvent !== 'function') {
+          return;
+        }
+
+        const detail = { token: token || '' };
+        let event = null;
+
+        if (typeof CustomEvent === 'function') {
+          event = new CustomEvent('lumina:session-token', { detail });
+        } else if (window.document && typeof window.document.createEvent === 'function') {
+          event = window.document.createEvent('CustomEvent');
+          event.initCustomEvent('lumina:session-token', false, false, detail);
+        }
+
+        if (event) {
+          window.dispatchEvent(event);
+        }
+      } catch (err) {
+        console.warn('broadcastSessionTokenChange: unable to notify listeners', err);
+      }
+    }
+
+    function appendSessionTokenToUrl(url, providedToken, options = {}) {
+      if (!url) {
+        return url;
+      }
+
+      const raw = String(url).trim();
+      if (!raw || raw.startsWith('#') || /^(mailto:|tel:|javascript:)/i.test(raw)) {
+        return url;
+      }
+
+      const token = resolveClientSessionToken(providedToken);
+      if (!token) {
+        return url;
+      }
+
+      try {
+        const base = (typeof window !== 'undefined' && window.location) ? window.location.href : undefined;
+        const parsed = new URL(raw, base);
+
+        if (options.sameOriginOnly !== false) {
+          const currentOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
+          if (currentOrigin && parsed.origin && parsed.origin !== currentOrigin) {
+            return url;
+          }
+        }
+
+        if (parsed.searchParams.get(SESSION_TOKEN_QUERY_PARAM) !== token) {
+          parsed.searchParams.set(SESSION_TOKEN_QUERY_PARAM, token);
+        }
+
+        if (raw.startsWith('?')) {
+          return (parsed.search || '') + (parsed.hash || '');
+        }
+
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
+          return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
+        }
+
+        return parsed.toString();
+      } catch (error) {
+        console.warn('appendSessionTokenToUrl: unable to append token', { url, error });
+        return url;
+      }
+    }
+
+    function applySessionTokenToLinks(explicitToken) {
+      if (typeof document === 'undefined') {
+        return;
+      }
+
+      const token = resolveClientSessionToken(explicitToken);
+      if (!token) {
+        return;
+      }
+
+      const anchors = document.querySelectorAll('a[href]');
+      anchors.forEach(anchor => {
+        const href = anchor.getAttribute('href');
+        if (!href) {
+          return;
+        }
+
+        const updated = appendSessionTokenToUrl(href, token, { sameOriginOnly: true });
+        if (updated && updated !== href) {
+          anchor.setAttribute('href', updated);
+        }
+      });
+    }
+
+    function buildLoginUrl(options = {}) {
+      const baseTarget = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL || SCRIPT_URL || '/';
+      const includeReturn = options.includeReturn === true;
+      const reason = (options.reason && String(options.reason)) || getLogoutReason();
+
+      if (!includeReturn || (reason && reason.toLowerCase() === 'manual')) {
+        return baseTarget;
+      }
+
+      let candidate = options.returnUrl || '';
+      if (!candidate && typeof window !== 'undefined' && window.location && window.location.href) {
+        candidate = window.location.href;
+      }
+      if (!candidate && RETURN_URL) {
+        candidate = RETURN_URL;
+      }
+
+      let sanitized = '';
+      try {
+        sanitized = buildReturnUrl({}, candidate);
+      } catch (err) {
+        console.warn('buildLoginUrl: unable to build return URL', err);
+      }
+
+      if (!sanitized || /page=login/i.test(sanitized)) {
+        sanitized = '';
+      }
+
+      if (!sanitized) {
+        return baseTarget;
+      }
+
+      try {
+        const loginUrl = new URL(baseTarget, window.location && window.location.href ? window.location.href : undefined);
+        loginUrl.searchParams.set('page', 'login');
+        loginUrl.searchParams.set('returnUrl', sanitized);
+        loginUrl.hash = '';
+        return loginUrl.toString();
+      } catch (err) {
+        console.warn('buildLoginUrl: falling back to manual concatenation', err);
+        const separator = baseTarget.indexOf('?') === -1
+          ? '?'
+          : (/[?&]$/.test(baseTarget) ? '' : '&');
+        return `${baseTarget}${separator}returnUrl=${encodeURIComponent(sanitized)}`;
+      }
+    }
+
+    window.buildLoginUrl = buildLoginUrl;
+    window.setLogoutReason = setLogoutReason;
+    window.getLogoutReason = getLogoutReason;
+    window.clearLogoutReason = clearLogoutReason;
   </script>
 
   <style>
@@ -407,6 +878,18 @@
       --shadow-hover: rgba(15, 23, 42, 0.2);
       --glass-bg: rgba(255, 255, 255, 0.1);
       --glass-border: rgba(255, 255, 255, 0.2);
+      --body-background: linear-gradient(135deg, var(--surface-variant) 0%, #ffffff 100%);
+      --body-text-color: #1e293b;
+      --topbar-bg: rgba(255, 255, 255, 0.95);
+      --topbar-border: var(--outline);
+      --topbar-icon-color: #64748b;
+      --topbar-icon-bg: rgba(248, 250, 252, 0.8);
+      --topbar-icon-border: rgba(226, 232, 240, 0.5);
+      --topbar-icon-hover-bg: rgba(14, 165, 233, 0.1);
+      --topbar-icon-hover-color: var(--primary);
+      --topbar-icon-hover-border: rgba(14, 165, 233, 0.3);
+      --topbar-text-muted: #64748b;
+      --topbar-text-strong: #1e293b;
 
       --sidebar-width: 320px;
       --sidebar-collapsed: 80px;
@@ -418,6 +901,28 @@
       --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    :root[data-theme="dark"] {
+      --surface: #111827;
+      --surface-variant: #0b1120;
+      --outline: rgba(148, 163, 184, 0.25);
+      --shadow: rgba(2, 6, 23, 0.45);
+      --shadow-hover: rgba(2, 6, 23, 0.6);
+      --glass-bg: rgba(15, 23, 42, 0.55);
+      --glass-border: rgba(148, 163, 184, 0.35);
+      --body-background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
+      --body-text-color: #e2e8f0;
+      --topbar-bg: rgba(15, 23, 42, 0.92);
+      --topbar-border: rgba(148, 163, 184, 0.25);
+      --topbar-icon-color: #e2e8f0;
+      --topbar-icon-bg: rgba(30, 41, 59, 0.85);
+      --topbar-icon-border: rgba(71, 85, 105, 0.6);
+      --topbar-icon-hover-bg: rgba(14, 165, 233, 0.22);
+      --topbar-icon-hover-color: #38bdf8;
+      --topbar-icon-hover-border: rgba(56, 189, 248, 0.45);
+      --topbar-text-muted: #94a3b8;
+      --topbar-text-strong: #f8fafc;
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -426,8 +931,8 @@
       margin: 0;
       padding: 0;
       font-family: 'Inter', "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, var(--surface-variant) 0%, #ffffff 100%);
-      color: #1e293b;
+      background: var(--body-background);
+      color: var(--body-text-color);
       overflow-x: hidden;
       font-size: 14px;
       line-height: 1.6;
@@ -1167,9 +1672,9 @@
       left: var(--sidebar-width);
       right: 0;
       height: var(--topbar-height);
-      background: rgba(255, 255, 255, 0.95);
+      background: var(--topbar-bg);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--outline);
+      border-bottom: 1px solid var(--topbar-border);
       z-index: 999;
       display: flex;
       align-items: center;
@@ -1186,7 +1691,7 @@
       background: none;
       border: none;
       font-size: 1.25rem;
-      color: #64748b;
+      color: var(--topbar-icon-color);
       padding: 0.75rem;
       border-radius: 50%;
       transition: var(--transition-smooth);
@@ -1199,8 +1704,8 @@
     }
 
     .topbar-toggle:hover {
-      background: rgba(100, 116, 139, 0.1);
-      color: var(--primary);
+      background: var(--topbar-icon-hover-bg);
+      color: var(--topbar-icon-hover-color);
       transform: scale(1.05);
     }
 
@@ -1208,13 +1713,13 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      color: #64748b;
+      color: var(--topbar-text-muted);
       font-size: 0.95rem;
       font-weight: 500;
     }
 
     .breadcrumb-nav .current-page {
-      color: #1e293b;
+      color: var(--topbar-text-strong);
       font-weight: 700;
       font-size: 1.125rem;
     }
@@ -1236,7 +1741,7 @@
       background: none;
       border: none;
       font-size: 1.25rem;
-      color: #64748b;
+      color: var(--topbar-icon-color);
       padding: 0.75rem;
       border-radius: 50%;
       transition: var(--transition-smooth);
@@ -1246,18 +1751,27 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(248, 250, 252, 0.8);
+      background: var(--topbar-icon-bg);
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(226, 232, 240, 0.5);
+      border: 1px solid var(--topbar-icon-border);
     }
 
     .notification-btn:hover {
-      background: rgba(14, 165, 233, 0.1);
-      color: var(--primary);
+      background: var(--topbar-icon-hover-bg);
+      color: var(--topbar-icon-hover-color);
       text-decoration: none;
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
-      border-color: rgba(14, 165, 233, 0.3);
+      border-color: var(--topbar-icon-hover-border);
+    }
+
+    .theme-toggle-btn .fa-sun {
+      color: #facc15;
+      transition: color 0.3s ease;
+    }
+
+    :root[data-theme="dark"] .theme-toggle-btn .fa-sun {
+      color: #fde68a;
     }
 
     .notification-badge {
@@ -1268,7 +1782,7 @@
       height: 10px;
       background: linear-gradient(135deg, var(--danger), #dc2626);
       border-radius: 50%;
-      border: 2px solid var(--surface);
+      border: 2px solid var(--topbar-icon-bg);
       box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
       animation: pulse 2s infinite;
     }
@@ -1290,11 +1804,11 @@
     /* Enhanced Topbar Logout Button */
     .logout-btn-topbar {
       position: relative;
-      background: rgba(248, 250, 252, 0.8);
+      background: var(--topbar-icon-bg);
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(226, 232, 240, 0.5);
+      border: 1px solid var(--topbar-icon-border);
       font-size: 1.25rem;
-      color: #64748b;
+      color: var(--topbar-icon-color);
       padding: 0.75rem;
       border-radius: 50%;
       transition: var(--transition-smooth);
@@ -1307,7 +1821,7 @@
     }
 
     .logout-btn-topbar:hover {
-      background: rgba(239, 68, 68, 0.1);
+      background: rgba(239, 68, 68, 0.12);
       color: var(--danger);
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
@@ -1367,11 +1881,11 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1.5rem) clamp(1.25rem, 4vw, 1.75rem) 1.75rem;
+        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 3vw, 1.25rem) 1.25rem;
       }
 
       #sidebar.collapsed~#maincontent {
-        margin-left: clamp(1.25rem, 4vw, 1.75rem);
+        margin-left: clamp(0.75rem, 3vw, 1.25rem);
       }
 
       body.sidebar-open #maincontent {
@@ -1399,7 +1913,7 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1.25rem) clamp(1rem, 5vw, 1.5rem) 1.5rem;
+        margin: calc(var(--topbar-height) + 0.85rem) clamp(0.75rem, 5vw, 1.25rem) 1.25rem;
       }
 
       .breadcrumb-nav {
@@ -1416,7 +1930,7 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 6vw, 1.25rem) 1.25rem;
+        margin: calc(var(--topbar-height) + 0.75rem) clamp(0.5rem, 6vw, 1rem) 1rem;
       }
 
       .topbar-toggle {
@@ -1431,49 +1945,61 @@
     }
 
     #maincontent {
-      margin-left: calc(var(--sidebar-width) + 2rem);
-      margin-top: calc(var(--topbar-height) + 2rem);
-      margin-right: 2rem;
-      margin-bottom: 2rem;
+      margin-left: calc(var(--sidebar-width) + 1.25rem);
+      margin-top: calc(var(--topbar-height) + 1.1rem);
+      margin-right: 1.25rem;
+      margin-bottom: 1.25rem;
       transition: var(--transition-smooth);
-      min-height: calc(100vh - var(--topbar-height) - 4rem);
+      min-height: calc(100vh - var(--topbar-height) - 2.5rem);
     }
 
     #sidebar.collapsed~#maincontent {
-      margin-left: calc(var(--sidebar-collapsed) + 2rem);
+      margin-left: calc(var(--sidebar-collapsed) + 1.25rem);
     }
 
     /* Unified global page banner */
     .lumina-banner {
       position: relative;
-      background: radial-gradient(140% 120% at 0% 0%, rgba(99, 102, 241, 0.45) 0%, rgba(14, 116, 144, 0) 55%),
-        radial-gradient(120% 140% at 100% 0%, rgba(45, 212, 191, 0.35) 0%, rgba(15, 23, 42, 0) 60%),
-        linear-gradient(135deg, rgba(2, 6, 23, 0.92) 0%, rgba(15, 23, 42, 0.92) 100%);
-      border: 1px solid rgba(148, 163, 184, 0.28);
-      border-radius: 32px;
-      padding: clamp(1.75rem, 3vw, 2.85rem);
+      background:
+        radial-gradient(140% 115% at -10% 15%, rgba(34, 197, 247, 0.35) 0%, rgba(2, 132, 199, 0) 55%),
+        radial-gradient(160% 140% at 110% 15%, rgba(6, 182, 212, 0.28) 0%, rgba(13, 71, 161, 0) 60%),
+        conic-gradient(from 210deg at 70% 75%, rgba(56, 189, 248, 0.2) 0deg, rgba(30, 64, 175, 0) 160deg),
+        linear-gradient(150deg, rgba(2, 6, 23, 0.96) 0%, rgba(12, 19, 41, 0.96) 42%, rgba(4, 47, 46, 0.92) 100%);
+      border: 1px solid rgba(125, 211, 252, 0.18);
+      border-radius: 34px;
+      padding: clamp(1.9rem, 3.5vw, 3.1rem);
       margin-bottom: 2.5rem;
-      box-shadow: 0 30px 60px -40px rgba(15, 23, 42, 0.85);
+      box-shadow: 0 40px 80px -45px rgba(2, 6, 23, 0.85), 0 20px 40px -35px rgba(12, 74, 110, 0.5);
       color: #e2e8f0;
       overflow: hidden;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(9px);
+      isolation: isolate;
     }
 
     .lumina-banner::before {
       content: '';
       position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, rgba(148, 163, 184, 0.18) 0%, rgba(59, 130, 246, 0.1) 45%, transparent 100%);
+      inset: -12% -8% -20% -8%;
+      background:
+        radial-gradient(50% 50% at 15% 25%, rgba(125, 211, 252, 0.45) 0%, rgba(125, 211, 252, 0) 62%),
+        radial-gradient(60% 60% at 85% 18%, rgba(191, 219, 254, 0.3) 0%, rgba(191, 219, 254, 0) 70%),
+        conic-gradient(from 140deg at 80% 65%, rgba(14, 165, 233, 0.5) 0deg, rgba(8, 145, 178, 0.05) 140deg, rgba(14, 165, 233, 0.4) 320deg, rgba(14, 165, 233, 0) 360deg),
+        linear-gradient(115deg, rgba(59, 130, 246, 0.25) 0%, rgba(13, 148, 136, 0) 40%);
       mix-blend-mode: screen;
       pointer-events: none;
+      opacity: 0.9;
+      filter: blur(0.5px);
     }
 
     .lumina-banner::after {
       content: '';
       position: absolute;
       inset: 1px;
-      border-radius: 30px;
-      border: 1px solid rgba(226, 232, 240, 0.18);
+      border-radius: 32px;
+      border: 1px solid rgba(148, 197, 255, 0.2);
+      background:
+        radial-gradient(120% 180% at 105% 105%, rgba(56, 189, 248, 0.16) 0%, rgba(56, 189, 248, 0) 60%),
+        linear-gradient(160deg, rgba(148, 163, 184, 0.08) 0%, rgba(14, 116, 144, 0.12) 45%, rgba(2, 6, 23, 0) 100%);
       pointer-events: none;
     }
 
@@ -1503,15 +2029,15 @@
       letter-spacing: 0.2em;
       text-transform: uppercase;
       font-weight: 700;
-      color: rgba(226, 232, 240, 0.78);
-      background: rgba(15, 23, 42, 0.45);
+      color: rgba(226, 240, 254, 0.88);
+      background: linear-gradient(120deg, rgba(15, 118, 110, 0.55) 0%, rgba(14, 165, 233, 0.5) 100%);
       padding: 0.45rem 0.95rem;
       border-radius: 999px;
-      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(165, 243, 252, 0.55), 0 10px 18px -15px rgba(59, 130, 246, 0.65);
     }
 
     .lumina-banner__eyebrow i {
-      color: #38bdf8;
+      color: #bef264;
     }
 
     .lumina-banner__title-row {
@@ -1534,7 +2060,7 @@
       margin: 0;
       font-size: 1.05rem;
       line-height: 1.65;
-      color: rgba(226, 232, 240, 0.82);
+      color: rgba(226, 240, 254, 0.86);
       max-width: 70ch;
       display: flex;
       flex-direction: column;
@@ -1598,35 +2124,46 @@
       border: 1px solid transparent;
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border 0.2s ease;
-      box-shadow: 0 14px 30px -22px rgba(99, 102, 241, 0.9);
+      box-shadow: 0 18px 34px -25px rgba(14, 165, 233, 0.85);
+    }
+
+    .lumina-banner__action span,
+    .lumina-banner__action i {
+      color: inherit;
     }
 
     .lumina-banner__action i {
       font-size: 0.95rem;
     }
 
+    .lumina-banner__action--force-light,
+    .lumina-banner__action--force-light span,
+    .lumina-banner__action--force-light i {
+      color: #f8fafc !important;
+    }
+
     .lumina-banner__action--primary {
-      background: linear-gradient(120deg, #6366f1 0%, #22d3ee 100%);
-      color: #0f172a;
-      border-color: rgba(125, 211, 252, 0.55);
-      box-shadow: 0 18px 40px -22px rgba(34, 211, 238, 0.9);
+      background: linear-gradient(135deg, #1d4ed8 0%, #0891b2 35%, #22d3ee 100%);
+      color: #f8fafc;
+      border-color: rgba(94, 234, 212, 0.55);
+      box-shadow: 0 22px 48px -20px rgba(6, 182, 212, 0.85);
     }
 
     .lumina-banner__action--primary:hover,
     .lumina-banner__action--primary:focus-visible {
       transform: translateY(-1px);
-      box-shadow: 0 22px 50px -20px rgba(34, 211, 238, 0.95);
+      box-shadow: 0 26px 58px -18px rgba(6, 182, 212, 0.9);
     }
 
     .lumina-banner__action--secondary {
-      background: rgba(148, 163, 184, 0.14);
-      border-color: rgba(148, 163, 184, 0.4);
-      color: #e2e8f0;
+      background: rgba(148, 197, 255, 0.16);
+      border-color: rgba(125, 211, 252, 0.38);
+      color: rgba(226, 240, 254, 0.9);
     }
 
     .lumina-banner__action--secondary:hover,
     .lumina-banner__action--secondary:focus-visible {
-      background: rgba(148, 163, 184, 0.22);
+      background: rgba(148, 197, 255, 0.24);
       transform: translateY(-1px);
     }
 
@@ -1640,23 +2177,43 @@
       min-width: 240px;
       display: grid;
       gap: 1.1rem;
-      background: rgba(15, 23, 42, 0.55);
-      border-radius: 26px;
-      padding: 1.4rem 1.6rem;
-      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
-      backdrop-filter: blur(10px);
+      background:
+        radial-gradient(120% 90% at 0% 0%, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0) 65%),
+        linear-gradient(160deg, rgba(15, 23, 42, 0.75) 0%, rgba(8, 47, 73, 0.85) 55%, rgba(15, 118, 110, 0.6) 100%);
+      border-radius: 28px;
+      padding: 1.5rem 1.7rem;
+      box-shadow: inset 0 0 0 1px rgba(165, 243, 252, 0.25), 0 18px 26px -28px rgba(2, 6, 23, 0.8);
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .lumina-banner__meta::before {
+      content: '';
+      position: absolute;
+      inset: -35% -25% auto -25%;
+      height: 160%;
+      background: radial-gradient(55% 55% at 20% 20%, rgba(94, 234, 212, 0.3) 0%, rgba(94, 234, 212, 0) 70%),
+        linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(148, 197, 255, 0) 60%);
+      mix-blend-mode: screen;
+      pointer-events: none;
+      opacity: 0.9;
+      z-index: 0;
     }
 
     .lumina-banner__meta-item {
       display: grid;
       gap: 0.45rem;
+      position: relative;
+      z-index: 1;
     }
 
     .lumina-banner__meta-label {
       font-size: 0.72rem;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: rgba(148, 163, 184, 0.78);
+      color: rgba(191, 219, 254, 0.75);
       font-weight: 700;
       display: inline-flex;
       align-items: center;
@@ -1743,6 +2300,7 @@
 </head>
 
 <body
+  data-theme="light"
   data-page-slug="<?!= __layoutSlugCandidate ?>"
   data-return-url="<?!= __layoutRawReturnUrl ?>"
 >
@@ -2008,8 +2566,68 @@
             'text-uppercase'
         ];
 
+        const LIGHT_TEXT_LUMINANCE_THRESHOLD = 165;
+
+        function ensureBannerActionContrast(element) {
+            if (!element || !(element instanceof HTMLElement)) {
+                return;
+            }
+
+            const applyLightText = () => {
+                element.classList.add('lumina-banner__action--force-light');
+            };
+
+            const evaluate = () => {
+                try {
+                    const computed = window.getComputedStyle ? window.getComputedStyle(element) : null;
+                    if (!computed) {
+                        applyLightText();
+                        return;
+                    }
+
+                    const color = computed.color || '';
+                    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+                    if (!match) {
+                        applyLightText();
+                        return;
+                    }
+
+                    const r = parseInt(match[1], 10);
+                    const g = parseInt(match[2], 10);
+                    const b = parseInt(match[3], 10);
+                    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+                        applyLightText();
+                        return;
+                    }
+
+                    const luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+                    if (luminance < LIGHT_TEXT_LUMINANCE_THRESHOLD) {
+                        applyLightText();
+                    } else {
+                        element.classList.remove('lumina-banner__action--force-light');
+                    }
+                } catch (contrastErr) {
+                    console.warn('Banner action contrast fallback triggered', contrastErr);
+                    applyLightText();
+                }
+            };
+
+            const schedule = () => {
+                if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+                    window.requestAnimationFrame(evaluate);
+                } else {
+                    setTimeout(evaluate, 0);
+                }
+            };
+
+            schedule();
+            if (typeof window !== 'undefined') {
+                window.setTimeout(schedule, 150);
+            }
+        }
+
         function absorbLocalBanners() {
-            const selectors = [
+            const selectorList = [
                 '.page-header',
                 '.modern-page-header',
                 '.dashboard-header',
@@ -2028,6 +2646,8 @@
                 '.policy-header',
                 '[data-banner-source]'
             ];
+
+            const selectors = Array.from(new Set(selectorList));
 
             const bannerData = {
                 titleText: '',
@@ -2052,7 +2672,9 @@
                 'button-group',
                 'btn-group',
                 'control-bar',
-                'filter-actions'
+                'filter-actions',
+                'top-actions',
+                'quick-actions'
             ];
 
             const shouldSkipHeader = (header) => {
@@ -2086,6 +2708,15 @@
             const cleanupButton = (button, variant) => {
                 REMOVABLE_BANNER_BUTTON_CLASSES.forEach(cls => button.classList.remove(cls));
                 button.classList.add('lumina-banner__action', `lumina-banner__action--${variant}`);
+                button.classList.remove('active');
+                ['color', 'background', 'background-color', 'border', 'border-color', 'box-shadow'].forEach(prop => {
+                    try {
+                        button.style.removeProperty(prop);
+                    } catch (styleErr) {
+                        // Ignore cleanup issues for unsupported properties
+                    }
+                });
+                ensureBannerActionContrast(button);
             };
 
             const extractActionsFrom = (root) => {
@@ -2161,7 +2792,19 @@
             const harvestHeader = (header) => {
                 if (shouldSkipHeader(header)) return;
 
+                const hasBannerSignals = (
+                    header.matches('[data-banner-source], [data-banner-title], [data-banner-description]') ||
+                    header.hasAttribute('data-banner-title') ||
+                    header.hasAttribute('data-banner-description') ||
+                    header.querySelector('[data-banner-title], h1, h2, h3, h4, h5, h6') ||
+                    header.querySelector('button, a')
+                );
+
                 processedHeaders.add(header);
+
+                if (!hasBannerSignals) {
+                    return;
+                }
 
                 const campaignAttr = header.getAttribute('data-banner-campaign') || header.getAttribute('data-banner-meta-campaign');
                 if (campaignAttr && !bannerData.campaignName) {
@@ -2592,6 +3235,7 @@
                     }
 
                     actionsEl.appendChild(element);
+                    ensureBannerActionContrast(element);
                 });
 
                 if (actions.length) {
@@ -2789,7 +3433,13 @@
             } catch (e) {
                 console.warn('⚠️ Could not clear storage:', e);
             }
-            
+
+            try {
+                setLogoutReason('manual');
+            } catch (reasonError) {
+                console.warn('handleLogout: unable to persist manual logout reason', reasonError);
+            }
+
             // Call server logout
             google.script.run
                 .withSuccessHandler(function(result) {
@@ -2816,12 +3466,18 @@
             } catch (e) {
                 console.warn('Could not clear storage:', e);
             }
-            
+
+            try {
+                setLogoutReason('manual');
+            } catch (reasonError) {
+                console.warn('performLogout: unable to persist manual logout reason', reasonError);
+            }
+
             // Show logout message and redirect
             showLogoutMessage();
 
             setTimeout(function() {
-                const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL;
+                const target = buildLoginUrl({ includeReturn: false, reason: 'manual' });
                 window.location.href = target || BASE_URL;
             }, 2000);
         }
@@ -2841,11 +3497,7 @@
         // ──────────────────────────────────────────────────────────────────────────────
         // AUTHENTICATION GUARD – PREVENT ACCESS AFTER LOGOUT
         // ──────────────────────────────────────────────────────────────────────────────
-        const AUTH_FALLBACK_STORAGE_KEYS = [
-            'lumina.session.token',
-            'lumina.auth.sessionToken',
-            'lumina.auth.fallbackToken'
-        ];
+        const AUTH_FALLBACK_STORAGE_KEYS = SESSION_TOKEN_STORAGE_KEYS;
 
         function shouldEnforceAuthGuard() {
             if (window.__LUMINA_DISABLE_AUTH_GUARD === true || window.disableLuminaAuthGuard === true) {
@@ -2949,10 +3601,38 @@
             } catch (sessionStorageError) {
                 console.warn('AuthGuard: unable to clear sessionStorage tokens', sessionStorageError);
             }
+
+            broadcastSessionTokenChange('');
+
+            try {
+                const existingReason = getLogoutReason();
+                if (existingReason && existingReason.toLowerCase() === 'manual' && reason !== 'manual') {
+                    return;
+                }
+                setLogoutReason(reason === 'manual' ? 'manual' : 'auto');
+            } catch (reasonError) {
+                console.warn('AuthGuard: unable to persist logout reason', reasonError);
+            }
         }
 
-        function redirectToLogin() {
-            const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL || '/';
+        function redirectToLogin(options) {
+            const opts = options || {};
+            if (opts.reason) {
+                try {
+                    const existingReason = getLogoutReason();
+                    if (!(existingReason && existingReason.toLowerCase() === 'manual' && opts.reason !== 'manual')) {
+                        setLogoutReason(opts.reason);
+                    }
+                } catch (reasonError) {
+                    console.warn('redirectToLogin: unable to persist logout reason', reasonError);
+                }
+            }
+
+            const target = buildLoginUrl({
+                includeReturn: opts.includeReturn === true,
+                returnUrl: opts.returnUrl,
+                reason: opts.reason
+            }) || '/';
             try {
                 if (window.location && typeof window.location.replace === 'function') {
                     window.location.replace(target);
@@ -2977,7 +3657,10 @@
 
             console.log('🔒 AuthGuard: missing auth token, enforcing logout redirect', context);
             clearClientAuthState(context || 'auth-guard');
-            redirectToLogin();
+            const currentLocation = (typeof window !== 'undefined' && window.location && window.location.href)
+                ? window.location.href
+                : '';
+            redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: currentLocation });
             return false;
         }
 
@@ -3022,6 +3705,7 @@
 
             const defaultTitle = <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>;
             const defaultDescription = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
+            const fallbackBannerTitle = <?!= JSON.stringify((__layoutCampaignName || 'LuminaHQ')) ?>;
 
             const identityPieces = [];
             if (__LAYOUT_CLIENT_NAME) {
@@ -3038,7 +3722,7 @@
                 .join(' • ');
 
             const initialConfig = {
-                title: absorbed.titleText || defaultTitle,
+                title: absorbed.titleText || defaultTitle || fallbackBannerTitle,
                 titleFragments: absorbed.titleFragments,
                 description: combinedDescription,
                 descriptionElements: absorbed.descriptionElements,
@@ -3236,8 +3920,10 @@
                     closeMenu();
                     if (action === 'profile') {
                         if (typeof navigateToPage === 'function') {
-                            const profileIdAttr = panel.getAttribute('data-profile-id') || '';
-                            const params = profileIdAttr ? { profileId: profileIdAttr } : {};
+                            const profileSlugAttr = panel.getAttribute('data-profile-slug')
+                                || panel.getAttribute('data-profile-id')
+                                || '';
+                            const params = profileSlugAttr ? { profileId: profileSlugAttr } : {};
                             navigateToPage('userprofile', null, params);
                         }
                     } else if (action === 'logout') {
@@ -3407,6 +4093,13 @@
                 }
 
                 state.token = token;
+                try {
+                    broadcastSessionTokenChange(token);
+                } catch (broadcastError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to broadcast persisted token', broadcastError);
+                    }
+                }
                 return token;
             }
 
@@ -3432,6 +4125,13 @@
                 }
 
                 state.token = '';
+                try {
+                    broadcastSessionTokenChange('');
+                } catch (broadcastError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to broadcast cleared token', broadcastError);
+                    }
+                }
             }
 
             function clearTimer() {
@@ -3510,7 +4210,22 @@
             }
 
             function redirectToLogin() {
-                const target = global.__LUMINA_LOGIN_URL || global.LOGIN_URL || global.BASE_URL || (global.location ? global.location.href : '/');
+                const current = (global.location && global.location.href) ? global.location.href : '';
+                if (global && typeof global.redirectToLogin === 'function') {
+                    try {
+                        global.redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: current });
+                        return;
+                    } catch (delegationError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: global redirectToLogin failed', delegationError);
+                        }
+                    }
+                }
+
+                const target = (typeof global.buildLoginUrl === 'function')
+                    ? global.buildLoginUrl({ includeReturn: true, reason: 'auto', returnUrl: current })
+                    : (global.__LUMINA_LOGIN_URL || global.LOGIN_URL || global.BASE_URL || (global.location ? global.location.href : '/'));
+
                 global.setTimeout(function () {
                     try {
                         global.location.href = target;
@@ -3551,7 +4266,7 @@
                 });
                 stop({ clearAuth: true, reason: reason, silent: true });
                 notifyExpired(result && result.message ? result.message : 'Your session has expired. Please sign in again.');
-                redirectToLogin();
+                redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: (global.location && global.location.href) || '' });
             }
 
             function handleSuccess(result) {
@@ -3637,7 +4352,7 @@
                     dispatchStatus('missing-token', { message: 'No session token available' });
                     stop({ clearAuth: true, reason: 'missing-token', silent: true });
                     notifyExpired('Your session has ended. Please sign in again.');
-                    redirectToLogin();
+                    redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: (global.location && global.location.href) || '' });
                     return;
                 }
 
