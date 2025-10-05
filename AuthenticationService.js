@@ -218,6 +218,25 @@ var AuthenticationService = (function () {
       sanitized.observedAt = String(metadata.observedAt);
     }
 
+    if (metadata.logoutReason) {
+      sanitized.logoutReason = String(metadata.logoutReason).slice(0, 20);
+    }
+
+    if (metadata.requestedReturnUrl) {
+      try {
+        if (typeof IdentityService !== 'undefined'
+          && IdentityService
+          && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+          const sanitizedReturn = IdentityService.sanitizeLoginReturnUrl(metadata.requestedReturnUrl);
+          if (sanitizedReturn) {
+            sanitized.requestedReturnUrl = sanitizedReturn;
+          }
+        }
+      } catch (returnError) {
+        console.warn('sanitizeClientMetadata: unable to sanitize requestedReturnUrl', returnError);
+      }
+    }
+
     return Object.keys(sanitized).length ? sanitized : null;
   }
 
@@ -3715,7 +3734,7 @@ var AuthenticationService = (function () {
       console.log('login: Login successful for user:', userPayload.FullName);
       console.log('=== AuthenticationService.login SUCCESS ===');
 
-      return {
+      const result = {
         success: true,
         sessionToken: sessionToken,
         user: userPayload,
@@ -3731,6 +3750,12 @@ var AuthenticationService = (function () {
         redirectSlug: redirectSlug,
         redirectUrl: redirectUrl
       };
+
+      if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
+        result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
+      }
+
+      return result;
 
     } catch (error) {
       console.error('login: Unexpected error:', error);
