@@ -7,11 +7,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LuminaHQ – Intelligent Workforce Command Center</title>
 
-  <?!= includeOnce('CookieHandler') ?>
-  <?!= includeOnce('layoutLoader') ?>
-  <?!= includeOnce('layoutAlerts') ?>
-  <?!= includeOnce('ResponsiveStyles') ?>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -52,32 +47,15 @@
       flex-direction: column;
     }
 
-    body.landing-page {
-      background: var(--lumina-surface);
-    }
-
-    body.landing-page::before {
-      display: none;
-    }
-
     .page-shell {
       flex: 1;
       display: flex;
       flex-direction: column;
-      width: 100%;
-    }
-
-    .landing-main {
-      width: 100%;
-      max-width: none;
-      margin: 0;
-      padding: 0;
     }
 
     .hero {
       padding: clamp(4rem, 5vw + 2rem, 6rem) 1.25rem clamp(3rem, 5vw, 5rem);
       width: 100%;
-      margin: 0;
       position: relative;
       background: var(--lumina-navy-alt);
       color: rgba(226, 232, 240, 0.92);
@@ -103,8 +81,6 @@
       backdrop-filter: blur(14px);
       background: rgba(255, 255, 255, 0.85);
       border-bottom: 1px solid rgba(226, 232, 240, 0.7);
-      margin: 0;
-      padding: 0;
     }
 
     .nav-container {
@@ -349,8 +325,6 @@
     }
 
     .section {
-      width: 100%;
-      margin: 0;
       padding: clamp(3rem, 5vw + 1rem, 4.5rem) 1.25rem;
     }
 
@@ -506,9 +480,6 @@
       background: var(--lumina-navy);
       color: rgba(226, 232, 240, 0.9);
       margin-top: auto;
-      width: 100%;
-      margin-left: 0;
-      margin-right: 0;
     }
 
     .footer-shell {
@@ -555,7 +526,7 @@
   </style>
 </head>
 
-<body class="landing-page">
+<body>
   <div class="page-shell">
     <header>
       <div class="nav-container">
@@ -573,7 +544,7 @@
       </div>
     </header>
 
-    <main class="landing-main">
+    <main>
       <section class="hero" id="top">
         <div class="hero-inner">
           <div class="hero-surface">
