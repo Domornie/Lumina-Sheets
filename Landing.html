@@ -21,21 +21,21 @@
   <style>
     :root {
       --lumina-navy: #0b1b3f;
+      --lumina-navy-alt: #103060;
       --lumina-blue: #0478d3;
       --lumina-blue-dark: #035799;
       --lumina-cyan: #38bdf8;
-      --lumina-indigo: #312e81;
       --lumina-surface: #ffffff;
-      --lumina-muted: #f4f6fb;
-      --lumina-muted-dark: rgba(11, 27, 63, 0.65);
+      --lumina-muted: #f1f5fb;
+      --lumina-muted-dark: #d6e2f5;
       --lumina-text: #101828;
       --lumina-text-muted: #475467;
-      --shadow-primary: 0 30px 60px rgba(4, 120, 211, 0.18);
-      --shadow-card: 0 16px 32px rgba(15, 23, 42, 0.12);
-      --radius-lg: 28px;
-      --radius-md: 18px;
-      --radius-sm: 14px;
-      --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow-primary: 0 12px 24px rgba(4, 120, 211, 0.18);
+      --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.08);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --transition: all 0.28s ease;
     }
 
     * {
@@ -46,9 +46,7 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       margin: 0;
       color: var(--lumina-text);
-      background: radial-gradient(circle at 12% 18%, rgba(4, 120, 211, 0.12), transparent 55%),
-        radial-gradient(circle at 88% 8%, rgba(49, 46, 129, 0.16), transparent 60%),
-        linear-gradient(160deg, #f5f7fb 0%, #eef2ff 45%, #f8fafc 100%);
+      background: var(--lumina-surface);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -61,24 +59,24 @@
     }
 
     .hero {
-      position: relative;
       padding: clamp(4rem, 5vw + 2rem, 6rem) 1.25rem clamp(3rem, 5vw, 5rem);
-      max-width: 1200px;
-      margin: 0 auto;
       width: 100%;
+      position: relative;
+      background: var(--lumina-navy-alt);
+      color: rgba(226, 232, 240, 0.92);
     }
 
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 5% 0 0 50%;
-      transform: translateX(-40%);
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 60%),
-        radial-gradient(circle at 70% 60%, rgba(4, 120, 211, 0.22), transparent 55%),
-        linear-gradient(140deg, rgba(11, 27, 63, 0.9) 0%, rgba(49, 46, 129, 0.65) 55%, rgba(4, 120, 211, 0.35) 100%);
-      filter: blur(50px);
-      opacity: 0.45;
-      z-index: 0;
+    .hero-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .hero-surface {
+      background: transparent;
+      border-radius: var(--radius-lg);
+      border: none;
+      box-shadow: none;
+      padding: clamp(2.5rem, 5vw, 3.2rem);
     }
 
     header {
@@ -108,13 +106,9 @@
     }
 
     .brand-logo {
-      width: 46px;
       height: 46px;
-      border-radius: 16px;
-      box-shadow: var(--shadow-primary);
-      object-fit: cover;
-      background: linear-gradient(135deg, rgba(4, 120, 211, 0.15) 0%, rgba(49, 46, 129, 0.35) 100%);
-      border: 1px solid rgba(4, 120, 211, 0.18);
+      width: auto;
+      display: block;
     }
 
     .brand h1 {
@@ -154,24 +148,24 @@
 
     .nav-actions .btn-outline {
       color: var(--lumina-blue-dark);
-      background: rgba(4, 120, 211, 0.08);
-      border: 1px solid rgba(4, 120, 211, 0.22);
+      background: transparent;
+      border: 1px solid rgba(4, 120, 211, 0.36);
     }
 
     .nav-actions .btn-outline:hover {
-      background: rgba(4, 120, 211, 0.16);
+      background: rgba(4, 120, 211, 0.1);
       transform: translateY(-1px);
     }
 
     .nav-actions .btn-primary {
       color: white;
-      background: linear-gradient(135deg, var(--lumina-blue) 0%, var(--lumina-blue-dark) 100%);
-      box-shadow: var(--shadow-primary);
+      background: var(--lumina-blue);
+      box-shadow: none;
     }
 
     .nav-actions .btn-primary:hover {
-      transform: translateY(-2px) scale(1.01);
-      box-shadow: 0 26px 45px rgba(4, 120, 211, 0.24);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(4, 120, 211, 0.24);
     }
 
     .hero-content {
@@ -194,8 +188,8 @@
       align-items: center;
       gap: 0.5rem;
       padding: 0.55rem 1rem;
-      background: rgba(4, 120, 211, 0.12);
-      color: var(--lumina-blue-dark);
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--lumina-surface);
       border-radius: 999px;
       font-weight: 600;
       font-size: 0.85rem;
@@ -207,14 +201,14 @@
       font-size: clamp(2.4rem, 3.4vw + 1rem, 3.7rem);
       line-height: 1.1;
       margin: 0;
-      color: var(--lumina-navy);
+      color: var(--lumina-surface);
     }
 
     .hero-subtitle {
       margin: 0;
       max-width: 520px;
       font-size: 1.05rem;
-      color: var(--lumina-text-muted);
+      color: rgba(226, 232, 240, 0.72);
     }
 
     .hero-ctas {
@@ -235,33 +229,34 @@
     }
 
     .hero-ctas .primary {
-      background: linear-gradient(135deg, var(--lumina-blue) 0%, var(--lumina-blue-dark) 100%);
+      background: var(--lumina-blue);
       color: white;
-      box-shadow: var(--shadow-primary);
+      box-shadow: none;
     }
 
     .hero-ctas .primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 26px 55px rgba(4, 120, 211, 0.28);
+      box-shadow: 0 12px 24px rgba(4, 120, 211, 0.22);
     }
 
     .hero-ctas .ghost {
-      background: rgba(255, 255, 255, 0.7);
-      color: var(--lumina-text-muted);
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--lumina-surface);
+      border: 1px solid rgba(226, 232, 240, 0.28);
     }
 
     .hero-ctas .ghost:hover {
-      background: rgba(255, 255, 255, 0.85);
-      color: var(--lumina-navy);
+      background: rgba(255, 255, 255, 0.18);
+      color: var(--lumina-surface);
+      border-color: rgba(226, 232, 240, 0.32);
     }
 
     .hero-showcase {
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: var(--radius-lg);
+      background: rgba(11, 27, 63, 0.55);
+      border-radius: var(--radius-md);
       padding: clamp(1.5rem, 3vw, 2rem);
-      box-shadow: var(--shadow-card);
-      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: none;
+      border: 1px solid rgba(226, 232, 240, 0.15);
       display: grid;
       gap: 1.5rem;
     }
@@ -276,7 +271,7 @@
     .showcase-header h2 {
       font-size: 1.1rem;
       margin: 0;
-      color: var(--lumina-navy);
+      color: var(--lumina-surface);
     }
 
     .status-pill {
@@ -285,8 +280,8 @@
       gap: 0.4rem;
       padding: 0.45rem 0.85rem;
       border-radius: 999px;
-      background: rgba(4, 120, 211, 0.12);
-      color: var(--lumina-blue-dark);
+      background: rgba(56, 189, 248, 0.24);
+      color: var(--lumina-surface);
       font-size: 0.8rem;
       font-weight: 600;
     }
@@ -298,21 +293,12 @@
     }
 
     .metric-card {
-      background: linear-gradient(145deg, rgba(4, 120, 211, 0.12) 0%, rgba(49, 46, 129, 0.18) 100%);
-      color: white;
+      background: rgba(15, 23, 42, 0.45);
+      color: var(--lumina-surface);
       padding: 1.4rem;
       border-radius: var(--radius-md);
+      border: 1px solid rgba(226, 232, 240, 0.12);
       position: relative;
-      overflow: hidden;
-    }
-
-    .metric-card::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent 70%);
-      opacity: 0.5;
-      pointer-events: none;
     }
 
     .metric-card strong {
@@ -325,18 +311,19 @@
       font-size: 0.85rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.7);
     }
 
     .metric-card i {
       font-size: 1.4rem;
-      opacity: 0.8;
+      opacity: 0.85;
     }
 
     .metric-card .icon-circle {
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.14);
       display: grid;
       place-items: center;
       margin-bottom: 1rem;
@@ -346,11 +333,24 @@
       padding: clamp(3rem, 5vw + 1rem, 4.5rem) 1.25rem;
     }
 
+    .section-light {
+      background: var(--lumina-surface);
+    }
+
+    .section-dark {
+      background: var(--lumina-navy);
+      color: rgba(226, 232, 240, 0.9);
+    }
+
     .section-shell {
       max-width: 1100px;
       margin: 0 auto;
       display: grid;
       gap: 2.5rem;
+    }
+
+    .section-dark .section-shell {
+      max-width: 1100px;
     }
 
     .section-header {
@@ -371,6 +371,14 @@
       font-size: 1.02rem;
     }
 
+    .section-dark .section-header h2 {
+      color: var(--lumina-surface);
+    }
+
+    .section-dark .section-header p {
+      color: rgba(226, 232, 240, 0.75);
+    }
+
     .feature-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -381,23 +389,22 @@
       background: var(--lumina-surface);
       border-radius: var(--radius-md);
       padding: 1.8rem;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(15, 23, 42, 0.08);
       display: grid;
       gap: 1rem;
       transition: var(--transition);
     }
 
     .feature-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 24px 44px rgba(15, 23, 42, 0.16);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 18px rgba(4, 120, 211, 0.1);
     }
 
     .feature-icon {
       width: 54px;
       height: 54px;
       border-radius: 16px;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(4, 120, 211, 0.4) 100%);
+      background: #e6f2ff;
       display: grid;
       place-items: center;
       color: var(--lumina-blue-dark);
@@ -423,13 +430,36 @@
     }
 
     .about-card {
-      background: rgba(255, 255, 255, 0.85);
+      background: var(--lumina-surface);
       border-radius: var(--radius-md);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      border: 1px solid rgba(15, 23, 42, 0.08);
       padding: 2rem;
-      box-shadow: var(--shadow-card);
       display: grid;
       gap: 0.75rem;
+      box-shadow: none;
+    }
+
+    .section-dark .feature-card {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(226, 232, 240, 0.18);
+    }
+
+    .section-dark .feature-card h3,
+    .section-dark .feature-card p {
+      color: var(--lumina-surface);
+    }
+
+    .section-dark .feature-card p {
+      color: rgba(226, 232, 240, 0.78);
+    }
+
+    .section-dark .feature-icon {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--lumina-surface);
+    }
+
+    .section-dark .feature-card:hover {
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
     }
 
     .about-card small {
@@ -452,7 +482,7 @@
 
     footer {
       padding: 2.5rem 1.25rem 2rem;
-      background: rgba(11, 27, 63, 0.92);
+      background: var(--lumina-navy);
       color: rgba(226, 232, 240, 0.9);
       margin-top: auto;
     }
@@ -521,44 +551,48 @@
 
     <main>
       <section class="hero" id="top">
-        <div class="hero-content">
-          <div class="hero-copy">
-            <span class="hero-tag"><i class="fa-solid fa-sparkles"></i> Modern Operations Platform</span>
-            <h2 class="hero-title">Unify your workforce intelligence from one elevated workspace.</h2>
-            <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
-            <div class="hero-ctas">
-              <a class="primary" href="Login.html"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
-              <a class="ghost" href="#features"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+        <div class="hero-inner">
+          <div class="hero-surface">
+            <div class="hero-content">
+              <div class="hero-copy">
+                <span class="hero-tag"><i class="fa-solid fa-sparkles"></i> Modern Operations Platform</span>
+                <h2 class="hero-title">Unify your workforce intelligence from one elevated workspace.</h2>
+                <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
+                <div class="hero-ctas">
+                  <a class="primary" href="Login.html"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
+                  <a class="ghost" href="#features"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+                </div>
+              </div>
+              <aside class="hero-showcase" aria-label="Platform highlights">
+                <div class="showcase-header">
+                  <h2>Live intelligence snapshot</h2>
+                  <span class="status-pill"><i class="fa-solid fa-signal"></i> Real-time sync</span>
+                </div>
+                <div class="metrics-grid">
+                  <div class="metric-card">
+                    <div class="icon-circle"><i class="fa-solid fa-people-group"></i></div>
+                    <strong>2.8K</strong>
+                    <span>Active agents</span>
+                  </div>
+                  <div class="metric-card">
+                    <div class="icon-circle"><i class="fa-solid fa-chart-line"></i></div>
+                    <strong>98%</strong>
+                    <span>Service level</span>
+                  </div>
+                  <div class="metric-card">
+                    <div class="icon-circle"><i class="fa-solid fa-stopwatch"></i></div>
+                    <strong>15m</strong>
+                    <span>Avg. onboarding</span>
+                  </div>
+                </div>
+                <p class="hero-subtitle" style="margin:0;">Designed for managers, analysts, and specialists who need actionable clarity every hour.</p>
+              </aside>
             </div>
           </div>
-          <aside class="hero-showcase" aria-label="Platform highlights">
-            <div class="showcase-header">
-              <h2>Live intelligence snapshot</h2>
-              <span class="status-pill"><i class="fa-solid fa-signal"></i> Real-time sync</span>
-            </div>
-            <div class="metrics-grid">
-              <div class="metric-card">
-                <div class="icon-circle"><i class="fa-solid fa-people-group"></i></div>
-                <strong>2.8K</strong>
-                <span>Active agents</span>
-              </div>
-              <div class="metric-card">
-                <div class="icon-circle"><i class="fa-solid fa-chart-line"></i></div>
-                <strong>98%</strong>
-                <span>Service level</span>
-              </div>
-              <div class="metric-card">
-                <div class="icon-circle"><i class="fa-solid fa-stopwatch"></i></div>
-                <strong>15m</strong>
-                <span>Avg. onboarding</span>
-              </div>
-            </div>
-            <p class="hero-subtitle" style="margin:0;">Designed for managers, analysts, and specialists who need actionable clarity every hour.</p>
-          </aside>
         </div>
       </section>
 
-      <section class="section" id="features">
+      <section class="section section-dark" id="features">
         <div class="section-shell">
           <div class="section-header">
             <h2>Why teams trust LuminaHQ</h2>
@@ -589,7 +623,7 @@
         </div>
       </section>
 
-      <section class="section" id="about">
+      <section class="section section-light" id="about">
         <div class="section-shell">
           <div class="section-header">
             <h2>Where LuminaHQ was crafted</h2>
