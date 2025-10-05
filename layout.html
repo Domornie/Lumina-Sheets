@@ -1881,11 +1881,11 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1.5rem) clamp(1.25rem, 4vw, 1.75rem) 1.75rem;
+        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 3vw, 1.25rem) 1.25rem;
       }
 
       #sidebar.collapsed~#maincontent {
-        margin-left: clamp(1.25rem, 4vw, 1.75rem);
+        margin-left: clamp(0.75rem, 3vw, 1.25rem);
       }
 
       body.sidebar-open #maincontent {
@@ -1913,7 +1913,7 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1.25rem) clamp(1rem, 5vw, 1.5rem) 1.5rem;
+        margin: calc(var(--topbar-height) + 0.85rem) clamp(0.75rem, 5vw, 1.25rem) 1.25rem;
       }
 
       .breadcrumb-nav {
@@ -1930,7 +1930,7 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 6vw, 1.25rem) 1.25rem;
+        margin: calc(var(--topbar-height) + 0.75rem) clamp(0.5rem, 6vw, 1rem) 1rem;
       }
 
       .topbar-toggle {
@@ -1945,16 +1945,16 @@
     }
 
     #maincontent {
-      margin-left: calc(var(--sidebar-width) + 2rem);
-      margin-top: calc(var(--topbar-height) + 2rem);
-      margin-right: 2rem;
-      margin-bottom: 2rem;
+      margin-left: calc(var(--sidebar-width) + 1.25rem);
+      margin-top: calc(var(--topbar-height) + 1.1rem);
+      margin-right: 1.25rem;
+      margin-bottom: 1.25rem;
       transition: var(--transition-smooth);
-      min-height: calc(100vh - var(--topbar-height) - 4rem);
+      min-height: calc(100vh - var(--topbar-height) - 2.5rem);
     }
 
     #sidebar.collapsed~#maincontent {
-      margin-left: calc(var(--sidebar-collapsed) + 2rem);
+      margin-left: calc(var(--sidebar-collapsed) + 1.25rem);
     }
 
     /* Unified global page banner */
@@ -2127,8 +2127,19 @@
       box-shadow: 0 18px 34px -25px rgba(14, 165, 233, 0.85);
     }
 
+    .lumina-banner__action span,
+    .lumina-banner__action i {
+      color: inherit;
+    }
+
     .lumina-banner__action i {
       font-size: 0.95rem;
+    }
+
+    .lumina-banner__action--force-light,
+    .lumina-banner__action--force-light span,
+    .lumina-banner__action--force-light i {
+      color: #f8fafc !important;
     }
 
     .lumina-banner__action--primary {
@@ -2555,6 +2566,66 @@
             'text-uppercase'
         ];
 
+        const LIGHT_TEXT_LUMINANCE_THRESHOLD = 165;
+
+        function ensureBannerActionContrast(element) {
+            if (!element || !(element instanceof HTMLElement)) {
+                return;
+            }
+
+            const applyLightText = () => {
+                element.classList.add('lumina-banner__action--force-light');
+            };
+
+            const evaluate = () => {
+                try {
+                    const computed = window.getComputedStyle ? window.getComputedStyle(element) : null;
+                    if (!computed) {
+                        applyLightText();
+                        return;
+                    }
+
+                    const color = computed.color || '';
+                    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+                    if (!match) {
+                        applyLightText();
+                        return;
+                    }
+
+                    const r = parseInt(match[1], 10);
+                    const g = parseInt(match[2], 10);
+                    const b = parseInt(match[3], 10);
+                    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+                        applyLightText();
+                        return;
+                    }
+
+                    const luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+                    if (luminance < LIGHT_TEXT_LUMINANCE_THRESHOLD) {
+                        applyLightText();
+                    } else {
+                        element.classList.remove('lumina-banner__action--force-light');
+                    }
+                } catch (contrastErr) {
+                    console.warn('Banner action contrast fallback triggered', contrastErr);
+                    applyLightText();
+                }
+            };
+
+            const schedule = () => {
+                if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+                    window.requestAnimationFrame(evaluate);
+                } else {
+                    setTimeout(evaluate, 0);
+                }
+            };
+
+            schedule();
+            if (typeof window !== 'undefined') {
+                window.setTimeout(schedule, 150);
+            }
+        }
+
         function absorbLocalBanners() {
             const selectorList = [
                 '.page-header',
@@ -2578,7 +2649,12 @@
                 '#maincontent > .header',
                 '#maincontent [class*="page-header"]',
                 '#maincontent [class*="hero"]',
-                '#maincontent [class*="banner"]'
+                '#maincontent [class*="banner"]',
+                '#maincontent [class*="top-actions"]',
+                '#maincontent [data-banner-actions]',
+                '.top-actions',
+                '.page-toolbar',
+                '.page-actions'
             ];
 
             const selectors = Array.from(new Set(selectorList));
@@ -2606,7 +2682,9 @@
                 'button-group',
                 'btn-group',
                 'control-bar',
-                'filter-actions'
+                'filter-actions',
+                'top-actions',
+                'quick-actions'
             ];
 
             const shouldSkipHeader = (header) => {
@@ -2640,6 +2718,15 @@
             const cleanupButton = (button, variant) => {
                 REMOVABLE_BANNER_BUTTON_CLASSES.forEach(cls => button.classList.remove(cls));
                 button.classList.add('lumina-banner__action', `lumina-banner__action--${variant}`);
+                button.classList.remove('active');
+                ['color', 'background', 'background-color', 'border', 'border-color', 'box-shadow'].forEach(prop => {
+                    try {
+                        button.style.removeProperty(prop);
+                    } catch (styleErr) {
+                        // Ignore cleanup issues for unsupported properties
+                    }
+                });
+                ensureBannerActionContrast(button);
             };
 
             const extractActionsFrom = (root) => {
@@ -3158,6 +3245,7 @@
                     }
 
                     actionsEl.appendChild(element);
+                    ensureBannerActionContrast(element);
                 });
 
                 if (actions.length) {
@@ -3627,6 +3715,7 @@
 
             const defaultTitle = <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>;
             const defaultDescription = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
+            const fallbackBannerTitle = <?!= JSON.stringify((__layoutCampaignName || 'LuminaHQ')) ?>;
 
             const identityPieces = [];
             if (__LAYOUT_CLIENT_NAME) {
@@ -3643,7 +3732,7 @@
                 .join(' • ');
 
             const initialConfig = {
-                title: absorbed.titleText || defaultTitle,
+                title: absorbed.titleText || defaultTitle || fallbackBannerTitle,
                 titleFragments: absorbed.titleFragments,
                 description: combinedDescription,
                 descriptionElements: absorbed.descriptionElements,
