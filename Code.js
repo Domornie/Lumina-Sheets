@@ -1757,7 +1757,11 @@ function doGet(e) {
     const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
     const page = rawPageParam.toLowerCase();
 
-    if (page === 'login' || !page) {
+    if (!page) {
+      return handlePublicPage('landing', e, baseUrl);
+    }
+
+    if (page === 'login') {
       try {
         const existingSession = authenticateUser(e);
         if (existingSession && existingSession.ID) {
@@ -1771,7 +1775,7 @@ function doGet(e) {
     }
 
     // Handle other public pages
-    const publicPages = ['setpassword', 'resetpassword', 'resend-verification', 'resendverification',
+    const publicPages = ['landing', 'setpassword', 'resetpassword', 'resend-verification', 'resendverification',
       'forgotpassword', 'forgot-password', 'emailconfirmed', 'email-confirmed'];
 
     if (publicPages.includes(page)) {
@@ -1795,11 +1799,6 @@ function doGet(e) {
         .setTitle('Change Password')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
-    // Default route: redirect to persona-specific landing page
-    if (!page) {
-      return redirectToLanding(user);
     }
 
     const campaignId = e.parameter.campaign || user.CampaignID || '';
@@ -2294,6 +2293,16 @@ function handlePublicPage(page, e, baseUrl) {
   const scriptUrl = SCRIPT_URL;
 
   switch (page) {
+    case 'landing':
+      const landingTpl = HtmlService.createTemplateFromFile('Landing');
+      landingTpl.baseUrl = baseUrl;
+      landingTpl.scriptUrl = scriptUrl;
+
+      return landingTpl.evaluate()
+        .setTitle('LuminaHQ – Intelligent Workforce Command Center')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
     case 'setpassword':
     case 'resetpassword':
       const resetToken = e.parameter.token || '';
