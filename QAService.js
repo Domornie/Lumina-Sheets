@@ -988,17 +988,17 @@ function getQAIntelligenceCacheKey_(context) {
 
 function normalizeQaRecord_(record, timezone, passMarkOverride) {
   const entry = Object.assign({}, record);
-  const agent = String(entry.AgentName || entry.Agent || entry.AgentEmail || '').trim();
-  const campaign = String(entry.Campaign || entry.CampaignName || entry.Program || '').trim();
 
-  const dateValue = entry.CallDate || entry.CallTime || entry.EvaluationDate || entry.Date;
+  const agentValue = getRecordFieldValue_(entry, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
+  const campaignValue = getRecordFieldValue_(entry, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
+  const dateValue = getRecordFieldValue_(entry, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
+  const percentageValue = getRecordFieldValue_(entry, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
+
+  const agent = agentValue ? String(agentValue).trim() : 'Unassigned';
+  const campaign = campaignValue ? String(campaignValue).trim() : '';
   const callDate = safeToDate_(dateValue);
-
-  const percentageRaw = Number(entry.Percentage);
-  const percentage = isFinite(percentageRaw)
-    ? (percentageRaw > 1 ? percentageRaw / 100 : percentageRaw)
-    : 0;
-  const recordScore = Math.round(Math.max(0, Math.min(1, percentage)) * 100);
+  const percentage = parsePercentageValue_(percentageValue);
+  const recordScore = Math.round(clamp01_(percentage) * 100);
 
   const passThreshold = typeof passMarkOverride === 'number' ? passMarkOverride : QA_INTEL_PASS_MARK;
 
@@ -1024,12 +1024,7 @@ function normalizeQaRecord_(record, timezone, passMarkOverride) {
 }
 
 function safeToDate_(value) {
-  if (!value) return null;
-  if (value instanceof Date) {
-    return isNaN(value.getTime()) ? null : value;
-  }
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? null : date;
+  return coerceDateValue_(value);
 }
 
 function determineLatestPeriod_(granularity, records) {
@@ -1600,6 +1595,180 @@ function formatMonthKey_(date) {
 
 function getQuarter_(date) {
   return 'Q' + (Math.floor(date.getMonth() / 3) + 1);
+}
+
+function normalizeFieldKey_(key) {
+  return String(key || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function getRecordFieldValue_(record, candidates) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const lookup = {};
+  Object.keys(record).forEach(existingKey => {
+    const normalized = normalizeFieldKey_(existingKey);
+    if (!(normalized in lookup)) {
+      lookup[normalized] = existingKey;
+    }
+  });
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const normalizedKey = normalizeFieldKey_(candidates[i]);
+    const actualKey = lookup[normalizedKey];
+    if (actualKey && record[actualKey] !== undefined && record[actualKey] !== null && record[actualKey] !== '') {
+      return record[actualKey];
+    }
+  }
+
+  return null;
+}
+
+function clamp01_(value) {
+  if (!isFinite(value)) {
+    return 0;
+  }
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function parsePercentageValue_(value) {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+
+  if (typeof value === 'number' && isFinite(value)) {
+    const normalized = value > 1.0001 ? value / 100 : value;
+    return clamp01_(normalized);
+  }
+
+  const numeric = parseFloat(String(value).replace(/[^0-9.\-]/g, ''));
+  if (!isFinite(numeric)) {
+    return 0;
+  }
+
+  const normalized = numeric > 1.0001 ? numeric / 100 : numeric;
+  return clamp01_(normalized);
+}
+
+function excelSerialToDate_(serial) {
+  if (typeof serial !== 'number' || !isFinite(serial)) {
+    return null;
+  }
+
+  if (serial <= 60) {
+    return null;
+  }
+
+  const utcDays = Math.floor(serial - 25569);
+  const utcMilliseconds = utcDays * 86400000;
+  const remainder = serial - Math.floor(serial);
+  const remainderMs = Math.round(remainder * 86400000);
+  const date = new Date(utcMilliseconds + remainderMs);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function parseFlexibleDateString_(raw) {
+  if (!raw) {
+    return null;
+  }
+
+  const value = String(raw).trim();
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(value)) {
+    const asNumber = parseFloat(value);
+    const excelDate = excelSerialToDate_(asNumber);
+    if (excelDate) {
+      return excelDate;
+    }
+  }
+
+  if (/^\d{8}$/.test(value)) {
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(4, 6)) - 1;
+    const day = Number(value.slice(6, 8));
+    const ymdDate = new Date(year, month, day);
+    if (!isNaN(ymdDate.getTime())) {
+      return ymdDate;
+    }
+  }
+
+  let parsed = new Date(value);
+  if (!isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  if (value.indexOf(' ') > -1 && value.indexOf('T') === -1) {
+    parsed = new Date(value.replace(' ', 'T'));
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  const parts = value.split(/[\/\-]/).map(function(part) { return part.trim(); });
+  if (parts.length === 3 && parts.every(function(part) { return /^\d+$/.test(part); })) {
+    var p1 = Number(parts[0]);
+    var p2 = Number(parts[1]);
+    var p3 = Number(parts[2]);
+
+    if (p3 < 100) {
+      p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
+    }
+
+    var month;
+    var day;
+    var year;
+
+    if (p1 > 12 && p2 <= 12) {
+      day = p1;
+      month = p2;
+      year = p3;
+    } else if (p2 > 12 && p1 <= 12) {
+      month = p1;
+      day = p2;
+      year = p3;
+    } else {
+      month = p1;
+      day = p2;
+      year = p3;
+    }
+
+    const manualDate = new Date(year, month - 1, day);
+    if (!isNaN(manualDate.getTime())) {
+      return manualDate;
+    }
+  }
+
+  return null;
+}
+
+function coerceDateValue_(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'number' && isFinite(value)) {
+    const excelDate = excelSerialToDate_(value);
+    if (excelDate) {
+      return excelDate;
+    }
+
+    const numericDate = new Date(value);
+    return isNaN(numericDate.getTime()) ? null : numericDate;
+  }
+
+  return parseFlexibleDateString_(value);
 }
 
 function getPreviousPeriod_(granularity, period) {

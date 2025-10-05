@@ -789,6 +789,279 @@
     }
   }
 
+  /* AI Intelligence Cards */
+  .ai-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .ai-intel-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.75rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-intel-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.05));
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  .ai-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ai-card-header i {
+    color: #667eea;
+    font-size: 1.25rem;
+  }
+
+  .ai-header-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ai-confidence-badge,
+  .ai-source-chip {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4338ca;
+  }
+
+  .ai-source-chip {
+    background: rgba(79, 70, 229, 0.08);
+    color: #3730a3;
+  }
+
+  .ai-source-chip.server {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+  }
+
+  .ai-source-chip.client {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .ai-automation-state {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4338ca;
+  }
+
+  .ai-automation-state.active {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+  }
+
+  .ai-trend-health {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .ai-trend-health.improving {
+    background: rgba(16, 185, 129, 0.18);
+    color: #047857;
+  }
+
+  .ai-trend-health.risk {
+    background: rgba(248, 113, 113, 0.18);
+    color: #b91c1c;
+  }
+
+  .ai-insights-summary,
+  .ai-automation-summary {
+    position: relative;
+    z-index: 2;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-insights-list,
+  .ai-actions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ai-insight-item,
+  .ai-action-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    backdrop-filter: blur(6px);
+  }
+
+  .ai-insight-item.negative,
+  .ai-action-item.urgent {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  .ai-insight-item.positive {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+
+  .ai-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: white;
+    color: #4338ca;
+    box-shadow: 0 6px 15px rgba(102, 126, 234, 0.18);
+  }
+
+  .ai-insight-item.negative .ai-icon,
+  .ai-action-item.urgent .ai-icon {
+    color: #b91c1c;
+    box-shadow: 0 6px 15px rgba(248, 113, 113, 0.25);
+  }
+
+  .ai-insight-item.positive .ai-icon {
+    color: #059669;
+    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.25);
+  }
+
+  .ai-insight-content strong,
+  .ai-action-content strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .ai-insight-content span,
+  .ai-action-content span {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .ai-next-best-action {
+    margin-top: 1.5rem;
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px dashed rgba(59, 130, 246, 0.3);
+    position: relative;
+    z-index: 2;
+    font-size: 0.9rem;
+    color: #1d4ed8;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .ai-next-best-action i {
+    font-size: 1.1rem;
+    margin-top: 0.1rem;
+  }
+
+  .ai-next-best-action strong {
+    display: block;
+    font-size: 0.95rem;
+  }
+
+  .ai-trend-summary {
+    position: relative;
+    z-index: 2;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-trend-visual {
+    position: relative;
+    z-index: 2;
+    background: rgba(102, 126, 234, 0.06);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 14px;
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-trend-visual canvas {
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  .ai-trend-forecast {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #334155;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ai-trend-forecast span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.12);
+    color: #0f766e;
+    font-weight: 600;
+  }
+
+  @media (max-width: 992px) {
+    .ai-intel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .modern-table-card h6 {
     font-size: 1.1rem;
     font-weight: 700;
@@ -1292,6 +1565,10 @@
         'Process Compliance':['Q15','Q16','Q17','Q18']
       };
 
+      rawQA.forEach((record, index) => {
+        rawQA[index] = normalizeClientQaRecord(record, index);
+      });
+
       // Live datetime display function
       function updateLiveDatetime() {
         const now = new Date();
@@ -1316,22 +1593,215 @@
         }
       }
 
-      function safeToDate(dateValue) {
-          if (!dateValue) return null;
-          
-          // If it's already a Date object, check if it's valid
-          if (dateValue instanceof Date) {
-              return isNaN(dateValue.getTime()) ? null : dateValue;
-          }
-          
-          // If it's a string or number, try to convert
-          const date = new Date(dateValue);
-          return isNaN(date.getTime()) ? null : date;
+      function safeToDate(value) {
+        return coerceDateValue(value);
       }
 
       function safeToISOString(dateValue) {
           const date = safeToDate(dateValue);
           return date ? date.toISOString() : null;
+      }
+
+      function normalizeKeyName(key) {
+        return String(key || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '');
+      }
+
+      function getRecordField(record, candidates) {
+        if (!record || typeof record !== 'object') {
+          return null;
+        }
+
+        const lookup = {};
+        Object.keys(record).forEach(existingKey => {
+          const normalized = normalizeKeyName(existingKey);
+          if (!(normalized in lookup)) {
+            lookup[normalized] = existingKey;
+          }
+        });
+
+        for (let i = 0; i < candidates.length; i += 1) {
+          const normalizedKey = normalizeKeyName(candidates[i]);
+          const actualKey = lookup[normalizedKey];
+          if (actualKey && record[actualKey] !== undefined && record[actualKey] !== null && record[actualKey] !== '') {
+            return record[actualKey];
+          }
+        }
+
+        return null;
+      }
+
+      function clamp01(value) {
+        if (!isFinite(value)) {
+          return 0;
+        }
+        if (value < 0) return 0;
+        if (value > 1) return 1;
+        return value;
+      }
+
+      function parsePercentageValue(value) {
+        if (value === null || value === undefined || value === '') {
+          return 0;
+        }
+
+        if (typeof value === 'number' && isFinite(value)) {
+          const normalized = value > 1.0001 ? value / 100 : value;
+          return clamp01(normalized);
+        }
+
+        const numeric = parseFloat(String(value).replace(/[^0-9.\-]/g, ''));
+        if (!isFinite(numeric)) {
+          return 0;
+        }
+
+        const normalized = numeric > 1.0001 ? numeric / 100 : numeric;
+        return clamp01(normalized);
+      }
+
+      function excelSerialToDate(serial) {
+        if (typeof serial !== 'number' || !isFinite(serial)) {
+          return null;
+        }
+
+        if (serial <= 60) {
+          return null;
+        }
+
+        const utcDays = Math.floor(serial - 25569);
+        const utcMilliseconds = utcDays * 86400000;
+        const remainder = serial - Math.floor(serial);
+        const remainderMs = Math.round(remainder * 86400000);
+        const date = new Date(utcMilliseconds + remainderMs);
+        return isNaN(date.getTime()) ? null : date;
+      }
+
+      function parseFlexibleDateString(raw) {
+        if (!raw) {
+          return null;
+        }
+
+        const value = String(raw).trim();
+        if (!value) {
+          return null;
+        }
+
+        if (/^\d+(\.\d+)?$/.test(value)) {
+          const asNumber = parseFloat(value);
+          const excelDate = excelSerialToDate(asNumber);
+          if (excelDate) {
+            return excelDate;
+          }
+        }
+
+        if (/^\d{8}$/.test(value)) {
+          const year = Number(value.slice(0, 4));
+          const month = Number(value.slice(4, 6)) - 1;
+          const day = Number(value.slice(6, 8));
+          const ymdDate = new Date(year, month, day);
+          if (!isNaN(ymdDate.getTime())) {
+            return ymdDate;
+          }
+        }
+
+        let parsed = new Date(value);
+        if (!isNaN(parsed.getTime())) {
+          return parsed;
+        }
+
+        if (value.includes(' ') && !value.includes('T')) {
+          parsed = new Date(value.replace(' ', 'T'));
+          if (!isNaN(parsed.getTime())) {
+            return parsed;
+          }
+        }
+
+        const parts = value.split(/[\/\-]/).map(part => part.trim());
+        if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
+          let [p1, p2, p3] = parts.map(Number);
+          if (p3 < 100) {
+            p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
+          }
+
+          let month;
+          let day;
+          let year;
+
+          if (p1 > 12 && p2 <= 12) {
+            day = p1;
+            month = p2;
+            year = p3;
+          } else if (p2 > 12 && p1 <= 12) {
+            month = p1;
+            day = p2;
+            year = p3;
+          } else {
+            month = p1;
+            day = p2;
+            year = p3;
+          }
+
+          const manualDate = new Date(year, month - 1, day);
+          if (!isNaN(manualDate.getTime())) {
+            return manualDate;
+          }
+        }
+
+        return null;
+      }
+
+      function coerceDateValue(value) {
+        if (value === null || value === undefined || value === '') {
+          return null;
+        }
+
+        if (value instanceof Date) {
+          return isNaN(value.getTime()) ? null : value;
+        }
+
+        if (typeof value === 'number' && isFinite(value)) {
+          const excelDate = excelSerialToDate(value);
+          if (excelDate) {
+            return excelDate;
+          }
+
+          const numericDate = new Date(value);
+          return isNaN(numericDate.getTime()) ? null : numericDate;
+        }
+
+        return parseFlexibleDateString(value);
+      }
+
+      function normalizeClientQaRecord(record, index) {
+        const normalized = { ...record };
+
+        const agentValue = getRecordField(record, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
+        const campaignValue = getRecordField(record, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
+        const percentageValue = getRecordField(record, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
+        const callDateValue = getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
+
+        const agentName = agentValue ? String(agentValue).trim() : '';
+        const campaign = campaignValue ? String(campaignValue).trim() : '';
+        const callDate = coerceDateValue(callDateValue);
+        const percentage = parsePercentageValue(percentageValue);
+
+        if (agentName) {
+          normalized.AgentName = agentName;
+        } else if (!normalized.AgentName) {
+          normalized.AgentName = 'Unassigned';
+        }
+
+        if (campaign) {
+          normalized.Campaign = campaign;
+        }
+
+        normalized.Percentage = percentage;
+        normalized.callDateObj = callDate;
+        normalized.CallDate = callDate instanceof Date ? callDate.toISOString() : null;
+        normalized.__recordIndex = index;
+
+        return normalized;
       }
 
       function isValidDate(dateValue) {
@@ -1390,6 +1860,356 @@
           out[cat]={ avgScore, passPct };
         });
         return out;
+      }
+
+      function formatPeriodLabel(granularity, period) {
+        if (!period) return 'Period';
+        switch (granularity) {
+          case 'Week':
+            return period.replace(/^[0-9]{4}-/, '');
+          case 'Month': {
+            const [y, m] = period.split('-');
+            const date = new Date(Number(y), Number(m) - 1, 1);
+            return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+          }
+          case 'Quarter':
+            return period.replace('-', ' ');
+          case 'Year':
+            return period;
+          default:
+            return period;
+        }
+      }
+
+      function filterRecordsByPeriod(data, granularity, periodValue) {
+        if (!periodValue) return [];
+        return data.filter(record => {
+          const dt = record.callDateObj;
+          if (!dt) return false;
+          try {
+            switch (granularity) {
+              case 'Week':
+                return toISOWeek(dt) === periodValue;
+              case 'Month':
+                return dt.toISOString().slice(0, 7) === periodValue;
+              case 'Quarter':
+                return `${getQuarter(dt)}-${dt.getFullYear()}` === periodValue;
+              case 'Year':
+                return String(dt.getFullYear()) === periodValue;
+              default:
+                return true;
+            }
+          } catch (err) {
+            console.warn('filterRecordsByPeriod error', record, err);
+            return false;
+          }
+        });
+      }
+
+      function buildTrendSeries(granularity, currentPeriod, data, depth = 4) {
+        const series = [];
+        let cursor = currentPeriod;
+        let steps = 0;
+        const visited = new Set();
+
+        while (cursor && steps < depth && !visited.has(cursor)) {
+          visited.add(cursor);
+          const bucket = filterRecordsByPeriod(data, granularity, cursor);
+          const evalCount = bucket.length;
+          const agentCount = new Set(bucket.map(r => r.AgentName)).size;
+          const avgScore = evalCount ? Math.round(bucket.reduce((sum, r) => sum + (r.Percentage || 0), 0) / evalCount * 100) : 0;
+          const passRate = safePercentage(bucket.filter(r => r.Percentage >= PASS_MARK).length, evalCount);
+          const coverage = userList.length ? safePercentage(agentCount, userList.length) : (agentCount > 0 ? 100 : 0);
+
+          series.push({
+            period: cursor,
+            label: formatPeriodLabel(granularity, cursor),
+            avgScore,
+            passRate,
+            evalCount,
+            agentCount,
+            coverage
+          });
+
+          cursor = getPreviousPeriod(granularity, cursor);
+          steps += 1;
+        }
+
+        return series.reverse();
+      }
+
+      function linearRegression(points) {
+        if (!points || !points.length) {
+          return { slope: 0, intercept: 0 };
+        }
+
+        if (points.length === 1) {
+          return { slope: 0, intercept: points[0].y };
+        }
+
+        const n = points.length;
+        let sumX = 0;
+        let sumY = 0;
+        let sumXY = 0;
+        let sumXX = 0;
+
+        points.forEach(point => {
+          sumX += point.x;
+          sumY += point.y;
+          sumXY += point.x * point.y;
+          sumXX += point.x * point.x;
+        });
+
+        const denominator = (n * sumXX) - (sumX * sumX);
+        if (denominator === 0) {
+          return { slope: 0, intercept: sumY / n };
+        }
+
+        const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        return { slope, intercept };
+      }
+
+      function clampPercent(value) {
+        if (Number.isNaN(value)) return 0;
+        return Math.max(0, Math.min(100, Math.round(value)));
+      }
+
+      function analyzeTrendSeries(series, context = {}) {
+        const { granularity = 'Period' } = context;
+        const lowerGran = granularity.toLowerCase();
+
+        if (!series || !series.length) {
+          return {
+            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
+            points: [],
+            health: 'monitoring',
+            forecast: { avg: 0, pass: 0 },
+            nextLabel: `next ${lowerGran}`
+          };
+        }
+
+        const first = series[0];
+        const last = series[series.length - 1];
+
+        const avgPoints = series.map((point, index) => ({ x: index, y: point.avgScore }));
+        const passPoints = series.map((point, index) => ({ x: index, y: point.passRate }));
+        const avgReg = linearRegression(avgPoints);
+        const passReg = linearRegression(passPoints);
+
+        const avgDelta = last.avgScore - first.avgScore;
+        const passDelta = last.passRate - first.passRate;
+        const volumeDelta = last.evalCount - first.evalCount;
+
+        const slopeAvg = avgReg.slope;
+        const slopePass = passReg.slope;
+
+        const improving = slopeAvg > 0.5 || slopePass > 0.5;
+        const declining = slopeAvg < -0.5 || slopePass < -0.5;
+
+        let health = 'stable';
+        if (improving) health = 'improving';
+        if (declining) health = 'risk';
+
+        const summaryParts = [];
+        summaryParts.push(`Average quality is ${avgDelta >= 0 ? 'up' : 'down'} ${Math.abs(avgDelta).toFixed(1)} pts`);
+        summaryParts.push(`pass rate ${passDelta >= 0 ? 'gained' : 'slid'} ${Math.abs(passDelta).toFixed(1)} pts`);
+        summaryParts.push(`${last.evalCount} evaluations this ${lowerGran}`);
+
+        const points = [];
+
+        points.push({
+          icon: improving ? 'fa-arrow-up' : declining ? 'fa-arrow-down' : 'fa-arrows-alt-h',
+          tone: improving ? 'positive' : declining ? 'negative' : '',
+          title: `Average score ${improving ? 'rising' : declining ? 'dropping' : 'steady'}`,
+          text: `${first.avgScore}% → ${last.avgScore}% across the last ${series.length} ${series.length === 1 ? lowerGran : lowerGran + 's'}.`
+        });
+
+        points.push({
+          icon: passDelta >= 0 ? 'fa-shield-alt' : 'fa-exclamation-triangle',
+          tone: passDelta >= 0 ? 'positive' : 'negative',
+          title: `Pass rate ${passDelta >= 0 ? 'improving' : 'at risk'}`,
+          text: `${first.passRate}% → ${last.passRate}% (${passDelta >= 0 ? '+' : ''}${passDelta.toFixed(1)} pts).`
+        });
+
+        if (Math.abs(volumeDelta) > 0) {
+          points.push({
+            icon: volumeDelta >= 0 ? 'fa-users' : 'fa-user-slash',
+            tone: volumeDelta >= 0 ? 'positive' : 'negative',
+            title: `Evaluation volume ${volumeDelta >= 0 ? 'growing' : 'contracting'}`,
+            text: `${first.evalCount} → ${last.evalCount} evaluations (${volumeDelta >= 0 ? '+' : ''}${volumeDelta}).`
+          });
+        } else {
+          points.push({
+            icon: 'fa-stopwatch',
+            tone: '',
+            title: 'Volume steady',
+            text: `Evaluation count steady at ${last.evalCount} per ${lowerGran}.`
+          });
+        }
+
+        if (last.coverage < 80) {
+          points.push({
+            icon: 'fa-user-shield',
+            tone: 'negative',
+            title: 'Coverage gap detected',
+            text: `Only ${last.coverage}% of agents covered in the latest ${lowerGran}.`
+          });
+        }
+
+        const avgForecast = clampPercent(avgReg.intercept + avgReg.slope * avgPoints.length);
+        const passForecast = clampPercent(passReg.intercept + passReg.slope * passPoints.length);
+
+        const summary = `${summaryParts.join(', ')}.`;
+
+        return {
+          summary,
+          points,
+          health,
+          forecast: { avg: avgForecast, pass: passForecast },
+          nextLabel: `next ${lowerGran}`
+        };
+      }
+
+      function renderTrendSparkline(series, granularity) {
+        const visual = document.getElementById('aiTrendVisual');
+        const canvas = document.getElementById('aiTrendSparkline');
+
+        if (!visual || !canvas) {
+          return;
+        }
+
+        if (!series || !series.length) {
+          visual.style.display = 'none';
+          if (trendSparklineChart) {
+            trendSparklineChart.destroy();
+            trendSparklineChart = null;
+          }
+          return;
+        }
+
+        visual.style.display = '';
+
+        if (trendSparklineChart) {
+          trendSparklineChart.destroy();
+          trendSparklineChart = null;
+        }
+
+        const labels = series.map(point => point.label || formatPeriodLabel(granularity, point.period));
+        const avgData = series.map(point => point.avgScore);
+        const passData = series.map(point => point.passRate);
+
+        trendSparklineChart = new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Avg Score',
+                data: avgData,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,0.15)',
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#6366f1',
+                fill: true
+              },
+              {
+                label: 'Pass Rate',
+                data: passData,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16,185,129,0.12)',
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#10b981',
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                labels: {
+                  usePointStyle: true,
+                  font: {
+                    family: "'Google Sans', sans-serif",
+                    size: 11
+                  }
+                }
+              },
+              tooltip: {
+                backgroundColor: 'rgba(15,23,42,0.9)',
+                titleColor: '#fff',
+                bodyColor: '#e2e8f0',
+                cornerRadius: 10,
+                padding: 10
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                grid: { color: 'rgba(15,23,42,0.05)' },
+                ticks: { font: { family: "'Google Sans', sans-serif" } }
+              },
+              x: {
+                grid: { display: false },
+                ticks: { font: { family: "'Google Sans', sans-serif" } }
+              }
+            }
+          }
+        });
+      }
+
+      function updateAITrendPanel({ series, granularity }, analysisOverride = null) {
+        const summaryEl = document.getElementById('aiTrendSummary');
+        const listEl = document.getElementById('aiTrendList');
+        const forecastEl = document.getElementById('aiTrendForecast');
+        const healthEl = document.getElementById('aiTrendHealth');
+
+        if (!summaryEl || !listEl) {
+          return;
+        }
+
+        const analysis = analysisOverride || analyzeTrendSeries(series, { granularity });
+
+        summaryEl.textContent = analysis.summary;
+        listEl.innerHTML = '';
+
+        if (analysis.points.length) {
+          listEl.innerHTML = analysis.points.map(point => {
+            const tone = point.tone ? ` ${point.tone}` : '';
+            return `<li class="ai-insight-item${tone}"><div class="ai-icon"><i class="fas ${point.icon}"></i></div><div class="ai-insight-content"><strong>${point.title}</strong><span>${point.text}</span></div></li>`;
+          }).join('');
+        } else {
+          listEl.innerHTML = '<li class="ai-insight-item"><div class="ai-icon"><i class="fas fa-info-circle"></i></div><div class="ai-insight-content"><strong>No trend data yet</strong><span>Capture a few periods of QA to unlock longitudinal intelligence.</span></div></li>';
+        }
+
+        if (forecastEl) {
+          if (analysis.forecast && (analysis.forecast.avg || analysis.forecast.pass)) {
+            forecastEl.innerHTML = `
+              <span><i class="fas fa-forward"></i>${analysis.nextLabel}: ${analysis.forecast.avg}% avg</span>
+              <span><i class="fas fa-shield-alt"></i>${analysis.forecast.pass}% pass</span>
+            `;
+          } else {
+            forecastEl.innerHTML = '';
+          }
+        }
+
+        if (healthEl) {
+          healthEl.textContent = analysis.health === 'improving' ? 'Improving' : analysis.health === 'risk' ? 'At Risk' : analysis.health === 'monitoring' ? 'Monitoring' : 'Stable';
+          healthEl.classList.remove('improving', 'risk');
+          if (analysis.health === 'improving') {
+            healthEl.classList.add('improving');
+          } else if (analysis.health === 'risk') {
+            healthEl.classList.add('risk');
+          }
+        }
+
+        renderTrendSparkline(series, granularity);
       }
 
       function formatPeriodLabel(granularity, period) {
@@ -1835,22 +2655,20 @@
       function debugInvalidDates() {
           console.log('=== QA Data Date Debug ===');
           let invalidCount = 0;
-          
+
           rawQA.forEach((record, index) => {
-              const callDate = record.CallDate;
-              const testDate = safeToDate(callDate);
-              
-              if (!testDate) {
+              if (!(record.callDateObj instanceof Date) || isNaN(record.callDateObj.getTime())) {
                   console.log(`Invalid date at index ${index}:`, {
-                      CallDate: callDate,
-                      CallDateType: typeof callDate,
+                      CallDate: record.CallDate,
+                      CallDateSource: getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']),
                       AgentName: record.AgentName,
+                      RecordIndex: record.__recordIndex,
                       record: record
                   });
                   invalidCount++;
               }
           });
-          
+
           console.log(`Found ${invalidCount} records with invalid dates out of ${rawQA.length} total records`);
           return invalidCount;
       }
@@ -2286,20 +3104,13 @@
           showLoader('Preparing filtered results…');
           setTimeout(()=>{
               // STEP 1: Clean and validate the raw QA data first
-              const cleanedQA = rawQA.map(r => {
-                  // Validate and clean the CallDate
-                  const callDate = safeToDate(r.CallDate);
-                  if (!callDate) {
+              const cleanedQA = rawQA.filter(r => {
+                  const valid = r.callDateObj instanceof Date && !isNaN(r.callDateObj.getTime());
+                  if (!valid) {
                       console.warn('Invalid CallDate found in record:', r);
-                      return null; // Mark for removal
                   }
-                  
-                  return {
-                      ...r,
-                      CallDate: callDate.toISOString(), // Store as valid ISO string
-                      callDateObj: callDate // Keep Date object for processing
-                  };
-              }).filter(r => r !== null); // Remove records with invalid dates
+                  return valid;
+              });
 
               // STEP 2: Calculate scores safely
               const scored = cleanedQA.map(r => {
