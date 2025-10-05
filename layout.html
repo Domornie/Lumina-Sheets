@@ -452,6 +452,90 @@
     window.deriveReturnUrl = (rawUrl, slug = PAGE_SLUG) => deriveReturnUrl(rawUrl, slug);
     window.buildReturnUrl = buildReturnUrl;
     window.getReturnUrl = buildReturnUrl;
+
+    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
+
+    function setLogoutReason(reason) {
+      try {
+        if (!window.sessionStorage) {
+          return;
+        }
+        if (!reason) {
+          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+        } else {
+          window.sessionStorage.setItem(LOGOUT_REASON_STORAGE_KEY, String(reason));
+        }
+      } catch (err) {
+        console.warn('setLogoutReason: unable to persist logout reason', err);
+      }
+    }
+
+    function getLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
+        }
+      } catch (err) {
+        console.warn('getLogoutReason: unable to read logout reason', err);
+      }
+      return '';
+    }
+
+    function clearLogoutReason() {
+      setLogoutReason('');
+    }
+
+    function buildLoginUrl(options = {}) {
+      const baseTarget = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL || SCRIPT_URL || '/';
+      const includeReturn = options.includeReturn === true;
+      const reason = (options.reason && String(options.reason)) || getLogoutReason();
+
+      if (!includeReturn || (reason && reason.toLowerCase() === 'manual')) {
+        return baseTarget;
+      }
+
+      let candidate = options.returnUrl || '';
+      if (!candidate && typeof window !== 'undefined' && window.location && window.location.href) {
+        candidate = window.location.href;
+      }
+      if (!candidate && RETURN_URL) {
+        candidate = RETURN_URL;
+      }
+
+      let sanitized = '';
+      try {
+        sanitized = buildReturnUrl({}, candidate);
+      } catch (err) {
+        console.warn('buildLoginUrl: unable to build return URL', err);
+      }
+
+      if (!sanitized || /page=login/i.test(sanitized)) {
+        sanitized = '';
+      }
+
+      if (!sanitized) {
+        return baseTarget;
+      }
+
+      try {
+        const loginUrl = new URL(baseTarget, window.location && window.location.href ? window.location.href : undefined);
+        loginUrl.searchParams.set('page', 'login');
+        loginUrl.searchParams.set('returnUrl', sanitized);
+        loginUrl.hash = '';
+        return loginUrl.toString();
+      } catch (err) {
+        console.warn('buildLoginUrl: falling back to manual concatenation', err);
+        const separator = baseTarget.indexOf('?') === -1
+          ? '?'
+          : (/[?&]$/.test(baseTarget) ? '' : '&');
+        return `${baseTarget}${separator}returnUrl=${encodeURIComponent(sanitized)}`;
+      }
+    }
+
+    window.buildLoginUrl = buildLoginUrl;
+    window.setLogoutReason = setLogoutReason;
+    window.getLogoutReason = getLogoutReason;
+    window.clearLogoutReason = clearLogoutReason;
   </script>
 
   <style>
@@ -2891,7 +2975,13 @@
             } catch (e) {
                 console.warn('⚠️ Could not clear storage:', e);
             }
-            
+
+            try {
+                setLogoutReason('manual');
+            } catch (reasonError) {
+                console.warn('handleLogout: unable to persist manual logout reason', reasonError);
+            }
+
             // Call server logout
             google.script.run
                 .withSuccessHandler(function(result) {
@@ -2918,12 +3008,18 @@
             } catch (e) {
                 console.warn('Could not clear storage:', e);
             }
-            
+
+            try {
+                setLogoutReason('manual');
+            } catch (reasonError) {
+                console.warn('performLogout: unable to persist manual logout reason', reasonError);
+            }
+
             // Show logout message and redirect
             showLogoutMessage();
 
             setTimeout(function() {
-                const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL;
+                const target = buildLoginUrl({ includeReturn: false, reason: 'manual' });
                 window.location.href = target || BASE_URL;
             }, 2000);
         }
@@ -3051,10 +3147,36 @@
             } catch (sessionStorageError) {
                 console.warn('AuthGuard: unable to clear sessionStorage tokens', sessionStorageError);
             }
+
+            try {
+                const existingReason = getLogoutReason();
+                if (existingReason && existingReason.toLowerCase() === 'manual' && reason !== 'manual') {
+                    return;
+                }
+                setLogoutReason(reason === 'manual' ? 'manual' : 'auto');
+            } catch (reasonError) {
+                console.warn('AuthGuard: unable to persist logout reason', reasonError);
+            }
         }
 
-        function redirectToLogin() {
-            const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL || '/';
+        function redirectToLogin(options) {
+            const opts = options || {};
+            if (opts.reason) {
+                try {
+                    const existingReason = getLogoutReason();
+                    if (!(existingReason && existingReason.toLowerCase() === 'manual' && opts.reason !== 'manual')) {
+                        setLogoutReason(opts.reason);
+                    }
+                } catch (reasonError) {
+                    console.warn('redirectToLogin: unable to persist logout reason', reasonError);
+                }
+            }
+
+            const target = buildLoginUrl({
+                includeReturn: opts.includeReturn === true,
+                returnUrl: opts.returnUrl,
+                reason: opts.reason
+            }) || '/';
             try {
                 if (window.location && typeof window.location.replace === 'function') {
                     window.location.replace(target);
@@ -3079,7 +3201,10 @@
 
             console.log('🔒 AuthGuard: missing auth token, enforcing logout redirect', context);
             clearClientAuthState(context || 'auth-guard');
-            redirectToLogin();
+            const currentLocation = (typeof window !== 'undefined' && window.location && window.location.href)
+                ? window.location.href
+                : '';
+            redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: currentLocation });
             return false;
         }
 
@@ -3614,7 +3739,22 @@
             }
 
             function redirectToLogin() {
-                const target = global.__LUMINA_LOGIN_URL || global.LOGIN_URL || global.BASE_URL || (global.location ? global.location.href : '/');
+                const current = (global.location && global.location.href) ? global.location.href : '';
+                if (global && typeof global.redirectToLogin === 'function') {
+                    try {
+                        global.redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: current });
+                        return;
+                    } catch (delegationError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: global redirectToLogin failed', delegationError);
+                        }
+                    }
+                }
+
+                const target = (typeof global.buildLoginUrl === 'function')
+                    ? global.buildLoginUrl({ includeReturn: true, reason: 'auto', returnUrl: current })
+                    : (global.__LUMINA_LOGIN_URL || global.LOGIN_URL || global.BASE_URL || (global.location ? global.location.href : '/'));
+
                 global.setTimeout(function () {
                     try {
                         global.location.href = target;
@@ -3655,7 +3795,7 @@
                 });
                 stop({ clearAuth: true, reason: reason, silent: true });
                 notifyExpired(result && result.message ? result.message : 'Your session has expired. Please sign in again.');
-                redirectToLogin();
+                redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: (global.location && global.location.href) || '' });
             }
 
             function handleSuccess(result) {
@@ -3741,7 +3881,7 @@
                     dispatchStatus('missing-token', { message: 'No session token available' });
                     stop({ clearAuth: true, reason: 'missing-token', silent: true });
                     notifyExpired('Your session has ended. Please sign in again.');
-                    redirectToLogin();
+                    redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: (global.location && global.location.href) || '' });
                     return;
                 }
 

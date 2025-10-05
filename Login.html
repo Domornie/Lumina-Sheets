@@ -1020,6 +1020,29 @@
     const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
     const SESSION_RESUME_LOADER_DELAY_MS = 500;
 
+    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
+
+    function getStoredLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
+        }
+      } catch (err) {
+        console.warn('getStoredLogoutReason: unable to read logout reason', err);
+      }
+      return '';
+    }
+
+    function clearStoredLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+        }
+      } catch (err) {
+        console.warn('clearStoredLogoutReason: unable to clear logout reason', err);
+      }
+    }
+
     function sanitizeBaseUrl(candidate, fallback) {
       const invalidPattern = /usercodeapppanel/i;
 
@@ -1144,7 +1167,9 @@
       sessionIdleTimeoutMinutes: null,
       sessionTtlSeconds: null,
       sessionExpiresAt: null,
-      lastRememberMe: false
+      lastRememberMe: false,
+      lastLogoutReason: getStoredLogoutReason(),
+      preferredReturnUrl: ''
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3417,7 +3442,24 @@
       );
 
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
-      const destinationUrl = normalizeRedirectUrl(redirectInput);
+      let destinationUrl = normalizeRedirectUrl(redirectInput);
+
+      if (state.lastLogoutReason === 'auto' && state.preferredReturnUrl) {
+        const preferred = normalizeRedirectUrl(state.preferredReturnUrl);
+        if (preferred) {
+          destinationUrl = preferred;
+        }
+      } else if (response && response.requestedReturnUrl) {
+        const preferred = normalizeRedirectUrl(response.requestedReturnUrl);
+        if (preferred) {
+          destinationUrl = preferred;
+        }
+      }
+
+      clearStoredLogoutReason();
+      state.lastLogoutReason = '';
+      state.preferredReturnUrl = '';
+
       setupRedirect(destinationUrl);
       hideNextSteps();
     }
@@ -3429,6 +3471,14 @@
       console.log('Attempting login for:', email);
 
       monitorLoginRequest(email, rememberMe);
+
+      const clientMetadata = collectClientMetadata() || {};
+      if (state.lastLogoutReason) {
+        clientMetadata.logoutReason = state.lastLogoutReason;
+      }
+      if (state.lastLogoutReason === 'auto' && state.preferredReturnUrl) {
+        clientMetadata.requestedReturnUrl = state.preferredReturnUrl;
+      }
 
       google.script.run
         .withSuccessHandler(response => {
@@ -3498,7 +3548,7 @@
             ]
           });
         })
-        .loginUser(email, password, rememberMe, collectClientMetadata());
+        .loginUser(email, password, rememberMe, clientMetadata);
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3601,7 +3651,26 @@
         const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash || ''}`;
         window.history.replaceState({}, document.title, newUrl);
       }
-      
+
+      if (urlParams.has('returnUrl')) {
+        const rawReturnUrl = urlParams.get('returnUrl');
+        if (state.lastLogoutReason === 'auto') {
+          try {
+            const normalizedReturn = normalizeRedirectUrl(rawReturnUrl);
+            if (normalizedReturn && !/page=login/i.test(normalizedReturn)) {
+              state.preferredReturnUrl = normalizedReturn;
+            }
+          } catch (returnError) {
+            console.warn('Unable to normalize return URL parameter', returnError);
+          }
+        } else {
+          urlParams.delete('returnUrl');
+          const cleanedQuery = urlParams.toString();
+          const cleanUrl = `${window.location.pathname}${cleanedQuery ? `?${cleanedQuery}` : ''}${window.location.hash || ''}`;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      }
+
       if (error) {
         showAlert('error', decodeURIComponent(error));
       } else if (message) {

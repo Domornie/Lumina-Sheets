@@ -1241,6 +1241,119 @@ function renderLoginPage(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+function sanitizeLoginReturnUrl(raw) {
+  try {
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+      return IdentityService.sanitizeLoginReturnUrl(raw);
+    }
+  } catch (identityError) {
+    console.warn('sanitizeLoginReturnUrl: IdentityService helper failed', identityError);
+  }
+
+  if (!raw && raw !== 0) {
+    return '';
+  }
+
+  try {
+    var value = String(raw).trim();
+    if (!value) {
+      return '';
+    }
+
+    if (/^javascript:/i.test(value)) {
+      return '';
+    }
+
+    if (/^https?:/i.test(value)) {
+      try {
+        var base = getBaseUrl() || '';
+        if (!base && typeof SCRIPT_URL === 'string') {
+          base = SCRIPT_URL;
+        }
+
+        if (base) {
+          var baseMatch = /^https?:\/\/[^/]+/i.exec(base);
+          var targetMatch = /^https?:\/\/[^/]+/i.exec(value);
+          if (baseMatch && targetMatch && baseMatch[0].toLowerCase() !== targetMatch[0].toLowerCase()) {
+            return '';
+          }
+        }
+      } catch (originError) {
+        console.warn('sanitizeLoginReturnUrl fallback origin check failed', originError);
+      }
+    }
+
+    if (value.length > 500) {
+      value = value.slice(0, 500);
+    }
+
+    return value;
+  } catch (error) {
+    console.warn('sanitizeLoginReturnUrl fallback failed', error);
+    return '';
+  }
+}
+
+function buildLoginPageUrl(options) {
+  var base = getBaseUrl() || SCRIPT_URL || '';
+  var parts = ['page=login'];
+
+  if (options && options.returnUrl) {
+    var sanitized = sanitizeLoginReturnUrl(options.returnUrl);
+    if (sanitized) {
+      parts.push('returnUrl=' + encodeURIComponent(sanitized));
+    }
+  }
+
+  if (options && options.message) {
+    parts.push('message=' + encodeURIComponent(String(options.message)));
+  }
+
+  if (options && options.error) {
+    parts.push('error=' + encodeURIComponent(String(options.error)));
+  }
+
+  var query = parts.join('&');
+  if (!base) {
+    return '?' + query;
+  }
+
+  return base + (base.indexOf('?') === -1 ? '?' : '&') + query;
+}
+
+function handleLogoutRequest(e) {
+  try {
+    var token = (e && e.parameter && e.parameter.token) ? String(e.parameter.token) : '';
+
+    try {
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.logout === 'function') {
+        AuthenticationService.logout(token || '');
+      } else if (typeof identitySignOut === 'function') {
+        identitySignOut(token || '');
+      }
+    } catch (logoutError) {
+      console.warn('handleLogoutRequest: server logout failed', logoutError);
+    }
+
+    var returnCandidate = (e && e.parameter && e.parameter.returnUrl) ? e.parameter.returnUrl : '';
+    var loginUrl = buildLoginPageUrl({ returnUrl: returnCandidate });
+
+    return HtmlService
+      .createHtmlOutput('<script>window.top.location.href = ' + JSON.stringify(loginUrl) + ';</script>')
+      .setTitle('Logging out…')
+      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (error) {
+    console.error('handleLogoutRequest: unexpected failure', error);
+    writeError('handleLogoutRequest', error);
+    return renderLoginPage({ parameter: { page: 'login' } });
+  }
+}
+
 function canonicalizePageKey(k) {
   const key = String(k || '').trim().toLowerCase();
   if (!key) return key;
@@ -1382,6 +1495,36 @@ function doGet(e) {
   try {
     const baseUrl = getBaseUrl();
 
+    function redirectToLanding(user) {
+      const userCampaignId = user.CampaignID || '';
+      let landingSlug = '';
+
+      try {
+        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
+            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
+              user: user,
+              userPayload: user,
+              rawUser: user
+            });
+            if (landingInfo && landingInfo.slug) {
+              landingSlug = landingInfo.slug;
+            }
+          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
+            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
+          }
+        }
+      } catch (landingError) {
+        console.warn('doGet: failed to compute landing slug', landingError);
+      }
+
+      const redirectPage = landingSlug || 'dashboard';
+      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
+      return HtmlService
+        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
+        .setTitle('Redirecting...');
+    }
+
     // Initialize system
     // initializeSystem();
 
@@ -1416,9 +1559,19 @@ function doGet(e) {
     }
 
     // Handle public pages
-    const page = (e.parameter.page || "").toLowerCase();
+    const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
+    const page = rawPageParam.toLowerCase();
 
-    if (page === 'login' || (!page)) {
+    if (page === 'login' || !page) {
+      try {
+        const existingSession = authenticateUser(e);
+        if (existingSession && existingSession.ID) {
+          return redirectToLanding(existingSession);
+        }
+      } catch (sessionError) {
+        console.warn('doGet: session probe failed for login/default route', sessionError);
+      }
+
       return renderLoginPage(e);
     }
 
@@ -1451,33 +1604,7 @@ function doGet(e) {
 
     // Default route: redirect to persona-specific landing page
     if (!page) {
-      const userCampaignId = user.CampaignID || '';
-      let landingSlug = '';
-
-      try {
-        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
-          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
-            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
-              user: user,
-              userPayload: user,
-              rawUser: user
-            });
-            if (landingInfo && landingInfo.slug) {
-              landingSlug = landingInfo.slug;
-            }
-          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
-            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
-          }
-        }
-      } catch (landingError) {
-        console.warn('doGet: failed to compute landing slug', landingError);
-      }
-
-      const redirectPage = landingSlug || 'dashboard';
-      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
-      return HtmlService
-        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-        .setTitle('Redirecting...');
+      return redirectToLanding(user);
     }
 
     const campaignId = e.parameter.campaign || user.CampaignID || '';
