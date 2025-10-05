@@ -2103,10 +2103,42 @@
         console.warn('Unable to clear auth token from sessionStorage', err);
       }
 
+      broadcastSessionTokenChange('');
+
       state.authToken = '';
       state.sessionIdleTimeoutMinutes = null;
       state.sessionTtlSeconds = null;
       state.sessionExpiresAt = null;
+    }
+
+    function broadcastSessionTokenChange(token) {
+      try {
+        if (typeof window === 'undefined') {
+          return;
+        }
+
+        window.__LUMINA_SESSION_TOKEN__ = token || '';
+
+        if (typeof window.dispatchEvent !== 'function') {
+          return;
+        }
+
+        const detail = { token: token || '' };
+        let event = null;
+
+        if (typeof CustomEvent === 'function') {
+          event = new CustomEvent('lumina:session-token', { detail });
+        } else if (window.document && typeof window.document.createEvent === 'function') {
+          event = window.document.createEvent('CustomEvent');
+          event.initCustomEvent('lumina:session-token', false, false, detail);
+        }
+
+        if (event) {
+          window.dispatchEvent(event);
+        }
+      } catch (err) {
+        console.warn('broadcastSessionTokenChange: Unable to notify listeners', err);
+      }
     }
 
     function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
@@ -2168,6 +2200,7 @@
         console.warn('Unable to persist auth token in sessionStorage', err);
       }
 
+      broadcastSessionTokenChange(token);
       restartSessionHeartbeat();
     }
 
@@ -2438,6 +2471,51 @@
       }
 
       return url;
+    }
+
+    function appendSessionTokenToUrl(url, providedToken) {
+      if (!url) {
+        return url;
+      }
+
+      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
+      const tokenCandidate = normalizedProvided || state.authToken || readAuthCookie();
+      const token = tokenCandidate ? String(tokenCandidate).trim() : '';
+
+      if (!token) {
+        return url;
+      }
+
+      const raw = String(url).trim();
+      if (!raw || raw.startsWith('#')) {
+        return url;
+      }
+
+      if (/^(mailto:|tel:|javascript:)/i.test(raw)) {
+        return url;
+      }
+
+      try {
+        const base = window.location && window.location.href ? window.location.href : undefined;
+        const parsed = new URL(raw, base);
+
+        if (parsed.searchParams.get('token') !== token) {
+          parsed.searchParams.set('token', token);
+        }
+
+        if (raw.startsWith('?')) {
+          return (parsed.search || '') + (parsed.hash || '');
+        }
+
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
+          return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
+        }
+
+        return parsed.toString();
+      } catch (error) {
+        console.warn('appendSessionTokenToUrl: Unable to append token to redirect URL', error);
+        return url;
+      }
     }
 
     function buildPageUrl(page, params = {}) {
@@ -3376,7 +3454,9 @@
         return;
       }
 
-      console.log('Redirecting immediately to:', safeUrl);
+      const redirectUrl = appendSessionTokenToUrl(safeUrl);
+
+      console.log('Redirecting immediately to:', redirectUrl);
 
       if (elements.loginForm) {
         elements.loginForm.classList.add('form-slide-out');
@@ -3389,12 +3469,12 @@
           google.script.host &&
           typeof google.script.host.setLocation === 'function'
         ) {
-          google.script.host.setLocation(safeUrl);
+          google.script.host.setLocation(redirectUrl);
         } else {
-          window.location.href = safeUrl;
+          window.location.href = redirectUrl;
 
           setTimeout(() => {
-            window.location.assign(safeUrl);
+            window.location.assign(redirectUrl);
           }, 100);
         }
       } catch (error) {
