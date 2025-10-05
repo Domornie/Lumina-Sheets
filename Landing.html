@@ -6,12 +6,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LuminaHQ – Intelligent Workforce Command Center</title>
-
-  <?!= includeOnce('CookieHandler') ?>
-  <?!= includeOnce('layoutLoader') ?>
-  <?!= includeOnce('layoutAlerts') ?>
-  <?!= includeOnce('ResponsiveStyles') ?>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -553,6 +547,7 @@
       }
     }
   </style>
+  <? var loginUrl = buildLoginPageUrl({}); ?>
 </head>
 
 <body class="landing-page">
@@ -568,7 +563,7 @@
         </a>
         <div class="nav-actions">
           <a class="btn-outline" href="#about"><i class="fa-regular fa-circle-question"></i> About</a>
-          <a class="btn-primary" href="Login.html"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
+          <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
         </div>
       </div>
     </header>
@@ -583,7 +578,7 @@
                 <h2 class="hero-title">Unify your workforce intelligence from one elevated workspace.</h2>
                 <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
                 <div class="hero-ctas">
-                  <a class="primary" href="Login.html"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
+                  <a class="primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
                   <a class="ghost" href="#features"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
                 </div>
               </div>
@@ -680,7 +675,7 @@
         <div>
           <a href="PrivacyPolicy.html">Privacy</a> &middot;
           <a href="TermsOfService.html">Terms</a> &middot;
-          <a href="Login.html">Login</a>
+          <a href="<?!= loginUrl ?>">Login</a>
         </div>
       </div>
     </footer>
