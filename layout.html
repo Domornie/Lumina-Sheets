@@ -2556,7 +2556,7 @@
         ];
 
         function absorbLocalBanners() {
-            const selectors = [
+            const selectorList = [
                 '.page-header',
                 '.modern-page-header',
                 '.dashboard-header',
@@ -2571,8 +2571,17 @@
                 '.global-page-header',
                 '.hero-header',
                 '.page-hero',
-                '[data-banner-source="page-hero"]'
+                '[data-banner-source]',
+                'header[data-banner-source]',
+                '#maincontent > header',
+                '#maincontent header',
+                '#maincontent > .header',
+                '#maincontent [class*="page-header"]',
+                '#maincontent [class*="hero"]',
+                '#maincontent [class*="banner"]'
             ];
+
+            const selectors = Array.from(new Set(selectorList));
 
             const bannerData = {
                 titleText: '',
@@ -2706,7 +2715,19 @@
             const harvestHeader = (header) => {
                 if (shouldSkipHeader(header)) return;
 
+                const hasBannerSignals = (
+                    header.matches('[data-banner-source], [data-banner-title], [data-banner-description]') ||
+                    header.hasAttribute('data-banner-title') ||
+                    header.hasAttribute('data-banner-description') ||
+                    header.querySelector('[data-banner-title], h1, h2, h3, h4, h5, h6') ||
+                    header.querySelector('button, a')
+                );
+
                 processedHeaders.add(header);
+
+                if (!hasBannerSignals) {
+                    return;
+                }
 
                 const campaignAttr = header.getAttribute('data-banner-campaign') || header.getAttribute('data-banner-meta-campaign');
                 if (campaignAttr && !bannerData.campaignName) {
