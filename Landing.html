@@ -604,7 +604,13 @@
       }
     }
   </style>
-  <? var loginUrl = buildLoginPageUrl({}); ?>
+  <?
+    var loginUrl = buildLoginPageUrl({});
+    var __landingBase = scriptUrl || baseUrl || '';
+    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
+    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
+    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+  ?>
 </head>
 
 <body class="landing-page">
@@ -619,7 +625,7 @@
           </div>
         </a>
         <div class="nav-actions">
-          <a class="btn-outline" href="LandingAbout.html"><i class="fa-regular fa-circle-question"></i> About</a>
+          <a class="btn-outline" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
           <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
         </div>
       </div>
@@ -636,7 +642,7 @@
                 <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
                 <div class="hero-ctas">
                   <a class="primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
-                  <a class="ghost" href="LandingCapabilities.html"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+                  <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
                 </div>
               </div>
               <aside class="hero-showcase" aria-label="Platform highlights">
@@ -697,7 +703,7 @@
             </article>
           </div>
           <div class="section-cta">
-            <a class="primary" href="LandingCapabilities.html"><i class="fa-solid fa-diagram-project"></i> Explore full capabilities</a>
+            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore full capabilities</a>
             <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
           </div>
         </div>
@@ -727,8 +733,8 @@
             </article>
           </div>
           <div class="section-cta">
-            <a class="primary" href="LandingAbout.html"><i class="fa-regular fa-circle-question"></i> Discover our story</a>
-            <a class="ghost" href="LandingCapabilities.html"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+            <a class="primary" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> Discover our story</a>
+            <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
           </div>
         </div>
       </section>

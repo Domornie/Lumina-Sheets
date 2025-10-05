@@ -2303,6 +2303,30 @@ function handlePublicPage(page, e, baseUrl) {
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
+    case 'landing-about':
+    case 'about':
+    case 'about-luminahq':
+      const aboutTpl = HtmlService.createTemplateFromFile('LandingAbout');
+      aboutTpl.baseUrl = baseUrl;
+      aboutTpl.scriptUrl = scriptUrl;
+
+      return aboutTpl.evaluate()
+        .setTitle('About LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-capabilities':
+    case 'capabilities':
+    case 'explore-capabilities':
+      const capabilitiesTpl = HtmlService.createTemplateFromFile('LandingCapabilities');
+      capabilitiesTpl.baseUrl = baseUrl;
+      capabilitiesTpl.scriptUrl = scriptUrl;
+
+      return capabilitiesTpl.evaluate()
+        .setTitle('Explore LuminaHQ Capabilities')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
     case 'setpassword':
     case 'resetpassword':
       const resetToken = e.parameter.token || '';
