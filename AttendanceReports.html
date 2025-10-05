@@ -1,4 +1,4 @@
-    <?!= includeOnce('ResponsiveStyles') ?>
+<?!= includeOnce('ResponsiveStyles') ?>
 <?!= include("layout", {
   baseUrl: baseUrl,
   scriptUrl: scriptUrl,
@@ -2345,11 +2345,11 @@
             
             lunchAllowed = 30 * lunchUserCount;
             breakAllowed = 30 * breakUserCount;
-            displayUnit = 'total min';
+            displayUnit = 'min';
           } else {
             lunchAllowed = 30;
             breakAllowed = 30;
-            displayUnit = 'min';
+            displayUnit = '';
           }
 
           const lunchPercent = Math.min((lunchMinutes / lunchAllowed) * 100, 150);
