@@ -240,6 +240,114 @@ var AuthenticationService = (function () {
     return Object.keys(sanitized).length ? sanitized : null;
   }
 
+  function resolveScriptBaseUrl() {
+    try {
+      if (typeof SCRIPT_URL === 'string' && SCRIPT_URL) {
+        return SCRIPT_URL;
+      }
+    } catch (err) {
+      console.warn('resolveScriptBaseUrl: SCRIPT_URL lookup failed', err);
+    }
+
+    try {
+      if (typeof getBaseUrl === 'function') {
+        const base = getBaseUrl();
+        if (base) {
+          return base;
+        }
+      }
+    } catch (err) {
+      console.warn('resolveScriptBaseUrl: getBaseUrl helper failed', err);
+    }
+
+    try {
+      if (typeof ScriptApp !== 'undefined' && ScriptApp && ScriptApp.getService) {
+        const serviceUrl = ScriptApp.getService().getUrl();
+        if (serviceUrl) {
+          return serviceUrl;
+        }
+      }
+    } catch (err) {
+      console.warn('resolveScriptBaseUrl: ScriptApp URL lookup failed', err);
+    }
+
+    return '';
+  }
+
+  function sanitizeReturnUrlCandidate(candidate) {
+    if (!candidate && candidate !== 0) {
+      return '';
+    }
+
+    try {
+      const raw = String(candidate).trim();
+      if (!raw) {
+        return '';
+      }
+
+      if (/^javascript:/i.test(raw)) {
+        return '';
+      }
+
+      let baseUrl = '';
+      const resolvedBase = resolveScriptBaseUrl();
+      if (resolvedBase) {
+        baseUrl = resolvedBase;
+      }
+
+      let parsed;
+      try {
+        parsed = baseUrl ? new URL(raw, baseUrl) : new URL(raw);
+      } catch (parseError) {
+        if (baseUrl) {
+          try {
+            parsed = new URL(raw, baseUrl);
+          } catch (fallbackError) {
+            console.warn('sanitizeReturnUrlCandidate: unable to resolve URL', fallbackError);
+            return '';
+          }
+        } else {
+          console.warn('sanitizeReturnUrlCandidate: unable to parse URL', parseError);
+          return '';
+        }
+      }
+
+      if (!/^https?:$/i.test(parsed.protocol)) {
+        return '';
+      }
+
+      if (baseUrl) {
+        try {
+          const base = new URL(baseUrl);
+          if (parsed.host && base.host && parsed.host.toLowerCase() !== base.host.toLowerCase()) {
+            return '';
+          }
+        } catch (hostError) {
+          console.warn('sanitizeReturnUrlCandidate: host comparison failed', hostError);
+        }
+      }
+
+      let sanitized = parsed.toString();
+      if (sanitized.length > 500) {
+        sanitized = sanitized.slice(0, 500);
+      }
+
+      return sanitized;
+    } catch (error) {
+      console.warn('sanitizeReturnUrlCandidate: fallback sanitation failed', error);
+      try {
+        if (typeof IdentityService !== 'undefined'
+          && IdentityService
+          && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+          return IdentityService.sanitizeLoginReturnUrl(candidate);
+        }
+      } catch (identityError) {
+        console.warn('sanitizeReturnUrlCandidate: IdentityService fallback failed', identityError);
+      }
+      return '';
+    }
+  }
+
   // ─── Session storage helpers ────────────────────────────────────────────────
 
   function getSessionTableName() {
@@ -537,14 +645,7 @@ var AuthenticationService = (function () {
     }
   }
 
-  function resolveSessionRecord(sessionToken, options) {
-    if (!sessionToken) {
-      return { status: 'not_found', reason: 'NOT_FOUND' };
-    }
-
-    const touch = options && options.touch;
-    const entry = findSessionEntry(sessionToken);
-
+  function evaluateSessionEntry(entry, options) {
     if (!entry) {
       return { status: 'not_found', reason: 'NOT_FOUND' };
     }
@@ -581,6 +682,9 @@ var AuthenticationService = (function () {
     let lastActivityIso = getRecordValue(record, 'LastActivityAt')
       || (lastActivityTime ? new Date(lastActivityTime).toISOString() : null);
 
+    const touch = options && options.touch;
+    const sessionToken = options && options.sessionToken;
+
     if (touch) {
       const nowIso = new Date(nowMs).toISOString();
       const ttl = rememberFlag ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
@@ -590,7 +694,7 @@ var AuthenticationService = (function () {
       setRecordValue(record, 'ExpiresAt', nextExpiryIso);
       setRecordValue(record, 'IdleTimeoutMinutes', String(idleTimeoutMinutes));
 
-      if (entry.matchMethod === 'legacy' || !getRecordValue(record, 'TokenHash') || !getRecordValue(record, 'TokenSalt')) {
+      if (sessionToken && (entry.matchMethod === 'legacy' || !getRecordValue(record, 'TokenHash') || !getRecordValue(record, 'TokenSalt'))) {
         const salt = generateTokenSalt();
         const hash = computeSessionTokenHash(sessionToken, salt);
         if (hash) {
@@ -609,11 +713,11 @@ var AuthenticationService = (function () {
           try {
             invalidateCache(entry.tableName);
           } catch (cacheError) {
-            console.warn('resolveSessionRecord: Cache invalidation failed', cacheError);
+            console.warn('evaluateSessionEntry: Cache invalidation failed', cacheError);
           }
         }
       } catch (updateError) {
-        console.warn('resolveSessionRecord: Failed to persist session updates', updateError);
+        console.warn('evaluateSessionEntry: Failed to persist session updates', updateError);
       }
 
       expiresAtIso = nextExpiryIso;
@@ -629,6 +733,207 @@ var AuthenticationService = (function () {
       expiresAt: expiresAtIso,
       rememberMe: rememberFlag
     };
+  }
+
+  function resolveSessionRecord(sessionToken, options) {
+    if (!sessionToken) {
+      return { status: 'not_found', reason: 'NOT_FOUND' };
+    }
+
+    const entry = findSessionEntry(sessionToken);
+    const evaluation = evaluateSessionEntry(entry, Object.assign({}, options || {}, { sessionToken: sessionToken }));
+    return evaluation;
+  }
+
+  function deriveLoginReturnUrlFromEvent(event) {
+    try {
+      if (!event || typeof event !== 'object') {
+        return '';
+      }
+
+      const parameters = event.parameter || event.parameters || {};
+      if (!parameters || typeof parameters !== 'object') {
+        return '';
+      }
+
+      const directKeys = ['returnUrl', 'returnURL', 'ReturnUrl', 'ReturnURL'];
+      for (let i = 0; i < directKeys.length; i++) {
+        const key = directKeys[i];
+        if (Object.prototype.hasOwnProperty.call(parameters, key) && parameters[key]) {
+          const sanitizedDirect = sanitizeReturnUrlCandidate(parameters[key]);
+          if (sanitizedDirect) {
+            return sanitizedDirect;
+          }
+        }
+      }
+
+      const rawPage = parameters.page || parameters.Page || parameters.PAGE || '';
+      const page = String(rawPage || '').trim();
+      if (!page || page.toLowerCase() === 'login') {
+        return '';
+      }
+
+      const additionalParams = {};
+      let campaignId = '';
+      Object.keys(parameters).forEach(function (key) {
+        if (!key) return;
+        if (/^page$/i.test(key)) return;
+        if (/^token$/i.test(key)) return;
+        if (/^returnurl$/i.test(key)) return;
+
+        const value = parameters[key];
+        if (value === null || typeof value === 'undefined' || value === '') {
+          return;
+        }
+
+        if (!campaignId && /^campaign$/i.test(key)) {
+          campaignId = value;
+          return;
+        }
+
+        additionalParams[key] = value;
+      });
+
+      let builtUrl = '';
+      try {
+        if (typeof getAuthenticatedUrl === 'function') {
+          builtUrl = getAuthenticatedUrl(page, campaignId, additionalParams);
+        }
+      } catch (buildError) {
+        console.warn('deriveLoginReturnUrlFromEvent: getAuthenticatedUrl failed', buildError);
+        builtUrl = '';
+      }
+
+      if (!builtUrl) {
+        const base = resolveScriptBaseUrl();
+        const parts = ['page=' + encodeURIComponent(page)];
+        if (campaignId) {
+          parts.push('campaign=' + encodeURIComponent(campaignId));
+        }
+        Object.keys(additionalParams).forEach(function (key) {
+          parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(additionalParams[key]));
+        });
+
+        if (base) {
+          const separator = base.indexOf('?') === -1 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+          builtUrl = base + (parts.length ? separator + parts.join('&') : '');
+        } else if (parts.length) {
+          builtUrl = '?' + parts.join('&');
+        }
+      }
+
+      return sanitizeReturnUrlCandidate(builtUrl);
+    } catch (error) {
+      console.warn('deriveLoginReturnUrlFromEvent: unable to determine return URL', error);
+      return '';
+    }
+  }
+
+  function buildSessionEntryFromRow(context, rowIndex, rowValues, headerMap) {
+    if (!context || !context.sheet || !Array.isArray(context.headers)) {
+      return null;
+    }
+
+    const record = readSessionRecord(context.headers, rowValues);
+    return {
+      tableName: context.tableName,
+      sheet: context.sheet,
+      headers: context.headers,
+      headerMap: headerMap || buildHeaderMap(context.headers),
+      rowIndex: rowIndex,
+      record: record,
+      rowValues: Array.isArray(rowValues) ? rowValues.slice() : [],
+      matchMethod: 'user'
+    };
+  }
+
+  function findActiveSessionForUser(userId, options) {
+    const normalizedUserId = normalizeString(userId);
+    if (!normalizedUserId) {
+      return null;
+    }
+
+    try {
+      const context = ensureSessionSheetContext();
+      const sheet = context.sheet;
+      const headers = context.headers;
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2 || !Array.isArray(headers) || !headers.length) {
+        return null;
+      }
+
+      const headerMap = buildHeaderMap(headers);
+      const columnCount = headers.length;
+      const range = sheet.getRange(2, 1, lastRow - 1, columnCount);
+      const values = range.getValues();
+
+      let latest = null;
+      let latestTimestamp = -Infinity;
+
+      for (let i = 0; i < values.length; i++) {
+        const rowValues = values[i];
+        const entry = buildSessionEntryFromRow(context, i + 2, rowValues, headerMap);
+        if (!entry) {
+          continue;
+        }
+
+        const recordUserId = normalizeString(getRecordValue(entry.record, 'UserId'));
+        if (recordUserId !== normalizedUserId) {
+          continue;
+        }
+
+        const evaluation = evaluateSessionEntry(entry, options || {});
+        if (!evaluation || evaluation.status !== 'active') {
+          continue;
+        }
+
+        const activityTimestamp = Date.parse(evaluation.lastActivityAt || evaluation.expiresAt || '') || 0;
+        if (activityTimestamp >= latestTimestamp) {
+          latest = evaluation;
+          latestTimestamp = activityTimestamp;
+        }
+      }
+
+      return latest;
+    } catch (error) {
+      console.warn('findActiveSessionForUser: failed to locate active session', error);
+      return null;
+    }
+  }
+
+  function userHasActiveSession(userIdentifier) {
+    try {
+      if (!userIdentifier && userIdentifier !== 0) {
+        return false;
+      }
+
+      let userId = '';
+      if (typeof userIdentifier === 'object' && userIdentifier !== null) {
+        userId = normalizeString(userIdentifier.ID || userIdentifier.Id || userIdentifier.userId || userIdentifier.UserId);
+      } else {
+        userId = normalizeString(userIdentifier);
+      }
+
+      if (!userId && typeof userIdentifier === 'object' && userIdentifier !== null) {
+        const email = normalizeEmail(userIdentifier.Email || userIdentifier.email);
+        if (email) {
+          const user = findUserByEmail(email);
+          if (user && user.ID) {
+            userId = normalizeString(user.ID);
+          }
+        }
+      }
+
+      if (!userId) {
+        return false;
+      }
+
+      const active = findActiveSessionForUser(userId, { touch: false });
+      return !!(active && active.status === 'active');
+    } catch (error) {
+      console.warn('userHasActiveSession: unable to determine session state', error);
+      return false;
+    }
   }
 
   function buildSessionUserContext(entry, sessionToken, resolution) {
@@ -907,11 +1212,22 @@ var AuthenticationService = (function () {
         host: event.context.host,
         userAgent: event.context.userAgent
       } : null;
-      const sanitized = sanitizeServerMetadata(serverContext);
-      if (sanitized) {
-        persistLoginContext(sanitized);
+      const sanitizedServer = sanitizeServerMetadata(serverContext);
+      const requestedReturnUrl = deriveLoginReturnUrlFromEvent(event);
+
+      let payload = null;
+      if (sanitizedServer) {
+        payload = Object.assign({}, sanitizedServer);
       }
-      return sanitized;
+      if (requestedReturnUrl) {
+        payload = payload || {};
+        payload.requestedReturnUrl = requestedReturnUrl;
+      }
+
+      if (payload) {
+        persistLoginContext(payload);
+      }
+      return payload;
     } catch (error) {
       console.warn('captureLoginRequestContext: failed to capture context', error);
       return null;
@@ -4042,6 +4358,9 @@ var AuthenticationService = (function () {
     buildLandingRedirectUrl: buildLandingRedirectUrlFromSlug,
     captureLoginRequestContext: captureLoginRequestContext,
     consumeLoginRequestContext: consumeLoginContext,
+    deriveLoginReturnUrlFromEvent: deriveLoginReturnUrlFromEvent,
+    findActiveSessionForUser: findActiveSessionForUser,
+    userHasActiveSession: userHasActiveSession,
     confirmDeviceVerification: confirmDeviceVerification,
     denyDeviceVerification: denyDeviceVerification,
     cleanupExpiredSessions: cleanupExpiredSessions

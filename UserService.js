@@ -137,11 +137,39 @@ function clientGetUserSummaries(context) {
 
 function clientGetUserDetail(id, context) {
   try {
-    return getEntityDetail('users', id, context);
+    const detail = getEntityDetail('users', id, context);
+    try {
+      if (detail && (detail.record || detail.id)) {
+        const identifier = detail.record && detail.record.ID ? detail.record.ID : id;
+        detail.hasActiveSession = userHasActiveSession(identifier);
+      }
+    } catch (sessionError) {
+      console.warn('clientGetUserDetail: unable to resolve active session status', sessionError);
+    }
+    return detail;
   } catch (error) {
     console.error('clientGetUserDetail failed:', error);
     throw error;
   }
+}
+
+function userHasActiveSession(userIdentifier) {
+  try {
+    if (typeof AuthenticationService !== 'undefined'
+      && AuthenticationService
+      && typeof AuthenticationService.userHasActiveSession === 'function') {
+      return AuthenticationService.userHasActiveSession(userIdentifier);
+    }
+
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.hasActiveSession === 'function') {
+      return IdentityService.hasActiveSession(userIdentifier);
+    }
+  } catch (error) {
+    console.warn('userHasActiveSession helper failed', error);
+  }
+  return false;
 }
 
 function _normalizeFieldKey_(key) {

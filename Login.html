@@ -1008,6 +1008,7 @@
 
   <script>
     const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
+    const INITIAL_RETURN_URL = <?!= JSON.stringify(initialReturnUrl || '') ?>;
     // ───────────────────────────────────────────────────────────────────────────────
     // SIMPLIFIED AUTHENTICATION CONFIGURATION
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1171,6 +1172,17 @@
       lastLogoutReason: getStoredLogoutReason(),
       preferredReturnUrl: ''
     };
+
+    if (INITIAL_RETURN_URL && (!state.lastLogoutReason || state.lastLogoutReason === 'auto')) {
+      try {
+        const sanitizedInitial = sanitizePreferredRedirect(INITIAL_RETURN_URL);
+        if (sanitizedInitial) {
+          state.preferredReturnUrl = sanitizedInitial;
+        }
+      } catch (initialError) {
+        console.warn('Unable to apply initial return URL from server metadata', initialError);
+      }
+    }
 
     // ───────────────────────────────────────────────────────────────────────────────
     // ENHANCED ALERT SYSTEM
@@ -2308,7 +2320,21 @@
 
           hideAllAlerts();
           const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
-          const resumeUrl = normalizeRedirectUrl(resumeInput);
+          let resumeUrl = normalizeRedirectUrl(resumeInput);
+
+          const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
+          const preferredFromResponse = sanitizePreferredRedirect(result.requestedReturnUrl);
+
+          if (preferredFromState) {
+            resumeUrl = preferredFromState;
+          } else if (preferredFromResponse) {
+            resumeUrl = preferredFromResponse;
+          }
+
+          clearStoredLogoutReason();
+          state.lastLogoutReason = '';
+          state.preferredReturnUrl = '';
+
           setupRedirect(resumeUrl);
         })
         .withFailureHandler(error => {
@@ -2482,6 +2508,31 @@
       }
 
       return stripTokenFromUrl(buildPageUrl(page, params));
+    }
+
+    function sanitizePreferredRedirect(candidate) {
+      if (!candidate) {
+        return '';
+      }
+
+      let normalized = '';
+
+      try {
+        normalized = normalizeRedirectUrl(candidate);
+      } catch (err) {
+        console.warn('Unable to normalize preferred redirect URL.', err);
+        return '';
+      }
+
+      if (!normalized) {
+        return '';
+      }
+
+      if (/page=login/i.test(normalized)) {
+        return '';
+      }
+
+      return normalized;
     }
 
     function openPage(page, params = {}) {
@@ -3444,16 +3495,13 @@
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
       let destinationUrl = normalizeRedirectUrl(redirectInput);
 
-      if (state.lastLogoutReason === 'auto' && state.preferredReturnUrl) {
-        const preferred = normalizeRedirectUrl(state.preferredReturnUrl);
-        if (preferred) {
-          destinationUrl = preferred;
-        }
-      } else if (response && response.requestedReturnUrl) {
-        const preferred = normalizeRedirectUrl(response.requestedReturnUrl);
-        if (preferred) {
-          destinationUrl = preferred;
-        }
+      const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
+      const preferredFromResponse = sanitizePreferredRedirect(response && response.requestedReturnUrl);
+
+      if (preferredFromState) {
+        destinationUrl = preferredFromState;
+      } else if (preferredFromResponse) {
+        destinationUrl = preferredFromResponse;
       }
 
       clearStoredLogoutReason();
@@ -3476,8 +3524,9 @@
       if (state.lastLogoutReason) {
         clientMetadata.logoutReason = state.lastLogoutReason;
       }
-      if (state.lastLogoutReason === 'auto' && state.preferredReturnUrl) {
-        clientMetadata.requestedReturnUrl = state.preferredReturnUrl;
+      const preferredReturnUrl = sanitizePreferredRedirect(state.preferredReturnUrl);
+      if (preferredReturnUrl) {
+        clientMetadata.requestedReturnUrl = preferredReturnUrl;
       }
 
       google.script.run
@@ -3632,43 +3681,45 @@
 
       restoreEmailFromStorage();
 
-      const resumed = attemptSessionResume();
-
-      // Auto-focus email field when not redirecting
-      if (!resumed && elements.emailInput) {
-        elements.emailInput.focus();
-      }
-      
       // Handle URL parameters for messages/errors
       const urlParams = new URLSearchParams(window.location.search);
       const message = urlParams.get('message');
       const error = urlParams.get('error');
 
+      let shouldReplaceUrl = false;
+
       if (urlParams.has('token')) {
-        const sanitizedParams = new URLSearchParams(urlParams);
-        sanitizedParams.delete('token');
-        const newQuery = sanitizedParams.toString();
-        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash || ''}`;
-        window.history.replaceState({}, document.title, newUrl);
+        urlParams.delete('token');
+        shouldReplaceUrl = true;
       }
 
       if (urlParams.has('returnUrl')) {
         const rawReturnUrl = urlParams.get('returnUrl');
-        if (state.lastLogoutReason === 'auto') {
-          try {
-            const normalizedReturn = normalizeRedirectUrl(rawReturnUrl);
-            if (normalizedReturn && !/page=login/i.test(normalizedReturn)) {
-              state.preferredReturnUrl = normalizedReturn;
-            }
-          } catch (returnError) {
-            console.warn('Unable to normalize return URL parameter', returnError);
-          }
-        } else {
-          urlParams.delete('returnUrl');
-          const cleanedQuery = urlParams.toString();
-          const cleanUrl = `${window.location.pathname}${cleanedQuery ? `?${cleanedQuery}` : ''}${window.location.hash || ''}`;
-          window.history.replaceState({}, document.title, cleanUrl);
+        const resolvedReturnUrl = sanitizePreferredRedirect(rawReturnUrl);
+
+        if (resolvedReturnUrl && state.lastLogoutReason === 'auto') {
+          state.preferredReturnUrl = resolvedReturnUrl;
+        } else if (resolvedReturnUrl && !state.preferredReturnUrl) {
+          state.preferredReturnUrl = resolvedReturnUrl;
         }
+
+        if (state.lastLogoutReason !== 'auto') {
+          urlParams.delete('returnUrl');
+          shouldReplaceUrl = true;
+        }
+      }
+
+      if (shouldReplaceUrl) {
+        const cleanedQuery = urlParams.toString();
+        const cleanUrl = `${window.location.pathname}${cleanedQuery ? `?${cleanedQuery}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+
+      const resumed = attemptSessionResume();
+
+      // Auto-focus email field when not redirecting
+      if (!resumed && elements.emailInput) {
+        elements.emailInput.focus();
       }
 
       if (error) {
