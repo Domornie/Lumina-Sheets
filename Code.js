@@ -4757,6 +4757,27 @@ function queueBackgroundInitialization(options) {
       });
     }
 
+    if (manager && typeof manager.backfillAllMissingIds === 'function') {
+      tasks.push({
+        label: 'DatabaseManager.backfillAllMissingIds',
+        run: function () {
+          var maintenanceContext = Object.assign({ allowAllTenants: true }, context || {});
+          var summaries = manager.backfillAllMissingIds(maintenanceContext);
+          if (safeConsole && typeof safeConsole.log === 'function') {
+            safeConsole.log('DatabaseManager.backfillAllMissingIds summaries:', summaries);
+          }
+          if (Array.isArray(summaries)) {
+            for (var i = 0; i < summaries.length; i++) {
+              var summary = summaries[i];
+              if (summary && summary.error && safeConsole && typeof safeConsole.error === 'function') {
+                safeConsole.error('ID backfill error for table ' + summary.table + ': ' + summary.error);
+              }
+            }
+          }
+        }
+      });
+    }
+
     if (typeof QualityService !== 'undefined' && QualityService && typeof QualityService.queueBackgroundInitialization === 'function') {
       tasks.push({
         label: 'QualityService.queueBackgroundInitialization',
@@ -4804,6 +4825,39 @@ function scheduledWarmup() {
       }
     }
     return false;
+  }
+}
+
+function runDatabaseIdBackfill() {
+  var safeConsole = (typeof console !== 'undefined' && console) ? console : {
+    error: function () { },
+    warn: function () { },
+    log: function () { }
+  };
+
+  try {
+    if (typeof DatabaseManager === 'undefined' || !DatabaseManager || typeof DatabaseManager.backfillAllMissingIds !== 'function') {
+      throw new Error('DatabaseManager.backfillAllMissingIds is not available');
+    }
+    var summaries = DatabaseManager.backfillAllMissingIds({ allowAllTenants: true });
+    if (safeConsole && typeof safeConsole.log === 'function') {
+      safeConsole.log('runDatabaseIdBackfill summaries:', summaries);
+    }
+    return summaries;
+  } catch (error) {
+    if (safeConsole && typeof safeConsole.error === 'function') {
+      safeConsole.error('runDatabaseIdBackfill failed:', error);
+    }
+    if (typeof writeError === 'function') {
+      try {
+        writeError('runDatabaseIdBackfill', error);
+      } catch (loggingError) {
+        if (safeConsole && typeof safeConsole.error === 'function') {
+          safeConsole.error('Failed to log runDatabaseIdBackfill error:', loggingError);
+        }
+      }
+    }
+    throw error;
   }
 }
 
