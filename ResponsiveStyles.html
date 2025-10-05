@@ -10,6 +10,20 @@
     --lumina-primary: #0ea5e9;
     --lumina-primary-dark: #0369a1;
     --lumina-accent: #22d3ee;
+    --lumina-control-bg: #ffffff;
+    --lumina-control-text: #0f172a;
+    --lumina-button-text: #ffffff;
+    --lumina-tab-active-bg: #ffffff;
+    --lumina-tab-active-text: var(--lumina-primary-dark);
+    --lumina-stat-gradient: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(14, 165, 233, 0.04));
+    --lumina-stat-border: rgba(14, 165, 233, 0.25);
+    --lumina-stat-label: rgba(15, 23, 42, 0.55);
+    --lumina-pill-bg: rgba(15, 23, 42, 0.08);
+    --lumina-pill-text: rgba(15, 23, 42, 0.72);
+    --lumina-sticky-bg: rgba(248, 250, 252, 0.85);
+    --lumina-sticky-border: rgba(148, 163, 184, 0.25);
+    --lumina-body-overlay: radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 45%),
+                radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.06), transparent 40%);
     --lumina-radius-sm: 0.5rem;
     --lumina-radius: 0.75rem;
     --lumina-radius-lg: 1.25rem;
@@ -21,6 +35,30 @@
     --lumina-spacing-lg: 2rem;
     --lumina-spacing-xl: 3rem;
     --lumina-container-max: 1200px;
+  }
+
+  :root[data-theme="dark"] {
+    --lumina-text-color: #e2e8f0;
+    --lumina-muted-text: #94a3b8;
+    --lumina-surface: #1f2937;
+    --lumina-surface-alt: #0b1120;
+    --lumina-border-color: rgba(148, 163, 184, 0.2);
+    --lumina-border-strong: rgba(148, 163, 184, 0.35);
+    --lumina-shadow-sm: 0 12px 30px rgba(2, 6, 23, 0.35);
+    --lumina-shadow-md: 0 24px 60px rgba(2, 6, 23, 0.45);
+    --lumina-control-bg: rgba(15, 23, 42, 0.65);
+    --lumina-control-text: #e2e8f0;
+    --lumina-tab-active-bg: rgba(14, 165, 233, 0.18);
+    --lumina-tab-active-text: #e0f2fe;
+    --lumina-stat-gradient: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(8, 47, 73, 0.65));
+    --lumina-stat-border: rgba(14, 165, 233, 0.35);
+    --lumina-stat-label: rgba(226, 232, 240, 0.72);
+    --lumina-pill-bg: rgba(148, 163, 184, 0.12);
+    --lumina-pill-text: rgba(226, 232, 240, 0.78);
+    --lumina-sticky-bg: rgba(15, 23, 42, 0.85);
+    --lumina-sticky-border: rgba(148, 163, 184, 0.25);
+    --lumina-body-overlay: radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 45%),
+                radial-gradient(circle at bottom left, rgba(2, 132, 199, 0.18), transparent 40%);
   }
 
   *, *::before, *::after {
@@ -60,8 +98,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background: radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 45%),
-                radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.06), transparent 40%);
+    background: var(--lumina-body-overlay);
     z-index: -2;
   }
 
@@ -178,7 +215,8 @@
     padding: 0.75rem 0.9rem;
     border-radius: var(--lumina-radius-sm);
     border: 1px solid var(--lumina-border-color);
-    background: #fff;
+    background: var(--lumina-control-bg);
+    color: var(--lumina-control-text);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     font: inherit;
   }
@@ -202,7 +240,7 @@
     border: none;
     font-weight: 600;
     background: var(--lumina-primary);
-    color: #fff;
+    color: var(--lumina-button-text);
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   }
 
@@ -371,8 +409,8 @@
     top: 0;
     z-index: 20;
     backdrop-filter: blur(16px);
-    background: rgba(248, 250, 252, 0.85);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    background: var(--lumina-sticky-bg);
+    border-bottom: 1px solid var(--lumina-sticky-border);
   }
 
   .sidebar,
@@ -440,8 +478,8 @@
     gap: 0.5rem;
     padding: clamp(1rem, 2vw, 1.5rem);
     border-radius: var(--lumina-radius);
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(14, 165, 233, 0.04));
-    border: 1px solid rgba(14, 165, 233, 0.25);
+    background: var(--lumina-stat-gradient);
+    border: 1px solid var(--lumina-stat-border);
   }
 
   .stat-block .label,
@@ -450,7 +488,7 @@
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: rgba(15, 23, 42, 0.55);
+    color: var(--lumina-stat-label);
   }
 
   .stat-block .value,
@@ -494,8 +532,8 @@
   .tab-nav button.active,
   .nav-tabs .nav-link.active,
   .tabstrip button.active {
-    background: #fff;
-    color: var(--lumina-primary-dark);
+    background: var(--lumina-tab-active-bg);
+    color: var(--lumina-tab-active-text);
     box-shadow: 0 10px 25px rgba(14, 165, 233, 0.18);
   }
 
@@ -526,8 +564,8 @@
   .pill {
     padding: 0.3rem 0.85rem;
     border-radius: 999px;
-    background: rgba(15, 23, 42, 0.08);
-    color: rgba(15, 23, 42, 0.72);
+    background: var(--lumina-pill-bg);
+    color: var(--lumina-pill-text);
     font-weight: 500;
   }
 
@@ -552,7 +590,7 @@
   .modal .modal-content,
   .dialog .dialog-content {
     border-radius: var(--lumina-radius-lg);
-    background: #fff;
+    background: var(--lumina-surface);
     padding: clamp(1.25rem, 3vw, 2rem);
     box-shadow: var(--lumina-shadow-md);
   }
