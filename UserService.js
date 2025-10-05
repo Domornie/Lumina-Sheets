@@ -23,6 +23,13 @@ if (typeof G.CAMPAIGNS_SHEET === 'undefined') G.CAMPAIGNS_SHEET = 'Campaigns';
 if (typeof G.USER_ROLES_SHEET === 'undefined') G.USER_ROLES_SHEET = 'UserRoles';
 if (typeof G.CAMPAIGN_USER_PERMISSIONS_SHEET === 'undefined') G.CAMPAIGN_USER_PERMISSIONS_SHEET = 'CampaignUserPermissions';
 if (typeof G.MANAGER_USERS_SHEET === 'undefined') G.MANAGER_USERS_SHEET = 'MANAGER_USERS';
+if (typeof G.USER_CAMPAIGNS_SHEET === 'undefined') {
+  if (typeof USER_CAMPAIGNS_SHEET !== 'undefined') {
+    G.USER_CAMPAIGNS_SHEET = USER_CAMPAIGNS_SHEET;
+  } else {
+    G.USER_CAMPAIGNS_SHEET = 'UserCampaigns';
+  }
+}
 if (typeof G.MANAGER_USERS_HEADER === 'undefined') G.MANAGER_USERS_HEADER = ['ID', 'ManagerUserID', 'UserID', 'CreatedAt', 'UpdatedAt'];
 if (typeof G.USER_EQUIPMENT_SHEET === 'undefined') G.USER_EQUIPMENT_SHEET = 'UserEquipment';
 if (typeof G.USER_EQUIPMENT_HEADERS === 'undefined') {
@@ -687,6 +694,48 @@ function _collectRowUserIdCandidates_(row, headerMeta, options) {
   return candidates;
 }
 
+function _canonicalUserId_(user) {
+  if (!user || typeof user !== 'object') return '';
+  const candidates = [user.ID, user.Id, user.id, user.UserID, user.userId];
+  for (let i = 0; i < candidates.length; i++) {
+    const normalized = _normalizePotentialIdValue_(candidates[i]);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function _buildUserIdentifierLookup_() {
+  const users = _readUsersAsObjects_();
+  const lookup = {
+    users,
+    byId: {},
+    byUser: {},
+    byEmail: {}
+  };
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+    if (!user || typeof user !== 'object') continue;
+
+    const canonicalId = _canonicalUserId_(user);
+    if (canonicalId && !lookup.byId[canonicalId]) {
+      lookup.byId[canonicalId] = user;
+    }
+
+    const userKey = _normUser_(_getUserName_(user));
+    if (userKey && !lookup.byUser[userKey]) {
+      lookup.byUser[userKey] = user;
+    }
+
+    const emailKey = _normEmail_(user.Email || user.email);
+    if (emailKey && !lookup.byEmail[emailKey]) {
+      lookup.byEmail[emailKey] = user;
+    }
+  }
+
+  return lookup;
+}
+
 function ensureUsersHaveIds(options) {
   const summary = {
     success: true,
@@ -876,6 +925,558 @@ function ensureUsersHaveIds(options) {
     summary.error = writeError && writeError.message ? writeError.message : String(writeError);
   }
 
+  return summary;
+}
+
+function reconcileUserIdReferencesAcrossSheets(options) {
+  const summary = {
+    success: true,
+    metrics: {
+      totalSheets: 0,
+      processedSheets: 0,
+      sheetsWithUpdates: 0,
+      totalRows: 0,
+      totalBlankUserIdRows: 0,
+      totalUpdatedRows: 0,
+      totalResolved: 0,
+      totalUnresolved: 0
+    },
+    sheets: [],
+    warnings: [],
+    errors: []
+  };
+
+  const sheetExistenceCache = Object.create(null);
+  function sheetExists(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return false;
+    const cacheKey = trimmed.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(sheetExistenceCache, cacheKey)) {
+      return sheetExistenceCache[cacheKey];
+    }
+
+    if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
+      sheetExistenceCache[cacheKey] = true;
+      return true;
+    }
+
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss || typeof ss.getSheetByName !== 'function') {
+        sheetExistenceCache[cacheKey] = true;
+        return true;
+      }
+      const exists = !!ss.getSheetByName(trimmed);
+      sheetExistenceCache[cacheKey] = exists;
+      return exists;
+    } catch (existsError) {
+      const message = existsError && existsError.message ? existsError.message : String(existsError);
+      summary.warnings.push({ sheet: trimmed, stage: 'existsCheck', error: message });
+      _userLog_('UserService.reconcileUserIdReferences.sheetExistsCheckFailed', { sheet: trimmed, error: message }, 'warn');
+      sheetExistenceCache[cacheKey] = true;
+      return true;
+    }
+  }
+
+  let lookup;
+  try {
+    lookup = _buildUserIdentifierLookup_();
+  } catch (lookupError) {
+    summary.success = false;
+    summary.error = lookupError && lookupError.message ? lookupError.message : String(lookupError);
+    _userLog_('UserService.reconcileUserIdReferences.lookupFailed', { error: summary.error }, 'error');
+    return summary;
+  }
+
+  const requestedSheets = Array.isArray(options && options.sheets)
+    ? options.sheets.map(name => String(name || '').trim().toLowerCase()).filter(Boolean)
+    : null;
+
+  const baseAltIdHeaders = [
+    'UserID', 'UserId', 'User UUID', 'User GUID', 'EmployeeID', 'EmployeeId',
+    'AgentID', 'AgentId', 'AgentUserID', 'AgentUserId', 'ProfileID', 'ProfileId',
+    'UserProfileID', 'UserProfileId', 'RequestorUserID', 'RequestorUserId',
+    'TargetUserID', 'TargetUserId', 'AssigneeID', 'AssigneeId',
+    'ManagedUserID', 'ManagedUserId'
+  ];
+  const baseUsernameHeaders = [
+    'UserName', 'User', 'FullName', 'DisplayName', 'UserFullName',
+    'AgentName', 'AgentUserName', 'ManagedUserName', 'RequestorUserName',
+    'TargetUserName', 'AssignedUser', 'AssignedTo', 'EmployeeName',
+    'OwnerName', 'ContactName'
+  ];
+  const baseEmailHeaders = [
+    'Email', 'UserEmail', 'LoginEmail', 'AgentEmail', 'EmployeeEmail',
+    'ContactEmail', 'OwnerEmail', 'ManagedUserEmail'
+  ];
+
+  function toNormalizedSet(base, extras) {
+    const set = Object.create(null);
+    (base || []).forEach(value => {
+      const key = _normalizeUserIdHeaderKey_(value);
+      if (key) set[key] = true;
+    });
+    (extras || []).forEach(value => {
+      const key = _normalizeUserIdHeaderKey_(value);
+      if (key) set[key] = true;
+    });
+    return set;
+  }
+
+  function resolveSheetConfigs() {
+    const attendanceSheetName = (typeof G.ATTENDANCE_LOG_SHEET === 'string' && G.ATTENDANCE_LOG_SHEET) ||
+      (typeof G.ATTENDANCE_SHEET === 'string' && G.ATTENDANCE_SHEET) ||
+      'AttendanceLog';
+    const seen = Object.create(null);
+    const out = [];
+    function pushConfig(sheetName, cfg) {
+      const normalizedName = String(sheetName || '').trim();
+      if (!normalizedName) return;
+      const key = normalizedName.toLowerCase();
+      if (!key || seen[key]) return;
+      if (requestedSheets && requestedSheets.length && requestedSheets.indexOf(key) === -1) return;
+      if (!sheetExists(normalizedName)) return;
+      seen[key] = true;
+      out.push({
+        name: normalizedName,
+        label: cfg.label || normalizedName,
+        idColumnKeys: cfg.idColumnKeys || ['UserID', 'UserId'],
+        altIdKeys: cfg.altIdKeys || [],
+        usernameKeys: cfg.usernameKeys || [],
+        emailKeys: cfg.emailKeys || []
+      });
+    }
+
+    function addSheetCandidates(candidates, cfg) {
+      const list = Array.isArray(candidates) ? candidates : [candidates];
+      list.forEach(candidate => {
+        let value = candidate;
+        if (typeof value === 'function') {
+          try {
+            value = value();
+          } catch (candidateError) {
+            value = null;
+          }
+        }
+        if (value === null || typeof value === 'undefined') return;
+        pushConfig(value, cfg);
+      });
+    }
+
+    addSheetCandidates([G.USER_ROLES_SHEET, (typeof USER_ROLES_SHEET !== 'undefined') ? USER_ROLES_SHEET : null, 'UserRoles'], {
+      label: 'User roles',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      G.CAMPAIGN_USER_PERMISSIONS_SHEET,
+      (typeof CAMPAIGN_USER_PERMISSIONS_SHEET !== 'undefined') ? CAMPAIGN_USER_PERMISSIONS_SHEET : null,
+      'CampaignUserPermissions'
+    ], {
+      label: 'Campaign user permissions',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'User'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      G.USER_EQUIPMENT_SHEET,
+      (typeof USER_EQUIPMENT_SHEET !== 'undefined') ? USER_EQUIPMENT_SHEET : null,
+      'UserEquipment'
+    ], {
+      label: 'User equipment',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AssignedTo', 'AssignedUser', 'EmployeeName', 'OwnerName'],
+      emailKeys: ['UserEmail', 'Email', 'OwnerEmail', 'EmployeeEmail']
+    });
+
+    addSheetCandidates([
+      G.MANAGER_USERS_SHEET,
+      (typeof USER_MANAGERS_SHEET !== 'undefined') ? USER_MANAGERS_SHEET : null,
+      'MANAGER_USERS',
+      'ManagerUsers',
+      'UserManagers'
+    ], {
+      label: 'Manager user mappings',
+      idColumnKeys: ['UserID', 'UserId'],
+      altIdKeys: ['ManagedUserID', 'ManagedUserId'],
+      usernameKeys: ['ManagedUserName', 'UserName', 'User'],
+      emailKeys: ['ManagedUserEmail', 'UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      attendanceSheetName,
+      (typeof ATTENDANCE_LOG_SHEET !== 'undefined') ? ATTENDANCE_LOG_SHEET : null,
+      (typeof ATTENDANCE_SHEET !== 'undefined') ? ATTENDANCE_SHEET : null
+    ], {
+      label: 'Attendance log',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['User', 'UserName', 'Agent', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email', 'AgentEmail']
+    });
+
+    addSheetCandidates([
+      G.USER_CAMPAIGNS_SHEET,
+      (typeof USER_CAMPAIGNS_SHEET !== 'undefined') ? USER_CAMPAIGNS_SHEET : null,
+      'UserCampaigns'
+    ], {
+      label: 'User campaign assignments',
+      idColumnKeys: ['UserID', 'UserId'],
+      altIdKeys: [],
+      usernameKeys: ['UserName', 'AgentName', 'FullName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof SCHEDULE_GENERATION_SHEET !== 'undefined') ? SCHEDULE_GENERATION_SHEET : null,
+      'GeneratedSchedules'
+    ], {
+      label: 'Generated schedules',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName', 'AssignedUser'],
+      emailKeys: ['UserEmail', 'Email', 'AgentEmail']
+    });
+
+    addSheetCandidates([
+      (typeof SCHEDULE_NOTIFICATIONS_SHEET !== 'undefined') ? SCHEDULE_NOTIFICATIONS_SHEET : null,
+      'ScheduleNotifications'
+    ], {
+      label: 'Schedule notifications',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AssignedUser', 'RecipientName'],
+      emailKeys: ['UserEmail', 'Email', 'RecipientEmail']
+    });
+
+    addSheetCandidates([
+      (typeof SCHEDULE_ADHERENCE_SHEET !== 'undefined') ? SCHEDULE_ADHERENCE_SHEET : null,
+      'ScheduleAdherence'
+    ], {
+      label: 'Schedule adherence',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof RECURRING_SCHEDULES_SHEET !== 'undefined') ? RECURRING_SCHEDULES_SHEET : null,
+      'RecurringSchedules'
+    ], {
+      label: 'Recurring schedules',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof ATTENDANCE_STATUS_SHEET !== 'undefined') ? ATTENDANCE_STATUS_SHEET : null,
+      'AttendanceStatus'
+    ], {
+      label: 'Attendance status',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof USER_HOLIDAY_PAY_STATUS_SHEET !== 'undefined') ? USER_HOLIDAY_PAY_STATUS_SHEET : null,
+      'UserHolidayPayStatus'
+    ], {
+      label: 'Holiday pay status',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'EmployeeName'],
+      emailKeys: ['UserEmail', 'Email', 'EmployeeEmail']
+    });
+
+    addSheetCandidates('UserBookmarks', {
+      label: 'User bookmarks',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates('BrowsingAnalytics', {
+      label: 'Browsing analytics',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates('SecurityIncidents', {
+      label: 'Security incidents',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates('ComplianceAuditTrail', {
+      label: 'Compliance audit trail',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    return out;
+  }
+
+  const configs = resolveSheetConfigs();
+  summary.metrics.totalSheets = configs.length;
+
+  if (!configs.length) {
+    summary.warnings.push({ message: 'No sheets resolved for reconciliation', requestedSheets: requestedSheets || [] });
+    _userLog_('UserService.reconcileUserIdReferences.noSheets', { requestedSheets: requestedSheets || [] }, 'warn');
+    return summary;
+  }
+
+  configs.forEach(config => {
+    const sheetName = config.name;
+    summary.metrics.processedSheets += 1;
+
+    let sheet;
+    try {
+      sheet = _getSheet_(sheetName);
+    } catch (sheetError) {
+      const message = sheetError && sheetError.message ? sheetError.message : String(sheetError);
+      summary.success = false;
+      summary.errors.push({ sheet: sheetName, stage: 'getSheet', error: message });
+      _userLog_('UserService.reconcileUserIdReferences.sheetMissing', { sheet: sheetName, error: message }, 'warn');
+      return;
+    }
+
+    let scan;
+    try {
+      scan = _scanSheet_(sheet);
+    } catch (scanError) {
+      const message = scanError && scanError.message ? scanError.message : String(scanError);
+      summary.success = false;
+      summary.errors.push({ sheet: sheetName, stage: 'scanSheet', error: message });
+      _userLog_('UserService.reconcileUserIdReferences.scanFailed', { sheet: sheetName, error: message }, 'warn');
+      return;
+    }
+
+    const headers = scan.headers || [];
+    const values = scan.values || [];
+    if (values.length <= 1) {
+      const sheetSummary = {
+        sheetName,
+        label: config.label,
+        totalRows: 0,
+        blankUserIdRows: 0,
+        resolvedRows: 0,
+        unresolvedRows: 0,
+        identifierUsage: { id: 0, username: 0, email: 0 },
+        skipped: 'noDataRows'
+      };
+      summary.sheets.push(sheetSummary);
+      _userLog_('UserService.reconcileUserIdReferences.sheetSummary', sheetSummary);
+      return;
+    }
+
+    const normalizedHeaders = headers.map(_normalizeUserIdHeaderKey_);
+    const idColumnKeySet = toNormalizedSet(config.idColumnKeys || ['UserID', 'UserId']);
+    const idColumnIndexes = [];
+    const idColumnIndexSet = Object.create(null);
+    for (let i = 0; i < normalizedHeaders.length; i++) {
+      if (idColumnKeySet[normalizedHeaders[i]]) {
+        idColumnIndexes.push(i);
+        idColumnIndexSet[i] = true;
+      }
+    }
+
+    if (!idColumnIndexes.length) {
+      const sheetSummary = {
+        sheetName,
+        label: config.label,
+        totalRows: values.length - 1,
+        blankUserIdRows: 0,
+        resolvedRows: 0,
+        unresolvedRows: 0,
+        identifierUsage: { id: 0, username: 0, email: 0 },
+        skipped: 'missingUserIdColumn'
+      };
+      summary.warnings.push({ sheet: sheetName, message: 'UserID column not found' });
+      summary.sheets.push(sheetSummary);
+      _userLog_('UserService.reconcileUserIdReferences.sheetSummary', sheetSummary, 'warn');
+      return;
+    }
+
+    const altIdKeys = toNormalizedSet(baseAltIdHeaders, config.altIdKeys);
+    const usernameKeys = toNormalizedSet(baseUsernameHeaders, config.usernameKeys);
+    const emailKeys = toNormalizedSet(baseEmailHeaders, config.emailKeys);
+
+    const altIndexes = { id: [], username: [], email: [] };
+    const seenIndexes = Object.create(null);
+    for (let i = 0; i < normalizedHeaders.length; i++) {
+      if (idColumnIndexSet[i]) continue;
+      const key = normalizedHeaders[i];
+      if (!key) continue;
+      if (altIdKeys[key]) {
+        if (!seenIndexes['id:' + i]) {
+          altIndexes.id.push(i);
+          seenIndexes['id:' + i] = true;
+        }
+      }
+      if (usernameKeys[key]) {
+        if (!seenIndexes['username:' + i]) {
+          altIndexes.username.push(i);
+          seenIndexes['username:' + i] = true;
+        }
+      }
+      if (emailKeys[key]) {
+        if (!seenIndexes['email:' + i]) {
+          altIndexes.email.push(i);
+          seenIndexes['email:' + i] = true;
+        }
+      }
+    }
+
+    const rows = values.slice(1);
+    const sheetSummary = {
+      sheetName,
+      label: config.label,
+      totalRows: rows.length,
+      blankUserIdRows: 0,
+      resolvedRows: 0,
+      unresolvedRows: 0,
+      identifierUsage: { id: 0, username: 0, email: 0 },
+      sampleResolved: [],
+      columnSummaries: []
+    };
+    const columnWriteQueue = [];
+
+    for (let c = 0; c < idColumnIndexes.length; c++) {
+      const columnIndex = idColumnIndexes[c];
+      const columnHeader = headers[columnIndex] || '';
+      const columnValues = new Array(rows.length);
+      const columnSummary = {
+        columnIndex,
+        header: columnHeader,
+        blankUserIdRows: 0,
+        resolvedRows: 0,
+        unresolvedRows: 0,
+        identifierUsage: { id: 0, username: 0, email: 0 }
+      };
+      let columnHadChanges = false;
+
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r] || [];
+        const currentValue = row[columnIndex];
+        const normalizedCurrent = _normalizePotentialIdValue_(currentValue);
+        let finalValue = (currentValue === null || typeof currentValue === 'undefined') ? '' : currentValue;
+        let resolvedThisCell = false;
+
+        if (!normalizedCurrent) {
+          columnSummary.blankUserIdRows += 1;
+
+          let matchedUser = null;
+          let matchedVia = '';
+
+          for (let i = 0; i < altIndexes.id.length && !matchedUser; i++) {
+            const candidate = _normalizePotentialIdValue_(row[altIndexes.id[i]]);
+            if (!candidate) continue;
+            matchedUser = lookup.byId[candidate];
+            if (matchedUser) {
+              matchedVia = 'id';
+              break;
+            }
+          }
+
+          if (!matchedUser) {
+            for (let i = 0; i < altIndexes.username.length && !matchedUser; i++) {
+              const candidate = _normUser_(row[altIndexes.username[i]]);
+              if (!candidate) continue;
+              matchedUser = lookup.byUser[candidate];
+              if (matchedUser) {
+                matchedVia = 'username';
+                break;
+              }
+            }
+          }
+
+          if (!matchedUser) {
+            for (let i = 0; i < altIndexes.email.length && !matchedUser; i++) {
+              const candidate = _normEmail_(row[altIndexes.email[i]]);
+              if (!candidate) continue;
+              matchedUser = lookup.byEmail[candidate];
+              if (matchedUser) {
+                matchedVia = 'email';
+                break;
+              }
+            }
+          }
+
+          if (matchedUser) {
+            const canonicalId = _canonicalUserId_(matchedUser);
+            if (canonicalId) {
+              finalValue = canonicalId;
+              resolvedThisCell = true;
+              columnSummary.resolvedRows += 1;
+              const usageKey = matchedVia || 'id';
+              if (columnSummary.identifierUsage[usageKey] !== undefined) {
+                columnSummary.identifierUsage[usageKey] += 1;
+              }
+              if (sheetSummary.sampleResolved.length < 5) {
+                sheetSummary.sampleResolved.push({
+                  row: r + 2,
+                  column: columnHeader,
+                  userId: canonicalId,
+                  via: usageKey
+                });
+              }
+            } else {
+              columnSummary.unresolvedRows += 1;
+            }
+          } else {
+            columnSummary.unresolvedRows += 1;
+          }
+        }
+
+        if (resolvedThisCell && normalizedCurrent !== finalValue) {
+          columnHadChanges = true;
+        }
+
+        row[columnIndex] = finalValue;
+        columnValues[r] = [finalValue];
+      }
+
+      sheetSummary.blankUserIdRows += columnSummary.blankUserIdRows;
+      sheetSummary.resolvedRows += columnSummary.resolvedRows;
+      sheetSummary.unresolvedRows += columnSummary.unresolvedRows;
+      ['id', 'username', 'email'].forEach(key => {
+        sheetSummary.identifierUsage[key] += columnSummary.identifierUsage[key];
+      });
+
+      if (columnHadChanges) {
+        columnWriteQueue.push({ index: columnIndex, values: columnValues });
+      }
+
+      sheetSummary.columnSummaries.push(Object.assign({ hadChanges: columnHadChanges }, columnSummary));
+    }
+
+    summary.metrics.totalRows += sheetSummary.totalRows;
+    summary.metrics.totalBlankUserIdRows += sheetSummary.blankUserIdRows;
+    summary.metrics.totalResolved += sheetSummary.resolvedRows;
+    summary.metrics.totalUnresolved += sheetSummary.unresolvedRows;
+
+    if (columnWriteQueue.length && rows.length > 0) {
+      try {
+        columnWriteQueue.forEach(column => {
+          sheet.getRange(2, column.index + 1, rows.length, 1).setValues(column.values);
+        });
+        summary.metrics.sheetsWithUpdates += 1;
+        summary.metrics.totalUpdatedRows += sheetSummary.resolvedRows;
+        try { invalidateCache && invalidateCache(sheetName); } catch (_) { }
+      } catch (writeError) {
+        const message = writeError && writeError.message ? writeError.message : String(writeError);
+        summary.success = false;
+        summary.errors.push({ sheet: sheetName, stage: 'write', error: message });
+        sheetSummary.writeError = message;
+        _userLog_('UserService.reconcileUserIdReferences.writeFailed', { sheet: sheetName, error: message }, 'error');
+      }
+    }
+
+    summary.sheets.push(sheetSummary);
+    _userLog_('UserService.reconcileUserIdReferences.sheetSummary', sheetSummary);
+  });
+
+  _userLog_('UserService.reconcileUserIdReferences.summary', summary);
   return summary;
 }
 function ensureOptionalUserColumns_(sh, headers, idx) {
@@ -4111,6 +4712,11 @@ function debugNotifyResolution_(userIdOrNewUser) {
     return { success: true, directMgr: directMgr && directMgr.Email, directEmail, campMgr: campMgr && campMgr.Email, campEmail };
   } catch (e) { return { success: false, error: String(e) }; }
 }
+
+var UserService = typeof UserService !== 'undefined' ? UserService : {};
+UserService.ensureUsersHaveIds = ensureUsersHaveIds;
+UserService.reconcileUserIdReferencesAcrossSheets = reconcileUserIdReferencesAcrossSheets;
+UserService.buildUserIdentifierLookup = _buildUserIdentifierLookup_;
 
 console.log('✅ UserService.gs loaded');
 console.log('📦 Features: User CRUD, Roles, Pages, Campaign perms, Manager mapping, HR/Benefits (probation + insurance)');
