@@ -10,7 +10,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-  <? var loginUrl = buildLoginPageUrl({}); ?>
+  <?
+    var loginUrl = buildLoginPageUrl({});
+    var __landingBase = scriptUrl || baseUrl || '';
+    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
+    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
+    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+  ?>
   <style>
     :root {
       --lumina-navy: #0b1b3f;
@@ -452,7 +458,7 @@
   <div class="page-shell">
     <header>
       <div class="nav-container">
-        <a class="brand" href="Landing.html">
+        <a class="brand" href="<?!= landingHomeUrl ?>">
           <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
           <div>
             <span>LuminaHQ</span>
@@ -460,8 +466,8 @@
           </div>
         </a>
         <div class="nav-actions">
-          <a href="LandingAbout.html"><i class="fa-regular fa-circle-question"></i> About</a>
-          <a class="primary" href="Landing.html"><i class="fa-solid fa-house"></i> Back to landing</a>
+          <a href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
+          <a class="primary" href="<?!= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Back to landing</a>
         </div>
       </div>
     </header>
@@ -652,8 +658,8 @@
       <div class="footer-shell">
         <strong>Looking for our story?</strong>
         <div>
-          <a href="LandingAbout.html">Visit the LuminaHQ about page</a> &middot;
-          <a href="Landing.html#features">Return to landing highlights</a>
+          <a href="<?!= landingAboutUrl ?>">Visit the LuminaHQ about page</a> &middot;
+          <a href="<?!= landingHomeUrl ?>#features">Return to landing highlights</a>
         </div>
         <small>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Built with secure Google Workspace automation.</small>
       </div>
