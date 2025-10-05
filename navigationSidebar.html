@@ -179,7 +179,12 @@
     if (!user) {
       return '';
     }
-    return safeUserString(getUserFieldValue(user, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']));
+    return safeUserString(getUserFieldValue(user, [
+      'ID', 'Id', 'id',
+      'EmployeeID', 'employeeId',
+      'ProfileID', 'profileId',
+      'UserID', 'userId'
+    ]));
   }
 
   var profileSlugValue = computeProfileSlugValue(sidebarUser);
