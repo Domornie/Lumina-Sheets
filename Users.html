@@ -2944,8 +2944,14 @@
     const username = user.UserName || user.userName || user.username || user.Username || 'unknown';
     const initials = getInitials(name);
     const userId = user.ID || '';
+    const profileIdentifier = resolveUserProfileIdentifier(user);
+    const profileUrl = buildUserProfileUrl(profileIdentifier);
     const email = user.Email || user.email || 'No email';
     const phone = user.PhoneNumber || user.phoneNumber || user.Phone || user.PhoneNum || '';
+
+    const profileAction = profileUrl
+      ? `<a class="btn btn-outline-success btn-sm" href="${escapeHtml(profileUrl)}" title="View Profile" aria-label="View Profile"><i class="fas fa-id-badge"></i></a>`
+      : `<button class="btn btn-outline-success btn-sm" type="button" disabled title="Profile unavailable" aria-disabled="true"><i class="fas fa-id-badge"></i></button>`;
 
     return `
   <div class="user-card">
@@ -2975,6 +2981,7 @@
       </div>
     </div>
     <div class="user-card-actions" role="group" aria-label="User actions">
+      ${profileAction}
       <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User" aria-label="Edit User"><i class="fas fa-edit"></i></button>
       <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password" aria-label="Reset Password"><i class="fas fa-key"></i></button>
       <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email" aria-label="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
@@ -3044,6 +3051,118 @@
   function renderRolesBadges(user) {
     if (!user.roleNames || !user.roleNames.length) return '';
     return user.roleNames.map(r => `<span class="badge bg-secondary">${escapeHtml(r)}</span>`).join(' ');
+  }
+
+  function resolveUserProfileIdentifier(user) {
+    if (!user || typeof user !== 'object') {
+      return '';
+    }
+
+    const directCandidates = [
+      user.UserID, user.userId,
+      user.ProfileID, user.ProfileId, user.profileID, user.profileId,
+      user.ID, user.Id, user.id,
+      user.EmployeeID, user.employeeId
+    ];
+
+    for (let i = 0; i < directCandidates.length; i++) {
+      const candidate = normalizeProfileIdentifier(directCandidates[i]);
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    return buildProfileSlugCandidate([
+      user.UserName || user.userName || user.username,
+      user.FullName || user.fullName,
+      user.Email || user.email
+    ]);
+  }
+
+  function normalizeProfileIdentifier(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    const text = String(value).trim();
+    return text ? text : '';
+  }
+
+  function buildProfileSlugCandidate(values) {
+    if (!Array.isArray(values)) {
+      return '';
+    }
+
+    for (let i = 0; i < values.length; i++) {
+      const normalized = normalizeProfileIdentifier(values[i]);
+      if (!normalized) {
+        continue;
+      }
+
+      const slug = normalized
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      if (slug) {
+        return slug;
+      }
+    }
+
+    return '';
+  }
+
+  function buildUserProfileUrl(profileIdentifier) {
+    const normalizedIdentifier = normalizeProfileIdentifier(profileIdentifier);
+    if (!normalizedIdentifier) {
+      return '';
+    }
+
+    try {
+      const current = new URL(window.location.href);
+      current.searchParams.set('page', 'userprofile');
+      current.searchParams.set('profileId', normalizedIdentifier);
+      current.hash = '';
+      return current.toString();
+    } catch (_) {
+      const baseCandidates = [];
+      if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
+        baseCandidates.push(SCRIPT_URL);
+      }
+      if (typeof BASE_URL !== 'undefined' && BASE_URL) {
+        baseCandidates.push(BASE_URL);
+      }
+
+      let base = '';
+      for (let i = 0; i < baseCandidates.length; i++) {
+        const candidate = normalizeProfileIdentifier(baseCandidates[i]);
+        if (!candidate) continue;
+        base = stripPageParam(candidate);
+        if (base) break;
+      }
+
+      if (!base) {
+        return `?page=userprofile&profileId=${encodeURIComponent(normalizedIdentifier)}`;
+      }
+
+      const separator = base.indexOf('?') === -1 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+      return `${base}${separator}page=userprofile&profileId=${encodeURIComponent(normalizedIdentifier)}`;
+    }
+  }
+
+  function stripPageParam(url) {
+    if (!url) {
+      return '';
+    }
+
+    return String(url)
+      .replace(/([?&])page=[^&#]*(&)?/gi, function (match, prefix, suffix) {
+        if (prefix === '?') {
+          return suffix ? '?' : '';
+        }
+        return suffix ? prefix : '';
+      })
+      .replace(/[?&]$/, '');
   }
 
   // ---------- Equipment management ----------

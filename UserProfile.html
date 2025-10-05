@@ -1478,8 +1478,8 @@
   function resolveProfileIdentifier(userRecord, detailRecord) {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
     const identifier =
-      getField(userRecord, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']) ||
-      getField(record, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId']) ||
+      getField(userRecord, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId', 'UserID', 'userId']) ||
+      getField(record, ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId', 'UserID', 'userId']) ||
       '';
     return safeString(identifier);
   }

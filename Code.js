@@ -1242,8 +1242,22 @@ function renderLoginPage(e) {
 }
 
 function canonicalizePageKey(k) {
-  const key = String(k || '').trim().toLowerCase();
+  const original = String(k || '').trim();
+  const key = original.toLowerCase()
+    .replace(/%2f/g, '/')
+    .replace(/%5c/g, '\\')
+    .replace(/%3a/g, ':')
+    .replace(/%7c/g, '|')
+    .replace(/%40/g, '@');
   if (!key) return key;
+
+  if (/^(userprofile|user-profile|profile)(?:[:\/@|\\-]+.+)?$/.test(key)) {
+    return 'userprofile';
+  }
+
+  if (/^(agent-experience|workspace.agent)(?:[:\/@|\\-]+.+)?$/.test(key)) {
+    return 'agent-experience';
+  }
 
   // Map legacy slugs/aliases → canonical keys used by the Access Engine
   switch (key) {
@@ -1260,8 +1274,12 @@ function canonicalizePageKey(k) {
 
     // Experience hubs
     case 'agent-experience':
+    case 'workspace.agent':
+      return 'agent-experience';
     case 'userprofile':
-      return 'workspace.agent';
+    case 'user-profile':
+    case 'profile':
+      return 'userprofile';
     case 'manager-executive-experience':
       return 'workspace.executive';
     case 'goalsetting':
@@ -1372,6 +1390,109 @@ function canonicalizePageKey(k) {
     default:
       return key; // unknowns fall through; let the engine decide
   }
+}
+
+function __normalizeProfileIdentifierValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+
+  try {
+    const decoded = decodeURIComponent(text);
+    return decoded && decoded.trim() ? decoded.trim() : text;
+  } catch (_) {
+    return text;
+  }
+}
+
+function __extractProfileIdentifierFromPageKey(rawPage) {
+  if (rawPage === null || typeof rawPage === 'undefined') {
+    return '';
+  }
+
+  const text = String(rawPage).trim();
+  if (!text) {
+    return '';
+  }
+
+  const sanitized = text.replace(/\+/g, ' ');
+  const lowered = sanitized.toLowerCase();
+  const prefixes = ['userprofile', 'user-profile', 'profile', 'agent-experience', 'workspace.agent'];
+
+  for (let idx = 0; idx < prefixes.length; idx++) {
+    const prefix = prefixes[idx];
+    if (!lowered.startsWith(prefix)) {
+      continue;
+    }
+
+    const remainder = sanitized.slice(prefix.length);
+    if (!remainder) {
+      continue;
+    }
+
+    const cleaned = remainder
+      .replace(/^[\s:\/@|\\-]+/, '')
+      .split(/[?#]/)[0];
+
+    const normalized = __normalizeProfileIdentifierValue(cleaned);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function resolveProfileIdentifierFromRequest(e, rawPage) {
+  try {
+    const params = (e && e.parameter) ? e.parameter : {};
+    const candidateKeys = [
+      'profileId', 'profileID', 'profileid', 'ProfileID', 'ProfileId',
+      'profile', 'Profile',
+      'profileSlug', 'ProfileSlug', 'profileslug',
+      'slug', 'Slug',
+      'handle', 'Handle',
+      'userId', 'userID', 'userid', 'UserID', 'UserId',
+      'ID', 'Id', 'id'
+    ];
+
+    for (let idx = 0; idx < candidateKeys.length; idx++) {
+      const key = candidateKeys[idx];
+      if (Object.prototype.hasOwnProperty.call(params, key)) {
+        const normalized = __normalizeProfileIdentifierValue(params[key]);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+
+    const pathCandidates = [
+      rawPage,
+      params && params.page,
+      params && params.path,
+      params && params.route,
+      params && params.profilePath,
+      params && params.profileSlug,
+      params && params.slug,
+      params && params.handle
+    ];
+
+    for (let i = 0; i < pathCandidates.length; i++) {
+      const extracted = __extractProfileIdentifierFromPageKey(pathCandidates[i]);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  } catch (err) {
+    console.warn('resolveProfileIdentifierFromRequest: failed to resolve identifier', err);
+  }
+
+    return '';
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -1520,16 +1641,31 @@ function doGet(e) {
 function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
   try {
     const raw = String(page || '').trim();
+    const canonicalPage = canonicalizePageKey(raw);
+    const resolvedProfileId = resolveProfileIdentifierFromRequest(e, raw);
+    const hasProfileParameter = resolvedProfileId !== '';
+
+    if (hasProfileParameter && e) {
+      if (!e.parameter) {
+        e.parameter = {};
+      }
+
+      const targetParam = e.parameter;
+      const existingProfileId = targetParam.profileId || targetParam.profileID || targetParam.ProfileID || targetParam.ProfileId;
+      if (!existingProfileId) {
+        targetParam.profileId = resolvedProfileId;
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    if (page === 'userprofile') {
+    if (canonicalPage === 'userprofile' || (canonicalPage === 'agent-experience' && hasProfileParameter)) {
       return serveGlobalPage('UserProfile', e, baseUrl, user);
     }
 
-    if (page === 'agent-experience') {
+    if (canonicalPage === 'agent-experience') {
       return serveGlobalPage('AgentExperience', e, baseUrl, user);
     }
 
@@ -3017,7 +3153,8 @@ function handleUserProfileData(tpl, e, user) {
     };
 
     const viewerId = user && user.ID ? String(user.ID) : '';
-    const requestedProfileId = (e && e.parameter && (e.parameter.profileId || e.parameter.userId || e.parameter.id)) || '';
+    const rawPageParam = (e && e.parameter && e.parameter.page) || '';
+    const requestedProfileId = resolveProfileIdentifierFromRequest(e, rawPageParam);
     const normalizedRequested = requestedProfileId ? String(requestedProfileId).trim() : '';
     const profileId = normalizedRequested || viewerId;
     const normalizedProfileId = profileId ? profileId.toString().trim().toLowerCase() : '';
