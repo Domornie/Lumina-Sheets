@@ -438,6 +438,63 @@
       line-height: 1.6;
     }
 
+    .section-cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .section-cta a {
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0.65rem 1.35rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+
+    .section-cta a.primary {
+      background: var(--lumina-blue);
+      color: #fff;
+      box-shadow: 0 12px 20px rgba(4, 120, 211, 0.18);
+      border: 1px solid transparent;
+    }
+
+    .section-cta a.ghost {
+      background: transparent;
+      color: var(--lumina-blue-dark);
+      border: 1px solid rgba(4, 120, 211, 0.28);
+    }
+
+    .section-cta a:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 26px rgba(4, 120, 211, 0.16);
+    }
+
+    .section-dark .section-cta a {
+      box-shadow: none;
+    }
+
+    .section-dark .section-cta a.primary {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--lumina-surface);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+    }
+
+    .section-dark .section-cta a.ghost {
+      color: rgba(226, 232, 240, 0.9);
+      border: 1px solid rgba(226, 232, 240, 0.28);
+    }
+
+    .section-dark .section-cta a:hover {
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.45);
+    }
+
     .about-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -547,7 +604,13 @@
       }
     }
   </style>
-  <? var loginUrl = buildLoginPageUrl({}); ?>
+  <?
+    var loginUrl = buildLoginPageUrl({});
+    var __landingBase = scriptUrl || baseUrl || '';
+    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
+    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
+    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+  ?>
 </head>
 
 <body class="landing-page">
@@ -562,7 +625,7 @@
           </div>
         </a>
         <div class="nav-actions">
-          <a class="btn-outline" href="#about"><i class="fa-regular fa-circle-question"></i> About</a>
+          <a class="btn-outline" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
           <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
         </div>
       </div>
@@ -579,7 +642,7 @@
                 <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
                 <div class="hero-ctas">
                   <a class="primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
-                  <a class="ghost" href="#features"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+                  <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
                 </div>
               </div>
               <aside class="hero-showcase" aria-label="Platform highlights">
@@ -639,6 +702,10 @@
               <p>Deploy LuminaHQ directly on Google Workspace infrastructure so your team stays productive without new logins.</p>
             </article>
           </div>
+          <div class="section-cta">
+            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore full capabilities</a>
+            <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
+          </div>
         </div>
       </section>
 
@@ -664,6 +731,10 @@
               <h3>Kingston, Jamaica</h3>
               <p>Engineered by Lumina's product studio with a focus on modern, flat UI systems and a seamless Google Apps Script backbone.</p>
             </article>
+          </div>
+          <div class="section-cta">
+            <a class="primary" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> Discover our story</a>
+            <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
           </div>
         </div>
       </section>
