@@ -805,10 +805,37 @@ const QA_INTEL_PASS_SCORE_THRESHOLD = Math.round(QA_INTEL_PASS_MARK * 100);
 function clientGetQAIntelligence(request = {}) {
   try {
     const rawRecords = getAllQA();
-    const context = normalizeIntelligenceRequest_(request, rawRecords);
-    const normalizedRecords = rawRecords
-      .map(record => normalizeQaRecord_(record, context.timezone, context.passMark))
-      .filter(record => record.callDate instanceof Date);
+    const normalization = normalizeIntelligenceRequest_(request, rawRecords) || {};
+    const context = normalization.context || {
+      granularity: 'Week',
+      period: '',
+      timezone: Session.getScriptTimeZone(),
+      filters: { agent: '', campaignId: '', program: '' },
+      depth: 6,
+      agentUniverse: null,
+      passMark: QA_INTEL_PASS_MARK
+    };
+    const normalizedRecords = Array.isArray(normalization.records)
+      ? normalization.records
+      : [];
+
+    const cache = getQAIntelligenceCache_();
+    const cacheKey = cache ? getQAIntelligenceCacheKey_(context) : '';
+
+    if (cache && cacheKey) {
+      const cachedPayload = cache.get(cacheKey);
+      if (cachedPayload) {
+        try {
+          const cached = JSON.parse(cachedPayload);
+          if (cached && cached.intelligence && cached.intelligence.meta) {
+            cached.intelligence.meta.cache = 'hit';
+          }
+          return cached;
+        } catch (parseError) {
+          console.warn('Unable to parse cached QA intelligence payload:', parseError);
+        }
+      }
+    }
 
     const filtered = filterRecordsForIntelligence_(normalizedRecords, context);
     const previousContext = { ...context, period: getPreviousPeriod_(context.granularity, context.period) };
@@ -837,8 +864,13 @@ function clientGetQAIntelligence(request = {}) {
       granularity: context.granularity
     });
 
-    return {
-      generatedAt: new Date().toISOString(),
+    const generatedAt = new Date().toISOString();
+    if (intelligence && intelligence.meta) {
+      intelligence.meta.generatedAt = generatedAt;
+    }
+
+    const response = {
+      generatedAt,
       context,
       kpis,
       intelligence,
@@ -848,6 +880,19 @@ function clientGetQAIntelligence(request = {}) {
         analysis: trendAnalysis
       }
     };
+
+    if (cache && cacheKey) {
+      try {
+        if (response.intelligence && response.intelligence.meta) {
+          response.intelligence.meta.cache = 'miss';
+        }
+        cache.put(cacheKey, JSON.stringify(response), 300);
+      } catch (cacheError) {
+        console.warn('Unable to cache QA intelligence payload:', cacheError);
+      }
+    }
+
+    return response;
   } catch (error) {
     console.error('clientGetQAIntelligence failed:', error);
     writeError('clientGetQAIntelligence', error);
@@ -888,14 +933,57 @@ function normalizeIntelligenceRequest_(request, rawRecords) {
   }
 
   return {
-    granularity,
-    period,
-    timezone,
-    filters,
-    depth,
-    agentUniverse,
+    context: {
+      granularity,
+      period,
+      timezone,
+      filters,
+      depth,
+      agentUniverse,
     passMark
+  },
+  records: normalizedRecords
   };
+}
+
+function getQAIntelligenceCache_() {
+  try {
+    return CacheService.getScriptCache();
+  } catch (error) {
+    console.warn('QA intelligence cache unavailable:', error);
+    return null;
+  }
+}
+
+function getQAIntelligenceCacheKey_(context) {
+  if (!context || !context.period) {
+    return '';
+  }
+
+  try {
+    const filters = context.filters || {};
+    const parts = [
+      context.granularity || '',
+      context.period || '',
+      filters.agent || '',
+      filters.campaignId || '',
+      filters.program || '',
+      context.agentUniverse || '',
+      context.depth || '',
+      context.passMark || '',
+      context.timezone || ''
+    ];
+
+    const encoded = parts
+      .map(part => encodeURIComponent(String(part || '')))
+      .join('|');
+
+    const key = `qa-intel:${encoded}`;
+    return key.length > 230 ? key.substring(0, 230) : key;
+  } catch (error) {
+    console.warn('Unable to build QA intelligence cache key:', error);
+    return '';
+  }
 }
 
 function normalizeQaRecord_(record, timezone, passMarkOverride) {
@@ -1215,7 +1303,8 @@ function buildAIIntelligenceAnalysis_(payload) {
     meta: {
       totalEvaluations,
       periodLabel,
-      source: 'server'
+      source: 'server',
+      generatedAt: new Date().toISOString()
     }
   };
 
