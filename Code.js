@@ -940,6 +940,20 @@ function authenticateUser(e) {
       return null;
     }
 
+    if (typeof AuthenticationService !== 'undefined'
+      && AuthenticationService
+      && typeof AuthenticationService.userHasActiveSession === 'function') {
+      try {
+        const hasActiveSession = AuthenticationService.userHasActiveSession(user);
+        if (!hasActiveSession) {
+          return null;
+        }
+      } catch (sessionCheckError) {
+        console.warn('authenticateUser: active session verification failed', sessionCheckError);
+        return null;
+      }
+    }
+
     // Check if user can login
     if (!_truthy(user.CanLogin)) {
       return null;
@@ -1220,6 +1234,7 @@ function requireAuth(e) {
 
 function renderLoginPage(e) {
   let serverMetadata = null;
+  let initialReturnUrl = '';
 
   if (typeof AuthenticationService !== 'undefined'
     && AuthenticationService
@@ -1231,10 +1246,69 @@ function renderLoginPage(e) {
     }
   }
 
+  if (typeof AuthenticationService !== 'undefined'
+    && AuthenticationService
+    && typeof AuthenticationService.deriveLoginReturnUrlFromEvent === 'function') {
+    try {
+      initialReturnUrl = AuthenticationService.deriveLoginReturnUrlFromEvent(e) || '';
+    } catch (returnError) {
+      console.warn('renderLoginPage: deriveLoginReturnUrlFromEvent failed', returnError);
+    }
+  }
+
+  if (!initialReturnUrl && e && e.parameter) {
+    try {
+      const directReturn = sanitizeLoginReturnUrl(e.parameter.returnUrl || e.parameter.ReturnUrl || '');
+      if (directReturn) {
+        initialReturnUrl = directReturn;
+      }
+    } catch (directError) {
+      console.warn('renderLoginPage: unable to sanitize direct returnUrl', directError);
+    }
+  }
+
+  if (!initialReturnUrl && e && e.parameter) {
+    const requestedPage = String(e.parameter.page || e.parameter.Page || '').trim();
+    if (requestedPage && requestedPage.toLowerCase() !== 'login') {
+      const additionalParams = {};
+      let campaignId = '';
+
+      Object.keys(e.parameter).forEach(function (key) {
+        if (!key) return;
+        if (/^page$/i.test(key)) return;
+        if (/^token$/i.test(key)) return;
+        if (/^returnurl$/i.test(key)) return;
+
+        const value = e.parameter[key];
+        if (value === null || typeof value === 'undefined' || value === '') {
+          return;
+        }
+
+        if (!campaignId && /^campaign$/i.test(key)) {
+          campaignId = value;
+          return;
+        }
+
+        additionalParams[key] = value;
+      });
+
+      try {
+        const builtUrl = getAuthenticatedUrl(requestedPage, campaignId, additionalParams);
+        const sanitizedBuilt = sanitizeLoginReturnUrl(builtUrl);
+        if (sanitizedBuilt) {
+          initialReturnUrl = sanitizedBuilt;
+        }
+      } catch (buildReturnError) {
+        console.warn('renderLoginPage: unable to build fallback return URL', buildReturnError);
+      }
+    }
+  }
+
   const tpl = HtmlService.createTemplateFromFile('Login');
   tpl.baseUrl = getBaseUrl();
   tpl.scriptUrl = SCRIPT_URL;
   tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
+  tpl.initialReturnUrl = initialReturnUrl || '';
   return tpl.evaluate()
     .setTitle('Login - VLBPO LuminaHQ')
     .addMetaTag('viewport', 'width=device-width,initial-scale=1')

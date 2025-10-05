@@ -580,6 +580,19 @@ var IdentityService = (function () {
     }
   }
 
+  function hasActiveSession(userIdentifier) {
+    try {
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.userHasActiveSession === 'function') {
+        return AuthenticationService.userHasActiveSession(userIdentifier);
+      }
+    } catch (error) {
+      console.error('IdentityService.hasActiveSession error', error);
+    }
+    return false;
+  }
+
   return {
     confirmEmail: confirmEmail,
     resendEmailConfirmation: resendEmailConfirmation,
@@ -588,6 +601,7 @@ var IdentityService = (function () {
     signIn: signIn,
     verifyTwoFactorCode: verifyTwoFactorCode,
     signOut: signOut,
+    hasActiveSession: hasActiveSession,
     sanitizeLoginReturnUrl: sanitizeLoginReturnUrl
   };
 })();
@@ -645,6 +659,14 @@ function identitySignOut(sessionToken) {
     return IdentityService.signOut(sessionToken);
   } catch (error) {
     return { success: false, error: error.message || String(error) };
+  }
+}
+
+function identityHasActiveSession(userIdentifier) {
+  try {
+    return IdentityService.hasActiveSession(userIdentifier);
+  } catch (error) {
+    return false;
   }
 }
 
