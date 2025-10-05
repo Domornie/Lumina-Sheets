@@ -4884,6 +4884,18 @@ function queueBackgroundInitialization(options) {
       });
     }
 
+    if (typeof UserService !== 'undefined' && UserService && typeof UserService.reconcileUserIdReferencesAcrossSheets === 'function') {
+      tasks.push({
+        label: 'UserService.reconcileUserIdReferencesAcrossSheets',
+        run: function () {
+          var summary = UserService.reconcileUserIdReferencesAcrossSheets({ background: true });
+          if (summary && summary.metrics && safeConsole && typeof safeConsole.log === 'function') {
+            safeConsole.log('UserService.reconcileUserIdReferencesAcrossSheets metrics:', summary.metrics);
+          }
+        }
+      });
+    }
+
     if (typeof QualityService !== 'undefined' && QualityService && typeof QualityService.queueBackgroundInitialization === 'function') {
       tasks.push({
         label: 'QualityService.queueBackgroundInitialization',
