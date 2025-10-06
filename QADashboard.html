@@ -3024,55 +3024,6 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
           }
         }
 
-      const rawQA = JSON.parse('<?= qaRecords ?>');
-      let currentGran = '<?= granularity ?>';
-      let currentPeriod = '<?= periodValue ?>';
-      let currentAgent = '<?= selectedAgent ?>';
-      let userList = <?!= JSON.stringify(userList || []) ?>;
-      let qaIntelligenceRequestToken = 0;
-      let latestAIIntelligence = null;
-      const DEFAULT_GRANULARITIES = ['Week', 'Month', 'Quarter', 'Year'];
-      const defaultPeriods = {};
-      const availablePeriods = {
-        Week: [],
-        Month: [],
-        Quarter: [],
-        Year: []
-      };
-
-      const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
-      const categories = {
-        'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
-        'Resolution':['Q6','Q7','Q8','Q9'],
-        'Case Documentation':['Q10','Q11','Q12','Q13','Q14'],
-        'Process Compliance':['Q15','Q16','Q17','Q18']
-      };
-
-      rawQA.forEach((record, index) => {
-        rawQA[index] = normalizeClientQaRecord(record, index);
-      });
-
-      refreshDefaultPeriods(rawQA);
-
-      if (!DEFAULT_GRANULARITIES.includes(currentGran)) {
-        currentGran = 'Week';
-      }
-
-      if (!currentPeriod) {
-        currentPeriod = ensurePeriodForGranularity(currentGran, rawQA);
-      }
-
-      syncPeriodInputs(currentGran, currentPeriod);
-
-          const manualDate = new Date(year, month - 1, day);
-          if (!isNaN(manualDate.getTime())) {
-            return manualDate;
-          }
-        }
-
-        return null;
-      }
-
       function safeToDate(value) {
         return coerceDateValue(value);
       }
