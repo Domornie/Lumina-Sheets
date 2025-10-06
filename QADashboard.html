@@ -1881,6 +1881,279 @@
     }
   }
 
+  /* AI Intelligence Cards */
+  .ai-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .ai-intel-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.75rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-intel-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.05));
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  .ai-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ai-card-header i {
+    color: #667eea;
+    font-size: 1.25rem;
+  }
+
+  .ai-header-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ai-confidence-badge,
+  .ai-source-chip {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4338ca;
+  }
+
+  .ai-source-chip {
+    background: rgba(79, 70, 229, 0.08);
+    color: #3730a3;
+  }
+
+  .ai-source-chip.server {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+  }
+
+  .ai-source-chip.client {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .ai-automation-state {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4338ca;
+  }
+
+  .ai-automation-state.active {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+  }
+
+  .ai-trend-health {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .ai-trend-health.improving {
+    background: rgba(16, 185, 129, 0.18);
+    color: #047857;
+  }
+
+  .ai-trend-health.risk {
+    background: rgba(248, 113, 113, 0.18);
+    color: #b91c1c;
+  }
+
+  .ai-insights-summary,
+  .ai-automation-summary {
+    position: relative;
+    z-index: 2;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-insights-list,
+  .ai-actions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ai-insight-item,
+  .ai-action-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    backdrop-filter: blur(6px);
+  }
+
+  .ai-insight-item.negative,
+  .ai-action-item.urgent {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  .ai-insight-item.positive {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+
+  .ai-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: white;
+    color: #4338ca;
+    box-shadow: 0 6px 15px rgba(102, 126, 234, 0.18);
+  }
+
+  .ai-insight-item.negative .ai-icon,
+  .ai-action-item.urgent .ai-icon {
+    color: #b91c1c;
+    box-shadow: 0 6px 15px rgba(248, 113, 113, 0.25);
+  }
+
+  .ai-insight-item.positive .ai-icon {
+    color: #059669;
+    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.25);
+  }
+
+  .ai-insight-content strong,
+  .ai-action-content strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .ai-insight-content span,
+  .ai-action-content span {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .ai-next-best-action {
+    margin-top: 1.5rem;
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px dashed rgba(59, 130, 246, 0.3);
+    position: relative;
+    z-index: 2;
+    font-size: 0.9rem;
+    color: #1d4ed8;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .ai-next-best-action i {
+    font-size: 1.1rem;
+    margin-top: 0.1rem;
+  }
+
+  .ai-next-best-action strong {
+    display: block;
+    font-size: 0.95rem;
+  }
+
+  .ai-trend-summary {
+    position: relative;
+    z-index: 2;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-trend-visual {
+    position: relative;
+    z-index: 2;
+    background: rgba(102, 126, 234, 0.06);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 14px;
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-trend-visual canvas {
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  .ai-trend-forecast {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #334155;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ai-trend-forecast span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.12);
+    color: #0f766e;
+    font-weight: 600;
+  }
+
+  @media (max-width: 992px) {
+    .ai-intel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .modern-table-card h6 {
     font-size: 1.1rem;
     font-weight: 700;
@@ -2125,59 +2398,61 @@
           </select>
         </div>
 
-      function linearRegression(points) {
-        if (!points || !points.length) {
-          return { slope: 0, intercept: 0 };
+        if (/^\d{8}$/.test(value)) {
+          const year = Number(value.slice(0, 4));
+          const month = Number(value.slice(4, 6)) - 1;
+          const day = Number(value.slice(6, 8));
+          const ymdDate = new Date(year, month, day);
+          if (!isNaN(ymdDate.getTime())) {
+            return ymdDate;
+          }
         }
 
-        if (points.length === 1) {
-          return { slope: 0, intercept: points[0].y };
+        let parsed = new Date(value);
+        if (!isNaN(parsed.getTime())) {
+          return parsed;
         }
 
-        const n = points.length;
-        let sumX = 0;
-        let sumY = 0;
-        let sumXY = 0;
-        let sumXX = 0;
-
-        points.forEach(point => {
-          sumX += point.x;
-          sumY += point.y;
-          sumXY += point.x * point.y;
-          sumXX += point.x * point.x;
-        });
-
-        const denominator = (n * sumXX) - (sumX * sumX);
-        if (denominator === 0) {
-          return { slope: 0, intercept: sumY / n };
+        if (value.includes(' ') && !value.includes('T')) {
+          parsed = new Date(value.replace(' ', 'T'));
+          if (!isNaN(parsed.getTime())) {
+            return parsed;
+          }
         }
 
-        const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
-        const intercept = (sumY - slope * sumX) / n;
-        return { slope, intercept };
+        const parts = value.split(/[\/\-]/).map(part => part.trim());
+        if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
+          let [p1, p2, p3] = parts.map(Number);
+          if (p3 < 100) {
+            p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
+          }
+
+          let month;
+          let day;
+          let year;
+
+          if (p1 > 12 && p2 <= 12) {
+            day = p1;
+            month = p2;
+            year = p3;
+          } else if (p2 > 12 && p1 <= 12) {
+            month = p1;
+            day = p2;
+            year = p3;
+          } else {
+            month = p1;
+            day = p2;
+            year = p3;
+          }
+
+          const manualDate = new Date(year, month - 1, day);
+          if (!isNaN(manualDate.getTime())) {
+            return manualDate;
+          }
+        }
+
+        return null;
       }
-
-      function clampPercent(value) {
-        if (Number.isNaN(value)) return 0;
-        return Math.max(0, Math.min(100, Math.round(value)));
-      }
-
-      function analyzeTrendSeries(series, context = {}) {
-        const { granularity = 'Period' } = context;
-        const lowerGran = granularity.toLowerCase();
-
-        if (!series || !series.length) {
-          return {
-            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
-            points: [],
-            health: 'monitoring',
-            forecast: { avg: 0, pass: 0 },
-            nextLabel: `next ${lowerGran}`
-          };
-        }
-
-        const first = series[0];
-        const last = series[series.length - 1];
 
 <!-- Category KPIs -->
 <div class="category-kpis-grid stagger-animation" id="categoryKpis">
@@ -2239,36 +2514,37 @@
     </div>
   </div>
 
-        const slopeAvg = avgReg.slope;
-        const slopePass = passReg.slope;
+        if (typeof value === 'number' && isFinite(value)) {
+          const excelDate = excelSerialToDate(value);
+          if (excelDate) {
+            return excelDate;
+          }
 
-        const improving = slopeAvg > 0.5 || slopePass > 0.5;
-        const declining = slopeAvg < -0.5 || slopePass < -0.5;
+          const numericDate = new Date(value);
+          return isNaN(numericDate.getTime()) ? null : numericDate;
+        }
 
-        let health = 'stable';
-        if (improving) health = 'improving';
-        if (declining) health = 'risk';
+        return parseFlexibleDateString(value);
+      }
 
-        const summaryParts = [];
-        summaryParts.push(`Average quality is ${avgDelta >= 0 ? 'up' : 'down'} ${Math.abs(avgDelta).toFixed(1)} pts`);
-        summaryParts.push(`pass rate ${passDelta >= 0 ? 'gained' : 'slid'} ${Math.abs(passDelta).toFixed(1)} pts`);
-        summaryParts.push(`${last.evalCount} evaluations this ${lowerGran}`);
+      function normalizeClientQaRecord(record, index) {
+        const normalized = { ...record };
 
-        const points = [];
+        const agentValue = getRecordField(record, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
+        const campaignValue = getRecordField(record, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
+        const percentageValue = getRecordField(record, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
+        const callDateValue = getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
 
-        points.push({
-          icon: improving ? 'fa-arrow-up' : declining ? 'fa-arrow-down' : 'fa-arrows-alt-h',
-          tone: improving ? 'positive' : declining ? 'negative' : '',
-          title: `Average score ${improving ? 'rising' : declining ? 'dropping' : 'steady'}`,
-          text: `${first.avgScore}% → ${last.avgScore}% across the last ${series.length} ${series.length === 1 ? lowerGran : lowerGran + 's'}.`
-        });
+        const agentName = agentValue ? String(agentValue).trim() : '';
+        const campaign = campaignValue ? String(campaignValue).trim() : '';
+        const callDate = coerceDateValue(callDateValue);
+        const percentage = parsePercentageValue(percentageValue);
 
-        points.push({
-          icon: passDelta >= 0 ? 'fa-shield-alt' : 'fa-exclamation-triangle',
-          tone: passDelta >= 0 ? 'positive' : 'negative',
-          title: `Pass rate ${passDelta >= 0 ? 'improving' : 'at risk'}`,
-          text: `${first.passRate}% → ${last.passRate}% (${passDelta >= 0 ? '+' : ''}${passDelta.toFixed(1)} pts).`
-        });
+        if (agentName) {
+          normalized.AgentName = agentName;
+        } else if (!normalized.AgentName) {
+          normalized.AgentName = 'Unassigned';
+        }
 
       const rawQA = JSON.parse('<?= qaRecords ?>');
       let currentGran = '<?= granularity ?>';
@@ -2541,6 +2817,26 @@
       
       let dailyChart, agentChart, categoryChart, trendSparklineChart;
 
+      function showLoader(detail = 'Loading QA metrics…') {
+        const loaderApi = window.LuminaLoader;
+        loaderApi?.show({
+          title: 'Refreshing QA Dashboard',
+          detail,
+          tip: 'Crunching performance metrics…',
+          progress: 25
+        });
+      }
+
+      function updateAITrendPanel({ series, granularity }, analysisOverride = null) {
+        const summaryEl = document.getElementById('aiTrendSummary');
+        const listEl = document.getElementById('aiTrendList');
+        const forecastEl = document.getElementById('aiTrendForecast');
+        const healthEl = document.getElementById('aiTrendHealth');
+
+        if (!summaryEl || !listEl) {
+          return;
+        }
+
         const analysis = analysisOverride || analyzeTrendSeries(series, { granularity });
 
         summaryEl.textContent = analysis.summary;
@@ -2553,17 +2849,6 @@
           }).join('');
         } else {
           listEl.innerHTML = '<li class="ai-insight-item"><div class="ai-icon"><i class="fas fa-info-circle"></i></div><div class="ai-insight-content"><strong>No trend data yet</strong><span>Capture a few periods of QA to unlock longitudinal intelligence.</span></div></li>';
-        }
-
-        if (forecastEl) {
-          if (analysis.forecast && (analysis.forecast.avg || analysis.forecast.pass)) {
-            forecastEl.innerHTML = `
-              <span><i class="fas fa-forward"></i>${analysis.nextLabel}: ${analysis.forecast.avg}% avg</span>
-              <span><i class="fas fa-shield-alt"></i>${analysis.forecast.pass}% pass</span>
-            `;
-          } else {
-            forecastEl.innerHTML = '';
-          }
         }
 
       function computeCategoryMetrics(data){
@@ -4255,13 +4540,38 @@
         }
 
         // Report Type Select
+        function resolveDashboardBaseUrl() {
+          try {
+            if (typeof baseUrl !== 'undefined' && baseUrl) {
+              return String(baseUrl);
+            }
+            if (typeof scriptUrl !== 'undefined' && scriptUrl) {
+              return String(scriptUrl);
+            }
+            if (window.location) {
+              return window.location.origin + window.location.pathname;
+            }
+          } catch (error) {
+            console.warn('resolveDashboardBaseUrl fallback failed:', error);
+          }
+          return '';
+        }
+
         try {
           const reportTypeSelect = document.getElementById('reportTypeSelect');
           if (reportTypeSelect) {
             reportTypeSelect.addEventListener('change', function(e) {
-              const baseUrl = '<?= baseUrl ?>';
               const nextPage = e.target.value;
-              window.location.href = `${baseUrl}?page=${nextPage}`;
+              const resolvedBase = resolveDashboardBaseUrl();
+              if (!nextPage) {
+                console.warn('No next page selected for report switch');
+                return;
+              }
+              if (!resolvedBase) {
+                console.warn('Unable to resolve base URL for navigation');
+                return;
+              }
+              window.location.href = `${resolvedBase}?page=${encodeURIComponent(nextPage)}`;
             });
           } else {
             console.warn('reportTypeSelect not found');
@@ -4294,6 +4604,27 @@
           }
         } catch(e) {
           console.error('Granularity select failed:', e);
+        }
+
+        // Period Select
+        try {
+          const periodSelect = document.getElementById('periodSelect');
+          if (periodSelect) {
+            periodSelect.addEventListener('change', function(e) {
+              currentPeriod = e.target.value || '';
+              if (currentPeriod) {
+                defaultPeriods[currentGran] = currentPeriod;
+              } else {
+                delete defaultPeriods[currentGran];
+              }
+              syncPeriodInputs(currentGran, currentPeriod);
+              applyFilters();
+            });
+          } else {
+            console.warn('periodSelect not found');
+          }
+        } catch(e) {
+          console.error('Period select failed:', e);
         }
 
         // Period Select
