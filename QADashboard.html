@@ -1608,6 +1608,279 @@
     }
   }
 
+  /* AI Intelligence Cards */
+  .ai-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .ai-intel-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.75rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-intel-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.05));
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  .ai-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ai-card-header i {
+    color: #667eea;
+    font-size: 1.25rem;
+  }
+
+  .ai-header-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ai-confidence-badge,
+  .ai-source-chip {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4338ca;
+  }
+
+  .ai-source-chip {
+    background: rgba(79, 70, 229, 0.08);
+    color: #3730a3;
+  }
+
+  .ai-source-chip.server {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+  }
+
+  .ai-source-chip.client {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .ai-automation-state {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4338ca;
+  }
+
+  .ai-automation-state.active {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+  }
+
+  .ai-trend-health {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .ai-trend-health.improving {
+    background: rgba(16, 185, 129, 0.18);
+    color: #047857;
+  }
+
+  .ai-trend-health.risk {
+    background: rgba(248, 113, 113, 0.18);
+    color: #b91c1c;
+  }
+
+  .ai-insights-summary,
+  .ai-automation-summary {
+    position: relative;
+    z-index: 2;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-insights-list,
+  .ai-actions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ai-insight-item,
+  .ai-action-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    backdrop-filter: blur(6px);
+  }
+
+  .ai-insight-item.negative,
+  .ai-action-item.urgent {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  .ai-insight-item.positive {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+
+  .ai-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: white;
+    color: #4338ca;
+    box-shadow: 0 6px 15px rgba(102, 126, 234, 0.18);
+  }
+
+  .ai-insight-item.negative .ai-icon,
+  .ai-action-item.urgent .ai-icon {
+    color: #b91c1c;
+    box-shadow: 0 6px 15px rgba(248, 113, 113, 0.25);
+  }
+
+  .ai-insight-item.positive .ai-icon {
+    color: #059669;
+    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.25);
+  }
+
+  .ai-insight-content strong,
+  .ai-action-content strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .ai-insight-content span,
+  .ai-action-content span {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .ai-next-best-action {
+    margin-top: 1.5rem;
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px dashed rgba(59, 130, 246, 0.3);
+    position: relative;
+    z-index: 2;
+    font-size: 0.9rem;
+    color: #1d4ed8;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .ai-next-best-action i {
+    font-size: 1.1rem;
+    margin-top: 0.1rem;
+  }
+
+  .ai-next-best-action strong {
+    display: block;
+    font-size: 0.95rem;
+  }
+
+  .ai-trend-summary {
+    position: relative;
+    z-index: 2;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-trend-visual {
+    position: relative;
+    z-index: 2;
+    background: rgba(102, 126, 234, 0.06);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 14px;
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ai-trend-visual canvas {
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  .ai-trend-forecast {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #334155;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ai-trend-forecast span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.12);
+    color: #0f766e;
+    font-weight: 600;
+  }
+
+  @media (max-width: 992px) {
+    .ai-intel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .modern-table-card h6 {
     font-size: 1.1rem;
     font-weight: 700;
@@ -1846,127 +2119,65 @@
         </div>
 
         <div class="control-group">
-          <label>Agent Filter</label>
-          <select class="form-select" id="agentSelect">
-                <option value="">
-                    All Agents
-                </option>
-                <? userList.forEach(function(u) { ?>
-                  <option value="<?= u ?>" <?= u === selectedAgent ? "selected" : "" ?>>
-                    <?= u ?>
-                  </option>
-                <? }); ?>
-              </select>
+          <label>Period Selection</label>
+          <select class="form-select" id="periodSelect">
+            <option value="" disabled selected>Loading periods…</option>
+          </select>
         </div>
 
-        <!-- Period Pickers -->
-        <div class="control-group" id="weekPicker" style="display: none;">
-          <label>Week</label>
-          <input type="week" class="form-control" id="weekInput" />
-        </div>
-        <div class="control-group" id="monthPicker" style="display: none;">
-          <label>Month</label>
-          <input type="month" class="form-control" id="monthInput" />
-        </div>
-        <div class="control-group" id="quarterPicker" style="display: none;">
-          <label>Quarter</label>
-          <div class="d-flex gap-2">
-            <select class="form-select" id="quarterSelect">
-                  <option value="Q1">Q1</option>
-                  <option value="Q2">Q2</option>
-                  <option value="Q3">Q3</option>
-                  <option value="Q4">Q4</option>
-                </select>
-            <input type="number" class="form-control" id="quarterYearInput" placeholder="YYYY" min="2000" max="2100" style="width: 100px;" />
-          </div>
-        </div>
-        <div class="control-group" id="yearPicker" style="display: none;">
-          <label>Year</label>
-          <input type="number" class="form-control" id="yearInput" placeholder="YYYY" min="2000" max="2100"/>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modern Action Buttons -->
-<div class="modern-actions fade-in">
-  <? 
-        // Build clean URLs without exposing campaign context
-        function buildUrl(page) {
-          return baseUrl + '?page=' + page;
+      function linearRegression(points) {
+        if (!points || !points.length) {
+          return { slope: 0, intercept: 0 };
         }
-      ?>
-  <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
-    <i class="fas fa-clipboard-check"></i> New Quality
-  </a>
-  <a href="<?= buildUrl('qualitylist') ?>" class="modern-btn modern-btn-secondary">
-    <i class="fas fa-list"></i> Quality List
-  </a>
-  <button id="exportCsvBtn" class="modern-btn modern-btn-success">
-        <i class="fas fa-file-csv"></i> Export CSV
-      </button>
-  <a href="<?= buildUrl('coachinglist') ?>" class="modern-btn modern-btn-secondary">
-    <i class="fas fa-chalkboard-teacher"></i> Coaching
-  </a>
-  <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
-    <i class="fas fa-users"></i> New Collab Quality
-  </a>
-  <a href="<?= buildUrl('qacollablist') ?>" class="modern-btn modern-btn-secondary">
-    <i class="fas fa-list-check"></i> Quality Collab List
-  </a>
-</div>
 
-<!-- Modern KPI Cards -->
-<div class="modern-kpi-grid stagger-animation">
-  <div class="modern-kpi-card">
-    <div class="kpi-icon">
-      <i class="fas fa-chart-line"></i>
-    </div>
-    <div class="kpi-value" id="kpiAvgScore">0%</div>
-    <div class="kpi-label">Average Score</div>
-    <div class="kpi-trend" id="kpiAvgScoreTrend">
-      <i class="fas fa-arrow-up"></i>
-      <span>0% vs last period</span>
-    </div>
-  </div>
+        if (points.length === 1) {
+          return { slope: 0, intercept: points[0].y };
+        }
 
-  <div class="modern-kpi-card">
-    <div class="kpi-icon" style="background: var(--success-gradient);">
-      <i class="fas fa-check-circle"></i>
-    </div>
-    <div class="kpi-value" id="kpiPassRate">0%</div>
-    <div class="kpi-label">Pass Rate</div>
-    <div class="kpi-trend" id="kpiPassRateTrend">
-      <i class="fas fa-arrow-up"></i>
-      <span>0% vs last period</span>
-    </div>
-  </div>
+        const n = points.length;
+        let sumX = 0;
+        let sumY = 0;
+        let sumXY = 0;
+        let sumXX = 0;
 
-  <div class="modern-kpi-card">
-    <div class="kpi-icon" style="background: var(--info-gradient);">
-      <i class="fas fa-users"></i>
-    </div>
-    <div class="kpi-value" id="kpiAgentsEval">0%</div>
-    <div class="kpi-label">Agents Evaluated</div>
-    <div class="kpi-trend" id="kpiAgentsEvalTrend">
-      <i class="fas fa-arrow-up"></i>
-      <span>0% vs last period</span>
-    </div>
-  </div>
+        points.forEach(point => {
+          sumX += point.x;
+          sumY += point.y;
+          sumXY += point.x * point.y;
+          sumXX += point.x * point.x;
+        });
 
-  <div class="modern-kpi-card">
-    <div class="kpi-icon" style="background: var(--warning-gradient);">
-      <i class="fas fa-tasks"></i>
-    </div>
-    <div class="kpi-value" id="kpiEvalsDone">0%</div>
-    <div class="kpi-label">Evaluations Completed</div>
-    <div class="kpi-trend" id="kpiEvalsDoneTrend">
-      <i class="fas fa-arrow-up"></i>
-      <span>0% vs last period</span>
-    </div>
-  </div>
-</div>
+        const denominator = (n * sumXX) - (sumX * sumX);
+        if (denominator === 0) {
+          return { slope: 0, intercept: sumY / n };
+        }
+
+        const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        return { slope, intercept };
+      }
+
+      function clampPercent(value) {
+        if (Number.isNaN(value)) return 0;
+        return Math.max(0, Math.min(100, Math.round(value)));
+      }
+
+      function analyzeTrendSeries(series, context = {}) {
+        const { granularity = 'Period' } = context;
+        const lowerGran = granularity.toLowerCase();
+
+        if (!series || !series.length) {
+          return {
+            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
+            points: [],
+            health: 'monitoring',
+            forecast: { avg: 0, pass: 0 },
+            nextLabel: `next ${lowerGran}`
+          };
+        }
+
+        const first = series[0];
+        const last = series[series.length - 1];
 
 <!-- Category KPIs -->
 <div class="category-kpis-grid stagger-animation" id="categoryKpis">
@@ -2028,73 +2239,36 @@
     </div>
   </div>
 
-  <div class="modern-chart-card">
-    <h6><i class="fas fa-user-friends me-2"></i>Agent Activity</h6>
-    <div class="chart-container">
-      <canvas id="agentChart"></canvas>
-    </div>
-  </div>
-</div>
+        const slopeAvg = avgReg.slope;
+        const slopePass = passReg.slope;
 
-<!-- Category Comparison Chart -->
-<div class="modern-chart-card fade-in">
-  <h6><i class="fas fa-chart-bar me-2"></i>Category Comparison</h6>
-  <div class="full-width-chart">
-    <canvas id="categoryChart"></canvas>
-  </div>
-</div>
+        const improving = slopeAvg > 0.5 || slopePass > 0.5;
+        const declining = slopeAvg < -0.5 || slopePass < -0.5;
 
-<!-- Modern Tables -->
-<div class="row">
-  <div class="col-lg-6 mb-4 mt-4">
-    <div class="modern-table-card fade-in">
-      <h6><i class="fas fa-layer-group me-2"></i>Performance by Category</h6>
-      <div class="table-responsive">
-        <table class="modern-table" id="categoryTable">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Avg Score</th>
-              <th>Pass Rate</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+        let health = 'stable';
+        if (improving) health = 'improving';
+        if (declining) health = 'risk';
 
-  <div class="col-lg-6 mb-4 mt-4">
-    <div class="modern-table-card fade-in">
-      <h6><i class="fas fa-users-cog me-2"></i>Agent Performance</h6>
-      <div class="table-responsive">
-        <table class="modern-table" id="agentTable">
-          <thead>
-            <tr>
-              <th>Agent</th>
-              <th>Evals %</th>
-              <th>Avg Score</th>
-              <th>Pass Rate</th>
-              <th>Recent</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
+        const summaryParts = [];
+        summaryParts.push(`Average quality is ${avgDelta >= 0 ? 'up' : 'down'} ${Math.abs(avgDelta).toFixed(1)} pts`);
+        summaryParts.push(`pass rate ${passDelta >= 0 ? 'gained' : 'slid'} ${Math.abs(passDelta).toFixed(1)} pts`);
+        summaryParts.push(`${last.evalCount} evaluations this ${lowerGran}`);
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  const campaignId = '<?= typeof campaignId !== "undefined" ? campaignId : "" ?>';
-      const campaignName = '<?= typeof campaignName !== "undefined" ? campaignName : "" ?>';
+        const points = [];
 
-      let lastFilteredData = [];
+        points.push({
+          icon: improving ? 'fa-arrow-up' : declining ? 'fa-arrow-down' : 'fa-arrows-alt-h',
+          tone: improving ? 'positive' : declining ? 'negative' : '',
+          title: `Average score ${improving ? 'rising' : declining ? 'dropping' : 'steady'}`,
+          text: `${first.avgScore}% → ${last.avgScore}% across the last ${series.length} ${series.length === 1 ? lowerGran : lowerGran + 's'}.`
+        });
 
-      const PASS_MARK = 0.95;
-      const PASS_SCORE_THRESHOLD = PASS_MARK * 100;
+        points.push({
+          icon: passDelta >= 0 ? 'fa-shield-alt' : 'fa-exclamation-triangle',
+          tone: passDelta >= 0 ? 'positive' : 'negative',
+          title: `Pass rate ${passDelta >= 0 ? 'improving' : 'at risk'}`,
+          text: `${first.passRate}% → ${last.passRate}% (${passDelta >= 0 ? '+' : ''}${passDelta.toFixed(1)} pts).`
+        });
 
       const rawQA = JSON.parse('<?= qaRecords ?>');
       let currentGran = '<?= granularity ?>';
@@ -2102,6 +2276,15 @@
       let currentAgent = '<?= selectedAgent ?>';
       let userList = <?!= JSON.stringify(userList || []) ?>;
       let qaIntelligenceRequestToken = 0;
+      let latestAIIntelligence = null;
+      const DEFAULT_GRANULARITIES = ['Week', 'Month', 'Quarter', 'Year'];
+      const defaultPeriods = {};
+      const availablePeriods = {
+        Week: [],
+        Month: [],
+        Quarter: [],
+        Year: []
+      };
 
       const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
       const categories = {
@@ -2115,28 +2298,30 @@
         rawQA[index] = normalizeClientQaRecord(record, index);
       });
 
-      // Live datetime display function
-      function updateLiveDatetime() {
-        const now = new Date();
-        
-        const options = {
-          weekday: 'short',
-          year: 'numeric',
-          month: 'short',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZoneName: 'short'
+      refreshDefaultPeriods(rawQA);
+
+      if (!DEFAULT_GRANULARITIES.includes(currentGran)) {
+        currentGran = 'Week';
+      }
+
+      if (!currentPeriod) {
+        currentPeriod = ensurePeriodForGranularity(currentGran, rawQA);
+      }
+
+      syncPeriodInputs(currentGran, currentPeriod);
+
+        const avgForecast = clampPercent(avgReg.intercept + avgReg.slope * avgPoints.length);
+        const passForecast = clampPercent(passReg.intercept + passReg.slope * passPoints.length);
+
+        const summary = `${summaryParts.join(', ')}.`;
+
+        return {
+          summary,
+          points,
+          health,
+          forecast: { avg: avgForecast, pass: passForecast },
+          nextLabel: `next ${lowerGran}`
         };
-        
-        const formatted = now.toLocaleDateString('en-US', options);
-        const datetimeDisplay = document.getElementById('liveDatetime');
-        
-        if (datetimeDisplay) {
-          datetimeDisplay.textContent = formatted;
-        }
       }
 
       function safeToDate(value) {
@@ -2355,370 +2540,6 @@
       }
       
       let dailyChart, agentChart, categoryChart, trendSparklineChart;
-
-      function showLoader(detail = 'Loading QA metrics…') {
-        const loaderApi = window.LuminaLoader;
-        loaderApi?.show({
-          title: 'Refreshing QA Dashboard',
-          detail,
-          tip: 'Crunching performance metrics…',
-          progress: 25
-        });
-      }
-
-      function hideLoader(delay = 250) {
-        window.LuminaLoader?.hide(delay);
-      }
-
-      function toISOWeek(d){
-        d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
-        const day=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-day);
-        const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1));
-        const w=Math.ceil((((d-ys)/86400000)+1)/7);
-        return `${d.getUTCFullYear()}-W${String(w).padStart(2,'0')}`;
-      }
-      function getQuarter(d){ return 'Q'+(Math.floor(d.getMonth()/3)+1); }
-
-      function getPreviousPeriod(granularity, period){
-        if(!period) return '';
-        switch(granularity){
-          case 'Week':{ const [y,w]=period.split('-W'); const n=parseInt(w,10); return (n<=1)?`${parseInt(y,10)-1}-W52`:`${y}-W${String(n-1).padStart(2,'0')}`; }
-          case 'Month':{ const [y,m]=period.split('-').map(Number); const date=new Date(y,m-1); date.setMonth(date.getMonth()-1); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`; }
-          case 'Quarter':{ const [q,y]=period.split('-'); const n=parseInt(q.replace('Q',''),10); return (n<=1)?`Q4-${parseInt(y,10)-1}`:`Q${n-1}-${y}`; }
-          case 'Year': return String(parseInt(period,10)-1);
-          default: return '';
-        }
-      }
-
-      function computeCategoryMetrics(data){
-        const out={};
-        Object.entries(categories).forEach(([cat,keys])=>{
-          const scores=[], passes=[];
-          data.forEach(r=>{
-            const ans=keys.map(k=>(r[k]||'').toString().toLowerCase()==='yes');
-            const earned=keys.reduce((s,k,i)=> s + (ans[i]?weightsMap[k]:0),0);
-            const totalW=keys.reduce((s,k)=> s + weightsMap[k],0);
-            scores.push(totalW? Math.round(earned/totalW*100):0);
-            passes.push(ans.every(Boolean)?1:0);
-          });
-          const avgScore=scores.length? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
-          const passPct=passes.length? Math.round(passes.reduce((a,b)=>a+b,0)/passes.length*100):0;
-          out[cat]={ avgScore, passPct };
-        });
-        return out;
-      }
-
-      function formatPeriodLabel(granularity, period) {
-        if (!period) return 'Period';
-        switch (granularity) {
-          case 'Week':
-            return period.replace(/^[0-9]{4}-/, '');
-          case 'Month': {
-            const [y, m] = period.split('-');
-            const date = new Date(Number(y), Number(m) - 1, 1);
-            return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-          }
-          case 'Quarter':
-            return period.replace('-', ' ');
-          case 'Year':
-            return period;
-          default:
-            return period;
-        }
-      }
-
-      function filterRecordsByPeriod(data, granularity, periodValue) {
-        if (!periodValue) return [];
-        return data.filter(record => {
-          const dt = record.callDateObj;
-          if (!dt) return false;
-          try {
-            switch (granularity) {
-              case 'Week':
-                return toISOWeek(dt) === periodValue;
-              case 'Month':
-                return dt.toISOString().slice(0, 7) === periodValue;
-              case 'Quarter':
-                return `${getQuarter(dt)}-${dt.getFullYear()}` === periodValue;
-              case 'Year':
-                return String(dt.getFullYear()) === periodValue;
-              default:
-                return true;
-            }
-          } catch (err) {
-            console.warn('filterRecordsByPeriod error', record, err);
-            return false;
-          }
-        });
-      }
-
-      function buildTrendSeries(granularity, currentPeriod, data, depth = 4) {
-        const series = [];
-        let cursor = currentPeriod;
-        let steps = 0;
-        const visited = new Set();
-
-        while (cursor && steps < depth && !visited.has(cursor)) {
-          visited.add(cursor);
-          const bucket = filterRecordsByPeriod(data, granularity, cursor);
-          const evalCount = bucket.length;
-          const agentCount = new Set(bucket.map(r => r.AgentName)).size;
-          const avgScore = evalCount ? Math.round(bucket.reduce((sum, r) => sum + (r.Percentage || 0), 0) / evalCount * 100) : 0;
-          const passRate = safePercentage(bucket.filter(r => r.Percentage >= PASS_MARK).length, evalCount);
-          const coverage = userList.length ? safePercentage(agentCount, userList.length) : (agentCount > 0 ? 100 : 0);
-
-          series.push({
-            period: cursor,
-            label: formatPeriodLabel(granularity, cursor),
-            avgScore,
-            passRate,
-            evalCount,
-            agentCount,
-            coverage
-          });
-
-          cursor = getPreviousPeriod(granularity, cursor);
-          steps += 1;
-        }
-
-        return series.reverse();
-      }
-
-      function linearRegression(points) {
-        if (!points || !points.length) {
-          return { slope: 0, intercept: 0 };
-        }
-
-        if (points.length === 1) {
-          return { slope: 0, intercept: points[0].y };
-        }
-
-        const n = points.length;
-        let sumX = 0;
-        let sumY = 0;
-        let sumXY = 0;
-        let sumXX = 0;
-
-        points.forEach(point => {
-          sumX += point.x;
-          sumY += point.y;
-          sumXY += point.x * point.y;
-          sumXX += point.x * point.x;
-        });
-
-        const denominator = (n * sumXX) - (sumX * sumX);
-        if (denominator === 0) {
-          return { slope: 0, intercept: sumY / n };
-        }
-
-        const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
-        const intercept = (sumY - slope * sumX) / n;
-        return { slope, intercept };
-      }
-
-      function clampPercent(value) {
-        if (Number.isNaN(value)) return 0;
-        return Math.max(0, Math.min(100, Math.round(value)));
-      }
-
-      function analyzeTrendSeries(series, context = {}) {
-        const { granularity = 'Period' } = context;
-        const lowerGran = granularity.toLowerCase();
-
-        if (!series || !series.length) {
-          return {
-            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
-            points: [],
-            health: 'monitoring',
-            forecast: { avg: 0, pass: 0 },
-            nextLabel: `next ${lowerGran}`
-          };
-        }
-
-        const first = series[0];
-        const last = series[series.length - 1];
-
-        const avgPoints = series.map((point, index) => ({ x: index, y: point.avgScore }));
-        const passPoints = series.map((point, index) => ({ x: index, y: point.passRate }));
-        const avgReg = linearRegression(avgPoints);
-        const passReg = linearRegression(passPoints);
-
-        const avgDelta = last.avgScore - first.avgScore;
-        const passDelta = last.passRate - first.passRate;
-        const volumeDelta = last.evalCount - first.evalCount;
-
-        const slopeAvg = avgReg.slope;
-        const slopePass = passReg.slope;
-
-        const improving = slopeAvg > 0.5 || slopePass > 0.5;
-        const declining = slopeAvg < -0.5 || slopePass < -0.5;
-
-        let health = 'stable';
-        if (improving) health = 'improving';
-        if (declining) health = 'risk';
-
-        const summaryParts = [];
-        summaryParts.push(`Average quality is ${avgDelta >= 0 ? 'up' : 'down'} ${Math.abs(avgDelta).toFixed(1)} pts`);
-        summaryParts.push(`pass rate ${passDelta >= 0 ? 'gained' : 'slid'} ${Math.abs(passDelta).toFixed(1)} pts`);
-        summaryParts.push(`${last.evalCount} evaluations this ${lowerGran}`);
-
-        const points = [];
-
-        points.push({
-          icon: improving ? 'fa-arrow-up' : declining ? 'fa-arrow-down' : 'fa-arrows-alt-h',
-          tone: improving ? 'positive' : declining ? 'negative' : '',
-          title: `Average score ${improving ? 'rising' : declining ? 'dropping' : 'steady'}`,
-          text: `${first.avgScore}% → ${last.avgScore}% across the last ${series.length} ${series.length === 1 ? lowerGran : lowerGran + 's'}.`
-        });
-
-        points.push({
-          icon: passDelta >= 0 ? 'fa-shield-alt' : 'fa-exclamation-triangle',
-          tone: passDelta >= 0 ? 'positive' : 'negative',
-          title: `Pass rate ${passDelta >= 0 ? 'improving' : 'at risk'}`,
-          text: `${first.passRate}% → ${last.passRate}% (${passDelta >= 0 ? '+' : ''}${passDelta.toFixed(1)} pts).`
-        });
-
-        if (Math.abs(volumeDelta) > 0) {
-          points.push({
-            icon: volumeDelta >= 0 ? 'fa-users' : 'fa-user-slash',
-            tone: volumeDelta >= 0 ? 'positive' : 'negative',
-            title: `Evaluation volume ${volumeDelta >= 0 ? 'growing' : 'contracting'}`,
-            text: `${first.evalCount} → ${last.evalCount} evaluations (${volumeDelta >= 0 ? '+' : ''}${volumeDelta}).`
-          });
-        } else {
-          points.push({
-            icon: 'fa-stopwatch',
-            tone: '',
-            title: 'Volume steady',
-            text: `Evaluation count steady at ${last.evalCount} per ${lowerGran}.`
-          });
-        }
-
-        if (last.coverage < 80) {
-          points.push({
-            icon: 'fa-user-shield',
-            tone: 'negative',
-            title: 'Coverage gap detected',
-            text: `Only ${last.coverage}% of agents covered in the latest ${lowerGran}.`
-          });
-        }
-
-        const avgForecast = clampPercent(avgReg.intercept + avgReg.slope * avgPoints.length);
-        const passForecast = clampPercent(passReg.intercept + passReg.slope * passPoints.length);
-
-        const summary = `${summaryParts.join(', ')}.`;
-
-        return {
-          summary,
-          points,
-          health,
-          forecast: { avg: avgForecast, pass: passForecast },
-          nextLabel: `next ${lowerGran}`
-        };
-      }
-
-      function renderTrendSparkline(series, granularity) {
-        const visual = document.getElementById('aiTrendVisual');
-        const canvas = document.getElementById('aiTrendSparkline');
-
-        if (!visual || !canvas) {
-          return;
-        }
-
-        if (!series || !series.length) {
-          visual.style.display = 'none';
-          if (trendSparklineChart) {
-            trendSparklineChart.destroy();
-            trendSparklineChart = null;
-          }
-          return;
-        }
-
-        visual.style.display = '';
-
-        if (trendSparklineChart) {
-          trendSparklineChart.destroy();
-          trendSparklineChart = null;
-        }
-
-        const labels = series.map(point => point.label || formatPeriodLabel(granularity, point.period));
-        const avgData = series.map(point => point.avgScore);
-        const passData = series.map(point => point.passRate);
-
-        trendSparklineChart = new Chart(canvas, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [
-              {
-                label: 'Avg Score',
-                data: avgData,
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99,102,241,0.15)',
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#6366f1',
-                fill: true
-              },
-              {
-                label: 'Pass Rate',
-                data: passData,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.12)',
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#10b981',
-                fill: true
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                labels: {
-                  usePointStyle: true,
-                  font: {
-                    family: "'Google Sans', sans-serif",
-                    size: 11
-                  }
-                }
-              },
-              tooltip: {
-                backgroundColor: 'rgba(15,23,42,0.9)',
-                titleColor: '#fff',
-                bodyColor: '#e2e8f0',
-                cornerRadius: 10,
-                padding: 10
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: 'rgba(15,23,42,0.05)' },
-                ticks: { font: { family: "'Google Sans', sans-serif" } }
-              },
-              x: {
-                grid: { display: false },
-                ticks: { font: { family: "'Google Sans', sans-serif" } }
-              }
-            }
-          }
-        });
-      }
-
-      function updateAITrendPanel({ series, granularity }, analysisOverride = null) {
-        const summaryEl = document.getElementById('aiTrendSummary');
-        const listEl = document.getElementById('aiTrendList');
-        const forecastEl = document.getElementById('aiTrendForecast');
-        const healthEl = document.getElementById('aiTrendHealth');
-
-        if (!summaryEl || !listEl) {
-          return;
-        }
 
         const analysis = analysisOverride || analyzeTrendSeries(series, { granularity });
 
@@ -2745,544 +2566,6 @@
           }
         }
 
-        if (healthEl) {
-          healthEl.textContent = analysis.health === 'improving' ? 'Improving' : analysis.health === 'risk' ? 'At Risk' : analysis.health === 'monitoring' ? 'Monitoring' : 'Stable';
-          healthEl.classList.remove('improving', 'risk');
-          if (analysis.health === 'improving') {
-            healthEl.classList.add('improving');
-          } else if (analysis.health === 'risk') {
-            healthEl.classList.add('risk');
-          }
-        }
-
-        renderTrendSparkline(series, granularity);
-      }
-
-      function formatPeriodLabel(granularity, period) {
-        if (!period) return 'Period';
-        switch (granularity) {
-          case 'Week':
-            return period.replace(/^[0-9]{4}-/, '');
-          case 'Month': {
-            const [y, m] = period.split('-');
-            const date = new Date(Number(y), Number(m) - 1, 1);
-            return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-          }
-          case 'Quarter':
-            return period.replace('-', ' ');
-          case 'Year':
-            return period;
-          default:
-            return period;
-        }
-      }
-
-<!-- Category KPIs -->
-<div class="category-kpis-grid stagger-animation" id="categoryKpis">
-  <!-- Dynamically populated by JavaScript -->
-</div>
-
-<!-- AI Intelligence Layer -->
-<div class="ai-intel-grid fade-in">
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-robot"></i>
-      <span>Lumina QA Copilot</span>
-      <div class="ai-header-meta">
-        <span class="ai-source-chip client" id="aiInsightSource" title="Intelligence generated in-browser">Local AI</span>
-        <span class="ai-confidence-badge" id="aiConfidenceBadge">Confidence 0%</span>
-      </div>
-    </div>
-    <p class="ai-insights-summary" id="aiInsightsSummary">AI insights will appear once data loads.</p>
-    <ul class="ai-insights-list" id="aiInsightsList"></ul>
-  </div>
-
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-bolt"></i>
-      <span>Automation Playbook</span>
-      <span class="ai-automation-state" id="aiAutomationState">Monitoring</span>
-    </div>
-    <p class="ai-automation-summary" id="aiAutomationSummary">AI recommendations will populate after analysis.</p>
-    <ul class="ai-actions-list" id="aiRecommendationsList"></ul>
-    <div class="ai-next-best-action" id="aiNextBestAction" style="display: none;">
-      <i class="fas fa-magic"></i>
-      <div>
-        <strong>Next best automation</strong>
-        <span id="aiNextBestActionText"></span>
-      </div>
-    </div>
-  </div>
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-chart-line"></i>
-      <span>AI Trend Radar</span>
-      <span class="ai-trend-health" id="aiTrendHealth">Monitoring</span>
-    </div>
-    <p class="ai-trend-summary" id="aiTrendSummary">Trend intelligence will populate after analysis.</p>
-    <div class="ai-trend-visual" id="aiTrendVisual" style="display: none;">
-      <canvas id="aiTrendSparkline"></canvas>
-      <div class="ai-trend-forecast" id="aiTrendForecast"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Category KPIs -->
-<div class="category-kpis-grid stagger-animation" id="categoryKpis">
-  <!-- Dynamically populated by JavaScript -->
-</div>
-
-<!-- AI Intelligence Layer -->
-<div class="ai-intel-grid fade-in">
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-robot"></i>
-      <span>Lumina QA Copilot</span>
-      <div class="ai-header-meta">
-        <span class="ai-source-chip client" id="aiInsightSource" title="Intelligence generated in-browser">Local AI</span>
-        <span class="ai-confidence-badge" id="aiConfidenceBadge">Confidence 0%</span>
-      </div>
-    </div>
-    <p class="ai-insights-summary" id="aiInsightsSummary">AI insights will appear once data loads.</p>
-    <ul class="ai-insights-list" id="aiInsightsList"></ul>
-  </div>
-
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-bolt"></i>
-      <span>Automation Playbook</span>
-      <span class="ai-automation-state" id="aiAutomationState">Monitoring</span>
-    </div>
-    <p class="ai-automation-summary" id="aiAutomationSummary">AI recommendations will populate after analysis.</p>
-    <ul class="ai-actions-list" id="aiRecommendationsList"></ul>
-    <div class="ai-next-best-action" id="aiNextBestAction" style="display: none;">
-      <i class="fas fa-magic"></i>
-      <div>
-        <strong>Next best automation</strong>
-        <span id="aiNextBestActionText"></span>
-      </div>
-    </div>
-  </div>
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-chart-line"></i>
-      <span>AI Trend Radar</span>
-      <span class="ai-trend-health" id="aiTrendHealth">Monitoring</span>
-    </div>
-    <p class="ai-trend-summary" id="aiTrendSummary">Trend intelligence will populate after analysis.</p>
-    <div class="ai-trend-visual" id="aiTrendVisual" style="display: none;">
-      <canvas id="aiTrendSparkline"></canvas>
-      <div class="ai-trend-forecast" id="aiTrendForecast"></div>
-    </div>
-    <ul class="ai-insights-list" id="aiTrendList"></ul>
-  </div>
-</div>
-
-<!-- Modern Charts -->
-<div class="modern-chart-grid stagger-animation">
-  <div class="modern-chart-card">
-    <h6><i class="fas fa-calendar-day me-2"></i>Daily Performance</h6>
-    <div class="chart-container">
-      <canvas id="dailyChart"></canvas>
-    </div>
-  </div>
-
-          cursor = getPreviousPeriod(granularity, cursor);
-          steps += 1;
-        }
-
-        return series.reverse();
-      }
-
-      function linearRegression(points) {
-        if (!points || !points.length) {
-          return { slope: 0, intercept: 0 };
-        }
-
-        if (points.length === 1) {
-          return { slope: 0, intercept: points[0].y };
-        }
-
-        const n = points.length;
-        let sumX = 0;
-        let sumY = 0;
-        let sumXY = 0;
-        let sumXX = 0;
-
-        points.forEach(point => {
-          sumX += point.x;
-          sumY += point.y;
-          sumXY += point.x * point.y;
-          sumXX += point.x * point.x;
-        });
-
-        const denominator = (n * sumXX) - (sumX * sumX);
-        if (denominator === 0) {
-          return { slope: 0, intercept: sumY / n };
-        }
-
-        const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
-        const intercept = (sumY - slope * sumX) / n;
-        return { slope, intercept };
-      }
-
-      const rawQA = JSON.parse('<?= qaRecords ?>');
-      let currentGran = '<?= granularity ?>';
-      let currentPeriod = '<?= periodValue ?>';
-      let currentAgent = '<?= selectedAgent ?>';
-      let userList = <?!= JSON.stringify(userList || []) ?>;
-      let qaIntelligenceRequestToken = 0;
-      let latestAIIntelligence = null;
-      const DEFAULT_GRANULARITIES = ['Week', 'Month', 'Quarter', 'Year'];
-      const defaultPeriods = {};
-
-      const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
-      const categories = {
-        'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
-        'Resolution':['Q6','Q7','Q8','Q9'],
-        'Case Documentation':['Q10','Q11','Q12','Q13','Q14'],
-        'Process Compliance':['Q15','Q16','Q17','Q18']
-      };
-
-      rawQA.forEach((record, index) => {
-        rawQA[index] = normalizeClientQaRecord(record, index);
-      });
-
-      refreshDefaultPeriods(rawQA);
-
-      if (!DEFAULT_GRANULARITIES.includes(currentGran)) {
-        currentGran = 'Week';
-      }
-
-      if (!currentPeriod) {
-        currentPeriod = ensurePeriodForGranularity(currentGran, rawQA);
-      }
-
-      syncPeriodInputs(currentGran, currentPeriod);
-
-      rawQA.forEach((record, index) => {
-        rawQA[index] = normalizeClientQaRecord(record, index);
-      });
-
-        return {
-          summary,
-          points,
-          health,
-          forecast: { avg: avgForecast, pass: passForecast },
-          nextLabel: `next ${lowerGran}`
-        };
-      }
-
-      function safeToDate(value) {
-        return coerceDateValue(value);
-      }
-
-      function safeToISOString(dateValue) {
-          const date = safeToDate(dateValue);
-          return date ? date.toISOString() : null;
-      }
-
-      function normalizeKeyName(key) {
-        return String(key || '')
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, '');
-      }
-
-      function getRecordField(record, candidates) {
-        if (!record || typeof record !== 'object') {
-          return null;
-        }
-
-        const lookup = {};
-        Object.keys(record).forEach(existingKey => {
-          const normalized = normalizeKeyName(existingKey);
-          if (!(normalized in lookup)) {
-            lookup[normalized] = existingKey;
-          }
-        });
-
-        for (let i = 0; i < candidates.length; i += 1) {
-          const normalizedKey = normalizeKeyName(candidates[i]);
-          const actualKey = lookup[normalizedKey];
-          if (actualKey && record[actualKey] !== undefined && record[actualKey] !== null && record[actualKey] !== '') {
-            return record[actualKey];
-          }
-        }
-
-        return null;
-      }
-
-      function clamp01(value) {
-        if (!isFinite(value)) {
-          return 0;
-        }
-        if (value < 0) return 0;
-        if (value > 1) return 1;
-        return value;
-      }
-
-      function parsePercentageValue(value) {
-        if (value === null || value === undefined || value === '') {
-          return 0;
-        }
-
-        if (typeof value === 'number' && isFinite(value)) {
-          const normalized = value > 1.0001 ? value / 100 : value;
-          return clamp01(normalized);
-        }
-
-        const numeric = parseFloat(String(value).replace(/[^0-9.\-]/g, ''));
-        if (!isFinite(numeric)) {
-          return 0;
-        }
-
-        const normalized = numeric > 1.0001 ? numeric / 100 : numeric;
-        return clamp01(normalized);
-      }
-
-      function excelSerialToDate(serial) {
-        if (typeof serial !== 'number' || !isFinite(serial)) {
-          return null;
-        }
-
-        if (serial <= 60) {
-          return null;
-        }
-
-        const utcDays = Math.floor(serial - 25569);
-        const utcMilliseconds = utcDays * 86400000;
-        const remainder = serial - Math.floor(serial);
-        const remainderMs = Math.round(remainder * 86400000);
-        const date = new Date(utcMilliseconds + remainderMs);
-        return isNaN(date.getTime()) ? null : date;
-      }
-
-      function parseFlexibleDateString(raw) {
-        if (!raw) {
-          return null;
-        }
-
-        const value = String(raw).trim();
-        if (!value) {
-          return null;
-        }
-
-        if (/^\d+(\.\d+)?$/.test(value)) {
-          const asNumber = parseFloat(value);
-          const excelDate = excelSerialToDate(asNumber);
-          if (excelDate) {
-            return excelDate;
-          }
-        }
-
-        if (/^\d{8}$/.test(value)) {
-          const year = Number(value.slice(0, 4));
-          const month = Number(value.slice(4, 6)) - 1;
-          const day = Number(value.slice(6, 8));
-          const ymdDate = new Date(year, month, day);
-          if (!isNaN(ymdDate.getTime())) {
-            return ymdDate;
-          }
-        }
-
-        let parsed = new Date(value);
-        if (!isNaN(parsed.getTime())) {
-          return parsed;
-        }
-
-        if (value.includes(' ') && !value.includes('T')) {
-          parsed = new Date(value.replace(' ', 'T'));
-          if (!isNaN(parsed.getTime())) {
-            return parsed;
-          }
-        }
-
-        const parts = value.split(/[\/\-]/).map(part => part.trim());
-        if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
-          let [p1, p2, p3] = parts.map(Number);
-          if (p3 < 100) {
-            p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
-          }
-
-          let month;
-          let day;
-          let year;
-
-          if (p1 > 12 && p2 <= 12) {
-            day = p1;
-            month = p2;
-            year = p3;
-          } else if (p2 > 12 && p1 <= 12) {
-            month = p1;
-            day = p2;
-            year = p3;
-          } else {
-            month = p1;
-            day = p2;
-            year = p3;
-          }
-
-          const manualDate = new Date(year, month - 1, day);
-          if (!isNaN(manualDate.getTime())) {
-            return manualDate;
-          }
-        }
-
-        return null;
-      }
-
-      function coerceDateValue(value) {
-        if (value === null || value === undefined || value === '') {
-          return null;
-        }
-
-        if (value instanceof Date) {
-          return isNaN(value.getTime()) ? null : value;
-        }
-
-        if (typeof value === 'number' && isFinite(value)) {
-          const excelDate = excelSerialToDate(value);
-          if (excelDate) {
-            return excelDate;
-          }
-
-          const numericDate = new Date(value);
-          return isNaN(numericDate.getTime()) ? null : numericDate;
-        }
-
-        return parseFlexibleDateString(value);
-      }
-
-      function normalizeClientQaRecord(record, index) {
-        const normalized = { ...record };
-
-        const agentValue = getRecordField(record, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
-        const campaignValue = getRecordField(record, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
-        const percentageValue = getRecordField(record, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
-        const callDateValue = getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
-
-        const agentName = agentValue ? String(agentValue).trim() : '';
-        const campaign = campaignValue ? String(campaignValue).trim() : '';
-        const callDate = coerceDateValue(callDateValue);
-        const percentage = parsePercentageValue(percentageValue);
-
-        if (agentName) {
-          normalized.AgentName = agentName;
-        } else if (!normalized.AgentName) {
-          normalized.AgentName = 'Unassigned';
-        }
-
-        if (campaign) {
-          normalized.Campaign = campaign;
-        }
-
-        normalized.Percentage = percentage;
-        normalized.callDateObj = callDate;
-        normalized.CallDate = callDate instanceof Date ? callDate.toISOString() : null;
-        normalized.__recordIndex = index;
-
-        return normalized;
-      }
-
-      function isValidDate(dateValue) {
-          return safeToDate(dateValue) !== null;
-      }
-      
-      let dailyChart, agentChart, categoryChart, trendSparklineChart;
-
-        const labels = series.map(point => point.label || formatPeriodLabel(granularity, point.period));
-        const avgData = series.map(point => point.avgScore);
-        const passData = series.map(point => point.passRate);
-
-        trendSparklineChart = new Chart(canvas, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [
-              {
-                label: 'Avg Score',
-                data: avgData,
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99,102,241,0.15)',
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#6366f1',
-                fill: true
-              },
-              {
-                label: 'Pass Rate',
-                data: passData,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.12)',
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#10b981',
-                fill: true
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                labels: {
-                  usePointStyle: true,
-                  font: {
-                    family: "'Google Sans', sans-serif",
-                    size: 11
-                  }
-                }
-              },
-              tooltip: {
-                backgroundColor: 'rgba(15,23,42,0.9)',
-                titleColor: '#fff',
-                bodyColor: '#e2e8f0',
-                cornerRadius: 10,
-                padding: 10
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: 'rgba(15,23,42,0.05)' },
-                ticks: { font: { family: "'Google Sans', sans-serif" } }
-              },
-              x: {
-                grid: { display: false },
-                ticks: { font: { family: "'Google Sans', sans-serif" } }
-              }
-            }
-          }
-        });
-      }
-
-      function updateAITrendPanel({ series, granularity }, analysisOverride = null) {
-        const summaryEl = document.getElementById('aiTrendSummary');
-        const listEl = document.getElementById('aiTrendList');
-        const forecastEl = document.getElementById('aiTrendForecast');
-        const healthEl = document.getElementById('aiTrendHealth');
-
-        if (!summaryEl || !listEl) {
-          return;
-        }
-
-        const analysis = analysisOverride || analyzeTrendSeries(series, { granularity });
-
-        summaryEl.textContent = analysis.summary;
-        listEl.innerHTML = '';
-
-        if (analysis.points.length) {
-          listEl.innerHTML = analysis.points.map(point => {
-            const tone = point.tone ? ` ${point.tone}` : '';
-            return `<li class="ai-insight-item${tone}"><div class="ai-icon"><i class="fas ${point.icon}"></i></div><div class="ai-insight-content"><strong>${point.title}</strong><span>${point.text}</span></div></li>`;
-          }).join('');
-        } else {
-          listEl.innerHTML = '<li class="ai-insight-item"><div class="ai-icon"><i class="fas fa-info-circle"></i></div><div class="ai-insight-content"><strong>No trend data yet</strong><span>Capture a few periods of QA to unlock longitudinal intelligence.</span></div></li>';
-        }
-
       function computeCategoryMetrics(data){
         const out={};
         Object.entries(categories).forEach(([cat,keys])=>{
@@ -3305,544 +2588,11 @@
         if (!period) return 'Period';
         switch (granularity) {
           case 'Week':
-            return period.replace(/^[0-9]{4}-/, '');
-          case 'Month': {
-            const [y, m] = period.split('-');
-            const date = new Date(Number(y), Number(m) - 1, 1);
-            return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-          }
-          case 'Quarter':
-            return period.replace('-', ' ');
-          case 'Year':
-            return period;
-          default:
-            return period;
-        }
-      }
-
-      function filterRecordsByPeriod(data, granularity, periodValue) {
-        if (!periodValue) return [];
-        return data.filter(record => {
-          const dt = record.callDateObj;
-          if (!dt) return false;
-          try {
-            switch (granularity) {
-              case 'Week':
-                return toISOWeek(dt) === periodValue;
-              case 'Month':
-                return dt.toISOString().slice(0, 7) === periodValue;
-              case 'Quarter':
-                return `${getQuarter(dt)}-${dt.getFullYear()}` === periodValue;
-              case 'Year':
-                return String(dt.getFullYear()) === periodValue;
-              default:
-                return true;
+            if (/^(\d{4})-W(\d{2})$/.test(period)) {
+              const [, year, week] = period.match(/^(\d{4})-W(\d{2})$/);
+              return `W${week} ${year}`;
             }
-          } catch (err) {
-            console.warn('filterRecordsByPeriod error', record, err);
-            return false;
-          }
-        });
-      }
-
-      function buildTrendSeries(granularity, currentPeriod, data, depth = 4) {
-        const series = [];
-        let cursor = currentPeriod;
-        let steps = 0;
-        const visited = new Set();
-
-        while (cursor && steps < depth && !visited.has(cursor)) {
-          visited.add(cursor);
-          const bucket = filterRecordsByPeriod(data, granularity, cursor);
-          const evalCount = bucket.length;
-          const agentCount = new Set(bucket.map(r => r.AgentName)).size;
-          const avgScore = evalCount ? Math.round(bucket.reduce((sum, r) => sum + (r.Percentage || 0), 0) / evalCount * 100) : 0;
-          const passRate = safePercentage(bucket.filter(r => r.Percentage >= PASS_MARK).length, evalCount);
-          const coverage = userList.length ? safePercentage(agentCount, userList.length) : (agentCount > 0 ? 100 : 0);
-
-          series.push({
-            period: cursor,
-            label: formatPeriodLabel(granularity, cursor),
-            avgScore,
-            passRate,
-            evalCount,
-            agentCount,
-            coverage
-          });
-
-          cursor = getPreviousPeriod(granularity, cursor);
-          steps += 1;
-        }
-
-        return series.reverse();
-      }
-
-      function linearRegression(points) {
-        if (!points || !points.length) {
-          return { slope: 0, intercept: 0 };
-        }
-
-        if (points.length === 1) {
-          return { slope: 0, intercept: points[0].y };
-        }
-
-        const n = points.length;
-        let sumX = 0;
-        let sumY = 0;
-        let sumXY = 0;
-        let sumXX = 0;
-
-        points.forEach(point => {
-          sumX += point.x;
-          sumY += point.y;
-          sumXY += point.x * point.y;
-          sumXX += point.x * point.x;
-        });
-
-        const denominator = (n * sumXX) - (sumX * sumX);
-        if (denominator === 0) {
-          return { slope: 0, intercept: sumY / n };
-        }
-
-        const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
-        const intercept = (sumY - slope * sumX) / n;
-        return { slope, intercept };
-      }
-
-      function clampPercent(value) {
-        if (Number.isNaN(value)) return 0;
-        return Math.max(0, Math.min(100, Math.round(value)));
-      }
-
-      function analyzeTrendSeries(series, context = {}) {
-        const { granularity = 'Period' } = context;
-        const lowerGran = granularity.toLowerCase();
-
-        if (!series || !series.length) {
-          return {
-            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
-            points: [],
-            health: 'monitoring',
-            forecast: { avg: 0, pass: 0 },
-            nextLabel: `next ${lowerGran}`
-          };
-        }
-
-        const first = series[0];
-        const last = series[series.length - 1];
-
-        const avgPoints = series.map((point, index) => ({ x: index, y: point.avgScore }));
-        const passPoints = series.map((point, index) => ({ x: index, y: point.passRate }));
-        const avgReg = linearRegression(avgPoints);
-        const passReg = linearRegression(passPoints);
-
-        const avgDelta = last.avgScore - first.avgScore;
-        const passDelta = last.passRate - first.passRate;
-        const volumeDelta = last.evalCount - first.evalCount;
-
-        const slopeAvg = avgReg.slope;
-        const slopePass = passReg.slope;
-
-        const improving = slopeAvg > 0.5 || slopePass > 0.5;
-        const declining = slopeAvg < -0.5 || slopePass < -0.5;
-
-        let health = 'stable';
-        if (improving) health = 'improving';
-        if (declining) health = 'risk';
-
-        const summaryParts = [];
-        summaryParts.push(`Average quality is ${avgDelta >= 0 ? 'up' : 'down'} ${Math.abs(avgDelta).toFixed(1)} pts`);
-        summaryParts.push(`pass rate ${passDelta >= 0 ? 'gained' : 'slid'} ${Math.abs(passDelta).toFixed(1)} pts`);
-        summaryParts.push(`${last.evalCount} evaluations this ${lowerGran}`);
-
-        const points = [];
-
-        points.push({
-          icon: improving ? 'fa-arrow-up' : declining ? 'fa-arrow-down' : 'fa-arrows-alt-h',
-          tone: improving ? 'positive' : declining ? 'negative' : '',
-          title: `Average score ${improving ? 'rising' : declining ? 'dropping' : 'steady'}`,
-          text: `${first.avgScore}% → ${last.avgScore}% across the last ${series.length} ${series.length === 1 ? lowerGran : lowerGran + 's'}.`
-        });
-
-        points.push({
-          icon: passDelta >= 0 ? 'fa-shield-alt' : 'fa-exclamation-triangle',
-          tone: passDelta >= 0 ? 'positive' : 'negative',
-          title: `Pass rate ${passDelta >= 0 ? 'improving' : 'at risk'}`,
-          text: `${first.passRate}% → ${last.passRate}% (${passDelta >= 0 ? '+' : ''}${passDelta.toFixed(1)} pts).`
-        });
-
-        if (Math.abs(volumeDelta) > 0) {
-          points.push({
-            icon: volumeDelta >= 0 ? 'fa-users' : 'fa-user-slash',
-            tone: volumeDelta >= 0 ? 'positive' : 'negative',
-            title: `Evaluation volume ${volumeDelta >= 0 ? 'growing' : 'contracting'}`,
-            text: `${first.evalCount} → ${last.evalCount} evaluations (${volumeDelta >= 0 ? '+' : ''}${volumeDelta}).`
-          });
-        } else {
-          points.push({
-            icon: 'fa-stopwatch',
-            tone: '',
-            title: 'Volume steady',
-            text: `Evaluation count steady at ${last.evalCount} per ${lowerGran}.`
-          });
-        }
-
-        if (last.coverage < 80) {
-          points.push({
-            icon: 'fa-user-shield',
-            tone: 'negative',
-            title: 'Coverage gap detected',
-            text: `Only ${last.coverage}% of agents covered in the latest ${lowerGran}.`
-          });
-        }
-
-        const avgForecast = clampPercent(avgReg.intercept + avgReg.slope * avgPoints.length);
-        const passForecast = clampPercent(passReg.intercept + passReg.slope * passPoints.length);
-
-        const summary = `${summaryParts.join(', ')}.`;
-
-        return {
-          summary,
-          points,
-          health,
-          forecast: { avg: avgForecast, pass: passForecast },
-          nextLabel: `next ${lowerGran}`
-        };
-      }
-
-      function safeToDate(value) {
-        return coerceDateValue(value);
-      }
-
-      function safeToISOString(dateValue) {
-          const date = safeToDate(dateValue);
-          return date ? date.toISOString() : null;
-      }
-
-      function normalizeKeyName(key) {
-        return String(key || '')
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, '');
-      }
-
-      function getRecordField(record, candidates) {
-        if (!record || typeof record !== 'object') {
-          return null;
-        }
-
-        const lookup = {};
-        Object.keys(record).forEach(existingKey => {
-          const normalized = normalizeKeyName(existingKey);
-          if (!(normalized in lookup)) {
-            lookup[normalized] = existingKey;
-          }
-        });
-
-        for (let i = 0; i < candidates.length; i += 1) {
-          const normalizedKey = normalizeKeyName(candidates[i]);
-          const actualKey = lookup[normalizedKey];
-          if (actualKey && record[actualKey] !== undefined && record[actualKey] !== null && record[actualKey] !== '') {
-            return record[actualKey];
-          }
-        }
-
-        return null;
-      }
-
-      function clamp01(value) {
-        if (!isFinite(value)) {
-          return 0;
-        }
-        if (value < 0) return 0;
-        if (value > 1) return 1;
-        return value;
-      }
-
-      function parsePercentageValue(value) {
-        if (value === null || value === undefined || value === '') {
-          return 0;
-        }
-
-        if (typeof value === 'number' && isFinite(value)) {
-          const normalized = value > 1.0001 ? value / 100 : value;
-          return clamp01(normalized);
-        }
-
-        const numeric = parseFloat(String(value).replace(/[^0-9.\-]/g, ''));
-        if (!isFinite(numeric)) {
-          return 0;
-        }
-
-        const normalized = numeric > 1.0001 ? numeric / 100 : numeric;
-        return clamp01(normalized);
-      }
-
-      function excelSerialToDate(serial) {
-        if (typeof serial !== 'number' || !isFinite(serial)) {
-          return null;
-        }
-
-        if (serial <= 60) {
-          return null;
-        }
-
-        const utcDays = Math.floor(serial - 25569);
-        const utcMilliseconds = utcDays * 86400000;
-        const remainder = serial - Math.floor(serial);
-        const remainderMs = Math.round(remainder * 86400000);
-        const date = new Date(utcMilliseconds + remainderMs);
-        return isNaN(date.getTime()) ? null : date;
-      }
-
-      function parseFlexibleDateString(raw) {
-        if (!raw) {
-          return null;
-        }
-
-        const value = String(raw).trim();
-        if (!value) {
-          return null;
-        }
-
-        if (/^\d+(\.\d+)?$/.test(value)) {
-          const asNumber = parseFloat(value);
-          const excelDate = excelSerialToDate(asNumber);
-          if (excelDate) {
-            return excelDate;
-          }
-        }
-
-        if (/^\d{8}$/.test(value)) {
-          const year = Number(value.slice(0, 4));
-          const month = Number(value.slice(4, 6)) - 1;
-          const day = Number(value.slice(6, 8));
-          const ymdDate = new Date(year, month, day);
-          if (!isNaN(ymdDate.getTime())) {
-            return ymdDate;
-          }
-        }
-
-        let parsed = new Date(value);
-        if (!isNaN(parsed.getTime())) {
-          return parsed;
-        }
-
-        if (value.includes(' ') && !value.includes('T')) {
-          parsed = new Date(value.replace(' ', 'T'));
-          if (!isNaN(parsed.getTime())) {
-            return parsed;
-          }
-        }
-
-        const parts = value.split(/[\/\-]/).map(part => part.trim());
-        if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
-          let [p1, p2, p3] = parts.map(Number);
-          if (p3 < 100) {
-            p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
-          }
-
-          let month;
-          let day;
-          let year;
-
-          if (p1 > 12 && p2 <= 12) {
-            day = p1;
-            month = p2;
-            year = p3;
-          } else if (p2 > 12 && p1 <= 12) {
-            month = p1;
-            day = p2;
-            year = p3;
-          } else {
-            month = p1;
-            day = p2;
-            year = p3;
-          }
-
-          const manualDate = new Date(year, month - 1, day);
-          if (!isNaN(manualDate.getTime())) {
-            return manualDate;
-          }
-        }
-
-        return null;
-      }
-
-      function coerceDateValue(value) {
-        if (value === null || value === undefined || value === '') {
-          return null;
-        }
-
-        if (value instanceof Date) {
-          return isNaN(value.getTime()) ? null : value;
-        }
-
-        if (typeof value === 'number' && isFinite(value)) {
-          const excelDate = excelSerialToDate(value);
-          if (excelDate) {
-            return excelDate;
-          }
-
-          const numericDate = new Date(value);
-          return isNaN(numericDate.getTime()) ? null : numericDate;
-        }
-
-        return parseFlexibleDateString(value);
-      }
-
-      function normalizeClientQaRecord(record, index) {
-        const normalized = { ...record };
-
-        const agentValue = getRecordField(record, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
-        const campaignValue = getRecordField(record, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
-        const percentageValue = getRecordField(record, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
-        const callDateValue = getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
-
-        const agentName = agentValue ? String(agentValue).trim() : '';
-        const campaign = campaignValue ? String(campaignValue).trim() : '';
-        const callDate = coerceDateValue(callDateValue);
-        const percentage = parsePercentageValue(percentageValue);
-
-        if (agentName) {
-          normalized.AgentName = agentName;
-        } else if (!normalized.AgentName) {
-          normalized.AgentName = 'Unassigned';
-        }
-
-        if (campaign) {
-          normalized.Campaign = campaign;
-        }
-
-        normalized.Percentage = percentage;
-        normalized.callDateObj = callDate;
-        normalized.CallDate = callDate instanceof Date ? callDate.toISOString() : null;
-        normalized.__recordIndex = index;
-
-        return normalized;
-      }
-
-      function isValidDate(dateValue) {
-          return safeToDate(dateValue) !== null;
-      }
-      
-      let dailyChart, agentChart, categoryChart, trendSparklineChart;
-
-        const labels = series.map(point => point.label || formatPeriodLabel(granularity, point.period));
-        const avgData = series.map(point => point.avgScore);
-        const passData = series.map(point => point.passRate);
-
-        trendSparklineChart = new Chart(canvas, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [
-              {
-                label: 'Avg Score',
-                data: avgData,
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99,102,241,0.15)',
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#6366f1',
-                fill: true
-              },
-              {
-                label: 'Pass Rate',
-                data: passData,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.12)',
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#10b981',
-                fill: true
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                labels: {
-                  usePointStyle: true,
-                  font: {
-                    family: "'Google Sans', sans-serif",
-                    size: 11
-                  }
-                }
-              },
-              tooltip: {
-                backgroundColor: 'rgba(15,23,42,0.9)',
-                titleColor: '#fff',
-                bodyColor: '#e2e8f0',
-                cornerRadius: 10,
-                padding: 10
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: 'rgba(15,23,42,0.05)' },
-                ticks: { font: { family: "'Google Sans', sans-serif" } }
-              },
-              x: {
-                grid: { display: false },
-                ticks: { font: { family: "'Google Sans', sans-serif" } }
-              }
-            }
-          }
-        });
-      }
-
-      function updateAITrendPanel({ series, granularity }, analysisOverride = null) {
-        const summaryEl = document.getElementById('aiTrendSummary');
-        const listEl = document.getElementById('aiTrendList');
-        const forecastEl = document.getElementById('aiTrendForecast');
-        const healthEl = document.getElementById('aiTrendHealth');
-
-        if (!summaryEl || !listEl) {
-          return;
-        }
-
-        const analysis = analysisOverride || analyzeTrendSeries(series, { granularity });
-
-        summaryEl.textContent = analysis.summary;
-        listEl.innerHTML = '';
-
-        if (analysis.points.length) {
-          listEl.innerHTML = analysis.points.map(point => {
-            const tone = point.tone ? ` ${point.tone}` : '';
-            return `<li class="ai-insight-item${tone}"><div class="ai-icon"><i class="fas ${point.icon}"></i></div><div class="ai-insight-content"><strong>${point.title}</strong><span>${point.text}</span></div></li>`;
-          }).join('');
-        } else {
-          listEl.innerHTML = '<li class="ai-insight-item"><div class="ai-icon"><i class="fas fa-info-circle"></i></div><div class="ai-insight-content"><strong>No trend data yet</strong><span>Capture a few periods of QA to unlock longitudinal intelligence.</span></div></li>';
-        }
-
-      function computeCategoryMetrics(data){
-        const out={};
-        Object.entries(categories).forEach(([cat,keys])=>{
-          const scores=[], passes=[];
-          data.forEach(r=>{
-            const ans=keys.map(k=>(r[k]||'').toString().toLowerCase()==='yes');
-            const earned=keys.reduce((s,k,i)=> s + (ans[i]?weightsMap[k]:0),0);
-            const totalW=keys.reduce((s,k)=> s + weightsMap[k],0);
-            scores.push(totalW? Math.round(earned/totalW*100):0);
-            passes.push(ans.every(Boolean)?1:0);
-          });
-          const avgScore=scores.length? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
-          const passPct=passes.length? Math.round(passes.reduce((a,b)=>a+b,0)/passes.length*100):0;
-          out[cat]={ avgScore, passPct };
-        });
-        return out;
-      }
-
-      function formatPeriodLabel(granularity, period) {
-        if (!period) return 'Period';
-        switch (granularity) {
-          case 'Week':
-            return period.replace(/^[0-9]{4}-/, '');
+            return period;
           case 'Month': {
             const [y, m] = period.split('-');
             const date = new Date(Number(y), Number(m) - 1, 1);
@@ -3907,11 +2657,103 @@
         }
       }
 
+      function periodSortValue(granularity, period) {
+        if (!period) return 0;
+        try {
+          switch (granularity) {
+            case 'Week': {
+              const match = period.match(/^(\d{4})-W(\d{2})$/);
+              if (!match) return 0;
+              const year = Number(match[1]);
+              const week = Number(match[2]);
+              const simple = new Date(Date.UTC(year, 0, 1));
+              const day = simple.getUTCDay() || 7;
+              simple.setUTCDate(simple.getUTCDate() + (week - 1) * 7 + (1 - day));
+              return simple.getTime();
+            }
+            case 'Month': {
+              const [y, m] = period.split('-').map(Number);
+              if (!y || !m) return 0;
+              return new Date(Date.UTC(y, m - 1, 1)).getTime();
+            }
+            case 'Quarter': {
+              const match = period.match(/^Q([1-4])-(\d{4})$/);
+              if (!match) return 0;
+              const quarterIndex = Number(match[1]) - 1;
+              const year = Number(match[2]);
+              return new Date(Date.UTC(year, quarterIndex * 3, 1)).getTime();
+            }
+            case 'Year':
+              return new Date(Date.UTC(Number(period), 0, 1)).getTime();
+            default:
+              return 0;
+          }
+        } catch (err) {
+          console.warn('periodSortValue failed', granularity, period, err);
+          return 0;
+        }
+      }
+
+      function derivePeriodsForGranularity(granularity, data) {
+        if (!Array.isArray(data) || !data.length) {
+          return [];
+        }
+
+        const set = new Set();
+        data.forEach(item => {
+          const dt = item?.callDateObj;
+          if (!(dt instanceof Date) || Number.isNaN(dt.getTime())) {
+            return;
+          }
+          try {
+            switch (granularity) {
+              case 'Week':
+                set.add(toISOWeek(dt));
+                break;
+              case 'Month':
+                set.add(dt.toISOString().slice(0, 7));
+                break;
+              case 'Quarter':
+                set.add(`${getQuarter(dt)}-${dt.getFullYear()}`);
+                break;
+              case 'Year':
+                set.add(String(dt.getFullYear()));
+                break;
+              default:
+                break;
+            }
+          } catch (err) {
+            console.warn('derivePeriodsForGranularity error', granularity, item, err);
+          }
+        });
+
+        const sorted = Array.from(set)
+          .filter(Boolean)
+          .sort((a, b) => periodSortValue(granularity, b) - periodSortValue(granularity, a));
+
+        const limitMap = {
+          Week: 104,
+          Month: 36,
+          Quarter: 16,
+          Year: 12
+        };
+
+        const limit = limitMap[granularity] || sorted.length;
+        return sorted.slice(0, limit);
+      }
+
       function refreshDefaultPeriods(data) {
         DEFAULT_GRANULARITIES.forEach(granularity => {
-          const derived = deriveLatestPeriod(granularity, data);
-          if (derived) {
-            defaultPeriods[granularity] = derived;
+          const periods = derivePeriodsForGranularity(granularity, data);
+          availablePeriods[granularity] = periods;
+
+          if (periods.length === 0) {
+            delete defaultPeriods[granularity];
+            return;
+          }
+
+          if (!defaultPeriods[granularity] || !periods.includes(defaultPeriods[granularity])) {
+            defaultPeriods[granularity] = periods[0];
           }
         });
       }
@@ -3925,30 +2767,32 @@
       function ensurePeriodForGranularity(granularity, data) {
         const normalizedGranularity = DEFAULT_GRANULARITIES.includes(granularity) ? granularity : 'Week';
 
-        if (currentPeriod && isPeriodInData(normalizedGranularity, currentPeriod, data)) {
+        const periods = availablePeriods[normalizedGranularity]?.length
+          ? availablePeriods[normalizedGranularity]
+          : derivePeriodsForGranularity(normalizedGranularity, data);
+
+        if (!availablePeriods[normalizedGranularity] || !availablePeriods[normalizedGranularity].length) {
+          availablePeriods[normalizedGranularity] = periods;
+        }
+
+        if (currentPeriod && periods.includes(currentPeriod)) {
           defaultPeriods[normalizedGranularity] = currentPeriod;
           return currentPeriod;
         }
 
-        if (!defaultPeriods[normalizedGranularity]) {
-          defaultPeriods[normalizedGranularity] = deriveLatestPeriod(normalizedGranularity, data);
-        }
-
-        if (defaultPeriods[normalizedGranularity]) {
+        if (defaultPeriods[normalizedGranularity] && periods.includes(defaultPeriods[normalizedGranularity])) {
           currentPeriod = defaultPeriods[normalizedGranularity];
           return currentPeriod;
         }
 
-        if (normalizedGranularity === 'Week') {
-          const fallbackWeek = defaultPeriods['Week'] || deriveLatestPeriod('Week', data);
-          if (fallbackWeek) {
-            currentPeriod = fallbackWeek;
-            defaultPeriods['Week'] = fallbackWeek;
-            return currentPeriod;
-          }
+        if (periods.length) {
+          currentPeriod = periods[0];
+          defaultPeriods[normalizedGranularity] = currentPeriod;
+          return currentPeriod;
         }
 
         currentPeriod = '';
+        delete defaultPeriods[normalizedGranularity];
         return currentPeriod;
       }
 
@@ -3981,6 +2825,83 @@
             quarterYearInput.value = '';
           }
         }
+
+        const periodSelect = document.getElementById('periodSelect');
+        if (periodSelect) {
+          const periods = availablePeriods[granularity] || [];
+
+          if (period && !periods.includes(period)) {
+            const optionExists = Array.from(periodSelect.options).some(opt => opt.value === period);
+            if (!optionExists) {
+              const opt = document.createElement('option');
+              opt.value = period;
+              opt.textContent = formatPeriodLabel(granularity, period);
+              opt.dataset.synthetic = 'true';
+              periodSelect.appendChild(opt);
+            }
+          }
+
+          if (period) {
+            periodSelect.value = period;
+          } else {
+            periodSelect.value = '';
+          }
+        }
+      }
+
+      function refreshPeriodSelectOptions() {
+        const periodSelect = document.getElementById('periodSelect');
+        if (!periodSelect) {
+          return;
+        }
+
+        const periods = availablePeriods[currentGran] || [];
+        const previousValue = periodSelect.value;
+
+        periodSelect.innerHTML = '';
+
+        if (!periods.length) {
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'No periods available';
+          placeholder.disabled = true;
+          placeholder.selected = true;
+          periodSelect.appendChild(placeholder);
+          periodSelect.disabled = true;
+          currentPeriod = '';
+          delete defaultPeriods[currentGran];
+          return;
+        }
+
+        periodSelect.disabled = false;
+
+        periods.forEach(period => {
+          const option = document.createElement('option');
+          option.value = period;
+          option.textContent = formatPeriodLabel(currentGran, period);
+          periodSelect.appendChild(option);
+        });
+
+        const hasCurrent = currentPeriod && periods.includes(currentPeriod);
+        const fallback = hasCurrent
+          ? currentPeriod
+          : (defaultPeriods[currentGran] && periods.includes(defaultPeriods[currentGran])
+            ? defaultPeriods[currentGran]
+            : periods[0]);
+
+        if (fallback) {
+          currentPeriod = fallback;
+          defaultPeriods[currentGran] = fallback;
+          periodSelect.value = fallback;
+        } else {
+          periodSelect.value = '';
+        }
+
+        if (previousValue && previousValue !== periodSelect.value) {
+          console.log('Period selection realigned from', previousValue, 'to', periodSelect.value);
+        }
+
+        syncPeriodInputs(currentGran, currentPeriod);
       }
 
       function buildTrendSeries(granularity, currentPeriod, data, depth = 4) {
@@ -5354,23 +4275,46 @@
           const granularitySelect = document.getElementById('granularitySelect');
           if (granularitySelect) {
             granularitySelect.value = currentGran;
-            granularitySelect.addEventListener('change', function() {
+            const handleGranularityChange = () => {
               currentGran = granularitySelect.value || 'Week';
               ensurePeriodForGranularity(currentGran, rawQA);
+              refreshPeriodSelectOptions();
+              if (currentPeriod) {
+                defaultPeriods[currentGran] = currentPeriod;
+              } else {
+                delete defaultPeriods[currentGran];
+              }
+              showPicker();
+              applyFilters();
+            };
+            granularitySelect.addEventListener('change', handleGranularityChange);
+            handleGranularityChange();
+          } else {
+            console.warn('granularitySelect not found');
+          }
+        } catch(e) {
+          console.error('Granularity select failed:', e);
+        }
+
+        // Period Select
+        try {
+          const periodSelect = document.getElementById('periodSelect');
+          if (periodSelect) {
+            periodSelect.addEventListener('change', function(e) {
+              currentPeriod = e.target.value || '';
               if (currentPeriod) {
                 defaultPeriods[currentGran] = currentPeriod;
               } else {
                 delete defaultPeriods[currentGran];
               }
               syncPeriodInputs(currentGran, currentPeriod);
-              showPicker();
               applyFilters();
             });
           } else {
-            console.warn('granularitySelect not found');
+            console.warn('periodSelect not found');
           }
         } catch(e) {
-          console.error('Granularity select failed:', e);
+          console.error('Period select failed:', e);
         }
 
         // Agent Select
@@ -5393,13 +4337,14 @@
           ['weekInput', 'monthInput', 'yearInput'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-              el.addEventListener('change', function(e) {
-                currentPeriod = e.target.value || '';
+              el.addEventListener('change', function() {
+                setPeriod();
                 if (currentPeriod) {
                   defaultPeriods[currentGran] = currentPeriod;
                 } else {
                   delete defaultPeriods[currentGran];
                 }
+                refreshPeriodSelectOptions();
                 syncPeriodInputs(currentGran, currentPeriod);
                 applyFilters();
               });
@@ -5416,6 +4361,7 @@
                 } else {
                   delete defaultPeriods[currentGran];
                 }
+                refreshPeriodSelectOptions();
                 syncPeriodInputs(currentGran, currentPeriod);
                 applyFilters();
               });
@@ -5502,6 +4448,7 @@
 
         // Initialize UI
         try {
+          refreshPeriodSelectOptions();
           showPicker();
           syncPeriodInputs(currentGran, currentPeriod);
         } catch(e) {
