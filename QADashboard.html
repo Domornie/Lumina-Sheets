@@ -2734,66 +2734,6 @@
         return null;
       }
 
-<!-- Category KPIs -->
-<div class="category-kpis-grid stagger-animation" id="categoryKpis">
-  <!-- Dynamically populated by JavaScript -->
-</div>
-
-<!-- AI Intelligence Layer -->
-<div class="ai-intel-grid fade-in">
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-robot"></i>
-      <span>Lumina QA Copilot</span>
-      <div class="ai-header-meta">
-        <span class="ai-source-chip client" id="aiInsightSource" title="Intelligence generated in-browser">Local AI</span>
-        <span class="ai-confidence-badge" id="aiConfidenceBadge">Confidence 0%</span>
-      </div>
-    </div>
-    <p class="ai-insights-summary" id="aiInsightsSummary">AI insights will appear once data loads.</p>
-    <ul class="ai-insights-list" id="aiInsightsList"></ul>
-  </div>
-
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-bolt"></i>
-      <span>Automation Playbook</span>
-      <span class="ai-automation-state" id="aiAutomationState">Monitoring</span>
-    </div>
-    <p class="ai-automation-summary" id="aiAutomationSummary">AI recommendations will populate after analysis.</p>
-    <ul class="ai-actions-list" id="aiRecommendationsList"></ul>
-    <div class="ai-next-best-action" id="aiNextBestAction" style="display: none;">
-      <i class="fas fa-magic"></i>
-      <div>
-        <strong>Next best automation</strong>
-        <span id="aiNextBestActionText"></span>
-      </div>
-    </div>
-  </div>
-  <div class="ai-intel-card">
-    <div class="ai-card-header">
-      <i class="fas fa-chart-line"></i>
-      <span>AI Trend Radar</span>
-      <span class="ai-trend-health" id="aiTrendHealth">Monitoring</span>
-    </div>
-    <p class="ai-trend-summary" id="aiTrendSummary">Trend intelligence will populate after analysis.</p>
-    <div class="ai-trend-visual" id="aiTrendVisual" style="display: none;">
-      <canvas id="aiTrendSparkline"></canvas>
-      <div class="ai-trend-forecast" id="aiTrendForecast"></div>
-    </div>
-    <ul class="ai-insights-list" id="aiTrendList"></ul>
-  </div>
-</div>
-
-<!-- Modern Charts -->
-<div class="modern-chart-grid stagger-animation">
-  <div class="modern-chart-card">
-    <h6><i class="fas fa-calendar-day me-2"></i>Daily Performance</h6>
-    <div class="chart-container">
-      <canvas id="dailyChart"></canvas>
-    </div>
-  </div>
-
         if (typeof value === 'number' && isFinite(value)) {
           const excelDate = excelSerialToDate(value);
           if (excelDate) {
@@ -3005,8 +2945,9 @@
     <div class="chart-container">
       <canvas id="dailyChart"></canvas>
     </div>
-  </div>
+</div>
 
+<script>
         const utcDays = Math.floor(serial - 25569);
         const utcMilliseconds = utcDays * 86400000;
         const remainder = serial - Math.floor(serial);
@@ -3054,47 +2995,6 @@
             return parsed;
           }
         }
-
-      const rawQA = JSON.parse('<?= qaRecords ?>');
-      let currentGran = '<?= granularity ?>';
-      let currentPeriod = '<?= periodValue ?>';
-      let currentAgent = '<?= selectedAgent ?>';
-      let userList = <?!= JSON.stringify(userList || []) ?>;
-      let qaIntelligenceRequestToken = 0;
-      let latestAIIntelligence = null;
-      const DEFAULT_GRANULARITIES = ['Week', 'Month', 'Quarter', 'Year'];
-      const defaultPeriods = {};
-      const availablePeriods = {
-        Week: [],
-        Month: [],
-        Quarter: [],
-        Year: []
-      };
-
-      const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
-      const categories = {
-        'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
-        'Resolution':['Q6','Q7','Q8','Q9'],
-        'Case Documentation':['Q10','Q11','Q12','Q13','Q14'],
-        'Process Compliance':['Q15','Q16','Q17','Q18']
-      };
-
-      rawQA.forEach((record, index) => {
-        rawQA[index] = normalizeClientQaRecord(record, index);
-      });
-
-      refreshDefaultPeriods(rawQA);
-
-      if (!DEFAULT_GRANULARITIES.includes(currentGran)) {
-        currentGran = 'Week';
-      }
-
-      if (!currentPeriod) {
-        currentPeriod = ensurePeriodForGranularity(currentGran, rawQA);
-      }
-
-      syncPeriodInputs(currentGran, currentPeriod);
-
           const manualDate = new Date(year, month - 1, day);
           if (!isNaN(manualDate.getTime())) {
             return manualDate;
