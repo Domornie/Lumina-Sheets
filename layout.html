@@ -183,7 +183,7 @@
     }
 
     __layoutPageDescriptionText = __layoutResolvePageDescription();
-    if (!pageDescription && __layoutPageDescriptionText) {
+    if ((typeof pageDescription === 'undefined' || !pageDescription) && __layoutPageDescriptionText) {
       pageDescription = __layoutPageDescriptionText;
     }
 
