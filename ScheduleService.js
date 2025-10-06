@@ -54,8 +54,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
         const isAdmin = requestingUser.IsAdmin === true || String(requestingUser.IsAdmin).toUpperCase() === 'TRUE';
 
         if (!isAdmin) {
-          const managedUserIds = getDirectManagedUserIds(normalizedManagerId);
-          managedUserIds.add(normalizedManagerId);
+          const managedUserIds = buildManagedUserSet(normalizedManagerId);
 
           filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user.ID)));
         }
@@ -65,7 +64,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
     // Transform to schedule-friendly format
     const scheduleUsers = filteredUsers
       .filter(user => user && user.ID && (user.UserName || user.FullName))
-      .filter(user => user.EmploymentStatus === 'Active' || !user.EmploymentStatus)
+      .filter(user => isUserConsideredActive(user))
       .map(user => {
         const campaignName = getCampaignById(user.CampaignID)?.Name || '';
         return {
@@ -78,7 +77,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           EmploymentStatus: user.EmploymentStatus || 'Active',
           HireDate: user.HireDate || '',
           canLogin: user.CanLogin === 'TRUE' || user.CanLogin === true,
-          isActive: true
+          isActive: isUserConsideredActive(user)
         };
       });
 
@@ -387,6 +386,62 @@ function clientCreateEnhancedShiftSlot(slotData) {
   return clientCreateShiftSlot(slotData);
 }
 
+function buildManagedUserSet(managerId) {
+  const managedUserIds = getDirectManagedUserIds(managerId);
+  const normalizedManagerId = normalizeUserIdValue(managerId);
+
+  if (normalizedManagerId) {
+    managedUserIds.add(normalizedManagerId);
+  }
+
+  try {
+    if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
+      const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
+      campaigns.forEach(campaign => {
+        try {
+          const campaignUsers = getUsersByCampaign(campaign.ID) || [];
+          campaignUsers.forEach(user => {
+            const normalizedId = normalizeUserIdValue(user.ID);
+            if (normalizedId) {
+              managedUserIds.add(normalizedId);
+            }
+          });
+        } catch (campaignErr) {
+          console.warn('Failed to append campaign users for campaign', campaign && campaign.ID, campaignErr);
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('Unable to expand managed users via campaigns:', error);
+  }
+
+  return managedUserIds;
+}
+
+function isUserConsideredActive(user) {
+  if (!user) {
+    return false;
+  }
+
+  const status = typeof user.EmploymentStatus === 'string'
+    ? user.EmploymentStatus.trim().toLowerCase()
+    : '';
+
+  if (!status) {
+    return true;
+  }
+
+  if (['active', 'activated'].includes(status)) {
+    return true;
+  }
+
+  if (['terminated', 'inactive', 'disabled', 'separated'].includes(status)) {
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Get all shift slots - uses ScheduleUtilities
  */
@@ -402,6 +457,17 @@ function clientGetAllShiftSlots() {
       console.log('No shift slots found, creating defaults');
       createDefaultShiftSlots();
       slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+    }
+
+    if (!slots.length) {
+      const legacySlotSheets = ['Shift Slots', 'Shifts', 'ShiftTemplates'];
+      for (let i = 0; i < legacySlotSheets.length && !slots.length; i++) {
+        const legacyRows = readSheet(legacySlotSheets[i]);
+        if (Array.isArray(legacyRows) && legacyRows.length) {
+          console.log(`Found legacy shift slot data in ${legacySlotSheets[i]}`);
+          slots = legacyRows.map(convertLegacyShiftSlotRecord).filter(Boolean);
+        }
+      }
     }
 
     const normalizeBoolean = value => {
@@ -427,9 +493,11 @@ function clientGetAllShiftSlots() {
     return slots.map(slot => {
       const normalizedSlot = {
         ...slot,
-        DaysOfWeekArray: slot.DaysOfWeek ?
-          slot.DaysOfWeek.split(',').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d)) :
-          [1, 2, 3, 4, 5]
+        DaysOfWeekArray: Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length
+          ? slot.DaysOfWeekArray
+          : slot.DaysOfWeek
+            ? String(slot.DaysOfWeek).split(',').map(d => parseInt(String(d).trim(), 10)).filter(d => !isNaN(d))
+            : [1, 2, 3, 4, 5]
       };
 
       normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
@@ -742,7 +810,18 @@ function clientGetAllSchedules(filters = {}) {
     console.log('📋 Getting all schedules with filters:', filters);
 
     // Use ScheduleUtilities to read schedules
-    const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    let schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+
+    if (!schedules.length) {
+      const legacySheets = ['Schedules', 'Schedule', 'AgentSchedules'];
+      for (let i = 0; i < legacySheets.length && !schedules.length; i++) {
+        const legacyRows = readSheet(legacySheets[i]);
+        if (Array.isArray(legacyRows) && legacyRows.length) {
+          console.log(`Discovered legacy schedule data in ${legacySheets[i]}`);
+          schedules = legacyRows.map(convertLegacyScheduleRecord).filter(Boolean);
+        }
+      }
+    }
 
     console.log(`📊 Total schedules in sheet: ${schedules.length}`);
 
@@ -2373,6 +2452,151 @@ function calculateDaySpanCount(startDate, endDate, minDate, maxDate) {
   const diff = end.getTime() - start.getTime();
   const days = Math.floor(diff / millisecondsPerDay) + 1;
   return days > 0 ? days : 0;
+}
+
+function convertLegacyShiftSlotRecord(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const resolve = (candidates, fallback = '') => {
+    for (let i = 0; i < candidates.length; i++) {
+      const value = raw[candidates[i]];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        return value;
+      }
+    }
+    return fallback;
+  };
+
+  const daysOfWeek = resolve(['DaysOfWeek', 'Days', 'DayCodes', 'DayIndexes']);
+  const parsedDays = Array.isArray(daysOfWeek)
+    ? daysOfWeek
+    : typeof daysOfWeek === 'string'
+      ? daysOfWeek.split(/[;,]/).map(d => parseInt(String(d).trim(), 10)).filter(d => !isNaN(d))
+      : [];
+
+  const uuid = (typeof Utilities !== 'undefined' && Utilities.getUuid)
+    ? Utilities.getUuid()
+    : `legacy-slot-${Math.random().toString(36).slice(2)}`;
+
+  return {
+    ID: resolve(['ID', 'SlotID', 'Slot Id', 'Guid', 'Uuid'], uuid),
+    Name: resolve(['Name', 'SlotName', 'Title', 'ShiftName', 'Shift']),
+    StartTime: resolve(['StartTime', 'Start', 'Start Time', 'ShiftStart']),
+    EndTime: resolve(['EndTime', 'End', 'End Time', 'ShiftEnd']),
+    DaysOfWeek: parsedDays.length ? parsedDays.join(',') : '1,2,3,4,5',
+    DaysOfWeekArray: parsedDays.length ? parsedDays : undefined,
+    Department: resolve(['Department', 'Team', 'Campaign', 'Program'], 'General'),
+    Location: resolve(['Location', 'Site'], 'Office'),
+    MaxCapacity: resolve(['MaxCapacity', 'Capacity', 'Max Agents', 'Headcount'], ''),
+    MinCoverage: resolve(['MinCoverage', 'MinimumCoverage', 'Min Agents'], ''),
+    Priority: resolve(['Priority', 'Rank', 'Weight'], 2),
+    Description: resolve(['Description', 'Notes'], ''),
+    BreakDuration: resolve(['BreakDuration', 'Break Minutes', 'BreakLength'], ''),
+    LunchDuration: resolve(['LunchDuration', 'Lunch Minutes', 'LunchLength'], ''),
+    Break1Duration: resolve(['Break1Duration', 'BreakDuration', 'Break1'], ''),
+    Break2Duration: resolve(['Break2Duration', 'Break2'], ''),
+    EnableStaggeredBreaks: resolve(['EnableStaggeredBreaks', 'StaggerBreaks', 'Staggered'], false),
+    BreakGroups: resolve(['BreakGroups', 'StaggerGroups'], ''),
+    StaggerInterval: resolve(['StaggerInterval', 'StaggerMinutes'], ''),
+    MinCoveragePct: resolve(['MinCoveragePct', 'CoveragePct'], ''),
+    EnableOvertime: resolve(['EnableOvertime', 'AllowOT', 'Overtime'], false),
+    MaxDailyOT: resolve(['MaxDailyOT', 'DailyOTHours', 'DailyOvertime'], ''),
+    MaxWeeklyOT: resolve(['MaxWeeklyOT', 'WeeklyOTHours', 'WeeklyOvertime'], ''),
+    OTApproval: resolve(['OTApproval', 'OvertimeApproval'], ''),
+    OTRate: resolve(['OTRate', 'OvertimeRate'], ''),
+    OTPolicy: resolve(['OTPolicy', 'OvertimePolicy'], ''),
+    AllowSwaps: resolve(['AllowSwaps', 'SwapAllowed'], ''),
+    WeekendPremium: resolve(['WeekendPremium', 'Weekend'], ''),
+    HolidayPremium: resolve(['HolidayPremium', 'Holiday'], ''),
+    AutoAssignment: resolve(['AutoAssignment', 'AutoAssign'], ''),
+    RestPeriod: resolve(['RestPeriod', 'RestHours'], ''),
+    NotificationLead: resolve(['NotificationLead', 'NotifyHours'], ''),
+    HandoverTime: resolve(['HandoverTime', 'Handover'], ''),
+    OvertimePolicy: resolve(['OvertimePolicy', 'OTPolicy'], ''),
+    IsActive: resolve(['IsActive', 'Active', 'Enabled'], true),
+    CreatedBy: resolve(['CreatedBy', 'Author', 'Owner'], 'Legacy Import'),
+    CreatedAt: resolve(['CreatedAt', 'Created', 'Created On'], ''),
+    UpdatedAt: resolve(['UpdatedAt', 'Updated', 'Updated On'], '')
+  };
+}
+
+function convertLegacyScheduleRecord(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const resolve = (candidates, fallback = '') => {
+    for (let i = 0; i < candidates.length; i++) {
+      const key = candidates[i];
+      if (key == null) {
+        continue;
+      }
+      const value = raw[key];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        return value;
+      }
+    }
+    return fallback;
+  };
+
+  const userName = resolve(['UserName', 'Agent', 'AgentName', 'Name', 'User']);
+  const userId = resolve(['UserID', 'UserId', 'AgentID', 'AgentId', 'EmployeeID']);
+  const scheduleDate = resolve(['Date', 'ScheduleDate', 'ShiftDate', 'Day']);
+  const slotName = resolve(['SlotName', 'Shift', 'ShiftName', 'Schedule']);
+
+  const timezone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
+    ? Session.getScriptTimeZone()
+    : 'UTC';
+
+  const normalizeDate = (value) => {
+    if (!value) return '';
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return Utilities.formatDate(value, timezone, 'yyyy-MM-dd');
+    }
+
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return Utilities.formatDate(parsed, timezone, 'yyyy-MM-dd');
+    }
+
+    return value;
+  };
+
+  const uuid = (typeof Utilities !== 'undefined' && Utilities.getUuid)
+    ? Utilities.getUuid()
+    : `legacy-schedule-${Math.random().toString(36).slice(2)}`;
+
+  return {
+    ID: resolve(['ID', 'ScheduleID', 'Schedule Id', 'RecordID'], uuid),
+    UserID: userId || normalizeUserIdValue(userName),
+    UserName: userName || userId,
+    Date: normalizeDate(scheduleDate),
+    SlotID: resolve(['SlotID', 'ShiftID', 'TemplateID'], ''),
+    SlotName: slotName || 'Shift',
+    StartTime: resolve(['StartTime', 'Start', 'ShiftStart', 'Begin']),
+    EndTime: resolve(['EndTime', 'End', 'ShiftEnd', 'Finish']),
+    OriginalStartTime: resolve(['OriginalStartTime', 'StartTime', 'Start']),
+    OriginalEndTime: resolve(['OriginalEndTime', 'EndTime', 'End']),
+    BreakStart: resolve(['BreakStart', 'BreakStartTime']),
+    BreakEnd: resolve(['BreakEnd', 'BreakEndTime']),
+    LunchStart: resolve(['LunchStart', 'LunchStartTime']),
+    LunchEnd: resolve(['LunchEnd', 'LunchEndTime']),
+    IsDST: resolve(['IsDST', 'DST', 'DaylightSavings'], false),
+    Status: (resolve(['Status', 'State'], 'PENDING') || 'PENDING').toString().toUpperCase(),
+    GeneratedBy: resolve(['GeneratedBy', 'CreatedBy', 'Author'], 'Legacy Import'),
+    ApprovedBy: resolve(['ApprovedBy', 'Supervisor']),
+    NotificationSent: resolve(['NotificationSent', 'Notified'], false),
+    CreatedAt: resolve(['CreatedAt', 'Created', 'Created On'], ''),
+    UpdatedAt: resolve(['UpdatedAt', 'Updated', 'Updated On'], ''),
+    RecurringScheduleID: resolve(['RecurringScheduleID', 'RecurringID']),
+    SwapRequestID: resolve(['SwapRequestID', 'SwapID']),
+    Priority: resolve(['Priority', 'Rank'], 2),
+    Notes: resolve(['Notes', 'Comments']),
+    Location: resolve(['Location', 'Site', 'Office']),
+    Department: resolve(['Department', 'Campaign', 'Program'])
+  };
 }
 
 function calculateWeekSpanCount(startDate, endDate, minDate, maxDate) {
