@@ -4229,7 +4229,7 @@
             }
 
             function notifyExpired(message) {
-                const text = message || 'Your session has expired. Please sign in again.';
+                const text = message || 'Your session has expired after 30 minutes of inactivity. Please sign in again to continue.';
 
                 try {
                     if (typeof global.showLuminaToast === 'function') {

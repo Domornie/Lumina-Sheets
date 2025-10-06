@@ -1103,7 +1103,7 @@
 
     const SUPPORT_EMAIL = 'support@vlbpo.com';
     const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
-    const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
+    const SESSION_COOKIE_MAX_AGE = 30 * 60; // 30 minutes
     const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
     const STORAGE_KEYS = {
       rememberedEmail: 'lumina.auth.rememberedEmail',
@@ -2300,7 +2300,7 @@
       console.log('Session expired:', reason);
       clearAuthCookie();
       try {
-        showAlert('info', 'Your session has expired. Please sign in again.');
+        showAlert('info', 'Your session has expired after 30 minutes of inactivity. Please sign in again to continue.');
       } catch (err) {
         console.warn('handleSessionExpired: unable to show alert', err);
       }
@@ -3765,6 +3765,8 @@
       const urlParams = new URLSearchParams(window.location.search);
       const message = urlParams.get('message');
       const error = urlParams.get('error');
+      const logoutReason = (state.lastLogoutReason || '').toLowerCase();
+      const shouldShowAutoTimeout = !error && !message && logoutReason === 'auto';
 
       let shouldReplaceUrl = false;
 
@@ -3796,6 +3798,10 @@
       }
 
       const resumed = attemptSessionResume();
+
+      if (!resumed && shouldShowAutoTimeout) {
+        showAlert('info', 'Your session timed out after 30 minutes of inactivity. Please sign in again to continue.');
+      }
 
       // Auto-focus email field when not redirecting
       if (!resumed && elements.emailInput) {

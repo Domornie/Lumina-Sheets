@@ -14,7 +14,7 @@
 // AUTHENTICATION CONFIGURATION
 // ───────────────────────────────────────────────────────────────────────────────
 
-const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_SESSION_COLUMNS = [
   'Token',
@@ -4268,7 +4268,7 @@ var AuthenticationService = (function () {
       if (!resolution || resolution.status !== 'active' || !resolution.entry) {
         const reason = resolution ? resolution.reason : 'NOT_FOUND';
         const message = reason === 'IDLE_TIMEOUT'
-          ? 'Session expired due to inactivity'
+          ? 'Session expired after 30 minutes of inactivity'
           : 'Session expired or invalid';
         return {
           success: false,
