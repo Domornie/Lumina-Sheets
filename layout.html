@@ -469,6 +469,45 @@
       return '';
     })();
 
+    // Session token persistence helpers
+    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
+    const SESSION_TOKEN_QUERY_PARAM = 'token';
+    const SESSION_TOKEN_STORAGE_KEYS = [
+      'lumina.session.token',
+      'lumina.auth.sessionToken',
+      'lumina.auth.fallbackToken'
+    ];
+
+    function setLogoutReason(reason) {
+      try {
+        if (!window.sessionStorage) {
+          return;
+        }
+        if (!reason) {
+          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+        } else {
+          window.sessionStorage.setItem(LOGOUT_REASON_STORAGE_KEY, String(reason));
+        }
+      } catch (err) {
+        console.warn('setLogoutReason: unable to persist logout reason', err);
+      }
+    }
+
+    function getLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
+        }
+      } catch (err) {
+        console.warn('getLogoutReason: unable to read logout reason', err);
+      }
+      return '';
+    }
+
+    function clearLogoutReason() {
+      setLogoutReason('');
+    }
+
     /**
      * Generate URLs for navigation
      */
@@ -626,44 +665,6 @@
     window.deriveReturnUrl = (rawUrl, slug = PAGE_SLUG) => deriveReturnUrl(rawUrl, slug);
     window.buildReturnUrl = buildReturnUrl;
     window.getReturnUrl = buildReturnUrl;
-
-    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
-    const SESSION_TOKEN_QUERY_PARAM = 'token';
-    const SESSION_TOKEN_STORAGE_KEYS = [
-      'lumina.session.token',
-      'lumina.auth.sessionToken',
-      'lumina.auth.fallbackToken'
-    ];
-
-    function setLogoutReason(reason) {
-      try {
-        if (!window.sessionStorage) {
-          return;
-        }
-        if (!reason) {
-          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
-        } else {
-          window.sessionStorage.setItem(LOGOUT_REASON_STORAGE_KEY, String(reason));
-        }
-      } catch (err) {
-        console.warn('setLogoutReason: unable to persist logout reason', err);
-      }
-    }
-
-    function getLogoutReason() {
-      try {
-        if (window.sessionStorage) {
-          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
-        }
-      } catch (err) {
-        console.warn('getLogoutReason: unable to read logout reason', err);
-      }
-      return '';
-    }
-
-    function clearLogoutReason() {
-      setLogoutReason('');
-    }
 
     function resolveClientSessionToken(providedToken) {
       const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
