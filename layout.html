@@ -61,6 +61,132 @@
       __layoutSlugCandidate
     ];
 
+    if (__layoutSlugCandidate) {
+      var __layoutCollapsedSlugCandidate = __layoutSlugCandidate.replace(/-/g, '');
+      if (__layoutCollapsedSlugCandidate && __layoutCollapsedSlugCandidate !== __layoutSlugCandidate) {
+        __layoutSlugSources.push(__layoutCollapsedSlugCandidate);
+      }
+    }
+
+    var __layoutPageDescriptionEntries = {
+      'ackform': 'Send coaching acknowledgement links and capture agent sign-off confirmations.',
+      'admin-dashboard': 'Reference security tools, governance policies, and documentation for LuminaHQ administrators.',
+      'agent-experience': 'Personalized workspace that surfaces coaching, quality, and productivity insights for agents.',
+      'attendancereports': 'Analyze attendance trends, compliance health, and time-off insights across the workforce.',
+      'bookmarks': 'Organize quick-access bookmarks to critical LuminaHQ dashboards and tools.',
+      'calendar': 'Visualize schedules, coverage, and operational events in a shared calendar view.',
+      'callreports': 'Review call performance analytics, AI insights, and exportable call summaries.',
+      'chat': 'Collaborate with teams in real-time chat rooms and announcement channels.',
+      'coachingdashboard': 'Monitor coaching programs, completion metrics, and follow-up priorities.',
+      'coachinglist': 'Track scheduled coaching sessions, ownership, and completion status.',
+      'coachingsheet': 'Document coaching conversations, commitments, and agreed action plans.',
+      'coachingview': 'Review coaching session details, notes, and acknowledgement history.',
+      'collaboration-reporting': 'Unify reporting for quality, attendance, and executive workflows in one hub.',
+      'creditsuiteqa': 'Evaluate Credit Suite cases with standardized QA scoring and compliance checks.',
+      'dashboard': 'View OKR performance, goal progress, and campaign-level analytics.',
+      'eodreport': 'Compile end-of-day summaries, escalations, and operational highlights.',
+      'escalations': 'Manage customer escalations, ownership, and resolution progress.',
+      'goalsetting': 'Set, track, and update operational goals with transparent accountability.',
+      'groundingqaform': 'Capture grounding QA results with agent feedback and compliance scoring.',
+      'home': 'Navigate primary LuminaHQ destinations and quick links.',
+      'importattendance': 'Upload attendance source files to refresh LuminaHQ workforce data.',
+      'import-call-report': 'Import call report CSV files to enrich analytics and dashboards.',
+      'independencequality': 'Complete independence QA evaluations with policy-aligned scoring.',
+      'managecampaign': 'Manage campaign records, navigation pages, and assignment permissions.',
+      'manager-executive-experience': 'Executive dashboards for cross-campaign coaching, quality, and outcomes.',
+      'manageroles': 'Administer roles, permissions, and access policies across LuminaHQ.',
+      'manageuser': 'Manage LuminaHQ users, profile access, and client assignments.',
+      'notifications': 'Configure and review LuminaHQ notification settings and alerts.',
+      'privacy-policy': 'Review how LuminaHQ protects workforce and client data.',
+      'qacollablist': 'Monitor collaborative QA submissions and workflow statuses.',
+      'qacollabview': 'Review collaborative QA details, commentary, and resolution steps.',
+      'qadashboard': 'Track quality assurance KPIs, agent performance, and review cadence.',
+      'qalist': 'Browse quality evaluations with filters, tags, and analyst insights.',
+      'qualitycollabform': 'Launch collaborative QA evaluations with shared reviewer inputs.',
+      'qualityform': 'Submit new quality assessments with rubric-driven scoring.',
+      'qualityview': 'Inspect detailed QA evaluation results, scoring, and trend history.',
+      'schedulemanagement': 'Coordinate schedules, shift swaps, and staffing coverage in LuminaHQ.',
+      'search': 'Search Lumina knowledge, dashboards, and operational resources.',
+      'shift-slot-management': 'Manage shift slots, staffing requests, and capacity planning.',
+      'taskboard': 'Plan and track operational work across kanban-style boards.',
+      'taskform': 'Create or edit LuminaHQ tasks with assignments and due dates.',
+      'tasklist': 'Review prioritized task lists and workflow statuses.',
+      'terms-of-service': 'Understand LuminaHQ platform terms and user responsibilities.',
+      'unifiedqadashboard': 'Blend QA insights across programs with unified analytics.',
+      'user-profile': 'Review and update your LuminaHQ profile, roles, and equipment.'
+    };
+
+    var __layoutPageDescriptionLookup = {};
+    for (var __layoutDescriptionKey in __layoutPageDescriptionEntries) {
+      if (!Object.prototype.hasOwnProperty.call(__layoutPageDescriptionEntries, __layoutDescriptionKey)) {
+        continue;
+      }
+
+      var __layoutDescriptionValue = __layoutPageDescriptionEntries[__layoutDescriptionKey];
+      if (!__layoutDescriptionValue) {
+        continue;
+      }
+
+      __layoutPageDescriptionLookup[__layoutDescriptionKey] = __layoutDescriptionValue;
+
+      var __layoutCollapsedKey = __layoutDescriptionKey.replace(/-/g, '');
+      if (
+        __layoutCollapsedKey &&
+        __layoutCollapsedKey !== __layoutDescriptionKey &&
+        !Object.prototype.hasOwnProperty.call(__layoutPageDescriptionEntries, __layoutCollapsedKey) &&
+        !Object.prototype.hasOwnProperty.call(__layoutPageDescriptionLookup, __layoutCollapsedKey)
+      ) {
+        __layoutPageDescriptionLookup[__layoutCollapsedKey] = __layoutDescriptionValue;
+      }
+    }
+
+    var __layoutPageDescriptionSource = '';
+    var __layoutResolvedDescriptionSlug = '';
+    var __layoutResolvedSlugCandidates = [];
+    var __layoutFallbackDescription = 'LuminaHQ operations workspace overview.';
+
+    function __layoutResolvePageDescription() {
+      if (__layoutPageDescriptionText) {
+        __layoutPageDescriptionSource = 'inline';
+        return __layoutPageDescriptionText;
+      }
+
+      for (var i = 0; i < __layoutSlugSources.length; i++) {
+        var candidateSlug = __layoutSlugify(__layoutSlugSources[i]);
+        if (!candidateSlug) {
+          continue;
+        }
+
+        __layoutResolvedSlugCandidates.push(candidateSlug);
+
+        if (Object.prototype.hasOwnProperty.call(__layoutPageDescriptionLookup, candidateSlug)) {
+          __layoutResolvedDescriptionSlug = candidateSlug;
+          __layoutPageDescriptionSource = 'lookup';
+          return __layoutPageDescriptionLookup[candidateSlug];
+        }
+      }
+
+      __layoutPageDescriptionSource = 'fallback';
+
+      if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
+        try {
+          console.warn(
+            'Lumina banner description fallback in use for page candidates:',
+            __layoutResolvedSlugCandidates
+          );
+        } catch (loggingError) {
+          // Swallow logging issues to avoid breaking rendering.
+        }
+      }
+
+      return __layoutFallbackDescription;
+    }
+
+    __layoutPageDescriptionText = __layoutResolvePageDescription();
+    if (!pageDescription && __layoutPageDescriptionText) {
+      pageDescription = __layoutPageDescriptionText;
+    }
+
     var __layoutRawReturnUrl = (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '';
 
     var __layoutInvalidPanelPattern = /usercodeapppanel/i;
@@ -143,6 +269,18 @@
   <?!= includeOnce('ResponsiveStyles') ?>
 
   <script>
+    if (typeof window !== 'undefined') {
+      window.__LUMINA_PAGE_SLUG = <?!= JSON.stringify(__layoutSlugCandidate || '') ?>;
+      window.__LUMINA_PAGE_DESCRIPTION = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
+      window.__LUMINA_PAGE_DESCRIPTION_SOURCE = <?!= JSON.stringify(__layoutPageDescriptionSource || '') ?>;
+      window.__LUMINA_PAGE_DESCRIPTION_LOOKUP = <?!= JSON.stringify(__layoutPageDescriptionLookup) ?>;
+      window.__LUMINA_PAGE_DESCRIPTION_DEBUG = <?!= JSON.stringify({
+        candidates: __layoutResolvedSlugCandidates,
+        resolvedSlug: __layoutResolvedDescriptionSlug,
+        fallbackDescription: __layoutFallbackDescription
+      }) ?>;
+    }
+
     (function initializeLuminaTheme() {
       const STORAGE_KEY = 'lumina-theme';
       const docEl = document.documentElement;
