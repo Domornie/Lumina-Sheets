@@ -2785,7 +2785,7 @@
 </div>
 
 <script>
-const rawQA = JSON.parse('<?= qaRecords ?>');
+      const rawQASource = '<?= qaRecords ?>';
       let currentGran = '<?= granularity ?>';
       let currentPeriod = '<?= periodValue ?>';
       let currentAgent = '<?= selectedAgent ?>';
@@ -2802,6 +2802,137 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         Year: []
       };
 
+      const QA_MONITOR = (() => {
+        const startTimes = new Map();
+        const makeTimestamp = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+        const sanitize = value => {
+          if (value === undefined) return undefined;
+          if (value === null) return null;
+          if (typeof value === 'string' && value.length > 500) {
+            return `${value.slice(0, 497)}…`;
+          }
+          if (Array.isArray(value) && value.length > 50) {
+            return value.slice(0, 50).concat('…');
+          }
+          return value;
+        };
+        function emit(level, label, payload) {
+          let cleaned = payload;
+          if (payload && typeof payload === 'object') {
+            try {
+              cleaned = JSON.parse(JSON.stringify(payload, (key, value) => sanitize(value)));
+            } catch (jsonError) {
+              cleaned = '[unserializable payload]';
+            }
+          }
+          const prefix = '[QA Dashboard]';
+          switch (level) {
+            case 'warn':
+              console.warn(prefix, label, cleaned);
+              break;
+            case 'error':
+              console.error(prefix, label, cleaned);
+              break;
+            default:
+              console.log(prefix, label, cleaned);
+          }
+        }
+        function start(label, payload) {
+          startTimes.set(label, makeTimestamp());
+          emit('log', `BEGIN ${label}`, payload);
+        }
+        function end(label, payload) {
+          const started = startTimes.get(label);
+          const duration = started ? Math.round(makeTimestamp() - started) : null;
+          emit('log', `END ${label}${duration !== null ? ` (+${duration}ms)` : ''}`, payload);
+          if (started) {
+            startTimes.delete(label);
+          }
+        }
+        function safe(label, fn, options = {}) {
+          const { rethrow = true, onError = null, defaultValue = undefined, context = null } = options;
+          start(label, { context });
+          try {
+            const result = fn();
+            end(label, { context });
+            return result;
+          } catch (error) {
+            emit('error', `ERROR ${label}`, { context, message: error?.message, stack: error?.stack });
+            if (typeof onError === 'function') {
+              try {
+                onError(error);
+              } catch (callbackError) {
+                emit('error', `ERROR ${label} onError callback`, { message: callbackError?.message, stack: callbackError?.stack });
+              }
+            }
+            if (rethrow) {
+              end(label, { context, failed: true });
+              throw error;
+            }
+            end(label, { context, failed: true });
+            return defaultValue;
+          }
+        }
+        function instrument(name, fn) {
+          if (typeof fn !== 'function') {
+            emit('warn', 'Attempted to instrument non-function', { name, type: typeof fn });
+            return fn;
+          }
+          return function instrumentedFunction(...args) {
+            return safe(name, () => fn.apply(this, args), { rethrow: true, context: { argsCount: args.length } });
+          };
+        }
+        return {
+          log: (label, payload) => emit('log', label, payload),
+          warn: (label, payload) => emit('warn', label, payload),
+          error: (label, payload) => emit('error', label, payload),
+          safe,
+          instrument,
+          start,
+          end
+        };
+      })();
+
+      window.addEventListener('error', event => {
+        QA_MONITOR.error('Global error captured', {
+          message: event?.message,
+          filename: event?.filename,
+          lineno: event?.lineno,
+          colno: event?.colno
+        });
+      });
+
+      window.addEventListener('unhandledrejection', event => {
+        QA_MONITOR.error('Unhandled promise rejection', {
+          message: event?.reason?.message || String(event?.reason || 'unknown'),
+          stack: event?.reason?.stack || null
+        });
+      });
+
+      let rawQA = [];
+
+      QA_MONITOR.safe('Parse QA records', () => {
+        rawQA = JSON.parse(rawQASource || '[]');
+      }, {
+        rethrow: false,
+        onError: () => {
+          rawQA = [];
+        }
+      });
+
+      if (!Array.isArray(rawQA)) {
+        QA_MONITOR.warn('QA records payload was not an array', { detectedType: typeof rawQA });
+        rawQA = [];
+      }
+
+      QA_MONITOR.log('QA Dashboard bootstrapped', {
+        granularity: currentGran,
+        period: currentPeriod,
+        selectedAgent: currentAgent,
+        recordCount: rawQA.length,
+        userCount: Array.isArray(userList) ? userList.length : 'unknown'
+      });
+
       const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
       const categories = {
         'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
@@ -2810,9 +2941,15 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         'Process Compliance':['Q15','Q16','Q17','Q18']
       };
 
-      rawQA.forEach((record, index) => {
-        rawQA[index] = normalizeClientQaRecord(record, index);
-      });
+      rawQA = rawQA
+        .map((record, index) => QA_MONITOR.safe('normalizeClientQaRecord', () => normalizeClientQaRecord(record, index), {
+          rethrow: false,
+          context: { index },
+          defaultValue: null
+        }))
+        .filter(Boolean);
+
+      QA_MONITOR.log('QA records normalized', { recordCount: rawQA.length });
 
       refreshDefaultPeriods(rawQA);
 
@@ -3256,7 +3393,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               return '';
           }
         } catch (error) {
-          console.warn('getPreviousPeriod failed', granularity, period, error);
+          QA_MONITOR.warn('getPreviousPeriod failed', {
+            granularity,
+            period,
+            message: error?.message,
+            stack: error?.stack || null
+          });
           return '';
         }
       }
@@ -3400,7 +3542,13 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 return true;
             }
           } catch (err) {
-            console.warn('filterRecordsByPeriod error', record, err);
+            QA_MONITOR.warn('filterRecordsByPeriod error', {
+              granularity,
+              periodValue,
+              recordIndex: data.indexOf(record),
+              message: err?.message,
+              stack: err?.stack || null
+            });
             return false;
           }
         });
@@ -3467,7 +3615,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               return 0;
           }
         } catch (err) {
-          console.warn('periodSortValue failed', granularity, period, err);
+          QA_MONITOR.warn('periodSortValue failed', {
+            granularity,
+            period,
+            message: err?.message,
+            stack: err?.stack || null
+          });
           return 0;
         }
       }
@@ -3504,7 +3657,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 break;
             }
           } catch (err) {
-            console.warn('derivePeriodsForGranularity error', granularity, item, err);
+            QA_MONITOR.warn('derivePeriodsForGranularity error', {
+              granularity,
+              itemIndex: data.indexOf(item),
+              message: err?.message,
+              stack: err?.stack || null
+            });
           }
         });
 
@@ -3680,7 +3838,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         }
 
         if (previousValue && previousValue !== periodSelect.value) {
-          console.log('Period selection realigned from', previousValue, 'to', periodSelect.value);
+          QA_MONITOR.log('Period selection realigned', {
+            from: previousValue,
+            to: periodSelect.value,
+            granularity: currentGran
+          });
         }
 
         syncPeriodInputs(currentGran, currentPeriod);
@@ -4035,7 +4197,13 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 return true;
             }
           } catch (err) {
-            console.warn('filterRecordsByPeriod error', record, err);
+            QA_MONITOR.warn('filterRecordsByPeriod error', {
+              granularity,
+              periodValue,
+              recordIndex: data.indexOf(record),
+              message: err?.message,
+              stack: err?.stack || null
+            });
             return false;
           }
         });
@@ -4102,7 +4270,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               return 0;
           }
         } catch (err) {
-          console.warn('periodSortValue failed', granularity, period, err);
+          QA_MONITOR.warn('periodSortValue failed', {
+            granularity,
+            period,
+            message: err?.message,
+            stack: err?.stack || null
+          });
           return 0;
         }
       }
@@ -4139,7 +4312,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 break;
             }
           } catch (err) {
-            console.warn('derivePeriodsForGranularity error', granularity, item, err);
+            QA_MONITOR.warn('derivePeriodsForGranularity error', {
+              granularity,
+              itemIndex: data.indexOf(item),
+              message: err?.message,
+              stack: err?.stack || null
+            });
           }
         });
 
@@ -4315,7 +4493,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         }
 
         if (previousValue && previousValue !== periodSelect.value) {
-          console.log('Period selection realigned from', previousValue, 'to', periodSelect.value);
+          QA_MONITOR.log('Period selection realigned', {
+            from: previousValue,
+            to: periodSelect.value,
+            granularity: currentGran
+          });
         }
 
         syncPeriodInputs(currentGran, currentPeriod);
@@ -4662,7 +4844,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               // Use the cleaned date object
               const dt = r.callDateObj || safeToDate(r.CallDate);
               if (!dt) {
-                  console.warn('Skipping record with invalid date in renderDailyChart:', r);
+                  QA_MONITOR.warn('renderDailyChart invalid date', {
+                      record: r,
+                      reason: 'missing callDateObj',
+                      index: data.indexOf(r)
+                  });
                   return;
               }
               
@@ -4718,23 +4904,26 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
       }
 
       function debugInvalidDates() {
-          console.log('=== QA Data Date Debug ===');
+          QA_MONITOR.log('QA Data Date Debug begin', { total: rawQA.length });
           let invalidCount = 0;
 
           rawQA.forEach((record, index) => {
               if (!(record.callDateObj instanceof Date) || isNaN(record.callDateObj.getTime())) {
-                  console.log(`Invalid date at index ${index}:`, {
-                      CallDate: record.CallDate,
-                      CallDateSource: getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']),
-                      AgentName: record.AgentName,
-                      RecordIndex: record.__recordIndex,
-                      record: record
+                  QA_MONITOR.warn('QA record invalid date', {
+                      index,
+                      callDate: record.CallDate,
+                      sourceCallDate: getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']),
+                      agentName: record.AgentName,
+                      recordIndex: record.__recordIndex || null
                   });
                   invalidCount++;
               }
           });
 
-          console.log(`Found ${invalidCount} records with invalid dates out of ${rawQA.length} total records`);
+          QA_MONITOR.log('QA Data Date Debug summary', {
+              invalidCount,
+              total: rawQA.length
+          });
           return invalidCount;
       }
 
@@ -4771,7 +4960,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
       function safePercentage(numerator, denominator, maxCap = 100, debugLabel = '') {
         if (debugLabel) {
-          console.log(`${debugLabel}: ${numerator}/${denominator}`);
+          QA_MONITOR.log('safePercentage debug', {
+            label: debugLabel,
+            numerator,
+            denominator,
+            maxCap
+          });
         }
         if (!denominator || denominator <= 0) return 0;
         const result = Math.round((numerator / denominator) * 100);
@@ -5106,7 +5300,10 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                           tooltipParts.push(generated.toLocaleString());
                       }
                   } catch (dateError) {
-                  console.warn('Unable to format intelligence timestamp:', dateError);
+                      QA_MONITOR.warn('Unable to format intelligence timestamp', {
+                          message: dateError?.message,
+                          stack: dateError?.stack || null
+                      });
                   }
               }
 
@@ -5195,25 +5392,41 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                   google.script.run
                       .withSuccessHandler(result => resolve({ token: requestToken, result: result || null }))
                       .withFailureHandler(error => {
-                          console.warn('clientGetQAIntelligence failed:', error);
+                          QA_MONITOR.warn('clientGetQAIntelligence failed', {
+                              message: error?.message,
+                              stack: error?.stack || null
+                          });
                           resolve({ token: requestToken, result: null });
                       })
                       .clientGetQAIntelligence(context);
               } catch (error) {
-                  console.warn('Unable to request QA intelligence from service:', error);
+                  QA_MONITOR.warn('Unable to request QA intelligence from service', {
+                      message: error?.message,
+                      stack: error?.stack || null
+                  });
                   resolve({ token: requestToken, result: null });
               }
           });
       }
 
       function applyFilters(){
+          QA_MONITOR.log('applyFilters invoked', {
+              currentGran,
+              currentPeriod,
+              currentAgent,
+              rawCount: Array.isArray(rawQA) ? rawQA.length : 'unknown'
+          });
           showLoader('Preparing filtered results…');
           setTimeout(()=>{
+              QA_MONITOR.safe('applyFilters cycle', () => {
               // STEP 1: Clean and validate the raw QA data first
               const cleanedQA = rawQA.filter(r => {
                   const valid = r.callDateObj instanceof Date && !isNaN(r.callDateObj.getTime());
                   if (!valid) {
-                      console.warn('Invalid CallDate found in record:', r);
+                      QA_MONITOR.warn('Invalid CallDate found in record', {
+                          record: r,
+                          agentName: r?.AgentName || null
+                      });
                   }
                   return valid;
               });
@@ -5263,7 +5476,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                               return true;
                       }
                   } catch (error) {
-                      console.warn('Error filtering record by period:', r, error);
+                      QA_MONITOR.warn('Error filtering record by period', {
+                          record: r,
+                          message: error?.message,
+                          stack: error?.stack || null
+                      });
                       return false; // Exclude problematic records
                   }
               });
@@ -5274,12 +5491,13 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               const agentsInPeriod = new Set(filtered.map(r => r.AgentName)).size;
               const uniqueAgentsInData = Array.from(new Set(filtered.map(r => r.AgentName)));
 
-              console.log('=== Agents Evaluated Debug ===');
-              console.log('Total evaluations:', tot);
-              console.log('Agents in current period:', agentsInPeriod);
-              console.log('Agent names in period:', uniqueAgentsInData);
-              console.log('userList length:', userList.length);
-              console.log('userList:', userList);
+              QA_MONITOR.log('Agents Evaluated Debug', {
+                  totalEvaluations: tot,
+                  agentsInPeriod,
+                  agentNames: uniqueAgentsInData,
+                  userListLength: userList.length,
+                  userList
+              });
 
               // Calculate KPIs with enhanced Agents Evaluated logic
               const avgPct = tot ? Math.round(filtered.reduce((s, r) => s + (r.Percentage || 0), 0) / tot * 100) : 0;
@@ -5296,11 +5514,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                   const allAgentsInQA = new Set(rawQA.map(r => r.AgentName).filter(Boolean)).size;
                   if (allAgentsInQA > 0) {
                       agentsEvalPct = safePercentage(agentsInPeriod, allAgentsInQA, 100, 'Agents Evaluated (fallback)');
-                      console.log('Using fallback: agents in period vs all agents in QA data');
+                      QA_MONITOR.log('Agents evaluated fallback using QA data');
                   } else {
                       // Last resort: show 100% if there are any evaluations
                       agentsEvalPct = agentsInPeriod > 0 ? 100 : 0;
-                      console.log('Using last resort: 100% if any evaluations exist');
+                      QA_MONITOR.log('Agents evaluated last resort triggered');
                   }
               }
               
@@ -5308,8 +5526,10 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               const evalsCompletedPct = agentsInPeriod > 0 ? 
                   Math.min(Math.round(tot / agentsInPeriod * 10), 100) : 0;
 
-              console.log('Final agentsEvalPct:', agentsEvalPct);
-              console.log('Final evalsCompletedPct:', evalsCompletedPct);
+              QA_MONITOR.log('Agent KPIs computed', {
+                  agentsEvalPct,
+                  evalsCompletedPct
+              });
 
               // Previous period calculations...
               const prevPeriod = activePeriod ? getPreviousPeriod(currentGran, activePeriod) : '';
@@ -5337,7 +5557,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                               return false;
                       }
                   } catch (error) {
-                      console.warn('Error filtering previous period record:', r, error);
+                      QA_MONITOR.warn('Error filtering previous period record', {
+                          record: r,
+                          message: error?.message,
+                          stack: error?.stack || null
+                      });
                       return false;
                   }
               });
@@ -5438,7 +5662,10 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                               return opts?.timeZone;
                           }
                       } catch (tzError) {
-                          console.warn('Timezone detection failed:', tzError);
+                          QA_MONITOR.warn('Timezone detection failed', {
+                              message: tzError?.message,
+                              stack: tzError?.stack || null
+                          });
                       }
                       return undefined;
                   })(),
@@ -5478,11 +5705,27 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                       }
                   })
                   .catch(error => {
-                      console.warn('Server QA intelligence unavailable:', error);
+                      QA_MONITOR.warn('Server QA intelligence unavailable', {
+                          message: error?.message,
+                          stack: error?.stack || null
+                      });
                   });
 
               window.LuminaLoader?.update({ detail: 'Dashboard refreshed!', progress: 100, tip: 'Latest QA metrics are ready.' });
               hideLoader();
+              QA_MONITOR.log('applyFilters completed', {
+                  filteredCount: filtered.length,
+                  activePeriod,
+                  prevPeriod,
+                  agent: currentAgent || 'All'
+              });
+          }, {
+              rethrow: false,
+              context: { step: 'filter-cycle' },
+              onError: error => {
+                  QA_MONITOR.error('applyFilters cycle failed', { message: error?.message });
+              }
+          });
           }, 100);
       }
 
@@ -5540,13 +5783,19 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
         // Pull names via Code.gs (no edits needed there)
         function hydrateAgentList(){
+          QA_MONITOR.log('hydrateAgentList invoked', {
+            hasGoogleScript: !!(window.google && google.script && google.script.run)
+          });
           if (!(window.google && google.script && google.script.run)) {
-              console.warn('google.script.run not available, using fallback agent list');
+              QA_MONITOR.warn('google.script.run not available, using fallback agent list');
               // Fallback: extract unique agents from QA data
               const fallbackAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
               userList = fallbackAgents;
               populateAgentSelect(fallbackAgents);
-              console.log('Fallback userList:', userList);
+              QA_MONITOR.log('Fallback userList populated', {
+                count: userList.length,
+                sample: userList.slice(0, 10)
+              });
               applyFilters();
               return;
           }
@@ -5555,34 +5804,50 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
           google.script.run
               .withSuccessHandler(names => {
-                  console.log('Received agent names:', names);
-                  if (!Array.isArray(names) || names.length === 0) { 
-                      console.warn('Empty or invalid names payload, falling back');
-                      fallbackToGetUsers(); 
-                      return; 
+                  QA_MONITOR.log('hydrateAgentList success', { namesCount: Array.isArray(names) ? names.length : 'invalid' });
+                  QA_MONITOR.log('Agent names received', {
+                    count: Array.isArray(names) ? names.length : 'invalid',
+                    sample: Array.isArray(names) ? names.slice(0, 10) : null
+                  });
+                  if (!Array.isArray(names) || names.length === 0) {
+                      QA_MONITOR.warn('Empty or invalid names payload, falling back');
+                      fallbackToGetUsers();
+                      return;
                   }
                   userList = names;
                   populateAgentSelect(names);
-                  console.log('Updated userList:', userList);
+                  QA_MONITOR.log('User list updated from agent names', {
+                    count: userList.length,
+                    sample: userList.slice(0, 10)
+                  });
                   applyFilters();
               })
               .withFailureHandler(err => {
-                  console.warn('clientGetAssignedAgentNames failed:', err);
+                  QA_MONITOR.error('hydrateAgentList failed', { message: err?.message });
+                  QA_MONITOR.warn('clientGetAssignedAgentNames failed', {
+                      message: err?.message,
+                      stack: err?.stack || null
+                  });
                   fallbackToGetUsers();
               })
               .clientGetAssignedAgentNames(cid);
 
           function fallbackToGetUsers(){
+              QA_MONITOR.log('fallbackToGetUsers invoked');
               google.script.run
                   .withSuccessHandler(users => {
-                      console.log('Received users:', users);
+                      QA_MONITOR.log('fallbackToGetUsers success', { usersCount: Array.isArray(users) ? users.length : 'invalid' });
+                      QA_MONITOR.log('User directory payload received', {
+                          count: Array.isArray(users) ? users.length : 'invalid',
+                          sample: Array.isArray(users) ? users.slice(0, 5) : null
+                      });
                       const names = (users||[])
                           .map(u => u.FullName || u.UserName || u.Email)
                           .filter(Boolean)
                           .sort((a,b)=>a.localeCompare(b));
-                      
+
                       if (names.length === 0) {
-                          console.warn('No users found, using QA data as fallback');
+                          QA_MONITOR.warn('No users found, using QA data as fallback');
                           const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
                           userList = qaAgents;
                           populateAgentSelect(qaAgents);
@@ -5590,137 +5855,271 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                           userList = names;
                           populateAgentSelect(names);
                       }
-                      
-                      console.log('Final userList:', userList);
+
+                      QA_MONITOR.log('Final userList prepared', {
+                          count: userList.length,
+                          sample: userList.slice(0, 10)
+                      });
                       applyFilters();
                   })
                   .withFailureHandler(err => {
-                      console.error('getUsers failed:', err);
+                      QA_MONITOR.error('fallbackToGetUsers failed', { message: err?.message });
+                      QA_MONITOR.error('getUsers failed', { message: err?.message, stack: err?.stack || null });
                       // Ultimate fallback: use agents from QA data
                       const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
                       userList = qaAgents;
                       populateAgentSelect(qaAgents);
-                      console.log('Ultimate fallback userList:', userList);
+                      QA_MONITOR.log('Ultimate fallback userList', {
+                          count: userList.length,
+                          sample: userList.slice(0, 10)
+                      });
                       applyFilters();
                   })
                   .getUsers();
           }
       }
 
+      const QA_GLOBAL = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+      const QA_FUNCTIONS_TO_INSTRUMENT = Array.from(new Set([
+        'safeToDate',
+        'safeToISOString',
+        'normalizeKeyName',
+        'getRecordField',
+        'clamp01',
+        'parsePercentageValue',
+        'excelSerialToDate',
+        'parseFlexibleDateString',
+        'coerceDateValue',
+        'startOfIsoWeek',
+        'isoWeeksInYear',
+        'parseIsoWeek',
+        'toBiWeeklyPeriod',
+        'parseBiWeeklyPeriod',
+        'biWeeklySortValue',
+        'previousBiWeeklyPeriod',
+        'getPreviousPeriod',
+        'normalizeClientQaRecord',
+        'isValidDate',
+        'showLoader',
+        'updateAITrendPanel',
+        'computeCategoryMetrics',
+        'formatPeriodLabel',
+        'filterRecordsByPeriod',
+        'deriveLatestPeriod',
+        'periodSortValue',
+        'derivePeriodsForGranularity',
+        'refreshDefaultPeriods',
+        'isPeriodInData',
+        'ensurePeriodForGranularity',
+        'syncPeriodInputs',
+        'refreshPeriodSelectOptions',
+        'buildTrendSeries',
+        'linearRegression',
+        'clampPercent',
+        'analyzeTrendSeries',
+        'renderTrendSparkline',
+        'renderCategoryTable',
+        'renderCategoryChart',
+        'renderDailyChart',
+        'renderAgentTable',
+        'debugInvalidDates',
+        'renderAgentChart',
+        'renderCategoryKpis',
+        'safePercentage',
+        'calculateAgentProfiles',
+        'summarizeCategoryChange',
+        'buildAIIntelligenceAnalysis',
+        'normalizeAIIntelligenceAnalysis',
+        'renderAIIntelligence',
+        'updateAIIntelligencePanel',
+        'fetchServerQAIntelligence',
+        'applyFilters',
+        'convertToCSV',
+        'prepareWeeklyMatrix',
+        'downloadCSV',
+        'exportWeeklyCsv',
+        'populateAgentSelect',
+        'sanitizeNavigationUrl',
+        'resolveDashboardBaseUrl',
+        'showPicker',
+        'setPeriod',
+        'setQuarter',
+        'hydrateAgentList'
+      ]));
+
+      QA_FUNCTIONS_TO_INSTRUMENT.forEach(name => {
+        try {
+          const fn = QA_GLOBAL[name];
+          if (typeof fn === 'function') {
+            QA_GLOBAL[name] = QA_MONITOR.instrument(name, fn);
+          } else {
+            QA_MONITOR.warn('Function unavailable for instrumentation', { name, detectedType: typeof fn });
+          }
+        } catch (instrumentError) {
+          QA_MONITOR.error('Failed to instrument function', { name, message: instrumentError?.message });
+        }
+      });
+
+      function attachMonitoredListener(target, eventName, handler, options = {}) {
+        const { label = null, listenerOptions = undefined, rethrow = false } = options;
+        if (!target || typeof target.addEventListener !== 'function') {
+          QA_MONITOR.warn('attachMonitoredListener target invalid', { eventName, label });
+          return () => {};
+        }
+
+        const descriptor = label || `${eventName}:${target.id || target.className || 'anonymous'}`;
+        const wrapped = event => QA_MONITOR.safe(`event:${descriptor}`, () => handler.call(target, event), {
+          rethrow,
+          context: {
+            eventType: eventName,
+            targetId: target.id || null,
+            targetClass: target.className || null
+          },
+          defaultValue: undefined
+        });
+
+        target.addEventListener(eventName, wrapped, listenerOptions);
+        return () => {
+          try {
+            target.removeEventListener(eventName, wrapped, listenerOptions);
+          } catch (removeError) {
+            QA_MONITOR.error('Failed to remove monitored listener', {
+              descriptor,
+              message: removeError?.message
+            });
+          }
+        };
+      }
+
+      function monitoredTimeout(label, callback, delay) {
+        return setTimeout(() => {
+          QA_MONITOR.safe(`timeout:${label}`, () => callback(), { rethrow: false, context: { delay } });
+        }, delay);
+      }
+
+      function monitoredInterval(label, callback, delay) {
+        return setInterval(() => {
+          QA_MONITOR.safe(`interval:${label}`, () => callback(), { rethrow: false, context: { delay } });
+        }, delay);
+      }
+
       document.addEventListener('DOMContentLoaded', function() {
-        console.log('Dashboard initialization starting...');
+        QA_MONITOR.log('DOMContentLoaded event fired');
+        QA_MONITOR.safe('DOMContentLoaded init', () => {
+          QA_MONITOR.log('Dashboard initialization starting...');
 
-        // Initialize animations
-        try {
-          const observer = new IntersectionObserver((entries) => { 
-            entries.forEach(e => { 
-              if(e.isIntersecting) { 
-                e.target.style.opacity = '1'; 
-                e.target.style.transform = 'translateY(0)'; 
-              } 
-            }); 
-          });
-          document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => observer.observe(el));
-        } catch(e) {
-          console.warn('Animation observer failed:', e);
-        }
+          QA_MONITOR.safe('Initialize animations', () => {
+            const observer = new IntersectionObserver(entries => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  entry.target.style.opacity = '1';
+                  entry.target.style.transform = 'translateY(0)';
+                }
+              });
+            });
+            document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => observer.observe(el));
+          }, { rethrow: false });
 
-        // Initialize live datetime updates
-        try {
-          updateLiveDatetime();
-          setInterval(updateLiveDatetime, 1000);
-        } catch(e) {
-          console.warn('Live datetime failed:', e);
-        }
+          QA_MONITOR.safe('Initialize live datetime updates', () => {
+            if (typeof updateLiveDatetime === 'function') {
+              updateLiveDatetime();
+              monitoredInterval('liveDatetime', updateLiveDatetime, 1000);
+            } else {
+              QA_MONITOR.warn('updateLiveDatetime unavailable');
+            }
+          }, { rethrow: false });
 
-        // Initialize data status
-        try {
-          updateDataRefreshStatus('success', 'System Ready');
-        } catch(e) {
-          console.warn('Data status failed:', e);
-        }
+          QA_MONITOR.safe('Initialize data status', () => {
+            if (typeof updateDataRefreshStatus === 'function') {
+              updateDataRefreshStatus('success', 'System Ready');
+            } else {
+              QA_MONITOR.warn('updateDataRefreshStatus unavailable');
+            }
+          }, { rethrow: false });
 
-        // Live status click handler
-        try {
-          const liveStatus = document.querySelector('.live-status');
-          if (liveStatus) {
-            liveStatus.addEventListener('click', () => {
+          QA_MONITOR.safe('Live status click handler setup', () => {
+            const liveStatus = document.querySelector('.live-status');
+            if (!liveStatus) {
+              QA_MONITOR.warn('live-status element missing');
+              return;
+            }
+
+            attachMonitoredListener(liveStatus, 'click', () => {
               const indicator = document.querySelector('.live-indicator');
               if (indicator) {
                 indicator.style.animation = 'none';
-                setTimeout(() => {
+                monitoredTimeout('liveIndicatorPulseReset', () => {
                   indicator.style.animation = 'pulse-live 2s infinite';
                 }, 100);
               }
-            });
-          }
-        } catch(e) {
-          console.warn('Live status click failed:', e);
-        }
+            }, { label: 'liveStatus:click' });
+          }, { rethrow: false });
 
-        // Data status click handler
-        try {
-          const dataStatus = document.getElementById('dataRefreshStatus');
-          if (dataStatus) {
-            dataStatus.addEventListener('click', () => {
-              updateDataRefreshStatus('updating', 'Refreshing...');
-              setTimeout(() => {
-                updateDataRefreshStatus('success', `Data Current • ${new Date().toLocaleTimeString()}`);
+          QA_MONITOR.safe('Data status click handler setup', () => {
+            const dataStatus = document.getElementById('dataRefreshStatus');
+            if (!dataStatus) {
+              QA_MONITOR.warn('dataRefreshStatus element missing');
+              return;
+            }
+
+            attachMonitoredListener(dataStatus, 'click', () => {
+              if (typeof updateDataRefreshStatus === 'function') {
+                updateDataRefreshStatus('updating', 'Refreshing...');
+              }
+              monitoredTimeout('dataStatusRefresh', () => {
+                if (typeof updateDataRefreshStatus === 'function') {
+                  updateDataRefreshStatus('success', `Data Current • ${new Date().toLocaleTimeString()}`);
+                }
               }, 1500);
-            });
+            }, { label: 'dataRefreshStatus:click' });
+
             dataStatus.style.cursor = 'pointer';
             dataStatus.title = 'Click to simulate refresh';
-          }
-        } catch(e) {
-          console.warn('Data status click failed:', e);
-        }
+          }, { rethrow: false });
 
-        // Report Type Select
-        function sanitizeNavigationUrl(candidate) {
-          if (!candidate) {
-            return '';
-          }
-
-          const trimmed = String(candidate).trim();
-          if (!trimmed || /<|>/.test(trimmed)) {
-            return '';
-          }
-
-          try {
-            const parsed = new URL(trimmed, window.location.href);
-            if (!/^https?:$/i.test(parsed.protocol)) {
+          function sanitizeNavigationUrl(candidate) {
+            if (!candidate) {
               return '';
             }
-            return parsed.origin + parsed.pathname;
-          } catch (error) {
-            console.warn('sanitizeNavigationUrl failed:', error, candidate);
-            return '';
-          }
-        }
 
-        function resolveDashboardBaseUrl() {
-          try {
-            const sanitizedBase = typeof baseUrl !== 'undefined' ? sanitizeNavigationUrl(baseUrl) : '';
-            if (sanitizedBase) {
-              return sanitizedBase;
+            const trimmed = String(candidate).trim();
+            if (!trimmed || /<|>/.test(trimmed)) {
+              return '';
             }
-            const sanitizedScript = typeof scriptUrl !== 'undefined' ? sanitizeNavigationUrl(scriptUrl) : '';
-            if (sanitizedScript) {
-              return sanitizedScript;
-            }
-            if (window.location) {
-              return sanitizeNavigationUrl(window.location.href);
-            }
-          } catch (error) {
-            console.warn('resolveDashboardBaseUrl fallback failed:', error);
-          }
-          return '';
-        }
 
-        // Granularity Select
-        try {
-          const granularitySelect = document.getElementById('granularitySelect');
-          if (granularitySelect) {
+            return QA_MONITOR.safe('sanitizeNavigationUrl:parse', () => {
+              const parsed = new URL(trimmed, window.location.href);
+              if (!/^https?:$/i.test(parsed.protocol)) {
+                return '';
+              }
+              return parsed.origin + parsed.pathname;
+            }, { rethrow: false, defaultValue: '', context: { candidate: trimmed } });
+          }
+
+          function resolveDashboardBaseUrl() {
+            return QA_MONITOR.safe('resolveDashboardBaseUrl', () => {
+              const sanitizedBase = typeof baseUrl !== 'undefined' ? sanitizeNavigationUrl(baseUrl) : '';
+              if (sanitizedBase) {
+                return sanitizedBase;
+              }
+              const sanitizedScript = typeof scriptUrl !== 'undefined' ? sanitizeNavigationUrl(scriptUrl) : '';
+              if (sanitizedScript) {
+                return sanitizedScript;
+              }
+              if (window.location) {
+                return sanitizeNavigationUrl(window.location.href);
+              }
+              return '';
+            }, { rethrow: false, defaultValue: '' });
+          }
+
+          QA_MONITOR.safe('Granularity select setup', () => {
+            const granularitySelect = document.getElementById('granularitySelect');
+            if (!granularitySelect) {
+              QA_MONITOR.warn('granularitySelect not found');
+              return;
+            }
+
             granularitySelect.value = currentGran;
             const handleGranularityChange = () => {
               currentGran = granularitySelect.value || 'Week';
@@ -5734,21 +6133,20 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               showPicker();
               applyFilters();
             };
-            granularitySelect.addEventListener('change', handleGranularityChange);
-            handleGranularityChange();
-          } else {
-            console.warn('granularitySelect not found');
-          }
-        } catch(e) {
-          console.error('Granularity select failed:', e);
-        }
 
-        // Period Select
-        try {
-          const periodSelect = document.getElementById('periodSelect');
-          if (periodSelect) {
-            periodSelect.addEventListener('change', function(e) {
-              currentPeriod = e.target.value || '';
+            attachMonitoredListener(granularitySelect, 'change', handleGranularityChange, { label: 'granularitySelect:change' });
+            QA_MONITOR.safe('granularitySelect:initialSync', handleGranularityChange, { rethrow: false });
+          }, { rethrow: false });
+
+          const monitorPeriodSelect = () => {
+            const periodSelect = document.getElementById('periodSelect');
+            if (!periodSelect) {
+              QA_MONITOR.warn('periodSelect not found');
+              return;
+            }
+
+            attachMonitoredListener(periodSelect, 'change', event => {
+              currentPeriod = event?.target?.value || '';
               if (currentPeriod) {
                 defaultPeriods[currentGran] = currentPeriod;
               } else {
@@ -5756,77 +6154,34 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               }
               syncPeriodInputs(currentGran, currentPeriod);
               applyFilters();
-            });
-          } else {
-            console.warn('periodSelect not found');
-          }
-        } catch(e) {
-          console.error('Period select failed:', e);
-        }
+            }, { label: 'periodSelect:change' });
+          };
 
-        // Period Select
-        try {
-          const periodSelect = document.getElementById('periodSelect');
-          if (periodSelect) {
-            periodSelect.addEventListener('change', function(e) {
-              currentPeriod = e.target.value || '';
-              if (currentPeriod) {
-                defaultPeriods[currentGran] = currentPeriod;
-              } else {
-                delete defaultPeriods[currentGran];
+          QA_MONITOR.safe('Period select setup', monitorPeriodSelect, { rethrow: false });
+
+
+          QA_MONITOR.safe('Agent select setup', () => {
+            const agentSelect = document.getElementById('agentSelect');
+            if (!agentSelect) {
+              QA_MONITOR.warn('agentSelect not found');
+              return;
+            }
+
+            attachMonitoredListener(agentSelect, 'change', event => {
+              currentAgent = event?.target?.value || '';
+              applyFilters();
+            }, { label: 'agentSelect:change' });
+          }, { rethrow: false });
+
+          QA_MONITOR.safe('Period inputs setup', () => {
+            ['weekInput', 'monthInput', 'yearInput'].forEach(id => {
+              const el = document.getElementById(id);
+              if (!el) {
+                QA_MONITOR.warn('period input missing', { id });
+                return;
               }
-              syncPeriodInputs(currentGran, currentPeriod);
-              applyFilters();
-            });
-          } else {
-            console.warn('periodSelect not found');
-          }
-        } catch(e) {
-          console.error('Period select failed:', e);
-        }
 
-        // Period Select
-        try {
-          const periodSelect = document.getElementById('periodSelect');
-          if (periodSelect) {
-            periodSelect.addEventListener('change', function(e) {
-              currentPeriod = e.target.value || '';
-              if (currentPeriod) {
-                defaultPeriods[currentGran] = currentPeriod;
-              } else {
-                delete defaultPeriods[currentGran];
-              }
-              syncPeriodInputs(currentGran, currentPeriod);
-              applyFilters();
-            });
-          } else {
-            console.warn('periodSelect not found');
-          }
-        } catch(e) {
-          console.error('Period select failed:', e);
-        }
-
-        // Agent Select
-        try {
-          const agentSelect = document.getElementById('agentSelect');
-          if (agentSelect) {
-            agentSelect.addEventListener('change', function(e) {
-              currentAgent = e.target.value;
-              applyFilters();
-            });
-          } else {
-            console.warn('agentSelect not found');
-          }
-        } catch(e) {
-          console.error('Agent select failed:', e);
-        }
-
-        // Period input handlers
-        try {
-          ['weekInput', 'monthInput', 'yearInput'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-              el.addEventListener('change', function() {
+              attachMonitoredListener(el, 'change', () => {
                 setPeriod();
                 if (currentPeriod) {
                   defaultPeriods[currentGran] = currentPeriod;
@@ -5836,14 +6191,17 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 refreshPeriodSelectOptions();
                 syncPeriodInputs(currentGran, currentPeriod);
                 applyFilters();
-              });
-            }
-          });
+              }, { label: `periodInput:${id}` });
+            });
 
-          ['quarterSelect', 'quarterYearInput'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-              el.addEventListener('change', function() {
+            ['quarterSelect', 'quarterYearInput'].forEach(id => {
+              const el = document.getElementById(id);
+              if (!el) {
+                QA_MONITOR.warn('quarter input missing', { id });
+                return;
+              }
+
+              attachMonitoredListener(el, 'change', () => {
                 setQuarter();
                 if (currentPeriod) {
                   defaultPeriods[currentGran] = currentPeriod;
@@ -5853,30 +6211,25 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 refreshPeriodSelectOptions();
                 syncPeriodInputs(currentGran, currentPeriod);
                 applyFilters();
-              });
-            }
-          });
-        } catch(e) {
-          console.error('Period inputs failed:', e);
-        }
-
-        // Export CSV Button
-        try {
-          const exportBtn = document.getElementById('exportCsvBtn');
-          if (exportBtn) {
-            exportBtn.addEventListener('click', function() {
-              exportWeeklyCsv();
+              }, { label: `quarterInput:${id}` });
             });
-          } else {
-            console.warn('exportCsvBtn not found');
-          }
-        } catch(e) {
-          console.error('Export button failed:', e);
-        }
+          }, { rethrow: false });
+
+          QA_MONITOR.safe('Export button setup', () => {
+            const exportBtn = document.getElementById('exportCsvBtn');
+            if (!exportBtn) {
+              QA_MONITOR.warn('exportCsvBtn not found');
+              return;
+            }
+
+            attachMonitoredListener(exportBtn, 'click', () => {
+              exportWeeklyCsv();
+            }, { label: 'exportCsvBtn:click' });
+          }, { rethrow: false });
 
         // Helper functions
         function showPicker() {
-          try {
+          QA_MONITOR.safe('showPicker:render', () => {
             ['weekPicker', 'monthPicker', 'quarterPicker', 'yearPicker'].forEach(id => {
               const el = document.getElementById(id);
               if (el) el.style.display = 'none';
@@ -5897,13 +6250,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                 target.style.display = (currentGran === 'Quarter') ? 'flex' : 'block';
               }
             }
-          } catch(e) {
-            console.error('showPicker failed:', e);
-          }
+          }, { rethrow: false });
         }
 
         function setPeriod() {
-          try {
+          QA_MONITOR.safe('setPeriod:update', () => {
             const map = {
               'Week': 'weekInput',
               'Month': 'monthInput',
@@ -5920,13 +6271,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               currentPeriod = ensurePeriodForGranularity(currentGran, rawQA);
             }
             syncPeriodInputs(currentGran, currentPeriod);
-          } catch(e) {
-            console.error('setPeriod failed:', e);
-          }
+          }, { rethrow: false });
         }
 
         function setQuarter() {
-          try {
+          QA_MONITOR.safe('setQuarter:update', () => {
             const q = document.getElementById('quarterSelect')?.value;
             const y = document.getElementById('quarterYearInput')?.value;
             if (q && y) {
@@ -5934,34 +6283,27 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
             } else {
               currentPeriod = ensurePeriodForGranularity('Quarter', rawQA);
             }
-          } catch(e) {
-            console.error('setQuarter failed:', e);
-          }
+          }, { rethrow: false });
         }
 
-        // Initialize UI
-        try {
+        QA_MONITOR.safe('UI initialization', () => {
           refreshPeriodSelectOptions();
           showPicker();
           syncPeriodInputs(currentGran, currentPeriod);
-        } catch(e) {
-          console.error('UI initialization failed:', e);
-        }
+        }, { rethrow: false });
 
-        // Load data
-        try {
-          setTimeout(() => {
-            console.log('Starting data load...');
+        QA_MONITOR.safe('Initial data load queue', () => {
+          monitoredTimeout('initialApplyFilters', () => {
+            QA_MONITOR.log('Starting data load...');
             applyFilters();
           }, 300);
-          
+
           debugInvalidDates();
           hydrateAgentList();
-        } catch(e) {
-          console.error('Data load failed:', e);
-        }
+        }, { rethrow: false });
 
-        console.log('Quality Dashboard initialization completed');
+        QA_MONITOR.log('Quality Dashboard initialization completed');
+        });
       });
 </script>
 <!-- Category KPIs -->
