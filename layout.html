@@ -471,12 +471,33 @@
 
     // Session token persistence helpers
     const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
-    const SESSION_TOKEN_QUERY_PARAM = 'token';
-    const SESSION_TOKEN_STORAGE_KEYS = [
-      'lumina.session.token',
-      'lumina.auth.sessionToken',
-      'lumina.auth.fallbackToken'
-    ];
+    var SESSION_TOKEN_QUERY_PARAM = (typeof SESSION_TOKEN_QUERY_PARAM === 'string'
+      && SESSION_TOKEN_QUERY_PARAM.trim())
+      ? SESSION_TOKEN_QUERY_PARAM.trim()
+      : 'token';
+    var SESSION_TOKEN_STORAGE_KEYS = (typeof SESSION_TOKEN_STORAGE_KEYS !== 'undefined'
+      && Array.isArray(SESSION_TOKEN_STORAGE_KEYS)
+      && SESSION_TOKEN_STORAGE_KEYS.length)
+      ? SESSION_TOKEN_STORAGE_KEYS.slice()
+      : [
+        'lumina.session.token',
+        'lumina.auth.sessionToken',
+        'lumina.auth.fallbackToken'
+      ];
+
+    if (typeof window !== 'undefined') {
+      if (Array.isArray(window.SESSION_TOKEN_STORAGE_KEYS) && window.SESSION_TOKEN_STORAGE_KEYS.length) {
+        SESSION_TOKEN_STORAGE_KEYS = window.SESSION_TOKEN_STORAGE_KEYS.slice();
+      } else {
+        window.SESSION_TOKEN_STORAGE_KEYS = SESSION_TOKEN_STORAGE_KEYS.slice();
+      }
+
+      if (typeof window.SESSION_TOKEN_QUERY_PARAM === 'string' && window.SESSION_TOKEN_QUERY_PARAM.trim()) {
+        SESSION_TOKEN_QUERY_PARAM = window.SESSION_TOKEN_QUERY_PARAM.trim();
+      } else {
+        window.SESSION_TOKEN_QUERY_PARAM = SESSION_TOKEN_QUERY_PARAM;
+      }
+    }
 
     function setLogoutReason(reason) {
       try {
