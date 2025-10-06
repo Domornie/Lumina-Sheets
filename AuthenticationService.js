@@ -16,6 +16,7 @@
 
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_EXPIRATION_ENABLED = false; // Disable automatic session expiration
 const DEFAULT_SESSION_COLUMNS = [
   'Token',
   'TokenHash',
@@ -658,24 +659,26 @@ var AuthenticationService = (function () {
     const lastActivityTime = parseDateValue(getRecordValue(record, 'LastActivityAt'))
       || parseDateValue(getRecordValue(record, 'CreatedAt'));
 
-    if (!expiryTime || expiryTime < nowMs) {
-      removeSessionEntry(entry);
-      return {
-        status: 'expired',
-        reason: 'EXPIRED',
-        idleTimeoutMinutes: idleTimeoutMinutes,
-        lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
-      };
-    }
+    if (SESSION_EXPIRATION_ENABLED) {
+      if (!expiryTime || expiryTime < nowMs) {
+        removeSessionEntry(entry);
+        return {
+          status: 'expired',
+          reason: 'EXPIRED',
+          idleTimeoutMinutes: idleTimeoutMinutes,
+          lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
+        };
+      }
 
-    if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
-      removeSessionEntry(entry);
-      return {
-        status: 'expired',
-        reason: 'IDLE_TIMEOUT',
-        idleTimeoutMinutes: idleTimeoutMinutes,
-        lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
-      };
+      if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
+        removeSessionEntry(entry);
+        return {
+          status: 'expired',
+          reason: 'IDLE_TIMEOUT',
+          idleTimeoutMinutes: idleTimeoutMinutes,
+          lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
+        };
+      }
     }
 
     let expiresAtIso = getRecordValue(record, 'ExpiresAt');
