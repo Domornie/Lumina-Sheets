@@ -146,6 +146,46 @@
     font-size: 1.1rem;
   }
 
+  .data-refresh-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.15);
+    color: #e2e8f0;
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.08);
+    transition: var(--transition-smooth);
+  }
+
+  .data-refresh-status i {
+    font-size: 0.95rem;
+  }
+
+  .data-refresh-status.success {
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.15);
+  }
+
+  .data-refresh-status.updating {
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.12);
+  }
+
+  .data-refresh-status.error {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.12);
+  }
+
+  .data-refresh-status .status-label {
+    white-space: nowrap;
+  }
+
   @keyframes pulse-live {
     0%, 100% {
       opacity: 1;
@@ -2634,7 +2674,16 @@
   <div class="live-header">
     <div class="live-status">
       <div class="live-indicator"></div>
+      <div class="status-text">
+        <i class="fas fa-wifi"></i>
+        <span>Dashboard Live</span>
+      </div>
     </div>
+    <div class="data-refresh-status updating" id="dataRefreshStatus">
+      <i class="fas fa-sync-alt fa-spin"></i>
+      <span class="status-label">Initializing…</span>
+    </div>
+    <div class="datetime-display" id="liveDatetime">Loading...</div>
   </div>
 </div>
 
@@ -2785,7 +2834,7 @@
 </div>
 
 <script>
-      const rawQASource = <?!= JSON.stringify(qaRecords ?? []) ?>;
+      const rawQASource = <?!= (typeof qaRecords !== 'undefined' && qaRecords) ? qaRecords : '[]' ?>;
       let currentGran = '<?= granularity ?>';
       let currentPeriod = '<?= periodValue ?>';
       let currentAgent = '<?= selectedAgent ?>';
@@ -2801,6 +2850,9 @@
         Quarter: [],
         Year: []
       };
+
+      const PASS_MARK = 0.95;
+      const PASS_SCORE_THRESHOLD = Math.round(PASS_MARK * 100);
 
       const QA_MONITOR = (() => {
         const startTimes = new Map();
@@ -2893,6 +2945,87 @@
         };
       })();
 
+      function updateLiveDatetime() {
+        const datetimeDisplay = document.getElementById('liveDatetime');
+        if (!datetimeDisplay) {
+          QA_MONITOR.warn('liveDatetime element missing');
+          return;
+        }
+
+        try {
+          const now = new Date();
+          const options = {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZoneName: 'short'
+          };
+
+          const formatted = typeof now.toLocaleString === 'function'
+            ? now.toLocaleString('en-US', options)
+            : now.toISOString();
+
+          datetimeDisplay.textContent = formatted;
+        } catch (error) {
+          QA_MONITOR.warn('updateLiveDatetime failed', { message: error?.message });
+          datetimeDisplay.textContent = new Date().toISOString();
+        }
+      }
+
+      function updateDataRefreshStatus(state, message) {
+        const statusEl = document.getElementById('dataRefreshStatus');
+        if (!statusEl) {
+          QA_MONITOR.warn('dataRefreshStatus element missing');
+          return;
+        }
+
+        const normalized = typeof state === 'string' ? state.toLowerCase() : 'success';
+        const configs = {
+          success: {
+            className: 'success',
+            icon: 'fa-check-circle',
+            text: message || 'Data Current'
+          },
+          updating: {
+            className: 'updating',
+            icon: 'fa-sync-alt fa-spin',
+            text: message || 'Refreshing…'
+          },
+          loading: {
+            className: 'updating',
+            icon: 'fa-sync-alt fa-spin',
+            text: message || 'Loading…'
+          },
+          error: {
+            className: 'error',
+            icon: 'fa-exclamation-triangle',
+            text: message || 'Attention Required'
+          }
+        };
+
+        const config = configs[normalized] || configs.success;
+
+        statusEl.classList.remove('success', 'updating', 'error');
+        statusEl.classList.add(config.className);
+
+        const iconEl = statusEl.querySelector('i');
+        if (iconEl) {
+          iconEl.className = `fas ${config.icon}`;
+        }
+
+        const labelEl = statusEl.querySelector('.status-label') || statusEl.querySelector('span');
+        if (labelEl) {
+          labelEl.textContent = config.text;
+        } else {
+          statusEl.textContent = config.text;
+        }
+      }
+
       window.addEventListener('error', event => {
         QA_MONITOR.error('Global error captured', {
           message: event?.message,
@@ -2914,7 +3047,12 @@
       QA_MONITOR.safe('Parse QA records', () => {
         if (typeof rawQASource === 'string') {
           const trimmed = rawQASource.trim();
-          rawQA = trimmed ? JSON.parse(trimmed) : [];
+          if (trimmed) {
+            const firstPass = JSON.parse(trimmed);
+            rawQA = typeof firstPass === 'string' ? JSON.parse(firstPass) : firstPass;
+          } else {
+            rawQA = [];
+          }
         } else if (Array.isArray(rawQASource)) {
           rawQA = rawQASource;
         } else if (rawQASource && typeof rawQASource === 'object') {
@@ -5786,6 +5924,8 @@
         'normalizeClientQaRecord',
         'isValidDate',
         'showLoader',
+        'updateLiveDatetime',
+        'updateDataRefreshStatus',
         'updateAITrendPanel',
         'computeCategoryMetrics',
         'formatPeriodLabel',
