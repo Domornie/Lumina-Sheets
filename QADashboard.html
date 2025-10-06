@@ -2672,101 +2672,130 @@
         </div>
 
         <div class="control-group">
-          <label>Period Selection</label>
-          <select class="form-select" id="periodSelect">
-            <option value="" disabled selected>Loading periods…</option>
-          </select>
+          <label>Agent Filter</label>
+          <select class="form-select" id="agentSelect">
+                <option value="">
+                    All Agents
+                </option>
+                <? userList.forEach(function(u) { ?>
+                  <option value="<?= u ?>" <?= u === selectedAgent ? "selected" : "" ?>>
+                    <?= u ?>
+                  </option>
+                <? }); ?>
+              </select>
         </div>
 
-        if (/^\d{8}$/.test(value)) {
-          const year = Number(value.slice(0, 4));
-          const month = Number(value.slice(4, 6)) - 1;
-          const day = Number(value.slice(6, 8));
-          const ymdDate = new Date(year, month, day);
-          if (!isNaN(ymdDate.getTime())) {
-            return ymdDate;
-          }
+        <!-- Period Pickers -->
+        <div class="control-group" id="weekPicker" style="display: none;">
+          <label>Week</label>
+          <input type="week" class="form-control" id="weekInput" />
+        </div>
+        <div class="control-group" id="monthPicker" style="display: none;">
+          <label>Month</label>
+          <input type="month" class="form-control" id="monthInput" />
+        </div>
+        <div class="control-group" id="quarterPicker" style="display: none;">
+          <label>Quarter</label>
+          <div class="d-flex gap-2">
+            <select class="form-select" id="quarterSelect">
+                  <option value="Q1">Q1</option>
+                  <option value="Q2">Q2</option>
+                  <option value="Q3">Q3</option>
+                  <option value="Q4">Q4</option>
+                </select>
+            <input type="number" class="form-control" id="quarterYearInput" placeholder="YYYY" min="2000" max="2100" style="width: 100px;" />
+          </div>
+        </div>
+        <div class="control-group" id="yearPicker" style="display: none;">
+          <label>Year</label>
+          <input type="number" class="form-control" id="yearInput" placeholder="YYYY" min="2000" max="2100"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modern Action Buttons -->
+<div class="modern-actions fade-in">
+  <? 
+        // Build clean URLs without exposing campaign context
+        function buildUrl(page) {
+          return baseUrl + '?page=' + page;
         }
+      ?>
+  <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
+    <i class="fas fa-clipboard-check"></i> New Quality
+  </a>
+  <a href="<?= buildUrl('qualitylist') ?>" class="modern-btn modern-btn-secondary">
+    <i class="fas fa-list"></i> Quality List
+  </a>
+  <button id="exportCsvBtn" class="modern-btn modern-btn-success">
+        <i class="fas fa-file-csv"></i> Export CSV
+      </button>
+  <a href="<?= buildUrl('coachinglist') ?>" class="modern-btn modern-btn-secondary">
+    <i class="fas fa-chalkboard-teacher"></i> Coaching
+  </a>
+  <a href="<?= buildUrl('qualityform') ?>" class="modern-btn modern-btn-primary">
+    <i class="fas fa-users"></i> New Collab Quality
+  </a>
+  <a href="<?= buildUrl('qacollablist') ?>" class="modern-btn modern-btn-secondary">
+    <i class="fas fa-list-check"></i> Quality Collab List
+  </a>
+</div>
 
-        let parsed = new Date(value);
-        if (!isNaN(parsed.getTime())) {
-          return parsed;
-        }
+<!-- Modern KPI Cards -->
+<div class="modern-kpi-grid stagger-animation">
+  <div class="modern-kpi-card">
+    <div class="kpi-icon">
+      <i class="fas fa-chart-line"></i>
+    </div>
+    <div class="kpi-value" id="kpiAvgScore">0%</div>
+    <div class="kpi-label">Average Score</div>
+    <div class="kpi-trend" id="kpiAvgScoreTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
 
-        if (value.includes(' ') && !value.includes('T')) {
-          parsed = new Date(value.replace(' ', 'T'));
-          if (!isNaN(parsed.getTime())) {
-            return parsed;
-          }
-        }
+  <div class="modern-kpi-card">
+    <div class="kpi-icon" style="background: var(--success-gradient);">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div class="kpi-value" id="kpiPassRate">0%</div>
+    <div class="kpi-label">Pass Rate</div>
+    <div class="kpi-trend" id="kpiPassRateTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
 
-        const parts = value.split(/[\/\-]/).map(part => part.trim());
-        if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
-          let [p1, p2, p3] = parts.map(Number);
-          if (p3 < 100) {
-            p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
-          }
+  <div class="modern-kpi-card">
+    <div class="kpi-icon" style="background: var(--info-gradient);">
+      <i class="fas fa-users"></i>
+    </div>
+    <div class="kpi-value" id="kpiAgentsEval">0%</div>
+    <div class="kpi-label">Agents Evaluated</div>
+    <div class="kpi-trend" id="kpiAgentsEvalTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
 
-          let month;
-          let day;
-          let year;
+  <div class="modern-kpi-card">
+    <div class="kpi-icon" style="background: var(--warning-gradient);">
+      <i class="fas fa-tasks"></i>
+    </div>
+    <div class="kpi-value" id="kpiEvalsDone">0%</div>
+    <div class="kpi-label">Evaluations Completed</div>
+    <div class="kpi-trend" id="kpiEvalsDoneTrend">
+      <i class="fas fa-arrow-up"></i>
+      <span>0% vs last period</span>
+    </div>
+  </div>
+</div>
 
-          if (p1 > 12 && p2 <= 12) {
-            day = p1;
-            month = p2;
-            year = p3;
-          } else if (p2 > 12 && p1 <= 12) {
-            month = p1;
-            day = p2;
-            year = p3;
-          } else {
-            month = p1;
-            day = p2;
-            year = p3;
-          }
-
-          const manualDate = new Date(year, month - 1, day);
-          if (!isNaN(manualDate.getTime())) {
-            return manualDate;
-          }
-        }
-
-        return null;
-      }
-
-        if (typeof value === 'number' && isFinite(value)) {
-          const excelDate = excelSerialToDate(value);
-          if (excelDate) {
-            return excelDate;
-          }
-
-          const numericDate = new Date(value);
-          return isNaN(numericDate.getTime()) ? null : numericDate;
-        }
-
-        return parseFlexibleDateString(value);
-      }
-
-      function normalizeClientQaRecord(record, index) {
-        const normalized = { ...record };
-
-        const agentValue = getRecordField(record, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
-        const campaignValue = getRecordField(record, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
-        const percentageValue = getRecordField(record, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
-        const callDateValue = getRecordField(record, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
-
-        const agentName = agentValue ? String(agentValue).trim() : '';
-        const campaign = campaignValue ? String(campaignValue).trim() : '';
-        const callDate = coerceDateValue(callDateValue);
-        const percentage = parsePercentageValue(percentageValue);
-
-        if (agentName) {
-          normalized.AgentName = agentName;
-        } else if (!normalized.AgentName) {
-          normalized.AgentName = 'Unassigned';
-        }
-
-      const rawQA = JSON.parse('<?= qaRecords ?>');
+<script>
+const rawQA = JSON.parse('<?= qaRecords ?>');
       let currentGran = '<?= granularity ?>';
       let currentPeriod = '<?= periodValue ?>';
       let currentAgent = '<?= selectedAgent ?>';
@@ -2945,9 +2974,8 @@
     <div class="chart-container">
       <canvas id="dailyChart"></canvas>
     </div>
-</div>
+  </div>
 
-<script>
         const utcDays = Math.floor(serial - 25569);
         const utcMilliseconds = utcDays * 86400000;
         const remainder = serial - Math.floor(serial);
@@ -2995,6 +3023,47 @@
             return parsed;
           }
         }
+
+      const rawQA = JSON.parse('<?= qaRecords ?>');
+      let currentGran = '<?= granularity ?>';
+      let currentPeriod = '<?= periodValue ?>';
+      let currentAgent = '<?= selectedAgent ?>';
+      let userList = <?!= JSON.stringify(userList || []) ?>;
+      let qaIntelligenceRequestToken = 0;
+      let latestAIIntelligence = null;
+      const DEFAULT_GRANULARITIES = ['Week', 'Month', 'Quarter', 'Year'];
+      const defaultPeriods = {};
+      const availablePeriods = {
+        Week: [],
+        Month: [],
+        Quarter: [],
+        Year: []
+      };
+
+      const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
+      const categories = {
+        'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
+        'Resolution':['Q6','Q7','Q8','Q9'],
+        'Case Documentation':['Q10','Q11','Q12','Q13','Q14'],
+        'Process Compliance':['Q15','Q16','Q17','Q18']
+      };
+
+      rawQA.forEach((record, index) => {
+        rawQA[index] = normalizeClientQaRecord(record, index);
+      });
+
+      refreshDefaultPeriods(rawQA);
+
+      if (!DEFAULT_GRANULARITIES.includes(currentGran)) {
+        currentGran = 'Week';
+      }
+
+      if (!currentPeriod) {
+        currentPeriod = ensurePeriodForGranularity(currentGran, rawQA);
+      }
+
+      syncPeriodInputs(currentGran, currentPeriod);
+
           const manualDate = new Date(year, month - 1, day);
           if (!isNaN(manualDate.getTime())) {
             return manualDate;
@@ -5870,7 +5939,67 @@
 
         console.log('Quality Dashboard initialization completed');
       });
-</script>
+</script><!-- Category KPIs -->
+<div class="category-kpis-grid stagger-animation" id="categoryKpis">
+  <!-- Dynamically populated by JavaScript -->
+</div>
+
+<!-- AI Intelligence Layer -->
+<div class="ai-intel-grid fade-in">
+  <div class="ai-intel-card">
+    <div class="ai-card-header">
+      <i class="fas fa-robot"></i>
+      <span>Lumina QA Copilot</span>
+      <div class="ai-header-meta">
+        <span class="ai-source-chip client" id="aiInsightSource" title="Intelligence generated in-browser">Local AI</span>
+        <span class="ai-confidence-badge" id="aiConfidenceBadge">Confidence 0%</span>
+      </div>
+    </div>
+    <p class="ai-insights-summary" id="aiInsightsSummary">AI insights will appear once data loads.</p>
+    <ul class="ai-insights-list" id="aiInsightsList"></ul>
+  </div>
+
+  <div class="ai-intel-card">
+    <div class="ai-card-header">
+      <i class="fas fa-bolt"></i>
+      <span>Automation Playbook</span>
+      <span class="ai-automation-state" id="aiAutomationState">Monitoring</span>
+    </div>
+    <p class="ai-automation-summary" id="aiAutomationSummary">AI recommendations will populate after analysis.</p>
+    <ul class="ai-actions-list" id="aiRecommendationsList"></ul>
+    <div class="ai-next-best-action" id="aiNextBestAction" style="display: none;">
+      <i class="fas fa-magic"></i>
+      <div>
+        <strong>Next best automation</strong>
+        <span id="aiNextBestActionText"></span>
+      </div>
+    </div>
+  </div>
+  <div class="ai-intel-card">
+    <div class="ai-card-header">
+      <i class="fas fa-chart-line"></i>
+      <span>AI Trend Radar</span>
+      <span class="ai-trend-health" id="aiTrendHealth">Monitoring</span>
+    </div>
+    <p class="ai-trend-summary" id="aiTrendSummary">Trend intelligence will populate after analysis.</p>
+    <div class="ai-trend-visual" id="aiTrendVisual" style="display: none;">
+      <canvas id="aiTrendSparkline"></canvas>
+      <div class="ai-trend-forecast" id="aiTrendForecast"></div>
+    </div>
+    <ul class="ai-insights-list" id="aiTrendList"></ul>
+  </div>
+</div>
+
+<!-- Modern Charts -->
+<div class="modern-chart-grid stagger-animation">
+  <div class="modern-chart-card">
+    <h6><i class="fas fa-calendar-day me-2"></i>Daily Performance</h6>
+    <div class="chart-container">
+      <canvas id="dailyChart"></canvas>
+    </div>
+</div>
+
+
 </body>
 
 
