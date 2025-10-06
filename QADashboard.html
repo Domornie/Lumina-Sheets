@@ -516,7 +516,7 @@
     overflow: hidden;
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -789,7 +789,7 @@
     }
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1062,7 +1062,7 @@
     }
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1335,7 +1335,7 @@
     }
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1608,7 +1608,7 @@
     }
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1881,7 +1881,7 @@
     }
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -2154,7 +2154,7 @@
     }
   }
 
-  /* AI Intelligence Cards */
+  /* Intelligence Cards */
   .ai-intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -2644,20 +2644,10 @@
     <div class="col-md-8">
       <div class="control-section">
         <div class="control-group">
-          <label>Report Type</label>
-          <select id="reportTypeSelect" class="form-select">
-                <option value="dashboard" <?= currentPage==="Dashboard" ? "selected":"" ?>>Dashboard</option>
-                <option value="callreports" <?= currentPage==="CallReports" ? "selected":"" ?>>Call Reports</option>
-                <option value="attendancereports" <?= currentPage==="AttendanceReports" ? "selected":"" ?>>Attendance Reports</option>
-                <option value="ibtrqualityreports" <?= currentPage==="QualityReports" ? "selected":"" ?>>Quality Report</option>
-                <option value="incentives" <?= currentPage==="Incentives" ? "selected":"" ?>>Incentives</option>
-              </select>
-        </div>
-
-        <div class="control-group">
           <label>Time Period</label>
           <select class="form-select" id="granularitySelect">
                 <option value="Week" selected>Week</option>
+                <option value="Bi-Weekly">Bi-Weekly</option>
                 <option value="Month">Month</option>
                 <option value="Quarter">Quarter</option>
                 <option value="Year">Year</option>
@@ -2802,10 +2792,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
       let userList = <?!= JSON.stringify(userList || []) ?>;
       let qaIntelligenceRequestToken = 0;
       let latestAIIntelligence = null;
-      const DEFAULT_GRANULARITIES = ['Week', 'Month', 'Quarter', 'Year'];
+      const DEFAULT_GRANULARITIES = ['Week', 'Bi-Weekly', 'Month', 'Quarter', 'Year'];
       const defaultPeriods = {};
       const availablePeriods = {
         Week: [],
+        'Bi-Weekly': [],
         Month: [],
         Quarter: [],
         Year: []
@@ -3139,6 +3130,137 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         return parseFlexibleDateString(value);
       }
 
+      function startOfIsoWeek(year, week) {
+        if (!year || !week) return null;
+        const reference = new Date(Date.UTC(year, 0, 4));
+        let day = reference.getUTCDay();
+        if (day === 0) day = 7;
+        reference.setUTCDate(reference.getUTCDate() - day + 1);
+        reference.setUTCDate(reference.getUTCDate() + (week - 1) * 7);
+        return reference;
+      }
+
+      function isoWeeksInYear(year) {
+        if (!year) return 52;
+        const dec28 = new Date(Date.UTC(year, 11, 28));
+        let decDay = dec28.getUTCDay();
+        if (decDay === 0) decDay = 7;
+        dec28.setUTCDate(dec28.getUTCDate() + (4 - decDay));
+
+        const jan4 = new Date(Date.UTC(year, 0, 4));
+        let janDay = jan4.getUTCDay();
+        if (janDay === 0) janDay = 7;
+        jan4.setUTCDate(jan4.getUTCDate() + (4 - janDay));
+
+        const diff = dec28.getTime() - jan4.getTime();
+        return Math.round(diff / 604800000) + 1;
+      }
+
+      function parseIsoWeek(period) {
+        const match = /^(\d{4})-W(\d{2})$/.exec(period || '');
+        if (!match) return null;
+        const year = Number(match[1]);
+        const week = Number(match[2]);
+        if (!year || !week) return null;
+        return { year, week };
+      }
+
+      function toBiWeeklyPeriod(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+          return '';
+        }
+        if (typeof toISOWeek !== 'function') {
+          return '';
+        }
+        const iso = toISOWeek(date);
+        const parsed = parseIsoWeek(iso);
+        if (!parsed) return '';
+        const biIndex = Math.ceil(parsed.week / 2);
+        return `${parsed.year}-BW${String(biIndex).padStart(2, '0')}`;
+      }
+
+      function parseBiWeeklyPeriod(period) {
+        const match = /^(\d{4})-BW(\d{2})$/.exec(period || '');
+        if (!match) return null;
+        const year = Number(match[1]);
+        const biIndex = Number(match[2]);
+        if (!year || !biIndex) return null;
+        const firstWeek = (biIndex - 1) * 2 + 1;
+        return { year, biIndex, firstWeek };
+      }
+
+      function biWeeklySortValue(period) {
+        const parsed = parseBiWeeklyPeriod(period);
+        if (!parsed) return 0;
+        const start = startOfIsoWeek(parsed.year, parsed.firstWeek);
+        return start ? start.getTime() : 0;
+      }
+
+      function previousBiWeeklyPeriod(period) {
+        const parsed = parseBiWeeklyPeriod(period);
+        if (!parsed) return '';
+        let { year, firstWeek } = parsed;
+        firstWeek -= 2;
+        if (firstWeek < 1) {
+          year -= 1;
+          const lastWeek = isoWeeksInYear(year);
+          const lastBiIndex = Math.ceil(lastWeek / 2);
+          return `${year}-BW${String(lastBiIndex).padStart(2, '0')}`;
+        }
+        const biIndex = Math.ceil(firstWeek / 2);
+        return `${year}-BW${String(biIndex).padStart(2, '0')}`;
+      }
+
+      function getPreviousPeriod(granularity, period) {
+        if (!period) return '';
+        try {
+          switch (granularity) {
+            case 'Week': {
+              const parsed = parseIsoWeek(period);
+              if (!parsed) return '';
+              let { year, week } = parsed;
+              week -= 1;
+              if (week < 1) {
+                year -= 1;
+                week = isoWeeksInYear(year);
+              }
+              return `${year}-W${String(week).padStart(2, '0')}`;
+            }
+            case 'Bi-Weekly':
+              return previousBiWeeklyPeriod(period);
+            case 'Month': {
+              const match = /^(\d{4})-(\d{2})$/.exec(period || '');
+              if (!match) return '';
+              let year = Number(match[1]);
+              let month = Number(match[2]) - 1;
+              if (month < 1) {
+                year -= 1;
+                month = 12;
+              }
+              return `${year}-${String(month).padStart(2, '0')}`;
+            }
+            case 'Quarter': {
+              const match = /^Q([1-4])-(\d{4})$/.exec(period || '');
+              if (!match) return '';
+              let quarter = Number(match[1]) - 1;
+              let year = Number(match[2]);
+              if (quarter < 1) {
+                quarter = 4;
+                year -= 1;
+              }
+              return `Q${quarter}-${year}`;
+            }
+            case 'Year':
+              return String(Number(period) - 1);
+            default:
+              return '';
+          }
+        } catch (error) {
+          console.warn('getPreviousPeriod failed', granularity, period, error);
+          return '';
+        }
+      }
+
       function normalizeClientQaRecord(record, index) {
         const normalized = { ...record };
 
@@ -3209,6 +3331,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         } else {
           listEl.innerHTML = '<li class="ai-insight-item"><div class="ai-icon"><i class="fas fa-info-circle"></i></div><div class="ai-insight-content"><strong>No trend data yet</strong><span>Capture a few periods of QA to unlock longitudinal intelligence.</span></div></li>';
         }
+      }
 
       function computeCategoryMetrics(data){
         const out={};
@@ -3237,6 +3360,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               return `W${week} ${year}`;
             }
             return period;
+          case 'Bi-Weekly': {
+            const parsed = parseBiWeeklyPeriod(period);
+            if (!parsed) return period;
+            return `Bi-Wk ${String(parsed.biIndex).padStart(2, '0')} ${parsed.year}`;
+          }
           case 'Month': {
             const [y, m] = period.split('-');
             const date = new Date(Number(y), Number(m) - 1, 1);
@@ -3260,6 +3388,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
             switch (granularity) {
               case 'Week':
                 return toISOWeek(dt) === periodValue;
+              case 'Bi-Weekly':
+                return toBiWeeklyPeriod(dt) === periodValue;
               case 'Month':
                 return dt.toISOString().slice(0, 7) === periodValue;
               case 'Quarter':
@@ -3290,6 +3420,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         switch (granularity) {
           case 'Week':
             return toISOWeek(latest);
+          case 'Bi-Weekly':
+            return toBiWeeklyPeriod(latest);
           case 'Month':
             return latest.toISOString().slice(0, 7);
           case 'Quarter':
@@ -3315,6 +3447,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               simple.setUTCDate(simple.getUTCDate() + (week - 1) * 7 + (1 - day));
               return simple.getTime();
             }
+            case 'Bi-Weekly':
+              return biWeeklySortValue(period);
             case 'Month': {
               const [y, m] = period.split('-').map(Number);
               if (!y || !m) return 0;
@@ -3354,6 +3488,9 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               case 'Week':
                 set.add(toISOWeek(dt));
                 break;
+              case 'Bi-Weekly':
+                set.add(toBiWeeklyPeriod(dt));
+                break;
               case 'Month':
                 set.add(dt.toISOString().slice(0, 7));
                 break;
@@ -3377,6 +3514,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
         const limitMap = {
           Week: 104,
+          'Bi-Weekly': 52,
           Month: 36,
           Quarter: 16,
           Year: 12
@@ -3623,7 +3761,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
         if (!series || !series.length) {
           return {
-            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
+            summary: `Trend radar is waiting for enough history to analyze ${lowerGran} trends.`,
             points: [],
             health: 'monitoring',
             forecast: { avg: 0, pass: 0 },
@@ -3857,6 +3995,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               return `W${week} ${year}`;
             }
             return period;
+          case 'Bi-Weekly': {
+            const parsed = parseBiWeeklyPeriod(period);
+            if (!parsed) return period;
+            return `Bi-Wk ${String(parsed.biIndex).padStart(2, '0')} ${parsed.year}`;
+          }
           case 'Month': {
             const [y, m] = period.split('-');
             const date = new Date(Number(y), Number(m) - 1, 1);
@@ -3880,6 +4023,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
             switch (granularity) {
               case 'Week':
                 return toISOWeek(dt) === periodValue;
+              case 'Bi-Weekly':
+                return toBiWeeklyPeriod(dt) === periodValue;
               case 'Month':
                 return dt.toISOString().slice(0, 7) === periodValue;
               case 'Quarter':
@@ -3910,6 +4055,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         switch (granularity) {
           case 'Week':
             return toISOWeek(latest);
+          case 'Bi-Weekly':
+            return toBiWeeklyPeriod(latest);
           case 'Month':
             return latest.toISOString().slice(0, 7);
           case 'Quarter':
@@ -3935,6 +4082,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               simple.setUTCDate(simple.getUTCDate() + (week - 1) * 7 + (1 - day));
               return simple.getTime();
             }
+            case 'Bi-Weekly':
+              return biWeeklySortValue(period);
             case 'Month': {
               const [y, m] = period.split('-').map(Number);
               if (!y || !m) return 0;
@@ -3974,6 +4123,9 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               case 'Week':
                 set.add(toISOWeek(dt));
                 break;
+              case 'Bi-Weekly':
+                set.add(toBiWeeklyPeriod(dt));
+                break;
               case 'Month':
                 set.add(dt.toISOString().slice(0, 7));
                 break;
@@ -3997,6 +4149,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
         const limitMap = {
           Week: 104,
+          'Bi-Weekly': 52,
           Month: 36,
           Quarter: 16,
           Year: 12
@@ -4243,7 +4396,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
         if (!series || !series.length) {
           return {
-            summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
+            summary: `Trend radar is waiting for enough history to analyze ${lowerGran} trends.`,
             points: [],
             health: 'monitoring',
             forecast: { avg: 0, pass: 0 },
@@ -4720,7 +4873,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
           };
 
           if (!totalEvaluations) {
-              base.summary = 'Lumina AI is monitoring for new evaluations. Adjust your filters or capture fresh QA reviews to generate insights.';
+          base.summary = 'Trend radar is monitoring for new evaluations. Adjust your filters or capture fresh QA reviews to generate insights.';
               base.automationSummary = 'No automation required yet. Log additional evaluations to unlock targeted recommendations.';
               return base;
           }
@@ -4730,8 +4883,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
           const agentWord = totalAgents === 1 ? 'agent' : 'agents';
           const periodLabel = base.meta.periodLabel;
 
-          base.summary = `AI reviewed ${totalEvaluations} ${evaluationsWord} across ${totalAgents} ${agentWord} for this ${periodLabel}, spotlighting performance opportunities instantly.`;
-          base.automationSummary = `Coverage at ${coverage}% and completion at ${completion}% give AI enough signal to trigger proactive workflows.`;
+          base.summary = `The insights engine reviewed ${totalEvaluations} ${evaluationsWord} across ${totalAgents} ${agentWord} for this ${periodLabel}, spotlighting performance opportunities instantly.`;
+          base.automationSummary = `Coverage at ${coverage}% and completion at ${completion}% give the automation engine enough signal to trigger proactive workflows.`;
 
           if (profiles.length) {
               const topAgent = profiles[0];
@@ -4851,7 +5004,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                   icon: 'fa-lightbulb',
                   tone: 'positive',
                   title: 'All clear',
-                  text: 'No critical anomalies detected. AI will notify if trends change.'
+                  text: 'No critical anomalies detected. We will notify if trends change.'
               });
           }
 
@@ -4933,15 +5086,15 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               const source = (meta && meta.source ? meta.source : 'local').toLowerCase();
               sourceEl.classList.remove('server', 'client');
 
-              let label = 'Local AI';
+              let label = 'Local Analysis';
               const tooltipParts = [];
               if (source === 'server') {
                   label = 'QA Service';
                   sourceEl.classList.add('server');
-                  tooltipParts.push('Intelligence generated by the QA service');
+                  tooltipParts.push('Insights generated by the QA service');
               } else {
                   sourceEl.classList.add('client');
-                  tooltipParts.push('Intelligence generated in-browser');
+                  tooltipParts.push('Insights generated in-browser');
               }
 
               sourceEl.textContent = label;
@@ -4953,7 +5106,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                           tooltipParts.push(generated.toLocaleString());
                       }
                   } catch (dateError) {
-                      console.warn('Unable to format AI intelligence timestamp:', dateError);
+                  console.warn('Unable to format intelligence timestamp:', dateError);
                   }
               }
 
@@ -4967,11 +5120,11 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
           }
 
           if (summaryEl) {
-              summaryEl.textContent = summary || 'Lumina AI is processing your QA signals.';
+              summaryEl.textContent = summary || 'Trend radar is processing your QA signals.';
           }
 
           if (automationSummaryEl) {
-              automationSummaryEl.textContent = automationSummary || 'AI recommendations will populate after analysis.';
+              automationSummaryEl.textContent = automationSummary || 'Recommendations will populate after analysis.';
           }
 
           insightsList.innerHTML = insights.length
@@ -4987,7 +5140,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                   return `<li class="ai-action-item${toneClass}"><div class="ai-icon"><i class="fas ${action.icon}"></i></div><div class="ai-action-content"><strong>${action.title}</strong><span>${action.text}</span></div></li>`;
               }).join('');
           } else {
-              recommendationsList.innerHTML = `<li class="ai-action-item"><div class="ai-icon"><i class="fas fa-shield-alt"></i></div><div class="ai-action-content"><strong>Automations standing by</strong><span>All monitored metrics are stable. Lumina AI will trigger playbooks if trends shift.</span></div></li>`;
+              recommendationsList.innerHTML = `<li class="ai-action-item"><div class="ai-icon"><i class="fas fa-shield-alt"></i></div><div class="ai-action-content"><strong>Automations standing by</strong><span>All monitored metrics are stable. Automations will trigger playbooks if trends shift.</span></div></li>`;
           }
 
           if (automationStateEl) {
@@ -5098,6 +5251,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                       switch (currentGran) {
                           case 'Week':
                               return toISOWeek(dt) === activePeriod;
+                          case 'Bi-Weekly':
+                              return toBiWeeklyPeriod(dt) === activePeriod;
                           case 'Month':
                               return dt.toISOString().slice(0, 7) === activePeriod;
                           case 'Quarter':
@@ -5170,6 +5325,8 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                       switch (currentGran) {
                           case 'Week':
                               return toISOWeek(dt) === prevPeriod;
+                          case 'Bi-Weekly':
+                              return toBiWeeklyPeriod(dt) === prevPeriod;
                           case 'Month':
                               return dt.toISOString().slice(0, 7) === prevPeriod;
                           case 'Quarter': 
@@ -5560,29 +5717,6 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
           return '';
         }
 
-        try {
-          const reportTypeSelect = document.getElementById('reportTypeSelect');
-          if (reportTypeSelect) {
-            reportTypeSelect.addEventListener('change', function(e) {
-              const nextPage = e.target.value;
-              const resolvedBase = resolveDashboardBaseUrl();
-              if (!nextPage) {
-                console.warn('No next page selected for report switch');
-                return;
-              }
-              if (!resolvedBase) {
-                console.warn('Unable to resolve base URL for navigation');
-                return;
-              }
-              window.location.href = `${resolvedBase}?page=${encodeURIComponent(nextPage)}`;
-            });
-          } else {
-            console.warn('reportTypeSelect not found');
-          }
-        } catch(e) {
-          console.error('Report type select failed:', e);
-        }
-
         // Granularity Select
         try {
           const granularitySelect = document.getElementById('granularitySelect');
@@ -5747,17 +5881,21 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
               const el = document.getElementById(id);
               if (el) el.style.display = 'none';
             });
-            
+
             const map = {
               'Week': 'weekPicker',
+              'Bi-Weekly': null,
               'Month': 'monthPicker',
               'Quarter': 'quarterPicker',
               'Year': 'yearPicker'
             };
-            
-            const target = document.getElementById(map[currentGran]);
-            if (target) {
-              target.style.display = (currentGran === 'Quarter') ? 'flex' : 'block';
+
+            const targetId = map[currentGran];
+            if (targetId) {
+              const target = document.getElementById(targetId);
+              if (target) {
+                target.style.display = (currentGran === 'Quarter') ? 'flex' : 'block';
+              }
             }
           } catch(e) {
             console.error('showPicker failed:', e);
@@ -5831,18 +5969,18 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
   <!-- Dynamically populated by JavaScript -->
 </div>
 
-<!-- AI Intelligence Layer -->
+<!-- Intelligence Layer -->
 <div class="ai-intel-grid fade-in">
   <div class="ai-intel-card">
     <div class="ai-card-header">
       <i class="fas fa-robot"></i>
-      <span>Lumina QA Copilot</span>
+      <span>Insights</span>
       <div class="ai-header-meta">
-        <span class="ai-source-chip client" id="aiInsightSource" title="Intelligence generated in-browser">Local AI</span>
+        <span class="ai-source-chip client" id="aiInsightSource" title="Analysis generated in-browser">Local Analysis</span>
         <span class="ai-confidence-badge" id="aiConfidenceBadge">Confidence 0%</span>
       </div>
     </div>
-    <p class="ai-insights-summary" id="aiInsightsSummary">AI insights will appear once data loads.</p>
+    <p class="ai-insights-summary" id="aiInsightsSummary">Insights will appear once data loads.</p>
     <ul class="ai-insights-list" id="aiInsightsList"></ul>
   </div>
 
@@ -5852,7 +5990,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
       <span>Automation Playbook</span>
       <span class="ai-automation-state" id="aiAutomationState">Monitoring</span>
     </div>
-    <p class="ai-automation-summary" id="aiAutomationSummary">AI recommendations will populate after analysis.</p>
+    <p class="ai-automation-summary" id="aiAutomationSummary">Recommendations will populate after analysis.</p>
     <ul class="ai-actions-list" id="aiRecommendationsList"></ul>
     <div class="ai-next-best-action" id="aiNextBestAction" style="display: none;">
       <i class="fas fa-magic"></i>
@@ -5865,7 +6003,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
   <div class="ai-intel-card">
     <div class="ai-card-header">
       <i class="fas fa-chart-line"></i>
-      <span>AI Trend Radar</span>
+      <span>Trend Radar</span>
       <span class="ai-trend-health" id="aiTrendHealth">Monitoring</span>
     </div>
     <p class="ai-trend-summary" id="aiTrendSummary">Trend intelligence will populate after analysis.</p>
