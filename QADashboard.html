@@ -2785,7 +2785,7 @@
 </div>
 
 <script>
-      const rawQASource = '<?= qaRecords ?>';
+      const rawQASource = <?!= JSON.stringify(qaRecords ?? []) ?>;
       let currentGran = '<?= granularity ?>';
       let currentPeriod = '<?= periodValue ?>';
       let currentAgent = '<?= selectedAgent ?>';
@@ -2912,7 +2912,16 @@
       let rawQA = [];
 
       QA_MONITOR.safe('Parse QA records', () => {
-        rawQA = JSON.parse(rawQASource || '[]');
+        if (typeof rawQASource === 'string') {
+          const trimmed = rawQASource.trim();
+          rawQA = trimmed ? JSON.parse(trimmed) : [];
+        } else if (Array.isArray(rawQASource)) {
+          rawQA = rawQASource;
+        } else if (rawQASource && typeof rawQASource === 'object') {
+          rawQA = JSON.parse(JSON.stringify(rawQASource));
+        } else {
+          rawQA = [];
+        }
       }, {
         rethrow: false,
         onError: () => {
