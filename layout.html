@@ -61,6 +61,132 @@
       __layoutSlugCandidate
     ];
 
+    if (__layoutSlugCandidate) {
+      var __layoutCollapsedSlugCandidate = __layoutSlugCandidate.replace(/-/g, '');
+      if (__layoutCollapsedSlugCandidate && __layoutCollapsedSlugCandidate !== __layoutSlugCandidate) {
+        __layoutSlugSources.push(__layoutCollapsedSlugCandidate);
+      }
+    }
+
+    var __layoutPageDescriptionEntries = {
+      'ackform': 'Send coaching acknowledgement links and capture agent sign-off confirmations.',
+      'admin-dashboard': 'Reference security tools, governance policies, and documentation for LuminaHQ administrators.',
+      'agent-experience': 'Personalized workspace that surfaces coaching, quality, and productivity insights for agents.',
+      'attendancereports': 'Analyze attendance trends, compliance health, and time-off insights across the workforce.',
+      'bookmarks': 'Organize quick-access bookmarks to critical LuminaHQ dashboards and tools.',
+      'calendar': 'Visualize schedules, coverage, and operational events in a shared calendar view.',
+      'callreports': 'Review call performance analytics, AI insights, and exportable call summaries.',
+      'chat': 'Collaborate with teams in real-time chat rooms and announcement channels.',
+      'coachingdashboard': 'Monitor coaching programs, completion metrics, and follow-up priorities.',
+      'coachinglist': 'Track scheduled coaching sessions, ownership, and completion status.',
+      'coachingsheet': 'Document coaching conversations, commitments, and agreed action plans.',
+      'coachingview': 'Review coaching session details, notes, and acknowledgement history.',
+      'collaboration-reporting': 'Unify reporting for quality, attendance, and executive workflows in one hub.',
+      'creditsuiteqa': 'Evaluate Credit Suite cases with standardized QA scoring and compliance checks.',
+      'dashboard': 'View OKR performance, goal progress, and campaign-level analytics.',
+      'eodreport': 'Compile end-of-day summaries, escalations, and operational highlights.',
+      'escalations': 'Manage customer escalations, ownership, and resolution progress.',
+      'goalsetting': 'Set, track, and update operational goals with transparent accountability.',
+      'groundingqaform': 'Capture grounding QA results with agent feedback and compliance scoring.',
+      'home': 'Navigate primary LuminaHQ destinations and quick links.',
+      'importattendance': 'Upload attendance source files to refresh LuminaHQ workforce data.',
+      'import-call-report': 'Import call report CSV files to enrich analytics and dashboards.',
+      'independencequality': 'Complete independence QA evaluations with policy-aligned scoring.',
+      'managecampaign': 'Manage campaign records, navigation pages, and assignment permissions.',
+      'manager-executive-experience': 'Executive dashboards for cross-campaign coaching, quality, and outcomes.',
+      'manageroles': 'Administer roles, permissions, and access policies across LuminaHQ.',
+      'manageuser': 'Manage LuminaHQ users, profile access, and client assignments.',
+      'notifications': 'Configure and review LuminaHQ notification settings and alerts.',
+      'privacy-policy': 'Review how LuminaHQ protects workforce and client data.',
+      'qacollablist': 'Monitor collaborative QA submissions and workflow statuses.',
+      'qacollabview': 'Review collaborative QA details, commentary, and resolution steps.',
+      'qadashboard': 'Track quality assurance KPIs, agent performance, and review cadence.',
+      'qalist': 'Browse quality evaluations with filters, tags, and analyst insights.',
+      'qualitycollabform': 'Launch collaborative QA evaluations with shared reviewer inputs.',
+      'qualityform': 'Submit new quality assessments with rubric-driven scoring.',
+      'qualityview': 'Inspect detailed QA evaluation results, scoring, and trend history.',
+      'schedulemanagement': 'Coordinate schedules, shift swaps, and staffing coverage in LuminaHQ.',
+      'search': 'Search Lumina knowledge, dashboards, and operational resources.',
+      'shift-slot-management': 'Manage shift slots, staffing requests, and capacity planning.',
+      'taskboard': 'Plan and track operational work across kanban-style boards.',
+      'taskform': 'Create or edit LuminaHQ tasks with assignments and due dates.',
+      'tasklist': 'Review prioritized task lists and workflow statuses.',
+      'terms-of-service': 'Understand LuminaHQ platform terms and user responsibilities.',
+      'unifiedqadashboard': 'Blend QA insights across programs with unified analytics.',
+      'user-profile': 'Review and update your LuminaHQ profile, roles, and equipment.'
+    };
+
+    var __layoutPageDescriptionLookup = {};
+    for (var __layoutDescriptionKey in __layoutPageDescriptionEntries) {
+      if (!Object.prototype.hasOwnProperty.call(__layoutPageDescriptionEntries, __layoutDescriptionKey)) {
+        continue;
+      }
+
+      var __layoutDescriptionValue = __layoutPageDescriptionEntries[__layoutDescriptionKey];
+      if (!__layoutDescriptionValue) {
+        continue;
+      }
+
+      __layoutPageDescriptionLookup[__layoutDescriptionKey] = __layoutDescriptionValue;
+
+      var __layoutCollapsedKey = __layoutDescriptionKey.replace(/-/g, '');
+      if (
+        __layoutCollapsedKey &&
+        __layoutCollapsedKey !== __layoutDescriptionKey &&
+        !Object.prototype.hasOwnProperty.call(__layoutPageDescriptionEntries, __layoutCollapsedKey) &&
+        !Object.prototype.hasOwnProperty.call(__layoutPageDescriptionLookup, __layoutCollapsedKey)
+      ) {
+        __layoutPageDescriptionLookup[__layoutCollapsedKey] = __layoutDescriptionValue;
+      }
+    }
+
+    var __layoutPageDescriptionSource = '';
+    var __layoutResolvedDescriptionSlug = '';
+    var __layoutResolvedSlugCandidates = [];
+    var __layoutFallbackDescription = 'LuminaHQ operations workspace overview.';
+
+    function __layoutResolvePageDescription() {
+      if (__layoutPageDescriptionText) {
+        __layoutPageDescriptionSource = 'inline';
+        return __layoutPageDescriptionText;
+      }
+
+      for (var i = 0; i < __layoutSlugSources.length; i++) {
+        var candidateSlug = __layoutSlugify(__layoutSlugSources[i]);
+        if (!candidateSlug) {
+          continue;
+        }
+
+        __layoutResolvedSlugCandidates.push(candidateSlug);
+
+        if (Object.prototype.hasOwnProperty.call(__layoutPageDescriptionLookup, candidateSlug)) {
+          __layoutResolvedDescriptionSlug = candidateSlug;
+          __layoutPageDescriptionSource = 'lookup';
+          return __layoutPageDescriptionLookup[candidateSlug];
+        }
+      }
+
+      __layoutPageDescriptionSource = 'fallback';
+
+      if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
+        try {
+          console.warn(
+            'Lumina banner description fallback in use for page candidates:',
+            __layoutResolvedSlugCandidates
+          );
+        } catch (loggingError) {
+          // Swallow logging issues to avoid breaking rendering.
+        }
+      }
+
+      return __layoutFallbackDescription;
+    }
+
+    __layoutPageDescriptionText = __layoutResolvePageDescription();
+    if ((typeof pageDescription === 'undefined' || !pageDescription) && __layoutPageDescriptionText) {
+      pageDescription = __layoutPageDescriptionText;
+    }
+
     var __layoutRawReturnUrl = (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '';
 
     var __layoutInvalidPanelPattern = /usercodeapppanel/i;
@@ -143,6 +269,18 @@
   <?!= includeOnce('ResponsiveStyles') ?>
 
   <script>
+    if (typeof window !== 'undefined') {
+      window.__LUMINA_PAGE_SLUG = <?!= JSON.stringify(__layoutSlugCandidate || '') ?>;
+      window.__LUMINA_PAGE_DESCRIPTION = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
+      window.__LUMINA_PAGE_DESCRIPTION_SOURCE = <?!= JSON.stringify(__layoutPageDescriptionSource || '') ?>;
+      window.__LUMINA_PAGE_DESCRIPTION_LOOKUP = <?!= JSON.stringify(__layoutPageDescriptionLookup) ?>;
+      window.__LUMINA_PAGE_DESCRIPTION_DEBUG = <?!= JSON.stringify({
+        candidates: __layoutResolvedSlugCandidates,
+        resolvedSlug: __layoutResolvedDescriptionSlug,
+        fallbackDescription: __layoutFallbackDescription
+      }) ?>;
+    }
+
     (function initializeLuminaTheme() {
       const STORAGE_KEY = 'lumina-theme';
       const docEl = document.documentElement;
@@ -2008,15 +2146,15 @@
     .lumina-banner {
       position: relative;
       background:
-        radial-gradient(140% 115% at -10% 15%, rgba(34, 197, 247, 0.35) 0%, rgba(2, 132, 199, 0) 55%),
-        radial-gradient(160% 140% at 110% 15%, rgba(6, 182, 212, 0.28) 0%, rgba(13, 71, 161, 0) 60%),
-        conic-gradient(from 210deg at 70% 75%, rgba(56, 189, 248, 0.2) 0deg, rgba(30, 64, 175, 0) 160deg),
-        linear-gradient(150deg, rgba(2, 6, 23, 0.96) 0%, rgba(12, 19, 41, 0.96) 42%, rgba(4, 47, 46, 0.92) 100%);
-      border: 1px solid rgba(125, 211, 252, 0.18);
+        radial-gradient(135% 120% at -15% 15%, rgba(56, 189, 248, 0.32) 0%, rgba(56, 189, 248, 0) 60%),
+        radial-gradient(150% 150% at 110% 5%, rgba(4, 120, 211, 0.35) 0%, rgba(4, 120, 211, 0) 65%),
+        conic-gradient(from 210deg at 70% 78%, rgba(3, 87, 153, 0.28) 0deg, rgba(11, 27, 63, 0) 165deg),
+        linear-gradient(160deg, rgba(11, 27, 63, 0.96) 0%, rgba(16, 48, 96, 0.95) 45%, rgba(3, 87, 153, 0.92) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.22);
       border-radius: 34px;
       padding: clamp(1.9rem, 3.5vw, 3.1rem);
       margin-bottom: 2.5rem;
-      box-shadow: 0 40px 80px -45px rgba(2, 6, 23, 0.85), 0 20px 40px -35px rgba(12, 74, 110, 0.5);
+      box-shadow: 0 42px 90px -48px rgba(8, 23, 53, 0.9), 0 24px 55px -40px rgba(4, 120, 211, 0.4);
       color: #e2e8f0;
       overflow: hidden;
       backdrop-filter: blur(9px);
@@ -2028,13 +2166,13 @@
       position: absolute;
       inset: -12% -8% -20% -8%;
       background:
-        radial-gradient(50% 50% at 15% 25%, rgba(125, 211, 252, 0.45) 0%, rgba(125, 211, 252, 0) 62%),
-        radial-gradient(60% 60% at 85% 18%, rgba(191, 219, 254, 0.3) 0%, rgba(191, 219, 254, 0) 70%),
-        conic-gradient(from 140deg at 80% 65%, rgba(14, 165, 233, 0.5) 0deg, rgba(8, 145, 178, 0.05) 140deg, rgba(14, 165, 233, 0.4) 320deg, rgba(14, 165, 233, 0) 360deg),
-        linear-gradient(115deg, rgba(59, 130, 246, 0.25) 0%, rgba(13, 148, 136, 0) 40%);
+        radial-gradient(48% 55% at 16% 26%, rgba(148, 197, 255, 0.5) 0%, rgba(148, 197, 255, 0) 65%),
+        radial-gradient(58% 62% at 82% 15%, rgba(56, 189, 248, 0.4) 0%, rgba(56, 189, 248, 0) 72%),
+        conic-gradient(from 135deg at 78% 64%, rgba(4, 120, 211, 0.55) 0deg, rgba(3, 105, 161, 0.08) 150deg, rgba(4, 120, 211, 0.45) 320deg, rgba(4, 120, 211, 0) 360deg),
+        linear-gradient(112deg, rgba(3, 87, 153, 0.25) 0%, rgba(56, 189, 248, 0.08) 40%);
       mix-blend-mode: screen;
       pointer-events: none;
-      opacity: 0.9;
+      opacity: 0.92;
       filter: blur(0.5px);
     }
 
@@ -2043,10 +2181,10 @@
       position: absolute;
       inset: 1px;
       border-radius: 32px;
-      border: 1px solid rgba(148, 197, 255, 0.2);
+      border: 1px solid rgba(148, 197, 255, 0.22);
       background:
-        radial-gradient(120% 180% at 105% 105%, rgba(56, 189, 248, 0.16) 0%, rgba(56, 189, 248, 0) 60%),
-        linear-gradient(160deg, rgba(148, 163, 184, 0.08) 0%, rgba(14, 116, 144, 0.12) 45%, rgba(2, 6, 23, 0) 100%);
+        radial-gradient(120% 180% at 105% 105%, rgba(4, 120, 211, 0.18) 0%, rgba(4, 120, 211, 0) 60%),
+        linear-gradient(158deg, rgba(148, 197, 255, 0.12) 0%, rgba(11, 27, 63, 0.1) 55%, rgba(3, 87, 153, 0) 100%);
       pointer-events: none;
     }
 
@@ -2076,15 +2214,15 @@
       letter-spacing: 0.2em;
       text-transform: uppercase;
       font-weight: 700;
-      color: rgba(226, 240, 254, 0.88);
-      background: linear-gradient(120deg, rgba(15, 118, 110, 0.55) 0%, rgba(14, 165, 233, 0.5) 100%);
+      color: rgba(226, 240, 254, 0.9);
+      background: linear-gradient(125deg, rgba(4, 120, 211, 0.7) 0%, rgba(56, 189, 248, 0.6) 100%);
       padding: 0.45rem 0.95rem;
       border-radius: 999px;
-      box-shadow: inset 0 0 0 1px rgba(165, 243, 252, 0.55), 0 10px 18px -15px rgba(59, 130, 246, 0.65);
+      box-shadow: inset 0 0 0 1px rgba(148, 197, 255, 0.55), 0 10px 18px -15px rgba(4, 120, 211, 0.65);
     }
 
     .lumina-banner__eyebrow i {
-      color: #bef264;
+      color: #38bdf8;
     }
 
     .lumina-banner__title-row {
