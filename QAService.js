@@ -795,6 +795,1038 @@ function getAllQA() {
   }
 }
 
+// ============================================================================
+// AI INTELLIGENCE PIPELINE FOR QA DASHBOARD
+// ============================================================================
+
+const QA_INTEL_PASS_MARK = 0.95;
+const QA_INTEL_PASS_SCORE_THRESHOLD = Math.round(QA_INTEL_PASS_MARK * 100);
+
+function clientGetQAIntelligence(request = {}) {
+  try {
+    const rawRecords = getAllQA();
+    const normalization = normalizeIntelligenceRequest_(request, rawRecords) || {};
+    const context = normalization.context || {
+      granularity: 'Week',
+      period: '',
+      timezone: Session.getScriptTimeZone(),
+      filters: { agent: '', campaignId: '', program: '' },
+      depth: 6,
+      agentUniverse: null,
+      passMark: QA_INTEL_PASS_MARK
+    };
+    const normalizedRecords = Array.isArray(normalization.records)
+      ? normalization.records
+      : [];
+
+    const cache = getQAIntelligenceCache_();
+    const cacheKey = cache ? getQAIntelligenceCacheKey_(context) : '';
+
+    if (cache && cacheKey) {
+      const cachedPayload = cache.get(cacheKey);
+      if (cachedPayload) {
+        try {
+          const cached = JSON.parse(cachedPayload);
+          if (cached && cached.intelligence && cached.intelligence.meta) {
+            cached.intelligence.meta.cache = 'hit';
+          }
+          return cached;
+        } catch (parseError) {
+          console.warn('Unable to parse cached QA intelligence payload:', parseError);
+        }
+      }
+    }
+
+    const filtered = filterRecordsForIntelligence_(normalizedRecords, context);
+    const previousContext = { ...context, period: getPreviousPeriod_(context.granularity, context.period) };
+    const prevFiltered = previousContext.period
+      ? filterRecordsForIntelligence_(normalizedRecords, previousContext)
+      : [];
+
+    const categoryMetrics = computeCategoryMetrics_(filtered);
+    const prevCategoryMetrics = computeCategoryMetrics_(prevFiltered);
+
+    const kpis = computeKpiSummary_(filtered, {
+      previous: prevFiltered,
+      agentUniverse: context.agentUniverse,
+      allAgents: normalizedRecords.map(r => r.agent).filter(Boolean)
+    });
+
+    const trendSeries = buildTrendSeries_(context, normalizedRecords);
+    const trendAnalysis = analyzeTrendSeries_(trendSeries, { granularity: context.granularity });
+
+    const intelligence = buildAIIntelligenceAnalysis_({
+      filtered,
+      prevFiltered,
+      categoryMetrics,
+      prevCategoryMetrics,
+      kpis,
+      granularity: context.granularity
+    });
+
+    const generatedAt = new Date().toISOString();
+    if (intelligence && intelligence.meta) {
+      intelligence.meta.generatedAt = generatedAt;
+    }
+
+    const response = {
+      generatedAt,
+      context,
+      kpis,
+      intelligence,
+      trend: {
+        granularity: context.granularity,
+        series: trendSeries,
+        analysis: trendAnalysis
+      }
+    };
+
+    if (cache && cacheKey) {
+      try {
+        if (response.intelligence && response.intelligence.meta) {
+          response.intelligence.meta.cache = 'miss';
+        }
+        cache.put(cacheKey, JSON.stringify(response), 300);
+      } catch (cacheError) {
+        console.warn('Unable to cache QA intelligence payload:', cacheError);
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error('clientGetQAIntelligence failed:', error);
+    writeError('clientGetQAIntelligence', error);
+    throw error;
+  }
+}
+
+function normalizeIntelligenceRequest_(request, rawRecords) {
+  const granularity = request && typeof request.granularity === 'string'
+    ? request.granularity
+    : 'Week';
+
+  const timezone = typeof request.timezone === 'string' && request.timezone
+    ? request.timezone
+    : Session.getScriptTimeZone();
+
+  const agentUniverse = Number(request.agentUniverse) > 0
+    ? Number(request.agentUniverse)
+    : null;
+
+  const filters = {
+    agent: (request.agent || '').toString().trim(),
+    campaignId: (request.campaignId || request.campaign || '').toString().trim(),
+    program: (request.program || '').toString().trim()
+  };
+
+  const depth = Number(request.depth) > 0 ? Math.min(Number(request.depth), 12) : 6;
+
+  const passMark = typeof request.passMark === 'number' ? request.passMark : QA_INTEL_PASS_MARK;
+
+  const normalizedRecords = (rawRecords || [])
+    .map(record => normalizeQaRecord_(record, timezone, passMark))
+    .filter(record => record.callDate instanceof Date);
+
+  let period = (request && request.period) ? String(request.period) : '';
+  if (!period) {
+    period = determineLatestPeriod_(granularity, normalizedRecords);
+  }
+
+  return {
+    context: {
+      granularity,
+      period,
+      timezone,
+      filters,
+      depth,
+      agentUniverse,
+    passMark
+  },
+  records: normalizedRecords
+  };
+}
+
+function getQAIntelligenceCache_() {
+  try {
+    return CacheService.getScriptCache();
+  } catch (error) {
+    console.warn('QA intelligence cache unavailable:', error);
+    return null;
+  }
+}
+
+function getQAIntelligenceCacheKey_(context) {
+  if (!context || !context.period) {
+    return '';
+  }
+
+  try {
+    const filters = context.filters || {};
+    const parts = [
+      context.granularity || '',
+      context.period || '',
+      filters.agent || '',
+      filters.campaignId || '',
+      filters.program || '',
+      context.agentUniverse || '',
+      context.depth || '',
+      context.passMark || '',
+      context.timezone || ''
+    ];
+
+    const encoded = parts
+      .map(part => encodeURIComponent(String(part || '')))
+      .join('|');
+
+    const key = `qa-intel:${encoded}`;
+    return key.length > 230 ? key.substring(0, 230) : key;
+  } catch (error) {
+    console.warn('Unable to build QA intelligence cache key:', error);
+    return '';
+  }
+}
+
+function normalizeQaRecord_(record, timezone, passMarkOverride) {
+  const entry = Object.assign({}, record);
+
+  const agentValue = getRecordFieldValue_(entry, ['AgentName', 'Agent Name', 'Agent', 'AgentEmail', 'Agent Email', 'Associate']);
+  const campaignValue = getRecordFieldValue_(entry, ['Campaign', 'Campaign Name', 'Program', 'Program Name', 'Line Of Business', 'LineOfBusiness', 'LOB']);
+  const dateValue = getRecordFieldValue_(entry, ['CallDate', 'Call Date', 'CallTime', 'Call Time', 'EvaluationDate', 'Evaluation Date', 'QA Date', 'Date', 'Timestamp']);
+  const percentageValue = getRecordFieldValue_(entry, ['Percentage', 'QA Score', 'QA%', 'QA %', 'Final Score', 'FinalScore', 'Score', 'Overall Score']);
+
+  const agent = agentValue ? String(agentValue).trim() : 'Unassigned';
+  const campaign = campaignValue ? String(campaignValue).trim() : '';
+  const callDate = safeToDate_(dateValue);
+  const percentage = parsePercentageValue_(percentageValue);
+  const recordScore = Math.round(clamp01_(percentage) * 100);
+
+  const passThreshold = typeof passMarkOverride === 'number' ? passMarkOverride : QA_INTEL_PASS_MARK;
+
+  const tz = timezone || Session.getScriptTimeZone();
+  const callDateIso = callDate instanceof Date
+    ? Utilities.formatDate(callDate, tz, "yyyy-MM-dd'T'HH:mm:ssXXX")
+    : '';
+
+  return {
+    raw: entry,
+    agent,
+    campaign,
+    callDate,
+    callDateIso,
+    percentage,
+    recordScore,
+    pass: percentage >= passThreshold,
+    week: callDate instanceof Date ? toISOWeek_(callDate) : '',
+    month: callDate instanceof Date ? formatMonthKey_(callDate) : '',
+    quarter: callDate instanceof Date ? `${getQuarter_(callDate)}-${callDate.getFullYear()}` : '',
+    year: callDate instanceof Date ? String(callDate.getFullYear()) : ''
+  };
+}
+
+function safeToDate_(value) {
+  return coerceDateValue_(value);
+}
+
+function determineLatestPeriod_(granularity, records) {
+  if (!records || !records.length) return '';
+  const sorted = records.slice().sort((a, b) => b.callDate - a.callDate);
+  const latest = sorted[0];
+  switch (granularity) {
+    case 'Week':
+      return latest.week;
+    case 'Month':
+      return latest.month;
+    case 'Quarter':
+      return latest.quarter;
+    case 'Year':
+      return latest.year;
+    default:
+      return latest.week;
+  }
+}
+
+function filterRecordsForIntelligence_(records, context) {
+  const { filters, granularity, period } = context;
+  return (records || []).filter(record => {
+    if (filters.agent && record.agent !== filters.agent) return false;
+    if (filters.campaignId && record.campaign !== filters.campaignId) return false;
+    if (filters.program && record.raw && record.raw.Program !== filters.program) return false;
+
+    if (!period) return true;
+
+    switch (granularity) {
+      case 'Week':
+        return record.week === period;
+      case 'Month':
+        return record.month === period;
+      case 'Quarter':
+        return record.quarter === period;
+      case 'Year':
+        return record.year === period;
+      default:
+        return true;
+    }
+  });
+}
+
+function computeKpiSummary_(records, options) {
+  const total = records.length;
+  const averageScore = total
+    ? Math.round((records.reduce((sum, record) => sum + record.percentage, 0) / total) * 100)
+    : 0;
+  const passCount = records.filter(record => record.pass).length;
+  const passRate = total ? Math.round((passCount / total) * 100) : 0;
+
+  const uniqueAgents = new Set(records.map(record => record.agent).filter(Boolean));
+  const agentUniverse = options && options.agentUniverse
+    ? Number(options.agentUniverse)
+    : new Set((options && options.allAgents) || []).size;
+
+  const coverage = agentUniverse
+    ? Math.min(Math.round((uniqueAgents.size / agentUniverse) * 100), 100)
+    : (uniqueAgents.size > 0 ? 100 : 0);
+
+  const completion = uniqueAgents.size
+    ? Math.min(Math.round((total / uniqueAgents.size) * 10), 100)
+    : 0;
+
+  return {
+    avg: averageScore,
+    pass: passRate,
+    coverage,
+    completion,
+    evaluations: total,
+    agents: uniqueAgents.size
+  };
+}
+
+function buildTrendSeries_(context, records) {
+  const { granularity, period, depth } = context;
+  const series = [];
+  const visited = new Set();
+  let cursor = period;
+  let steps = 0;
+
+  while (cursor && steps < depth && !visited.has(cursor)) {
+    visited.add(cursor);
+    const bucket = filterRecordsForIntelligence_(records, { ...context, period: cursor });
+    const evalCount = bucket.length;
+    const agentCount = new Set(bucket.map(r => r.agent).filter(Boolean)).size;
+    const avgScore = evalCount
+      ? Math.round((bucket.reduce((sum, r) => sum + r.percentage, 0) / evalCount) * 100)
+      : 0;
+    const passRate = evalCount
+      ? Math.round((bucket.filter(r => r.pass).length / evalCount) * 100)
+      : 0;
+    const coverage = context.agentUniverse
+      ? Math.min(Math.round((agentCount / context.agentUniverse) * 100), 100)
+      : (agentCount > 0 ? 100 : 0);
+
+    series.push({
+      period: cursor,
+      label: formatPeriodLabel_(granularity, cursor),
+      avgScore,
+      passRate,
+      evalCount,
+      agentCount,
+      coverage
+    });
+
+    cursor = getPreviousPeriod_(granularity, cursor);
+    steps += 1;
+  }
+
+  return series.reverse();
+}
+
+function linearRegression_(points) {
+  if (!points || !points.length) {
+    return { slope: 0, intercept: 0 };
+  }
+
+  if (points.length === 1) {
+    return { slope: 0, intercept: points[0].y };
+  }
+
+  const n = points.length;
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+
+  points.forEach(point => {
+    sumX += point.x;
+    sumY += point.y;
+    sumXY += point.x * point.y;
+    sumXX += point.x * point.x;
+  });
+
+  const denominator = (n * sumXX) - (sumX * sumX);
+  if (denominator === 0) {
+    return { slope: 0, intercept: sumY / n };
+  }
+
+  const slope = ((n * sumXY) - (sumX * sumY)) / denominator;
+  const intercept = (sumY - slope * sumX) / n;
+  return { slope, intercept };
+}
+
+function analyzeTrendSeries_(series, context) {
+  const granularity = context && context.granularity ? context.granularity : 'Period';
+  const lowerGran = granularity.toLowerCase();
+
+  if (!series || !series.length) {
+    return {
+      summary: `Lumina AI is waiting for enough history to analyze ${lowerGran} trends.`,
+      points: [],
+      health: 'monitoring',
+      forecast: { avg: 0, pass: 0 },
+      nextLabel: `next ${lowerGran}`
+    };
+  }
+
+  const first = series[0];
+  const last = series[series.length - 1];
+
+  const avgPoints = series.map((point, index) => ({ x: index, y: point.avgScore }));
+  const passPoints = series.map((point, index) => ({ x: index, y: point.passRate }));
+
+  const avgReg = linearRegression_(avgPoints);
+  const passReg = linearRegression_(passPoints);
+
+  const avgDelta = last.avgScore - first.avgScore;
+  const passDelta = last.passRate - first.passRate;
+  const volumeDelta = last.evalCount - first.evalCount;
+
+  const slopeAvg = avgReg.slope;
+  const slopePass = passReg.slope;
+
+  const improving = slopeAvg > 0.5 || slopePass > 0.5;
+  const declining = slopeAvg < -0.5 || slopePass < -0.5;
+
+  let health = 'stable';
+  if (improving) health = 'improving';
+  if (declining) health = 'risk';
+
+  const summaryParts = [];
+  summaryParts.push(`Average quality is ${avgDelta >= 0 ? 'up' : 'down'} ${Math.abs(avgDelta).toFixed(1)} pts`);
+  summaryParts.push(`pass rate ${passDelta >= 0 ? 'gained' : 'slid'} ${Math.abs(passDelta).toFixed(1)} pts`);
+  summaryParts.push(`${last.evalCount} evaluations this ${lowerGran}`);
+
+  const points = [];
+
+  points.push({
+    icon: improving ? 'fa-arrow-up' : declining ? 'fa-arrow-down' : 'fa-arrows-alt-h',
+    tone: improving ? 'positive' : declining ? 'negative' : '',
+    title: `Average score ${improving ? 'rising' : declining ? 'dropping' : 'steady'}`,
+    text: `${first.avgScore}% → ${last.avgScore}% across the last ${series.length} ${series.length === 1 ? lowerGran : lowerGran + 's'}.`
+  });
+
+  points.push({
+    icon: passDelta >= 0 ? 'fa-shield-alt' : 'fa-exclamation-triangle',
+    tone: passDelta >= 0 ? 'positive' : 'negative',
+    title: `Pass rate ${passDelta >= 0 ? 'improving' : 'at risk'}`,
+    text: `${first.passRate}% → ${last.passRate}% (${passDelta >= 0 ? '+' : ''}${passDelta.toFixed(1)} pts).`
+  });
+
+  if (Math.abs(volumeDelta) > 0) {
+    points.push({
+      icon: volumeDelta >= 0 ? 'fa-users' : 'fa-user-slash',
+      tone: volumeDelta >= 0 ? 'positive' : 'negative',
+      title: `Evaluation volume ${volumeDelta >= 0 ? 'growing' : 'contracting'}`,
+      text: `${first.evalCount} → ${last.evalCount} evaluations (${volumeDelta >= 0 ? '+' : ''}${volumeDelta}).`
+    });
+  } else {
+    points.push({
+      icon: 'fa-stopwatch',
+      tone: '',
+      title: 'Volume steady',
+      text: `Evaluation count steady at ${last.evalCount} per ${lowerGran}.`
+    });
+  }
+
+  if (last.coverage < 80) {
+    points.push({
+      icon: 'fa-user-shield',
+      tone: 'negative',
+      title: 'Coverage gap detected',
+      text: `Only ${last.coverage}% of agents covered in the latest ${lowerGran}.`
+    });
+  }
+
+  const forecastAvg = clampPercent_(avgReg.intercept + avgReg.slope * avgPoints.length);
+  const forecastPass = clampPercent_(passReg.intercept + passReg.slope * passPoints.length);
+
+  return {
+    summary: `${summaryParts.join(', ')}.`,
+    points,
+    health,
+    forecast: { avg: forecastAvg, pass: forecastPass },
+    nextLabel: `next ${lowerGran}`
+  };
+}
+
+function clampPercent_(value) {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function buildAIIntelligenceAnalysis_(payload) {
+  const { filtered = [], prevFiltered = [], categoryMetrics = {}, prevCategoryMetrics = {}, kpis = {}, granularity } = payload;
+
+  const totalEvaluations = filtered.length;
+  const periodLabel = granularity ? granularity.toLowerCase() : 'period';
+
+  const confidenceScore = clampPercent_(
+    Math.round(
+      Math.max(5,
+        ((kpis.coverage || 0) * 0.4) +
+        ((kpis.pass || 0) * 0.3) +
+        ((kpis.avg || 0) * 0.3)
+      )
+    )
+  );
+
+  const base = {
+    summary: '',
+    automationSummary: '',
+    confidence: confidenceScore,
+    automationState: 'Monitoring',
+    insights: [],
+    actions: [],
+    nextBest: null,
+    meta: {
+      totalEvaluations,
+      periodLabel,
+      source: 'server',
+      generatedAt: new Date().toISOString()
+    }
+  };
+
+  if (!totalEvaluations) {
+    return {
+      ...base,
+      summary: 'Lumina AI is monitoring for new evaluations. Adjust your filters or capture fresh QA reviews to generate insights.',
+      automationSummary: 'No automation required yet. Log additional evaluations to unlock targeted recommendations.'
+    };
+  }
+
+  const { profiles } = calculateAgentProfiles_(filtered);
+  const { profiles: prevProfiles } = calculateAgentProfiles_(prevFiltered);
+  const categorySummary = summarizeCategoryChange_(categoryMetrics, prevCategoryMetrics);
+
+  const totalAgents = profiles.length;
+  base.meta.totalAgents = totalAgents;
+
+  base.summary = `AI reviewed ${totalEvaluations} ${totalEvaluations === 1 ? 'evaluation' : 'evaluations'} across ${totalAgents} ${totalAgents === 1 ? 'agent' : 'agents'} for this ${periodLabel}, spotlighting performance opportunities instantly.`;
+  base.automationSummary = `Coverage at ${clampPercent_(kpis.coverage || 0)}% and completion at ${clampPercent_(kpis.completion || 0)}% give AI enough signal to trigger proactive workflows.`;
+
+  if (profiles.length) {
+    const topAgent = profiles[0];
+    base.insights.push({
+      icon: 'fa-star',
+      tone: 'positive',
+      title: `${topAgent.name} is leading`,
+      text: `${topAgent.name} is averaging ${topAgent.avgScore}% quality with a ${topAgent.passRate}% pass rate.`
+    });
+
+    const bottomAgent = profiles[profiles.length - 1];
+    if (bottomAgent && bottomAgent.avgScore < QA_INTEL_PASS_SCORE_THRESHOLD) {
+      base.insights.push({
+        icon: 'fa-life-ring',
+        tone: 'negative',
+        title: `${bottomAgent.name} needs attention`,
+        text: `${bottomAgent.name} is trending at ${bottomAgent.avgScore}% with ${bottomAgent.passRate}% pass rate.`
+      });
+      base.actions.push({
+        icon: 'fa-user-graduate',
+        tone: 'urgent',
+        title: `Launch coaching for ${bottomAgent.name}`,
+        text: `Auto-create a coaching session to lift ${bottomAgent.name}'s quality score back above ${QA_INTEL_PASS_SCORE_THRESHOLD}%.`
+      });
+    }
+
+    const prevProfileMap = {};
+    prevProfiles.forEach(profile => {
+      prevProfileMap[profile.name] = profile;
+    });
+
+    let strongestImprovement = null;
+    let largestRegression = null;
+
+    profiles.forEach(profile => {
+      const prev = prevProfileMap[profile.name];
+      if (!prev) return;
+      const delta = profile.avgScore - prev.avgScore;
+      if (strongestImprovement === null || delta > strongestImprovement.delta) {
+        strongestImprovement = { ...profile, delta };
+      }
+      if (largestRegression === null || delta < largestRegression.delta) {
+        largestRegression = { ...profile, delta };
+      }
+    });
+
+    if (strongestImprovement && strongestImprovement.delta > 2) {
+      base.insights.push({
+        icon: 'fa-rocket',
+        tone: 'positive',
+        title: `${strongestImprovement.name} is improving`,
+        text: `Up ${strongestImprovement.delta.toFixed(1)} pts vs last period.`
+      });
+    }
+
+    if (largestRegression && largestRegression.delta < -2) {
+      base.actions.push({
+        icon: 'fa-reply',
+        tone: 'urgent',
+        title: `Check-in with ${largestRegression.name}`,
+        text: `${largestRegression.name} dropped ${Math.abs(largestRegression.delta).toFixed(1)} pts period-over-period.`
+      });
+    }
+  }
+
+  if (categorySummary.length) {
+    const bestCategory = categorySummary[0];
+    base.insights.push({
+      icon: 'fa-thumbs-up',
+      tone: 'positive',
+      title: `${bestCategory.category} excels`,
+      text: `${bestCategory.category} is averaging ${bestCategory.avgScore}% quality.`
+    });
+
+    const weakestCategory = categorySummary[categorySummary.length - 1];
+    if (weakestCategory && weakestCategory.avgScore < QA_INTEL_PASS_SCORE_THRESHOLD) {
+      base.actions.push({
+        icon: 'fa-sitemap',
+        tone: 'urgent',
+        title: `Reinforce ${weakestCategory.category}`,
+        text: `Automate a calibration focused on ${weakestCategory.category} where scores average ${weakestCategory.avgScore}%.`
+      });
+    }
+
+    const largestDelta = categorySummary.reduce((acc, entry) => {
+      if (entry.delta === null) return acc;
+      if (!acc || entry.delta < acc.delta) return entry;
+      return acc;
+    }, null);
+
+    if (largestDelta && largestDelta.delta < -3) {
+      base.actions.push({
+        icon: 'fa-exclamation-circle',
+        tone: 'urgent',
+        title: `Reverse slide in ${largestDelta.category}`,
+        text: `${largestDelta.category} fell ${Math.abs(largestDelta.delta).toFixed(1)} pts from the previous period.`
+      });
+    }
+  }
+
+  if ((kpis.pass || 0) < 90) {
+    base.actions.push({
+      icon: 'fa-headset',
+      tone: 'urgent',
+      title: 'Boost pass rate',
+      text: `Configure an automated refresher for agents with pass rates below 90%. Current pass rate is ${clampPercent_(kpis.pass || 0)}%.`
+    });
+  }
+
+  if ((kpis.coverage || 0) < 85) {
+    base.actions.push({
+      icon: 'fa-user-check',
+      tone: 'urgent',
+      title: 'Increase agent coverage',
+      text: `Auto-assign additional evaluations to reach at least 90% agent coverage. Currently at ${clampPercent_(kpis.coverage || 0)}%.`
+    });
+  }
+
+  if (!base.insights.length) {
+    base.insights.push({
+      icon: 'fa-lightbulb',
+      tone: 'positive',
+      title: 'All clear',
+      text: 'No critical anomalies detected. AI will notify if trends change.'
+    });
+  }
+
+  base.automationState = base.actions.length ? 'Action Required' : 'Monitoring';
+  base.nextBest = base.actions.length ? base.actions[0] : null;
+
+  return base;
+}
+
+function calculateAgentProfiles_(records) {
+  const totalEvaluations = records.length;
+  const aggregates = {};
+
+  records.forEach(record => {
+    const name = record.agent || 'Unassigned';
+    if (!aggregates[name]) {
+      aggregates[name] = {
+        count: 0,
+        scoreSum: 0,
+        passCount: 0,
+        recent: null
+      };
+    }
+
+    const bucket = aggregates[name];
+    bucket.count += 1;
+    bucket.scoreSum += record.recordScore;
+    if (record.pass) {
+      bucket.passCount += 1;
+    }
+
+    if (record.callDate instanceof Date) {
+      if (!bucket.recent || record.callDate > bucket.recent) {
+        bucket.recent = record.callDate;
+      }
+    }
+  });
+
+  const profiles = Object.keys(aggregates).map(name => {
+    const stats = aggregates[name];
+    const avgScore = stats.count ? Math.round(stats.scoreSum / stats.count) : 0;
+    const passRate = stats.count ? Math.round((stats.passCount / stats.count) * 100) : 0;
+    const evaluationShare = totalEvaluations ? Math.round((stats.count / totalEvaluations) * 100) : 0;
+
+    return {
+      name,
+      evaluations: stats.count,
+      avgScore,
+      passRate,
+      evaluationShare,
+      recentDate: stats.recent || null
+    };
+  }).sort((a, b) => b.avgScore - a.avgScore);
+
+  return { totalEvaluations, profiles };
+}
+
+function summarizeCategoryChange_(currentMetrics, previousMetrics) {
+  const details = Object.keys(currentMetrics || {}).map(category => {
+    const metrics = currentMetrics[category] || { avgScore: 0, passPct: 0 };
+    const prev = previousMetrics ? previousMetrics[category] : null;
+    const delta = prev ? Math.round((metrics.avgScore - prev.avgScore) * 10) / 10 : null;
+    return {
+      category,
+      avgScore: metrics.avgScore,
+      passPct: metrics.passPct,
+      delta
+    };
+  });
+
+  details.sort((a, b) => b.avgScore - a.avgScore);
+  return details;
+}
+
+function computeCategoryMetrics_(records) {
+  const categories = qaCategories_();
+  const weights = qaWeights_();
+  const metrics = {};
+
+  Object.keys(categories).forEach(category => {
+    const questionKeys = categories[category] || [];
+    const scores = [];
+    const passes = [];
+
+    records.forEach(record => {
+      const { raw } = record;
+      const answers = questionKeys.map(key => getAnswerValue_(raw, key));
+      const totalWeight = questionKeys.reduce((sum, key) => {
+        const normalizedKey = key.toLowerCase();
+        return sum + (weights[normalizedKey] || weights[key] || 0);
+      }, 0);
+
+      if (!totalWeight) {
+        return;
+      }
+
+      const earned = questionKeys.reduce((sum, key, index) => {
+        const normalizedKey = key.toLowerCase();
+        const weight = weights[normalizedKey] || weights[key] || 0;
+        const answer = String(answers[index] || '').toLowerCase();
+        if (answer === 'yes' || (normalizedKey === 'q17' && answer === 'no')) {
+          return sum + weight;
+        }
+        return sum;
+      }, 0);
+
+      const pct = totalWeight ? Math.round((earned / totalWeight) * 100) : 0;
+      const pass = answers.every(answer => String(answer || '').toLowerCase() === 'yes');
+
+      scores.push(pct);
+      passes.push(pass ? 1 : 0);
+    });
+
+    const avgScore = scores.length
+      ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length)
+      : 0;
+    const passPct = passes.length
+      ? Math.round((passes.reduce((sum, value) => sum + value, 0) / passes.length) * 100)
+      : 0;
+
+    metrics[category] = { avgScore, passPct };
+  });
+
+  return metrics;
+}
+
+function getAnswerValue_(record, key) {
+  if (!record) return '';
+  if (key in record) return record[key];
+  const upper = key.toUpperCase();
+  if (upper in record) return record[upper];
+  const lower = key.toLowerCase();
+  if (lower in record) return record[lower];
+  return '';
+}
+
+function toISOWeek_(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function formatMonthKey_(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getQuarter_(date) {
+  return 'Q' + (Math.floor(date.getMonth() / 3) + 1);
+}
+
+function normalizeFieldKey_(key) {
+  return String(key || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function getRecordFieldValue_(record, candidates) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const lookup = {};
+  Object.keys(record).forEach(existingKey => {
+    const normalized = normalizeFieldKey_(existingKey);
+    if (!(normalized in lookup)) {
+      lookup[normalized] = existingKey;
+    }
+  });
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const normalizedKey = normalizeFieldKey_(candidates[i]);
+    const actualKey = lookup[normalizedKey];
+    if (actualKey && record[actualKey] !== undefined && record[actualKey] !== null && record[actualKey] !== '') {
+      return record[actualKey];
+    }
+  }
+
+  return null;
+}
+
+function clamp01_(value) {
+  if (!isFinite(value)) {
+    return 0;
+  }
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function parsePercentageValue_(value) {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+
+  if (typeof value === 'number' && isFinite(value)) {
+    const normalized = value > 1.0001 ? value / 100 : value;
+    return clamp01_(normalized);
+  }
+
+  const numeric = parseFloat(String(value).replace(/[^0-9.\-]/g, ''));
+  if (!isFinite(numeric)) {
+    return 0;
+  }
+
+  const normalized = numeric > 1.0001 ? numeric / 100 : numeric;
+  return clamp01_(normalized);
+}
+
+function excelSerialToDate_(serial) {
+  if (typeof serial !== 'number' || !isFinite(serial)) {
+    return null;
+  }
+
+  if (serial <= 60) {
+    return null;
+  }
+
+  const utcDays = Math.floor(serial - 25569);
+  const utcMilliseconds = utcDays * 86400000;
+  const remainder = serial - Math.floor(serial);
+  const remainderMs = Math.round(remainder * 86400000);
+  const date = new Date(utcMilliseconds + remainderMs);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function parseFlexibleDateString_(raw) {
+  if (!raw) {
+    return null;
+  }
+
+  const value = String(raw).trim();
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(value)) {
+    const asNumber = parseFloat(value);
+    const excelDate = excelSerialToDate_(asNumber);
+    if (excelDate) {
+      return excelDate;
+    }
+  }
+
+  if (/^\d{8}$/.test(value)) {
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(4, 6)) - 1;
+    const day = Number(value.slice(6, 8));
+    const ymdDate = new Date(year, month, day);
+    if (!isNaN(ymdDate.getTime())) {
+      return ymdDate;
+    }
+  }
+
+  let parsed = new Date(value);
+  if (!isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  if (value.indexOf(' ') > -1 && value.indexOf('T') === -1) {
+    parsed = new Date(value.replace(' ', 'T'));
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  const parts = value.split(/[\/\-]/).map(function(part) { return part.trim(); });
+  if (parts.length === 3 && parts.every(function(part) { return /^\d+$/.test(part); })) {
+    var p1 = Number(parts[0]);
+    var p2 = Number(parts[1]);
+    var p3 = Number(parts[2]);
+
+    if (p3 < 100) {
+      p3 = p3 < 50 ? 2000 + p3 : 1900 + p3;
+    }
+
+    var month;
+    var day;
+    var year;
+
+    if (p1 > 12 && p2 <= 12) {
+      day = p1;
+      month = p2;
+      year = p3;
+    } else if (p2 > 12 && p1 <= 12) {
+      month = p1;
+      day = p2;
+      year = p3;
+    } else {
+      month = p1;
+      day = p2;
+      year = p3;
+    }
+
+    const manualDate = new Date(year, month - 1, day);
+    if (!isNaN(manualDate.getTime())) {
+      return manualDate;
+    }
+  }
+
+  return null;
+}
+
+function coerceDateValue_(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'number' && isFinite(value)) {
+    const excelDate = excelSerialToDate_(value);
+    if (excelDate) {
+      return excelDate;
+    }
+
+    const numericDate = new Date(value);
+    return isNaN(numericDate.getTime()) ? null : numericDate;
+  }
+
+  return parseFlexibleDateString_(value);
+}
+
+function getPreviousPeriod_(granularity, period) {
+  if (!period) return '';
+  switch (granularity) {
+    case 'Week': {
+      const parts = period.split('-W');
+      if (parts.length !== 2) return '';
+      const year = parseInt(parts[0], 10);
+      const week = parseInt(parts[1], 10);
+      if (week <= 1) {
+        return `${year - 1}-W52`;
+      }
+      return `${year}-W${String(week - 1).padStart(2, '0')}`;
+    }
+    case 'Month': {
+      const [y, m] = period.split('-').map(Number);
+      if (!y || !m) return '';
+      const date = new Date(y, m - 1, 1);
+      date.setMonth(date.getMonth() - 1);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    case 'Quarter': {
+      const [q, y] = period.split('-');
+      if (!q || !y) return '';
+      const n = parseInt(q.replace('Q', ''), 10);
+      if (n <= 1) {
+        return `Q4-${parseInt(y, 10) - 1}`;
+      }
+      return `Q${n - 1}-${y}`;
+    }
+    case 'Year':
+      return String(parseInt(period, 10) - 1);
+    default:
+      return '';
+  }
+}
+
+function formatPeriodLabel_(granularity, period) {
+  if (!period) return 'Period';
+  switch (granularity) {
+    case 'Week':
+      return period.replace(/^[0-9]{4}-/, '');
+    case 'Month': {
+      const [y, m] = period.split('-');
+      if (!y || !m) return period;
+      const date = new Date(Number(y), Number(m) - 1, 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    }
+    case 'Quarter':
+      return period.replace('-', ' ');
+    case 'Year':
+      return period;
+    default:
+      return period;
+  }
+}
+
 /**
  * Missing Helper Functions for QA PDF Service
  * Add these functions to your QAService.gs file
