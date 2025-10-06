@@ -30,8 +30,21 @@ const ACCESS_DEBUG = true;
 const ACCESS = {
   ADMIN_ONLY_PAGES: new Set(['admin.users', 'admin.roles', 'admin.campaigns']),
   PUBLIC_PAGES: new Set([
-    'login', 'setpassword', 'resetpassword', 'forgotpassword', 'forgot-password',
-    'resendverification', 'resend-verification', 'emailconfirmed', 'email-confirmed'
+    'login',
+    'landing',
+    'landing-about',
+    'landing-capabilities',
+    'setpassword',
+    'resetpassword',
+    'forgotpassword',
+    'forgot-password',
+    'resendverification',
+    'resend-verification',
+    'emailconfirmed',
+    'email-confirmed',
+    'terms-of-service',
+    'privacy-policy',
+    'lumina-user-guide'
   ]),
   DEFAULT_PAGE: 'dashboard',
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
@@ -1448,6 +1461,38 @@ function canonicalizePageKey(k) {
 
   // Map legacy slugs/aliases → canonical keys used by the Access Engine
   switch (key) {
+    // Landing pages
+    case 'landing':
+    case 'landing-page':
+      return 'landing';
+    case 'landing-about':
+    case 'landingabout':
+    case 'about':
+    case 'about-luminahq':
+      return 'landing-about';
+    case 'landing-capabilities':
+    case 'landingcapabilities':
+    case 'capabilities':
+    case 'explore-capabilities':
+      return 'landing-capabilities';
+
+    // Legal & public resources
+    case 'terms-of-service':
+    case 'terms-and-conditions':
+    case 'termsofservice':
+    case 'terms':
+      return 'terms-of-service';
+    case 'privacy-policy':
+    case 'privacypolicy':
+    case 'privacy':
+    case 'privacy-notice':
+      return 'privacy-policy';
+    case 'lumina-user-guide':
+    case 'lumina-hq-user-guide':
+    case 'luminauserguide':
+    case 'user-guide':
+      return 'lumina-user-guide';
+
     // Admin Pages
     case 'manageuser':
     case 'users':
@@ -1775,8 +1820,30 @@ function doGet(e) {
     }
 
     // Handle other public pages
-    const publicPages = ['landing', 'setpassword', 'resetpassword', 'resend-verification', 'resendverification',
-      'forgotpassword', 'forgot-password', 'emailconfirmed', 'email-confirmed'];
+    const publicPages = [
+      'landing',
+      'landing-about',
+      'about',
+      'landing-capabilities',
+      'capabilities',
+      'setpassword',
+      'resetpassword',
+      'resend-verification',
+      'resendverification',
+      'forgotpassword',
+      'forgot-password',
+      'emailconfirmed',
+      'email-confirmed',
+      'terms-of-service',
+      'termsofservice',
+      'terms',
+      'privacy-policy',
+      'privacypolicy',
+      'privacy',
+      'lumina-user-guide',
+      'lumina-hq-user-guide',
+      'user-guide'
+    ];
 
     if (publicPages.includes(page)) {
       return handlePublicPage(page, e, baseUrl);
@@ -2324,6 +2391,51 @@ function handlePublicPage(page, e, baseUrl) {
 
       return capabilitiesTpl.evaluate()
         .setTitle('Explore LuminaHQ Capabilities')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'terms-of-service':
+    case 'termsofservice':
+    case 'terms':
+    case 'terms-and-conditions':
+      const termsTpl = HtmlService.createTemplateFromFile('TermsOfService');
+      termsTpl.baseUrl = baseUrl;
+      termsTpl.scriptUrl = scriptUrl;
+      termsTpl.user = {};
+      termsTpl.currentPage = 'terms-of-service';
+
+      return termsTpl.evaluate()
+        .setTitle('Terms of Service - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'privacy-policy':
+    case 'privacypolicy':
+    case 'privacy':
+    case 'privacy-notice':
+      const privacyTpl = HtmlService.createTemplateFromFile('PrivacyPolicy');
+      privacyTpl.baseUrl = baseUrl;
+      privacyTpl.scriptUrl = scriptUrl;
+      privacyTpl.user = {};
+      privacyTpl.currentPage = 'privacy-policy';
+
+      return privacyTpl.evaluate()
+        .setTitle('Privacy Policy - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'lumina-user-guide':
+    case 'lumina-hq-user-guide':
+    case 'luminauserguide':
+    case 'user-guide':
+      const guideTpl = HtmlService.createTemplateFromFile('LuminaHQUserGuide');
+      guideTpl.baseUrl = baseUrl;
+      guideTpl.scriptUrl = scriptUrl;
+      guideTpl.user = {};
+      guideTpl.currentPage = 'lumina-user-guide';
+
+      return guideTpl.evaluate()
+        .setTitle('LuminaHQ User Guide')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
