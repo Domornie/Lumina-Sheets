@@ -2785,7 +2785,7 @@
 </div>
 
 <script>
-const rawQA = JSON.parse('<?= qaRecords ?>');
+      const rawQASource = '<?= qaRecords ?>';
       let currentGran = '<?= granularity ?>';
       let currentPeriod = '<?= periodValue ?>';
       let currentAgent = '<?= selectedAgent ?>';
@@ -2802,6 +2802,137 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         Year: []
       };
 
+      const QA_MONITOR = (() => {
+        const startTimes = new Map();
+        const makeTimestamp = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+        const sanitize = value => {
+          if (value === undefined) return undefined;
+          if (value === null) return null;
+          if (typeof value === 'string' && value.length > 500) {
+            return `${value.slice(0, 497)}…`;
+          }
+          if (Array.isArray(value) && value.length > 50) {
+            return value.slice(0, 50).concat('…');
+          }
+          return value;
+        };
+        function emit(level, label, payload) {
+          let cleaned = payload;
+          if (payload && typeof payload === 'object') {
+            try {
+              cleaned = JSON.parse(JSON.stringify(payload, (key, value) => sanitize(value)));
+            } catch (jsonError) {
+              cleaned = '[unserializable payload]';
+            }
+          }
+          const prefix = '[QA Dashboard]';
+          switch (level) {
+            case 'warn':
+              console.warn(prefix, label, cleaned);
+              break;
+            case 'error':
+              console.error(prefix, label, cleaned);
+              break;
+            default:
+              console.log(prefix, label, cleaned);
+          }
+        }
+        function start(label, payload) {
+          startTimes.set(label, makeTimestamp());
+          emit('log', `BEGIN ${label}`, payload);
+        }
+        function end(label, payload) {
+          const started = startTimes.get(label);
+          const duration = started ? Math.round(makeTimestamp() - started) : null;
+          emit('log', `END ${label}${duration !== null ? ` (+${duration}ms)` : ''}`, payload);
+          if (started) {
+            startTimes.delete(label);
+          }
+        }
+        function safe(label, fn, options = {}) {
+          const { rethrow = true, onError = null, defaultValue = undefined, context = null } = options;
+          start(label, { context });
+          try {
+            const result = fn();
+            end(label, { context });
+            return result;
+          } catch (error) {
+            emit('error', `ERROR ${label}`, { context, message: error?.message, stack: error?.stack });
+            if (typeof onError === 'function') {
+              try {
+                onError(error);
+              } catch (callbackError) {
+                emit('error', `ERROR ${label} onError callback`, { message: callbackError?.message, stack: callbackError?.stack });
+              }
+            }
+            if (rethrow) {
+              end(label, { context, failed: true });
+              throw error;
+            }
+            end(label, { context, failed: true });
+            return defaultValue;
+          }
+        }
+        function instrument(name, fn) {
+          if (typeof fn !== 'function') {
+            emit('warn', 'Attempted to instrument non-function', { name, type: typeof fn });
+            return fn;
+          }
+          return function instrumentedFunction(...args) {
+            return safe(name, () => fn.apply(this, args), { rethrow: true, context: { argsCount: args.length } });
+          };
+        }
+        return {
+          log: (label, payload) => emit('log', label, payload),
+          warn: (label, payload) => emit('warn', label, payload),
+          error: (label, payload) => emit('error', label, payload),
+          safe,
+          instrument,
+          start,
+          end
+        };
+      })();
+
+      window.addEventListener('error', event => {
+        QA_MONITOR.error('Global error captured', {
+          message: event?.message,
+          filename: event?.filename,
+          lineno: event?.lineno,
+          colno: event?.colno
+        });
+      });
+
+      window.addEventListener('unhandledrejection', event => {
+        QA_MONITOR.error('Unhandled promise rejection', {
+          message: event?.reason?.message || String(event?.reason || 'unknown'),
+          stack: event?.reason?.stack || null
+        });
+      });
+
+      let rawQA = [];
+
+      QA_MONITOR.safe('Parse QA records', () => {
+        rawQA = JSON.parse(rawQASource || '[]');
+      }, {
+        rethrow: false,
+        onError: () => {
+          rawQA = [];
+        }
+      });
+
+      if (!Array.isArray(rawQA)) {
+        QA_MONITOR.warn('QA records payload was not an array', { detectedType: typeof rawQA });
+        rawQA = [];
+      }
+
+      QA_MONITOR.log('QA Dashboard bootstrapped', {
+        granularity: currentGran,
+        period: currentPeriod,
+        selectedAgent: currentAgent,
+        recordCount: rawQA.length,
+        userCount: Array.isArray(userList) ? userList.length : 'unknown'
+      });
+
       const weightsMap = { Q1:5,Q2:5,Q3:8,Q4:10,Q5:5,Q6:5,Q7:5,Q8:10,Q9:10,Q10:5,Q11:5,Q12:5,Q13:8,Q14:5,Q15:2,Q16:1,Q17:1,Q18:5 };
       const categories = {
         'Courtesy & Communication':['Q1','Q2','Q3','Q4','Q5'],
@@ -2810,9 +2941,15 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         'Process Compliance':['Q15','Q16','Q17','Q18']
       };
 
-      rawQA.forEach((record, index) => {
-        rawQA[index] = normalizeClientQaRecord(record, index);
-      });
+      rawQA = rawQA
+        .map((record, index) => QA_MONITOR.safe('normalizeClientQaRecord', () => normalizeClientQaRecord(record, index), {
+          rethrow: false,
+          context: { index },
+          defaultValue: null
+        }))
+        .filter(Boolean);
+
+      QA_MONITOR.log('QA records normalized', { recordCount: rawQA.length });
 
       refreshDefaultPeriods(rawQA);
 
@@ -5207,8 +5344,15 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
       }
 
       function applyFilters(){
+          QA_MONITOR.log('applyFilters invoked', {
+              currentGran,
+              currentPeriod,
+              currentAgent,
+              rawCount: Array.isArray(rawQA) ? rawQA.length : 'unknown'
+          });
           showLoader('Preparing filtered results…');
           setTimeout(()=>{
+              QA_MONITOR.safe('applyFilters cycle', () => {
               // STEP 1: Clean and validate the raw QA data first
               const cleanedQA = rawQA.filter(r => {
                   const valid = r.callDateObj instanceof Date && !isNaN(r.callDateObj.getTime());
@@ -5483,6 +5627,19 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
               window.LuminaLoader?.update({ detail: 'Dashboard refreshed!', progress: 100, tip: 'Latest QA metrics are ready.' });
               hideLoader();
+              QA_MONITOR.log('applyFilters completed', {
+                  filteredCount: filtered.length,
+                  activePeriod,
+                  prevPeriod,
+                  agent: currentAgent || 'All'
+              });
+          }, {
+              rethrow: false,
+              context: { step: 'filter-cycle' },
+              onError: error => {
+                  QA_MONITOR.error('applyFilters cycle failed', { message: error?.message });
+              }
+          });
           }, 100);
       }
 
@@ -5540,6 +5697,9 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
         // Pull names via Code.gs (no edits needed there)
         function hydrateAgentList(){
+          QA_MONITOR.log('hydrateAgentList invoked', {
+            hasGoogleScript: !!(window.google && google.script && google.script.run)
+          });
           if (!(window.google && google.script && google.script.run)) {
               console.warn('google.script.run not available, using fallback agent list');
               // Fallback: extract unique agents from QA data
@@ -5555,11 +5715,12 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
 
           google.script.run
               .withSuccessHandler(names => {
+                  QA_MONITOR.log('hydrateAgentList success', { namesCount: Array.isArray(names) ? names.length : 'invalid' });
                   console.log('Received agent names:', names);
-                  if (!Array.isArray(names) || names.length === 0) { 
+                  if (!Array.isArray(names) || names.length === 0) {
                       console.warn('Empty or invalid names payload, falling back');
-                      fallbackToGetUsers(); 
-                      return; 
+                      fallbackToGetUsers();
+                      return;
                   }
                   userList = names;
                   populateAgentSelect(names);
@@ -5567,14 +5728,17 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                   applyFilters();
               })
               .withFailureHandler(err => {
+                  QA_MONITOR.error('hydrateAgentList failed', { message: err?.message });
                   console.warn('clientGetAssignedAgentNames failed:', err);
                   fallbackToGetUsers();
               })
               .clientGetAssignedAgentNames(cid);
 
           function fallbackToGetUsers(){
+              QA_MONITOR.log('fallbackToGetUsers invoked');
               google.script.run
                   .withSuccessHandler(users => {
+                      QA_MONITOR.log('fallbackToGetUsers success', { usersCount: Array.isArray(users) ? users.length : 'invalid' });
                       console.log('Received users:', users);
                       const names = (users||[])
                           .map(u => u.FullName || u.UserName || u.Email)
@@ -5595,6 +5759,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
                       applyFilters();
                   })
                   .withFailureHandler(err => {
+                      QA_MONITOR.error('fallbackToGetUsers failed', { message: err?.message });
                       console.error('getUsers failed:', err);
                       // Ultimate fallback: use agents from QA data
                       const qaAgents = Array.from(new Set(rawQA.map(r => r.AgentName).filter(Boolean))).sort();
@@ -5607,40 +5772,89 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
           }
       }
 
+      const QA_GLOBAL = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+      const QA_FUNCTIONS_TO_INSTRUMENT = [
+        'refreshDefaultPeriods',
+        'ensurePeriodForGranularity',
+        'syncPeriodInputs',
+        'refreshPeriodSelectOptions',
+        'buildTrendSeries',
+        'linearRegression',
+        'analyzeTrendSeries',
+        'renderTrendSparkline',
+        'updateAITrendPanel',
+        'computeCategoryMetrics',
+        'renderCategoryTable',
+        'renderCategoryChart',
+        'renderDailyChart',
+        'renderAgentTable',
+        'renderAgentChart',
+        'renderCategoryKpis',
+        'safePercentage',
+        'calculateAgentProfiles',
+        'summarizeCategoryChange',
+        'buildAIIntelligenceAnalysis',
+        'normalizeAIIntelligenceAnalysis',
+        'renderAIIntelligence',
+        'updateAIIntelligencePanel',
+        'fetchServerQAIntelligence',
+        'applyFilters',
+        'convertToCSV',
+        'prepareWeeklyMatrix',
+        'downloadCSV',
+        'exportWeeklyCsv',
+        'populateAgentSelect'
+      ];
+
+      QA_FUNCTIONS_TO_INSTRUMENT.forEach(name => {
+        try {
+          const fn = QA_GLOBAL[name];
+          if (typeof fn === 'function') {
+            QA_GLOBAL[name] = QA_MONITOR.instrument(name, fn);
+          } else {
+            QA_MONITOR.warn('Function unavailable for instrumentation', { name, detectedType: typeof fn });
+          }
+        } catch (instrumentError) {
+          QA_MONITOR.error('Failed to instrument function', { name, message: instrumentError?.message });
+        }
+      });
+
       document.addEventListener('DOMContentLoaded', function() {
-        console.log('Dashboard initialization starting...');
+        QA_MONITOR.log('DOMContentLoaded event fired');
+        QA_MONITOR.safe('DOMContentLoaded init', () => {
+          console.log('Dashboard initialization starting...');
 
-        // Initialize animations
-        try {
-          const observer = new IntersectionObserver((entries) => { 
-            entries.forEach(e => { 
-              if(e.isIntersecting) { 
-                e.target.style.opacity = '1'; 
-                e.target.style.transform = 'translateY(0)'; 
-              } 
-            }); 
-          });
-          document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => observer.observe(el));
-        } catch(e) {
-          console.warn('Animation observer failed:', e);
-        }
+          // Initialize animations
+          try {
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(e => {
+                if(e.isIntersecting) {
+                  e.target.style.opacity = '1';
+                  e.target.style.transform = 'translateY(0)';
+                }
+              });
+            });
+            document.querySelectorAll('.fade-in, .stagger-animation > *').forEach(el => observer.observe(el));
+          } catch(e) {
+            console.warn('Animation observer failed:', e);
+          }
 
-        // Initialize live datetime updates
-        try {
-          updateLiveDatetime();
-          setInterval(updateLiveDatetime, 1000);
-        } catch(e) {
-          console.warn('Live datetime failed:', e);
-        }
+          // Initialize live datetime updates
+          try {
+            updateLiveDatetime();
+            setInterval(updateLiveDatetime, 1000);
+          } catch(e) {
+            console.warn('Live datetime failed:', e);
+          }
 
-        // Initialize data status
-        try {
-          updateDataRefreshStatus('success', 'System Ready');
-        } catch(e) {
-          console.warn('Data status failed:', e);
-        }
+          // Initialize data status
+          try {
+            updateDataRefreshStatus('success', 'System Ready');
+          } catch(e) {
+            console.warn('Data status failed:', e);
+          }
 
-        // Live status click handler
+          // Live status click handler
         try {
           const liveStatus = document.querySelector('.live-status');
           if (liveStatus) {
@@ -5962,6 +6176,7 @@ const rawQA = JSON.parse('<?= qaRecords ?>');
         }
 
         console.log('Quality Dashboard initialization completed');
+        });
       });
 </script>
 <!-- Category KPIs -->
