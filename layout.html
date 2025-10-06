@@ -75,7 +75,27 @@
         return '';
       }
 
-      return trimmed;
+      // Strip any accidental HTML tags or encoded fragments to avoid
+      // injecting markup into navigation URLs.
+      var withoutTags = trimmed.replace(/<[^>]*>/g, '').trim();
+      if (!withoutTags) {
+        return '';
+      }
+
+      // Some malformed payloads append additional tokens after the URL –
+      // keep only the first whitespace-delimited segment to avoid
+      // propagating the corruption.
+      var firstToken = withoutTags.split(/\s+/)[0];
+      return firstToken;
+    }
+
+    function __layoutIsValidNavigationUrl(url) {
+      if (!url) {
+        return false;
+      }
+
+      // Accept https/http script endpoints only.
+      return /^https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]+$/.test(url);
     }
 
     function __layoutFixPanelUrl(value) {
@@ -93,11 +113,16 @@
 
     function __layoutSanitizeNavigationUrl(url, fallback) {
       var primary = __layoutFixPanelUrl(url);
-      if (primary) {
+      if (__layoutIsValidNavigationUrl(primary)) {
         return primary;
       }
 
-      return __layoutFixPanelUrl(fallback);
+      var alt = __layoutFixPanelUrl(fallback);
+      if (__layoutIsValidNavigationUrl(alt)) {
+        return alt;
+      }
+
+      return '';
     }
 
     var __layoutRawBaseUrl = (typeof baseUrl !== 'undefined') ? baseUrl : '';
