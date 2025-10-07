@@ -21,10 +21,10 @@
 // CONFIGURATION & CONSTANTS
 // ────────────────────────────────────────────────────────────────────────────
 
-const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting'];
-const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
-const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES, 'Break'];
-const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES, 'Break'])];
+const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting', 'Break'];
+const NON_PRODUCTIVE_STATES = ['Lunch'];
+const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES];
+const NON_PRODUCTIVE_DISPLAY_STATES = [...NON_PRODUCTIVE_STATES];
 
 // Resolve a safe global scope reference for Apps Script V8
 var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
@@ -794,7 +794,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       const metrics = userDayMetrics.get(userDayKey);
       if (BILLABLE_STATES.includes(state)) {
         metrics.prod += durationSec;
-      } else if (state === 'Break') {
+      }
+      if (state === 'Break') {
         metrics.break += durationSec;
       } else if (state === 'Lunch') {
         metrics.lunch += durationSec;
@@ -840,9 +841,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const breakSecs = stateDuration['Break'] || 0;
     const lunchSecs = stateDuration['Lunch'] || 0;
-    const billableWithBreakSecs = totalBillableSecs + breakSecs;
-    const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
-    const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+    const nonProductiveSecs = NON_PRODUCTIVE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
+    const totalBillableHours = Math.round((totalBillableSecs / 3600) * 100) / 100;
+    const totalNonProductiveHours = Math.round((nonProductiveSecs / 3600) * 100) / 100;
 
     const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
     const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
@@ -876,7 +877,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
     const attendanceStats = [{
       periodLabel: periodId,
-      OnWork: Math.round((billableWithBreakSecs / 3600) * 100) / 100,
+      OnWork: Math.round((totalBillableSecs / 3600) * 100) / 100,
       OverTime: 0,
       Leave: 0,
       EarlyEntry: 0,
@@ -1119,12 +1120,11 @@ function calculateProductivityMetrics(filtered) {
     });
 
     const breakSecs = stateDuration['Break'] || 0;
-    const lunchSecs = stateDuration['Lunch'] || 0;
     const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
-    const billableWithBreakSecs = billableSecs + breakSecs;
+    const nonProductiveSecs = NON_PRODUCTIVE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
 
-    const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
-    const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+    const totalBillableHours = Math.round((billableSecs / 3600) * 100) / 100;
+    const totalNonProductiveHours = Math.round((nonProductiveSecs / 3600) * 100) / 100;
 
     return {
         totalBillableHours,
@@ -2052,8 +2052,9 @@ function exportAttendanceCsv(granularity, periodId, agentFilter) {
 
     analytics.userCompliance.forEach(user => {
       const compliance = calculateComplianceScore(user);
+      const nonProductiveHours = (user.lunchSecs / 3600).toFixed(2);
       csv += `${user.user},${(user.availableSecsWeekday / 3600).toFixed(2)},` +
-        `${((user.breakSecs + user.lunchSecs) / 3600).toFixed(2)},` +
+        `${nonProductiveHours},` +
         `${(user.breakSecs / 3600).toFixed(2)},${(user.lunchSecs / 3600).toFixed(2)},` +
         `${compliance}\n`;
     });
@@ -2394,9 +2395,9 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
   const breakSecs = stateDuration['Break'] || 0;
   const lunchSecs = stateDuration['Lunch'] || 0;
   const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
-  const billableWithBreakSecs = billableSecs + breakSecs;
-  const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
-  const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+  const nonProductiveSecs = NON_PRODUCTIVE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
+  const totalBillableHours = Math.round((billableSecs / 3600) * 100) / 100;
+  const totalNonProductiveHours = Math.round((nonProductiveSecs / 3600) * 100) / 100;
 
   const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
   const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
