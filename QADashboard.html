@@ -1180,6 +1180,7 @@
         destroyChart('gauge');
         return;
       }
+    }
 
       destroyChart('gauge');
       state.charts.gauge = new Chart(ctx, {
@@ -1465,6 +1466,11 @@
       if (dom.insightCount) {
         dom.insightCount.textContent = `${items.length} AI insight${items.length === 1 ? '' : 's'}`;
       }
+      const tone = delta > 0 ? 'positive' : (delta < 0 ? 'negative' : 'neutral');
+      const value = Math.round(delta * 10) / 10;
+      const sign = value > 0 ? '+' : '';
+      return `<span class="qa-delta-badge ${tone}">${sign}${value}</span>`;
+    }
 
       dom.insights.innerHTML = '';
       if (!items.length) {
