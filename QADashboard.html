@@ -200,6 +200,7 @@
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 1.25rem;
     margin-top: 1.25rem;
+    margin-bottom: 1.5rem;
   }
 
   .qa-summary-card {
@@ -1333,7 +1334,7 @@
       if (!dom.agentCanvas) return;
       const ctx = dom.agentCanvas.getContext('2d');
       const topAgents = (agents || []).slice(0, 8);
-      const labels = topAgents.map(agent => agent.name || 'Agent');
+      const labels = topAgents.map(agent => agent.displayName || agent.name || 'Agent');
       const data = topAgents.map(agent => Number(agent.evaluations) || 0);
       const hasData = labels.length > 0;
 
@@ -1597,7 +1598,7 @@
         const row = document.createElement('tr');
         row.innerHTML = `
           <td>
-            <div class="fw-semibold">${agent.name}</div>
+            <div class="fw-semibold">${agent.displayName || agent.name}</div>
             <div class="text-muted small">${agent.recentDate || 'No recent date'}</div>
           </td>
           <td class="text-center">
@@ -1621,7 +1622,16 @@
       }
 
       const availableAgents = (response && response.availableAgents) || [];
-      const agentOptions = availableAgents.map(name => ({ value: name, label: name }));
+      const lookup = response && response.agentNameLookup ? response.agentNameLookup : {};
+      const preferredOptions = Array.isArray(response && response.agentOptions)
+        ? response.agentOptions
+        : null;
+      const agentOptions = preferredOptions && preferredOptions.length
+        ? preferredOptions
+        : availableAgents.map(name => ({
+          value: name,
+          label: lookup && lookup[name] ? lookup[name] : name
+        }));
       populateSelect(dom.agent, agentOptions, 'All Agents');
       if (dom.agent && state.filters.agent) {
         dom.agent.value = state.filters.agent;
