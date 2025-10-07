@@ -200,8 +200,16 @@
     margin-bottom: 0.3rem;
   }
 
-  #qa-trend-chart {
-    min-height: 320px;
+  .qa-trend-chart-container {
+    position: relative;
+    height: 360px;
+    width: 100%;
+  }
+
+  .qa-trend-chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
   }
 
   .qa-trend-summary {
@@ -442,7 +450,9 @@
           <span class="badge bg-light text-primary" id="qa-trend-granularity">Weekly</span>
         </div>
         <div class="card-body">
-          <canvas id="qa-trend-chart"></canvas>
+          <div class="qa-trend-chart-container">
+            <canvas id="qa-trend-chart"></canvas>
+          </div>
           <div class="qa-trend-summary mt-3" id="qa-trend-summary">
             Trend analysis will appear once data is loaded.
           </div>
