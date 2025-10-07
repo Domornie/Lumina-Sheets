@@ -900,6 +900,60 @@
       actionsModal: document.getElementById('qaActionsModal')
     };
 
+    function tooltipPercentLabel(context) {
+      if (!context) {
+        return '';
+      }
+
+      const datasetLabel = context.dataset && typeof context.dataset.label === 'string'
+        ? context.dataset.label
+        : '';
+      const label = datasetLabel || (typeof context.label === 'string' ? context.label : 'Value');
+
+      let value = 0;
+      if (context.parsed && typeof context.parsed === 'object') {
+        if (typeof context.parsed.y === 'number') {
+          value = context.parsed.y;
+        } else if (typeof context.parsed.x === 'number') {
+          value = context.parsed.x;
+        } else if (typeof context.parsed === 'number') {
+          value = context.parsed;
+        }
+      } else if (typeof context.parsed === 'number') {
+        value = context.parsed;
+      }
+
+      return `${label}: ${Math.round(value)}%`;
+    }
+
+    function tooltipCountLabel(context) {
+      if (!context) {
+        return '';
+      }
+
+      const datasetLabel = context.dataset && typeof context.dataset.label === 'string'
+        ? context.dataset.label
+        : '';
+      const label = datasetLabel || (typeof context.label === 'string' ? context.label : 'Value');
+
+      let value = 0;
+      if (context.parsed && typeof context.parsed === 'object') {
+        if (typeof context.parsed.y === 'number') {
+          value = context.parsed.y;
+        } else if (typeof context.parsed.x === 'number') {
+          value = context.parsed.x;
+        }
+      } else if (typeof context.parsed === 'number') {
+        value = context.parsed;
+      }
+
+      return `${label}: ${Math.round(value)}`;
+    }
+
+    function percentTickFormatter(value) {
+      return `${value}%`;
+    }
+
     function setLoading(isLoading) {
       state.loading = isLoading;
       dashboardEl.classList.toggle('is-loading', Boolean(isLoading));
@@ -1068,9 +1122,7 @@
             },
             tooltip: {
               callbacks: {
-                label: function (context) {
-                  return `${context.dataset.label}: ${Math.round(context.parsed.y)}%`;
-                }
+                label: tooltipPercentLabel
               }
             }
           },
@@ -1079,9 +1131,7 @@
               beginAtZero: true,
               max: 100,
               ticks: {
-                callback: function (value) {
-                  return `${value}%`;
-                }
+                callback: percentTickFormatter
               },
               grid: {
                 color: 'rgba(148, 163, 184, 0.25)'
@@ -1155,9 +1205,7 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: function (context) {
-                  return `${context.label}: ${Math.round(context.parsed)}%`;
-                }
+                label: tooltipPercentLabel
               }
             }
           }
@@ -1208,9 +1256,7 @@
             },
             tooltip: {
               callbacks: {
-                label: function (context) {
-                  return `${context.label}: ${Math.round(context.parsed)}%`;
-                }
+                label: tooltipPercentLabel
               }
             }
           }
@@ -1257,9 +1303,7 @@
               beginAtZero: true,
               max: 100,
               ticks: {
-                callback: function (value) {
-                  return `${value}%`;
-                }
+                callback: percentTickFormatter
               },
               grid: {
                 color: 'rgba(148, 163, 184, 0.25)'
@@ -1274,17 +1318,15 @@
               grid: { display: false }
             }
           },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function (context) {
-                  return `${context.dataset.label}: ${Math.round(context.parsed.y)}%`;
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: tooltipPercentLabel
                 }
               }
             }
           }
-        }
       });
     }
 
@@ -1337,9 +1379,7 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: function (context) {
-                  return `${context.dataset.label}: ${context.parsed.x}`;
-                }
+                label: tooltipCountLabel
               }
             }
           }
@@ -1407,17 +1447,15 @@
               grid: { display: false }
             }
           },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function (context) {
-                  return `${context.dataset.label}: ${context.parsed.y}`;
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: tooltipCountLabel
                 }
               }
             }
           }
-        }
       });
     }
 
