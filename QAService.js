@@ -900,6 +900,134 @@ function clientGetQAIntelligence(request = {}) {
   }
 }
 
+function clientGetQADashboardSnapshot(request = {}) {
+  try {
+    const rawRecords = getAllQA();
+    const normalization = normalizeIntelligenceRequest_(request, rawRecords) || {};
+    const context = normalization.context || {
+      granularity: 'Week',
+      period: '',
+      timezone: Session.getScriptTimeZone(),
+      filters: { agent: '', campaignId: '', program: '' },
+      depth: 6,
+      agentUniverse: null,
+      passMark: QA_INTEL_PASS_MARK
+    };
+
+    const records = Array.isArray(normalization.records)
+      ? normalization.records
+      : [];
+
+    const filtered = filterRecordsForIntelligence_(records, context);
+    const previousPeriod = getPreviousPeriod_(context.granularity, context.period);
+    const previousContext = { ...context, period: previousPeriod };
+    const prevFiltered = previousPeriod
+      ? filterRecordsForIntelligence_(records, previousContext)
+      : [];
+
+    const universeOptions = {
+      agentUniverse: context.agentUniverse,
+      allAgents: records.map(record => record.agent).filter(Boolean)
+    };
+
+    const kpis = computeKpiSummary_(filtered, universeOptions);
+    const prevKpis = previousPeriod
+      ? computeKpiSummary_(prevFiltered, universeOptions)
+      : null;
+
+    const trendSeries = buildTrendSeries_(context, records);
+    const trendAnalysis = analyzeTrendSeries_(trendSeries, { granularity: context.granularity });
+
+    const categoryMetrics = computeCategoryMetrics_(filtered);
+    const prevCategoryMetrics = computeCategoryMetrics_(prevFiltered);
+    const categorySummary = summarizeCategoryChange_(categoryMetrics, prevCategoryMetrics);
+
+    const { profiles } = calculateAgentProfiles_(filtered);
+    const { profiles: prevProfiles } = calculateAgentProfiles_(prevFiltered);
+    const prevProfileLookup = {};
+    prevProfiles.forEach(profile => {
+      prevProfileLookup[profile.name] = profile;
+    });
+
+    const timezone = context.timezone || Session.getScriptTimeZone();
+    const agents = profiles.map(profile => {
+      const previous = prevProfileLookup[profile.name] || null;
+      return {
+        name: profile.name,
+        avgScore: profile.avgScore,
+        passRate: profile.passRate,
+        evaluations: profile.evaluations,
+        evaluationShare: profile.evaluationShare,
+        recentDate: profile.recentDate
+          ? Utilities.formatDate(profile.recentDate, timezone, 'yyyy-MM-dd')
+          : '',
+        deltas: {
+          avgScore: previous ? roundOneDecimal_(profile.avgScore - previous.avgScore) : null,
+          passRate: previous ? roundOneDecimal_(profile.passRate - previous.passRate) : null,
+          evaluations: previous ? (profile.evaluations - previous.evaluations) : null
+        }
+      };
+    });
+
+    const intelligence = buildAIIntelligenceAnalysis_({
+      filtered,
+      prevFiltered,
+      categoryMetrics,
+      prevCategoryMetrics,
+      kpis,
+      granularity: context.granularity
+    });
+
+    const summary = Object.assign({}, kpis, {
+      previous: prevKpis,
+      delta: {
+        avg: computeDelta_(kpis.avg, prevKpis ? prevKpis.avg : null),
+        pass: computeDelta_(kpis.pass, prevKpis ? prevKpis.pass : null),
+        coverage: computeDelta_(kpis.coverage, prevKpis ? prevKpis.coverage : null),
+        completion: computeDelta_(kpis.completion, prevKpis ? prevKpis.completion : null),
+        evaluations: computeDelta_(kpis.evaluations, prevKpis ? prevKpis.evaluations : null),
+        agents: computeDelta_(kpis.agents, prevKpis ? prevKpis.agents : null)
+      }
+    });
+
+    const periodOptions = trendSeries
+      .slice()
+      .reverse()
+      .map(entry => ({ value: entry.period, label: entry.label }));
+
+    const availableAgents = Array.from(new Set(records.map(record => record.agent).filter(Boolean))).sort();
+
+    return {
+      success: true,
+      context,
+      summary,
+      trend: {
+        series: trendSeries,
+        analysis: trendAnalysis
+      },
+      categories: categorySummary,
+      agents,
+      insights: (intelligence && intelligence.insights) ? intelligence.insights : [],
+      actions: (intelligence && intelligence.actions) ? intelligence.actions : [],
+      nextBest: intelligence ? intelligence.nextBest : null,
+      intelligenceSummary: intelligence ? intelligence.summary : '',
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        totalRecords: records.length
+      },
+      periodOptions,
+      availableAgents
+    };
+  } catch (error) {
+    console.error('clientGetQADashboardSnapshot failed:', error);
+    writeError('clientGetQADashboardSnapshot', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : 'Unable to build QA dashboard snapshot.'
+    };
+  }
+}
+
 function normalizeIntelligenceRequest_(request, rawRecords) {
   const granularity = request && typeof request.granularity === 'string'
     ? request.granularity
@@ -1098,6 +1226,27 @@ function computeKpiSummary_(records, options) {
     evaluations: total,
     agents: uniqueAgents.size
   };
+}
+
+function computeDelta_(current, previous) {
+  if (typeof current !== 'number' || typeof previous !== 'number' || Number.isNaN(current) || Number.isNaN(previous)) {
+    return null;
+  }
+
+  const delta = current - previous;
+  if (Number.isInteger(current) && Number.isInteger(previous)) {
+    return delta;
+  }
+
+  return Math.round(delta * 10) / 10;
+}
+
+function roundOneDecimal_(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return null;
+  }
+
+  return Math.round(value * 10) / 10;
 }
 
 function buildTrendSeries_(context, records) {
