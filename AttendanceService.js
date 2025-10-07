@@ -22,7 +22,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting', 'Break'];
-const NON_PRODUCTIVE_STATES = ['Lunch'];
+const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES];
 const NON_PRODUCTIVE_DISPLAY_STATES = [...NON_PRODUCTIVE_STATES];
 
@@ -2971,4 +2971,5 @@ function validateDataConsistency() {
     console.error('Validation error:', error);
     return { error: error.message };
   }
+
 }
