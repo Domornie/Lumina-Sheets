@@ -13,6 +13,32 @@
       campaignName: campaignName
     }) ?>
 
+<?
+  function __qaBuildPageUrl(page) {
+    var base = (typeof baseUrl !== 'undefined' && baseUrl) ? String(baseUrl) : '';
+    if (!page) {
+      return base || '#';
+    }
+
+    if (!base) {
+      return '?page=' + page;
+    }
+
+    var sanitized = base.replace(/\s+/g, '');
+    var hasQuery = sanitized.indexOf('?') !== -1;
+    if (hasQuery && /([?&]page=)/i.test(sanitized)) {
+      return sanitized.replace(/([?&]page=)[^&#]*/i, '$1' + page);
+    }
+
+    var separator = hasQuery ? (/[?&]$/.test(sanitized) ? '' : '&') : '?';
+    return sanitized + separator + 'page=' + page;
+  }
+
+  var __qaFormUrl = __qaBuildPageUrl('qualityform');
+  var __coachingFormUrl = __qaBuildPageUrl('coachingsheet');
+  var __collabFormUrl = __qaBuildPageUrl('qualitycollabform');
+?>
+
 <style>
   :root {
     --qa-bg: #f7f9fc;
@@ -34,9 +60,74 @@
     background: var(--qa-bg);
   }
 
+  .qa-shell {
+    max-width: min(1380px, 100%);
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 3rem;
+  }
+
   .qa-dashboard {
     font-family: 'Inter', sans-serif;
     color: #0f172a;
+  }
+
+  .qa-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1.75rem;
+    margin-bottom: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .qa-page-header__text {
+    max-width: 640px;
+  }
+
+  .qa-page-header__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--qa-primary);
+    font-weight: 600;
+  }
+
+  .qa-page-header__title {
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: clamp(1.6rem, 2.6vw, 2.15rem);
+    font-weight: 700;
+  }
+
+  .qa-page-header__summary {
+    color: #475569;
+    font-size: 0.98rem;
+  }
+
+  .qa-page-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .qa-page-header__actions [data-banner-action] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.6rem 1.25rem;
+    font-weight: 600;
+    border: none;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .qa-page-header__actions [data-banner-action]:hover,
+  .qa-page-header__actions [data-banner-action]:focus-visible {
+    transform: translateY(-1px);
   }
 
   .qa-dashboard .card {
@@ -59,33 +150,53 @@
 
   .qa-filters {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
     align-items: center;
+    gap: 0.85rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 1rem 1.25rem;
+    border-radius: var(--qa-radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--qa-shadow-soft);
+    scroll-snap-type: x proximity;
+  }
+
+  .qa-filters::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .qa-filters::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
   }
 
   .qa-filters .form-select,
   .qa-filters .form-control {
     border-radius: var(--qa-radius-md);
     border-color: var(--qa-border);
-    padding: 0.6rem 2.5rem 0.6rem 1rem;
+    padding: 0.55rem 2.5rem 0.55rem 1rem;
     box-shadow: none;
+    min-width: 180px;
+    flex: 0 0 auto;
   }
 
   .qa-filters .btn-primary {
     background: linear-gradient(135deg, var(--qa-primary), var(--qa-accent));
     border: none;
-    border-radius: var(--qa-radius-md);
-    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    padding: 0.65rem 1.6rem;
     font-weight: 600;
-    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22);
+    flex: 0 0 auto;
+    scroll-snap-align: center;
   }
 
   .qa-summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 1.25rem;
-    margin-top: 1.75rem;
+    margin-top: 1.25rem;
   }
 
   .qa-summary-card {
@@ -206,6 +317,95 @@
     width: 100%;
   }
 
+  .qa-analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .qa-chart-wrapper {
+    position: relative;
+    height: 320px;
+  }
+
+  .qa-chart-wrapper--compact {
+    height: 240px;
+  }
+
+  .qa-chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .qa-chart-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #64748b;
+    padding: 1.5rem;
+  }
+
+  .qa-gauge-wrapper {
+    position: relative;
+    height: 220px;
+  }
+
+  .qa-gauge-center {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 1.65rem;
+    color: #1e3a8a;
+  }
+
+  .qa-gauge-subtext {
+    text-align: center;
+    margin-top: -0.75rem;
+    font-size: 0.85rem;
+    color: #475569;
+  }
+
+  .qa-intelligence-card {
+    background: var(--qa-card-bg);
+    border-radius: var(--qa-radius-lg);
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    padding: 1.5rem;
+    box-shadow: var(--qa-shadow-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .qa-intelligence-card__summary {
+    color: #1e293b;
+    font-size: 0.95rem;
+  }
+
+  .qa-intelligence-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .qa-intelligence-card__actions .btn {
+    border-radius: 999px;
+    padding: 0.55rem 1.2rem;
+    font-weight: 600;
+  }
+
+  .qa-insight-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--qa-primary);
+  }
+
   .qa-trend-chart-container canvas {
     width: 100% !important;
     height: 100% !important;
@@ -221,6 +421,7 @@
     font-weight: 500;
     line-height: 1.5;
   }
+</style>
 
   .qa-table {
     width: 100%;
@@ -361,8 +562,8 @@
 
   @media (max-width: 992px) {
     .qa-filters {
-      flex-direction: column;
-      align-items: stretch;
+      flex-wrap: wrap;
+      justify-content: flex-start;
     }
 
     .qa-insight-item,
@@ -370,47 +571,66 @@
       grid-template-columns: 36px 1fr;
     }
   }
+
+  @media (max-width: 768px) {
+    .qa-page-header__actions {
+      width: 100%;
+    }
+  }
 </style>
 
-<div class="container py-4 position-relative qa-dashboard" id="qa-dashboard">
+<div class="qa-shell position-relative qa-dashboard" id="qa-dashboard">
   <div class="qa-loading-overlay">
     <div class="qa-spinner"></div>
   </div>
 
-  <div class="d-flex flex-column gap-3 mb-4">
-    <div class="card border-0">
-      <div class="card-body">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-          <div>
-            <span class="qa-badge"><i class="fa-solid fa-shield-check"></i> Quality Assurance</span>
-            <h1 class="h3 fw-bold mt-3 mb-2">QA Performance Command Center</h1>
-            <p class="text-muted mb-0" id="qa-context-summary">
-              Monitor live quality health, trending scores, and AI-powered recommendations across your teams.
-            </p>
-          </div>
-          <div class="qa-filters">
-            <select id="qa-granularity" class="form-select">
-              <option value="Week">Week</option>
-              <option value="Month">Month</option>
-              <option value="Quarter">Quarter</option>
-              <option value="Year">Year</option>
-            </select>
-            <select id="qa-period" class="form-select">
-              <option value="">Latest Period</option>
-            </select>
-            <select id="qa-agent" class="form-select">
-              <option value="">All Agents</option>
-            </select>
-            <button type="button" class="btn btn-primary" id="qa-refresh">
-              <i class="fa-solid fa-rotate"></i>
-              <span class="ms-1">Refresh</span>
-            </button>
-          </div>
-        </div>
-      </div>
+  <header class="qa-page-header" data-banner-source>
+    <div class="qa-page-header__text">
+      <span class="qa-page-header__eyebrow" data-banner-eyebrow>
+        <i class="fa-solid fa-shield-check"></i>
+        Quality Assurance
+      </span>
+      <h1 class="qa-page-header__title" data-banner-title>QA Performance Command Center</h1>
+      <p class="qa-page-header__summary mb-0" id="qa-context-summary" data-banner-description>
+        Monitor live quality health, trending scores, and AI-powered recommendations across your teams.
+      </p>
     </div>
+    <div class="qa-page-header__actions" data-banner-source>
+      <a class="btn btn-primary" href="<?= __qaFormUrl ?>" data-banner-action data-banner-icon="fa-solid fa-clipboard-check" data-banner-variant="primary">
+        <i class="fa-solid fa-clipboard-check"></i>
+        <span>QA Form</span>
+      </a>
+      <a class="btn btn-outline-primary" href="<?= __coachingFormUrl ?>" data-banner-action data-banner-icon="fa-solid fa-file-signature" data-banner-variant="secondary">
+        <i class="fa-solid fa-file-signature"></i>
+        <span>Coaching Form</span>
+      </a>
+      <a class="btn btn-outline-secondary" href="<?= __collabFormUrl ?>" data-banner-action data-banner-icon="fa-solid fa-people-arrows" data-banner-variant="secondary">
+        <i class="fa-solid fa-people-arrows"></i>
+        <span>Collaboration Form</span>
+      </a>
+    </div>
+  </header>
 
-    <div class="qa-summary-grid" id="qa-summary-cards">
+  <div class="qa-filters" role="group" aria-label="QA filters">
+    <select id="qa-granularity" class="form-select" aria-label="Select time grouping">
+      <option value="Week">Week</option>
+      <option value="Month">Month</option>
+      <option value="Quarter">Quarter</option>
+      <option value="Year">Year</option>
+    </select>
+    <select id="qa-period" class="form-select" aria-label="Select reporting period">
+      <option value="">Latest Period</option>
+    </select>
+    <select id="qa-agent" class="form-select" aria-label="Select agent">
+      <option value="">All Agents</option>
+    </select>
+    <button type="button" class="btn btn-primary" id="qa-refresh">
+      <i class="fa-solid fa-rotate"></i>
+      <span class="ms-1">Refresh</span>
+    </button>
+  </div>
+
+  <div class="qa-summary-grid mt-4" id="qa-summary-cards">
       <div class="qa-summary-card" data-metric="avg">
         <div class="qa-summary-card__label">Average QA Score</div>
         <div class="qa-summary-card__value" data-role="value">--</div>
@@ -432,7 +652,6 @@
         <div class="qa-summary-card__delta neutral" data-role="delta">Awaiting data</div>
       </div>
     </div>
-  </div>
 
   <div class="alert alert-danger d-none qa-dashboard-alert" id="qa-dashboard-error"></div>
 
@@ -443,7 +662,7 @@
   </div>
 
   <div class="row g-4" id="qa-dashboard-content">
-    <div class="col-12 col-lg-8">
+    <div class="col-12 col-xxl-7">
       <div class="card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span>Performance Trend</span>
@@ -459,18 +678,73 @@
         </div>
       </div>
     </div>
-    <div class="col-12 col-lg-4">
-      <div class="card mb-4">
-        <div class="card-header">AI Insights</div>
+    <div class="col-12 col-xxl-5 d-flex flex-column gap-4">
+      <div class="card h-100">
+        <div class="card-header">Quality Health Overview</div>
         <div class="card-body">
-          <div class="qa-insight-list" id="qa-insights"></div>
+          <div class="qa-gauge-wrapper mb-3">
+            <canvas id="qa-gauge-chart"></canvas>
+            <div class="qa-gauge-center" id="qa-gauge-value">--</div>
+          </div>
+          <div class="qa-gauge-subtext">Average QA Score</div>
+          <div class="qa-chart-wrapper qa-chart-wrapper--compact mt-4">
+            <canvas id="qa-outcome-chart"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-outcome-empty">Awaiting evaluation data.</div>
+          </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header">Recommended Actions</div>
+      <div class="qa-intelligence-card h-100">
+        <div class="qa-insight-count">
+          <i class="fa-solid fa-robot"></i>
+          <span id="qa-insight-count">0 AI insights</span>
+        </div>
+        <p class="qa-intelligence-card__summary mb-0" id="qa-intel-summary">
+          AI-generated recommendations will populate once fresh QA data is available.
+        </p>
+        <div id="qa-next-best" class="qa-next-best d-none"></div>
+        <div class="qa-intelligence-card__actions">
+          <button type="button" class="btn btn-outline-primary" id="qa-open-insights">
+            <i class="fa-solid fa-lightbulb me-2"></i>View AI Insights
+          </button>
+          <button type="button" class="btn btn-primary" id="qa-open-actions">
+            <i class="fa-solid fa-list-check me-2"></i>View Recommendations
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-1" id="qa-analytics-row">
+    <div class="col-12 col-xl-6 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Category Score Breakdown</div>
         <div class="card-body">
-          <div id="qa-next-best" class="qa-next-best d-none"></div>
-          <div class="qa-action-list mt-3" id="qa-actions"></div>
+          <div class="qa-chart-wrapper">
+            <canvas id="qa-category-chart"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-category-empty">Category performance will appear here.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Agent Evaluation Volume</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper">
+            <canvas id="qa-agent-chart"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-agent-empty">Agent evaluation data will appear once loaded.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Score Distribution</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper">
+            <canvas id="qa-distribution-chart"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-distribution-empty">Distribution requires agent scoring data.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -525,6 +799,34 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" id="qaInsightsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fa-solid fa-lightbulb me-2 text-primary"></i>AI Insights</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="qa-insight-list" id="qa-insights"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="qaActionsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fa-solid fa-list-check me-2 text-primary"></i>Recommended Actions</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="qa-action-list" id="qa-actions"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -544,7 +846,18 @@
       },
       loading: false,
       data: null,
-      chart: null
+      charts: {
+        trend: null,
+        gauge: null,
+        outcomes: null,
+        categories: null,
+        agents: null,
+        distribution: null
+      },
+      modals: {
+        insights: null,
+        actions: null
+      }
     };
 
     const dom = {
@@ -565,7 +878,24 @@
       nextBest: document.getElementById('qa-next-best'),
       categoriesBody: document.getElementById('qa-categories-body'),
       agentsBody: document.getElementById('qa-agents-body'),
-      contextSummary: document.getElementById('qa-context-summary')
+      contextSummary: document.getElementById('qa-context-summary'),
+      insightCount: document.getElementById('qa-insight-count'),
+      intelSummary: document.getElementById('qa-intel-summary'),
+      analyticsRow: document.getElementById('qa-analytics-row'),
+      gaugeCanvas: document.getElementById('qa-gauge-chart'),
+      gaugeValue: document.getElementById('qa-gauge-value'),
+      outcomeCanvas: document.getElementById('qa-outcome-chart'),
+      categoryCanvas: document.getElementById('qa-category-chart'),
+      agentCanvas: document.getElementById('qa-agent-chart'),
+      distributionCanvas: document.getElementById('qa-distribution-chart'),
+      outcomeEmpty: document.getElementById('qa-outcome-empty'),
+      categoryEmpty: document.getElementById('qa-category-empty'),
+      agentEmpty: document.getElementById('qa-agent-empty'),
+      distributionEmpty: document.getElementById('qa-distribution-empty'),
+      openInsights: document.getElementById('qa-open-insights'),
+      openActions: document.getElementById('qa-open-actions'),
+      insightsModal: document.getElementById('qaInsightsModal'),
+      actionsModal: document.getElementById('qaActionsModal')
     };
 
     function setLoading(isLoading) {
@@ -574,6 +904,18 @@
       if (dom.refresh) {
         dom.refresh.disabled = Boolean(isLoading);
       }
+    }
+
+    function destroyChart(key) {
+      if (!state.charts || !state.charts[key]) {
+        return;
+      }
+      try {
+        state.charts[key].destroy();
+      } catch (chartError) {
+        console.warn('Unable to destroy chart', key, chartError);
+      }
+      state.charts[key] = null;
     }
 
     function safePercent(value) {
@@ -669,10 +1011,7 @@
       const avgDataset = (trend && trend.series ? trend.series : []).map(entry => entry.avgScore || 0);
       const passDataset = (trend && trend.series ? trend.series : []).map(entry => entry.passRate || 0);
 
-      if (state.chart) {
-        state.chart.destroy();
-        state.chart = null;
-      }
+      destroyChart('trend');
 
       if (typeof Chart === 'undefined') {
         console.warn('Chart.js is not available; skipping trend rendering.');
@@ -686,7 +1025,7 @@
         return;
       }
 
-      state.chart = new Chart(ctx, {
+      state.charts.trend = new Chart(ctx, {
         type: 'line',
         data: {
           labels,
@@ -767,10 +1106,334 @@
       }
     }
 
+    function renderGauge(summary) {
+      if (!dom.gaugeCanvas) return;
+      const ctx = dom.gaugeCanvas.getContext('2d');
+      const average = summary && typeof summary.avg === 'number'
+        ? Math.min(100, Math.max(0, summary.avg))
+        : null;
+
+      if (dom.gaugeValue) {
+        dom.gaugeValue.textContent = average === null ? '--' : `${Math.round(average)}%`;
+      }
+
+      if (!ctx || typeof Chart === 'undefined') {
+        if (average === null) {
+          destroyChart('gauge');
+        }
+        return;
+      }
+
+      if (average === null) {
+        destroyChart('gauge');
+        return;
+      }
+    }
+
+      destroyChart('gauge');
+      state.charts.gauge = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Average Score', 'Gap'],
+          datasets: [
+            {
+              data: [average, Math.max(0, 100 - average)],
+              backgroundColor: ['#2563eb', 'rgba(148, 163, 184, 0.28)'],
+              borderWidth: 0,
+              circumference: Math.PI,
+              rotation: -Math.PI,
+              cutout: '72%'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.label}: ${Math.round(context.parsed)}%`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderOutcomeChart(summary) {
+      if (!dom.outcomeCanvas) return;
+      const ctx = dom.outcomeCanvas.getContext('2d');
+      const passPercent = summary && typeof summary.pass === 'number'
+        ? Math.min(100, Math.max(0, summary.pass))
+        : null;
+
+      const hasData = passPercent !== null;
+      if (dom.outcomeEmpty) {
+        dom.outcomeEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('outcomes');
+        return;
+      }
+
+      destroyChart('outcomes');
+      state.charts.outcomes = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Pass', 'Fail'],
+          datasets: [
+            {
+              data: [passPercent, Math.max(0, 100 - passPercent)],
+              backgroundColor: ['#22c55e', '#ef4444'],
+              borderWidth: 0,
+              cutout: '68%'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.label}: ${Math.round(context.parsed)}%`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCategoryChart(categories) {
+      if (!dom.categoryCanvas) return;
+      const ctx = dom.categoryCanvas.getContext('2d');
+      const labels = (categories || []).map(category => category.category || 'Category');
+      const data = (categories || []).map(category => Number(category.avgScore) || 0);
+      const hasData = labels.length > 0;
+
+      if (dom.categoryEmpty) {
+        dom.categoryEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('categories');
+        return;
+      }
+
+      destroyChart('categories');
+      state.charts.categories = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Avg Score',
+              data,
+              backgroundColor: 'rgba(37, 99, 235, 0.65)',
+              borderRadius: 8,
+              maxBarThickness: 42
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                callback(value) {
+                  return `${value}%`;
+                }
+              },
+              grid: {
+                color: 'rgba(148, 163, 184, 0.25)'
+              }
+            },
+            x: {
+              ticks: {
+                autoSkip: false,
+                maxRotation: 45,
+                minRotation: 0
+              },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${Math.round(context.parsed.y)}%`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAgentChart(agents) {
+      if (!dom.agentCanvas) return;
+      const ctx = dom.agentCanvas.getContext('2d');
+      const topAgents = (agents || []).slice(0, 8);
+      const labels = topAgents.map(agent => agent.name || 'Agent');
+      const data = topAgents.map(agent => Number(agent.evaluations) || 0);
+      const hasData = labels.length > 0;
+
+      if (dom.agentEmpty) {
+        dom.agentEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('agents');
+        return;
+      }
+
+      destroyChart('agents');
+      state.charts.agents = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Evaluations',
+              data,
+              backgroundColor: 'rgba(14, 165, 233, 0.7)',
+              borderRadius: 8,
+              maxBarThickness: 38
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: { color: 'rgba(148, 163, 184, 0.25)' }
+            },
+            y: {
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${context.parsed.x}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderDistributionChart(agents) {
+      if (!dom.distributionCanvas) return;
+      const ctx = dom.distributionCanvas.getContext('2d');
+      const bins = [
+        { label: 'Below 70', min: 0, max: 70 },
+        { label: '70-79', min: 70, max: 80 },
+        { label: '80-89', min: 80, max: 90 },
+        { label: '90-100', min: 90, max: 101 }
+      ];
+
+      const counts = bins.map(() => 0);
+      (agents || []).forEach(agent => {
+        const score = Number(agent.avgScore);
+        if (Number.isFinite(score)) {
+          const clamped = Math.min(100, Math.max(0, score));
+          const binIndex = bins.findIndex(bin => clamped >= bin.min && clamped < bin.max);
+          if (binIndex >= 0) {
+            counts[binIndex] += 1;
+          }
+        }
+      });
+
+      const hasData = counts.some(count => count > 0);
+      if (dom.distributionEmpty) {
+        dom.distributionEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('distribution');
+        return;
+      }
+
+      destroyChart('distribution');
+      state.charts.distribution = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: bins.map(bin => bin.label),
+          datasets: [
+            {
+              label: 'Agents',
+              data: counts,
+              backgroundColor: 'rgba(99, 102, 241, 0.75)',
+              borderRadius: 8,
+              maxBarThickness: 40
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 },
+              grid: { color: 'rgba(148, 163, 184, 0.25)' }
+            },
+            x: {
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${context.parsed.y}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
     function renderInsights(insights) {
       if (!dom.insights) return;
+      const items = Array.isArray(insights) ? insights : [];
+
+      if (dom.insightCount) {
+        dom.insightCount.textContent = `${items.length} AI insight${items.length === 1 ? '' : 's'}`;
+      }
+      const tone = delta > 0 ? 'positive' : (delta < 0 ? 'negative' : 'neutral');
+      const value = Math.round(delta * 10) / 10;
+      const sign = value > 0 ? '+' : '';
+      return `<span class="qa-delta-badge ${tone}">${sign}${value}</span>`;
+    }
+
       dom.insights.innerHTML = '';
-      if (!insights || !insights.length) {
+      if (!items.length) {
         const empty = document.createElement('p');
         empty.className = 'text-muted mb-0';
         empty.textContent = 'No insights available for the selected filters yet.';
@@ -778,7 +1441,7 @@
         return;
       }
 
-      insights.forEach(item => {
+      items.forEach(item => {
         const row = document.createElement('div');
         row.className = 'qa-insight-item';
         if (item.tone) {
@@ -804,6 +1467,8 @@
     function renderActions(actions, nextBest) {
       if (!dom.actions || !dom.nextBest) return;
 
+      const items = Array.isArray(actions) ? actions : [];
+
       dom.actions.innerHTML = '';
       dom.nextBest.classList.add('d-none');
       dom.nextBest.innerHTML = '';
@@ -818,7 +1483,7 @@
           </div>`;
       }
 
-      if (!actions || !actions.length) {
+      if (!items.length) {
         const empty = document.createElement('p');
         empty.className = 'text-muted mb-0';
         empty.textContent = 'AI has no urgent playbook steps at the moment.';
@@ -826,7 +1491,7 @@
         return;
       }
 
-      actions.forEach(action => {
+      items.forEach(action => {
         const row = document.createElement('div');
         row.className = 'qa-action-item';
         if (action.tone) {
@@ -950,6 +1615,9 @@
       dom.empty.classList.toggle('d-none', !visible);
       dom.content.classList.toggle('d-none', Boolean(visible));
       dom.lower.classList.toggle('d-none', Boolean(visible));
+      if (dom.analyticsRow) {
+        dom.analyticsRow.classList.toggle('d-none', Boolean(visible));
+      }
     }
 
     function handleResponse(response) {
@@ -972,10 +1640,25 @@
       const trend = response.trend || null;
       renderTrend(trend, response.context ? response.context.granularity : 'Week');
 
+      renderGauge(summary);
+      renderOutcomeChart(summary);
+
+      const categories = response.categories || [];
+      renderCategoryChart(categories);
+      renderCategories(categories);
+
+      const agents = response.agents || [];
+      renderAgentChart(agents);
+      renderDistributionChart(agents);
+      renderAgents(agents.slice(0, 8));
+
+      if (dom.intelSummary) {
+        dom.intelSummary.textContent = response.intelligenceSummary
+          || 'AI-generated recommendations will populate once fresh QA data is available.';
+      }
+
       renderInsights(response.insights || []);
       renderActions(response.actions || [], response.nextBest || null);
-      renderCategories(response.categories || []);
-      renderAgents((response.agents || []).slice(0, 8));
 
       const hasEvaluations = summary && summary.evaluations > 0;
       toggleEmptyState(!hasEvaluations);
@@ -1047,6 +1730,31 @@
           loadData();
         });
       }
+
+      if (dom.openInsights && dom.insightsModal) {
+        dom.openInsights.addEventListener('click', () => {
+          if (typeof bootstrap === 'undefined') {
+            return;
+          }
+          if (!state.modals.insights) {
+            state.modals.insights = new bootstrap.Modal(dom.insightsModal);
+          }
+          state.modals.insights.show();
+        });
+      }
+
+      if (dom.openActions && dom.actionsModal) {
+        dom.openActions.addEventListener('click', () => {
+          if (typeof bootstrap === 'undefined') {
+            return;
+          }
+          if (!state.modals.actions) {
+            state.modals.actions = new bootstrap.Modal(dom.actionsModal);
+          }
+          state.modals.actions.show();
+        });
+      }
+
     }
 
     function bootstrap() {
