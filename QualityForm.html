@@ -2796,7 +2796,7 @@
       document.getElementById('hOverallFeedback').value = html;
       document.getElementById('hOverallFeedbackPlain').value = htmlToPlainText(html);
     }
-    
+
     // Update feedback shared fields
     const feedbackShared = document.getElementById('feedbackSharedFlag').checked;
     const feedbackDate = document.getElementById('feedbackSharedDate').value || '';
@@ -2804,14 +2804,46 @@
     document.getElementById('feedbackSharedAt').value = feedbackDate;
   }
 
+  function getSelectedAgentDetails() {
+    const agentSelect = document.getElementById('agentName');
+    if (!agentSelect) {
+      return { id: '', name: '', rawValue: '', usesIds: false };
+    }
+
+    const usesIds = agentRosterState.useIds || agentSelect.dataset.usesIds === 'true';
+    const rawValue = agentSelect.value || '';
+    if (!rawValue) {
+      return { id: '', name: '', rawValue: '', usesIds };
+    }
+
+    const selectedOption = agentSelect.selectedIndex >= 0
+      ? agentSelect.options[agentSelect.selectedIndex]
+      : null;
+    const optionName = selectedOption
+      ? (selectedOption.dataset.name || selectedOption.textContent || '')
+      : '';
+    const displayName = optionName.trim() || rawValue;
+
+    return {
+      id: usesIds ? rawValue : '',
+      name: displayName,
+      rawValue,
+      usesIds
+    };
+  }
+
   function collectFormDataForSubmission() {
     console.log('📦 COLLECTING FORM DATA FOR SUBMISSION');
-    
+
     const formData = {};
-    
+
     // Basic information fields
     formData.callerName = document.getElementById('callerName').value || '';
-    formData.agentName = document.getElementById('agentName').value || '';
+    const selectedAgent = getSelectedAgentDetails();
+    formData.agentName = selectedAgent.name || selectedAgent.rawValue || '';
+    if (selectedAgent.usesIds && selectedAgent.rawValue) {
+      formData.agentId = selectedAgent.rawValue;
+    }
     formData.agentEmail = document.getElementById('agentEmail').value || '';
     formData.clientName = document.getElementById('clientName').value || '';
     formData.callDate = document.getElementById('callDate').value || '';
@@ -3018,10 +3050,14 @@
       updateHiddenFields();
       
       const formData = {};
-      
+
       // Basic information fields
       formData.callerName = document.getElementById('callerName').value || '';
-      formData.agentName = document.getElementById('agentName').value || '';
+      const selectedAgent = getSelectedAgentDetails();
+      formData.agentName = selectedAgent.name || selectedAgent.rawValue || '';
+      if (selectedAgent.usesIds && selectedAgent.rawValue) {
+        formData.agentId = selectedAgent.rawValue;
+      }
       formData.agentEmail = document.getElementById('agentEmail').value || '';
       formData.clientName = document.getElementById('clientName').value || '';
       formData.callDate = document.getElementById('callDate').value || '';
