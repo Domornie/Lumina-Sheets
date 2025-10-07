@@ -937,8 +937,26 @@
 
                         <div class="col-12">
                             <label class="form-label-modern" for="scheduleFile">Schedule File</label>
-                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt" required>
-                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents.</div>
+                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt">
+                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents, or use the Google Sheets option below.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label-modern" for="googleSheetUrl">Google Sheets Link</label>
+                            <input type="url" class="form-control form-control-modern" id="googleSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+                            <div class="form-text">Paste a shared Google Sheets link to import directly without downloading a CSV export.</div>
+                            <div id="googleSheetStatus" class="form-text text-primary mt-1"></div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-modern" for="googleSheetTab">Sheet Name (optional)</label>
+                            <input type="text" class="form-control form-control-modern" id="googleSheetTab" placeholder="Schedule">
+                            <div class="form-text">Specify the tab to import if it is not the first sheet in the workbook.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-modern" for="googleSheetRange">Range (optional)</label>
+                            <input type="text" class="form-control form-control-modern" id="googleSheetRange" placeholder="A1:Z200">
+                            <div class="form-text">Limit the import to a specific range. Leave blank to use the entire sheet.</div>
                         </div>
 
                         <div class="col-12 d-flex flex-wrap gap-2 mt-2">
@@ -1691,12 +1709,32 @@
                     this.handleScheduleFileSelect(e);
                 });
 
+                document.getElementById('googleSheetUrl')?.addEventListener('input', (e) => {
+                    this.handleGoogleSheetUrlChange(e);
+                });
+
                 document.getElementById('clearImportPreview')?.addEventListener('click', () => {
                     this.clearImportPreview();
                     this.clearImportSummary();
                     const fileInput = document.getElementById('scheduleFile');
                     if (fileInput) {
                         fileInput.value = '';
+                    }
+                    const googleSheetUrl = document.getElementById('googleSheetUrl');
+                    if (googleSheetUrl) {
+                        googleSheetUrl.value = '';
+                    }
+                    const googleSheetTab = document.getElementById('googleSheetTab');
+                    if (googleSheetTab) {
+                        googleSheetTab.value = '';
+                    }
+                    const googleSheetRange = document.getElementById('googleSheetRange');
+                    if (googleSheetRange) {
+                        googleSheetRange.value = '';
+                    }
+                    const googleSheetStatus = document.getElementById('googleSheetStatus');
+                    if (googleSheetStatus) {
+                        googleSheetStatus.textContent = '';
                     }
                     this.updateImportFileName();
                 });
@@ -2976,9 +3014,12 @@
                     const replaceExisting = document.getElementById('importReplace')?.checked === true;
                     const fileInput = document.getElementById('scheduleFile');
                     const file = fileInput?.files?.[0];
+                    const googleSheetUrl = document.getElementById('googleSheetUrl')?.value?.trim();
+                    const googleSheetTab = document.getElementById('googleSheetTab')?.value?.trim();
+                    const googleSheetRange = document.getElementById('googleSheetRange')?.value?.trim();
 
-                    if (!file) {
-                        throw new Error('Please select a schedule file to import.');
+                    if (!file && !googleSheetUrl) {
+                        throw new Error('Please select a schedule file or provide a Google Sheets link to import.');
                     }
                     if (!startDate) {
                         throw new Error('Please select the starting date.');
@@ -3003,14 +3044,43 @@
                         endDate,
                         sourceMonth,
                         sourceYear,
-                        fileName: file.name || ''
+                        fileName: file?.name || ''
                     };
 
-                    const { schedules, summary } = await this.parseScheduleFile(file, options);
+                    let parseResult = { schedules: [], summary: null };
+                    let googleSheetMetadata = null;
+
+                    if (file) {
+                        parseResult = await this.parseScheduleFile(file, options);
+                    } else if (googleSheetUrl) {
+                        googleSheetMetadata = await this.fetchGoogleSheetRows({
+                            url: googleSheetUrl,
+                            sheetName: googleSheetTab || undefined,
+                            range: googleSheetRange || undefined
+                        });
+
+                        if (!googleSheetMetadata || !Array.isArray(googleSheetMetadata.rows)) {
+                            throw new Error('The Google Sheets link did not return any data to import.');
+                        }
+
+                        if (googleSheetMetadata.spreadsheetName) {
+                            options.fileName = googleSheetMetadata.sheetName
+                                ? `${googleSheetMetadata.spreadsheetName} — ${googleSheetMetadata.sheetName}`
+                                : googleSheetMetadata.spreadsheetName;
+                        } else {
+                            options.fileName = 'Google Sheets Import';
+                        }
+
+                        parseResult = this.transformScheduleRows(googleSheetMetadata.rows, options || {});
+                        this.pendingImportSchedules = parseResult.schedules;
+                        this.pendingImportSummary = parseResult.summary;
+                    }
+
+                    const { schedules, summary } = parseResult;
 
                     if (!schedules || schedules.length === 0) {
                         this.renderImportPreview([], options, summary);
-                        this.showToast('No schedules were detected in the uploaded file.', 'warning');
+                        this.showToast('No schedules were detected in the provided data.', 'warning');
                         return;
                     }
 
@@ -3031,13 +3101,26 @@
                             dayCount: summary?.dayCount ?? importDays,
                             sourceMonth,
                             sourceYear,
-                            fileName: file.name || '',
+                            fileName: options.fileName || file?.name || '',
                             importedBy: this.getCurrentUserId(),
                             replaceExisting,
-                            summary
+                            summary,
+                            sourceType: file ? 'FILE_UPLOAD' : 'GOOGLE_SHEET'
                         },
                         schedules
                     };
+
+                    if (!file && googleSheetMetadata) {
+                        payload.metadata.googleSheet = {
+                            url: googleSheetUrl,
+                            sheetName: googleSheetMetadata.sheetName || '',
+                            spreadsheetName: googleSheetMetadata.spreadsheetName || '',
+                            range: googleSheetMetadata.range || '',
+                            sheetId: googleSheetMetadata.sheetId || '',
+                            rowCount: googleSheetMetadata.rowCount || 0,
+                            columnCount: googleSheetMetadata.columnCount || 0
+                        };
+                    }
 
                     const result = await this.callServerFunction('clientImportSchedules', payload);
 
@@ -3049,6 +3132,12 @@
                         const fileControl = document.getElementById('scheduleFile');
                         if (fileControl) {
                             fileControl.value = '';
+                        }
+                        if (!file && googleSheetUrl) {
+                            const googleSheetStatus = document.getElementById('googleSheetStatus');
+                            if (googleSheetStatus) {
+                                googleSheetStatus.textContent = 'Google Sheets import completed successfully.';
+                            }
                         }
                         this.updateImportFileName();
 
@@ -3089,6 +3178,24 @@
                 this.pendingImportSchedules = result.schedules;
                 this.pendingImportSummary = result.summary;
                 return result;
+            }
+
+            async fetchGoogleSheetRows(requestOptions = {}) {
+                try {
+                    const payload = typeof requestOptions === 'string'
+                        ? { url: requestOptions }
+                        : (requestOptions || {});
+
+                    const result = await this.callServerFunction('clientFetchScheduleSheetData', payload);
+                    if (!result || result.success !== true) {
+                        throw new Error(result?.error || 'Unable to retrieve data from Google Sheets.');
+                    }
+
+                    return result;
+                } catch (error) {
+                    console.error('❌ Error fetching Google Sheet data:', error);
+                    throw error;
+                }
             }
 
             readFileAsText(file) {
@@ -3204,7 +3311,7 @@
                 }
 
                 if (agentColumnIndex === -1) {
-                    throw new Error('The importer could not identify an agent column in the uploaded file.');
+                    throw new Error('The importer could not identify an agent column in the uploaded file or sheet.');
                 }
 
                 const slotIndex = headerKeys.findIndex((key, index) => {
@@ -3680,7 +3787,7 @@
                 if (!Array.isArray(schedules) || schedules.length === 0) {
                     container.innerHTML = `
                         <div class="alert alert-warning-modern">
-                            <i class="fas fa-info-circle me-2"></i>No schedules detected in the uploaded file.
+                            <i class="fas fa-info-circle me-2"></i>No schedules detected in the provided data.
                         </div>
                     `;
                     this.pendingImportSchedules = [];
@@ -3766,6 +3873,10 @@
                 const daysCovered = metadata?.summary?.dayCount ?? metadata.dayCount ?? '';
                 const startDateLabel = metadata.startDate ? this.formatDate(metadata.startDate) : '';
                 const endDateLabel = metadata.endDate ? this.formatDate(metadata.endDate) : '';
+                const googleSheetMeta = metadata.googleSheet || null;
+                const sourceLabel = googleSheetMeta
+                    ? `${googleSheetMeta.spreadsheetName || 'Google Sheet'}${googleSheetMeta.sheetName ? ` — ${googleSheetMeta.sheetName}` : ''}`
+                    : (metadata.fileName || '');
 
                 container.innerHTML = `
                     <div class="alert alert-success-modern">
@@ -3774,6 +3885,8 @@
                             <li><strong>Imported:</strong> ${result.importedCount}</li>
                             <li><strong>Replaced:</strong> ${result.replacedCount || 0}</li>
                             <li><strong>Total schedules now:</strong> ${result.totalAfterImport ?? 'N/A'}</li>
+                            ${sourceLabel ? `<li><strong>Source:</strong> ${sourceLabel}${googleSheetMeta?.range ? ` (${googleSheetMeta.range})` : ''}</li>` : ''}
+                            ${metadata.sourceType === 'GOOGLE_SHEET' && googleSheetMeta?.url ? `<li><strong>Sheet link:</strong> <a href="${googleSheetMeta.url}" target="_blank" rel="noopener">Open in Google Sheets</a></li>` : ''}
                             ${range ? `<li><strong>Date range affected:</strong> ${range}</li>` : ''}
                             ${daysCovered ? `<li><strong>Days covered:</strong> ${daysCovered}</li>` : ''}
                             ${startDateLabel && endDateLabel ? `<li><strong>Date span:</strong> ${startDateLabel} - ${endDateLabel}</li>` : ''}
@@ -3803,6 +3916,31 @@
                 this.updateImportFileName(file?.name || '');
                 this.clearImportPreview();
                 this.clearImportSummary();
+                if (file) {
+                    const googleSheetUrl = document.getElementById('googleSheetUrl');
+                    if (googleSheetUrl) {
+                        googleSheetUrl.value = '';
+                    }
+                    const status = document.getElementById('googleSheetStatus');
+                    if (status) {
+                        status.textContent = '';
+                    }
+                }
+            }
+
+            handleGoogleSheetUrlChange(event) {
+                const urlValue = event?.target?.value?.trim();
+                const fileInput = document.getElementById('scheduleFile');
+                if (urlValue && fileInput) {
+                    fileInput.value = '';
+                }
+                const status = document.getElementById('googleSheetStatus');
+                if (status) {
+                    status.textContent = urlValue ? 'Using Google Sheets link for this import.' : '';
+                }
+                this.updateImportFileName();
+                this.clearImportPreview();
+                this.clearImportSummary();
             }
 
             updateImportFileName(fileName) {
@@ -3811,8 +3949,14 @@
 
                 if (fileName) {
                     label.textContent = `Selected file: ${fileName}`;
+                    return;
+                }
+
+                const googleSheetUrl = document.getElementById('googleSheetUrl');
+                if (googleSheetUrl && googleSheetUrl.value.trim()) {
+                    label.textContent = 'Importing from the provided Google Sheets link.';
                 } else {
-                    label.textContent = 'Upload a CSV export of the schedule grid.';
+                    label.textContent = 'Upload a CSV export of the schedule grid or provide a Google Sheets link.';
                 }
             }
 

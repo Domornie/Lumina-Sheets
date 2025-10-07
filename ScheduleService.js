@@ -1026,6 +1026,106 @@ function clientImportSchedules(importRequest = {}) {
 }
 
 /**
+ * Fetch schedule data directly from a Google Sheet link for importing
+ */
+function clientFetchScheduleSheetData(request = {}) {
+  try {
+    const options = typeof request === 'string' ? { url: request } : (request || {});
+    const sheetUrl = (options.url || options.sheetUrl || '').trim();
+    const sheetName = (options.sheetName || options.tabName || '').trim();
+    const sheetRange = (options.range || options.sheetRange || '').trim();
+    const spreadsheetId = (options.id || options.sheetId || options.spreadsheetId || '').trim();
+    const gidValue = options.gid || options.sheetGid || options.sheetNumericId;
+
+    if (!sheetUrl && !spreadsheetId) {
+      throw new Error('A Google Sheets link or ID is required to import schedules.');
+    }
+
+    let spreadsheet = null;
+    if (spreadsheetId) {
+      spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    }
+
+    if (!spreadsheet) {
+      const candidateUrl = sheetUrl;
+      if (candidateUrl) {
+        try {
+          spreadsheet = SpreadsheetApp.openByUrl(candidateUrl);
+        } catch (urlError) {
+          const extractedId = extractSpreadsheetId(candidateUrl);
+          if (extractedId) {
+            spreadsheet = SpreadsheetApp.openById(extractedId);
+          } else {
+            throw urlError;
+          }
+        }
+      }
+    }
+
+    if (!spreadsheet) {
+      throw new Error('Unable to open the provided Google Sheets link.');
+    }
+
+    let sheet = null;
+    if (sheetName) {
+      sheet = spreadsheet.getSheetByName(sheetName);
+      if (!sheet) {
+        throw new Error(`Could not find a sheet named "${sheetName}" in ${spreadsheet.getName()}.`);
+      }
+    }
+
+    if (!sheet && gidValue !== undefined && gidValue !== null && gidValue !== '') {
+      const numericId = Number(gidValue);
+      if (!Number.isNaN(numericId)) {
+        sheet = spreadsheet.getSheets().find(tab => tab.getSheetId() === numericId) || null;
+      }
+    }
+
+    if (!sheet) {
+      const sheets = spreadsheet.getSheets();
+      if (!sheets || sheets.length === 0) {
+        throw new Error('The spreadsheet does not contain any sheets to import.');
+      }
+      sheet = sheets[0];
+    }
+
+    const range = sheetRange ? sheet.getRange(sheetRange) : sheet.getDataRange();
+    const values = range.getDisplayValues();
+
+    if (!values || values.length === 0) {
+      return {
+        success: true,
+        rows: [],
+        spreadsheetName: spreadsheet.getName(),
+        sheetName: sheet.getName(),
+        sheetId: sheet.getSheetId(),
+        range: range.getA1Notation(),
+        rowCount: 0,
+        columnCount: 0
+      };
+    }
+
+    return {
+      success: true,
+      rows: values,
+      spreadsheetName: spreadsheet.getName(),
+      sheetName: sheet.getName(),
+      sheetId: sheet.getSheetId(),
+      range: range.getA1Notation(),
+      rowCount: values.length,
+      columnCount: values[0] ? values[0].length : 0
+    };
+  } catch (error) {
+    console.error('❌ Error fetching schedule data from Google Sheets:', error);
+    safeWriteError('clientFetchScheduleSheetData', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * Import schedules from uploaded data
  */
 function clientImportSchedules(importRequest = {}) {
@@ -2616,6 +2716,34 @@ function getMonthNameFromNumber(monthNumber) {
 
   const index = Number(monthNumber) - 1;
   return months[index] || '';
+}
+
+function extractSpreadsheetId(input) {
+  if (!input) {
+    return '';
+  }
+
+  const stringValue = String(input).trim();
+  if (!stringValue) {
+    return '';
+  }
+
+  const directMatch = stringValue.match(/[-\w]{25,}/);
+  if (directMatch && directMatch[0]) {
+    return directMatch[0];
+  }
+
+  const urlMatch = stringValue.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (urlMatch && urlMatch[1]) {
+    return urlMatch[1];
+  }
+
+  const queryMatch = stringValue.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+  if (queryMatch && queryMatch[1]) {
+    return queryMatch[1];
+  }
+
+  return '';
 }
 
 console.log('✅ Enhanced Schedule Management Backend v4.1 loaded successfully');
