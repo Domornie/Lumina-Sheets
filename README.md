@@ -2,6 +2,14 @@
 
 Call center management system built on Google Apps Script + Google Sheets.
 
+## Schema change guidelines
+
+- When adding functionality that requires a new column—either in the web app UI
+  definitions or in the backing Google Sheets—add the new column explicitly
+  instead of renaming an existing one. Renaming breaks historical data bindings
+  and cached lookups, so always create a fresh column with the new object name
+  and migrate data deliberately if needed.
+
 ## Frontend lazy-loading harness
 
 - Every layout now includes `EntityLoader.html`, which exposes a global
