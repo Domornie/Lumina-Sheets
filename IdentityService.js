@@ -25,6 +25,26 @@ var IdentityService = (function () {
     return value ? 'TRUE' : 'FALSE';
   }
 
+  function parseBooleanFlag(value) {
+    if (value === true) return true;
+    if (value === false || value === null || typeof value === 'undefined') return false;
+    if (typeof value === 'number') return value !== 0;
+
+    const normalized = String(value).trim().toUpperCase();
+    if (!normalized) return false;
+
+    switch (normalized) {
+      case 'TRUE':
+      case 'YES':
+      case 'Y':
+      case '1':
+      case 'ON':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   function normalizeEmail(email) {
     if (email === null || typeof email === 'undefined') {
       return '';
@@ -355,7 +375,7 @@ var IdentityService = (function () {
       }
 
       if (hasColumn(match, 'EmailConfirmed')) {
-        const confirmed = String(match.user.EmailConfirmed || '').toUpperCase() === 'TRUE';
+        const confirmed = parseBooleanFlag(match.user.EmailConfirmed);
         if (confirmed) {
           return { success: false, error: 'Email already confirmed', errorCode: 'EMAIL_CONFIRMED' };
         }

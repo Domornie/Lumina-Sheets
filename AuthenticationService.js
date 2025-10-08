@@ -168,8 +168,118 @@ var AuthenticationService = (function () {
 
   function toBool(value) {
     if (value === true || value === false) return value;
+    if (value === null || typeof value === 'undefined') return false;
+    if (typeof value === 'number') return value !== 0;
     const str = normalizeString(value).toUpperCase();
-    return str === 'TRUE' || str === '1' || str === 'YES' || str === 'Y';
+    if (!str) return false;
+    return str === 'TRUE' || str === '1' || str === 'YES' || str === 'Y' || str === 'ON';
+  }
+
+  const ADMIN_ROLE_KEYWORDS = ['system admin', 'administrator', 'super admin', 'account manager', 'global admin'];
+
+  function collectRoleNameCandidates(source) {
+    const names = [];
+
+    function append(value) {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach(append);
+        return;
+      }
+
+      if (typeof value === 'object') {
+        ['name', 'Name', 'roleName', 'RoleName', 'Title', 'title', 'JobTitle', 'jobTitle', 'PrimaryRole', 'primaryRole']
+          .forEach(function (key) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
+              append(value[key]);
+            }
+          });
+        return;
+      }
+
+      String(value)
+        .split(/[,;|]+/)
+        .map(function (part) { return part.trim(); })
+        .filter(function (part) { return part.length > 0; })
+        .forEach(function (part) { names.push(part); });
+    }
+
+    append(source);
+    return names;
+  }
+
+  function userRoleNames(user) {
+    if (!user || typeof user !== 'object') {
+      return [];
+    }
+
+    const collected = [];
+    [
+      user.roleNames,
+      user.RoleNames,
+      user.roles,
+      user.Roles,
+      user.Role,
+      user.role,
+      user.PrimaryRole,
+      user.primaryRole,
+      user.Title,
+      user.title,
+      user.JobTitle,
+      user.jobTitle
+    ].forEach(function (value) {
+      collected.push.apply(collected, collectRoleNameCandidates(value));
+    });
+
+    const seen = new Set();
+    return collected
+      .map(function (name) { return String(name).trim(); })
+      .filter(function (name) {
+        if (!name) return false;
+        const lower = name.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      });
+  }
+
+  function rolesIndicateAdmin(names) {
+    if (!Array.isArray(names) || !names.length) {
+      return false;
+    }
+
+    return names.some(function (name) {
+      const normalized = String(name).trim().toLowerCase();
+      if (!normalized) {
+        return false;
+      }
+      return ADMIN_ROLE_KEYWORDS.some(function (keyword) {
+        return normalized.indexOf(keyword) !== -1;
+      });
+    });
+  }
+
+  function computeUserIsAdmin(user) {
+    if (!user) {
+      return false;
+    }
+
+    if (toBool(user.IsAdmin)) {
+      return true;
+    }
+
+    if (toBool(user.isAdmin)) {
+      return true;
+    }
+
+    if (user.isAdminBool === true) {
+      return true;
+    }
+
+    return rolesIndicateAdmin(userRoleNames(user));
   }
 
   const MFA_ALLOWED_METHODS = ['email', 'sms', 'totp'];
@@ -1712,7 +1822,7 @@ var AuthenticationService = (function () {
     const serverContext = consumeLoginContext();
     const mergedMetadata = mergeMetadataForSession(storedMetadata, clientMetadata, serverContext);
 
-    const rememberMe = String(record.PendingRememberMe || '').toUpperCase() === 'TRUE';
+    const rememberMe = toBool(record.PendingRememberMe);
 
     const user = findUserById(record.UserId);
     if (!user) {
@@ -3015,7 +3125,7 @@ var AuthenticationService = (function () {
 
     const requestedId = normalizeCampaignId(requestedCampaignId);
     const fallbackCampaignId = normalizeCampaignId(user && (user.CampaignID || user.campaignId || user.CampaignId));
-    const isAdmin = toBool(user && user.IsAdmin);
+    const isAdmin = computeUserIsAdmin(user);
 
     if (tenantSecurityAvailable()) {
       try {
@@ -3215,13 +3325,15 @@ var AuthenticationService = (function () {
   function buildUserPayload(user, tenantPayload) {
     if (!user) return null;
 
+    const adminFlag = computeUserIsAdmin(user);
+
     const payload = {
       ID: user.ID,
       UserName: user.UserName || '',
       FullName: user.FullName || user.UserName || '',
       Email: user.Email || '',
       CampaignID: user.CampaignID || '',
-      IsAdmin: toBool(user.IsAdmin),
+      IsAdmin: adminFlag,
       CanLogin: toBool(user.CanLogin),
       EmailConfirmed: toBool(user.EmailConfirmed)
     };
@@ -4780,10 +4892,10 @@ function debugAuthenticationIssues(email, password) {
     console.log('4. Checking account status...');
     
     const accountStatus = {
-      canLogin: String(user.CanLogin).toUpperCase() === 'TRUE',
-      emailConfirmed: String(user.EmailConfirmed).toUpperCase() === 'TRUE',
-      resetRequired: String(user.ResetRequired).toUpperCase() === 'TRUE',
-      isAdmin: String(user.IsAdmin).toUpperCase() === 'TRUE',
+      canLogin: toBool(user.CanLogin),
+      emailConfirmed: toBool(user.EmailConfirmed),
+      resetRequired: toBool(user.ResetRequired),
+      isAdmin: computeUserIsAdmin(user),
       campaignId: user.CampaignID || '',
       lockoutEnd: user.LockoutEnd || null
     };
@@ -5040,7 +5152,7 @@ function scanAllUsersForAuthIssues() {
       }
 
       // Check login capability
-      if (String(user.CanLogin).toUpperCase() !== 'TRUE') {
+      if (!toBool(user.CanLogin)) {
         issues.cannotLogin.push({
           index: index + 2,
           id: user.ID,
@@ -5052,7 +5164,7 @@ function scanAllUsersForAuthIssues() {
       }
 
       // Check email confirmation
-      if (String(user.EmailConfirmed).toUpperCase() !== 'TRUE') {
+      if (!toBool(user.EmailConfirmed)) {
         issues.emailNotConfirmed.push({
           index: index + 2,
           id: user.ID,
@@ -5064,7 +5176,7 @@ function scanAllUsersForAuthIssues() {
       }
 
       // Check reset required
-      if (String(user.ResetRequired).toUpperCase() === 'TRUE') {
+      if (toBool(user.ResetRequired)) {
         issues.resetRequired.push({
           index: index + 2,
           id: user.ID,

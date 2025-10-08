@@ -2219,6 +2219,26 @@
     return element ? !!element.checked : fallback;
   }
 
+  function parseBooleanFlag(value) {
+    if (value === true) return true;
+    if (value === false || value === null || typeof value === 'undefined') return false;
+    if (typeof value === 'number') return value !== 0;
+
+    const normalized = String(value).trim().toUpperCase();
+    if (!normalized) return false;
+
+    switch (normalized) {
+      case 'TRUE':
+      case 'YES':
+      case 'Y':
+      case '1':
+      case 'ON':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   function readNumberValue(id) {
     try {
       const raw = safeTrim(readInputValue(id));
@@ -3748,8 +3768,10 @@
     document.getElementById('phoneNumber').value = u.PhoneNumber || u.phoneNumber || '';
 
     // System access
-    document.getElementById('canLogin').checked = !!(u.canLoginBool || u.CanLogin === true || u.CanLogin === 'TRUE');
-    document.getElementById('isAdmin').checked = !!(u.isAdminBool || u.IsAdmin === true || u.IsAdmin === 'TRUE');
+    const canLoginValue = u.canLoginBool === true ? true : parseBooleanFlag(u.CanLogin);
+    const isAdminValue = u.isAdminBool === true ? true : parseBooleanFlag(u.IsAdmin);
+    document.getElementById('canLogin').checked = !!canLoginValue;
+    document.getElementById('isAdmin').checked = !!isAdminValue;
 
     // Employment fields
     document.getElementById('employmentStatus').value = normalizeEmploymentStatusClient(u.EmploymentStatus);
