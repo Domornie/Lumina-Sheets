@@ -2350,63 +2350,119 @@
                 try {
                     this.showLoading(true);
 
+                    const getElementValue = (id) => document.getElementById(id)?.value ?? '';
+                    const getNumericValue = (id, fallback, { allowFloat = false, min = null, max = null } = {}) => {
+                        const element = document.getElementById(id);
+                        const rawValue = element ? element.value : '';
+                        const resolvedFallback = (() => {
+                            if (fallback !== undefined) {
+                                return fallback;
+                            }
+                            if (element && element.defaultValue !== undefined && element.defaultValue !== '') {
+                                const parsedDefault = allowFloat
+                                    ? parseFloat(element.defaultValue)
+                                    : parseInt(element.defaultValue, 10);
+                                if (Number.isFinite(parsedDefault)) {
+                                    return parsedDefault;
+                                }
+                            }
+                            return null;
+                        })();
+
+                        if (rawValue === '' || rawValue === null || rawValue === undefined) {
+                            return resolvedFallback;
+                        }
+
+                        const parsed = allowFloat ? parseFloat(rawValue) : parseInt(rawValue, 10);
+                        if (!Number.isFinite(parsed)) {
+                            return resolvedFallback;
+                        }
+
+                        let value = parsed;
+                        if (typeof min === 'number' && value < min) {
+                            value = min;
+                        }
+                        if (typeof max === 'number' && value > max) {
+                            value = max;
+                        }
+
+                        return value;
+                    };
+
                     // Get selected days
                     const selectedDays = [];
                     const dayCheckboxes = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                     dayCheckboxes.forEach(day => {
                         const checkbox = document.getElementById(day);
                         if (checkbox && checkbox.checked) {
-                            selectedDays.push(parseInt(checkbox.value));
+                            const parsedDay = parseInt(checkbox.value, 10);
+                            if (!Number.isNaN(parsedDay)) {
+                                selectedDays.push(parsedDay);
+                            }
                         }
                     });
 
                     // Enhanced slot data with all new fields (skills removed)
                     const slotData = {
                         // Basic Information
-                        name: document.getElementById('slotName').value,
-                        startTime: document.getElementById('slotStartTime').value,
-                        endTime: document.getElementById('slotEndTime').value,
+                        name: getElementValue('slotName'),
+                        startTime: getElementValue('slotStartTime'),
+                        endTime: getElementValue('slotEndTime'),
                         daysOfWeek: selectedDays,
-                        department: document.getElementById('slotDepartment').value,
-                        location: document.getElementById('slotLocation').value,
-                        description: document.getElementById('slotDescription').value,
+                        department: getElementValue('slotDepartment'),
+                        location: getElementValue('slotLocation'),
+                        description: getElementValue('slotDescription'),
 
                         // Capacity & Staffing
-                        maxCapacity: parseInt(document.getElementById('slotCapacity').value),
-                        minCoverage: parseInt(document.getElementById('slotMinCoverage').value),
-                        priority: parseInt(document.getElementById('slotPriority').value),
+                        maxCapacity: getNumericValue('slotCapacity', 10, { min: 1, max: 100 }),
+                        minCoverage: getNumericValue('slotMinCoverage', 1, { min: 1 }),
+                        priority: getNumericValue('slotPriority', 2, { min: 1, max: 4 }),
 
                         // Break & Lunch Configuration
-                        break1Duration: parseInt(document.getElementById('slotBreak1Duration').value),
-                        lunchDuration: parseInt(document.getElementById('slotLunchDuration').value),
-                        break2Duration: parseInt(document.getElementById('slotBreak2Duration').value),
+                        break1Duration: getNumericValue('slotBreak1Duration', 15, { min: 5, max: 30 }),
+                        lunchDuration: getNumericValue('slotLunchDuration', 30, { min: 15, max: 60 }),
+                        break2Duration: getNumericValue('slotBreak2Duration', 0, { min: 0, max: 30 }),
 
                         // Staggered Breaks
                         enableStaggeredBreaks: document.getElementById('enableStaggeredBreaks').checked,
-                        breakGroups: parseInt(document.getElementById('slotBreakGroups').value),
-                        staggerInterval: parseInt(document.getElementById('slotStaggerInterval').value),
-                        minCoveragePct: parseInt(document.getElementById('slotMinCoveragePct').value),
+                        breakGroups: getNumericValue('slotBreakGroups', 3, { min: 2, max: 5 }),
+                        staggerInterval: getNumericValue('slotStaggerInterval', 15, { min: 10, max: 30 }),
+                        minCoveragePct: getNumericValue('slotMinCoveragePct', 70, { min: 50, max: 95 }),
 
                         // Overtime Configuration
                         enableOvertime: document.getElementById('enableOvertime').checked,
-                        maxDailyOT: parseFloat(document.getElementById('slotMaxDailyOT').value),
-                        maxWeeklyOT: parseFloat(document.getElementById('slotMaxWeeklyOT').value),
-                        otApproval: document.getElementById('slotOTApproval').value,
-                        otRate: parseFloat(document.getElementById('slotOTRate').value),
-                        otPolicy: document.getElementById('slotOTPolicy').value,
+                        maxDailyOT: getNumericValue('slotMaxDailyOT', 0, { allowFloat: true, min: 0 }),
+                        maxWeeklyOT: getNumericValue('slotMaxWeeklyOT', 0, { allowFloat: true, min: 0 }),
+                        otApproval: getElementValue('slotOTApproval'),
+                        otRate: getNumericValue('slotOTRate', 1.5, { allowFloat: true, min: 1 }),
+                        otPolicy: getElementValue('slotOTPolicy'),
 
                         // Advanced Settings (skills removed)
                         allowSwaps: document.getElementById('allowSwaps').checked,
                         weekendPremium: document.getElementById('weekendPremium').checked,
                         holidayPremium: document.getElementById('holidayPremium').checked,
                         autoAssignment: document.getElementById('autoAssignment').checked,
-                        restPeriod: parseInt(document.getElementById('slotRestPeriod').value),
-                        notificationLead: parseInt(document.getElementById('slotNotificationLead').value),
-                        handoverTime: parseInt(document.getElementById('slotHandoverTime').value),
+                        restPeriod: getNumericValue('slotRestPeriod', 8, { min: 0 }),
+                        notificationLead: getNumericValue('slotNotificationLead', 24, { min: 0 }),
+                        handoverTime: getNumericValue('slotHandoverTime', 15, { min: 0 }),
 
                         // System fields
                         createdBy: this.getCurrentUserId() || 'System'
                     };
+
+                    if (Number.isFinite(slotData.maxCapacity) && Number.isFinite(slotData.minCoverage)) {
+                        if (slotData.minCoverage > slotData.maxCapacity) {
+                            slotData.minCoverage = slotData.maxCapacity;
+                        }
+                        if (slotData.minCoverage < 1) {
+                            slotData.minCoverage = 1;
+                        }
+                    }
+
+                    if (!slotData.enableOvertime) {
+                        slotData.maxDailyOT = 0;
+                        slotData.maxWeeklyOT = 0;
+                    }
 
                     // Enhanced validation
                     const validation = this.validateEnhancedShiftSlot(slotData);
@@ -2460,45 +2516,61 @@
                     }
 
                     const duration = (end - start) / (1000 * 60 * 60); // hours
-                    if (duration < 2) {
-                        errors.push('Shift must be at least 2 hours long');
-                    }
-                    if (duration > 12) {
-                        errors.push('Shift cannot be longer than 12 hours');
+                    if (!Number.isFinite(duration)) {
+                        errors.push('Unable to determine shift duration. Please verify the start and end times.');
+                    } else {
+                        if (duration < 2) {
+                            errors.push('Shift must be at least 2 hours long');
+                        }
+                        if (duration > 12) {
+                            errors.push('Shift cannot be longer than 12 hours');
+                        }
                     }
                 }
 
                 // Capacity validation
-                if (slotData.maxCapacity < 1 || slotData.maxCapacity > 100) {
+                if (!Number.isFinite(slotData.maxCapacity)) {
+                    errors.push('Max capacity is required');
+                } else if (slotData.maxCapacity < 1 || slotData.maxCapacity > 100) {
                     errors.push('Max capacity must be between 1 and 100');
                 }
 
-                if (slotData.minCoverage < 1 || slotData.minCoverage > slotData.maxCapacity) {
+                if (!Number.isFinite(slotData.minCoverage)) {
+                    errors.push('Minimum coverage is required');
+                } else if (slotData.minCoverage < 1) {
+                    errors.push('Min coverage must be at least 1');
+                } else if (Number.isFinite(slotData.maxCapacity) && slotData.minCoverage > slotData.maxCapacity) {
                     errors.push('Min coverage must be between 1 and max capacity');
                 }
 
                 // Break validation
-                if (slotData.break1Duration < 5 || slotData.break1Duration > 30) {
+                if (Number.isFinite(slotData.break1Duration) && (slotData.break1Duration < 5 || slotData.break1Duration > 30)) {
                     errors.push('First break duration must be between 5 and 30 minutes');
                 }
 
-                if (slotData.lunchDuration < 15 || slotData.lunchDuration > 60) {
+                if (Number.isFinite(slotData.lunchDuration) && (slotData.lunchDuration < 15 || slotData.lunchDuration > 60)) {
                     errors.push('Lunch duration must be between 15 and 60 minutes');
+                }
+
+                if (!Number.isFinite(slotData.minCoveragePct)) {
+                    errors.push('Minimum coverage percentage is required');
+                } else if (slotData.minCoveragePct < 50 || slotData.minCoveragePct > 95) {
+                    errors.push('Minimum coverage percentage must be between 50% and 95%');
                 }
 
                 // Overtime validation
                 if (slotData.enableOvertime) {
-                    if (slotData.maxDailyOT < 0.5 || slotData.maxDailyOT > 4) {
+                    if (!Number.isFinite(slotData.maxDailyOT)) {
+                        errors.push('Max daily overtime is required when overtime is enabled');
+                    } else if (slotData.maxDailyOT < 0.5 || slotData.maxDailyOT > 4) {
                         errors.push('Max daily overtime must be between 0.5 and 4 hours');
                     }
-                    if (slotData.maxWeeklyOT < 2 || slotData.maxWeeklyOT > 20) {
+
+                    if (!Number.isFinite(slotData.maxWeeklyOT)) {
+                        errors.push('Max weekly overtime is required when overtime is enabled');
+                    } else if (slotData.maxWeeklyOT < 2 || slotData.maxWeeklyOT > 20) {
                         errors.push('Max weekly overtime must be between 2 and 20 hours');
                     }
-                }
-
-                // Coverage validation
-                if (slotData.minCoveragePct < 50 || slotData.minCoveragePct > 95) {
-                    errors.push('Minimum coverage percentage must be between 50% and 95%');
                 }
 
                 return {

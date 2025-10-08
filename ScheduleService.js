@@ -186,6 +186,10 @@ function clientCreateShiftSlot(slotData) {
     const slotId = Utilities.getUuid();
 
     const toNumber = (value, fallback = '') => {
+      if (value === null || value === undefined || value === '') {
+        return fallback;
+      }
+
       const num = Number(value);
       return Number.isFinite(num) ? num : fallback;
     };
@@ -280,10 +284,14 @@ function clientCreateShiftSlot(slotData) {
 
   } catch (error) {
     console.error('❌ Error creating shift slot:', error);
-    safeWriteError('clientCreateShiftSlot', error);
+    try {
+      safeWriteError('clientCreateShiftSlot', error);
+    } catch (loggingError) {
+      console.error('Error logging shift slot failure:', loggingError);
+    }
     return {
       success: false,
-      error: error.message
+      error: error && error.message ? error.message : String(error || 'Unknown error')
     };
   }
 }
