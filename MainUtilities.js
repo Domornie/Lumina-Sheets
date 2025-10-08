@@ -642,28 +642,87 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
     }
   }
 
-  const finalLastCol = sheet.getLastColumn();
-  const finalRange = sheet.getRange(1, 1, 1, finalLastCol);
-  const finalRaw = finalRange.getValues()[0];
-  const finalNormalized = finalRaw.map(normalizeHeaderName_);
+  let finalLastCol = sheet.getLastColumn();
+  let finalRange = sheet.getRange(1, 1, 1, finalLastCol);
+  let finalRaw = finalRange.getValues()[0];
+  let finalNormalized = finalRaw.map(normalizeHeaderName_);
+  const allowedHeaders = new Set(headers);
+  const seenHeaders = new Set();
+  const columnsToDelete = [];
+
+  for (let idx = 0; idx < finalNormalized.length; idx++) {
+    const headerName = finalNormalized[idx];
+    if (headerName) {
+      if (!allowedHeaders.has(headerName)) {
+        columnsToDelete.push(idx + 1);
+        continue;
+      }
+      if (seenHeaders.has(headerName)) {
+        columnsToDelete.push(idx + 1);
+        continue;
+      }
+      seenHeaders.add(headerName);
+    } else if (idx >= headerCount) {
+      columnsToDelete.push(idx + 1);
+    }
+  }
+
+  if (columnsToDelete.length) {
+    for (let i = columnsToDelete.length - 1; i >= 0; i--) {
+      sheet.deleteColumn(columnsToDelete[i]);
+    }
+    structureMutated = true;
+    finalLastCol = sheet.getLastColumn();
+    finalRange = sheet.getRange(1, 1, 1, finalLastCol);
+    finalRaw = finalRange.getValues()[0];
+    finalNormalized = finalRaw.map(normalizeHeaderName_);
+  }
+
   let headerMutated = false;
 
   for (let i = 0; i < headerCount; i++) {
     if (finalNormalized[i] !== headers[i]) {
-      finalRaw[i] = headers[i];
       headerMutated = true;
+      break;
     }
   }
 
+  const headerRange = sheet.getRange(1, 1, 1, headerCount);
   if (headerMutated) {
-    finalRange.setValues([finalRaw]);
+    headerRange.setValues([headers.slice()]);
   }
-
-  finalRange.setFontWeight('bold');
+  headerRange.setFontWeight('bold');
   sheet.setFrozenRows(1);
 
   return structureMutated || headerMutated;
 }
+
+if (typeof synchronizeSheetHeaders !== 'function') {
+  function synchronizeSheetHeaders(sheetName, headers) {
+    if (!sheetName) throw new Error('sheetName is required');
+    if (!headers || !Array.isArray(headers) || headers.length === 0) {
+      throw new Error('headers array is required');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      return ensureSheetWithHeaders(sheetName, headers);
+    }
+
+    const mutated = syncSheetColumnsAndHeaders_(sheet, headers);
+    if (mutated) {
+      console.log(`Synchronized sheet structure for ${sheetName}`);
+    }
+    return sheet;
+  }
+}
+
+(function (global) {
+  if (global && typeof global.synchronizeSheetHeaders !== 'function' && typeof synchronizeSheetHeaders === 'function') {
+    global.synchronizeSheetHeaders = synchronizeSheetHeaders;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
 
 function normalizeUserNameValue_(value) {
   if (value === null || typeof value === 'undefined') return '';
