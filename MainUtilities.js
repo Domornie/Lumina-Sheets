@@ -740,8 +740,8 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
   }
 
   const rangeWidth = Math.max(sheet.getLastColumn(), headerCount);
-  const headerRange = sheet.getRange(1, 1, 1, rangeWidth);
-  const currentHeaders = headerRange.getValues()[0].map(normalizeHeaderName_);
+  const initialHeaderRange = sheet.getRange(1, 1, 1, rangeWidth);
+  const currentHeaders = initialHeaderRange.getValues()[0].map(normalizeHeaderName_);
   const maxRows = sheet.getMaxRows();
   let structureMutated = false;
 
@@ -819,11 +819,11 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
     }
   }
 
-  const headerRange = sheet.getRange(1, 1, 1, headerCount);
+  const finalHeaderRange = sheet.getRange(1, 1, 1, headerCount);
   if (headerMutated) {
-    headerRange.setValues([headers.slice()]);
+    finalHeaderRange.setValues([headers.slice()]);
   }
-  headerRange.setFontWeight('bold');
+  finalHeaderRange.setFontWeight('bold');
   sheet.setFrozenRows(1);
 
   return structureMutated || headerMutated;
