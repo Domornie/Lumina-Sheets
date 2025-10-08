@@ -4354,6 +4354,84 @@ var AuthenticationService = (function () {
     }
   }
 
+  function ensureSheets(options) {
+    const summary = {
+      success: true,
+      identity: [],
+      sessions: null,
+      trustedDevices: null,
+      errors: []
+    };
+
+    try {
+      const sheetNames = options && Array.isArray(options.sheetNames) ? options.sheetNames : null;
+
+      if (typeof ensureIdentitySheetStructures === 'function') {
+        const ensureOptions = sheetNames ? { sheetNames } : {};
+        summary.identity = ensureIdentitySheetStructures(ensureOptions) || [];
+      } else if (typeof listCanonicalIdentitySheets === 'function' && typeof ensureSheetWithHeaders === 'function') {
+        const definitions = listCanonicalIdentitySheets();
+        const allowList = sheetNames && sheetNames.length
+          ? new Set(sheetNames.map(name => String(name || '').trim()).filter(Boolean))
+          : null;
+
+        definitions.forEach(definition => {
+          if (allowList && !allowList.has(definition.name)) {
+            return;
+          }
+
+          try {
+            ensureSheetWithHeaders(definition.name, definition.headers);
+            summary.identity.push({ sheet: definition.name, ensured: true, method: 'ensureSheetWithHeaders' });
+          } catch (ensureError) {
+            const errorMessage = ensureError && ensureError.message ? ensureError.message : String(ensureError);
+            console.warn(`ensureSheets: failed to ensure ${definition.name}`, ensureError);
+            summary.identity.push({ sheet: definition.name, ensured: false, error: errorMessage });
+            summary.errors.push({ stage: 'identity', sheet: definition.name, error: errorMessage });
+            summary.success = false;
+          }
+        });
+      }
+    } catch (identityError) {
+      const message = identityError && identityError.message ? identityError.message : String(identityError);
+      console.warn('ensureSheets: identity ensure failed', identityError);
+      summary.errors.push({ stage: 'identity', error: message });
+      summary.success = false;
+    }
+
+    try {
+      const context = ensureSessionSheetContext();
+      summary.sessions = {
+        sheet: context.tableName,
+        ensured: true,
+        headers: Array.isArray(context.headers) ? context.headers.slice() : []
+      };
+    } catch (sessionError) {
+      const message = sessionError && sessionError.message ? sessionError.message : String(sessionError);
+      console.warn('ensureSheets: session ensure failed', sessionError);
+      summary.sessions = { sheet: getSessionTableName(), ensured: false, error: message };
+      summary.errors.push({ stage: 'sessions', error: message });
+      summary.success = false;
+    }
+
+    try {
+      const trustedSheet = ensureTrustedDevicesSheet();
+      summary.trustedDevices = {
+        sheet: TRUSTED_DEVICE_TABLE,
+        ensured: !!trustedSheet,
+        sheetId: trustedSheet && typeof trustedSheet.getSheetId === 'function' ? trustedSheet.getSheetId() : null
+      };
+    } catch (trustedError) {
+      const message = trustedError && trustedError.message ? trustedError.message : String(trustedError);
+      console.warn('ensureSheets: trusted devices ensure failed', trustedError);
+      summary.trustedDevices = { sheet: TRUSTED_DEVICE_TABLE, ensured: false, error: message };
+      summary.errors.push({ stage: 'trustedDevices', error: message });
+      summary.success = false;
+    }
+
+    return summary;
+  }
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   return {
@@ -4379,7 +4457,8 @@ var AuthenticationService = (function () {
     userHasActiveSession: userHasActiveSession,
     confirmDeviceVerification: confirmDeviceVerification,
     denyDeviceVerification: denyDeviceVerification,
-    cleanupExpiredSessions: cleanupExpiredSessions
+    cleanupExpiredSessions: cleanupExpiredSessions,
+    ensureSheets: ensureSheets
   };
 
 })();

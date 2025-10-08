@@ -4974,60 +4974,131 @@ function ensureSessionCleanupTrigger() {
 
 function initializeMainSheets() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const requiredSheets = ['Users', 'Roles', 'Pages', 'CAMPAIGNS'];
+    let summary = [];
 
-    requiredSheets.forEach(sheetName => {
-      try {
-        let sheet = ss.getSheetByName(sheetName);
-        if (!sheet) {
-          console.log(`Creating missing sheet: ${sheetName}`);
-          sheet = ss.insertSheet(sheetName);
-          initializeSheetHeaders(sheet, sheetName);
-        }
-      } catch (sheetError) {
-        console.warn(`Could not initialize sheet ${sheetName}:`, sheetError);
+    if (typeof ensureIdentitySheetStructures === 'function') {
+      summary = ensureIdentitySheetStructures();
+    } else {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss) {
+        throw new Error('Active spreadsheet not available');
       }
-    });
+
+      const definitions = [];
+      const pushDefinition = (name, headers) => {
+        if (!name) return;
+        const headerList = Array.isArray(headers) && headers.length
+          ? headers.slice()
+          : null;
+        definitions.push({ name, headers: headerList });
+      };
+
+      const usersName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
+      const rolesName = (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles';
+      const pagesName = (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages';
+      const campaignsName = (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns';
+
+      pushDefinition(usersName, Array.isArray(USERS_HEADERS) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
+      pushDefinition(rolesName, Array.isArray(ROLES_HEADER) ? ROLES_HEADER : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt']);
+      pushDefinition(pagesName, Array.isArray(PAGES_HEADERS) ? PAGES_HEADERS : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt']);
+      pushDefinition(campaignsName, Array.isArray(CAMPAIGNS_HEADERS) ? CAMPAIGNS_HEADERS : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt']);
+
+      definitions.forEach(def => {
+        try {
+          let sheet = ss.getSheetByName(def.name);
+          if (!sheet) {
+            sheet = ss.insertSheet(def.name);
+          }
+
+          if (def.headers && def.headers.length) {
+            sheet.getRange(1, 1, 1, def.headers.length).setValues([def.headers]);
+            sheet.setFrozenRows(1);
+          }
+
+          summary.push({ sheet: def.name, ensured: true, method: 'fallback-manual' });
+        } catch (sheetError) {
+          console.warn(`Could not initialize sheet ${def.name}:`, sheetError);
+          summary.push({ sheet: def.name, ensured: false, error: sheetError && sheetError.message ? sheetError.message : String(sheetError) });
+        }
+      });
+    }
 
     console.log('Main sheets initialized');
+    return summary;
 
   } catch (error) {
     console.error('Error initializing main sheets:', error);
     writeError('initializeMainSheets', error);
+    return { success: false, error: error && error.message ? error.message : String(error) };
   }
 }
 
 function initializeSheetHeaders(sheet, sheetName) {
   try {
-    let headers = [];
-
-    switch (sheetName) {
-      case 'Users':
-        headers = ['ID', 'Email', 'FullName', 'Password', 'Roles', 'CampaignID', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt'];
-        break;
-      case 'Roles':
-        headers = ['ID', 'Name', 'Description', 'Permissions', 'CreatedAt'];
-        break;
-      case 'Pages':
-        headers = ['PageKey', 'Name', 'Description', 'RequiredRole', 'CampaignSpecific', 'Active'];
-        break;
-      case 'CAMPAIGNS':
-        headers = ['ID', 'Name', 'Description', 'Active', 'Settings', 'CreatedAt'];
-        break;
-      default:
-        console.warn(`No headers defined for sheet: ${sheetName}`);
-        return;
+    if (!sheet || !sheetName) {
+      console.warn('initializeSheetHeaders called with invalid arguments');
+      return null;
     }
 
-    if (headers.length > 0) {
+    if (typeof ensureIdentitySheetStructures === 'function') {
+      const results = ensureIdentitySheetStructures({ sheetNames: [sheetName] });
+      const ensured = Array.isArray(results) ? results.find(result => result.sheet === sheetName && result.ensured) : null;
+      if (ensured) {
+        console.log(`Headers ensured for ${sheetName} via ensureIdentitySheetStructures`);
+        return ensured;
+      }
+    }
+
+    let headers = null;
+    if (typeof getCanonicalSheetHeaders === 'function') {
+      headers = getCanonicalSheetHeaders(sheetName);
+    }
+
+    if (!headers || !headers.length) {
+      switch (sheetName) {
+        case (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users':
+        case 'Users':
+          headers = Array.isArray(USERS_HEADERS)
+            ? USERS_HEADERS.slice()
+            : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'CreatedAt', 'UpdatedAt'];
+          break;
+        case (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles':
+        case 'Roles':
+          headers = Array.isArray(ROLES_HEADER)
+            ? ROLES_HEADER.slice()
+            : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt'];
+          break;
+        case (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages':
+        case 'Pages':
+          headers = Array.isArray(PAGES_HEADERS)
+            ? PAGES_HEADERS.slice()
+            : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt'];
+          break;
+        case (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns':
+        case 'CAMPAIGNS':
+        case 'Campaigns':
+          headers = Array.isArray(CAMPAIGNS_HEADERS)
+            ? CAMPAIGNS_HEADERS.slice()
+            : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt'];
+          break;
+        default:
+          console.warn(`No headers defined for sheet: ${sheetName}`);
+          return null;
+      }
+    }
+
+    if (headers && headers.length) {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.setFrozenRows(1);
       console.log(`Headers set for ${sheetName}:`, headers);
+      return { sheet: sheetName, ensured: true, method: 'manual-headers' };
     }
+
+    return null;
 
   } catch (error) {
     console.error(`Error setting headers for ${sheetName}:`, error);
+    return { sheet: sheetName, ensured: false, error: error && error.message ? error.message : String(error) };
   }
 }
 
