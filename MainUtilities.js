@@ -207,6 +207,138 @@ if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timest
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
 
 // ────────────────────────────────────────────────────────────────────────────
+// Canonical identity/authentication sheet definitions
+// ────────────────────────────────────────────────────────────────────────────
+
+function buildCanonicalIdentitySheetMap_() {
+  const definitions = {};
+
+  const addDefinition = (name, headers) => {
+    if (!name) return;
+    const trimmedName = String(name).trim();
+    if (!trimmedName || definitions[trimmedName]) return;
+
+    if (!Array.isArray(headers)) return;
+    const normalized = headers
+      .map(header => (header === null || typeof header === 'undefined') ? '' : String(header).trim())
+      .filter(Boolean);
+    if (!normalized.length) return;
+
+    definitions[trimmedName] = normalized;
+  };
+
+  addDefinition(USERS_SHEET, USERS_HEADERS);
+  addDefinition(ROLES_SHEET, ROLES_HEADER);
+  addDefinition(USER_ROLES_SHEET, USER_ROLES_HEADER);
+  addDefinition(USER_CLAIMS_SHEET, CLAIMS_HEADERS);
+  addDefinition(SESSIONS_SHEET, SESSIONS_HEADERS);
+  addDefinition(CAMPAIGNS_SHEET, CAMPAIGNS_HEADERS);
+  addDefinition(PAGES_SHEET, PAGES_HEADERS);
+  addDefinition(CAMPAIGN_PAGES_SHEET, CAMPAIGN_PAGES_HEADERS);
+  addDefinition(PAGE_CATEGORIES_SHEET, PAGE_CATEGORIES_HEADERS);
+  addDefinition(CAMPAIGN_USER_PERMISSIONS_SHEET, CAMPAIGN_USER_PERMISSIONS_HEADERS);
+  addDefinition(USER_MANAGERS_SHEET, USER_MANAGERS_HEADERS);
+  addDefinition(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
+
+  return definitions;
+}
+
+if (typeof listCanonicalIdentitySheets !== 'function') {
+  function listCanonicalIdentitySheets() {
+    const map = buildCanonicalIdentitySheetMap_();
+    return Object.keys(map).map(name => ({ name, headers: map[name].slice() }));
+  }
+}
+
+if (typeof getCanonicalSheetHeaders !== 'function') {
+  function getCanonicalSheetHeaders(sheetName) {
+    if (!sheetName && sheetName !== 0) return null;
+    const target = String(sheetName).trim();
+    if (!target) return null;
+    const map = buildCanonicalIdentitySheetMap_();
+    const headers = map[target];
+    return Array.isArray(headers) ? headers.slice() : null;
+  }
+}
+
+function ensureSheetStructureFromDefinition_(definition) {
+  const result = {
+    sheet: definition && definition.name ? definition.name : '',
+    ensured: false,
+    method: null,
+    error: null
+  };
+
+  if (!definition || !definition.name || !Array.isArray(definition.headers) || !definition.headers.length) {
+    result.error = 'INVALID_DEFINITION';
+    return result;
+  }
+
+  try {
+    let sheet = null;
+
+    if (typeof ensureSheetWithHeaders === 'function') {
+      sheet = ensureSheetWithHeaders(definition.name, definition.headers);
+      result.method = 'ensureSheetWithHeaders';
+    } else if (typeof synchronizeSheetHeaders === 'function') {
+      sheet = synchronizeSheetHeaders(definition.name, definition.headers);
+      result.method = 'synchronizeSheetHeaders';
+    }
+
+    if (!sheet) {
+      if (typeof SpreadsheetApp === 'undefined') {
+        throw new Error('SpreadsheetApp not available');
+      }
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss) {
+        throw new Error('Active spreadsheet not available');
+      }
+      sheet = ss.getSheetByName(definition.name);
+      if (!sheet) {
+        sheet = ss.insertSheet(definition.name);
+        result.method = 'manual-create';
+      } else if (!result.method) {
+        result.method = 'manual-sync';
+      }
+
+      sheet.getRange(1, 1, 1, definition.headers.length).setValues([definition.headers]);
+      sheet.setFrozenRows(1);
+    }
+
+    result.ensured = true;
+    if (sheet && typeof sheet.getSheetId === 'function') {
+      result.sheetId = sheet.getSheetId();
+    }
+    return result;
+  } catch (error) {
+    result.error = error && error.message ? error.message : String(error);
+    console.warn(`ensureSheetStructureFromDefinition_: failed for ${result.sheet}`, error);
+    return result;
+  }
+}
+
+if (typeof ensureIdentitySheetStructures !== 'function') {
+  function ensureIdentitySheetStructures(options = {}) {
+    const { sheetNames } = options || {};
+    const allowList = Array.isArray(sheetNames) && sheetNames.length
+      ? new Set(sheetNames.map(name => String(name || '').trim()).filter(Boolean))
+      : null;
+
+    const definitions = listCanonicalIdentitySheets();
+    const results = [];
+
+    definitions.forEach(definition => {
+      if (allowList && !allowList.has(definition.name)) {
+        return;
+      }
+      results.push(ensureSheetStructureFromDefinition_(definition));
+    });
+
+    return results;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // HR / Benefits – Users sheet upgrade + calculators
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -608,8 +740,8 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
   }
 
   const rangeWidth = Math.max(sheet.getLastColumn(), headerCount);
-  const headerRange = sheet.getRange(1, 1, 1, rangeWidth);
-  const currentHeaders = headerRange.getValues()[0].map(normalizeHeaderName_);
+  const initialHeaderRange = sheet.getRange(1, 1, 1, rangeWidth);
+  const currentHeaders = initialHeaderRange.getValues()[0].map(normalizeHeaderName_);
   const maxRows = sheet.getMaxRows();
   let structureMutated = false;
 
@@ -642,28 +774,87 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
     }
   }
 
-  const finalLastCol = sheet.getLastColumn();
-  const finalRange = sheet.getRange(1, 1, 1, finalLastCol);
-  const finalRaw = finalRange.getValues()[0];
-  const finalNormalized = finalRaw.map(normalizeHeaderName_);
+  let finalLastCol = sheet.getLastColumn();
+  let finalRange = sheet.getRange(1, 1, 1, finalLastCol);
+  let finalRaw = finalRange.getValues()[0];
+  let finalNormalized = finalRaw.map(normalizeHeaderName_);
+  const allowedHeaders = new Set(headers);
+  const seenHeaders = new Set();
+  const columnsToDelete = [];
+
+  for (let idx = 0; idx < finalNormalized.length; idx++) {
+    const headerName = finalNormalized[idx];
+    if (headerName) {
+      if (!allowedHeaders.has(headerName)) {
+        columnsToDelete.push(idx + 1);
+        continue;
+      }
+      if (seenHeaders.has(headerName)) {
+        columnsToDelete.push(idx + 1);
+        continue;
+      }
+      seenHeaders.add(headerName);
+    } else if (idx >= headerCount) {
+      columnsToDelete.push(idx + 1);
+    }
+  }
+
+  if (columnsToDelete.length) {
+    for (let i = columnsToDelete.length - 1; i >= 0; i--) {
+      sheet.deleteColumn(columnsToDelete[i]);
+    }
+    structureMutated = true;
+    finalLastCol = sheet.getLastColumn();
+    finalRange = sheet.getRange(1, 1, 1, finalLastCol);
+    finalRaw = finalRange.getValues()[0];
+    finalNormalized = finalRaw.map(normalizeHeaderName_);
+  }
+
   let headerMutated = false;
 
   for (let i = 0; i < headerCount; i++) {
     if (finalNormalized[i] !== headers[i]) {
-      finalRaw[i] = headers[i];
       headerMutated = true;
+      break;
     }
   }
 
+  const finalHeaderRange = sheet.getRange(1, 1, 1, headerCount);
   if (headerMutated) {
-    finalRange.setValues([finalRaw]);
+    finalHeaderRange.setValues([headers.slice()]);
   }
-
-  finalRange.setFontWeight('bold');
+  finalHeaderRange.setFontWeight('bold');
   sheet.setFrozenRows(1);
 
   return structureMutated || headerMutated;
 }
+
+if (typeof synchronizeSheetHeaders !== 'function') {
+  function synchronizeSheetHeaders(sheetName, headers) {
+    if (!sheetName) throw new Error('sheetName is required');
+    if (!headers || !Array.isArray(headers) || headers.length === 0) {
+      throw new Error('headers array is required');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      return ensureSheetWithHeaders(sheetName, headers);
+    }
+
+    const mutated = syncSheetColumnsAndHeaders_(sheet, headers);
+    if (mutated) {
+      console.log(`Synchronized sheet structure for ${sheetName}`);
+    }
+    return sheet;
+  }
+}
+
+(function (global) {
+  if (global && typeof global.synchronizeSheetHeaders !== 'function' && typeof synchronizeSheetHeaders === 'function') {
+    global.synchronizeSheetHeaders = synchronizeSheetHeaders;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
 
 function normalizeUserNameValue_(value) {
   if (value === null || typeof value === 'undefined') return '';
