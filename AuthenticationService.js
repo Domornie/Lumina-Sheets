@@ -778,8 +778,8 @@ var AuthenticationService = (function () {
         }
       }
 
-      if (getRecordValue(record, 'Token')) {
-        setRecordValue(record, 'Token', '');
+      if (sessionToken) {
+        setRecordValue(record, 'Token', sessionToken);
       }
 
       try {
