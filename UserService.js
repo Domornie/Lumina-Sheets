@@ -51,6 +51,47 @@ if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
 // HR/Benefits config
 if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTHS_AFTER_PROBATION = 3;
 
+// Optional extra columns we ensure exist and keep organized on the Users sheet
+const OPTIONAL_USER_COLUMNS = [
+  'NormalizedUserName',
+  'NormalizedEmail',
+  'PhoneNumberConfirmed',
+  'LockoutEnabled',
+  'AccessFailedCount',
+  'TwoFactorDelivery',
+  'TwoFactorSecret',
+  'TwoFactorRecoveryCodes',
+  'SecurityStamp',
+  'ConcurrencyStamp',
+  'EmailConfirmationTokenHash',
+  'EmailConfirmationSentAt',
+  'EmailConfirmationExpiresAt',
+  'ResetPasswordToken',
+  'ResetPasswordTokenHash',
+  'ResetPasswordSentAt',
+  'ResetPasswordExpiresAt',
+  'LastLogin',
+  'LastLoginAt',
+  'LastLoginIp',
+  'LastLoginUserAgent',
+  'DeletedAt',
+  'TerminationDate',
+  'ProbationMonths',
+  'ProbationEnd',
+  'ProbationEndDate',
+  'InsuranceEligibleDate',
+  'InsuranceQualifiedDate',
+  'InsuranceEligible',
+  'InsuranceQualified',
+  'InsuranceEnrolled',
+  'InsuranceSignedUp',
+  'InsuranceCardReceivedDate',
+  'MFASecret',
+  'MFABackupCodes',
+  'MFADeliveryPreference',
+  'MFAEnabled'
+];
+
 const USER_LOG_MAX_DEPTH = 4;
 const USER_LOG_MAX_KEYS = 40;
 
@@ -1509,6 +1550,107 @@ function _ensureUserHeaders_(idx) {
   }
 }
 
+function _pushUniqueHeader_(target, seen, header) {
+  if (!target || !seen) return;
+  if (header === null || typeof header === 'undefined') return;
+  const str = String(header);
+  if (!str) return;
+  if (seen[str]) return;
+  seen[str] = true;
+  target.push(str);
+}
+
+function _buildCanonicalUserHeaders_(existingHeaders) {
+  const seen = Object.create(null);
+  const canonical = [];
+  const required = Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : [];
+  const optional = Array.isArray(OPTIONAL_USER_COLUMNS) ? OPTIONAL_USER_COLUMNS : [];
+  required.forEach(header => _pushUniqueHeader_(canonical, seen, header));
+  optional.forEach(header => _pushUniqueHeader_(canonical, seen, header));
+  if (Array.isArray(existingHeaders)) {
+    existingHeaders.forEach(header => _pushUniqueHeader_(canonical, seen, header));
+  }
+  return canonical;
+}
+
+function ensureOptionalUserColumns_(sh, headers, idx, values) {
+  if (!sh || typeof sh.getRange !== 'function') {
+    return { headers, idx: idx || {}, values, changed: false };
+  }
+
+  const currentHeaders = Array.isArray(headers) ? headers.map(String) : [];
+  const canonicalHeaders = _buildCanonicalUserHeaders_(currentHeaders);
+
+  let requiresRewrite = false;
+  if (currentHeaders.length !== canonicalHeaders.length) {
+    requiresRewrite = true;
+  } else {
+    for (let i = 0; i < canonicalHeaders.length; i++) {
+      if (currentHeaders[i] !== canonicalHeaders[i]) {
+        requiresRewrite = true;
+        break;
+      }
+    }
+  }
+
+  if (!requiresRewrite) {
+    const newIdx = {};
+    canonicalHeaders.forEach((header, index) => { newIdx[header] = index; });
+    return { headers: canonicalHeaders, idx: newIdx, values, changed: false };
+  }
+
+  const sourceValues = Array.isArray(values) && values.length ? values : [currentHeaders];
+  const headerPositions = {};
+  currentHeaders.forEach((header, index) => {
+    if (!headerPositions[header]) headerPositions[header] = [];
+    headerPositions[header].push(index);
+  });
+
+  const normalizedValues = [];
+  for (let r = 0; r < sourceValues.length; r++) {
+    const row = sourceValues[r] || [];
+    const target = new Array(canonicalHeaders.length).fill('');
+    for (let c = 0; c < canonicalHeaders.length; c++) {
+      const header = canonicalHeaders[c];
+      const positions = headerPositions[header];
+      if (!positions || !positions.length) continue;
+      for (let p = 0; p < positions.length; p++) {
+        const value = row[positions[p]];
+        if (typeof value !== 'undefined' && value !== null) {
+          if (target[c] === '' || typeof target[c] === 'undefined' || target[c] === null) {
+            target[c] = value;
+          }
+          if (value !== '') break;
+        }
+      }
+    }
+    normalizedValues.push(target);
+  }
+
+  if (normalizedValues.length) {
+    normalizedValues[0] = canonicalHeaders.slice();
+    sh.getRange(1, 1, normalizedValues.length, canonicalHeaders.length).setValues(normalizedValues);
+
+    const currentLastColumn = sh.getLastColumn();
+    if (currentLastColumn > canonicalHeaders.length) {
+      sh.deleteColumns(canonicalHeaders.length + 1, currentLastColumn - canonicalHeaders.length);
+    }
+    try {
+      if (typeof invalidateCache === 'function') invalidateCache(sh.getName());
+    } catch (_) { /* ignore cache errors */ }
+  }
+
+  const newIdx = {};
+  canonicalHeaders.forEach((header, index) => { newIdx[header] = index; });
+
+  return {
+    headers: canonicalHeaders,
+    idx: newIdx,
+    values: normalizedValues.length ? normalizedValues : sourceValues,
+    changed: true
+  };
+}
+
 function checkEmailExists(email) {
   try {
     if (!email) return { exists: false };
@@ -2062,7 +2204,7 @@ function createSafeUserObject(user) {
   } catch (_) { }
 
   // Ensure canonical sheet columns exist in the export snapshot
-  const ensureColumns = Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : [];
+  const ensureColumns = _buildCanonicalUserHeaders_();
   ensureColumns.forEach(col => {
     if (!Object.prototype.hasOwnProperty.call(sheetFieldMap, col)) {
       assignField(col, typeof safe[col] !== 'undefined' ? safe[col] : '');
@@ -2315,6 +2457,10 @@ function clientRegisterUser(userData) {
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
     _ensureUserHeaders_(idx);
+    const ensured = ensureOptionalUserColumns_(sh, headers, idx, values);
+    headers = ensured.headers;
+    idx = ensured.idx;
+    values = ensured.values || values;
     const users = _readUsersAsObjects_();
     const uniq = _buildUniqIndexes_(users);
 
@@ -2626,6 +2772,10 @@ function clientUpdateUser(userId, userData) {
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
     _ensureUserHeaders_(idx);
+    const ensured = ensureOptionalUserColumns_(sh, headers, idx, values);
+    headers = ensured.headers;
+    idx = ensured.idx;
+    values = ensured.values || values;
     const users = _readUsersAsObjects_();
     const uniq = _buildUniqIndexes_(users);
 
@@ -4597,6 +4747,10 @@ function clientBatchNormalizeBenefits() {
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
     _ensureUserHeaders_(idx);
+    const ensured = ensureOptionalUserColumns_(sh, headers, idx, values);
+    headers = ensured.headers;
+    idx = ensured.idx;
+    values = ensured.values || values;
     let updated = 0;
     for (let r = 1; r < values.length; r++) {
       const row = values[r];
