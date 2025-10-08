@@ -557,6 +557,96 @@ if (typeof getOrCreateManagerUsersSheet_ !== 'function') {
     return sh;
   }
 }
+
+function normalizeHeaderName_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).trim();
+}
+
+function areHeadersAligned_(sheet, headers) {
+  if (!sheet) return false;
+  if (!headers || headers.length === 0) return false;
+  if (sheet.getLastColumn() < headers.length) return false;
+  const range = sheet.getRange(1, 1, 1, headers.length);
+  const existing = range.getValues()[0].map(normalizeHeaderName_);
+  return existing.length === headers.length && existing.every((h, i) => h === headers[i]);
+}
+
+function syncSheetColumnsAndHeaders_(sheet, headers) {
+  if (!sheet) throw new Error('Sheet is required');
+  if (!headers || headers.length === 0) throw new Error('Headers array is required');
+
+  const headerCount = headers.length;
+  const maxCols = sheet.getMaxColumns();
+  if (maxCols < headerCount) {
+    sheet.insertColumnsAfter(maxCols, headerCount - maxCols);
+  }
+
+  let lastCol = sheet.getLastColumn();
+  if (lastCol < headerCount) {
+    const missing = headerCount - lastCol;
+    const anchor = Math.max(lastCol, 1);
+    sheet.insertColumnsAfter(anchor, missing);
+    lastCol = sheet.getLastColumn();
+  }
+
+  const rangeWidth = Math.max(sheet.getLastColumn(), headerCount);
+  const headerRange = sheet.getRange(1, 1, 1, rangeWidth);
+  const currentHeaders = headerRange.getValues()[0].map(normalizeHeaderName_);
+  const maxRows = sheet.getMaxRows();
+  let structureMutated = false;
+
+  for (let i = 0; i < headerCount; i++) {
+    const expected = headers[i];
+    const current = currentHeaders[i] || '';
+    if (current === expected) continue;
+
+    const existingIdx = currentHeaders.indexOf(expected, i + 1);
+    if (existingIdx !== -1) {
+      const colRange = sheet.getRange(1, existingIdx + 1, maxRows, 1);
+      sheet.moveColumns(colRange, i + 1);
+      const [moved] = currentHeaders.splice(existingIdx, 1);
+      currentHeaders.splice(i, 0, moved);
+      structureMutated = true;
+    } else if (current) {
+      const targetCol = i + 1;
+      const currentLast = Math.max(sheet.getLastColumn(), 1);
+      if (targetCol > currentLast) {
+        sheet.insertColumnsAfter(currentLast, 1);
+      } else {
+        sheet.insertColumnsBefore(targetCol, 1);
+      }
+      currentHeaders.splice(i, 0, '');
+      structureMutated = true;
+    }
+
+    if (currentHeaders[i] !== expected) {
+      currentHeaders[i] = expected;
+    }
+  }
+
+  const finalLastCol = sheet.getLastColumn();
+  const finalRange = sheet.getRange(1, 1, 1, finalLastCol);
+  const finalRaw = finalRange.getValues()[0];
+  const finalNormalized = finalRaw.map(normalizeHeaderName_);
+  let headerMutated = false;
+
+  for (let i = 0; i < headerCount; i++) {
+    if (finalNormalized[i] !== headers[i]) {
+      finalRaw[i] = headers[i];
+      headerMutated = true;
+    }
+  }
+
+  if (headerMutated) {
+    finalRange.setValues([finalRaw]);
+  }
+
+  finalRange.setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  return structureMutated || headerMutated;
+}
 if (typeof readManagerAssignments_ !== 'function') {
   function readManagerAssignments_() {
     const name = getManagerUsersSheetName_();
@@ -601,62 +691,50 @@ const __ensureSheetWithHeaders = (function () {
       const cached = scriptCache.get(cacheKey);
       let sh = ss.getSheetByName(name);
 
-      if (sh) {
-        const range = sh.getRange(1, 1, 1, headers.length);
-        const existing = range.getValues()[0] || [];
-        if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) {
-          if (typeof registerTableSchema === 'function') {
-            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-          }
-          return sh;
+      if (sh && areHeadersAligned_(sh, headers)) {
+        if (typeof registerTableSchema === 'function') {
+          try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
         }
+        return sh;
       }
 
       if (cached === 'true' && sh) {
         console.log(`Cache hit: Sheet ${name} exists`);
-      } else {
-        let lastError = null;
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            sh = ss.getSheetByName(name);
-            if (!sh) {
-              sh = ss.insertSheet(name);
-              sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-              sh.setFrozenRows(1);
-              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
-              console.log(`Created sheet ${name} with bold/frozen headers`);
-            } else {
-              const range = sh.getRange(1, 1, 1, headers.length);
-              const existing = range.getValues()[0] || [];
-              if (existing.length !== headers.length || existing.some((h, i) => h !== headers[i])) {
-                range.clearContent();
-                range.setValues([headers]).setFontWeight('bold');
-                sh.setFrozenRows(1);
-                console.log(`Updated headers for ${name}`);
-              }
-              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
-            }
-            if (typeof registerTableSchema === 'function') {
-              try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-            }
-            return sh;
-          } catch (e) {
-            lastError = e;
-            if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
-              const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-              console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
-              sleep(delay);
-              continue;
-            }
-            throw e;
+      }
+
+      let lastError = null;
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          sh = ss.getSheetByName(name);
+          if (!sh) {
+            sh = ss.insertSheet(name);
+            console.log(`Created sheet ${name}`);
           }
+
+          const mutated = syncSheetColumnsAndHeaders_(sh, headers);
+          if (mutated) {
+            console.log(`Synchronized headers for ${name}`);
+          }
+
+          scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+
+          if (typeof registerTableSchema === 'function') {
+            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+          }
+
+          return sh;
+        } catch (e) {
+          lastError = e;
+          if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
+            sleep(delay);
+            continue;
+          }
+          throw e;
         }
-        throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
       }
-      if (typeof registerTableSchema === 'function') {
-        try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-      }
-      return sh;
+      throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
     } catch (e) {
       console.error(`ensureSheetWithHeaders(${name}) failed: ${e.message}, Document ID: ${ss.getId()}`);
       throw e;
