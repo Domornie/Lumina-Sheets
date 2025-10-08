@@ -557,6 +557,333 @@ if (typeof getOrCreateManagerUsersSheet_ !== 'function') {
     return sh;
   }
 }
+
+function normalizeHeaderName_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).trim();
+}
+
+function areHeadersAligned_(sheet, headers) {
+  if (!sheet) return false;
+  if (!headers || headers.length === 0) return false;
+  if (sheet.getLastColumn() < headers.length) return false;
+  const range = sheet.getRange(1, 1, 1, headers.length);
+  const existing = range.getValues()[0].map(normalizeHeaderName_);
+  return existing.length === headers.length && existing.every((h, i) => h === headers[i]);
+}
+
+function syncSheetColumnsAndHeaders_(sheet, headers) {
+  if (!sheet) throw new Error('Sheet is required');
+  if (!headers || headers.length === 0) throw new Error('Headers array is required');
+
+  const headerCount = headers.length;
+  const maxCols = sheet.getMaxColumns();
+  if (maxCols < headerCount) {
+    sheet.insertColumnsAfter(maxCols, headerCount - maxCols);
+  }
+
+  let lastCol = sheet.getLastColumn();
+  if (lastCol < headerCount) {
+    const missing = headerCount - lastCol;
+    const anchor = Math.max(lastCol, 1);
+    sheet.insertColumnsAfter(anchor, missing);
+    lastCol = sheet.getLastColumn();
+  }
+
+  const rangeWidth = Math.max(sheet.getLastColumn(), headerCount);
+  const headerRange = sheet.getRange(1, 1, 1, rangeWidth);
+  const currentHeaders = headerRange.getValues()[0].map(normalizeHeaderName_);
+  const maxRows = sheet.getMaxRows();
+  let structureMutated = false;
+
+  for (let i = 0; i < headerCount; i++) {
+    const expected = headers[i];
+    const current = currentHeaders[i] || '';
+    if (current === expected) continue;
+
+    const existingIdx = currentHeaders.indexOf(expected, i + 1);
+    if (existingIdx !== -1) {
+      const colRange = sheet.getRange(1, existingIdx + 1, maxRows, 1);
+      sheet.moveColumns(colRange, i + 1);
+      const [moved] = currentHeaders.splice(existingIdx, 1);
+      currentHeaders.splice(i, 0, moved);
+      structureMutated = true;
+    } else if (current) {
+      const targetCol = i + 1;
+      const currentLast = Math.max(sheet.getLastColumn(), 1);
+      if (targetCol > currentLast) {
+        sheet.insertColumnsAfter(currentLast, 1);
+      } else {
+        sheet.insertColumnsBefore(targetCol, 1);
+      }
+      currentHeaders.splice(i, 0, '');
+      structureMutated = true;
+    }
+
+    if (currentHeaders[i] !== expected) {
+      currentHeaders[i] = expected;
+    }
+  }
+
+  const finalLastCol = sheet.getLastColumn();
+  const finalRange = sheet.getRange(1, 1, 1, finalLastCol);
+  const finalRaw = finalRange.getValues()[0];
+  const finalNormalized = finalRaw.map(normalizeHeaderName_);
+  let headerMutated = false;
+
+  for (let i = 0; i < headerCount; i++) {
+    if (finalNormalized[i] !== headers[i]) {
+      finalRaw[i] = headers[i];
+      headerMutated = true;
+    }
+  }
+
+  if (headerMutated) {
+    finalRange.setValues([finalRaw]);
+  }
+
+  finalRange.setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  return structureMutated || headerMutated;
+}
+
+function normalizeUserNameValue_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).trim().toUpperCase();
+}
+
+function normalizeEmailValue_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).trim().toLowerCase();
+}
+
+function isBlankCell_(value) {
+  if (value === null || typeof value === 'undefined') return true;
+  if (value instanceof Date) return isNaN(value.getTime());
+  if (typeof value === 'string') return value.trim() === '';
+  return false;
+}
+
+function rowHasMeaningfulData_(row) {
+  if (!Array.isArray(row)) return false;
+  for (let i = 0; i < row.length; i++) {
+    if (!isBlankCell_(row[i])) return true;
+  }
+  return false;
+}
+
+function toSheetBooleanString_(value) {
+  return value ? 'TRUE' : 'FALSE';
+}
+
+function generateUuid_() {
+  try {
+    if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
+      return Utilities.getUuid();
+    }
+  } catch (_) { }
+  const rand = Math.floor(Math.random() * 1e12);
+  return `uuid-${Date.now()}-${rand}`;
+}
+
+function backfillSheetDataIfPossible_(sheet) {
+  try {
+    if (!sheet) return false;
+    const sheetName = normalizeHeaderName_(sheet.getName());
+    const usersSheetName = normalizeHeaderName_(USERS_SHEET);
+    if (sheetName === usersSheetName) {
+      return backfillUsersSheetDerivedColumns_(sheet);
+    }
+  } catch (err) {
+    console.warn('backfillSheetDataIfPossible_ failed', err);
+  }
+  return false;
+}
+
+function backfillUsersSheetDerivedColumns_(sheet) {
+  const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+  if (lastRow < 2 || lastColumn < 1) {
+    return false;
+  }
+
+  const headerValues = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  const normalizedHeaders = headerValues.map(normalizeHeaderName_);
+
+  const indexByHeader = {};
+  for (let i = 0; i < normalizedHeaders.length; i++) {
+    const header = normalizedHeaders[i];
+    if (!header) continue;
+    if (!Object.prototype.hasOwnProperty.call(indexByHeader, header)) {
+      indexByHeader[header] = i;
+    }
+  }
+
+  const idxId = Object.prototype.hasOwnProperty.call(indexByHeader, 'ID') ? indexByHeader.ID : -1;
+  const idxUserName = Object.prototype.hasOwnProperty.call(indexByHeader, 'UserName') ? indexByHeader.UserName : -1;
+  const idxFullName = Object.prototype.hasOwnProperty.call(indexByHeader, 'FullName') ? indexByHeader.FullName : -1;
+  const idxEmail = Object.prototype.hasOwnProperty.call(indexByHeader, 'Email') ? indexByHeader.Email : -1;
+  const idxNormalizedUserName = Object.prototype.hasOwnProperty.call(indexByHeader, 'NormalizedUserName') ? indexByHeader.NormalizedUserName : -1;
+  const idxNormalizedEmail = Object.prototype.hasOwnProperty.call(indexByHeader, 'NormalizedEmail') ? indexByHeader.NormalizedEmail : -1;
+  const idxCampaignId = Object.prototype.hasOwnProperty.call(indexByHeader, 'CampaignID') ? indexByHeader.CampaignID : -1;
+  const idxSecurityStamp = Object.prototype.hasOwnProperty.call(indexByHeader, 'SecurityStamp') ? indexByHeader.SecurityStamp : -1;
+  const idxConcurrencyStamp = Object.prototype.hasOwnProperty.call(indexByHeader, 'ConcurrencyStamp') ? indexByHeader.ConcurrencyStamp : -1;
+  const idxCreatedAt = Object.prototype.hasOwnProperty.call(indexByHeader, 'CreatedAt') ? indexByHeader.CreatedAt : -1;
+  const idxUpdatedAt = Object.prototype.hasOwnProperty.call(indexByHeader, 'UpdatedAt') ? indexByHeader.UpdatedAt : -1;
+  const idxResetRequired = Object.prototype.hasOwnProperty.call(indexByHeader, 'ResetRequired') ? indexByHeader.ResetRequired : -1;
+  const idxEmailConfirmed = Object.prototype.hasOwnProperty.call(indexByHeader, 'EmailConfirmed') ? indexByHeader.EmailConfirmed : -1;
+  const idxPhoneConfirmed = Object.prototype.hasOwnProperty.call(indexByHeader, 'PhoneNumberConfirmed') ? indexByHeader.PhoneNumberConfirmed : -1;
+  const idxLockoutEnabled = Object.prototype.hasOwnProperty.call(indexByHeader, 'LockoutEnabled') ? indexByHeader.LockoutEnabled : -1;
+  const idxAccessFailedCount = Object.prototype.hasOwnProperty.call(indexByHeader, 'AccessFailedCount') ? indexByHeader.AccessFailedCount : -1;
+  const idxTwoFactorEnabled = Object.prototype.hasOwnProperty.call(indexByHeader, 'TwoFactorEnabled') ? indexByHeader.TwoFactorEnabled : -1;
+  const idxCanLogin = Object.prototype.hasOwnProperty.call(indexByHeader, 'CanLogin') ? indexByHeader.CanLogin : -1;
+  const idxIsAdmin = Object.prototype.hasOwnProperty.call(indexByHeader, 'IsAdmin') ? indexByHeader.IsAdmin : -1;
+
+  const hasAnyManagedColumn = [
+    idxNormalizedUserName,
+    idxNormalizedEmail,
+    idxId,
+    idxSecurityStamp,
+    idxConcurrencyStamp,
+    idxResetRequired,
+    idxEmailConfirmed,
+    idxPhoneConfirmed,
+    idxLockoutEnabled,
+    idxAccessFailedCount,
+    idxTwoFactorEnabled,
+    idxCanLogin,
+    idxIsAdmin,
+    idxCreatedAt,
+    idxUpdatedAt
+  ].some(idx => idx >= 0);
+
+  if (!hasAnyManagedColumn) {
+    return false;
+  }
+
+  const dataRange = sheet.getRange(2, 1, lastRow - 1, lastColumn);
+  const values = dataRange.getValues();
+  let mutated = false;
+
+  for (let rowIndex = 0; rowIndex < values.length; rowIndex++) {
+    const row = values[rowIndex];
+    if (!rowHasMeaningfulData_(row)) {
+      continue;
+    }
+
+    const rawUserName = idxUserName >= 0 ? String(row[idxUserName] || '').trim() : '';
+    const rawEmail = idxEmail >= 0 ? String(row[idxEmail] || '').trim() : '';
+    const rawFullName = idxFullName >= 0 ? String(row[idxFullName] || '').trim() : '';
+    const rawCampaignId = idxCampaignId >= 0 ? String(row[idxCampaignId] || '').trim() : '';
+
+    if (idxNormalizedUserName >= 0) {
+      const candidate = normalizeUserNameValue_(rawUserName || rawEmail);
+      const existingRaw = row[idxNormalizedUserName];
+      const existingNormalized = normalizeUserNameValue_(existingRaw);
+      if (candidate) {
+        if (existingNormalized !== candidate || String(existingRaw || '').trim() !== candidate) {
+          row[idxNormalizedUserName] = candidate;
+          mutated = true;
+        }
+      } else if (existingNormalized && !rawUserName && !rawEmail) {
+        row[idxNormalizedUserName] = '';
+        mutated = true;
+      }
+    }
+
+    if (idxNormalizedEmail >= 0) {
+      const candidate = normalizeEmailValue_(rawEmail);
+      const existingRaw = row[idxNormalizedEmail];
+      const existingNormalized = normalizeEmailValue_(existingRaw);
+      if (candidate) {
+        if (existingNormalized !== candidate || String(existingRaw || '').trim() !== candidate) {
+          row[idxNormalizedEmail] = candidate;
+          mutated = true;
+        }
+      } else if (existingNormalized && !rawEmail) {
+        row[idxNormalizedEmail] = '';
+        mutated = true;
+      }
+    }
+
+    const hasIdentityData = Boolean(
+      (idxId >= 0 && !isBlankCell_(row[idxId])) ||
+      rawUserName ||
+      rawEmail ||
+      rawFullName ||
+      rawCampaignId
+    );
+
+    if (idxId >= 0 && isBlankCell_(row[idxId]) && hasIdentityData) {
+      row[idxId] = generateUuid_();
+      mutated = true;
+    }
+
+    if (idxSecurityStamp >= 0 && isBlankCell_(row[idxSecurityStamp]) && hasIdentityData) {
+      row[idxSecurityStamp] = generateUuid_();
+      mutated = true;
+    }
+
+    if (idxConcurrencyStamp >= 0 && isBlankCell_(row[idxConcurrencyStamp]) && hasIdentityData) {
+      row[idxConcurrencyStamp] = generateUuid_();
+      mutated = true;
+    }
+
+    const ensureBooleanDefault = (idx, defaultValue) => {
+      if (idx < 0) return;
+      if (!isBlankCell_(row[idx])) return;
+      row[idx] = toSheetBooleanString_(defaultValue);
+      mutated = true;
+    };
+
+    ensureBooleanDefault(idxResetRequired, false);
+    ensureBooleanDefault(idxEmailConfirmed, false);
+    ensureBooleanDefault(idxPhoneConfirmed, false);
+    ensureBooleanDefault(idxLockoutEnabled, false);
+    ensureBooleanDefault(idxTwoFactorEnabled, false);
+    ensureBooleanDefault(idxCanLogin, true);
+    ensureBooleanDefault(idxIsAdmin, false);
+
+    if (idxAccessFailedCount >= 0 && isBlankCell_(row[idxAccessFailedCount])) {
+      row[idxAccessFailedCount] = 0;
+      mutated = true;
+    }
+
+    let rowTimestamp = null;
+    const ensureTimestamp = idx => {
+      if (idx < 0) return;
+      if (!isBlankCell_(row[idx])) return;
+      if (!rowTimestamp) rowTimestamp = new Date();
+      row[idx] = rowTimestamp;
+      mutated = true;
+    };
+
+    if (idxCreatedAt >= 0 && isBlankCell_(row[idxCreatedAt])) {
+      if (idxUpdatedAt >= 0 && !isBlankCell_(row[idxUpdatedAt])) {
+        row[idxCreatedAt] = row[idxUpdatedAt];
+        mutated = true;
+      } else {
+        ensureTimestamp(idxCreatedAt);
+      }
+    }
+
+    if (idxUpdatedAt >= 0 && isBlankCell_(row[idxUpdatedAt])) {
+      if (idxCreatedAt >= 0 && !isBlankCell_(row[idxCreatedAt])) {
+        row[idxUpdatedAt] = row[idxCreatedAt];
+        mutated = true;
+      } else {
+        ensureTimestamp(idxUpdatedAt);
+      }
+    }
+  }
+
+  if (mutated) {
+    dataRange.setValues(values);
+  }
+
+  return mutated;
+}
 if (typeof readManagerAssignments_ !== 'function') {
   function readManagerAssignments_() {
     const name = getManagerUsersSheetName_();
@@ -601,62 +928,55 @@ const __ensureSheetWithHeaders = (function () {
       const cached = scriptCache.get(cacheKey);
       let sh = ss.getSheetByName(name);
 
-      if (sh) {
-        const range = sh.getRange(1, 1, 1, headers.length);
-        const existing = range.getValues()[0] || [];
-        if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) {
-          if (typeof registerTableSchema === 'function') {
-            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-          }
-          return sh;
+      if (sh && areHeadersAligned_(sh, headers)) {
+        if (typeof registerTableSchema === 'function') {
+          try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
         }
+        return sh;
       }
 
       if (cached === 'true' && sh) {
         console.log(`Cache hit: Sheet ${name} exists`);
-      } else {
-        let lastError = null;
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            sh = ss.getSheetByName(name);
-            if (!sh) {
-              sh = ss.insertSheet(name);
-              sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-              sh.setFrozenRows(1);
-              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
-              console.log(`Created sheet ${name} with bold/frozen headers`);
-            } else {
-              const range = sh.getRange(1, 1, 1, headers.length);
-              const existing = range.getValues()[0] || [];
-              if (existing.length !== headers.length || existing.some((h, i) => h !== headers[i])) {
-                range.clearContent();
-                range.setValues([headers]).setFontWeight('bold');
-                sh.setFrozenRows(1);
-                console.log(`Updated headers for ${name}`);
-              }
-              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
-            }
-            if (typeof registerTableSchema === 'function') {
-              try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-            }
-            return sh;
-          } catch (e) {
-            lastError = e;
-            if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
-              const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-              console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
-              sleep(delay);
-              continue;
-            }
-            throw e;
+      }
+
+      let lastError = null;
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          sh = ss.getSheetByName(name);
+          if (!sh) {
+            sh = ss.insertSheet(name);
+            console.log(`Created sheet ${name}`);
           }
+
+          const mutated = syncSheetColumnsAndHeaders_(sh, headers);
+          if (mutated) {
+            console.log(`Synchronized headers for ${name}`);
+          }
+
+          const backfilled = backfillSheetDataIfPossible_(sh);
+          if (backfilled) {
+            console.log(`Backfilled derived data for ${name}`);
+          }
+
+          scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+
+          if (typeof registerTableSchema === 'function') {
+            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+          }
+
+          return sh;
+        } catch (e) {
+          lastError = e;
+          if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
+            sleep(delay);
+            continue;
+          }
+          throw e;
         }
-        throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
       }
-      if (typeof registerTableSchema === 'function') {
-        try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-      }
-      return sh;
+      throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
     } catch (e) {
       console.error(`ensureSheetWithHeaders(${name}) failed: ${e.message}, Document ID: ${ss.getId()}`);
       throw e;
