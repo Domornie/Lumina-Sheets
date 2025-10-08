@@ -2473,16 +2473,8 @@
       return url;
     }
 
-    function appendSessionTokenToUrl(url, providedToken) {
+    function appendSessionTokenToUrl(url) {
       if (!url) {
-        return url;
-      }
-
-      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
-      const tokenCandidate = normalizedProvided || state.authToken || readAuthCookie();
-      const token = tokenCandidate ? String(tokenCandidate).trim() : '';
-
-      if (!token) {
         return url;
       }
 
@@ -2499,8 +2491,8 @@
         const base = window.location && window.location.href ? window.location.href : undefined;
         const parsed = new URL(raw, base);
 
-        if (parsed.searchParams.get('token') !== token) {
-          parsed.searchParams.set('token', token);
+        if (parsed.searchParams.has('token')) {
+          parsed.searchParams.delete('token');
         }
 
         if (raw.startsWith('?')) {
@@ -2513,7 +2505,7 @@
 
         return parsed.toString();
       } catch (error) {
-        console.warn('appendSessionTokenToUrl: Unable to append token to redirect URL', error);
+        console.warn('appendSessionTokenToUrl: Unable to sanitize redirect URL', error);
         return url;
       }
     }

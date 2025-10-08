@@ -623,6 +623,91 @@
         'lumina.auth.fallbackToken'
       ];
 
+    const TOKEN_ORIGIN_ALLOWLIST = (function deriveAllowedTokenOrigins() {
+      const origins = [];
+      const seen = new Set();
+
+      function record(candidate) {
+        if (!candidate) {
+          return;
+        }
+
+        try {
+          const parsed = new URL(candidate, (typeof window !== 'undefined' && window.location && window.location.href)
+            ? window.location.href
+            : undefined);
+          if (parsed.origin && !seen.has(parsed.origin)) {
+            seen.add(parsed.origin);
+            origins.push(parsed.origin);
+          }
+          return;
+        } catch (primaryError) {
+          // Fall back to extracting the origin manually for malformed but salvageable inputs.
+          try {
+            const match = /^https?:\/\/[^/]+/i.exec(String(candidate));
+            if (match && match[0] && !seen.has(match[0])) {
+              seen.add(match[0]);
+              origins.push(match[0]);
+            }
+          } catch (_) {
+            // Ignore secondary failures; the candidate is not usable.
+          }
+        }
+      }
+
+      try {
+        if (typeof window !== 'undefined' && window.location) {
+          if (window.location.origin) {
+            record(window.location.origin);
+          }
+          if (window.location.href) {
+            record(window.location.href);
+          }
+        }
+      } catch (originError) {
+        console.warn('deriveAllowedTokenOrigins: unable to read window origin', originError);
+      }
+
+      [BASE_URL, SCRIPT_URL, LOGIN_URL, NAVIGATION_BASE_URL].forEach(record);
+
+      if (typeof window !== 'undefined'
+        && Array.isArray(window.__LUMINA_ALLOWED_TOKEN_ORIGINS)
+        && window.__LUMINA_ALLOWED_TOKEN_ORIGINS.length) {
+        window.__LUMINA_ALLOWED_TOKEN_ORIGINS.forEach(record);
+      }
+
+      // Include common Google Apps Script hostnames to support cross-host navigation.
+      ['https://script.google.com', 'https://script.googleusercontent.com'].forEach(record);
+
+      return origins;
+    })();
+
+    try {
+      if (typeof window !== 'undefined') {
+        window.__LUMINA_ALLOWED_TOKEN_ORIGINS = TOKEN_ORIGIN_ALLOWLIST.slice();
+      }
+    } catch (exposeError) {
+      console.warn('Unable to expose allowed token origins', exposeError);
+    }
+
+    function isAllowedTokenOrigin(origin) {
+      if (!origin) {
+        return true;
+      }
+
+      if (!Array.isArray(TOKEN_ORIGIN_ALLOWLIST) || !TOKEN_ORIGIN_ALLOWLIST.length) {
+        return true;
+      }
+
+      return TOKEN_ORIGIN_ALLOWLIST.some(candidate => {
+        try {
+          return candidate && candidate.toLowerCase() === origin.toLowerCase();
+        } catch (_) {
+          return candidate === origin;
+        }
+      });
+    }
+
     function persistTokenToClient(token, options) {
       if (!token) {
         return '';
@@ -957,9 +1042,8 @@
     }
 
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('lumina:session-token', function(event) {
-        const detailToken = event && event.detail ? event.detail.token : '';
-        applySessionTokenToLinks(detailToken);
+      window.addEventListener('lumina:session-token', function() {
+        applySessionTokenToLinks();
       });
     }
 
@@ -1064,7 +1148,7 @@
       }
     }
 
-    function appendSessionTokenToUrl(url, providedToken, options = {}) {
+    function appendSessionTokenToUrl(url, options = {}) {
       if (!url) {
         return url;
       }
@@ -1074,24 +1158,18 @@
         return url;
       }
 
-      const token = resolveClientSessionToken(providedToken);
-      if (!token) {
-        return url;
-      }
-
       try {
         const base = (typeof window !== 'undefined' && window.location) ? window.location.href : undefined;
         const parsed = new URL(raw, base);
 
         if (options.sameOriginOnly !== false) {
-          const currentOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
-          if (currentOrigin && parsed.origin && parsed.origin !== currentOrigin) {
+          if (parsed.origin && !isAllowedTokenOrigin(parsed.origin)) {
             return url;
           }
         }
 
-        if (parsed.searchParams.get(SESSION_TOKEN_QUERY_PARAM) !== token) {
-          parsed.searchParams.set(SESSION_TOKEN_QUERY_PARAM, token);
+        if (parsed.searchParams.has(SESSION_TOKEN_QUERY_PARAM)) {
+          parsed.searchParams.delete(SESSION_TOKEN_QUERY_PARAM);
         }
 
         if (raw.startsWith('?')) {
@@ -1104,18 +1182,13 @@
 
         return parsed.toString();
       } catch (error) {
-        console.warn('appendSessionTokenToUrl: unable to append token', { url, error });
+        console.warn('appendSessionTokenToUrl: unable to sanitize token parameter', { url, error });
         return url;
       }
     }
 
-    function applySessionTokenToLinks(explicitToken) {
+    function applySessionTokenToLinks() {
       if (typeof document === 'undefined') {
-        return;
-      }
-
-      const token = resolveClientSessionToken(explicitToken);
-      if (!token) {
         return;
       }
 
@@ -1126,7 +1199,7 @@
           return;
         }
 
-        const updated = appendSessionTokenToUrl(href, token, { sameOriginOnly: true });
+        const updated = appendSessionTokenToUrl(href, { sameOriginOnly: true });
         if (updated && updated !== href) {
           anchor.setAttribute('href', updated);
         }
