@@ -1366,9 +1366,14 @@ function csRefreshNavigation(campaignId) {
  * Check if a value represents "active" status
  */
 function isActive(value) {
-  if (value === true || value === 'TRUE' || value === 'true') return true;
-  if (String(value).toLowerCase() === 'true') return true;
-  return false;
+  if (value === true) return true;
+  if (value === false || value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'number') return value !== 0;
+
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return false;
+
+  return normalized === 'TRUE' || normalized === 'YES' || normalized === 'Y' || normalized === '1' || normalized === 'ON';
 }
 
 /**

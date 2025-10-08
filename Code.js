@@ -794,8 +794,39 @@ const GENERIC_FALLBACKS = {
 // UTILITY FUNCTIONS
 // ───────────────────────────────────────────────────────────────────────────────
 
+const ADMIN_ROLE_KEYWORDS = ['system admin', 'administrator', 'super admin', 'account manager', 'global admin'];
+
 function _truthy(v) {
-  return v === true || String(v).toUpperCase() === 'TRUE';
+  if (v === true) return true;
+  if (v === false || v === null || typeof v === 'undefined') return false;
+  if (typeof v === 'number') return v !== 0;
+
+  const normalized = String(v).trim().toUpperCase();
+  if (!normalized) return false;
+
+  switch (normalized) {
+    case 'TRUE':
+    case 'YES':
+    case 'Y':
+    case '1':
+    case 'ON':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function _roleImpliesAdmin(role) {
+  if (role === null || typeof role === 'undefined') {
+    return false;
+  }
+
+  const normalized = String(role).trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return ADMIN_ROLE_KEYWORDS.some(keyword => normalized.indexOf(keyword) !== -1);
 }
 
 function _normalizePageKey(k) {
@@ -1056,10 +1087,25 @@ function _toClientUser_(row, fallbackEmail) {
   const roleIds = String(row && row.Roles || '')
     .split(',').map(s => s.trim()).filter(Boolean);
   const roleNames = roleIds.map(id => rolesMap[id]).filter(Boolean);
+  const additionalRoles = [];
+  if (row && row.RoleName) additionalRoles.push(row.RoleName);
+  if (row && row.roleName) additionalRoles.push(row.roleName);
+  if (row && row.PrimaryRole) additionalRoles.push(row.PrimaryRole);
+  if (row && row.primaryRole) additionalRoles.push(row.primaryRole);
+  if (row && row.Title) additionalRoles.push(row.Title);
+  if (row && row.title) additionalRoles.push(row.title);
+  if (row && row.JobTitle) additionalRoles.push(row.JobTitle);
+  if (row && row.jobTitle) additionalRoles.push(row.jobTitle);
+
+  const allRoleNames = roleNames.concat(additionalRoles)
+    .filter(Boolean)
+    .map(name => String(name).trim())
+    .filter(Boolean);
 
   const isAdminFlag =
-    (String(row && row.IsAdmin).toLowerCase() === 'true') ||
-    roleNames.some(n => /system\s*admin|administrator|super\s*admin/i.test(String(n || '')));
+    _truthy(row && row.IsAdmin) ||
+    _truthy(row && row.isAdmin) ||
+    allRoleNames.some(_roleImpliesAdmin);
 
   const client = {
     ID: String(row && row.ID || ''),
@@ -1102,7 +1148,9 @@ function __injectCurrentUser_(tpl, explicitUser) {
 
 function _normalizeUser(user) {
   const out = Object.assign({}, user || {});
-  out.IsAdmin = _truthy(out.IsAdmin) || String((out.roleNames || [])).toLowerCase().includes('system admin');
+  const collectedRoleNames = __collectUserRoleNames(out);
+  const adminByRole = collectedRoleNames.some(_roleImpliesAdmin);
+  out.IsAdmin = _truthy(out.IsAdmin) || adminByRole;
   out.CanLogin = _truthy(out.CanLogin !== undefined ? out.CanLogin : true);
   out.EmailConfirmed = _truthy(out.EmailConfirmed !== undefined ? out.EmailConfirmed : true);
   out.ResetRequired = _truthy(out.ResetRequired);
@@ -3705,7 +3753,7 @@ function handleNotificationsData(tpl, e, user) {
 
 function _normStr_(s) { return String(s || '').trim(); }
 function _normEmail_(s) { return _normStr_(s).toLowerCase(); }
-function _toBool_(v) { return v === true || String(v || '').trim().toUpperCase() === 'TRUE'; }
+function _toBool_(v) { return _truthy(v); }
 
 function _tryGetRoleNames_(userId) {
   try {

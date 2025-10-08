@@ -885,6 +885,26 @@ function toSheetBooleanString_(value) {
   return value ? 'TRUE' : 'FALSE';
 }
 
+function isTruthyFlag(value) {
+  if (value === true) return true;
+  if (value === false || value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'number') return value !== 0;
+
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return false;
+
+  switch (normalized) {
+    case 'TRUE':
+    case 'YES':
+    case 'Y':
+    case '1':
+    case 'ON':
+      return true;
+    default:
+      return false;
+  }
+}
+
 function generateUuid_() {
   try {
     if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
@@ -2080,7 +2100,7 @@ function getCampaignPages(campaignId) {
     if (cached) return JSON.parse(cached);
 
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET)
-      .filter(cp => cp && cp.CampaignID === campaignId && (cp.IsActive === true || cp.IsActive === 'TRUE'));
+      .filter(cp => cp && cp.CampaignID === campaignId && isTruthyFlag(cp.IsActive));
 
     const allPages = getAllPages();
     const pageMap = {}; allPages.forEach(p => pageMap[p.PageKey] = p);
@@ -2107,7 +2127,7 @@ function getCampaignPageCategories(campaignId) {
     if (cached) return JSON.parse(cached);
 
     const categories = readSheet(PAGE_CATEGORIES_SHEET)
-      .filter(pc => pc && pc.CampaignID === campaignId && (pc.IsActive === true || pc.IsActive === 'TRUE'))
+      .filter(pc => pc && pc.CampaignID === campaignId && isTruthyFlag(pc.IsActive))
       .map(pc => ({
         ID: pc.ID, CampaignID: pc.CampaignID, CategoryName: pc.CategoryName,
         CategoryIcon: pc.CategoryIcon || 'fas fa-folder', SortOrder: pc.SortOrder || 999,
@@ -2181,7 +2201,7 @@ function createCampaignPagesFromSystem(campaignId) {
     let created = 0;
 
     systemPages.forEach((page, idx) => {
-      if (page.RequiresAdmin === true || page.RequiresAdmin === 'TRUE') return;
+      if (isTruthyFlag(page.RequiresAdmin)) return;
       cpSheet.appendRow([generateUniqueId(), campaignId, page.PageKey, page.PageTitle, page.PageIcon, '', idx + 1, true, now, now]);
       created++;
     });
@@ -2205,7 +2225,7 @@ if (typeof getUserManagedCampaigns !== 'function') {
       if (!userId) return [];
       const users = readSheet(USERS_SHEET);
       const u = users.find(x => x.ID === userId);
-      if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return readSheet(CAMPAIGNS_SHEET);
+      if (u && isTruthyFlag(u.IsAdmin)) return readSheet(CAMPAIGNS_SHEET);
 
       const perms = readSheet(CAMPAIGN_USER_PERMISSIONS_SHEET);
       const managedIds = perms.filter(p => p.UserID === userId && (p.PermissionLevel === 'MANAGER' || p.PermissionLevel === 'ADMIN')).map(p => p.CampaignID);
@@ -2230,7 +2250,7 @@ function userCanManageCampaign(userId, campaignId) {
     if (!userId || !campaignId) return false;
     const users = readSheet(USERS_SHEET);
     const u = users.find(x => x.ID === userId);
-    if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return true;
+    if (u && isTruthyFlag(u.IsAdmin)) return true;
 
     const perms = readSheet(CAMPAIGN_USER_PERMISSIONS_SHEET);
     const p = perms.find(x => x.UserID === userId && x.CampaignID === campaignId && (x.PermissionLevel === 'MANAGER' || x.PermissionLevel === 'ADMIN'));
@@ -2281,7 +2301,7 @@ function clientGetAvailableCampaigns(requestingUserId = null) {
 
     const users = readSheet(USERS_SHEET);
     const u = users.find(x => x.ID === requestingUserId);
-    if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return all.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
+    if (u && isTruthyFlag(u.IsAdmin)) return all.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
 
     const managed = getUserManagedCampaigns(requestingUserId);
     return managed.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
@@ -2307,7 +2327,7 @@ function clientCanAccessUser(requestingUserId, targetUserId) {
 
     const users = readSheet(USERS_SHEET);
     const r = users.find(u => u.ID === requestingUserId);
-    if (r && (r.IsAdmin === 'TRUE' || r.IsAdmin === true)) return true;
+    if (r && isTruthyFlag(r.IsAdmin)) return true;
 
     const managedCampaignIds = getUserManagedCampaigns(requestingUserId).map(c => c.ID);
     const targetCampaigns = getUserCampaignsSafe(targetUserId).map(uc => uc.campaignId);
@@ -2341,7 +2361,7 @@ function clientGetNavigationForUser(userId) {
     const cached = scriptCache.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
-    const isSysAdmin = String(user.IsAdmin).toUpperCase() === 'TRUE';
+    const isSysAdmin = isTruthyFlag(user.IsAdmin);
     const multiId = getOrCreateMultiCampaignId();
 
     let accessibleCampaigns = [];

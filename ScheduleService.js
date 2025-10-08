@@ -17,6 +17,26 @@ const SCHEDULE_CONFIG = {
   CACHE_DURATION: 300 // 5 minutes
 };
 
+function scheduleFlagToBool(value) {
+  if (value === true) return true;
+  if (value === false || value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'number') return value !== 0;
+
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return false;
+
+  switch (normalized) {
+    case 'TRUE':
+    case 'YES':
+    case 'Y':
+    case '1':
+    case 'ON':
+      return true;
+    default:
+      return false;
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -51,7 +71,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       const requestingUser = allUsers.find(u => normalizeUserIdValue(u.ID) === normalizedManagerId);
 
       if (requestingUser) {
-        const isAdmin = requestingUser.IsAdmin === true || String(requestingUser.IsAdmin).toUpperCase() === 'TRUE';
+        const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
 
         if (!isAdmin) {
           const managedUserIds = buildManagedUserSet(normalizedManagerId);
@@ -76,7 +96,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           campaignName: campaignName,
           EmploymentStatus: user.EmploymentStatus || 'Active',
           HireDate: user.HireDate || '',
-          canLogin: user.CanLogin === 'TRUE' || user.CanLogin === true,
+          canLogin: scheduleFlagToBool(user.CanLogin),
           isActive: isUserConsideredActive(user)
         };
       });
