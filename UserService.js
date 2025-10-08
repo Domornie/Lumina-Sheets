@@ -51,21 +51,6 @@ if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
 // HR/Benefits config
 if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTHS_AFTER_PROBATION = 3;
 
-// Optional extra columns we’ll ensure on Users sheet if missing
-const OPTIONAL_USER_COLUMNS = [
-  'TerminationDate',
-  'ProbationMonths',
-  'ProbationEnd',
-  'InsuranceEligibleDate',
-  'InsuranceQualified',
-  'InsuranceEnrolled',
-  'InsuranceCardReceivedDate',
-  'MFASecret',
-  'MFABackupCodes',
-  'MFADeliveryPreference',
-  'MFAEnabled'
-];
-
 const USER_LOG_MAX_DEPTH = 4;
 const USER_LOG_MAX_KEYS = 40;
 
@@ -1507,22 +1492,6 @@ function reconcileUserIdReferencesAcrossSheets(options) {
   _userLog_('UserService.reconcileUserIdReferences.summary', summary);
   return summary;
 }
-function ensureOptionalUserColumns_(sh, headers, idx) {
-  let changed = false;
-  const hdrs = headers.slice();
-  OPTIONAL_USER_COLUMNS.forEach(h => {
-    if (hdrs.indexOf(h) === -1) { hdrs.push(h); changed = true; }
-  });
-  if (changed) {
-    sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
-    const lastCol = sh.getLastColumn();
-    const newHeaders = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
-    const newIdx = {}; newHeaders.forEach((h, i) => newIdx[h] = i);
-    return { headers: newHeaders, idx: newIdx, changed: true };
-  }
-  return { headers, idx, changed: false };
-}
-
 // Base required columns we always expect on Users sheet
 const REQUIRED_USER_COLUMNS = [
   'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
@@ -2093,8 +2062,7 @@ function createSafeUserObject(user) {
   } catch (_) { }
 
   // Ensure canonical sheet columns exist in the export snapshot
-  const ensureColumns = (Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : [])
-    .concat(Array.isArray(OPTIONAL_USER_COLUMNS) ? OPTIONAL_USER_COLUMNS : []);
+  const ensureColumns = Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : [];
   ensureColumns.forEach(col => {
     if (!Object.prototype.hasOwnProperty.call(sheetFieldMap, col)) {
       assignField(col, typeof safe[col] !== 'undefined' ? safe[col] : '');
@@ -2347,9 +2315,6 @@ function clientRegisterUser(userData) {
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
     _ensureUserHeaders_(idx);
-    const ensured = ensureOptionalUserColumns_(sh, headers, idx);
-    headers = ensured.headers; idx = ensured.idx;
-
     const users = _readUsersAsObjects_();
     const uniq = _buildUniqIndexes_(users);
 
@@ -2661,10 +2626,6 @@ function clientUpdateUser(userId, userData) {
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
     _ensureUserHeaders_(idx);
-    const ensured = ensureOptionalUserColumns_(sh, headers, idx);
-    headers = ensured.headers; 
-    idx = ensured.idx;
-
     const users = _readUsersAsObjects_();
     const uniq = _buildUniqIndexes_(users);
 
@@ -4636,9 +4597,6 @@ function clientBatchNormalizeBenefits() {
     const sh = _getSheet_(G.USERS_SHEET);
     let { headers, values, idx } = _scanSheet_(sh);
     _ensureUserHeaders_(idx);
-    const ensured = ensureOptionalUserColumns_(sh, headers, idx);
-    headers = ensured.headers; idx = ensured.idx;
-
     let updated = 0;
     for (let r = 1; r < values.length; r++) {
       const row = values[r];
