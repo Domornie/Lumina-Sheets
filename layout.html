@@ -623,6 +623,154 @@
         'lumina.auth.fallbackToken'
       ];
 
+    function persistTokenToClient(token, options) {
+      if (!token) {
+        return '';
+      }
+
+      const persistenceOptions = options || {};
+
+      try {
+        if (typeof window !== 'undefined'
+          && window.CookieHandler
+          && typeof window.CookieHandler.persistAuthToken === 'function') {
+          window.CookieHandler.persistAuthToken(token, persistenceOptions);
+        }
+      } catch (err) {
+        console.warn('persistTokenToClient: unable to persist auth cookie', err);
+      }
+
+      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
+
+      storageKeys.forEach(function (key) {
+        if (!key) {
+          return;
+        }
+
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, token);
+          }
+        } catch (localErr) {
+          console.warn('persistTokenToClient: unable to persist token to localStorage', { key: key, error: localErr });
+        }
+
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem(key, token);
+          }
+        } catch (sessionErr) {
+          console.warn('persistTokenToClient: unable to persist token to sessionStorage', { key: key, error: sessionErr });
+        }
+      });
+
+      try {
+        broadcastSessionTokenChange(token);
+      } catch (broadcastError) {
+        console.warn('persistTokenToClient: unable to broadcast token change', broadcastError);
+      }
+
+      return token;
+    }
+
+    function clearTokenFromClient(options) {
+      const clearingOptions = options || {};
+
+      try {
+        if (typeof window !== 'undefined'
+          && window.CookieHandler
+          && typeof window.CookieHandler.clearAuthToken === 'function') {
+          window.CookieHandler.clearAuthToken(clearingOptions);
+        }
+      } catch (err) {
+        console.warn('clearTokenFromClient: unable to clear auth cookie', err);
+      }
+
+      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
+
+      storageKeys.forEach(function (key) {
+        if (!key) {
+          return;
+        }
+
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(key);
+          }
+        } catch (localErr) {
+          console.warn('clearTokenFromClient: unable to clear localStorage token', { key: key, error: localErr });
+        }
+
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem(key);
+          }
+        } catch (sessionErr) {
+          console.warn('clearTokenFromClient: unable to clear sessionStorage token', { key: key, error: sessionErr });
+        }
+      });
+
+      try {
+        broadcastSessionTokenChange('');
+      } catch (broadcastError) {
+        console.warn('clearTokenFromClient: unable to broadcast token removal', broadcastError);
+      }
+    }
+
+    function extractTokenFromLocation(paramName) {
+      if (typeof window === 'undefined' || !window.location) {
+        return '';
+      }
+
+      const queryParam = typeof paramName === 'string' && paramName.trim()
+        ? paramName.trim()
+        : SESSION_TOKEN_QUERY_PARAM;
+
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        const value = params.get(queryParam);
+        return value ? String(value).trim() : '';
+      } catch (err) {
+        console.warn('extractTokenFromLocation: unable to parse token from URL', err);
+        return '';
+      }
+    }
+
+    function removeTokenFromLocation(paramName) {
+      if (typeof window === 'undefined'
+        || !window.history
+        || typeof window.history.replaceState !== 'function'
+        || !window.location) {
+        return false;
+      }
+
+      const queryParam = typeof paramName === 'string' && paramName.trim()
+        ? paramName.trim()
+        : SESSION_TOKEN_QUERY_PARAM;
+
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (!currentUrl.searchParams.has(queryParam)) {
+          return false;
+        }
+
+        currentUrl.searchParams.delete(queryParam);
+        const sanitized = currentUrl.pathname + (currentUrl.search || '') + (currentUrl.hash || '');
+        const title = (typeof document !== 'undefined' && document.title) ? document.title : '';
+        window.history.replaceState({}, title, sanitized || currentUrl.pathname);
+        return true;
+      } catch (err) {
+        console.warn('removeTokenFromLocation: unable to sanitize token parameter', err);
+        return false;
+      }
+    }
+
+    const __INITIAL_URL_TOKEN__ = extractTokenFromLocation();
+    if (__INITIAL_URL_TOKEN__) {
+      persistTokenToClient(__INITIAL_URL_TOKEN__, { reason: 'url-import' });
+      removeTokenFromLocation();
+    }
+
     if (typeof window !== 'undefined') {
       if (Array.isArray(window.SESSION_TOKEN_STORAGE_KEYS) && window.SESSION_TOKEN_STORAGE_KEYS.length) {
         SESSION_TOKEN_STORAGE_KEYS = window.SESSION_TOKEN_STORAGE_KEYS.slice();
@@ -3764,30 +3912,10 @@
             }
 
             try {
-                if (window.CookieHandler && typeof window.CookieHandler.clearAuthToken === 'function') {
-                    window.CookieHandler.clearAuthToken();
-                }
-            } catch (cookieError) {
-                console.warn('AuthGuard: unable to clear auth cookie', cookieError);
+                clearTokenFromClient({ reason: reason || 'auth-guard' });
+            } catch (tokenClearError) {
+                console.warn('AuthGuard: unable to clear client token state', tokenClearError);
             }
-
-            try {
-                if (window.localStorage) {
-                    AUTH_FALLBACK_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
-                }
-            } catch (localStorageError) {
-                console.warn('AuthGuard: unable to clear localStorage tokens', localStorageError);
-            }
-
-            try {
-                if (window.sessionStorage) {
-                    AUTH_FALLBACK_STORAGE_KEYS.forEach(key => window.sessionStorage.removeItem(key));
-                }
-            } catch (sessionStorageError) {
-                console.warn('AuthGuard: unable to clear sessionStorage tokens', sessionStorageError);
-            }
-
-            broadcastSessionTokenChange('');
 
             try {
                 const existingReason = getLogoutReason();
@@ -4248,6 +4376,66 @@
                     }
                 }
 
+                if (!token) {
+                    const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
+                    for (let i = 0; i < storageKeys.length; i += 1) {
+                        const key = storageKeys[i];
+                        if (!key || key === FALLBACK_STORAGE_KEY) {
+                            continue;
+                        }
+
+                        try {
+                            if (global.localStorage) {
+                                const candidate = global.localStorage.getItem(key);
+                                if (candidate) {
+                                    token = candidate;
+                                    break;
+                                }
+                            }
+                        } catch (storageKeyError) {
+                            if (global.console && typeof global.console.warn === 'function') {
+                                console.warn('LuminaSessionHeartbeat: unable to read token from localStorage key', { key: key, error: storageKeyError });
+                            }
+                        }
+                    }
+                }
+
+                if (!token) {
+                    try {
+                        if (global.sessionStorage) {
+                            token = global.sessionStorage.getItem(FALLBACK_STORAGE_KEY) || '';
+                        }
+                    } catch (sessionError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to read fallback token from sessionStorage', sessionError);
+                        }
+                    }
+                }
+
+                if (!token) {
+                    const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
+                    for (let i = 0; i < storageKeys.length; i += 1) {
+                        const key = storageKeys[i];
+                        if (!key || key === FALLBACK_STORAGE_KEY) {
+                            continue;
+                        }
+
+                        try {
+                            if (global.sessionStorage) {
+                                const candidate = global.sessionStorage.getItem(key);
+                                if (candidate) {
+                                    token = candidate;
+                                    break;
+                                }
+                            }
+                        } catch (sessionKeyError) {
+                            if (global.console && typeof global.console.warn === 'function') {
+                                console.warn('LuminaSessionHeartbeat: unable to read token from sessionStorage key', { key: key, error: sessionKeyError });
+                            }
+                        }
+                    }
+                }
+
                 return token || '';
             }
 
@@ -4257,66 +4445,110 @@
                     return '';
                 }
 
-                try {
-                    if (global.CookieHandler && typeof global.CookieHandler.persistAuthToken === 'function') {
-                        global.CookieHandler.persistAuthToken(token, options || {});
+                const persistenceOptions = options || {};
+                if (typeof persistTokenToClient === 'function') {
+                    try {
+                        persistTokenToClient(token, persistenceOptions);
+                    } catch (helperError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to persist token via client helper', helperError);
+                        }
                     }
-                } catch (err) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to persist auth cookie', err);
+                } else {
+                    try {
+                        if (global.CookieHandler && typeof global.CookieHandler.persistAuthToken === 'function') {
+                            global.CookieHandler.persistAuthToken(token, persistenceOptions);
+                        }
+                    } catch (err) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to persist auth cookie', err);
+                        }
                     }
-                }
 
-                try {
-                    if (global.localStorage) {
-                        global.localStorage.setItem(FALLBACK_STORAGE_KEY, token);
+                    try {
+                        if (global.localStorage) {
+                            global.localStorage.setItem(FALLBACK_STORAGE_KEY, token);
+                        }
+                    } catch (storageError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to persist fallback token', storageError);
+                        }
                     }
-                } catch (storageError) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to persist fallback token', storageError);
+
+                    try {
+                        if (global.sessionStorage) {
+                            global.sessionStorage.setItem(FALLBACK_STORAGE_KEY, token);
+                        }
+                    } catch (sessionStorageError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to persist sessionStorage fallback token', sessionStorageError);
+                        }
+                    }
+
+                    try {
+                        broadcastSessionTokenChange(token);
+                    } catch (broadcastError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to broadcast persisted token', broadcastError);
+                        }
                     }
                 }
 
                 state.token = token;
-                try {
-                    broadcastSessionTokenChange(token);
-                } catch (broadcastError) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to broadcast persisted token', broadcastError);
-                    }
-                }
                 return token;
             }
 
             function clearToken(options) {
-                try {
-                    if (global.CookieHandler && typeof global.CookieHandler.clearAuthToken === 'function') {
-                        global.CookieHandler.clearAuthToken(options || {});
+                const clearingOptions = options || {};
+                if (typeof clearTokenFromClient === 'function') {
+                    try {
+                        clearTokenFromClient(clearingOptions);
+                    } catch (helperError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to clear client token via helper', helperError);
+                        }
                     }
-                } catch (err) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to clear auth cookie', err);
+                } else {
+                    try {
+                        if (global.CookieHandler && typeof global.CookieHandler.clearAuthToken === 'function') {
+                            global.CookieHandler.clearAuthToken(clearingOptions);
+                        }
+                    } catch (err) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to clear auth cookie', err);
+                        }
                     }
-                }
 
-                try {
-                    if (global.localStorage) {
-                        global.localStorage.removeItem(FALLBACK_STORAGE_KEY);
+                    try {
+                        if (global.localStorage) {
+                            global.localStorage.removeItem(FALLBACK_STORAGE_KEY);
+                        }
+                    } catch (storageError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to clear fallback token', storageError);
+                        }
                     }
-                } catch (storageError) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to clear fallback token', storageError);
+
+                    try {
+                        if (global.sessionStorage) {
+                            global.sessionStorage.removeItem(FALLBACK_STORAGE_KEY);
+                        }
+                    } catch (sessionStorageError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to clear sessionStorage fallback token', sessionStorageError);
+                        }
+                    }
+
+                    try {
+                        broadcastSessionTokenChange('');
+                    } catch (broadcastError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to broadcast cleared token', broadcastError);
+                        }
                     }
                 }
 
                 state.token = '';
-                try {
-                    broadcastSessionTokenChange('');
-                } catch (broadcastError) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to broadcast cleared token', broadcastError);
-                    }
-                }
             }
 
             function clearTimer() {
