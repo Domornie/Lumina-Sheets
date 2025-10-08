@@ -2472,14 +2472,36 @@
 
                     console.log('Creating enhanced shift slot with data:', slotData);
 
-                    const result = await this.callServerFunction('clientCreateEnhancedShiftSlot', slotData);
+                    let result;
+                    let usedLegacyEndpoint = false;
 
-                    if (result && result.success) {
-                        this.showToast('Enhanced shift slot created successfully!', 'success');
+                    try {
+                        result = await this.callServerFunction('clientCreateEnhancedShiftSlot', slotData);
+                    } catch (primaryError) {
+                        if (this.shouldFallbackToLegacySlotCreation(primaryError)) {
+                            console.warn('Enhanced endpoint unavailable, retrying legacy shift slot creation.', primaryError);
+                            usedLegacyEndpoint = true;
+                            result = await this.callServerFunction('clientCreateShiftSlot', slotData);
+                        } else {
+                            throw primaryError;
+                        }
+                    }
+
+                    let normalized = this.normalizeShiftSlotCreationResponse(result);
+                    if (!normalized.success && !usedLegacyEndpoint && normalized.needsLegacyFallback) {
+                        console.warn('Enhanced endpoint returned an unexpected response. Falling back to legacy shift slot creation.');
+                        usedLegacyEndpoint = true;
+                        result = await this.callServerFunction('clientCreateShiftSlot', slotData);
+                        normalized = this.normalizeShiftSlotCreationResponse(result);
+                    }
+
+                    if (normalized.success) {
+                        const successMessage = normalized.message || 'Shift slot created successfully!';
+                        this.showToast(successMessage, 'success');
                         this.resetShiftSlotForm();
                         await this.loadShiftSlots();
                     } else {
-                        throw new Error(result?.error || 'Failed to create shift slot');
+                        throw new Error(normalized.error || 'Failed to create shift slot');
                     }
 
                 } catch (error) {
@@ -2488,6 +2510,141 @@
                 } finally {
                     this.showLoading(false);
                 }
+            }
+
+            shouldFallbackToLegacySlotCreation(error) {
+                if (!error) {
+                    return false;
+                }
+
+                const message = typeof error === 'string' ? error : (error.message || '');
+                if (!message) {
+                    return false;
+                }
+
+                const normalized = message.toLowerCase();
+                return normalized.includes('not a function') ||
+                    normalized.includes('is not defined') ||
+                    normalized.includes('unknown function') ||
+                    normalized.includes('cannot call');
+            }
+
+            normalizeShiftSlotCreationResponse(rawResult) {
+                const coerceString = (value) => {
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    return String(value).trim();
+                };
+
+                if (rawResult && typeof rawResult === 'object') {
+                    if (rawResult.success === true) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || coerceString(rawResult.status),
+                            data: rawResult,
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.success === false) {
+                        const errorMessage = coerceString(rawResult.error) || coerceString(rawResult.message) || 'Server reported failure without details';
+                        return {
+                            success: false,
+                            error: errorMessage,
+                            data: rawResult,
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    const potentialMessage = coerceString(rawResult.message || rawResult.status || rawResult.result);
+                    if (potentialMessage && potentialMessage.toLowerCase().includes('success')) {
+                        return {
+                            success: true,
+                            message: potentialMessage,
+                            data: Object.assign({ success: true }, rawResult),
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (Object.keys(rawResult).length === 0) {
+                        return {
+                            success: false,
+                            error: 'Empty response object received from server',
+                            data: rawResult,
+                            needsLegacyFallback: true
+                        };
+                    }
+
+                    return {
+                        success: false,
+                        error: 'Unexpected response structure from server',
+                        data: rawResult,
+                        needsLegacyFallback: true
+                    };
+                }
+
+                if (rawResult === true) {
+                    return {
+                        success: true,
+                        message: 'Shift slot created successfully',
+                        data: { success: true },
+                        needsLegacyFallback: false
+                    };
+                }
+
+                if (rawResult === false) {
+                    return {
+                        success: false,
+                        error: 'Server indicated shift slot creation failure',
+                        data: { success: false },
+                        needsLegacyFallback: false
+                    };
+                }
+
+                if (typeof rawResult === 'string') {
+                    const trimmed = rawResult.trim();
+                    if (!trimmed) {
+                        return {
+                            success: false,
+                            error: 'Empty response received from server',
+                            data: rawResult,
+                            needsLegacyFallback: true
+                        };
+                    }
+
+                    if (['success', 'ok', 'created', 'done', 'completed'].some(token => trimmed.toLowerCase().includes(token))) {
+                        return {
+                            success: true,
+                            message: trimmed,
+                            data: { success: true, message: trimmed },
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    return {
+                        success: false,
+                        error: trimmed,
+                        data: rawResult,
+                        needsLegacyFallback: false
+                    };
+                }
+
+                if (rawResult === null || rawResult === undefined) {
+                    return {
+                        success: false,
+                        error: 'No response received from server',
+                        data: rawResult,
+                        needsLegacyFallback: true
+                    };
+                }
+
+                return {
+                    success: false,
+                    error: 'Unexpected response type received from server',
+                    data: rawResult,
+                    needsLegacyFallback: true
+                };
             }
 
             validateEnhancedShiftSlot(slotData) {
