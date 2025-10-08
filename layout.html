@@ -1042,9 +1042,8 @@
     }
 
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('lumina:session-token', function(event) {
-        const detailToken = event && event.detail ? event.detail.token : '';
-        applySessionTokenToLinks(detailToken);
+      window.addEventListener('lumina:session-token', function() {
+        applySessionTokenToLinks();
       });
     }
 
@@ -1149,18 +1148,13 @@
       }
     }
 
-    function appendSessionTokenToUrl(url, providedToken, options = {}) {
+    function appendSessionTokenToUrl(url, options = {}) {
       if (!url) {
         return url;
       }
 
       const raw = String(url).trim();
       if (!raw || raw.startsWith('#') || /^(mailto:|tel:|javascript:)/i.test(raw)) {
-        return url;
-      }
-
-      const token = resolveClientSessionToken(providedToken);
-      if (!token) {
         return url;
       }
 
@@ -1174,8 +1168,8 @@
           }
         }
 
-        if (parsed.searchParams.get(SESSION_TOKEN_QUERY_PARAM) !== token) {
-          parsed.searchParams.set(SESSION_TOKEN_QUERY_PARAM, token);
+        if (parsed.searchParams.has(SESSION_TOKEN_QUERY_PARAM)) {
+          parsed.searchParams.delete(SESSION_TOKEN_QUERY_PARAM);
         }
 
         if (raw.startsWith('?')) {
@@ -1188,18 +1182,13 @@
 
         return parsed.toString();
       } catch (error) {
-        console.warn('appendSessionTokenToUrl: unable to append token', { url, error });
+        console.warn('appendSessionTokenToUrl: unable to sanitize token parameter', { url, error });
         return url;
       }
     }
 
-    function applySessionTokenToLinks(explicitToken) {
+    function applySessionTokenToLinks() {
       if (typeof document === 'undefined') {
-        return;
-      }
-
-      const token = resolveClientSessionToken(explicitToken);
-      if (!token) {
         return;
       }
 
@@ -1210,7 +1199,7 @@
           return;
         }
 
-        const updated = appendSessionTokenToUrl(href, token, { sameOriginOnly: true });
+        const updated = appendSessionTokenToUrl(href, { sameOriginOnly: true });
         if (updated && updated !== href) {
           anchor.setAttribute('href', updated);
         }
