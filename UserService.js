@@ -588,8 +588,26 @@ function isInsuranceQualifiedNow_(eligibleDateStr, terminationDateStr) {
   return true;
 }
 const isInsuranceEligibleNow_ = isInsuranceQualifiedNow_;
-function _boolToStr_(v) { return (v === true || String(v).trim().toUpperCase() === 'TRUE' || String(v).trim().toUpperCase() === 'YES' || String(v).trim() === '1') ? 'TRUE' : 'FALSE'; }
-function _strToBool_(v) { return (v === true || String(v).trim().toUpperCase() === 'TRUE'); }
+function _strToBool_(v) {
+  if (v === true) return true;
+  if (v === false || v === null || typeof v === 'undefined') return false;
+  if (typeof v === 'number') return v !== 0;
+
+  const normalized = String(v).trim().toUpperCase();
+  if (!normalized) return false;
+
+  switch (normalized) {
+    case 'TRUE':
+    case 'YES':
+    case 'Y':
+    case '1':
+    case 'ON':
+      return true;
+    default:
+      return false;
+  }
+}
+function _boolToStr_(v) { return _strToBool_(v) ? 'TRUE' : 'FALSE'; }
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Sheet utils (local)
@@ -1672,7 +1690,7 @@ function checkEmailExists(email) {
           Email: existingUser.Email,
           CampaignID: existingUser.CampaignID,
           campaignName: getCampaignNameSafe(existingUser.CampaignID),
-          canLoginBool: (existingUser.CanLogin === true || String(existingUser.CanLogin).toUpperCase() === 'TRUE')
+          canLoginBool: _strToBool_(existingUser.CanLogin)
         }
       };
     }
@@ -1753,7 +1771,7 @@ function isUserAdmin(uOrId) {
     : uOrId;
 
   if (!user) return false;
-  const flag = (user.IsAdmin === true || String(user.IsAdmin).toUpperCase() === 'TRUE');
+  const flag = _strToBool_(user.IsAdmin);
   if (flag) return true;
 
   try {
@@ -1792,8 +1810,8 @@ function readCampaignPermsSafely_() {
       CampaignID: String(p.CampaignID || ''),
       UserID: String(p.UserID || ''),
       PermissionLevel: String(p.PermissionLevel || '').toUpperCase(),
-      CanManageUsers: (p.CanManageUsers === true || String(p.CanManageUsers).toUpperCase() === 'TRUE'),
-      CanManagePages: (p.CanManagePages === true || String(p.CanManagePages).toUpperCase() === 'TRUE'),
+      CanManageUsers: _strToBool_(p.CanManageUsers),
+      CanManagePages: _strToBool_(p.CanManagePages),
       CreatedAt: p.CreatedAt || null,
       UpdatedAt: p.UpdatedAt || null
     }));
@@ -1813,7 +1831,7 @@ function getCampaignUserPermissions(campaignId, userId) {
   try {
     const rows = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
     const row = rows.find(r => String(r.CampaignID) === String(campaignId) && String(r.UserID) === String(userId));
-    const toBool = v => v === true || String(v).toUpperCase() === 'TRUE';
+    const toBool = _strToBool_;
     if (!row) return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
     return {
       permissionLevel: String(row.PermissionLevel || 'USER').toUpperCase(),
@@ -3405,8 +3423,8 @@ function clientGetAvailablePages() {
       title: p.PageTitle || p.Name,
       icon: p.PageIcon || p.Icon,
       description: p.Description,
-      isSystem: (p.IsSystemPage === true || String(p.IsSystemPage).toUpperCase() === 'TRUE'),
-      requiresAdmin: (p.RequiresAdmin === true || String(p.RequiresAdmin).toUpperCase() === 'TRUE')
+      isSystem: _strToBool_(p.IsSystemPage),
+      requiresAdmin: _strToBool_(p.RequiresAdmin)
     })).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
   } catch (e) { writeError && writeError('clientGetAvailablePages', e); return []; }
 }
@@ -3656,7 +3674,7 @@ function canUserManageOthers(userId) {
     if (u && _strToBool_(u.IsAdmin)) return true;
     const perms = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
     const userPerms = perms.filter(p => String(p.UserID) === String(userId));
-    const toBool = v => v === true || String(v).toUpperCase() === 'TRUE';
+    const toBool = _strToBool_;
     return userPerms.some(p =>
       ['MANAGER', 'ADMIN'].includes(String(p.PermissionLevel).toUpperCase()) || toBool(p.CanManageUsers)
     );
