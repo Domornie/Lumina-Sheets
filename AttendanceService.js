@@ -2292,18 +2292,26 @@ function buildManagerDirectory_() {
       if (typeof readCampaignPermsSafely_ === 'function') {
         permissions = readCampaignPermsSafely_() || [];
       } else if (typeof readSheet === 'function') {
-        permissions = readSheet('CampaignUserPermissions') || [];
+        const sheetName = (GLOBAL_SCOPE && GLOBAL_SCOPE.CAMPAIGN_USER_PERMISSIONS_SHEET)
+          ? GLOBAL_SCOPE.CAMPAIGN_USER_PERMISSIONS_SHEET
+          : (typeof G !== 'undefined' && G.CAMPAIGN_USER_PERMISSIONS_SHEET)
+            ? G.CAMPAIGN_USER_PERMISSIONS_SHEET
+            : 'CampaignUserPermissions';
+        permissions = readSheet(sheetName) || [];
       }
 
       if (Array.isArray(permissions) && permissions.length) {
-        permissions.forEach(perm => {
+        permissions.forEach(rawPerm => {
+          const perm = (rawPerm && typeof rawPerm === 'object') ? rawPerm : {};
           if (!perm) return;
-          const level = String(perm.PermissionLevel || perm.permissionLevel || '').toUpperCase();
+          const level = String(
+            perm.PermissionLevel ?? perm.permissionLevel ?? perm.permission_level ?? ''
+          ).toUpperCase();
           if (!managerPermissionLevels.has(level)) {
             return;
           }
 
-          const userId = [perm.UserID, perm.userId, perm.UserId]
+          const userId = [perm.UserID, perm.UserId, perm.userId, perm.user_id]
             .map(normalizeUserId)
             .find(Boolean);
           if (userId) {
