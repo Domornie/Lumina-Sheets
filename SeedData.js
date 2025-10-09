@@ -235,10 +235,18 @@ function applySeedPasswordForUser(userRecord, profile, label) {
 
   if (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail) {
     const refreshed = AuthenticationService.getUserByEmail(profile.email);
-    if (!refreshed) {
-      throw new Error(resolvedLabel + ' record not found after password update.');
+    if (refreshed && userExistsInSheet(refreshed)) {
+      return refreshed;
     }
-    return refreshed;
+  }
+
+  const fallbackRow = findUserSheetRow(profile.email, userRecord.ID || userRecord.Id || userRecord.id);
+  if (fallbackRow) {
+    const hydrated = Object.assign({}, fallbackRow);
+    hydrated.Email = hydrated.Email || hydrated.email || profile.email;
+    hydrated.ID = hydrated.ID || hydrated.Id || hydrated.id || (userRecord && (userRecord.ID || userRecord.Id || userRecord.id));
+    hydrated.EmailConfirmation = hydrated.EmailConfirmation || hydrated.emailConfirmation || hydrated.emailconfirmation;
+    return hydrated;
   }
 
   return userRecord;
@@ -304,7 +312,7 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
       throw new Error('Failed to refresh ' + label + ': ' + (updateResult && updateResult.error ? updateResult.error : 'Unknown error'));
     }
 
-    applySeedPasswordForUser(existing, profile, label);
+    existing = applySeedPasswordForUser(existing, profile, label);
     syncUserRoleLinks(existing.ID, desiredRoleIds);
     assignAdminCampaignAccess(existing.ID, Object.values(campaignIdsByName));
     ensureCanLoginFlag(existing.ID, true);
@@ -329,20 +337,23 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
     throw new Error('Failed to create ' + label + ': ' + (createResult && createResult.error ? createResult.error : 'Unknown error'));
   }
 
-  let adminRecord = AuthenticationService.getUserByEmail(profile.email);
+  const adminRecord = loadSeedUserRecord(profile, label, createResult.userId || createResult.userID || createResult.id);
+
   if (!adminRecord) {
     throw new Error(label + ' record not found after creation.');
   }
 
-  adminRecord = applySeedPasswordForUser(adminRecord, profile, label);
-  syncUserRoleLinks(adminRecord.ID, desiredRoleIds);
-  assignAdminCampaignAccess(adminRecord.ID, Object.values(campaignIdsByName));
-  ensureCanLoginFlag(adminRecord.ID, true);
+  const persistedRecord = applySeedPasswordForUser(adminRecord, profile, label) || adminRecord;
+  const adminId = persistedRecord.ID || adminRecord.ID;
+
+  syncUserRoleLinks(adminId, desiredRoleIds);
+  assignAdminCampaignAccess(adminId, Object.values(campaignIdsByName));
+  ensureCanLoginFlag(adminId, true);
 
   const result = {
     status: 'created',
-    userId: adminRecord.ID,
-    email: adminRecord.Email,
+    userId: adminId,
+    email: persistedRecord.Email || adminRecord.Email,
     message: label + ' account created with default credentials. Please change the password after first login.'
   };
 
@@ -356,21 +367,65 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
 function userExistsInSheet(user) {
   if (!user) return false;
   if (typeof readSheet !== 'function') return true;
-  const sheetRows = readSheet(USERS_SHEET) || [];
-  if (!sheetRows.length) return false;
+  return Boolean(findUserSheetRow(user.Email || user.email, user.ID || user.Id || user.id));
+}
 
-  const targetId = user.ID || user.Id || user.id;
-  const targetEmail = (user.Email || user.email || '').toLowerCase();
+function loadSeedUserRecord(profile, label, expectedUserId) {
+  const attempts = 5;
+  const delayMs = 500;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    let record = (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail)
+      ? AuthenticationService.getUserByEmail(profile.email)
+      : null;
 
-  return sheetRows.some(row => {
-    if (!row) return false;
-    const rowId = row.ID || row.Id || row.id;
-    const rowEmail = (row.Email || row.email || '').toLowerCase();
-    if (targetId && rowId && String(rowId) === String(targetId)) {
-      return true;
+    if (record && userExistsInSheet(record)) {
+      return record;
     }
-    return Boolean(targetEmail && rowEmail && rowEmail === targetEmail);
-  });
+
+    const sheetRow = findUserSheetRow(profile.email, expectedUserId || (record && (record.ID || record.Id || record.id)));
+    if (sheetRow) {
+      const hydrated = Object.assign({}, sheetRow);
+      hydrated.Email = hydrated.Email || hydrated.email || profile.email;
+      hydrated.ID = hydrated.ID || hydrated.Id || hydrated.id || expectedUserId;
+      hydrated.EmailConfirmation = hydrated.EmailConfirmation || hydrated.emailConfirmation || hydrated.emailconfirmation;
+      return hydrated;
+    }
+
+    if (attempt < attempts - 1) {
+      if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
+        SpreadsheetApp.flush();
+      }
+      if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.sleep === 'function') {
+        Utilities.sleep(delayMs);
+      }
+    }
+  }
+
+  throw new Error(label + ' record not found after creation.');
+}
+
+function findUserSheetRow(email, userId) {
+  if (typeof readSheet !== 'function') return null;
+  const sheetRows = readSheet(USERS_SHEET) || [];
+  if (!sheetRows.length) return null;
+
+  const normalizedEmail = email ? String(email).toLowerCase() : '';
+  const normalizedId = userId ? String(userId) : '';
+
+  for (let i = 0; i < sheetRows.length; i++) {
+    const row = sheetRows[i];
+    if (!row) continue;
+    const rowId = row.ID || row.Id || row.id;
+    const rowEmail = row.Email || row.email;
+    if (normalizedId && rowId && String(rowId) === normalizedId) {
+      return row;
+    }
+    if (normalizedEmail && rowEmail && String(rowEmail).toLowerCase() === normalizedEmail) {
+      return row;
+    }
+  }
+
+  return null;
 }
 
 /**
