@@ -289,9 +289,13 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
     roles: desiredRoleIds
   }, accountFlags);
 
-  const existing = (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail)
+  let existing = (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail)
     ? AuthenticationService.getUserByEmail(profile.email)
     : null;
+
+  if (existing && !userExistsInSheet(existing)) {
+    existing = null;
+  }
 
   if (existing) {
     const updateResult = clientUpdateUser(existing.ID, payload);
@@ -347,6 +351,26 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
   }
 
   return result;
+}
+
+function userExistsInSheet(user) {
+  if (!user) return false;
+  if (typeof readSheet !== 'function') return true;
+  const sheetRows = readSheet(USERS_SHEET) || [];
+  if (!sheetRows.length) return false;
+
+  const targetId = user.ID || user.Id || user.id;
+  const targetEmail = (user.Email || user.email || '').toLowerCase();
+
+  return sheetRows.some(row => {
+    if (!row) return false;
+    const rowId = row.ID || row.Id || row.id;
+    const rowEmail = (row.Email || row.email || '').toLowerCase();
+    if (targetId && rowId && String(rowId) === String(targetId)) {
+      return true;
+    }
+    return Boolean(targetEmail && rowEmail && rowEmail === targetEmail);
+  });
 }
 
 /**
