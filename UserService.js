@@ -5147,5 +5147,54 @@ UserService.ensureUsersHaveIds = ensureUsersHaveIds;
 UserService.reconcileUserIdReferencesAcrossSheets = reconcileUserIdReferencesAcrossSheets;
 UserService.buildUserIdentifierLookup = _buildUserIdentifierLookup_;
 
+(function exposeUserServiceClientApi(global) {
+  if (!global) return;
+
+  function assign(name, fn) {
+    if (typeof fn !== 'function') return;
+    try {
+      global[name] = fn;
+    } catch (_) { }
+    try {
+      if (!UserService || typeof UserService !== 'object') return;
+      UserService[name] = fn;
+    } catch (_) { }
+  }
+
+  [
+    ['clientGetUserSummaries', clientGetUserSummaries],
+    ['clientGetUserDetail', clientGetUserDetail],
+    ['clientCheckUserConflicts', clientCheckUserConflicts],
+    ['clientGetAllUsers', clientGetAllUsers],
+    ['clientRegisterUser', clientRegisterUser],
+    ['clientUpdateUser', clientUpdateUser],
+    ['clientAdminResetPassword', clientAdminResetPassword],
+    ['clientAdminResetPasswordById', clientAdminResetPasswordById],
+    ['clientResendFirstLoginEmail', clientResendFirstLoginEmail],
+    ['clientDeleteUser', clientDeleteUser],
+    ['clientGetAvailablePages', clientGetAvailablePages],
+    ['clientRunEnhancedDiscovery', clientRunEnhancedDiscovery],
+    ['clientGetUserPages', clientGetUserPages],
+    ['clientAssignPagesToUser', clientAssignPagesToUser],
+    ['clientGetUserEquipment', clientGetUserEquipment],
+    ['clientSaveUserEquipment', clientSaveUserEquipment],
+    ['clientDeleteUserEquipment', clientDeleteUserEquipment],
+    ['clientGetUserPermissions', clientGetUserPermissions],
+    ['clientSetUserPermissions', clientSetUserPermissions],
+    ['clientGetAvailableUsersForManager', clientGetAvailableUsersForManager],
+    ['clientGetManagedUsers', clientGetManagedUsers],
+    ['clientGetManagerTeamSummary', clientGetManagerTeamSummary],
+    ['clientAssignUsersToManager', clientAssignUsersToManager],
+    ['clientGetValidEmploymentStatuses', clientGetValidEmploymentStatuses],
+    ['clientGetEmploymentStatusReport', clientGetEmploymentStatusReport],
+    ['clientGetBenefitsSnapshot', clientGetBenefitsSnapshot],
+    ['clientBatchNormalizeBenefits', clientBatchNormalizeBenefits],
+    ['canUserManageOthers', canUserManageOthers],
+    ['getAllCampaigns', getAllCampaigns],
+    ['getAllRoles', getAllRoles]
+  ].forEach(function ([name, fn]) { assign(name, fn); });
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof this !== 'undefined' ? this : null));
+
 console.log('✅ UserService.gs loaded');
 console.log('📦 Features: User CRUD, Roles, Pages, Campaign perms, Manager mapping, HR/Benefits (probation + insurance)');
+console.log('🔌 UserService client API exposed to google.script.run');
