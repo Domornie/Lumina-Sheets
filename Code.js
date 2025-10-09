@@ -5271,7 +5271,7 @@ function initializeMainSheets() {
       const pagesName = (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages';
       const campaignsName = (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns';
 
-      pushDefinition(usersName, (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
+      pushDefinition(usersName, (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'PasswordHashFormat', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe', 'PasswordHashAlgorithm', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(rolesName, Array.isArray(ROLES_HEADER) ? ROLES_HEADER : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(pagesName, Array.isArray(PAGES_HEADERS) ? PAGES_HEADERS : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(campaignsName, Array.isArray(CAMPAIGNS_HEADERS) ? CAMPAIGNS_HEADERS : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt']);
@@ -5333,7 +5333,7 @@ function initializeSheetHeaders(sheet, sheetName) {
         case 'Users':
           headers = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
             ? USERS_HEADERS.slice()
-            : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'CreatedAt', 'UpdatedAt'];
+            : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'PasswordHashFormat', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe', 'PasswordHashAlgorithm', 'ResetRequired', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'CreatedAt', 'UpdatedAt'];
           break;
         case (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles':
         case 'Roles':

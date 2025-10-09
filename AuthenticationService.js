@@ -1,7 +1,7 @@
 /**
  * AuthenticationService.gs - Fixed Token-Based Authentication Service
  * Addresses common authentication issues in Lumina
- * 
+ *
  * Key Fixes:
  * - Consistent email normalization
  * - Robust password verification
@@ -9,6 +9,133 @@
  * - Unified user lookup
  * - Proper empty password detection
  */
+
+if (typeof sanitizeAuthenticationResponseForClient !== 'function') {
+  function sanitizeAuthenticationResponseForClient(value, options) {
+    const maxDepth = options && typeof options.maxDepth === 'number'
+      ? Math.max(1, Math.floor(options.maxDepth))
+      : 6;
+
+    const seen = typeof WeakSet === 'function' ? new WeakSet() : null;
+
+    function sanitize(input, depth) {
+      if (input === null) {
+        return null;
+      }
+
+      if (typeof input === 'undefined') {
+        return null;
+      }
+
+      const type = typeof input;
+      if (type === 'string' || type === 'number' || type === 'boolean') {
+        return input;
+      }
+
+      if (input instanceof Date) {
+        try {
+          return input.toISOString();
+        } catch (_) {
+          return String(input);
+        }
+      }
+
+      if (Array.isArray(input)) {
+        if (depth >= maxDepth) {
+          return [];
+        }
+        if (seen) {
+          if (seen.has(input)) {
+            return [];
+          }
+          seen.add(input);
+        }
+        const mapped = [];
+        for (let i = 0; i < input.length; i += 1) {
+          const sanitized = sanitize(input[i], depth + 1);
+          if (typeof sanitized !== 'undefined') {
+            mapped.push(sanitized);
+          }
+        }
+        return mapped;
+      }
+
+      if (typeof Set !== 'undefined' && input instanceof Set) {
+        return sanitize(Array.from(input.values()), depth);
+      }
+
+      if (typeof Map !== 'undefined' && input instanceof Map) {
+        if (depth >= maxDepth) {
+          return {};
+        }
+        const mapped = {};
+        input.forEach(function (mapValue, mapKey) {
+          const sanitized = sanitize(mapValue, depth + 1);
+          if (typeof sanitized !== 'undefined') {
+            mapped[String(mapKey)] = sanitized;
+          }
+        });
+        return mapped;
+      }
+
+      if (type === 'object') {
+        if (depth >= maxDepth) {
+          return {};
+        }
+        if (seen) {
+          if (seen.has(input)) {
+            return {};
+          }
+          seen.add(input);
+        }
+
+        const tag = Object.prototype.toString.call(input);
+        if (tag !== '[object Object]') {
+          if (typeof input.toJSON === 'function') {
+            try {
+              return sanitize(input.toJSON(), depth + 1);
+            } catch (_) { /* ignore */ }
+          }
+          if (typeof input.valueOf === 'function') {
+            try {
+              const valueOf = input.valueOf();
+              if (valueOf !== input) {
+                return sanitize(valueOf, depth + 1);
+              }
+            } catch (_) { /* ignore */ }
+          }
+          if (typeof input.toString === 'function' && input.toString !== Object.prototype.toString) {
+            try {
+              return String(input.toString());
+            } catch (_) { /* ignore */ }
+          }
+          return {};
+        }
+
+        const output = {};
+        Object.keys(input).forEach(function (key) {
+          if (!key) {
+            return;
+          }
+
+          if (key.toLowerCase() === 'sheet' || key.toLowerCase() === 'range') {
+            return;
+          }
+
+          const sanitized = sanitize(input[key], depth + 1);
+          if (typeof sanitized !== 'undefined') {
+            output[key] = sanitized;
+          }
+        });
+        return output;
+      }
+
+      return null;
+    }
+
+    return sanitize(value, 0);
+  }
+}
 
 // ───────────────────────────────────────────────────────────────────────────────
 // AUTHENTICATION CONFIGURATION
@@ -4880,6 +5007,10 @@ var AuthenticationService = (function () {
     console.log('Password:', password ? 'PROVIDED' : 'EMPTY');
     console.log('RememberMe:', rememberMe);
 
+    function respond(payload) {
+      return sanitizeAuthenticationResponseForClient(payload);
+    }
+
     try {
       // Input validation
       const normalizedEmail = normalizeEmail(email);
@@ -4893,20 +5024,20 @@ var AuthenticationService = (function () {
 
       if (!normalizedEmail) {
         console.log('login: Invalid email provided');
-        return {
+        return respond({
           success: false,
           error: 'Email is required',
           errorCode: 'MISSING_EMAIL'
-        };
+        });
       }
 
       if (!passwordStr) {
         console.log('login: Invalid password provided');
-        return {
+        return respond({
           success: false,
           error: 'Password is required',
           errorCode: 'MISSING_PASSWORD'
-        };
+        });
       }
 
       console.log('login: Looking up user...');
@@ -4915,11 +5046,11 @@ var AuthenticationService = (function () {
       const user = findUserByEmail(normalizedEmail);
       if (!user) {
         console.log('login: User not found');
-        return {
+        return respond({
           success: false,
           error: 'Invalid email or password',
           errorCode: 'INVALID_CREDENTIALS'
-        };
+        });
       }
 
       console.log('login: Found user:', user.FullName || user.UserName);
@@ -4942,14 +5073,14 @@ var AuthenticationService = (function () {
       const sanitizedMetadata = sanitizeClientMetadata(metadataWithIdentity) || {};
 
       if (identityEvaluation && identityEvaluation.allow === false) {
-        return {
+        return respond({
           success: false,
           error: identityEvaluation.error || 'Your account is not eligible to login.',
           errorCode: identityEvaluation.errorCode || 'IDENTITY_BLOCKED',
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       // Check account status
@@ -4967,19 +5098,19 @@ var AuthenticationService = (function () {
 
       if (!canLogin) {
         console.log('login: Account disabled');
-        return {
+        return respond({
           success: false,
           error: 'Your account has been disabled. Please contact support.',
           errorCode: 'ACCOUNT_DISABLED',
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       if (!emailConfirmed) {
         console.log('login: Email not confirmed');
-        return {
+        return respond({
           success: false,
           error: 'Please confirm your email address before logging in.',
           errorCode: 'EMAIL_NOT_CONFIRMED',
@@ -4987,7 +5118,7 @@ var AuthenticationService = (function () {
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       // Check password
@@ -4996,9 +5127,9 @@ var AuthenticationService = (function () {
 
       if (!passwordCheck.success) {
         console.log('login: Password verification failed:', passwordCheck.reason);
-        
+
         if (passwordCheck.reason === 'NO_STORED_HASH') {
-          return {
+          return respond({
             success: false,
             error: 'Please set up your password using the link from your welcome email.',
             errorCode: 'PASSWORD_NOT_SET',
@@ -5006,17 +5137,17 @@ var AuthenticationService = (function () {
             identity: identitySnapshot ? identitySnapshot.identity : null,
             identitySummary: identitySummary,
             identityWarnings: identityWarnings
-          };
+          });
         }
 
-        return {
+        return respond({
           success: false,
           error: 'Invalid email or password',
           errorCode: 'INVALID_CREDENTIALS',
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       console.log('login: Password verified successfully using method:', passwordCheck.method, 'hashField:', passwordCheck.hashField || 'unknown');
@@ -5025,14 +5156,14 @@ var AuthenticationService = (function () {
       if (!tenantAccess || !tenantAccess.success) {
         console.log('login: Tenant access check failed:', tenantAccess ? tenantAccess.reason : 'unknown');
         const tenantError = formatTenantAccessError(tenantAccess);
-        return {
+        return respond({
           success: false,
           error: tenantError.error,
           errorCode: tenantError.errorCode,
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       const tenantSummary = Object.assign({}, tenantAccess.clientPayload, {
@@ -5055,7 +5186,7 @@ var AuthenticationService = (function () {
             resetWarnings.push(warning);
           }
         });
-        return {
+        return respond({
           success: false,
           error: 'You must change your password before continuing.',
           errorCode: 'PASSWORD_RESET_REQUIRED',
@@ -5068,7 +5199,7 @@ var AuthenticationService = (function () {
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       const mfaConfig = getUserMfaConfig(user);
@@ -5078,15 +5209,15 @@ var AuthenticationService = (function () {
 
         if (!challengeResult || !challengeResult.success) {
           console.warn('login: Failed to create MFA challenge. Reason:', challengeResult && challengeResult.reason);
-          return {
+          return respond({
             success: false,
             error: 'We were unable to start the verification process. Please try again in a moment.',
             errorCode: 'MFA_CHALLENGE_FAILED'
-          };
+          });
         }
 
         const challenge = challengeResult.challenge;
-        return {
+        return respond({
           success: false,
           needsMfa: true,
           errorCode: 'MFA_REQUIRED',
@@ -5104,25 +5235,25 @@ var AuthenticationService = (function () {
             deliveriesRemaining: Math.max(0, (challenge.maxDeliveries || MFA_MAX_DELIVERIES) - (challenge.deliveries || 0)),
             backupCodesRemaining: mfaConfig.backupCodes.length
           }
-        };
+        });
       }
 
       const deviceEvaluation = evaluateTrustedDevice(user, sanitizedMetadata, rememberMe);
       if (deviceEvaluation && deviceEvaluation.error) {
         console.warn('login: Device evaluation error:', deviceEvaluation.errorCode || deviceEvaluation.error);
-        return {
+        return respond({
           success: false,
           error: deviceEvaluation.error,
           errorCode: deviceEvaluation.errorCode || 'DEVICE_VERIFICATION_ERROR',
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       if (deviceEvaluation && deviceEvaluation.trusted === false) {
         console.log('login: Device verification required for user');
-        return {
+        return respond({
           success: false,
           needsVerification: true,
           errorCode: 'DEVICE_VERIFICATION_REQUIRED',
@@ -5133,7 +5264,7 @@ var AuthenticationService = (function () {
           identity: identitySnapshot ? identitySnapshot.identity : null,
           identitySummary: identitySummary,
           identityWarnings: identityWarnings
-        };
+        });
       }
 
       // Create session
@@ -5142,11 +5273,11 @@ var AuthenticationService = (function () {
 
       if (!sessionResult || !sessionResult.token) {
         console.log('login: Failed to create session');
-        return {
+        return respond({
           success: false,
           error: 'Failed to create session. Please try again.',
           errorCode: 'SESSION_CREATION_FAILED'
-        };
+        });
       }
 
       console.log('login: Session created successfully');
@@ -5237,22 +5368,22 @@ var AuthenticationService = (function () {
         result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
       }
 
-      return result;
+      return respond(result);
 
     } catch (error) {
       console.error('login: Unexpected error:', error);
       console.log('=== AuthenticationService.login ERROR ===');
-      
+
       // Write error to logs if function available
       if (typeof writeError === 'function') {
         writeError('AuthenticationService.login', error);
       }
-      
-      return {
+
+      return respond({
         success: false,
         error: 'An error occurred during login. Please try again.',
         errorCode: 'SYSTEM_ERROR'
-      };
+      });
     }
   }
 
@@ -5681,14 +5812,14 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
 
     const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
     console.log('=== loginUser wrapper END ===');
-    return result;
+    return sanitizeAuthenticationResponseForClient(result);
   } catch (error) {
     console.error('loginUser wrapper error:', error);
-    return {
+    return sanitizeAuthenticationResponseForClient({
       success: false,
       error: 'Login failed. Please try again.',
       errorCode: 'WRAPPER_ERROR'
-    };
+    });
   }
 }
 
