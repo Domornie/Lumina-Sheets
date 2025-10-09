@@ -94,17 +94,25 @@ var AuthenticationService = (function () {
   // ─── Password utilities with error handling ─────────────────────────────────
   
   function getPasswordUtils() {
-    try {
-      if (typeof ensurePasswordUtilities === 'function') {
+    if (typeof ensurePasswordUtilities === 'function') {
+      try {
         return ensurePasswordUtilities();
+      } catch (error) {
+        console.error('getPasswordUtils: ensurePasswordUtilities failed', error);
       }
-      if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
-        return PasswordUtilities;
-      }
-      throw new Error('PasswordUtilities not available');
+    }
+    if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+      return PasswordUtilities;
+    }
+    throw new Error('Password utilities not available');
+  }
+
+  function safeGetPasswordUtils() {
+    try {
+      return getPasswordUtils();
     } catch (error) {
-      console.error('Error getting password utilities:', error);
-      throw new Error('Password utilities not available');
+      console.warn('safeGetPasswordUtils: password utilities unavailable', error);
+      return null;
     }
   }
 
@@ -4501,7 +4509,7 @@ var AuthenticationService = (function () {
         const variants = ensureHashVariants();
         const newInputHash = (variants && variants.hex)
           ? variants.hex
-          : passwordUtils.hashPassword(inputStr);
+          : passwordUtils.createPasswordHash(inputStr);
         const matches = equalsFn(newInputHash, normalizedStoredHash);
         console.log('verifyUserPassword: Normalized comparison result:', matches);
 
@@ -4521,7 +4529,7 @@ var AuthenticationService = (function () {
         const variants = ensureHashVariants();
         const newInputHash = (variants && variants.hex)
           ? variants.hex
-          : passwordUtils.hashPassword(inputStr);
+          : passwordUtils.createPasswordHash(inputStr);
         const matches = equalsFn(newInputHash, normalizedHash);
         console.log('verifyUserPassword: Direct hash comparison result:', matches);
 
@@ -5728,6 +5736,7 @@ function debugAuthenticationIssues(email, password) {
     
     const storedHash = user.PasswordHash || '';
     const hasPassword = storedHash && storedHash.trim() !== '';
+    const passwordUtils = safeGetPasswordUtils();
     
     results.passwordCheck = {
       hasStoredHash: hasPassword,
@@ -5735,7 +5744,8 @@ function debugAuthenticationIssues(email, password) {
       storedHashSample: storedHash ? storedHash.substring(0, 10) + '...' : 'empty',
       canLogin: user.CanLogin,
       emailConfirmed: user.EmailConfirmed,
-      resetRequired: user.ResetRequired
+      resetRequired: user.ResetRequired,
+      passwordUtilsAvailable: !!passwordUtils
     };
 
     if (!hasPassword) {
@@ -5744,40 +5754,46 @@ function debugAuthenticationIssues(email, password) {
     } else {
       // Test password verification methods
       let verificationResults = {};
-      
+
       // Method 1: PasswordUtilities.verifyPassword
-      if (typeof PasswordUtilities !== 'undefined') {
+      if (passwordUtils) {
+        let computedRecord = null;
+
         try {
-          const isValid1 = PasswordUtilities.verifyPassword(password, storedHash);
+          const isValid1 = passwordUtils.verifyPassword(password, storedHash);
           verificationResults.passwordUtilsResult = isValid1;
           console.log('PasswordUtilities.verifyPassword result:', isValid1);
         } catch (e) {
           verificationResults.passwordUtilsError = e.message;
         }
-      }
 
-      // Method 2: Test hash generation
-      if (typeof PasswordUtilities !== 'undefined') {
+        // Method 2: Test hash generation
         try {
-          const newHash = PasswordUtilities.hashPassword(password);
+          computedRecord = passwordUtils.createPasswordRecord(password);
+          const newHash = computedRecord.hash || '';
           verificationResults.newHashMatches = (newHash === storedHash);
-          verificationResults.newHashSample = newHash.substring(0, 10) + '...';
+          verificationResults.newHashSample = newHash ? newHash.substring(0, 10) + '...' : 'empty';
+          verificationResults.generatedFormat = computedRecord.hashFormat;
+          verificationResults.generatedAlgorithm = computedRecord.algorithm;
           console.log('Generated hash matches stored:', newHash === storedHash);
         } catch (e) {
           verificationResults.hashGenError = e.message;
         }
-      }
 
-      // Method 3: Test normalized hash
-      if (typeof PasswordUtilities !== 'undefined') {
+        // Method 3: Test normalized hash
         try {
-          const normalizedStored = PasswordUtilities.normalizeHash(storedHash);
-          const newHash = PasswordUtilities.hashPassword(password);
-          verificationResults.normalizedComparison = (newHash === normalizedStored);
-          console.log('Normalized hash comparison:', newHash === normalizedStored);
+          const normalizedStored = passwordUtils.normalizeHash(storedHash);
+          if (!computedRecord) {
+            computedRecord = passwordUtils.createPasswordRecord(password);
+          }
+          const normalizedHash = computedRecord ? computedRecord.hash : '';
+          verificationResults.normalizedComparison = (normalizedHash === normalizedStored);
+          console.log('Normalized hash comparison:', normalizedHash === normalizedStored);
         } catch (e) {
           verificationResults.normalizeError = e.message;
         }
+      } else {
+        verificationResults.passwordUtilsError = 'Password utilities not available';
       }
 
       results.passwordCheck.verificationTests = verificationResults;
@@ -5816,7 +5832,7 @@ function debugAuthenticationIssues(email, password) {
     
     const systemChecks = {
       authServiceAvailable: typeof AuthenticationService !== 'undefined',
-      passwordUtilsAvailable: typeof PasswordUtilities !== 'undefined',
+      passwordUtilsAvailable: !!passwordUtils,
       usersSheetExists: false,
       usersSheetRowCount: 0
     };
@@ -5857,41 +5873,47 @@ function testPasswordHashing(plainPassword) {
       tests: {}
     };
 
-    if (typeof PasswordUtilities !== 'undefined') {
+    const utils = safeGetPasswordUtils();
+
+    if (utils) {
       // Test 1: Basic hashing
-      const hash1 = PasswordUtilities.hashPassword(plainPassword);
-      const hash2 = PasswordUtilities.hashPassword(plainPassword);
-      
+      const record1 = utils.createPasswordRecord(plainPassword);
+      const record2 = utils.createPasswordRecord(plainPassword);
+
       results.tests.basicHashing = {
-        hash1: hash1,
-        hash2: hash2,
-        consistent: hash1 === hash2,
-        length: hash1.length
+        hash1: record1.hash,
+        hash2: record2.hash,
+        consistent: record1.hash === record2.hash,
+        length: (record1.hash || '').length,
+        format: record1.hashFormat,
+        algorithm: record1.algorithm
       };
 
       // Test 2: Verification
-      const verifies = PasswordUtilities.verifyPassword(plainPassword, hash1);
+      const verifies = utils.verifyPassword(plainPassword, record1.hash);
       results.tests.verification = {
         verifies: verifies
       };
 
       // Test 3: Normalization
-      const normalized = PasswordUtilities.normalizeHash(hash1);
+      const normalized = utils.normalizeHash(record1.hash);
       results.tests.normalization = {
-        original: hash1,
+        original: record1.hash,
         normalized: normalized,
-        same: hash1 === normalized
+        same: record1.hash === normalized
       };
 
       // Test 4: Edge cases
       results.tests.edgeCases = {
-        emptyPassword: PasswordUtilities.hashPassword(''),
-        spacePassword: PasswordUtilities.hashPassword(' '),
-        nullPassword: PasswordUtilities.hashPassword(null)
+        emptyPassword: utils.createPasswordHash(''),
+        spacePassword: utils.createPasswordHash(' '),
+        nullPassword: utils.createPasswordHash(null)
       };
 
+      results.tests.variants = record1.variants;
+
     } else {
-      results.error = 'PasswordUtilities not available';
+      results.error = 'Password utilities not available';
     }
 
     return results;
@@ -5974,13 +5996,30 @@ function fixAuthenticationIssues(email, options = {}) {
       }
     }
 
-    if (generateNewHash && newPassword && typeof PasswordUtilities !== 'undefined') {
-      const passwordHashCol = getColumnIndex('PasswordHash');
-      if (passwordHashCol !== -1) {
-        const newHash = PasswordUtilities.hashPassword(newPassword);
-        sheet.getRange(rowNumber, passwordHashCol + 1).setValue(newHash);
-        results.actions.push('Generated new password hash');
-        results.newHashSample = newHash.substring(0, 10) + '...';
+    if (generateNewHash && newPassword) {
+      const utils = safeGetPasswordUtils();
+      if (utils) {
+        const passwordUpdate = utils.createPasswordUpdate(newPassword);
+        const updateColumns = passwordUpdate.columns || { PasswordHash: passwordUpdate.hash };
+
+        Object.keys(updateColumns).forEach((columnName) => {
+          const colIndex = getColumnIndex(columnName);
+          if (colIndex !== -1) {
+            sheet.getRange(rowNumber, colIndex + 1).setValue(updateColumns[columnName]);
+          }
+        });
+
+        if (passwordUpdate.algorithm) {
+          const algorithmCol = getColumnIndex('PasswordHashAlgorithm');
+          if (algorithmCol !== -1) {
+            sheet.getRange(rowNumber, algorithmCol + 1).setValue(passwordUpdate.algorithm);
+          }
+        }
+
+        results.actions.push('Generated new password hash (' + (passwordUpdate.hashFormat || 'hex') + ')');
+        results.newHashSample = passwordUpdate.hash ? passwordUpdate.hash.substring(0, 10) + '...' : 'empty';
+      } else {
+        results.errors.push('Password utilities unavailable - unable to generate password hash');
       }
     }
 

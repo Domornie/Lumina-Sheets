@@ -66,16 +66,74 @@ function __createPasswordUtilitiesModule() {
     };
   }
 
+  function normalizePreferredHashFormat(format) {
+    var normalized = String(format || '').trim().toLowerCase();
+    if (normalized === 'base64' || normalized === 'b64') {
+      return 'base64';
+    }
+    if (normalized === 'base64-websafe' || normalized === 'base64_websafe'
+      || normalized === 'base64websafe' || normalized === 'websafe'
+      || normalized === 'base64url' || normalized === 'base64-url') {
+      return 'base64-websafe';
+    }
+    return 'hex';
+  }
+
+  function selectHashVariantForFormat(variants, format) {
+    if (!variants) {
+      return '';
+    }
+
+    if (format === 'base64' && typeof variants.base64 !== 'undefined') {
+      return variants.base64 || '';
+    }
+
+    if (format === 'base64-websafe' && typeof variants.base64WebSafe !== 'undefined') {
+      return variants.base64WebSafe || '';
+    }
+
+    if (typeof variants.hex !== 'undefined' && variants.hex) {
+      return variants.hex;
+    }
+
+    if (typeof variants.base64 !== 'undefined' && variants.base64) {
+      return variants.base64;
+    }
+
+    if (typeof variants.base64WebSafe !== 'undefined' && variants.base64WebSafe) {
+      return variants.base64WebSafe;
+    }
+
+    return '';
+  }
+
+  function createPasswordRecord(raw, options) {
+    var variants = computeHashVariants(raw);
+    var preferredFormat = normalizePreferredHashFormat(options && options.format);
+    var selectedHash = selectHashVariantForFormat(variants, preferredFormat);
+
+    return {
+      hash: selectedHash,
+      hashFormat: preferredFormat,
+      algorithm: 'SHA-256',
+      variants: variants
+    };
+  }
+
+  function createPasswordHash(raw, options) {
+    return createPasswordRecord(raw, options).hash;
+  }
+
   function hashPassword(raw) {
-    return computeHashVariants(raw).hex;
+    return createPasswordHash(raw);
   }
 
   function hashPasswordBase64(raw) {
-    return computeHashVariants(raw).base64;
+    return createPasswordHash(raw, { format: 'base64' });
   }
 
   function hashPasswordWebSafe(raw) {
-    return computeHashVariants(raw).base64WebSafe;
+    return createPasswordHash(raw, { format: 'base64-websafe' });
   }
 
   function constantTimeEquals(a, b) {
@@ -144,12 +202,39 @@ function __createPasswordUtilitiesModule() {
     return false;
   }
 
-  function createPasswordHash(raw) {
-    return hashPassword(raw);
-  }
-
   function decodePasswordHash(hash) {
     return normalizeHash(hash);
+  }
+
+  function createPasswordUpdate(raw, options) {
+    var record = createPasswordRecord(raw, options);
+    var columns = {};
+
+    columns.PasswordHash = typeof record.hash === 'undefined' ? '' : record.hash;
+
+    if (!options || options.includeVariants !== false) {
+      if (record.variants && typeof record.variants.hex !== 'undefined') {
+        columns.PasswordHashHex = record.variants.hex || '';
+      }
+      if (record.variants && typeof record.variants.base64 !== 'undefined') {
+        columns.PasswordHashBase64 = record.variants.base64 || '';
+      }
+      if (record.variants && typeof record.variants.base64WebSafe !== 'undefined') {
+        columns.PasswordHashBase64WebSafe = record.variants.base64WebSafe || '';
+      }
+    }
+
+    if (!options || options.includeFormat !== false) {
+      columns.PasswordHashFormat = record.hashFormat || 'hex';
+    }
+
+    return {
+      hash: record.hash,
+      hashFormat: record.hashFormat,
+      algorithm: record.algorithm,
+      variants: record.variants,
+      columns: columns
+    };
   }
 
   function detectHashFormat(hash) {
@@ -186,6 +271,8 @@ function __createPasswordUtilitiesModule() {
     hashPasswordBase64: hashPasswordBase64,
     hashPasswordWebSafe: hashPasswordWebSafe,
     createPasswordHash: createPasswordHash,
+    createPasswordRecord: createPasswordRecord,
+    createPasswordUpdate: createPasswordUpdate,
     verifyPassword: verifyPassword,
     comparePassword: verifyPassword,
     constantTimeEquals: constantTimeEquals,
