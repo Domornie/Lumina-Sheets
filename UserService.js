@@ -2836,7 +2836,7 @@ function clientRegisterUser(userData) {
 
     const id = Utilities.getUuid();
     const createdAt = _now_();
-    let setupToken = '';
+    const setupToken = Utilities.getUuid();
 
     // Benefits compute
     const probEnd = data.probationEnd || calcProbationEndDate_(data.hireDate || '', data.probationMonths || '');
@@ -2858,7 +2858,7 @@ function clientRegisterUser(userData) {
       CampaignID: data.campaignId || '',
       PasswordHash: '',
       ResetRequired: _boolToStr_(data.canLogin),
-      EmailConfirmation: '',
+      EmailConfirmation: setupToken,
       EmailConfirmed: 'TRUE',
       PhoneNumber: data.phoneNumber || '',
       EmploymentStatus: data.employmentStatus || '',
@@ -2891,57 +2891,7 @@ function clientRegisterUser(userData) {
     const row = [];
     Object.keys(idx).forEach(header => { row[idx[header]] = (typeof newUser[header] !== 'undefined') ? newUser[header] : ''; });
     sh.appendRow(row);
-    const appendedRowIndex = sh.getLastRow();
     _userLog_('[clientRegisterUser] row appended', { userId: id, rowValues: row });
-
-    let credentialInit = null;
-    if (data.canLogin && typeof AuthenticationService !== 'undefined'
-      && AuthenticationService
-      && typeof AuthenticationService.initializeCredentialsForUser === 'function') {
-      try {
-        credentialInit = AuthenticationService.initializeCredentialsForUser(id, {
-          source: 'clientRegisterUser',
-          requestedBy: (userData && userData.requestedBy) || null
-        });
-        if (credentialInit && credentialInit.success && credentialInit.token) {
-          setupToken = credentialInit.token;
-        }
-      } catch (credErr) {
-        writeError && writeError('clientRegisterUser:initializeCredentials', credErr);
-        _userLog_('[clientRegisterUser] credential initialization failed', {
-          error: credErr && credErr.message
-        }, 'warn');
-      }
-    }
-
-    if (!setupToken) {
-      setupToken = Utilities.getUuid();
-    }
-
-    try {
-      if (idx['EmailConfirmation'] >= 0) sh.getRange(appendedRowIndex, idx['EmailConfirmation'] + 1).setValue(setupToken);
-      if (idx['ResetPasswordToken'] >= 0) sh.getRange(appendedRowIndex, idx['ResetPasswordToken'] + 1).setValue(setupToken);
-      if (idx['ResetPasswordTokenHash'] >= 0 && typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
-        const tokenHash = PasswordUtilities.hashToken(setupToken);
-        if (tokenHash) {
-          sh.getRange(appendedRowIndex, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash);
-        }
-      }
-      if (idx['ResetPasswordSentAt'] >= 0) {
-        sh.getRange(appendedRowIndex, idx['ResetPasswordSentAt'] + 1).setValue(new Date());
-      }
-      if (idx['ResetPasswordExpiresAt'] >= 0 && credentialInit && credentialInit.expiresAt) {
-        sh.getRange(appendedRowIndex, idx['ResetPasswordExpiresAt'] + 1).setValue(new Date(credentialInit.expiresAt));
-      }
-      if (idx['ResetRequired'] >= 0) {
-        sh.getRange(appendedRowIndex, idx['ResetRequired'] + 1).setValue('TRUE');
-      }
-    } catch (tokenWriteError) {
-      writeError && writeError('clientRegisterUser:tokenWrite', tokenWriteError);
-      _userLog_('[clientRegisterUser] token column write failed', {
-        error: tokenWriteError && tokenWriteError.message
-      }, 'warn');
-    }
 
     try {
       if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
@@ -3524,25 +3474,7 @@ function clientAdminResetPassword(userId, requestingUserId) {
     if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
 
     let token = null;
-    let expiresAtIso = '';
-    if (typeof AuthenticationService !== 'undefined'
-      && AuthenticationService
-      && typeof AuthenticationService.issuePasswordResetToken === 'function') {
-      try {
-        const resetResult = AuthenticationService.issuePasswordResetToken(userId, {
-          source: 'clientAdminResetPassword',
-          requestedBy: requestingUserId || null
-        });
-        if (resetResult && resetResult.success && resetResult.token) {
-          token = resetResult.token;
-          expiresAtIso = resetResult.expiresAt || '';
-        }
-      } catch (resetErr) {
-        writeError && writeError('clientAdminResetPassword:issueToken', resetErr);
-      }
-    }
-
-    if (!token && typeof IdentityService !== 'undefined'
+    if (typeof IdentityService !== 'undefined'
       && IdentityService
       && typeof IdentityService.beginPasswordReset === 'function') {
       try {
@@ -3559,25 +3491,21 @@ function clientAdminResetPassword(userId, requestingUserId) {
 
     if (!token) {
       token = Utilities.getUuid();
-      expiresAtIso = new Date(Date.now() + 60 * 60000).toISOString();
-    }
-
-    let tokenHash = '';
-    if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
-      tokenHash = PasswordUtilities.hashToken(token);
-    } else {
+      const sentAt = new Date();
+      const expiresAtDate = new Date(sentAt.getTime() + 60 * 60000);
+      const sentAtIso = sentAt.toISOString();
+      const expiresAtIso = expiresAtDate.toISOString();
       const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
-      tokenHash = digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
-    }
-    const sentAtIso = new Date().toISOString();
+      const tokenHash = digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
 
-    if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-    if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
-    if (idx['ResetPasswordTokenHash'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash || '');
-    if (idx['ResetPasswordSentAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordSentAt'] + 1).setValue(sentAtIso);
-    if (idx['ResetPasswordExpiresAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordExpiresAt'] + 1).setValue(expiresAtIso || '');
-    if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
-    if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(sentAtIso);
+      if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
+      if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
+      if (idx['ResetPasswordTokenHash'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash);
+      if (idx['ResetPasswordSentAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordSentAt'] + 1).setValue(sentAtIso);
+      if (idx['ResetPasswordExpiresAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordExpiresAt'] + 1).setValue(expiresAtIso);
+      if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
+      if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(sentAtIso);
+    }
 
     invalidateCache && invalidateCache(G.USERS_SHEET);
 
@@ -3625,36 +3553,8 @@ function clientResendFirstLoginEmail(userId, requestingUserId) {
     const canLogin = _strToBool_(row[idx['CanLogin']]);
     if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
 
-    let token = null;
-    if (typeof AuthenticationService !== 'undefined'
-      && AuthenticationService
-      && typeof AuthenticationService.issuePasswordSetupToken === 'function') {
-      try {
-        const setupResult = AuthenticationService.issuePasswordSetupToken(userId, {
-          source: 'clientResendFirstLoginEmail',
-          requestedBy: requestingUserId || null
-        });
-        if (setupResult && setupResult.success && setupResult.token) {
-          token = setupResult.token;
-        }
-      } catch (setupErr) {
-        writeError && writeError('clientResendFirstLoginEmail:issueToken', setupErr);
-      }
-    }
-
-    if (!token) {
-      token = Utilities.getUuid();
-    }
-
+    const token = Utilities.getUuid();
     if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-    if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
-    if (idx['ResetPasswordTokenHash'] >= 0 && typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
-      const tokenHash = PasswordUtilities.hashToken(token);
-      if (tokenHash) {
-        sheet.getRange(rowIndex + 1, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash);
-      }
-    }
-    if (idx['ResetPasswordSentAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordSentAt'] + 1).setValue(new Date());
     if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
     if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
 
