@@ -114,6 +114,140 @@ if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
   "MFAEnabled"
 ];
 
+if (typeof getCanonicalUserHeaders !== 'function') {
+  function getCanonicalUserHeaders(options) {
+    var preferIdentityService = !options || options.preferIdentityService !== false;
+
+    if (preferIdentityService
+      && typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.listIdentityFields === 'function') {
+      try {
+        var identityFields = IdentityService.listIdentityFields();
+        if (Array.isArray(identityFields) && identityFields.length) {
+          return identityFields.slice();
+        }
+      } catch (identityFieldError) {
+        console.warn('getCanonicalUserHeaders: IdentityService.listIdentityFields failed', identityFieldError);
+      }
+    }
+
+    if (Array.isArray(USERS_HEADERS) && USERS_HEADERS.length) {
+      return USERS_HEADERS.slice();
+    }
+
+    return [
+      "ID",
+      "UserName",
+      "FullName",
+      "Email",
+      "CampaignID",
+      "PasswordHash",
+      "ResetRequired",
+      "EmailConfirmation",
+      "EmailConfirmed",
+      "PhoneNumber",
+      "EmploymentStatus",
+      "HireDate",
+      "Country",
+      "LockoutEnd",
+      "TwoFactorEnabled",
+      "CanLogin",
+      "Roles",
+      "Pages",
+      "CreatedAt",
+      "UpdatedAt",
+      "IsAdmin",
+      "NormalizedUserName",
+      "NormalizedEmail",
+      "PhoneNumberConfirmed",
+      "LockoutEnabled",
+      "AccessFailedCount",
+      "TwoFactorDelivery",
+      "TwoFactorSecret",
+      "TwoFactorRecoveryCodes",
+      "SecurityStamp",
+      "ConcurrencyStamp",
+      "EmailConfirmationTokenHash",
+      "EmailConfirmationSentAt",
+      "EmailConfirmationExpiresAt",
+      "ResetPasswordToken",
+      "ResetPasswordTokenHash",
+      "ResetPasswordSentAt",
+      "ResetPasswordExpiresAt",
+      "LastLogin",
+      "LastLoginAt",
+      "LastLoginIp",
+      "LastLoginUserAgent",
+      "DeletedAt",
+      "TerminationDate",
+      "ProbationMonths",
+      "ProbationEnd",
+      "ProbationEndDate",
+      "InsuranceEligibleDate",
+      "InsuranceQualifiedDate",
+      "InsuranceEligible",
+      "InsuranceQualified",
+      "InsuranceEnrolled",
+      "InsuranceSignedUp",
+      "InsuranceCardReceivedDate",
+      "MFASecret",
+      "MFABackupCodes",
+      "MFADeliveryPreference",
+      "MFAEnabled"
+    ];
+  }
+}
+
+if (typeof projectRecordToCanonicalUser !== 'function') {
+  function projectRecordToCanonicalUser(record, options) {
+    var headers = getCanonicalUserHeaders(options);
+    var projected = {};
+
+    for (var i = 0; i < headers.length; i += 1) {
+      var header = headers[i];
+      if (!header && header !== 0) {
+        continue;
+      }
+
+      var key = String(header);
+      if (!key) {
+        continue;
+      }
+
+      if (record && Object.prototype.hasOwnProperty.call(record, key)) {
+        projected[key] = record[key];
+        continue;
+      }
+
+      if (!record || typeof record !== 'object') {
+        projected[key] = '';
+        continue;
+      }
+
+      var lowerKey = key.toLowerCase();
+      var resolved = '';
+
+      Object.keys(record).some(function (candidate) {
+        if (!candidate && candidate !== 0) {
+          return false;
+        }
+
+        if (String(candidate).toLowerCase() !== lowerKey) {
+          return false;
+        }
+
+        resolved = record[candidate];
+        return true;
+      });
+
+      projected[key] = resolved;
+    }
+
+    return projected;
+  }
+}
+
 if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = [
   "ID",
   "Name",

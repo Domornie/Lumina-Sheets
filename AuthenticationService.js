@@ -50,6 +50,8 @@ const MFA_MAX_DELIVERIES = 5;
 const MFA_CODE_LENGTH = 6;
 const MFA_STORAGE_PREFIX = 'AUTH_MFA_CHALLENGE:';
 
+let USER_IDENTITY_HEADERS = null;
+
 const DEVICE_VERIFICATION_CODE_LENGTH = 6;
 const DEVICE_VERIFICATION_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const TRUSTED_DEVICE_TABLE = (typeof TRUSTED_DEVICES_SHEET === 'string' && TRUSTED_DEVICES_SHEET)
@@ -158,6 +160,481 @@ var AuthenticationService = (function () {
       console.warn('serializeCampaignScope: Failed to stringify scope', err);
       return '';
     }
+  }
+
+  function ensureUserIdentityHeaders() {
+    if (Array.isArray(USER_IDENTITY_HEADERS) && USER_IDENTITY_HEADERS.length) {
+      return USER_IDENTITY_HEADERS;
+    }
+
+    if (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS) && USERS_HEADERS.length) {
+      USER_IDENTITY_HEADERS = USERS_HEADERS.slice();
+      return USER_IDENTITY_HEADERS;
+    }
+
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.listIdentityFields === 'function') {
+      try {
+        const listed = IdentityService.listIdentityFields();
+        if (Array.isArray(listed) && listed.length) {
+          USER_IDENTITY_HEADERS = listed.slice();
+          return USER_IDENTITY_HEADERS;
+        }
+      } catch (identityError) {
+        console.warn('ensureUserIdentityHeaders: IdentityService list failed', identityError);
+      }
+    }
+
+    console.warn('ensureUserIdentityHeaders: USERS_HEADERS not defined; returning empty header list');
+    USER_IDENTITY_HEADERS = [];
+    return USER_IDENTITY_HEADERS;
+  }
+
+  function projectIdentityFieldsFromRecord(record) {
+    const headers = ensureUserIdentityHeaders();
+    const projected = {};
+
+    headers.forEach(function (header) {
+      const key = String(header || '').trim();
+      if (!key) return;
+      if (record && Object.prototype.hasOwnProperty.call(record, key)) {
+        projected[key] = record[key];
+        return;
+      }
+      const lower = key.toLowerCase();
+      if (record && Object.prototype.hasOwnProperty.call(record, lower)) {
+        projected[key] = record[lower];
+        return;
+      }
+      projected[key] = '';
+    });
+
+    return projected;
+  }
+
+  function parseIdentityList(value) {
+    if (!value && value !== 0) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value
+        .map(function (item) { return normalizeString(item); })
+        .filter(function (item) { return !!item; });
+    }
+
+    const raw = normalizeString(value);
+    if (!raw) {
+      return [];
+    }
+
+    if (/^\s*\[/.test(raw)) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(function (item) { return normalizeString(item); })
+            .filter(function (item) { return !!item; });
+        }
+      } catch (err) {
+        console.warn('parseIdentityList: Failed to parse JSON list', err);
+      }
+    }
+
+    return raw
+      .split(/[\r\n,;|]+/)
+      .map(function (item) { return normalizeString(item); })
+      .filter(function (item) { return !!item; });
+  }
+
+  function parseIdentityRecoveryList(value) {
+    return parseIdentityList(value).map(function (item) {
+      return item.replace(/\s+/g, '').toUpperCase();
+    });
+  }
+
+  function parseDateValue(value) {
+    if (!value && value !== 0) {
+      return null;
+    }
+    if (value instanceof Date) {
+      if (isNaN(value.getTime())) return null;
+      return value;
+    }
+    const str = String(value).trim();
+    if (!str) {
+      return null;
+    }
+    const parsed = new Date(str);
+    if (isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed;
+  }
+
+  function safeNumber(value) {
+    if (value === null || typeof value === 'undefined' || value === '') {
+      return null;
+    }
+    if (typeof value === 'number') {
+      return isNaN(value) ? null : value;
+    }
+    const numeric = Number(String(value).replace(/,/g, '').trim());
+    return isNaN(numeric) ? null : numeric;
+  }
+
+  function buildIdentityStatusFromFields(fields) {
+    const canLogin = toBool(Object.prototype.hasOwnProperty.call(fields, 'CanLogin') ? fields.CanLogin : true);
+    const emailConfirmed = toBool(fields.EmailConfirmed);
+    const resetRequired = toBool(fields.ResetRequired);
+    const lockoutEnabled = toBool(fields.LockoutEnabled);
+    const lockoutEnd = parseDateValue(fields.LockoutEnd);
+    const deletedAt = parseDateValue(fields.DeletedAt);
+    const terminationDate = parseDateValue(fields.TerminationDate);
+    const probationEnd = parseDateValue(fields.ProbationEndDate || fields.ProbationEnd);
+    const insuranceEligibleDate = parseDateValue(fields.InsuranceEligibleDate);
+    const insuranceQualifiedDate = parseDateValue(fields.InsuranceQualifiedDate);
+    const insuranceCardReceivedDate = parseDateValue(fields.InsuranceCardReceivedDate);
+    const resetPasswordExpiresAt = parseDateValue(fields.ResetPasswordExpiresAt);
+    const resetPasswordSentAt = parseDateValue(fields.ResetPasswordSentAt);
+    const emailConfirmationSentAt = parseDateValue(fields.EmailConfirmationSentAt);
+    const emailConfirmationExpiresAt = parseDateValue(fields.EmailConfirmationExpiresAt);
+    const lastLoginAt = parseDateValue(fields.LastLoginAt || fields.LastLogin);
+
+    const accessFailedCount = safeNumber(fields.AccessFailedCount) || 0;
+    const probationMonths = safeNumber(fields.ProbationMonths);
+
+    const insurance = {
+      eligible: toBool(fields.InsuranceEligible),
+      qualified: toBool(fields.InsuranceQualified),
+      enrolled: toBool(fields.InsuranceEnrolled),
+      signedUp: toBool(fields.InsuranceSignedUp),
+      eligibleDate: insuranceEligibleDate,
+      qualifiedDate: insuranceQualifiedDate,
+      cardReceivedDate: insuranceCardReceivedDate
+    };
+
+    const mfaEnabled = toBool(fields.MFAEnabled) || toBool(fields.TwoFactorEnabled);
+    const mfaDelivery = normalizeString(fields.MFADeliveryPreference || fields.TwoFactorDelivery).toLowerCase();
+    const mfaSecret = normalizeString(fields.MFASecret || fields.TwoFactorSecret);
+    const mfaRecoveryCodes = Array.isArray(fields.MFABackupCodes)
+      ? fields.MFABackupCodes.slice()
+      : parseIdentityRecoveryList(fields.MFABackupCodes || fields.TwoFactorRecoveryCodes);
+
+    return {
+      canLogin: canLogin,
+      emailConfirmed: emailConfirmed,
+      resetRequired: resetRequired,
+      lockout: {
+        enabled: lockoutEnabled,
+        locked: !!(lockoutEnabled && lockoutEnd && lockoutEnd.getTime() > Date.now()),
+        lockoutEnd: lockoutEnd,
+        accessFailedCount: accessFailedCount
+      },
+      deletion: {
+        deleted: !!deletedAt,
+        deletedAt: deletedAt
+      },
+      termination: {
+        terminated: !!terminationDate,
+        terminationDate: terminationDate
+      },
+      probation: {
+        onProbation: !!probationEnd && probationEnd.getTime() > Date.now(),
+        probationEndsAt: probationEnd,
+        probationMonths: probationMonths
+      },
+      insurance: insurance,
+      mfa: {
+        enabled: mfaEnabled,
+        deliveryMethod: mfaDelivery,
+        secretConfigured: !!mfaSecret,
+        recoveryCodes: mfaRecoveryCodes,
+        phoneDelivery: (mfaDelivery === 'sms' || mfaDelivery === 'phone') && !!normalizeString(fields.PhoneNumber),
+        totpConfigured: !!mfaSecret
+      },
+      passwordReset: {
+        required: resetRequired,
+        token: normalizeString(fields.ResetPasswordToken),
+        tokenHash: normalizeString(fields.ResetPasswordTokenHash),
+        sentAt: resetPasswordSentAt,
+        expiresAt: resetPasswordExpiresAt
+      },
+      emailConfirmation: {
+        token: normalizeString(fields.EmailConfirmation),
+        tokenHash: normalizeString(fields.EmailConfirmationTokenHash),
+        sentAt: emailConfirmationSentAt,
+        expiresAt: emailConfirmationExpiresAt,
+        confirmed: emailConfirmed
+      },
+      phone: {
+        number: normalizeString(fields.PhoneNumber),
+        confirmed: toBool(fields.PhoneNumberConfirmed)
+      },
+      lastLogin: {
+        at: lastLoginAt,
+        ip: normalizeString(fields.LastLoginIp),
+        userAgent: normalizeString(fields.LastLoginUserAgent)
+      },
+      security: {
+        stamp: normalizeString(fields.SecurityStamp),
+        concurrencyStamp: normalizeString(fields.ConcurrencyStamp)
+      }
+    };
+  }
+
+  function buildIdentitySummaryFromFields(fields, status) {
+    status = status || buildIdentityStatusFromFields(fields);
+    const roles = Array.isArray(fields.Roles)
+      ? fields.Roles.slice()
+      : parseIdentityList(fields.Roles);
+    const pages = Array.isArray(fields.Pages)
+      ? fields.Pages.slice()
+      : parseIdentityList(fields.Pages);
+
+    return {
+      id: normalizeString(fields.ID),
+      email: normalizeEmail(fields.Email),
+      normalizedEmail: normalizeEmail(fields.NormalizedEmail || fields.Email),
+      userName: normalizeString(fields.UserName),
+      normalizedUserName: normalizeString(fields.NormalizedUserName || fields.UserName).toLowerCase(),
+      fullName: normalizeString(fields.FullName || fields.UserName),
+      campaignId: normalizeString(fields.CampaignID),
+      roles: roles,
+      pages: pages,
+      isAdmin: toBool(fields.IsAdmin),
+      employmentStatus: normalizeString(fields.EmploymentStatus),
+      hireDate: fields.HireDate || '',
+      country: normalizeString(fields.Country),
+      createdAt: fields.CreatedAt || '',
+      updatedAt: fields.UpdatedAt || '',
+      phoneNumber: normalizeString(fields.PhoneNumber),
+      phoneNumberConfirmed: status && status.phone ? !!status.phone.confirmed : toBool(fields.PhoneNumberConfirmed),
+      canLogin: status ? !!status.canLogin : toBool(fields.CanLogin),
+      emailConfirmed: status ? !!status.emailConfirmed : toBool(fields.EmailConfirmed),
+      lockoutEnd: status && status.lockout ? status.lockout.lockoutEnd : (fields.LockoutEnd || ''),
+      accessFailedCount: status && status.lockout ? status.lockout.accessFailedCount : (safeNumber(fields.AccessFailedCount) || 0),
+      deletedAt: status && status.deletion ? status.deletion.deletedAt : (fields.DeletedAt || ''),
+      terminationDate: status && status.termination ? status.termination.terminationDate : (fields.TerminationDate || ''),
+      probationEndsAt: status && status.probation ? status.probation.probationEndsAt : (fields.ProbationEndDate || fields.ProbationEnd || ''),
+      insurance: status && status.insurance ? status.insurance : {
+        eligible: toBool(fields.InsuranceEligible),
+        qualified: toBool(fields.InsuranceQualified),
+        enrolled: toBool(fields.InsuranceEnrolled),
+        signedUp: toBool(fields.InsuranceSignedUp),
+        eligibleDate: fields.InsuranceEligibleDate || '',
+        qualifiedDate: fields.InsuranceQualifiedDate || '',
+        cardReceivedDate: fields.InsuranceCardReceivedDate || ''
+      },
+      mfa: status && status.mfa ? {
+        enabled: !!status.mfa.enabled,
+        deliveryMethod: status.mfa.deliveryMethod,
+        totpConfigured: !!status.mfa.totpConfigured,
+        recoveryCodes: Array.isArray(status.mfa.recoveryCodes) ? status.mfa.recoveryCodes.slice() : []
+      } : {
+        enabled: toBool(fields.MFAEnabled) || toBool(fields.TwoFactorEnabled),
+        deliveryMethod: normalizeString(fields.MFADeliveryPreference || fields.TwoFactorDelivery).toLowerCase(),
+        totpConfigured: !!normalizeString(fields.MFASecret || fields.TwoFactorSecret),
+        recoveryCodes: parseIdentityRecoveryList(fields.MFABackupCodes || fields.TwoFactorRecoveryCodes)
+      },
+      lastLoginAt: status && status.lastLogin ? status.lastLogin.at : (fields.LastLoginAt || fields.LastLogin || ''),
+      lastLoginIp: status && status.lastLogin ? status.lastLogin.ip : normalizeString(fields.LastLoginIp),
+      lastLoginUserAgent: status && status.lastLogin ? status.lastLogin.userAgent : normalizeString(fields.LastLoginUserAgent),
+      passwordResetRequired: status && status.passwordReset ? !!status.passwordReset.required : toBool(fields.ResetRequired)
+    };
+  }
+
+  function resolveIdentitySnapshot(user) {
+    if (!user) {
+      return null;
+    }
+
+    try {
+      if (typeof IdentityService !== 'undefined' && IdentityService) {
+        if (typeof IdentityService.buildIdentityStateFromUser === 'function') {
+          try {
+            const built = IdentityService.buildIdentityStateFromUser(user);
+            if (built && built.fields) {
+              const summary = (typeof IdentityService.summarizeIdentityForClient === 'function')
+                ? IdentityService.summarizeIdentityForClient(built)
+                : buildIdentitySummaryFromFields(built.fields, built.status);
+              const evaluation = (typeof IdentityService.evaluateIdentityForAuthentication === 'function')
+                ? IdentityService.evaluateIdentityForAuthentication(built)
+                : null;
+              return {
+                success: true,
+                identity: built,
+                summary: summary,
+                evaluation: evaluation
+              };
+            }
+          } catch (buildError) {
+            console.warn('resolveIdentitySnapshot: buildIdentityStateFromUser failed', buildError);
+          }
+        }
+
+        let lookup = null;
+        if (user.ID && typeof IdentityService.getUserIdentityById === 'function') {
+          lookup = IdentityService.getUserIdentityById(user.ID);
+        }
+        if ((!lookup || lookup.success === false) && user.Email && typeof IdentityService.getUserIdentityByEmail === 'function') {
+          lookup = IdentityService.getUserIdentityByEmail(user.Email);
+        }
+        if (lookup && lookup.success) {
+          return lookup;
+        }
+      }
+    } catch (identityError) {
+      console.warn('resolveIdentitySnapshot: IdentityService lookup failed', identityError);
+    }
+
+    const fields = projectIdentityFieldsFromRecord(user);
+    const status = buildIdentityStatusFromFields(fields);
+    const summary = buildIdentitySummaryFromFields(fields, status);
+
+    return {
+      success: true,
+      identity: {
+        fields: fields,
+        status: status
+      },
+      summary: summary,
+      evaluation: {
+        allow: status.canLogin !== false,
+        status: status,
+        warnings: []
+      }
+    };
+  }
+
+  function sanitizeIdentityMetadata(identity) {
+    if (!identity || typeof identity !== 'object') {
+      return null;
+    }
+
+    const sanitized = {};
+
+    const summarySource = identity.summary || identity.IdentitySummary || null;
+    if (summarySource && typeof summarySource === 'object') {
+      const summary = {};
+      const summaryId = normalizeString(summarySource.id || summarySource.ID || summarySource.userId);
+      const summaryEmail = normalizeEmail(summarySource.email || summarySource.Email);
+      const summaryUserName = normalizeString(summarySource.userName || summarySource.UserName);
+      const summaryFullName = normalizeString(summarySource.fullName || summarySource.FullName);
+      const summaryCampaign = normalizeString(summarySource.campaignId || summarySource.CampaignID || summarySource.campaign);
+      const summaryRoles = parseIdentityList(summarySource.roles || summarySource.Roles);
+
+      if (summaryId) summary.id = summaryId;
+      if (summaryEmail) summary.email = summaryEmail;
+      if (summaryUserName) summary.userName = summaryUserName;
+      if (summaryFullName) summary.fullName = summaryFullName;
+      if (summaryCampaign) summary.campaignId = summaryCampaign;
+      if (summaryRoles.length) summary.roles = summaryRoles.slice(0, 20);
+      if (Object.prototype.hasOwnProperty.call(summarySource, 'isAdmin')) {
+        summary.isAdmin = !!summarySource.isAdmin;
+      }
+
+      if (Object.keys(summary).length) {
+        sanitized.summary = summary;
+      }
+    }
+
+    const fieldsSource = identity.fields || identity.IdentityFields || identity.identityFields || null;
+    if (fieldsSource && typeof fieldsSource === 'object') {
+      const fieldsMeta = {};
+      const fieldId = normalizeString(fieldsSource.ID || fieldsSource.Id || fieldsSource.userId || fieldsSource.id);
+      const fieldEmail = normalizeEmail(fieldsSource.Email || fieldsSource.email);
+      const securityStamp = normalizeString(fieldsSource.SecurityStamp || fieldsSource.securityStamp);
+      const concurrencyStamp = normalizeString(fieldsSource.ConcurrencyStamp || fieldsSource.concurrencyStamp);
+      const campaignId = normalizeString(fieldsSource.CampaignID || fieldsSource.campaignId);
+
+      if (fieldId) fieldsMeta.id = fieldId;
+      if (fieldEmail) fieldsMeta.email = fieldEmail;
+      if (securityStamp) fieldsMeta.securityStamp = securityStamp;
+      if (concurrencyStamp) fieldsMeta.concurrencyStamp = concurrencyStamp;
+      if (campaignId) fieldsMeta.campaignId = campaignId;
+
+      if (Object.keys(fieldsMeta).length) {
+        sanitized.fields = fieldsMeta;
+      }
+    } else if (identity.id || identity.userId) {
+      const fallbackId = normalizeString(identity.id || identity.userId);
+      if (fallbackId) {
+        sanitized.fields = { id: fallbackId };
+      }
+    }
+
+    const statusSource = identity.status || identity.IdentityStatus || null;
+    if (statusSource && typeof statusSource === 'object') {
+      const statusMeta = {};
+      if (Object.prototype.hasOwnProperty.call(statusSource, 'canLogin')) {
+        statusMeta.canLogin = !!statusSource.canLogin;
+      }
+      if (Object.prototype.hasOwnProperty.call(statusSource, 'emailConfirmed')) {
+        statusMeta.emailConfirmed = !!statusSource.emailConfirmed;
+      }
+      if (statusSource.lockout && typeof statusSource.lockout === 'object') {
+        if (Object.prototype.hasOwnProperty.call(statusSource.lockout, 'locked')) {
+          statusMeta.locked = !!statusSource.lockout.locked;
+        }
+        if (Object.prototype.hasOwnProperty.call(statusSource.lockout, 'lockoutEnd') && statusSource.lockout.lockoutEnd) {
+          statusMeta.lockoutEnd = statusSource.lockout.lockoutEnd;
+        }
+        if (Object.prototype.hasOwnProperty.call(statusSource.lockout, 'accessFailedCount')) {
+          statusMeta.accessFailedCount = Number(statusSource.lockout.accessFailedCount) || 0;
+        }
+      }
+      if (statusSource.mfa && typeof statusSource.mfa === 'object') {
+        if (Object.prototype.hasOwnProperty.call(statusSource.mfa, 'enabled')) {
+          statusMeta.mfaEnabled = !!statusSource.mfa.enabled;
+        }
+        if (statusSource.mfa.deliveryMethod) {
+          statusMeta.mfaDeliveryMethod = normalizeString(statusSource.mfa.deliveryMethod).toLowerCase();
+        }
+      }
+      if (Object.keys(statusMeta).length) {
+        sanitized.status = statusMeta;
+      }
+    }
+
+    return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  function buildIdentityMetadataForClient(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      return null;
+    }
+
+    const identity = snapshot.identity || null;
+    const summary = snapshot.summary || (identity && identity.summary) || null;
+    const evaluation = snapshot.evaluation || null;
+
+    const metadata = sanitizeIdentityMetadata({
+      fields: identity && identity.fields ? identity.fields : null,
+      status: identity && identity.status ? identity.status : null,
+      summary: summary
+    }) || {};
+
+    if (evaluation && typeof evaluation === 'object') {
+      const evalMeta = {};
+      if (Object.prototype.hasOwnProperty.call(evaluation, 'allow')) {
+        evalMeta.allow = !!evaluation.allow;
+      }
+      if (Array.isArray(evaluation.warnings) && evaluation.warnings.length) {
+        evalMeta.warnings = evaluation.warnings.slice(0, 20);
+      }
+      if (evaluation.errorCode) {
+        evalMeta.errorCode = String(evaluation.errorCode).slice(0, 100);
+      }
+      if (evaluation.error) {
+        evalMeta.error = String(evaluation.error).slice(0, 200);
+      }
+      if (Object.keys(evalMeta).length) {
+        metadata.evaluation = evalMeta;
+      }
+    }
+
+    return Object.keys(metadata).length ? metadata : null;
   }
 
   function tenantSecurityAvailable() {
@@ -345,6 +822,13 @@ var AuthenticationService = (function () {
         }
       } catch (returnError) {
         console.warn('sanitizeClientMetadata: unable to sanitize requestedReturnUrl', returnError);
+      }
+    }
+
+    if (metadata.identity && typeof metadata.identity === 'object') {
+      const identityMeta = sanitizeIdentityMetadata(metadata.identity);
+      if (identityMeta) {
+        sanitized.identity = identityMeta;
       }
     }
 
@@ -1141,7 +1625,8 @@ var AuthenticationService = (function () {
       getRecordValue(record, 'CampaignScope') || getRecordValue(record, 'campaignScope')
     );
     const tenantPayload = buildTenantScopePayload(rawScope);
-    const userPayload = buildUserPayload(user, tenantPayload);
+    const identitySnapshot = resolveIdentitySnapshot(user);
+    const userPayload = buildUserPayload(user, tenantPayload, identitySnapshot);
 
     if (userPayload && userPayload.CampaignScope) {
       userPayload.CampaignScope.tenantContext = rawScope && rawScope.tenantContext ? rawScope.tenantContext : null;
@@ -1188,7 +1673,9 @@ var AuthenticationService = (function () {
       user: userPayload,
       tenant: tenantPayload,
       rawScope: rawScope,
-      rawUser: user
+      rawUser: user,
+      identity: identitySnapshot ? identitySnapshot.identity : null,
+      identitySummary: identitySnapshot ? identitySnapshot.summary : null
     };
   }
 
@@ -1833,6 +2320,13 @@ var AuthenticationService = (function () {
       };
     }
 
+    const identitySnapshot = resolveIdentitySnapshot(user);
+    const identitySummary = identitySnapshot ? identitySnapshot.summary : null;
+    const identityEvaluation = identitySnapshot ? identitySnapshot.evaluation : null;
+    const identityWarnings = identityEvaluation && Array.isArray(identityEvaluation.warnings)
+      ? identityEvaluation.warnings.slice()
+      : [];
+
     const canLogin = toBool(user.CanLogin);
     const emailConfirmed = toBool(user.EmailConfirmed);
     const resetRequired = toBool(user.ResetRequired);
@@ -1881,7 +2375,19 @@ var AuthenticationService = (function () {
     }
     tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
-    const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, mergedMetadata);
+    const metadataWithIdentity = mergedMetadata && typeof mergedMetadata === 'object'
+      ? Object.assign({}, mergedMetadata)
+      : {};
+    if (identitySnapshot) {
+      const identityMeta = buildIdentityMetadataForClient(identitySnapshot);
+      if (identityMeta) {
+        metadataWithIdentity.identity = identityMeta;
+      }
+    }
+
+    const sanitizedSessionMetadata = sanitizeClientMetadata(metadataWithIdentity) || {};
+
+    const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, sanitizedSessionMetadata, identitySnapshot);
     if (!sessionResult || !sessionResult.token) {
       return {
         success: false,
@@ -1896,7 +2402,7 @@ var AuthenticationService = (function () {
       console.warn('confirmDeviceVerification: Failed to update last login', lastLoginError);
     }
 
-    const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+    const userPayload = buildUserPayload(user, tenantAccess.clientPayload, identitySnapshot);
     if (userPayload && userPayload.CampaignScope) {
       userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
         ? tenantAccess.sessionScope.tenantContext
@@ -1910,6 +2416,11 @@ var AuthenticationService = (function () {
     }
 
     const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+    identityWarnings.forEach(function (warning) {
+      if (warnings.indexOf(warning) === -1) {
+        warnings.push(warning);
+      }
+    });
     const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
     const nowIso = new Date().toISOString();
@@ -1952,7 +2463,10 @@ var AuthenticationService = (function () {
       campaignScope: userPayload ? userPayload.CampaignScope : null,
       warnings: warnings,
       needsCampaignAssignment: needsCampaignAssignment,
-      trustedDeviceVerified: true
+      trustedDeviceVerified: true,
+      identity: userPayload && userPayload.Identity ? userPayload.Identity : (identitySnapshot ? identitySnapshot.identity : null),
+      identitySummary: userPayload && userPayload.IdentitySummary ? userPayload.IdentitySummary : identitySummary,
+      identityWarnings: identityWarnings
     };
   }
 
@@ -2834,6 +3348,13 @@ var AuthenticationService = (function () {
         };
       }
 
+      const identitySnapshot = resolveIdentitySnapshot(user);
+      const identitySummary = identitySnapshot ? identitySnapshot.summary : null;
+      const identityEvaluation = identitySnapshot ? identitySnapshot.evaluation : null;
+      const identityWarnings = identityEvaluation && Array.isArray(identityEvaluation.warnings)
+        ? identityEvaluation.warnings.slice()
+        : [];
+
       const config = getUserMfaConfig(user);
       let verified = false;
       let usedBackup = false;
@@ -2874,12 +3395,31 @@ var AuthenticationService = (function () {
 
       deleteMfaChallenge(challengeId);
 
-      const sessionMetadata = sanitizeClientMetadata(metadata) || challenge.metadata || null;
+      const metadataWithIdentity = metadata && typeof metadata === 'object'
+        ? Object.assign({}, metadata)
+        : {};
+      if (identitySnapshot) {
+        const identityMeta = buildIdentityMetadataForClient(identitySnapshot);
+        if (identityMeta) {
+          metadataWithIdentity.identity = identityMeta;
+        }
+      }
+      const sanitizedProvidedMetadata = sanitizeClientMetadata(metadataWithIdentity);
+      let sessionMetadata = null;
+      if (sanitizedProvidedMetadata && Object.keys(sanitizedProvidedMetadata).length) {
+        sessionMetadata = sanitizedProvidedMetadata;
+        if (challenge.metadata && typeof challenge.metadata === 'object') {
+          sessionMetadata = Object.assign({}, challenge.metadata, sanitizedProvidedMetadata);
+        }
+      } else {
+        sessionMetadata = challenge.metadata || null;
+      }
       const sessionResult = createSession(
         challenge.userId,
         !!challenge.rememberMe,
         challenge.tenant ? challenge.tenant.sessionScope : null,
-        sessionMetadata
+        sessionMetadata,
+        identitySnapshot
       );
 
       if (!sessionResult || !sessionResult.token) {
@@ -2907,7 +3447,7 @@ var AuthenticationService = (function () {
       }
       tenantSummary.needsCampaignAssignment = tenantPayload.needsCampaignAssignment === true;
 
-      const userPayload = buildUserPayload(user, tenantPayload.clientPayload || null);
+      const userPayload = buildUserPayload(user, tenantPayload.clientPayload || null, identitySnapshot);
 
       if (userPayload && userPayload.CampaignScope) {
         userPayload.CampaignScope.tenantContext = tenantPayload.sessionScope && tenantPayload.sessionScope.tenantContext
@@ -2922,6 +3462,11 @@ var AuthenticationService = (function () {
       }
 
       const warnings = Array.isArray(tenantPayload.warnings) ? tenantPayload.warnings.slice() : [];
+      identityWarnings.forEach(function (warning) {
+        if (warnings.indexOf(warning) === -1) {
+          warnings.push(warning);
+        }
+      });
 
       const landing = resolveLandingDestination(user, {
         user: userPayload,
@@ -2950,7 +3495,10 @@ var AuthenticationService = (function () {
         needsCampaignAssignment: tenantPayload.needsCampaignAssignment === true,
         message: 'Verification successful. You are now signed in.',
         redirectSlug: redirectSlug,
-        redirectUrl: redirectUrl
+        redirectUrl: redirectUrl,
+        identity: userPayload && userPayload.Identity ? userPayload.Identity : (identitySnapshot ? identitySnapshot.identity : null),
+        identitySummary: userPayload && userPayload.IdentitySummary ? userPayload.IdentitySummary : identitySummary,
+        identityWarnings: identityWarnings
       };
     } catch (error) {
       console.error('verifyMfaCode error:', error);
@@ -3322,21 +3870,91 @@ var AuthenticationService = (function () {
     }
   }
 
-  function buildUserPayload(user, tenantPayload) {
+  function buildUserPayload(user, tenantPayload, identitySnapshot) {
     if (!user) return null;
 
-    const adminFlag = computeUserIsAdmin(user);
+    const resolvedIdentity = identitySnapshot || resolveIdentitySnapshot(user) || null;
+    const identity = resolvedIdentity ? resolvedIdentity.identity : null;
+    const identityFields = identity && identity.fields ? identity.fields : projectIdentityFieldsFromRecord(user);
+    const identityStatus = identity && identity.status ? identity.status : buildIdentityStatusFromFields(identityFields);
+    const identitySummary = resolvedIdentity && resolvedIdentity.summary
+      ? resolvedIdentity.summary
+      : buildIdentitySummaryFromFields(identityFields, identityStatus);
+    const identityEvaluation = resolvedIdentity && resolvedIdentity.evaluation ? resolvedIdentity.evaluation : null;
+    const headers = ensureUserIdentityHeaders();
 
-    const payload = {
-      ID: user.ID,
-      UserName: user.UserName || '',
-      FullName: user.FullName || user.UserName || '',
-      Email: user.Email || '',
-      CampaignID: user.CampaignID || '',
-      IsAdmin: adminFlag,
-      CanLogin: toBool(user.CanLogin),
-      EmailConfirmed: toBool(user.EmailConfirmed)
-    };
+    const payload = {};
+
+    headers.forEach(function (header) {
+      const key = String(header || '').trim();
+      if (!key) return;
+      let value = identityFields && Object.prototype.hasOwnProperty.call(identityFields, key)
+        ? identityFields[key]
+        : (user && Object.prototype.hasOwnProperty.call(user, key) ? user[key] : '');
+      if (typeof value === 'undefined') {
+        value = '';
+      }
+      if (key === 'Roles' || key === 'Pages') {
+        value = Array.isArray(value) ? value.slice() : parseIdentityList(value);
+      }
+      if (key === 'TwoFactorRecoveryCodes' || key === 'MFABackupCodes') {
+        value = Array.isArray(value) ? value.slice() : parseIdentityRecoveryList(value);
+      }
+      payload[key] = value;
+    });
+
+    payload.ID = payload.ID || (user && (user.ID || user.Id || user.id)) || '';
+    payload.UserName = payload.UserName || (user && (user.UserName || user.Username || user.username)) || '';
+    payload.FullName = payload.FullName || payload.UserName || (identitySummary ? identitySummary.fullName : '') || (user && (user.FullName || user.fullName || user.name)) || '';
+    payload.Email = payload.Email || (user && (user.Email || user.email)) || '';
+    payload.CampaignID = payload.CampaignID || (user && (user.CampaignID || user.CampaignId || user.campaignId)) || '';
+    payload.NormalizedEmail = payload.NormalizedEmail || (identitySummary ? identitySummary.normalizedEmail : normalizeEmail(payload.Email));
+    payload.NormalizedUserName = payload.NormalizedUserName || (identitySummary ? identitySummary.normalizedUserName : normalizeString(payload.UserName).toLowerCase());
+
+    ['CanLogin', 'EmailConfirmed', 'IsAdmin', 'PhoneNumberConfirmed', 'LockoutEnabled', 'TwoFactorEnabled', 'MFAEnabled', 'InsuranceEligible', 'InsuranceQualified', 'InsuranceEnrolled', 'InsuranceSignedUp']
+      .forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(payload, key)) {
+          payload[key] = toBool(payload[key]);
+        }
+      });
+
+    payload.Roles = Array.isArray(payload.Roles) ? payload.Roles.slice() : parseIdentityList(payload.Roles);
+    payload.Pages = Array.isArray(payload.Pages) ? payload.Pages.slice() : parseIdentityList(payload.Pages);
+    payload.TwoFactorRecoveryCodes = Array.isArray(payload.TwoFactorRecoveryCodes)
+      ? payload.TwoFactorRecoveryCodes.slice()
+      : parseIdentityRecoveryList(payload.TwoFactorRecoveryCodes);
+    payload.MFABackupCodes = Array.isArray(payload.MFABackupCodes)
+      ? payload.MFABackupCodes.slice()
+      : parseIdentityRecoveryList(payload.MFABackupCodes);
+    payload.AccessFailedCount = safeNumber(payload.AccessFailedCount) || 0;
+
+    if (identitySummary && identitySummary.lastLoginAt) {
+      payload.LastLoginAt = identitySummary.lastLoginAt;
+    }
+    if (identitySummary && identitySummary.lastLoginIp) {
+      payload.LastLoginIp = identitySummary.lastLoginIp;
+    }
+    if (identitySummary && identitySummary.lastLoginUserAgent) {
+      payload.LastLoginUserAgent = identitySummary.lastLoginUserAgent;
+    }
+
+    if (identityStatus && identityStatus.security) {
+      if (identityStatus.security.stamp) {
+        payload.SecurityStamp = identityStatus.security.stamp;
+      }
+      if (identityStatus.security.concurrencyStamp) {
+        payload.ConcurrencyStamp = identityStatus.security.concurrencyStamp;
+      }
+    }
+
+    const adminFlag = computeUserIsAdmin({
+      IsAdmin: payload.IsAdmin,
+      Roles: payload.Roles,
+      roleNames: payload.Roles
+    });
+    payload.IsAdmin = adminFlag;
+
+    const campaignIdentityMeta = buildIdentityMetadataForClient(resolvedIdentity);
 
     if (tenantPayload && typeof tenantPayload === 'object') {
       payload.CampaignScope = {
@@ -3346,29 +3964,40 @@ var AuthenticationService = (function () {
         allowedCampaignIds: (tenantPayload.allowedCampaignIds || []).slice(),
         managedCampaignIds: (tenantPayload.managedCampaignIds || []).slice(),
         adminCampaignIds: (tenantPayload.adminCampaignIds || []).slice(),
-        assignments: Array.isArray(tenantPayload.assignments) ? tenantPayload.assignments : [],
-        permissions: Array.isArray(tenantPayload.permissions) ? tenantPayload.permissions : [],
+        assignments: Array.isArray(tenantPayload.assignments) ? tenantPayload.assignments.slice() : [],
+        permissions: Array.isArray(tenantPayload.permissions) ? tenantPayload.permissions.slice() : [],
         warnings: Array.isArray(tenantPayload.warnings) ? tenantPayload.warnings.slice() : [],
-        needsCampaignAssignment: !!tenantPayload.needsCampaignAssignment
+        needsCampaignAssignment: !!tenantPayload.needsCampaignAssignment,
+        identity: campaignIdentityMeta || null
       };
-      payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
-      payload.ActiveCampaignId = payload.CampaignScope.activeCampaignId;
-      payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
-      payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
-      payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
-      payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin;
-      payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
     } else {
       payload.CampaignScope = buildTenantScopePayload(null);
-      payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
-      payload.ActiveCampaignId = payload.CampaignScope.activeCampaignId;
-      payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
-      payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
-      payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
-      payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
-      payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
-
+      payload.CampaignScope.identity = campaignIdentityMeta || null;
     }
+
+    payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId || '';
+    payload.ActiveCampaignId = payload.CampaignScope.activeCampaignId || '';
+    payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
+    payload.ManagedCampaignIds = payload.CampaignScope.managedCampaignIds.slice();
+    payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
+    payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
+    payload.NeedsCampaignAssignment = !!payload.CampaignScope.needsCampaignAssignment;
+
+    payload.Identity = {
+      fields: identityFields,
+      status: identityStatus,
+      summary: identitySummary,
+      headers: headers.slice(),
+      evaluation: identityEvaluation
+    };
+    payload.IdentityFields = payload.Identity.fields;
+    payload.IdentityStatus = payload.Identity.status;
+    payload.IdentitySummary = identitySummary;
+    payload.IdentityHeaders = headers.slice();
+    payload.IdentityEvaluation = identityEvaluation;
+    payload.IdentityWarnings = identityEvaluation && Array.isArray(identityEvaluation.warnings)
+      ? identityEvaluation.warnings.slice()
+      : [];
 
     return payload;
   }
@@ -3861,7 +4490,7 @@ var AuthenticationService = (function () {
 
   // ─── Session management ─────────────────────────────────────────────────────
 
-  function createSession(userId, rememberMe = false, campaignScope, metadata) {
+  function createSession(userId, rememberMe = false, campaignScope, metadata, identitySnapshot) {
     try {
       const token = generateSessionToken();
       if (!token) {
@@ -3884,9 +4513,23 @@ var AuthenticationService = (function () {
       const nowIso = now.toISOString();
       const expiresAtIso = new Date(now.getTime() + ttl).toISOString();
 
-      const scopeData = campaignScope && typeof campaignScope === 'object'
-        ? campaignScope
+      let scopeData = campaignScope && typeof campaignScope === 'object'
+        ? Object.assign({}, campaignScope)
         : null;
+
+      const identityMetadata = buildIdentityMetadataForClient(identitySnapshot);
+      if (identityMetadata) {
+        if (!metadata || typeof metadata !== 'object') {
+          metadata = {};
+        }
+        if (!metadata.identity) {
+          metadata.identity = identityMetadata;
+        }
+        if (!scopeData || typeof scopeData !== 'object') {
+          scopeData = {};
+        }
+        scopeData.identity = identityMetadata;
+      }
 
       const sessionRecord = {
         Token: token,
@@ -3906,6 +4549,19 @@ var AuthenticationService = (function () {
           : (metadata && metadata.serverObservedIp ? metadata.serverObservedIp : 'N/A')
       };
 
+      if (identityMetadata && identitySnapshot && identitySnapshot.identity && identitySnapshot.identity.fields) {
+        const identityFields = identitySnapshot.identity.fields;
+        if (identityFields.SecurityStamp) {
+          setRecordValue(sessionRecord, 'UserSecurityStamp', identityFields.SecurityStamp);
+        }
+        if (identityFields.ConcurrencyStamp) {
+          setRecordValue(sessionRecord, 'UserConcurrencyStamp', identityFields.ConcurrencyStamp);
+        }
+        if (identityFields.NormalizedEmail) {
+          setRecordValue(sessionRecord, 'UserNormalizedEmail', identityFields.NormalizedEmail);
+        }
+      }
+
       persistSessionRecord(sessionRecord);
 
       return {
@@ -3914,7 +4570,8 @@ var AuthenticationService = (function () {
         expiresAt: sessionRecord.ExpiresAt,
         ttlSeconds: Math.max(60, Math.floor(ttl / 1000)),
         campaignScope: scopeData,
-        idleTimeoutMinutes: idleTimeoutMinutes
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        identity: identitySnapshot || null
       };
 
     } catch (error) {
@@ -3935,7 +4592,9 @@ var AuthenticationService = (function () {
       // Input validation
       const normalizedEmail = normalizeEmail(email);
       const passwordStr = normalizeString(password);
-      const sanitizedMetadata = sanitizeClientMetadata(clientMetadata);
+      const rawMetadata = clientMetadata && typeof clientMetadata === 'object'
+        ? Object.assign({}, clientMetadata)
+        : null;
 
       if (!normalizedEmail) {
         console.log('login: Invalid email provided');
@@ -3970,10 +4629,44 @@ var AuthenticationService = (function () {
 
       console.log('login: Found user:', user.FullName || user.UserName);
 
+      const identitySnapshot = resolveIdentitySnapshot(user);
+      const identityStatus = identitySnapshot && identitySnapshot.identity ? identitySnapshot.identity.status : null;
+      const identitySummary = identitySnapshot ? identitySnapshot.summary : null;
+      const identityEvaluation = identitySnapshot ? identitySnapshot.evaluation : null;
+      const identityWarnings = identityEvaluation && Array.isArray(identityEvaluation.warnings)
+        ? identityEvaluation.warnings.slice()
+        : [];
+
+      const metadataWithIdentity = rawMetadata ? Object.assign({}, rawMetadata) : {};
+      if (identitySnapshot) {
+        const identityMeta = buildIdentityMetadataForClient(identitySnapshot);
+        if (identityMeta) {
+          metadataWithIdentity.identity = identityMeta;
+        }
+      }
+      const sanitizedMetadata = sanitizeClientMetadata(metadataWithIdentity) || {};
+
+      if (identityEvaluation && identityEvaluation.allow === false) {
+        return {
+          success: false,
+          error: identityEvaluation.error || 'Your account is not eligible to login.',
+          errorCode: identityEvaluation.errorCode || 'IDENTITY_BLOCKED',
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
+        };
+      }
+
       // Check account status
-      const canLogin = toBool(user.CanLogin);
-      const emailConfirmed = toBool(user.EmailConfirmed);
-      const resetRequired = toBool(user.ResetRequired);
+      const canLogin = identityStatus && Object.prototype.hasOwnProperty.call(identityStatus, 'canLogin')
+        ? !!identityStatus.canLogin
+        : toBool(user.CanLogin);
+      const emailConfirmed = identityStatus && Object.prototype.hasOwnProperty.call(identityStatus, 'emailConfirmed')
+        ? !!identityStatus.emailConfirmed
+        : toBool(user.EmailConfirmed);
+      const resetRequired = identityStatus && identityStatus.passwordReset
+        ? !!identityStatus.passwordReset.required
+        : toBool(user.ResetRequired);
 
       console.log('login: Account status - CanLogin:', canLogin, 'EmailConfirmed:', emailConfirmed, 'ResetRequired:', resetRequired);
 
@@ -3982,7 +4675,10 @@ var AuthenticationService = (function () {
         return {
           success: false,
           error: 'Your account has been disabled. Please contact support.',
-          errorCode: 'ACCOUNT_DISABLED'
+          errorCode: 'ACCOUNT_DISABLED',
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
@@ -3992,7 +4688,10 @@ var AuthenticationService = (function () {
           success: false,
           error: 'Please confirm your email address before logging in.',
           errorCode: 'EMAIL_NOT_CONFIRMED',
-          needsEmailConfirmation: true
+          needsEmailConfirmation: true,
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
@@ -4008,14 +4707,20 @@ var AuthenticationService = (function () {
             success: false,
             error: 'Please set up your password using the link from your welcome email.',
             errorCode: 'PASSWORD_NOT_SET',
-            needsPasswordSetup: true
+            needsPasswordSetup: true,
+            identity: identitySnapshot ? identitySnapshot.identity : null,
+            identitySummary: identitySummary,
+            identityWarnings: identityWarnings
           };
         }
-        
+
         return {
           success: false,
           error: 'Invalid email or password',
-          errorCode: 'INVALID_CREDENTIALS'
+          errorCode: 'INVALID_CREDENTIALS',
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
@@ -4028,7 +4733,10 @@ var AuthenticationService = (function () {
         return {
           success: false,
           error: tenantError.error,
-          errorCode: tenantError.errorCode
+          errorCode: tenantError.errorCode,
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
@@ -4045,7 +4753,13 @@ var AuthenticationService = (function () {
       // Handle reset required
       if (resetRequired) {
         console.log('login: Password reset required');
-        const resetSession = createSession(user.ID, false, tenantAccess.sessionScope);
+        const resetSession = createSession(user.ID, false, tenantAccess.sessionScope, sanitizedMetadata, identitySnapshot);
+        const resetWarnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+        identityWarnings.forEach(function (warning) {
+          if (resetWarnings.indexOf(warning) === -1) {
+            resetWarnings.push(warning);
+          }
+        });
         return {
           success: false,
           error: 'You must change your password before continuing.',
@@ -4054,8 +4768,11 @@ var AuthenticationService = (function () {
           needsPasswordReset: true,
           tenant: tenantSummary,
           campaignScope: tenantSummary,
-          warnings: Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [],
-          needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true
+          warnings: resetWarnings,
+          needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true,
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
@@ -4080,6 +4797,9 @@ var AuthenticationService = (function () {
           errorCode: 'MFA_REQUIRED',
           message: 'Additional verification is required to finish signing in.',
           rememberMe: !!rememberMe,
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings,
           mfa: {
             challengeId: challenge.id,
             deliveryMethod: challenge.deliveryMethod,
@@ -4098,7 +4818,10 @@ var AuthenticationService = (function () {
         return {
           success: false,
           error: deviceEvaluation.error,
-          errorCode: deviceEvaluation.errorCode || 'DEVICE_VERIFICATION_ERROR'
+          errorCode: deviceEvaluation.errorCode || 'DEVICE_VERIFICATION_ERROR',
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
@@ -4111,13 +4834,16 @@ var AuthenticationService = (function () {
           message: (deviceEvaluation.verification && deviceEvaluation.verification.message)
             || 'We need to confirm this device before completing your login.',
           verification: deviceEvaluation.verification || null,
-          rememberMe: !!rememberMe
+          rememberMe: !!rememberMe,
+          identity: identitySnapshot ? identitySnapshot.identity : null,
+          identitySummary: identitySummary,
+          identityWarnings: identityWarnings
         };
       }
 
       // Create session
       console.log('login: Creating session...');
-      const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, sanitizedMetadata);
+      const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, sanitizedMetadata, identitySnapshot);
 
       if (!sessionResult || !sessionResult.token) {
         console.log('login: Failed to create session');
@@ -4139,7 +4865,7 @@ var AuthenticationService = (function () {
       }
 
       // Build user payload
-      const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+      const userPayload = buildUserPayload(user, tenantAccess.clientPayload, identitySnapshot);
 
       if (userPayload && userPayload.CampaignScope) {
         userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
@@ -4156,6 +4882,11 @@ var AuthenticationService = (function () {
       const sessionToken = sessionResult.token;
 
       const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+      identityWarnings.forEach(function (warning) {
+        if (warnings.indexOf(warning) === -1) {
+          warnings.push(warning);
+        }
+      });
       const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
       const loginMessage = needsCampaignAssignment
@@ -4195,6 +4926,18 @@ var AuthenticationService = (function () {
         redirectUrl: redirectUrl
       };
 
+      if (userPayload && userPayload.Identity) {
+        result.identity = userPayload.Identity;
+        result.identitySummary = userPayload.IdentitySummary || userPayload.Identity.summary || null;
+      } else if (identitySnapshot) {
+        result.identity = identitySnapshot.identity || null;
+        result.identitySummary = identitySummary || null;
+      }
+
+      if (identityWarnings.length) {
+        result.identityWarnings = identityWarnings.slice();
+      }
+
       if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
         result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
       }
@@ -4231,13 +4974,32 @@ var AuthenticationService = (function () {
         };
       }
 
+      const identitySnapshot = resolveIdentitySnapshot(user);
+      const identitySummary = identitySnapshot ? identitySnapshot.summary : null;
+      const identityEvaluation = identitySnapshot ? identitySnapshot.evaluation : null;
+      const identityWarnings = identityEvaluation && Array.isArray(identityEvaluation.warnings)
+        ? identityEvaluation.warnings.slice()
+        : [];
+
       const tenantAccess = resolveTenantAccess(user, campaignId);
       if (!tenantAccess || !tenantAccess.success) {
         const tenantError = formatTenantAccessError(tenantAccess);
         return Object.assign({ success: false }, tenantError);
       }
 
-      const sessionResult = createSession(user.ID || userId, rememberMe, tenantAccess.sessionScope, metadata);
+      const metadataWithIdentity = metadata && typeof metadata === 'object'
+        ? Object.assign({}, metadata)
+        : {};
+      if (identitySnapshot) {
+        const identityMeta = buildIdentityMetadataForClient(identitySnapshot);
+        if (identityMeta) {
+          metadataWithIdentity.identity = identityMeta;
+        }
+      }
+
+      const sanitizedMetadata = sanitizeClientMetadata(metadataWithIdentity) || {};
+
+      const sessionResult = createSession(user.ID || userId, rememberMe, tenantAccess.sessionScope, sanitizedMetadata, identitySnapshot);
       if (!sessionResult || !sessionResult.token) {
         return {
           success: false,
@@ -4246,7 +5008,7 @@ var AuthenticationService = (function () {
         };
       }
 
-      const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+      const userPayload = buildUserPayload(user, tenantAccess.clientPayload, identitySnapshot);
 
       if (userPayload && userPayload.CampaignScope) {
         userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
@@ -4271,6 +5033,11 @@ var AuthenticationService = (function () {
       tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
       const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+      identityWarnings.forEach(function (warning) {
+        if (warnings.indexOf(warning) === -1) {
+          warnings.push(warning);
+        }
+      });
       const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
 
       const landing = resolveLandingDestination(user, {
@@ -4298,7 +5065,10 @@ var AuthenticationService = (function () {
         warnings: warnings,
         needsCampaignAssignment: needsCampaignAssignment,
         redirectSlug: redirectSlug,
-        redirectUrl: redirectUrl
+        redirectUrl: redirectUrl,
+        identity: userPayload && userPayload.Identity ? userPayload.Identity : (identitySnapshot ? identitySnapshot.identity : null),
+        identitySummary: userPayload && userPayload.IdentitySummary ? userPayload.IdentitySummary : identitySummary,
+        identityWarnings: identityWarnings
       };
 
     } catch (error) {
