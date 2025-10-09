@@ -53,6 +53,11 @@ if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTH
 
 // Optional extra columns we ensure exist and keep organized on the Users sheet
 const OPTIONAL_USER_COLUMNS = [
+  'PasswordHashFormat',
+  'PasswordHashHex',
+  'PasswordHashBase64',
+  'PasswordHashBase64WebSafe',
+  'PasswordHashAlgorithm',
   'NormalizedUserName',
   'NormalizedEmail',
   'PhoneNumberConfirmed',
@@ -1554,7 +1559,7 @@ function reconcileUserIdReferencesAcrossSheets(options) {
 // Base required columns we always expect on Users sheet
 const REQUIRED_USER_COLUMNS = [
   'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash',
-  'PasswordHashFormat', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe', 'PasswordHashAlgorithm', 'ResetRequired',
+  'ResetRequired',
   'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
   'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
 ];
