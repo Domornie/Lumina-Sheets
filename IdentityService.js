@@ -17,6 +17,23 @@ var IdentityService = (function () {
   const EMAIL_CONFIRMATION_TTL_MINUTES = 60;
   const PASSWORD_RESET_TTL_MINUTES = 60;
 
+  var cachedUserIdentityFields = null;
+
+  function ensureUserIdentityFields() {
+    if (Array.isArray(cachedUserIdentityFields) && cachedUserIdentityFields.length) {
+      return cachedUserIdentityFields;
+    }
+
+    if (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS) && USERS_HEADERS.length) {
+      cachedUserIdentityFields = USERS_HEADERS.slice();
+      return cachedUserIdentityFields;
+    }
+
+    console.warn('IdentityService: USERS_HEADERS not defined; using empty identity field list');
+    cachedUserIdentityFields = [];
+    return cachedUserIdentityFields;
+  }
+
   function now() {
     return new Date();
   }
@@ -50,6 +67,139 @@ var IdentityService = (function () {
       return '';
     }
     return String(email).trim().toLowerCase();
+  }
+
+  function coerceString(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    return String(value);
+  }
+
+  function parseNumber(value) {
+    if (value === null || typeof value === 'undefined' || value === '') {
+      return null;
+    }
+    if (typeof value === 'number') {
+      if (isNaN(value)) return null;
+      return value;
+    }
+    const parsed = Number(String(value).replace(/,/g, '').trim());
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  function parseInteger(value) {
+    const num = parseNumber(value);
+    if (num === null) return null;
+    const intVal = parseInt(num, 10);
+    return isNaN(intVal) ? null : intVal;
+  }
+
+  function parseDelimitedList(value) {
+    if (!value && value !== 0) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value
+        .map(function (item) { return coerceString(item).trim(); })
+        .filter(function (item) { return !!item; });
+    }
+
+    var raw = coerceString(value).trim();
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      if (/^\s*\[/.test(raw)) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(function (item) { return coerceString(item).trim(); })
+            .filter(function (item) { return !!item; });
+        }
+      }
+    } catch (err) {
+      console.warn('parseDelimitedList: JSON parse failed', err);
+    }
+
+    return raw
+      .split(/[\r\n,;]+/)
+      .map(function (item) { return item.trim(); })
+      .filter(function (item) { return !!item; });
+  }
+
+  function parseRecoveryCodes(value) {
+    var list = parseDelimitedList(value);
+    return list.map(function (item) {
+      return item.replace(/\s+/g, '').toUpperCase();
+    });
+  }
+
+  function parseIsoDate(value) {
+    if (!value && value !== 0) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    var str = coerceString(value).trim();
+    if (!str) {
+      return null;
+    }
+    var parsed = new Date(str);
+    if (isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed;
+  }
+
+  function ensureDateOnly(date) {
+    if (!(date instanceof Date)) {
+      return null;
+    }
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  function calculateProbationEnd(fields) {
+    var explicitEnd = parseIsoDate(fields.ProbationEndDate || fields.ProbationEnd);
+    if (explicitEnd) {
+      return explicitEnd;
+    }
+
+    var hire = parseIsoDate(fields.HireDate);
+    var months = parseInteger(fields.ProbationMonths);
+
+    if (!hire || months === null || months < 1) {
+      return null;
+    }
+
+    var endDate = new Date(hire.getTime());
+    endDate.setMonth(endDate.getMonth() + months);
+    return endDate;
+  }
+
+  function buildInsuranceStatus(fields) {
+    var eligibleDate = parseIsoDate(fields.InsuranceEligibleDate || fields.InsuranceQualifiedDate);
+    var qualifiedDate = parseIsoDate(fields.InsuranceQualifiedDate || fields.InsuranceEligibleDate);
+    var enrolled = parseBooleanFlag(fields.InsuranceEnrolled);
+    var signedUp = parseBooleanFlag(fields.InsuranceSignedUp);
+    var eligible = parseBooleanFlag(fields.InsuranceEligible);
+    var qualified = parseBooleanFlag(fields.InsuranceQualified);
+    var cardReceived = parseIsoDate(fields.InsuranceCardReceivedDate);
+
+    return {
+      eligible: eligible || (!!eligibleDate && eligibleDate.getTime() <= now().getTime()),
+      qualified: qualified || (!!qualifiedDate && qualifiedDate.getTime() <= now().getTime()),
+      enrolled: enrolled,
+      signedUp: signedUp,
+      eligibleDate: eligibleDate,
+      qualifiedDate: qualifiedDate,
+      cardReceivedDate: cardReceived
+    };
   }
 
   function hashToken(token) {
@@ -168,6 +318,317 @@ var IdentityService = (function () {
     return record;
   }
 
+  function pickIdentityFields(record) {
+    const picked = {};
+    ensureUserIdentityFields().forEach(function (field) {
+      if (Object.prototype.hasOwnProperty.call(record, field)) {
+        picked[field] = record[field];
+      } else {
+        picked[field] = '';
+      }
+    });
+    return picked;
+  }
+
+  function normalizeIdentityFields(raw) {
+    const normalized = {};
+
+    normalized.ID = coerceString(raw.ID).trim();
+    normalized.UserName = coerceString(raw.UserName).trim();
+    normalized.FullName = coerceString(raw.FullName).trim();
+    normalized.Email = normalizeEmail(raw.Email);
+    normalized.CampaignID = coerceString(raw.CampaignID).trim();
+    normalized.PasswordHash = coerceString(raw.PasswordHash).trim();
+    normalized.ResetRequired = parseBooleanFlag(raw.ResetRequired);
+    normalized.EmailConfirmation = coerceString(raw.EmailConfirmation).trim();
+    normalized.EmailConfirmed = parseBooleanFlag(raw.EmailConfirmed);
+    normalized.PhoneNumber = coerceString(raw.PhoneNumber).trim();
+    normalized.EmploymentStatus = coerceString(raw.EmploymentStatus).trim();
+    normalized.HireDate = parseIsoDate(raw.HireDate);
+    normalized.Country = coerceString(raw.Country).trim();
+    normalized.LockoutEnd = parseIsoDate(raw.LockoutEnd);
+    normalized.TwoFactorEnabled = parseBooleanFlag(raw.TwoFactorEnabled);
+    normalized.CanLogin = parseBooleanFlag(raw.CanLogin !== '' ? raw.CanLogin : true);
+    normalized.Roles = parseDelimitedList(raw.Roles);
+    normalized.Pages = parseDelimitedList(raw.Pages);
+    normalized.CreatedAt = parseIsoDate(raw.CreatedAt);
+    normalized.UpdatedAt = parseIsoDate(raw.UpdatedAt);
+    normalized.IsAdmin = parseBooleanFlag(raw.IsAdmin);
+    normalized.NormalizedUserName = coerceString(raw.NormalizedUserName || raw.UserName).trim().toLowerCase();
+    normalized.NormalizedEmail = coerceString(raw.NormalizedEmail || normalized.Email).trim().toLowerCase();
+    normalized.PhoneNumberConfirmed = parseBooleanFlag(raw.PhoneNumberConfirmed);
+    normalized.LockoutEnabled = parseBooleanFlag(raw.LockoutEnabled);
+    normalized.AccessFailedCount = parseInteger(raw.AccessFailedCount) || 0;
+    normalized.TwoFactorDelivery = coerceString(raw.TwoFactorDelivery).trim().toLowerCase();
+    normalized.TwoFactorSecret = coerceString(raw.TwoFactorSecret).trim();
+    normalized.TwoFactorRecoveryCodes = parseRecoveryCodes(raw.TwoFactorRecoveryCodes);
+    normalized.SecurityStamp = coerceString(raw.SecurityStamp).trim();
+    normalized.ConcurrencyStamp = coerceString(raw.ConcurrencyStamp).trim();
+    normalized.EmailConfirmationTokenHash = coerceString(raw.EmailConfirmationTokenHash).trim();
+    normalized.EmailConfirmationSentAt = parseIsoDate(raw.EmailConfirmationSentAt);
+    normalized.EmailConfirmationExpiresAt = parseIsoDate(raw.EmailConfirmationExpiresAt);
+    normalized.ResetPasswordToken = coerceString(raw.ResetPasswordToken).trim();
+    normalized.ResetPasswordTokenHash = coerceString(raw.ResetPasswordTokenHash).trim();
+    normalized.ResetPasswordSentAt = parseIsoDate(raw.ResetPasswordSentAt);
+    normalized.ResetPasswordExpiresAt = parseIsoDate(raw.ResetPasswordExpiresAt);
+    normalized.LastLogin = parseIsoDate(raw.LastLogin);
+    normalized.LastLoginAt = parseIsoDate(raw.LastLoginAt);
+    normalized.LastLoginIp = coerceString(raw.LastLoginIp).trim();
+    normalized.LastLoginUserAgent = coerceString(raw.LastLoginUserAgent).trim();
+    normalized.DeletedAt = parseIsoDate(raw.DeletedAt);
+    normalized.TerminationDate = parseIsoDate(raw.TerminationDate);
+    normalized.ProbationMonths = parseInteger(raw.ProbationMonths);
+    normalized.ProbationEnd = parseIsoDate(raw.ProbationEnd);
+    normalized.ProbationEndDate = parseIsoDate(raw.ProbationEndDate);
+    normalized.InsuranceEligibleDate = parseIsoDate(raw.InsuranceEligibleDate);
+    normalized.InsuranceQualifiedDate = parseIsoDate(raw.InsuranceQualifiedDate);
+    normalized.InsuranceEligible = parseBooleanFlag(raw.InsuranceEligible);
+    normalized.InsuranceQualified = parseBooleanFlag(raw.InsuranceQualified);
+    normalized.InsuranceEnrolled = parseBooleanFlag(raw.InsuranceEnrolled);
+    normalized.InsuranceSignedUp = parseBooleanFlag(raw.InsuranceSignedUp);
+    normalized.InsuranceCardReceivedDate = parseIsoDate(raw.InsuranceCardReceivedDate);
+    normalized.MFASecret = coerceString(raw.MFASecret).trim();
+    normalized.MFABackupCodes = parseRecoveryCodes(raw.MFABackupCodes);
+    normalized.MFADeliveryPreference = coerceString(raw.MFADeliveryPreference).trim().toLowerCase();
+    normalized.MFAEnabled = parseBooleanFlag(raw.MFAEnabled);
+
+    return normalized;
+  }
+
+  function summarizeIdentityForClient(identity) {
+    if (!identity || !identity.fields) {
+      return null;
+    }
+
+    var status = identity.status || {};
+    var mfaStatus = status.mfa || {};
+    var insurance = status.insurance || {};
+    var probation = status.probation || {};
+    var termination = status.termination || {};
+    var deletion = status.deletion || {};
+    var lockout = status.lockout || {};
+    var lastLogin = status.lastLogin || {};
+
+    return {
+      id: identity.fields.ID,
+      email: identity.fields.Email,
+      normalizedEmail: identity.fields.NormalizedEmail,
+      userName: identity.fields.UserName,
+      normalizedUserName: identity.fields.NormalizedUserName,
+      fullName: identity.fields.FullName,
+      campaignId: identity.fields.CampaignID,
+      roles: identity.fields.Roles.slice(),
+      pages: identity.fields.Pages.slice(),
+      isAdmin: identity.fields.IsAdmin,
+      employmentStatus: identity.fields.EmploymentStatus,
+      hireDate: identity.fields.HireDate,
+      country: identity.fields.Country,
+      createdAt: identity.fields.CreatedAt,
+      updatedAt: identity.fields.UpdatedAt,
+      phoneNumber: identity.fields.PhoneNumber,
+      phoneNumberConfirmed: status.phone ? status.phone.confirmed : false,
+      canLogin: status.canLogin,
+      emailConfirmed: status.emailConfirmed,
+      lockout: lockout,
+      deletion: deletion,
+      termination: termination,
+      probation: probation,
+      insurance: insurance,
+      mfa: {
+        enabled: mfaStatus.enabled,
+        deliveryMethod: mfaStatus.deliveryMethod,
+        hasRecoveryCodes: Array.isArray(mfaStatus.recoveryCodes) && mfaStatus.recoveryCodes.length > 0,
+        phoneDelivery: mfaStatus.phoneDelivery,
+        totpConfigured: mfaStatus.totpConfigured
+      },
+      lastLoginAt: lastLogin.at,
+      lastLoginIp: lastLogin.ip,
+      lastLoginUserAgent: lastLogin.userAgent,
+      passwordResetRequired: status.passwordReset ? status.passwordReset.required : false,
+      accessFailedCount: lockout.accessFailedCount || 0
+    };
+  }
+
+  function buildIdentityState(record) {
+    const raw = pickIdentityFields(record);
+    const fields = normalizeIdentityFields(raw);
+
+    const lockoutEnd = fields.LockoutEnd;
+    const lockoutEnabled = fields.LockoutEnabled;
+    const lockoutActive = lockoutEnabled && lockoutEnd && lockoutEnd.getTime() > now().getTime();
+
+    const deletedAt = fields.DeletedAt;
+    const terminatedAt = fields.TerminationDate;
+    const terminated = !!terminatedAt && terminatedAt.getTime() <= now().getTime();
+
+    const probationEnd = calculateProbationEnd(fields);
+    const probationActive = !!probationEnd && ensureDateOnly(probationEnd).getTime() >= ensureDateOnly(now()).getTime();
+
+    const insuranceStatus = buildInsuranceStatus(fields);
+
+    const mfaRecoveryCodes = fields.TwoFactorRecoveryCodes.concat(fields.MFABackupCodes);
+    const hasTotpSecret = !!fields.TwoFactorSecret || !!fields.MFASecret;
+    const deliveryPreference = fields.MFADeliveryPreference || fields.TwoFactorDelivery;
+
+    const status = {
+      canLogin: fields.CanLogin,
+      emailConfirmed: fields.EmailConfirmed,
+      resetRequired: fields.ResetRequired,
+      lockout: {
+        enabled: lockoutEnabled,
+        locked: lockoutActive,
+        lockoutEnd: lockoutEnd,
+        accessFailedCount: fields.AccessFailedCount
+      },
+      deletion: {
+        deleted: !!deletedAt,
+        deletedAt: deletedAt
+      },
+      termination: {
+        terminated: terminated,
+        terminationDate: terminatedAt
+      },
+      probation: {
+        onProbation: probationActive,
+        probationEndsAt: probationEnd,
+        probationMonths: fields.ProbationMonths
+      },
+      insurance: insuranceStatus,
+      mfa: {
+        enabled: fields.TwoFactorEnabled || fields.MFAEnabled,
+        legacyEnabled: fields.TwoFactorEnabled,
+        mfaEnabled: fields.MFAEnabled,
+        deliveryMethod: deliveryPreference,
+        secretConfigured: hasTotpSecret,
+        recoveryCodes: mfaRecoveryCodes,
+        phoneDelivery: (deliveryPreference === 'sms' || deliveryPreference === 'phone') && !!fields.PhoneNumber,
+        totpConfigured: hasTotpSecret
+      },
+      passwordReset: {
+        required: fields.ResetRequired,
+        token: fields.ResetPasswordToken,
+        tokenHash: fields.ResetPasswordTokenHash,
+        sentAt: fields.ResetPasswordSentAt,
+        expiresAt: fields.ResetPasswordExpiresAt
+      },
+      emailConfirmation: {
+        token: fields.EmailConfirmation,
+        tokenHash: fields.EmailConfirmationTokenHash,
+        sentAt: fields.EmailConfirmationSentAt,
+        expiresAt: fields.EmailConfirmationExpiresAt,
+        confirmed: fields.EmailConfirmed
+      },
+      phone: {
+        number: fields.PhoneNumber,
+        confirmed: fields.PhoneNumberConfirmed
+      },
+      lastLogin: {
+        at: fields.LastLoginAt || fields.LastLogin,
+        ip: fields.LastLoginIp,
+        userAgent: fields.LastLoginUserAgent
+      },
+      security: {
+        stamp: fields.SecurityStamp,
+        concurrencyStamp: fields.ConcurrencyStamp
+      }
+    };
+
+    return {
+      found: true,
+      raw: raw,
+      fields: fields,
+      status: status,
+      summary: {
+        id: fields.ID,
+        email: fields.Email,
+        userName: fields.UserName,
+        fullName: fields.FullName,
+        campaignId: fields.CampaignID,
+        roles: fields.Roles.slice(),
+        isAdmin: fields.IsAdmin
+      }
+    };
+  }
+
+  function buildIdentityStateFromUser(userRecord) {
+    if (!userRecord) {
+      return null;
+    }
+    return buildIdentityState(userRecord);
+  }
+
+  function evaluateIdentityForAuthentication(identity) {
+    if (!identity || !identity.status) {
+      return {
+        allow: false,
+        error: 'Account not found.',
+        errorCode: 'IDENTITY_NOT_FOUND'
+      };
+    }
+
+    const status = identity.status;
+    const warnings = [];
+    let allow = true;
+    let error = null;
+    let errorCode = null;
+
+    if (!status.canLogin) {
+      allow = false;
+      error = 'Your account has been disabled. Please contact support.';
+      errorCode = 'ACCOUNT_DISABLED';
+    } else if (status.deletion && status.deletion.deleted) {
+      allow = false;
+      error = 'This account has been deleted.';
+      errorCode = 'ACCOUNT_DELETED';
+    } else if (status.termination && status.termination.terminated) {
+      allow = false;
+      error = 'This account is no longer active.';
+      errorCode = 'ACCOUNT_TERMINATED';
+    } else if (status.lockout && status.lockout.enabled && status.lockout.locked) {
+      allow = false;
+      error = 'Too many failed attempts. Please try again later.';
+      errorCode = 'ACCOUNT_LOCKED';
+    }
+
+    if (!status.emailConfirmed) {
+      warnings.push('EMAIL_NOT_CONFIRMED');
+    }
+    if (status.passwordReset && status.passwordReset.required) {
+      warnings.push('PASSWORD_RESET_REQUIRED');
+    }
+    if (status.probation && status.probation.onProbation) {
+      warnings.push('PROBATION_ACTIVE');
+    }
+    if (status.insurance && status.insurance.eligible && !status.insurance.enrolled) {
+      warnings.push('INSURANCE_ELIGIBLE_NOT_ENROLLED');
+    }
+    if (status.insurance && status.insurance.qualified && !status.insurance.signedUp) {
+      warnings.push('INSURANCE_QUALIFIED_NOT_SIGNED_UP');
+    }
+    if (status.phone && !status.phone.confirmed && status.phone.number) {
+      warnings.push('PHONE_NOT_CONFIRMED');
+    }
+    if (status.mfa && status.mfa.enabled && !status.mfa.secretConfigured) {
+      warnings.push('MFA_CONFIG_INCOMPLETE');
+    }
+    if (status.lockout && status.lockout.accessFailedCount >= 5) {
+      warnings.push('HIGH_FAILED_LOGIN_ATTEMPTS');
+    }
+
+    return {
+      allow: allow,
+      error: error,
+      errorCode: errorCode,
+      warnings: warnings,
+      status: status,
+      summary: identity.summary
+    };
+  }
+
+  function listIdentityFields() {
+    return ensureUserIdentityFields().slice();
+  }
+
   function findUserRow(predicate) {
     const context = loadUserContext();
     const sheet = context.sheet;
@@ -204,6 +665,58 @@ var IdentityService = (function () {
     return findUserRow(function (row) {
       return normalizeEmail(row.Email) === normalized;
     });
+  }
+
+  function findUserRowById(id) {
+    if (!id && id !== 0) {
+      return null;
+    }
+    const normalized = coerceString(id).trim();
+    if (!normalized) {
+      return null;
+    }
+    return findUserRow(function (row) {
+      return coerceString(row.ID).trim() === normalized;
+    });
+  }
+
+  function mapIdentityFromMatch(match) {
+    if (!match || !match.user) {
+      return null;
+    }
+    const identity = buildIdentityState(match.user);
+    identity.rowIndex = match.rowIndex;
+    identity.headers = match.context && match.context.headers ? match.context.headers.slice() : [];
+    identity.sheet = match.context && match.context.sheet ? match.context.sheet : null;
+    return identity;
+  }
+
+  function getUserIdentityByEmail(email) {
+    const match = findUserRowByEmail(email);
+    if (!match) {
+      return { success: false, error: 'User not found', errorCode: 'USER_NOT_FOUND' };
+    }
+    const identity = mapIdentityFromMatch(match);
+    return {
+      success: true,
+      identity: identity,
+      evaluation: evaluateIdentityForAuthentication(identity),
+      summary: summarizeIdentityForClient(identity)
+    };
+  }
+
+  function getUserIdentityById(id) {
+    const match = findUserRowById(id);
+    if (!match) {
+      return { success: false, error: 'User not found', errorCode: 'USER_NOT_FOUND' };
+    }
+    const identity = mapIdentityFromMatch(match);
+    return {
+      success: true,
+      identity: identity,
+      evaluation: evaluateIdentityForAuthentication(identity),
+      summary: summarizeIdentityForClient(identity)
+    };
   }
 
   function hasColumn(rowContext, column) {
@@ -539,6 +1052,27 @@ var IdentityService = (function () {
     }
 
     try {
+      let identity = null;
+      let identityEvaluation = null;
+
+      try {
+        const identityLookupResult = getUserIdentityByEmail(normalizedEmail);
+        if (identityLookupResult && identityLookupResult.success) {
+          identity = identityLookupResult.identity;
+          identityEvaluation = evaluateIdentityForAuthentication(identity);
+          if (identityEvaluation && !identityEvaluation.allow) {
+            return {
+              success: false,
+              error: identityEvaluation.error || 'Your account is not eligible to login.',
+              errorCode: identityEvaluation.errorCode || 'IDENTITY_BLOCKED',
+              identityWarnings: identityEvaluation.warnings || []
+            };
+          }
+        }
+      } catch (identityErr) {
+        console.warn('IdentityService.signIn: identity preflight failed', identityErr);
+      }
+
       const auth = (typeof AuthenticationService !== 'undefined' && AuthenticationService)
         ? AuthenticationService
         : null;
@@ -559,10 +1093,19 @@ var IdentityService = (function () {
         }
       }
       const result = auth.login(normalizedEmail, password, rememberMe, metadata);
-      if (result && result.success && options && options.returnUrl) {
-        const requestedReturn = sanitizeLoginReturnUrl(options.returnUrl);
-        if (requestedReturn) {
-          result.requestedReturnUrl = requestedReturn;
+      if (result) {
+        const authenticated = result.success || result.needsMfa || result.needsPasswordReset;
+        if (authenticated && identity && !result.identity) {
+          result.identity = summarizeIdentityForClient(identity);
+        }
+        if (identityEvaluation && identityEvaluation.warnings && identityEvaluation.warnings.length && authenticated) {
+          result.identityWarnings = (result.identityWarnings || []).concat(identityEvaluation.warnings);
+        }
+        if (result.success && options && options.returnUrl) {
+          const requestedReturn = sanitizeLoginReturnUrl(options.returnUrl);
+          if (requestedReturn) {
+            result.requestedReturnUrl = requestedReturn;
+          }
         }
       }
       return result;
@@ -622,7 +1165,13 @@ var IdentityService = (function () {
     verifyTwoFactorCode: verifyTwoFactorCode,
     signOut: signOut,
     hasActiveSession: hasActiveSession,
-    sanitizeLoginReturnUrl: sanitizeLoginReturnUrl
+    sanitizeLoginReturnUrl: sanitizeLoginReturnUrl,
+    getUserIdentityByEmail: getUserIdentityByEmail,
+    getUserIdentityById: getUserIdentityById,
+    evaluateIdentityForAuthentication: evaluateIdentityForAuthentication,
+    summarizeIdentityForClient: summarizeIdentityForClient,
+    listIdentityFields: listIdentityFields,
+    buildIdentityStateFromUser: buildIdentityStateFromUser
   };
 })();
 
@@ -687,6 +1236,46 @@ function identityHasActiveSession(userIdentifier) {
     return IdentityService.hasActiveSession(userIdentifier);
   } catch (error) {
     return false;
+  }
+}
+
+function identityGetUserIdentityByEmail(email) {
+  try {
+    return IdentityService.getUserIdentityByEmail(email);
+  } catch (error) {
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+function identityGetUserIdentityById(id) {
+  try {
+    return IdentityService.getUserIdentityById(id);
+  } catch (error) {
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+function identityEvaluateForAuthentication(identity) {
+  try {
+    return IdentityService.evaluateIdentityForAuthentication(identity);
+  } catch (error) {
+    return { allow: false, error: error.message || String(error), errorCode: 'IDENTITY_ERROR' };
+  }
+}
+
+function identitySummarize(identity) {
+  try {
+    return IdentityService.summarizeIdentityForClient(identity);
+  } catch (error) {
+    return null;
+  }
+}
+
+function identityListFields() {
+  try {
+    return IdentityService.listIdentityFields();
+  } catch (error) {
+    return [];
   }
 }
 

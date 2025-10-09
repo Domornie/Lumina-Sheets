@@ -1110,6 +1110,7 @@
       rememberExpiry: 'lumina.auth.rememberExpiry',
       lastEmail: 'lumina.auth.lastEmail'
     };
+    const IDENTITY_STORAGE_KEY = 'lumina.identity.snapshot';
 
     // ───────────────────────────────────────────────────────────────────────────────
     // DOM ELEMENTS AND STATE MANAGEMENT
@@ -1170,7 +1171,8 @@
       sessionExpiresAt: null,
       lastRememberMe: false,
       lastLogoutReason: getStoredLogoutReason(),
-      preferredReturnUrl: ''
+      preferredReturnUrl: '',
+      identitySnapshot: null
     };
 
     if (INITIAL_RETURN_URL && (!state.lastLogoutReason || state.lastLogoutReason === 'auto')) {
@@ -2062,6 +2064,149 @@
       state.lastEmail = rememberedEmail;
     }
 
+    function normalizeIdentitySnapshot(identityContext) {
+      if (!identityContext) {
+        return null;
+      }
+
+      const source = identityContext || {};
+      const identity = source.identity || source.Identity || null;
+      const identitySummary = source.identitySummary || source.IdentitySummary || (identity && identity.summary) || null;
+      const identityEvaluation = source.identityEvaluation || source.IdentityEvaluation || null;
+      const rawWarnings = source.identityWarnings || source.IdentityWarnings
+        || (identityEvaluation && Array.isArray(identityEvaluation.warnings) ? identityEvaluation.warnings : []);
+      const warnings = Array.isArray(rawWarnings) ? rawWarnings.filter(Boolean) : [];
+      const identityFields = source.identityFields || source.IdentityFields || (identity && identity.fields) || null;
+      let identityHeaders = source.identityHeaders || source.IdentityHeaders || (identity && identity.headers) || null;
+      const userId = source.userId
+        || (identitySummary && identitySummary.id)
+        || (identityFields && (identityFields.ID || identityFields.Id))
+        || (source.user && (source.user.ID || source.user.Id))
+        || null;
+      const email = source.email
+        || (identitySummary && identitySummary.email)
+        || (identityFields && (identityFields.Email || identityFields.email))
+        || (source.user && (source.user.Email || source.user.email))
+        || null;
+
+      if (!identity && !identitySummary && !identityEvaluation && !identityFields && !warnings.length && !email && !userId) {
+        return null;
+      }
+
+      if ((!identityHeaders || (Array.isArray(identityHeaders) && !identityHeaders.length))
+        && identityFields && typeof identityFields === 'object') {
+        try {
+          identityHeaders = Object.keys(identityFields).filter(function (key) {
+            return key || key === 0;
+          });
+        } catch (headerResolveError) {
+          console.warn('normalizeIdentitySnapshot: unable to derive identity headers', headerResolveError);
+          identityHeaders = [];
+        }
+      }
+
+      return {
+        identity: identity || null,
+        identitySummary: identitySummary || null,
+        identityEvaluation: identityEvaluation || null,
+        identityWarnings: warnings,
+        identityFields: identityFields || null,
+        identityHeaders: identityHeaders || null,
+        userId: userId || null,
+        email: email || null,
+        storedAt: new Date().toISOString()
+      };
+    }
+
+    function persistIdentityState(identityContext) {
+      const snapshot = normalizeIdentitySnapshot(identityContext);
+      if (!snapshot) {
+        clearIdentityState();
+        return null;
+      }
+
+      const serialized = JSON.stringify(snapshot);
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem(IDENTITY_STORAGE_KEY, serialized);
+        }
+      } catch (err) {
+        console.warn('persistIdentityState: unable to write to sessionStorage', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.setItem(IDENTITY_STORAGE_KEY, serialized);
+        }
+      } catch (err) {
+        console.warn('persistIdentityState: unable to write to localStorage', err);
+      }
+
+      if (typeof window !== 'undefined') {
+        window.__LUMINA_IDENTITY_SNAPSHOT__ = snapshot;
+        window.__LUMINA_IDENTITY__ = snapshot.identity || null;
+      }
+
+      state.identitySnapshot = snapshot;
+      return snapshot;
+    }
+
+    function clearIdentityState() {
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.removeItem(IDENTITY_STORAGE_KEY);
+        }
+      } catch (err) {
+        console.warn('clearIdentityState: unable to clear sessionStorage', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.removeItem(IDENTITY_STORAGE_KEY);
+        }
+      } catch (err) {
+        console.warn('clearIdentityState: unable to clear localStorage', err);
+      }
+
+      if (typeof window !== 'undefined') {
+        window.__LUMINA_IDENTITY_SNAPSHOT__ = null;
+        window.__LUMINA_IDENTITY__ = null;
+      }
+
+      state.identitySnapshot = null;
+      return null;
+    }
+
+    function buildIdentitySnapshotFromResponse(response) {
+      if (!response) {
+        return null;
+      }
+
+      const snapshot = normalizeIdentitySnapshot({
+        identity: response.identity || (response.user && (response.user.Identity || response.user.identity)) || null,
+        identitySummary: response.identitySummary
+          || (response.user && (response.user.IdentitySummary || response.user.identitySummary || (response.user.Identity && response.user.Identity.summary)))
+          || null,
+        identityEvaluation: response.identityEvaluation
+          || (response.user && (response.user.IdentityEvaluation || response.user.identityEvaluation))
+          || null,
+        identityWarnings: response.identityWarnings
+          || (response.user && (response.user.IdentityWarnings || response.user.identityWarnings))
+          || null,
+        identityFields: response.identityFields
+          || (response.user && (response.user.IdentityFields || response.user.identityFields))
+          || null,
+        identityHeaders: response.identityHeaders
+          || (response.user && (response.user.IdentityHeaders || response.user.identityHeaders))
+          || null,
+        userId: (response.user && (response.user.ID || response.user.Id)) || null,
+        email: (response.user && (response.user.Email || response.user.email)) || null
+      });
+
+      return snapshot;
+    }
+
     function readAuthCookie() {
       try {
         if (window.CookieHandler && typeof CookieHandler.readAuthToken === 'function') {
@@ -2103,7 +2248,8 @@
         console.warn('Unable to clear auth token from sessionStorage', err);
       }
 
-      broadcastSessionTokenChange('');
+      const clearedSnapshot = clearIdentityState();
+      broadcastSessionTokenChange('', clearedSnapshot);
 
       state.authToken = '';
       state.sessionIdleTimeoutMinutes = null;
@@ -2111,7 +2257,7 @@
       state.sessionExpiresAt = null;
     }
 
-    function broadcastSessionTokenChange(token) {
+    function broadcastSessionTokenChange(token, identitySnapshot) {
       try {
         if (typeof window === 'undefined') {
           return;
@@ -2119,11 +2265,29 @@
 
         window.__LUMINA_SESSION_TOKEN__ = token || '';
 
+        if (typeof identitySnapshot !== 'undefined') {
+          window.__LUMINA_IDENTITY_SNAPSHOT__ = identitySnapshot || null;
+          window.__LUMINA_IDENTITY__ = identitySnapshot && identitySnapshot.identity ? identitySnapshot.identity : null;
+        }
+
         if (typeof window.dispatchEvent !== 'function') {
           return;
         }
 
-        const detail = { token: token || '' };
+        const detail = {
+          token: token || '',
+          identity: identitySnapshot ? identitySnapshot.identity || null : null,
+          identitySummary: identitySnapshot ? identitySnapshot.identitySummary || null : null,
+          identityEvaluation: identitySnapshot ? identitySnapshot.identityEvaluation || null : null,
+          identityWarnings: identitySnapshot && Array.isArray(identitySnapshot.identityWarnings)
+            ? identitySnapshot.identityWarnings.slice()
+            : [],
+          identityFields: identitySnapshot ? identitySnapshot.identityFields || null : null,
+          identityHeaders: identitySnapshot ? identitySnapshot.identityHeaders || null : null,
+          userId: identitySnapshot ? identitySnapshot.userId || null : null,
+          email: identitySnapshot ? identitySnapshot.email || null : null,
+          storedAt: identitySnapshot ? identitySnapshot.storedAt || new Date().toISOString() : null
+        };
         let event = null;
 
         if (typeof CustomEvent === 'function') {
@@ -2141,7 +2305,7 @@
       }
     }
 
-    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
+    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes, identityContext) {
       if (!token) {
         clearAuthCookie();
         return;
@@ -2200,7 +2364,16 @@
         console.warn('Unable to persist auth token in sessionStorage', err);
       }
 
-      broadcastSessionTokenChange(token);
+      let identitySnapshotForBroadcast = undefined;
+      if (arguments.length >= 6) {
+        if (identityContext) {
+          identitySnapshotForBroadcast = persistIdentityState(identityContext);
+        } else {
+          identitySnapshotForBroadcast = clearIdentityState();
+        }
+      }
+
+      broadcastSessionTokenChange(token, identitySnapshotForBroadcast);
       restartSessionHeartbeat();
     }
 
@@ -2281,12 +2454,15 @@
         return;
       }
 
+      const identitySnapshot = buildIdentitySnapshotFromResponse(result);
+
       persistSessionToken(
         result.sessionToken || state.authToken || readAuthCookie(),
         state.lastRememberMe,
         result.sessionExpiresAt,
         result.sessionTtlSeconds,
-        result.idleTimeoutMinutes
+        result.idleTimeoutMinutes,
+        identitySnapshot
       );
     }
 
@@ -2340,7 +2516,16 @@
           const resolvedToken = result.sessionToken || cookieToken;
           const rememberFlag = result.rememberMe !== undefined ? !!result.rememberMe : true;
 
-          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds, result.idleTimeoutMinutes);
+          const identitySnapshot = buildIdentitySnapshotFromResponse(result);
+
+          persistSessionToken(
+            resolvedToken,
+            rememberFlag,
+            result.sessionExpiresAt,
+            result.sessionTtlSeconds,
+            result.idleTimeoutMinutes,
+            identitySnapshot
+          );
 
           const resumedUser = result.user || {};
           const resumedEmail = (resumedUser.Email || resumedUser.email || '').trim();
@@ -3556,12 +3741,15 @@
         return;
       }
 
+      const identitySnapshot = buildIdentitySnapshotFromResponse(response);
+
       persistSessionToken(
         response.sessionToken,
         response.rememberMe !== undefined ? !!response.rememberMe : !!rememberMeFallback,
         response.sessionExpiresAt,
         response.sessionTtlSeconds,
-        response.sessionIdleTimeoutMinutes
+        response.sessionIdleTimeoutMinutes,
+        identitySnapshot
       );
 
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
