@@ -135,6 +135,94 @@ const OPTIONAL_USER_COLUMNS = [
 const USER_LOG_MAX_DEPTH = 4;
 const USER_LOG_MAX_KEYS = 40;
 
+function _normalizeHeaderKey_(header) {
+  if (header === null || typeof header === 'undefined') return '';
+  return String(header).replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+}
+
+function _buildHeaderLookup_(headers) {
+  const lookup = {};
+  if (!Array.isArray(headers)) return lookup;
+  headers.forEach((header, index) => {
+    const key = _normalizeHeaderKey_(header);
+    if (!key) return;
+    if (typeof lookup[key] === 'undefined') {
+      lookup[key] = index;
+    }
+  });
+  return lookup;
+}
+
+function _headerIndexFromLookup_(lookup, headerName) {
+  const key = _normalizeHeaderKey_(headerName);
+  if (!key) return -1;
+  return (typeof lookup[key] === 'number') ? lookup[key] : -1;
+}
+
+function _ensureCampaignPermHeaders_(sheet) {
+  try {
+    if (!sheet) return false;
+    const required = Array.isArray(G.CAMPAIGN_USER_PERMISSIONS_HEADERS)
+      ? G.CAMPAIGN_USER_PERMISSIONS_HEADERS.slice()
+      : [];
+    if (!required.length) return false;
+
+    const lastCol = sheet.getLastColumn();
+    let headers = [];
+    if (lastCol > 0) {
+      headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    }
+
+    if (!headers.length) {
+      headers = required.slice();
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.setFrozenRows(1);
+      return true;
+    }
+
+    const lookup = _buildHeaderLookup_(headers);
+    let mutated = false;
+
+    for (let i = 0; i < required.length; i++) {
+      const header = required[i];
+      const idx = _headerIndexFromLookup_(lookup, header);
+      if (idx === -1) {
+        headers.push(header);
+        lookup[_normalizeHeaderKey_(header)] = headers.length - 1;
+        mutated = true;
+      } else if (headers[idx] !== header) {
+        headers[idx] = header;
+        mutated = true;
+      }
+    }
+
+    if (mutated) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+
+    return true;
+  } catch (err) {
+    try { writeError && writeError('_ensureCampaignPermHeaders_', err); } catch (_) { }
+    return false;
+  }
+}
+
+function _getCampaignPermField_(row, fieldName) {
+  if (!row || typeof row !== 'object') return undefined;
+  if (Object.prototype.hasOwnProperty.call(row, fieldName)) {
+    return row[fieldName];
+  }
+  const normalizedTarget = _normalizeHeaderKey_(fieldName);
+  if (!normalizedTarget) return undefined;
+  for (const key in row) {
+    if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+    if (_normalizeHeaderKey_(key) === normalizedTarget) {
+      return row[key];
+    }
+  }
+  return undefined;
+}
+
 function resolveManagerUsersCanonHeaders_() {
   if (Array.isArray(G.MANAGER_USERS_CANON_HEADERS) && G.MANAGER_USERS_CANON_HEADERS.length) {
     return G.MANAGER_USERS_CANON_HEADERS.slice();
@@ -2035,25 +2123,39 @@ function _hasSheet_(name) { try { return !!SpreadsheetApp.getActive().getSheetBy
 function _permsSheetReady_() {
   if (!_hasSheet_(G.CAMPAIGN_USER_PERMISSIONS_SHEET)) return false;
   const sh = SpreadsheetApp.getActive().getSheetByName(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
-  const lastCol = sh.getLastColumn(); if (!lastCol) return false;
-  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
-  return G.CAMPAIGN_USER_PERMISSIONS_HEADERS.every(h => headers.indexOf(h) !== -1);
+  if (!sh) return false;
+  _ensureCampaignPermHeaders_(sh);
+  const lastCol = sh.getLastColumn();
+  if (!lastCol) return false;
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const lookup = _buildHeaderLookup_(headers);
+  return G.CAMPAIGN_USER_PERMISSIONS_HEADERS.every(h => _headerIndexFromLookup_(lookup, h) !== -1);
 }
 function readCampaignPermsSafely_() {
   try {
     if (!_permsSheetReady_()) return [];
     const rows = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
     if (!Array.isArray(rows) || !rows.length) return [];
-    return rows.map(p => ({
-      ID: p.ID,
-      CampaignID: String(p.CampaignID || ''),
-      UserID: String(p.UserID || ''),
-      PermissionLevel: String(p.PermissionLevel || '').toUpperCase(),
-      CanManageUsers: _strToBool_(p.CanManageUsers),
-      CanManagePages: _strToBool_(p.CanManagePages),
-      CreatedAt: p.CreatedAt || null,
-      UpdatedAt: p.UpdatedAt || null
-    }));
+    return rows.map(row => {
+      const id = _getCampaignPermField_(row, 'ID');
+      const campaignId = _getCampaignPermField_(row, 'CampaignID');
+      const userId = _getCampaignPermField_(row, 'UserID');
+      const level = _getCampaignPermField_(row, 'PermissionLevel');
+      const manageUsers = _getCampaignPermField_(row, 'CanManageUsers');
+      const managePages = _getCampaignPermField_(row, 'CanManagePages');
+      const createdAt = _getCampaignPermField_(row, 'CreatedAt');
+      const updatedAt = _getCampaignPermField_(row, 'UpdatedAt');
+      return {
+        ID: id,
+        CampaignID: String(campaignId || ''),
+        UserID: String(userId || ''),
+        PermissionLevel: String(level || '').toUpperCase(),
+        CanManageUsers: _strToBool_(manageUsers),
+        CanManagePages: _strToBool_(managePages),
+        CreatedAt: createdAt || null,
+        UpdatedAt: updatedAt || null
+      };
+    });
   } catch (e) { writeError && writeError('readCampaignPermsSafely_', e); return []; }
 }
 function debugCampaignPerms() {
@@ -2068,29 +2170,33 @@ function debugCampaignPerms() {
 
 function getCampaignUserPermissions(campaignId, userId) {
   try {
-    const rows = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
+    const rows = readCampaignPermsSafely_();
     const row = rows.find(r => String(r.CampaignID) === String(campaignId) && String(r.UserID) === String(userId));
-    const toBool = _strToBool_;
     if (!row) return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false };
     return {
       permissionLevel: String(row.PermissionLevel || 'USER').toUpperCase(),
-      canManageUsers: toBool(row.CanManageUsers),
-      canManagePages: toBool(row.CanManagePages)
+      canManageUsers: !!row.CanManageUsers,
+      canManagePages: !!row.CanManagePages
     };
   } catch (e) { writeError && writeError('getCampaignUserPermissions', e); return { permissionLevel: 'USER', canManageUsers: false, canManagePages: false }; }
 }
 
 function getCampaignPermsHeaders_() { return G.CAMPAIGN_USER_PERMISSIONS_HEADERS; }
 function getOrCreateCampaignPermsSheet_() {
-  if (typeof ensureSheetWithHeaders === 'function')
-    return ensureSheetWithHeaders(G.CAMPAIGN_USER_PERMISSIONS_SHEET, getCampaignPermsHeaders_());
+  if (typeof ensureSheetWithHeaders === 'function') {
+    const ensured = ensureSheetWithHeaders(G.CAMPAIGN_USER_PERMISSIONS_SHEET, getCampaignPermsHeaders_());
+    _ensureCampaignPermHeaders_(ensured);
+    return ensured;
+  }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
   if (!sh) {
     sh = ss.insertSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
     sh.getRange(1, 1, 1, getCampaignPermsHeaders_().length).setValues([getCampaignPermsHeaders_()]);
     sh.setFrozenRows(1);
+    return sh;
   }
+  _ensureCampaignPermHeaders_(sh);
   return sh;
 }
 function setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages) {
@@ -2101,16 +2207,21 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
     const cmp = (canManagePages === true || String(canManagePages).toLowerCase() === 'true');
 
     const sh = getOrCreateCampaignPermsSheet_();
+    _ensureCampaignPermHeaders_(sh);
     const data = sh.getDataRange().getValues();
     const headers = data[0] || G.CAMPAIGN_USER_PERMISSIONS_HEADERS;
+    const lookup = _buildHeaderLookup_(headers);
+    const requiredHeaders = ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'CanManageUsers', 'CanManagePages', 'CreatedAt', 'UpdatedAt'];
     const idx = {};
-    headers.forEach((h, i) => {
-      if (h === null || typeof h === 'undefined') return;
-      idx[String(h)] = i;
+    const missing = [];
+    requiredHeaders.forEach(h => {
+      const headerIndex = _headerIndexFromLookup_(lookup, h);
+      idx[h] = headerIndex;
+      if (headerIndex === -1) missing.push(h);
     });
-
-    ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'CanManageUsers', 'CanManagePages', 'CreatedAt', 'UpdatedAt']
-      .forEach(h => { if (!(h in idx)) throw new Error('Campaign permissions sheet is missing header: ' + h); });
+    if (missing.length) {
+      throw new Error('Campaign permissions sheet is missing header: ' + missing.join(', '));
+    }
 
     let rowIndex = -1;
     for (let r = 1; r < data.length; r++) {
@@ -3947,11 +4058,10 @@ function canUserManageOthers(userId) {
     const users = readSheet(G.USERS_SHEET) || [];
     const u = users.find(x => x.ID === userId);
     if (u && _strToBool_(u.IsAdmin)) return true;
-    const perms = readSheet(G.CAMPAIGN_USER_PERMISSIONS_SHEET) || [];
+    const perms = readCampaignPermsSafely_();
     const userPerms = perms.filter(p => String(p.UserID) === String(userId));
-    const toBool = _strToBool_;
     return userPerms.some(p =>
-      ['MANAGER', 'ADMIN'].includes(String(p.PermissionLevel).toUpperCase()) || toBool(p.CanManageUsers)
+      ['MANAGER', 'ADMIN'].includes(String(p.PermissionLevel).toUpperCase()) || !!p.CanManageUsers
     );
   } catch (e) { writeError && writeError('canUserManageOthers', e); return false; }
 }
