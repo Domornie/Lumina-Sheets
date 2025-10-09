@@ -4417,9 +4417,164 @@ var AuthenticationService = (function () {
 
   // ─── Improved password verification ─────────────────────────────────────────
 
+  function collectUserPasswordHashes(user) {
+    const candidates = [];
+    if (!user || typeof user !== 'object') {
+      return candidates;
+    }
+
+    const preferredFields = [
+      'PasswordHash',
+      'PasswordHashHex',
+      'PasswordHashBase64',
+      'PasswordHashBase64WebSafe',
+      'PasswordHashBase64Url',
+      'PasswordHashLegacy',
+      'LegacyPasswordHash',
+      'PasswordDigest',
+      'PasswordSha256',
+      'Password'
+    ];
+
+    const seen = {};
+
+    function pushCandidate(rawValue, field) {
+      if (rawValue === null || typeof rawValue === 'undefined') {
+        return;
+      }
+
+      const normalized = normalizeString(rawValue);
+      if (!normalized) {
+        return;
+      }
+
+      if (seen[normalized]) {
+        return;
+      }
+
+      seen[normalized] = true;
+      candidates.push({
+        field: field,
+        hash: normalized,
+        original: rawValue
+      });
+    }
+
+    preferredFields.forEach(function (field) {
+      if (Object.prototype.hasOwnProperty.call(user, field)) {
+        pushCandidate(user[field], field);
+      }
+    });
+
+    Object.keys(user).forEach(function (key) {
+      if (preferredFields.indexOf(key) !== -1) {
+        return;
+      }
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.indexOf('password') === -1) {
+        return;
+      }
+      if (lowerKey.indexOf('hash') === -1 && lowerKey.indexOf('digest') === -1 && lowerKey.indexOf('secret') === -1) {
+        return;
+      }
+      pushCandidate(user[key], key);
+    });
+
+    try {
+      if (user.Password && typeof user.Password === 'object') {
+        if (Object.prototype.hasOwnProperty.call(user.Password, 'hash')) {
+          pushCandidate(user.Password.hash, 'Password.hash');
+        }
+        if (Object.prototype.hasOwnProperty.call(user.Password, 'value')) {
+          pushCandidate(user.Password.value, 'Password.value');
+        }
+      }
+    } catch (nestedErr) {
+      console.warn('collectUserPasswordHashes: Unable to inspect nested Password object', nestedErr);
+    }
+
+    if (!candidates.length && user.PasswordHashes && Array.isArray(user.PasswordHashes)) {
+      user.PasswordHashes.forEach(function (entry, index) {
+        if (!entry && entry !== 0) {
+          return;
+        }
+        if (typeof entry === 'string' || typeof entry === 'number') {
+          pushCandidate(entry, 'PasswordHashes[' + index + ']');
+          return;
+        }
+        if (entry && typeof entry === 'object') {
+          if (Object.prototype.hasOwnProperty.call(entry, 'hash')) {
+            pushCandidate(entry.hash, 'PasswordHashes[' + index + '].hash');
+          }
+          if (Object.prototype.hasOwnProperty.call(entry, 'value')) {
+            pushCandidate(entry.value, 'PasswordHashes[' + index + '].value');
+          }
+        }
+      });
+    }
+
+    return candidates;
+  }
+
+  function verifyUserPasswordForRecord(inputPassword, userRecord, userInfo) {
+    const candidates = collectUserPasswordHashes(userRecord);
+
+    if (!candidates.length) {
+      const fallbackContext = userInfo ? Object.assign({}, userInfo) : {};
+      if (userRecord && Object.prototype.hasOwnProperty.call(userRecord, 'PasswordHash')) {
+        fallbackContext.hashField = 'PasswordHash';
+      }
+      return verifyUserPassword(inputPassword, userRecord ? userRecord.PasswordHash : null, fallbackContext);
+    }
+
+    let lastFailure = null;
+    const attempts = [];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+      const attemptContext = userInfo ? Object.assign({}, userInfo) : {};
+      attemptContext.hashField = candidate.field;
+
+      const result = verifyUserPassword(inputPassword, candidate.hash, attemptContext);
+
+      if (result && result.success) {
+        result.hashField = candidate.field;
+        result.hashValue = candidate.hash;
+        if (attempts.length) {
+          result.previousAttempts = attempts.slice();
+        }
+        return result;
+      }
+
+      attempts.push({
+        field: candidate.field,
+        reason: result ? result.reason : 'PASSWORD_MISMATCH',
+        hashFormatTried: result && result.hashFormat ? result.hashFormat : null
+      });
+
+      if (result && !result.success) {
+        lastFailure = Object.assign({}, result);
+      }
+    }
+
+    if (lastFailure) {
+      lastFailure.attempts = attempts;
+      if (!lastFailure.hashField && attempts.length) {
+        lastFailure.hashField = attempts[attempts.length - 1].field;
+      }
+      return lastFailure;
+    }
+
+    return { success: false, reason: 'PASSWORD_MISMATCH', attempts: attempts };
+  }
+
   function verifyUserPassword(inputPassword, storedHash, userInfo = {}) {
     try {
       console.log('verifyUserPassword: Starting verification for user:', userInfo.email || 'unknown');
+
+      if (userInfo.hashField) {
+        console.log('verifyUserPassword: Evaluating stored hash field:', userInfo.hashField);
+      }
 
       if (!inputPassword && inputPassword !== 0) {
         console.log('verifyUserPassword: No password provided');
@@ -4728,6 +4883,9 @@ var AuthenticationService = (function () {
     try {
       // Input validation
       const normalizedEmail = normalizeEmail(email);
+      const rawPasswordInput = (password === null || typeof password === 'undefined')
+        ? ''
+        : String(password);
       const passwordStr = normalizeString(password);
       const rawMetadata = clientMetadata && typeof clientMetadata === 'object'
         ? Object.assign({}, clientMetadata)
@@ -4834,8 +4992,8 @@ var AuthenticationService = (function () {
 
       // Check password
       console.log('login: Verifying password...');
-      const passwordCheck = verifyUserPassword(passwordStr, user.PasswordHash, { email: normalizedEmail });
-      
+      const passwordCheck = verifyUserPasswordForRecord(rawPasswordInput, user, { email: normalizedEmail });
+
       if (!passwordCheck.success) {
         console.log('login: Password verification failed:', passwordCheck.reason);
         
@@ -4861,7 +5019,7 @@ var AuthenticationService = (function () {
         };
       }
 
-      console.log('login: Password verified successfully using method:', passwordCheck.method);
+      console.log('login: Password verified successfully using method:', passwordCheck.method, 'hashField:', passwordCheck.hashField || 'unknown');
 
       const tenantAccess = resolveTenantAccess(user, null);
       if (!tenantAccess || !tenantAccess.success) {
@@ -5734,10 +5892,13 @@ function debugAuthenticationIssues(email, password) {
     // 2. Test Password Verification
     console.log('3. Testing password verification...');
     
-    const storedHash = user.PasswordHash || '';
-    const hasPassword = storedHash && storedHash.trim() !== '';
+    const hashCandidates = collectUserPasswordHashes(user);
+    const storedHash = hashCandidates.length ? hashCandidates[0].hash : (user.PasswordHash || '');
+    const hasPassword = hashCandidates.some(function (candidate) {
+      return candidate && candidate.hash;
+    });
     const passwordUtils = safeGetPasswordUtils();
-    
+
     results.passwordCheck = {
       hasStoredHash: hasPassword,
       storedHashLength: storedHash.length,
@@ -5745,7 +5906,8 @@ function debugAuthenticationIssues(email, password) {
       canLogin: user.CanLogin,
       emailConfirmed: user.EmailConfirmed,
       resetRequired: user.ResetRequired,
-      passwordUtilsAvailable: !!passwordUtils
+      passwordUtilsAvailable: !!passwordUtils,
+      hashFieldSources: hashCandidates.map(function (candidate) { return candidate.field; })
     };
 
     if (!hasPassword) {
@@ -5800,6 +5962,13 @@ function debugAuthenticationIssues(email, password) {
 
       if (!verificationResults.passwordUtilsResult && !verificationResults.newHashMatches) {
         results.recommendations.push('PASSWORD_MISMATCH: Password verification failed - check password or hash corruption');
+      }
+
+      try {
+        const aggregateCheck = verifyUserPasswordForRecord(password, user, { email: normalizedEmail });
+        verificationResults.aggregateCheck = aggregateCheck;
+      } catch (aggregateErr) {
+        verificationResults.aggregateError = aggregateErr && aggregateErr.message;
       }
     }
 
