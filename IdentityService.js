@@ -734,6 +734,38 @@ var IdentityService = (function () {
     return true;
   }
 
+  function applyPasswordUpdate(rowContext, passwordUpdate) {
+    if (!rowContext || !passwordUpdate) {
+      return;
+    }
+
+    var columns = {};
+    if (passwordUpdate.columns && typeof passwordUpdate.columns === 'object') {
+      Object.keys(passwordUpdate.columns).forEach(function (key) {
+        columns[key] = passwordUpdate.columns[key];
+      });
+    }
+
+    if (typeof columns.PasswordHash === 'undefined' && typeof passwordUpdate.hash !== 'undefined') {
+      columns.PasswordHash = passwordUpdate.hash;
+    }
+
+    Object.keys(columns).forEach(function (column) {
+      if (!hasColumn(rowContext, column)) {
+        return;
+      }
+      var value = columns[column];
+      if (typeof value === 'undefined') {
+        value = '';
+      }
+      setColumnValue(rowContext, column, value);
+    });
+
+    if (passwordUpdate.algorithm && hasColumn(rowContext, 'PasswordHashAlgorithm')) {
+      setColumnValue(rowContext, 'PasswordHashAlgorithm', passwordUpdate.algorithm);
+    }
+  }
+
   function clearColumns(rowContext, columns) {
     columns.forEach(function (column) {
       setColumnValue(rowContext, column, '');
@@ -1011,8 +1043,8 @@ var IdentityService = (function () {
       }
 
       const utils = getPasswordUtils();
-      const passwordHash = utils.createPasswordHash(newPassword);
-      setColumnValue(match, 'PasswordHash', passwordHash);
+      const passwordUpdate = utils.createPasswordUpdate(newPassword);
+      applyPasswordUpdate(match, passwordUpdate);
 
       clearColumns(match, [
         'ResetPasswordToken',

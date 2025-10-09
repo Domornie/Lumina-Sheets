@@ -439,16 +439,34 @@ function setUserPasswordDirect(userId, password) {
 
   const headers = data[0];
   const idIdx = headers.indexOf('ID');
-  const pwdIdx = headers.indexOf('PasswordHash');
   const resetIdx = headers.indexOf('ResetRequired');
   const updatedIdx = headers.indexOf('UpdatedAt');
 
-  const hash = PASSWORD_UTILS.hashPassword(password);
+  const passwordUpdate = PASSWORD_UTILS.createPasswordUpdate(password);
+  const updateColumns = passwordUpdate.columns || { PasswordHash: passwordUpdate.hash };
   const now = new Date();
+
+  const columnIndexMap = {};
+  headers.forEach((header, idx) => {
+    columnIndexMap[String(header)] = idx;
+  });
 
   for (let r = 1; r < data.length; r++) {
     if (String(data[r][idIdx]) === String(userId)) {
-      if (pwdIdx >= 0) sh.getRange(r + 1, pwdIdx + 1).setValue(hash);
+      Object.keys(updateColumns).forEach(columnName => {
+        const columnIdx = columnIndexMap[columnName];
+        if (typeof columnIdx === 'number' && columnIdx >= 0) {
+          sh.getRange(r + 1, columnIdx + 1).setValue(updateColumns[columnName]);
+        }
+      });
+
+      if (passwordUpdate.algorithm) {
+        const algoIdx = columnIndexMap['PasswordHashAlgorithm'];
+        if (typeof algoIdx === 'number' && algoIdx >= 0) {
+          sh.getRange(r + 1, algoIdx + 1).setValue(passwordUpdate.algorithm);
+        }
+      }
+
       if (resetIdx >= 0) sh.getRange(r + 1, resetIdx + 1).setValue('FALSE');
       if (updatedIdx >= 0) sh.getRange(r + 1, updatedIdx + 1).setValue(now);
       break;
