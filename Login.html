@@ -1017,6 +1017,12 @@
       scriptUrl: '<?= scriptUrl ?>',
       redirectDelay: 3000 // 3 seconds
     };
+    const SESSION_TOKEN_QUERY_PARAM = 'token';
+    const SESSION_TOKEN_STORAGE_KEYS = [
+      'lumina.session.token',
+      'lumina.auth.sessionToken',
+      'lumina.auth.fallbackToken'
+    ];
 
     const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
     const SESSION_RESUME_LOADER_DELAY_MS = 500;
@@ -1095,6 +1101,72 @@
 
     CONFIG.baseUrl = sanitizeBaseUrl(CONFIG.baseUrl, CONFIG.scriptUrl);
     CONFIG.scriptUrl = sanitizeBaseUrl(CONFIG.scriptUrl, CONFIG.baseUrl);
+
+    const ALLOWED_REDIRECT_ORIGINS = (() => {
+      const origins = [];
+      const seen = new Set();
+
+      const record = candidate => {
+        if (!candidate) {
+          return;
+        }
+
+        try {
+          const parsed = new URL(candidate, window.location.href);
+          if (parsed.origin) {
+            const normalized = parsed.origin.toLowerCase();
+            if (!seen.has(normalized)) {
+              seen.add(normalized);
+              origins.push(parsed.origin);
+            }
+          }
+        } catch (primaryError) {
+          try {
+            const match = /^https?:\/\/[^/]+/i.exec(String(candidate));
+            if (match && match[0]) {
+              const normalized = match[0].toLowerCase();
+              if (!seen.has(normalized)) {
+                seen.add(normalized);
+                origins.push(match[0]);
+              }
+            }
+          } catch (_) {
+            // Ignore malformed candidates
+          }
+        }
+      };
+
+      try {
+        if (window.location && window.location.origin) {
+          record(window.location.origin);
+        }
+      } catch (_) {
+        // Ignore window access errors
+      }
+
+      record(CONFIG.baseUrl);
+      record(CONFIG.scriptUrl);
+
+      return origins;
+    })();
+
+    function isAllowedRedirectOrigin(origin) {
+      if (!origin) {
+        return true;
+      }
+
+      if (!Array.isArray(ALLOWED_REDIRECT_ORIGINS) || !ALLOWED_REDIRECT_ORIGINS.length) {
+        return true;
+      }
+
+      return ALLOWED_REDIRECT_ORIGINS.some(candidate => {
+        try {
+          return candidate && candidate.toLowerCase() === origin.toLowerCase();
+        } catch (_) {
+          return candidate === origin;
+        }
+      });
+    }
 
     if (!CONFIG.baseUrl) {
       const current = new URL(window.location.href);
@@ -2640,6 +2712,82 @@
       return normalized;
     }
 
+    function resolveSessionTokenForRedirect(providedToken) {
+      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
+      if (normalizedProvided) {
+        return normalizedProvided;
+      }
+
+      if (state && typeof state.authToken === 'string') {
+        const tokenFromState = state.authToken.trim();
+        if (tokenFromState) {
+          return tokenFromState;
+        }
+      }
+
+      try {
+        if (typeof window !== 'undefined' && window.__LUMINA_SESSION_TOKEN__) {
+          const globalToken = String(window.__LUMINA_SESSION_TOKEN__).trim();
+          if (globalToken) {
+            return globalToken;
+          }
+        }
+      } catch (_) {
+        // Ignore failures when reading global session token
+      }
+
+      try {
+        if (window.CookieHandler && typeof CookieHandler.readAuthToken === 'function') {
+          const cookieToken = CookieHandler.readAuthToken();
+          if (cookieToken) {
+            return cookieToken;
+          }
+        }
+      } catch (_) {
+        // Ignore cookie read failures
+      }
+
+      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
+
+      for (let i = 0; i < storageKeys.length; i += 1) {
+        const key = storageKeys[i];
+        if (!key) {
+          continue;
+        }
+
+        try {
+          if (window.localStorage) {
+            const value = window.localStorage.getItem(key);
+            if (value) {
+              return value;
+            }
+          }
+        } catch (_) {
+          // Ignore localStorage access issues
+        }
+      }
+
+      for (let i = 0; i < storageKeys.length; i += 1) {
+        const key = storageKeys[i];
+        if (!key) {
+          continue;
+        }
+
+        try {
+          if (window.sessionStorage) {
+            const value = window.sessionStorage.getItem(key);
+            if (value) {
+              return value;
+            }
+          }
+        } catch (_) {
+          // Ignore sessionStorage access issues
+        }
+      }
+
+      return '';
+    }
+
     function stripTokenFromUrl(url) {
       if (!url) {
         return url;
@@ -2647,9 +2795,13 @@
 
       try {
         const parsed = new URL(url, window.location.href);
-        if (parsed.searchParams.has('token')) {
-          parsed.searchParams.delete('token');
-        }
+        const tokenParam = SESSION_TOKEN_QUERY_PARAM || 'token';
+        const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
+        variants.forEach(key => {
+          if (key && parsed.searchParams.has(key)) {
+            parsed.searchParams.delete(key);
+          }
+        });
         return parsed.toString();
       } catch (err) {
         console.warn('Unable to sanitize redirect URL.', err);
@@ -2664,20 +2816,30 @@
       }
 
       const raw = String(url).trim();
-      if (!raw || raw.startsWith('#')) {
+      if (!raw || raw.startsWith('#') || /^(mailto:|tel:|javascript:)/i.test(raw)) {
         return url;
       }
 
-      if (/^(mailto:|tel:|javascript:)/i.test(raw)) {
-        return url;
-      }
+      const sessionToken = resolveSessionTokenForRedirect();
 
       try {
         const base = window.location && window.location.href ? window.location.href : undefined;
         const parsed = new URL(raw, base);
 
-        if (parsed.searchParams.has('token')) {
-          parsed.searchParams.delete('token');
+        if (!isAllowedRedirectOrigin(parsed.origin)) {
+          return stripTokenFromUrl(url);
+        }
+
+        const tokenParam = SESSION_TOKEN_QUERY_PARAM || 'token';
+        const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
+        variants.forEach(key => {
+          if (key && parsed.searchParams.has(key)) {
+            parsed.searchParams.delete(key);
+          }
+        });
+
+        if (sessionToken) {
+          parsed.searchParams.set(tokenParam, sessionToken);
         }
 
         if (raw.startsWith('?')) {
@@ -2690,7 +2852,7 @@
 
         return parsed.toString();
       } catch (error) {
-        console.warn('appendSessionTokenToUrl: Unable to sanitize redirect URL', error);
+        console.warn('appendSessionTokenToUrl: Unable to append session token to redirect URL', error);
         return url;
       }
     }
