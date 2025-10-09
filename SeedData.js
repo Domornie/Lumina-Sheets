@@ -6,7 +6,7 @@
  * Run seedDefaultData() once to ensure:
  *   • Core roles exist
  *   • A couple of starter campaigns are provisioned
- *   • A super administrator account is created (or refreshed) with a known login
+ *   • The Lumina administrator account is created (or refreshed) with a known login
  *
  * The implementation deliberately delegates to the same helpers used by the
  * production flows (UserService, RolesService, CampaignService, and
@@ -22,18 +22,7 @@ const SEED_ROLE_NAMES = [
 
 const SEED_CAMPAIGNS = [
   { name: 'Lumina HQ', description: 'Lumina internal operations workspace' },
-  { name: 'Credit Suite', description: 'Credit Suite client workspace' }
 ];
-
-const SEED_ADMIN_PROFILE = {
-  userName: 'admin',
-  fullName: 'Lumina Administrator',
-  email: 'admin@vlbpo.com',
-  password: 'ChangeMe123!',
-  defaultCampaign: 'Lumina HQ',
-  roleNames: ['Super Admin', 'Administrator'],
-  seedLabel: 'Super Administrator'
-};
 
 const SEED_LUMINA_ADMIN_PROFILE = {
   userName: 'lumina.admin',
@@ -79,7 +68,6 @@ function seedDefaultData() {
   const summary = {
     roles: { created: [], existing: [] },
     campaigns: { created: [], existing: [] },
-    admin: null,
     luminaAdmin: null
   };
 
@@ -98,9 +86,6 @@ function seedDefaultData() {
 
     const roleIdsByName = ensureCoreRoles(summary);
     const campaignIdsByName = ensureCoreCampaigns(summary);
-
-    const adminInfo = ensureSuperAdminUser(roleIdsByName, campaignIdsByName);
-    summary.admin = adminInfo;
 
     const luminaAdminInfo = ensureLuminaAdminUser(roleIdsByName, campaignIdsByName);
     summary.luminaAdmin = luminaAdminInfo;
@@ -226,17 +211,37 @@ function getCampaignsIndex(forceRefresh) {
 }
 
 /**
- * Ensure there is a super admin user with a known password and permissions.
- */
-function ensureSuperAdminUser(roleIdsByName, campaignIdsByName) {
-  return ensureSeedAdministrator(SEED_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
-}
-
-/**
  * Ensure there is a Lumina admin user with a known password and permissions.
  */
 function ensureLuminaAdminUser(roleIdsByName, campaignIdsByName) {
   return ensureSeedAdministrator(SEED_LUMINA_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
+}
+
+function applySeedPasswordForUser(userRecord, profile, label) {
+  if (!profile || !profile.password || !userRecord || !userRecord.ID) {
+    return userRecord;
+  }
+
+  const resolvedLabel = label || profile.seedLabel || profile.fullName || profile.email;
+
+  if (userRecord.EmailConfirmation) {
+    const setPasswordResult = setPasswordWithToken(userRecord.EmailConfirmation, profile.password);
+    if (!setPasswordResult || !setPasswordResult.success) {
+      throw new Error('Failed to set ' + resolvedLabel + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
+    }
+  } else {
+    setUserPasswordDirect(userRecord.ID, profile.password);
+  }
+
+  if (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail) {
+    const refreshed = AuthenticationService.getUserByEmail(profile.email);
+    if (!refreshed) {
+      throw new Error(resolvedLabel + ' record not found after password update.');
+    }
+    return refreshed;
+  }
+
+  return userRecord;
 }
 
 /**
@@ -295,16 +300,23 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
       throw new Error('Failed to refresh ' + label + ': ' + (updateResult && updateResult.error ? updateResult.error : 'Unknown error'));
     }
 
+    applySeedPasswordForUser(existing, profile, label);
     syncUserRoleLinks(existing.ID, desiredRoleIds);
     assignAdminCampaignAccess(existing.ID, Object.values(campaignIdsByName));
     ensureCanLoginFlag(existing.ID, true);
 
-    return {
+    const result = {
       status: 'updated',
       userId: existing.ID,
       email: profile.email,
       message: (updateResult && updateResult.message) || (label + ' refreshed.')
     };
+
+    if (profile.password) {
+      result.password = profile.password;
+    }
+
+    return result;
   }
 
   const createResult = clientRegisterUser(payload);
@@ -318,18 +330,7 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
     throw new Error(label + ' record not found after creation.');
   }
 
-  if (profile.password) {
-    if (adminRecord.EmailConfirmation) {
-      const setPasswordResult = setPasswordWithToken(adminRecord.EmailConfirmation, profile.password);
-      if (!setPasswordResult || !setPasswordResult.success) {
-        throw new Error('Failed to set ' + label + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
-      }
-    } else {
-      setUserPasswordDirect(adminRecord.ID, profile.password);
-    }
-  }
-
-  adminRecord = AuthenticationService.getUserByEmail(profile.email);
+  adminRecord = applySeedPasswordForUser(adminRecord, profile, label);
   syncUserRoleLinks(adminRecord.ID, desiredRoleIds);
   assignAdminCampaignAccess(adminRecord.ID, Object.values(campaignIdsByName));
   ensureCanLoginFlag(adminRecord.ID, true);
