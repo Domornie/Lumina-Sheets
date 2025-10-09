@@ -1558,6 +1558,40 @@ const REQUIRED_USER_COLUMNS = [
   'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
 ];
 
+function getCanonicalUserHeaderList_(options) {
+  try {
+    if (typeof getCanonicalUserHeaders === 'function') {
+      const headers = getCanonicalUserHeaders(options);
+      if (Array.isArray(headers) && headers.length) {
+        return headers.map(function (header) {
+          return header == null ? '' : String(header);
+        });
+      }
+    }
+  } catch (canonicalErr) {
+    console.warn('UserService.getCanonicalUserHeaderList_: using fallback headers', canonicalErr);
+  }
+
+  const seen = Object.create(null);
+  const merged = [];
+
+  function pushUnique(header) {
+    if (header == null) return;
+    const key = String(header);
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    merged.push(key);
+  }
+
+  (Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : []).forEach(pushUnique);
+  (Array.isArray(OPTIONAL_USER_COLUMNS) ? OPTIONAL_USER_COLUMNS : []).forEach(pushUnique);
+  if (Array.isArray(USERS_HEADERS)) {
+    USERS_HEADERS.forEach(pushUnique);
+  }
+
+  return merged;
+}
+
 function _ensureUserHeaders_(idx) {
   // Throw only for the base minimal set; optional benefits columns are handled separately
   for (let i = 0; i < REQUIRED_USER_COLUMNS.length; i++) {
@@ -1581,14 +1615,168 @@ function _pushUniqueHeader_(target, seen, header) {
 function _buildCanonicalUserHeaders_(existingHeaders) {
   const seen = Object.create(null);
   const canonical = [];
-  const required = Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : [];
-  const optional = Array.isArray(OPTIONAL_USER_COLUMNS) ? OPTIONAL_USER_COLUMNS : [];
-  required.forEach(header => _pushUniqueHeader_(canonical, seen, header));
-  optional.forEach(header => _pushUniqueHeader_(canonical, seen, header));
+  const base = getCanonicalUserHeaderList_({ preferIdentityService: false });
+  base.forEach(header => _pushUniqueHeader_(canonical, seen, header));
   if (Array.isArray(existingHeaders)) {
     existingHeaders.forEach(header => _pushUniqueHeader_(canonical, seen, header));
   }
   return canonical;
+}
+
+function projectUserRecordCanonical_(record) {
+  const source = (record && typeof record === 'object') ? record : {};
+
+  if (typeof projectRecordToCanonicalUser === 'function') {
+    try {
+      const projected = projectRecordToCanonicalUser(source, { preferIdentityService: false });
+      if (projected && typeof projected === 'object') {
+        const clone = {};
+        Object.keys(projected).forEach(function (key) {
+          clone[key] = projected[key];
+        });
+        Object.keys(source).forEach(function (key) {
+          if (!Object.prototype.hasOwnProperty.call(clone, key)) {
+            clone[key] = source[key];
+          }
+        });
+        return clone;
+      }
+    } catch (projectionError) {
+      console.warn('UserService.projectUserRecordCanonical_: projection failed', projectionError);
+    }
+  }
+
+  const headers = getCanonicalUserHeaderList_({ preferIdentityService: false });
+  const projectedFallback = {};
+  headers.forEach(function (header) {
+    const key = String(header || '').trim();
+    if (!key) return;
+
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      projectedFallback[key] = source[key];
+      return;
+    }
+
+    const lower = key.toLowerCase();
+    let resolved = '';
+    Object.keys(source).some(function (candidate) {
+      if (String(candidate || '').toLowerCase() === lower) {
+        resolved = source[candidate];
+        return true;
+      }
+      return false;
+    });
+    projectedFallback[key] = resolved;
+  });
+
+  Object.keys(source).forEach(function (key) {
+    if (!Object.prototype.hasOwnProperty.call(projectedFallback, key)) {
+      projectedFallback[key] = source[key];
+    }
+  });
+
+  return projectedFallback;
+}
+
+function buildFallbackIdentitySummary_(fields) {
+  const source = fields || {};
+  const rolesRaw = source.Roles || source.roles || '';
+  const roles = typeof rolesRaw === 'string'
+    ? rolesRaw.split(',').map(function (value) { return value.trim(); }).filter(Boolean)
+    : Array.isArray(rolesRaw)
+      ? rolesRaw.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+      : [];
+
+  return {
+    id: source.ID || source.Id || source.id || '',
+    email: source.Email || source.email || '',
+    userName: source.UserName || source.userName || '',
+    fullName: source.FullName || source.fullName || '',
+    campaignId: source.CampaignID || source.CampaignId || source.campaignId || '',
+    roles: roles
+  };
+}
+
+function buildFallbackIdentityEvaluation_(fields, warnings) {
+  const source = fields || {};
+  const canLogin = source.CanLogin !== undefined ? _strToBool_(source.CanLogin) : true;
+  const emailConfirmed = source.EmailConfirmed !== undefined ? _strToBool_(source.EmailConfirmed) : true;
+  const warningList = Array.isArray(warnings) ? warnings.slice() : [];
+
+  return {
+    allow: canLogin && emailConfirmed,
+    status: {
+      canLogin: canLogin,
+      emailConfirmed: emailConfirmed
+    },
+    warnings: warningList
+  };
+}
+
+function attachIdentityMetadata_(target, fieldMap) {
+  const output = target || {};
+  const canonicalFields = projectUserRecordCanonical_(fieldMap || target || {});
+
+  let identity = null;
+  let summary = null;
+  let evaluation = null;
+  let warnings = [];
+  let headers = [];
+
+  if (typeof IdentityService !== 'undefined' && IdentityService) {
+    try {
+      if (typeof IdentityService.buildIdentityStateFromUser === 'function') {
+        identity = IdentityService.buildIdentityStateFromUser(canonicalFields);
+      }
+      if (identity) {
+        headers = Array.isArray(identity.headers) && identity.headers.length
+          ? identity.headers.slice()
+          : [];
+        if (typeof IdentityService.summarizeIdentityForClient === 'function') {
+          summary = IdentityService.summarizeIdentityForClient(identity);
+        }
+        if (typeof IdentityService.evaluateIdentityForAuthentication === 'function') {
+          evaluation = IdentityService.evaluateIdentityForAuthentication(identity);
+          if (evaluation && Array.isArray(evaluation.warnings)) {
+            warnings = evaluation.warnings.slice();
+          }
+        }
+      }
+    } catch (identityError) {
+      console.warn('UserService.attachIdentityMetadata_: IdentityService helpers failed', identityError);
+    }
+  }
+
+  if (!summary) {
+    summary = buildFallbackIdentitySummary_(canonicalFields);
+  }
+
+  if (!evaluation) {
+    evaluation = buildFallbackIdentityEvaluation_(canonicalFields, warnings);
+  }
+
+  if (!warnings.length && evaluation && Array.isArray(evaluation.warnings)) {
+    warnings = evaluation.warnings.slice();
+  }
+
+  if (!headers.length) {
+    headers = getCanonicalUserHeaderList_({ preferIdentityService: false });
+  }
+
+  output.Identity = identity;
+  output.identity = identity;
+  output.IdentitySummary = summary;
+  output.identitySummary = summary;
+  output.IdentityEvaluation = evaluation;
+  output.identityEvaluation = evaluation;
+  output.IdentityWarnings = warnings;
+  output.identityWarnings = warnings.slice();
+  output.IdentityFields = canonicalFields;
+  output.identityFields = canonicalFields;
+  output.IdentityHeaders = headers;
+  output.identityHeaders = headers.slice();
+
+  return output;
 }
 
 function ensureOptionalUserColumns_(sh, headers, idx, values) {
@@ -2238,48 +2426,80 @@ function createSafeUserObject(user) {
   safe.sheetFields = sheetFieldOrder.map(key => ({ key, value: sheetFieldMap[key] }));
   safe.sheetFieldCount = safe.sheetFields.length;
 
+  attachIdentityMetadata_(safe, safe.sheetFieldMap);
+
   return safe;
 }
 
 function createMinimalUserObject(user) {
-  return {
-    ID: user.ID || '',
-    UserName: _getUserName_(user),
-    FullName: user.FullName || '',
-    Email: user.Email || '',
-    PhoneNumber: user.PhoneNumber || '',
-    EmploymentStatus: user.EmploymentStatus || '',
-    HireDate: user.HireDate || null,
-    Country: user.Country || '',
-    canLoginBool: _strToBool_(user.CanLogin),
-    isAdminBool: _strToBool_(user.IsAdmin),
+  const source = (user && typeof user === 'object') ? user : {};
+  const minimal = {
+    ID: source.ID || source.Id || source.id || '',
+    UserName: _getUserName_(source) || source.Email || source.email || '',
+    FullName: source.FullName || source.fullName || '',
+    Email: source.Email || source.email || '',
+    PhoneNumber: source.PhoneNumber || source.phoneNumber || '',
+    EmploymentStatus: source.EmploymentStatus || source.employmentStatus || '',
+    HireDate: source.HireDate || source.hireDate || null,
+    Country: source.Country || source.country || '',
+    CampaignID: source.CampaignID || source.CampaignId || source.campaignID || source.campaignId || '',
+    canLoginBool: _strToBool_(source.CanLogin != null ? source.CanLogin : source.canLogin),
+    isAdminBool: _strToBool_(source.IsAdmin != null ? source.IsAdmin : source.isAdmin),
     campaignName: '',
     roleNames: [],
     campaignPermissions: [],
     pages: [],
-    ProbationEnd: user.ProbationEnd || user.ProbationEndDate || '',
-    InsuranceEligibleDate: user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '',
-    InsuranceQualified: (user.InsuranceQualified != null)
-      ? _strToBool_(user.InsuranceQualified)
-      : _strToBool_(user.InsuranceEligible || false),
-    InsuranceEnrolled: (user.InsuranceEnrolled != null)
-      ? _strToBool_(user.InsuranceEnrolled)
-      : _strToBool_(user.InsuranceSignedUp || false),
-    ProbationEndDate: user.ProbationEnd || user.ProbationEndDate || '',
-    InsuranceQualifiedDate: user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '',
-    InsuranceEligible: (user.InsuranceQualified != null)
-      ? _strToBool_(user.InsuranceQualified)
-      : _strToBool_(user.InsuranceEligible || false),
-    InsuranceSignedUp: (user.InsuranceEnrolled != null)
-      ? _strToBool_(user.InsuranceEnrolled)
-      : _strToBool_(user.InsuranceSignedUp || false),
-    CreatedAt: new Date().toISOString(),
-    UpdatedAt: new Date().toISOString(),
+    ProbationEnd: source.ProbationEnd || source.probationEnd || source.ProbationEndDate || source.probationEndDate || '',
+    InsuranceEligibleDate: source.InsuranceEligibleDate || source.insuranceEligibleDate || source.InsuranceQualifiedDate || source.insuranceQualifiedDate || '',
+    InsuranceQualified: (source.InsuranceQualified != null)
+      ? _strToBool_(source.InsuranceQualified)
+      : _strToBool_(source.InsuranceEligible || false),
+    InsuranceEnrolled: (source.InsuranceEnrolled != null)
+      ? _strToBool_(source.InsuranceEnrolled)
+      : _strToBool_(source.InsuranceSignedUp || false),
+    ProbationEndDate: source.ProbationEnd || source.probationEnd || source.ProbationEndDate || source.probationEndDate || '',
+    InsuranceQualifiedDate: source.InsuranceQualifiedDate || source.insuranceQualifiedDate || source.InsuranceEligibleDate || source.insuranceEligibleDate || '',
+    InsuranceEligible: (source.InsuranceQualified != null)
+      ? _strToBool_(source.InsuranceQualified)
+      : _strToBool_(source.InsuranceEligible || false),
+    InsuranceSignedUp: (source.InsuranceEnrolled != null)
+      ? _strToBool_(source.InsuranceEnrolled)
+      : _strToBool_(source.InsuranceSignedUp || false),
+    CreatedAt: source.CreatedAt || source.createdAt || new Date().toISOString(),
+    UpdatedAt: source.UpdatedAt || source.updatedAt || new Date().toISOString(),
     sheetFieldMap: {},
     sheetFieldOrder: [],
     sheetFields: [],
     sheetFieldCount: 0
   };
+
+  const pagesRaw = Array.isArray(source.Pages) ? source.Pages : Array.isArray(source.pages) ? source.pages : String(source.Pages || source.pages || '').split(',');
+  minimal.pages = (pagesRaw || []).map(function (page) { return String(page || '').trim(); }).filter(Boolean);
+  minimal.Pages = minimal.pages.join(',');
+  minimal.campaignId = minimal.CampaignID;
+
+  try {
+    minimal.campaignName = minimal.CampaignID ? getCampaignNameSafe(minimal.CampaignID) : '';
+  } catch (_) {
+    minimal.campaignName = '';
+  }
+
+  minimal.sheetFieldMap = projectUserRecordCanonical_(source);
+  const canonicalHeaders = _buildCanonicalUserHeaders_(Object.keys(minimal.sheetFieldMap));
+  canonicalHeaders.forEach(function (header) {
+    if (Object.prototype.hasOwnProperty.call(minimal, header)) {
+      minimal.sheetFieldMap[header] = minimal[header];
+    }
+  });
+  minimal.sheetFieldOrder = canonicalHeaders.slice();
+  minimal.sheetFields = minimal.sheetFieldOrder.map(function (key) {
+    return { key: key, value: minimal.sheetFieldMap[key] };
+  });
+  minimal.sheetFieldCount = minimal.sheetFields.length;
+
+  attachIdentityMetadata_(minimal, minimal.sheetFieldMap);
+
+  return minimal;
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -4272,10 +4492,26 @@ function _readUsersAsObjects_() {
   } catch (ensureError) {
     try { writeError && writeError('_readUsersAsObjects_.ensureUsersHaveIds', ensureError); } catch (_) { }
   }
-  try { if (typeof readSheet === 'function') return readSheet(G.USERS_SHEET) || []; } catch (e) { writeError && writeError('_readUsersAsObjects_', e); }
+  try {
+    if (typeof readSheet === 'function') {
+      const rows = readSheet(G.USERS_SHEET) || [];
+      if (Array.isArray(rows) && rows.length) {
+        return rows.map(function (row) { return projectUserRecordCanonical_(row); });
+      }
+      return rows;
+    }
+  } catch (e) {
+    writeError && writeError('_readUsersAsObjects_', e);
+  }
   const sh = _getSheet_(G.USERS_SHEET);
   const { headers, values } = _scanSheet_(sh);
-  const out = []; for (let r = 1; r < values.length; r++) { const row = values[r]; const o = {}; headers.forEach((h, i) => o[h] = row[i]); out.push(o); }
+  const out = [];
+  for (let r = 1; r < values.length; r++) {
+    const row = values[r];
+    const o = {};
+    headers.forEach((h, i) => o[h] = row[i]);
+    out.push(projectUserRecordCanonical_(o));
+  }
   return out;
 }
 function _logErr_(where, err) { try { writeError && writeError(where, err); } catch (_) { } }

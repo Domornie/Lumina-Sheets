@@ -2,6 +2,84 @@
 // Role & UserRole CRUD
 // ────────────────────────────────────────────────────────────────────────────
 
+function resolveRoleUserIdentity(userId) {
+  const normalized = String(userId || '').trim();
+  if (!normalized) {
+    return { success: false, error: 'User ID is required', errorCode: 'USER_ID_REQUIRED' };
+  }
+
+  function projectRecord(record) {
+    if (typeof projectRecordToCanonicalUser === 'function') {
+      return projectRecordToCanonicalUser(record, { preferIdentityService: false });
+    }
+    const source = record || {};
+    const clone = {};
+    Object.keys(source).forEach(function (key) {
+      clone[key] = source[key];
+    });
+    return clone;
+  }
+
+  if (typeof IdentityService !== 'undefined'
+    && IdentityService
+    && typeof IdentityService.getUserIdentityById === 'function') {
+    try {
+      const lookup = IdentityService.getUserIdentityById(normalized);
+      if (lookup && lookup.success && lookup.identity) {
+        const fields = lookup.identity.fields || projectRecord(lookup.identity.raw || {});
+        return {
+          success: true,
+          id: String(fields.ID || normalized).trim(),
+          identity: lookup.identity,
+          summary: lookup.summary || null,
+          fields: fields
+        };
+      }
+      if (lookup && lookup.success === false) {
+        return {
+          success: false,
+          error: lookup.error || 'User not found',
+          errorCode: lookup.errorCode || 'USER_NOT_FOUND'
+        };
+      }
+    } catch (identityError) {
+      console.warn('RolesService.resolveRoleUserIdentity: IdentityService lookup failed', identityError);
+    }
+  }
+
+  try {
+    if (typeof readSheet === 'function') {
+      if (typeof ensureSheetWithHeaders === 'function') {
+        try {
+          ensureSheetWithHeaders(getUsersSheetName ? getUsersSheetName() : (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users',
+            (typeof getCanonicalUserHeaders === 'function') ? getCanonicalUserHeaders() : USERS_HEADERS);
+        } catch (ensureErr) {
+          console.warn('RolesService.resolveRoleUserIdentity: ensure headers failed', ensureErr);
+        }
+      }
+      const users = readSheet((typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users') || [];
+      const hit = users.find(function (row) {
+        return String(row && (row.ID || row.Id || row.UserId)).trim() === normalized;
+      }) || null;
+      if (!hit) {
+        return { success: false, error: 'User not found', errorCode: 'USER_NOT_FOUND' };
+      }
+      const fields = projectRecord(hit);
+      return {
+        success: true,
+        id: String(fields.ID || normalized).trim(),
+        identity: null,
+        summary: null,
+        fields: fields
+      };
+    }
+  } catch (readError) {
+    console.warn('RolesService.resolveRoleUserIdentity: fallback lookup failed', readError);
+  }
+
+  return { success: true, id: normalized, identity: null, summary: null, fields: null };
+}
+
 /** Returns [{ id, name, normalizedName, scope, description, createdAt, updatedAt, deletedAt }] */
 function getAllRoles() {
   try {
@@ -133,6 +211,13 @@ function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
   try {
     if (!userId || !roleId) throw new Error('User ID and Role ID are required');
 
+    const identityInfo = resolveRoleUserIdentity(userId);
+    if (!identityInfo.success) {
+      throw new Error(identityInfo.error || 'Unable to resolve user identity');
+    }
+
+    const canonicalUserId = identityInfo.id;
+
     const sheet = SpreadsheetApp.getActive().getSheetByName(USER_ROLES_SHEET);
     if (!sheet) throw new Error(`Sheet ${USER_ROLES_SHEET} not found`);
 
@@ -152,7 +237,7 @@ function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
 
     const rowMap = {
       ID: id,
-      UserId: userId,
+      UserId: canonicalUserId,
       RoleId: roleId,
       Scope: scope,
       AssignedBy: assigned,
@@ -173,6 +258,12 @@ function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
 /** Removes roles for a user (optionally target a specific role) */
 function deleteUserRoles(userId, roleId) {
   try {
+    const identityInfo = resolveRoleUserIdentity(userId);
+    if (!identityInfo.success) {
+      return;
+    }
+    const canonicalUserId = identityInfo.id;
+
     const sheet = SpreadsheetApp.getActive().getSheetByName(USER_ROLES_SHEET);
     if (!sheet) return;
     const data = sheet.getDataRange().getValues();
@@ -184,7 +275,7 @@ function deleteUserRoles(userId, roleId) {
     if (userIdx < 0) return;
 
     for (let i = data.length - 1; i >= 1; i--) {
-      const matchesUser = String(data[i][userIdx]) === String(userId);
+      const matchesUser = String(data[i][userIdx]) === String(canonicalUserId);
       const matchesRole = roleId ? String(data[i][roleIdx]) === String(roleId) : true;
       if (matchesUser && matchesRole) {
         sheet.deleteRow(i + 1);
@@ -202,6 +293,11 @@ function deleteUserRoles(userId, roleId) {
 function getUserRoleIds(userId) {
   try {
     if (!userId) return [];
+    const identityInfo = resolveRoleUserIdentity(userId);
+    if (!identityInfo.success) {
+      return [];
+    }
+    const canonicalUserId = identityInfo.id;
     const sheet = SpreadsheetApp.getActive().getSheetByName(USER_ROLES_SHEET);
     if (!sheet) return [];
     const data = sheet.getDataRange().getValues();
@@ -214,7 +310,7 @@ function getUserRoleIds(userId) {
 
     return data
       .slice(1)
-      .filter(row => String(row[userIdx]) === String(userId))
+      .filter(row => String(row[userIdx]) === String(canonicalUserId))
       .map(row => row[roleIdx])
       .filter(Boolean);
   } catch (error) {
@@ -226,8 +322,13 @@ function getUserRoleIds(userId) {
 /** Returns full role objects for a user */
 function getUserRoles(userId) {
   try {
+    const identityInfo = resolveRoleUserIdentity(userId);
+    if (!identityInfo.success) {
+      return [];
+    }
+    const canonicalUserId = identityInfo.id;
     const allRoles = getAllRoles();
-    const assigned = new Set(getUserRoleIds(userId).map(String));
+    const assigned = new Set(getUserRoleIds(canonicalUserId).map(String));
     return allRoles.filter(r => assigned.has(String(r.id || r.ID)));
   } catch (error) {
     console.error('Error getting user roles:', error);

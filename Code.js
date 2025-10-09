@@ -50,6 +50,189 @@ const ACCESS = {
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
 
+function getCanonicalUserSummaryColumns() {
+  try {
+    const headers = (typeof getCanonicalUserHeaders === 'function')
+      ? getCanonicalUserHeaders()
+      : (Array.isArray(USERS_HEADERS) ? USERS_HEADERS.slice() : []);
+
+    const desired = ['ID', 'FullName', 'UserName', 'Email', 'CampaignID', 'Roles', 'Pages'];
+    const summary = [];
+
+    desired.forEach(function (column) {
+      if (headers.indexOf(column) !== -1 && summary.indexOf(column) === -1) {
+        summary.push(column);
+      }
+    });
+
+    if (!summary.length && headers.length) {
+      return headers.slice(0, Math.min(headers.length, 6));
+    }
+
+    return summary.length ? summary : ['ID', 'FullName', 'UserName', 'CampaignID'];
+  } catch (err) {
+    console.warn('getCanonicalUserSummaryColumns: unable to resolve summary columns', err);
+    return ['ID', 'FullName', 'UserName', 'CampaignID'];
+  }
+}
+
+function projectRecordWithFallback(record, options) {
+  if (typeof projectRecordToCanonicalUser === 'function') {
+    return projectRecordToCanonicalUser(record, options);
+  }
+  const source = record || {};
+  const clone = {};
+  Object.keys(source).forEach(function (key) {
+    clone[key] = source[key];
+  });
+  return clone;
+}
+
+function buildIdentityAugmentation(record, options) {
+  const augmentation = {
+    identity: null,
+    identitySummary: null,
+    identityEvaluation: null,
+    identityWarnings: [],
+    identityFields: null,
+    identityHeaders: [],
+    rawRecord: record || null
+  };
+
+  if (!record) {
+    augmentation.identityFields = projectRecordWithFallback({}, options);
+    augmentation.identityHeaders = getCanonicalUserHeaders();
+    return augmentation;
+  }
+
+  let identityBuilt = false;
+
+  try {
+    if (typeof IdentityService !== 'undefined' && IdentityService) {
+      if (typeof IdentityService.buildIdentityStateFromUser === 'function') {
+        const identity = IdentityService.buildIdentityStateFromUser(record);
+        if (identity) {
+          augmentation.identity = identity;
+          augmentation.identityFields = identity.fields || projectRecordWithFallback(identity.raw || record, options);
+          augmentation.identityHeaders = Array.isArray(identity.headers) && identity.headers.length
+            ? identity.headers.slice()
+            : getCanonicalUserHeaders();
+          identityBuilt = true;
+        }
+      }
+
+      if (augmentation.identity && typeof IdentityService.summarizeIdentityForClient === 'function') {
+        augmentation.identitySummary = IdentityService.summarizeIdentityForClient(augmentation.identity);
+      }
+
+      if (augmentation.identity && typeof IdentityService.evaluateIdentityForAuthentication === 'function') {
+        augmentation.identityEvaluation = IdentityService.evaluateIdentityForAuthentication(augmentation.identity);
+        if (augmentation.identityEvaluation && Array.isArray(augmentation.identityEvaluation.warnings)) {
+          augmentation.identityWarnings = augmentation.identityEvaluation.warnings.slice();
+        }
+      }
+    }
+  } catch (identityError) {
+    console.warn('buildIdentityAugmentation: IdentityService helpers failed', identityError);
+  }
+
+  if (!identityBuilt) {
+    augmentation.identityFields = projectRecordWithFallback(record, options);
+    augmentation.identityHeaders = getCanonicalUserHeaders();
+  }
+
+  if (!augmentation.identitySummary) {
+    const fields = augmentation.identityFields || projectRecordWithFallback(record, options);
+    augmentation.identitySummary = {
+      id: fields.ID || record.ID || '',
+      email: fields.Email || record.Email || '',
+      userName: fields.UserName || record.UserName || '',
+      fullName: fields.FullName || record.FullName || '',
+      campaignId: fields.CampaignID || record.CampaignID || '',
+      roles: (fields.Roles ? String(fields.Roles).split(',').map(function (value) {
+        return value.trim();
+      }).filter(Boolean) : [])
+    };
+  }
+
+  if (!augmentation.identityEvaluation) {
+    const fields = augmentation.identityFields || projectRecordWithFallback(record, options);
+    augmentation.identityEvaluation = {
+      allow: true,
+      status: {
+        canLogin: fields.CanLogin !== undefined ? !!fields.CanLogin : true,
+        emailConfirmed: fields.EmailConfirmed !== undefined ? !!fields.EmailConfirmed : true
+      },
+      warnings: augmentation.identityWarnings.slice()
+    };
+  }
+
+  if (!augmentation.identityWarnings.length && augmentation.identityEvaluation && Array.isArray(augmentation.identityEvaluation.warnings)) {
+    augmentation.identityWarnings = augmentation.identityEvaluation.warnings.slice();
+  }
+
+  return augmentation;
+}
+
+function _lookupUserIdentityByEmail_(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const cacheKey = 'USR_IDENTITY_EMAIL_' + normalized;
+  const cached = _cacheGet(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  let context = null;
+
+  if (typeof IdentityService !== 'undefined' && IdentityService && typeof IdentityService.getUserIdentityByEmail === 'function') {
+    try {
+      const lookup = IdentityService.getUserIdentityByEmail(normalized);
+      if (lookup && lookup.success && lookup.identity) {
+        context = {
+          identity: lookup.identity,
+          identitySummary: lookup.summary || null,
+          identityEvaluation: lookup.evaluation || null,
+          identityWarnings: lookup.evaluation && Array.isArray(lookup.evaluation.warnings)
+            ? lookup.evaluation.warnings.slice()
+            : [],
+          identityFields: lookup.identity.fields || projectRecordWithFallback(lookup.identity.raw || {}, { preferIdentityService: false }),
+          identityHeaders: Array.isArray(lookup.identity.headers) && lookup.identity.headers.length
+            ? lookup.identity.headers.slice()
+            : getCanonicalUserHeaders(),
+          rawRecord: lookup.identity.raw || null
+        };
+      }
+    } catch (identityLookupError) {
+      console.warn('_lookupUserIdentityByEmail_: IdentityService lookup failed', identityLookupError);
+    }
+  }
+
+  if (!context) {
+    try {
+      const rows = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
+      const hit = rows.find(function (row) {
+        return row && String(row.Email || '').trim().toLowerCase() === normalized;
+      }) || null;
+
+      if (hit) {
+        context = buildIdentityAugmentation(hit);
+      }
+    } catch (legacyError) {
+      console.warn('_lookupUserIdentityByEmail_: legacy sheet lookup failed', legacyError);
+    }
+  }
+
+  if (context) {
+    _cachePut(cacheKey, context, 180);
+  }
+
+  return context;
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // LUMINA ENTITY REGISTRY
 // ───────────────────────────────────────────────────────────────────────────────
@@ -93,33 +276,65 @@ const LUMINA_ENTITY_REGISTRY = (function buildEntityRegistry() {
   registry.qualityrecords = registry.quality;
 
   var usersTableName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
-  var usersSchema = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
-    ? { headers: sliceHeaders(USERS_HEADERS), idColumn: 'ID' }
+  var canonicalHeaders = (typeof getCanonicalUserHeaders === 'function')
+    ? getCanonicalUserHeaders()
+    : (Array.isArray(USERS_HEADERS) ? USERS_HEADERS.slice() : null);
+  var usersSchema = canonicalHeaders && canonicalHeaders.length
+    ? { headers: canonicalHeaders.slice(), idColumn: 'ID' }
     : { idColumn: 'ID' };
   usersSchema.cacheTTL = 1800;
   registry.users = {
     name: 'users',
     tableName: usersTableName,
     idColumn: 'ID',
-    summaryColumns: ['ID', 'FullName', 'UserName', 'CampaignID'],
+    summaryColumns: getCanonicalUserSummaryColumns(),
     schema: usersSchema,
     normalizeSummary: function (row) {
-      var fullName = coerceString(row.FullName || row.fullName);
-      var userName = coerceString(row.UserName || row.userName || row.Username);
+      var augmentation = buildIdentityAugmentation(row);
+      var fields = augmentation.identityFields || projectRecordWithFallback(row);
+      var summary = augmentation.identitySummary || {};
+      var fullName = coerceString(summary.fullName || fields.FullName || row.FullName || row.fullName);
+      var userName = coerceString(summary.userName || fields.UserName || row.UserName || row.userName || row.Username);
+      var campaignId = coerceString(summary.campaignId || fields.CampaignID || row.CampaignID || row.CampaignId);
+
+      var roleList = Array.isArray(summary.roles) ? summary.roles.slice() : [];
+      if (!roleList.length && fields.Roles) {
+        roleList = String(fields.Roles).split(',').map(function (item) { return item.trim(); }).filter(Boolean);
+      }
+
       return {
-        id: row.ID,
-        displayName: fullName || userName || row.ID,
+        id: summary.id || fields.ID || row.ID,
+        displayName: fullName || userName || (summary.id || fields.ID || row.ID),
         fullName: fullName,
         userName: userName,
-        campaignId: coerceString(row.CampaignID || row.CampaignId)
+        email: coerceString(summary.email || fields.Email || row.Email || row.email || ''),
+        campaignId: campaignId,
+        roles: roleList,
+        identity: augmentation.identity,
+        identitySummary: augmentation.identitySummary,
+        identityEvaluation: augmentation.identityEvaluation,
+        identityWarnings: augmentation.identityWarnings.slice(),
+        identityFields: augmentation.identityFields,
+        identityHeaders: augmentation.identityHeaders.slice(),
+        record: row
       };
     },
     normalizeDetail: function (row) {
+      var augmentation = buildIdentityAugmentation(row);
+      var fields = augmentation.identityFields || projectRecordWithFallback(row);
+
       return {
-        id: row.ID,
-        fullName: coerceString(row.FullName || row.fullName),
-        userName: coerceString(row.UserName || row.userName),
-        email: coerceString(row.Email || row.email || row.EmailAddress),
+        id: fields.ID || row.ID,
+        fullName: coerceString(fields.FullName || row.FullName || row.fullName),
+        userName: coerceString(fields.UserName || row.UserName || row.userName),
+        email: coerceString(fields.Email || row.Email || row.email || row.EmailAddress),
+        campaignId: coerceString(fields.CampaignID || row.CampaignID || row.CampaignId),
+        identity: augmentation.identity,
+        identitySummary: augmentation.identitySummary,
+        identityEvaluation: augmentation.identityEvaluation,
+        identityWarnings: augmentation.identityWarnings.slice(),
+        identityFields: augmentation.identityFields,
+        identityHeaders: augmentation.identityHeaders.slice(),
         record: row
       };
     }
@@ -915,8 +1130,9 @@ function getCurrentUser() {
       ''
     ).trim().toLowerCase();
 
-    const row = _findUserByEmail_(email);
-    const client = _toClientUser_(row, email);
+    const identityContext = _lookupUserIdentityByEmail_(email);
+    const row = identityContext && identityContext.identityFields ? identityContext.identityFields : _findUserByEmail_(email);
+    const client = _toClientUser_(row, email, identityContext);
 
     // Hydrate campaign context
     try {
@@ -960,7 +1176,7 @@ function getCurrentUser() {
     return client;
   } catch (e) {
     writeError && writeError('getCurrentUser', e);
-    return _toClientUser_(null, '');
+    return _toClientUser_(null, '', null);
   }
 }
 
@@ -981,6 +1197,10 @@ function authenticateUser(e) {
     // Fall back to current user via Google session
     const user = getCurrentUser();
     if (!user || !user.ID) {
+      return null;
+    }
+
+    if (user.IdentityEvaluation && user.IdentityEvaluation.allow === false) {
       return null;
     }
 
@@ -1068,34 +1288,33 @@ function getBaseUrl() {
 function _findUserByEmail_(email) {
   if (!email) return null;
   try {
-    const CK = 'USR_BY_EMAIL_' + email.toLowerCase();
-    const cached = _cacheGet(CK);
-    if (cached) return cached;
-
-    const rows = (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
-    const hit = rows.find(r => String(r.Email || '').trim().toLowerCase() === email.toLowerCase()) || null;
-    if (hit) _cachePut(CK, hit, 120);
-    return hit;
+    const context = _lookupUserIdentityByEmail_(email);
+    if (context && context.identityFields) {
+      return context.identityFields;
+    }
+    return null;
   } catch (e) {
     writeError && writeError('_findUserByEmail_', e);
     return null;
   }
 }
 
-function _toClientUser_(row, fallbackEmail) {
+function _toClientUser_(row, fallbackEmail, identityContext) {
+  const context = identityContext || (row ? buildIdentityAugmentation(row) : null) || null;
+  const fields = context && context.identityFields ? context.identityFields : row || {};
   const rolesMap = (typeof getRolesMapping === 'function') ? getRolesMapping() : {};
-  const roleIds = String(row && row.Roles || '')
+  const roleIds = String(fields && fields.Roles || '')
     .split(',').map(s => s.trim()).filter(Boolean);
   const roleNames = roleIds.map(id => rolesMap[id]).filter(Boolean);
   const additionalRoles = [];
-  if (row && row.RoleName) additionalRoles.push(row.RoleName);
-  if (row && row.roleName) additionalRoles.push(row.roleName);
-  if (row && row.PrimaryRole) additionalRoles.push(row.PrimaryRole);
-  if (row && row.primaryRole) additionalRoles.push(row.primaryRole);
-  if (row && row.Title) additionalRoles.push(row.Title);
-  if (row && row.title) additionalRoles.push(row.title);
-  if (row && row.JobTitle) additionalRoles.push(row.JobTitle);
-  if (row && row.jobTitle) additionalRoles.push(row.jobTitle);
+  if (fields && fields.RoleName) additionalRoles.push(fields.RoleName);
+  if (fields && fields.roleName) additionalRoles.push(fields.roleName);
+  if (fields && fields.PrimaryRole) additionalRoles.push(fields.PrimaryRole);
+  if (fields && fields.primaryRole) additionalRoles.push(fields.primaryRole);
+  if (fields && fields.Title) additionalRoles.push(fields.Title);
+  if (fields && fields.title) additionalRoles.push(fields.title);
+  if (fields && fields.JobTitle) additionalRoles.push(fields.JobTitle);
+  if (fields && fields.jobTitle) additionalRoles.push(fields.jobTitle);
 
   const allRoleNames = roleNames.concat(additionalRoles)
     .filter(Boolean)
@@ -1103,22 +1322,28 @@ function _toClientUser_(row, fallbackEmail) {
     .filter(Boolean);
 
   const isAdminFlag =
-    _truthy(row && row.IsAdmin) ||
-    _truthy(row && row.isAdmin) ||
+    _truthy(fields && fields.IsAdmin) ||
+    _truthy(fields && fields.isAdmin) ||
     allRoleNames.some(_roleImpliesAdmin);
 
   const client = {
-    ID: String(row && row.ID || ''),
-    Email: String(row && row.Email || fallbackEmail || '').trim(),
-    FullName: String(row && (row.FullName || row.UserName || '') || '').trim() ||
-      String(fallbackEmail || '').split('@')[0],
-    CampaignID: String(row && (row.CampaignID || row.CampaignId || '') || ''),
+    ID: String(fields && fields.ID || row && row.ID || ''),
+    Email: String(fields && fields.Email || fallbackEmail || '').trim(),
+    FullName: String(fields && (fields.FullName || fields.UserName || '') || row && (row.FullName || row.UserName || '') || '').trim()
+      || String(fallbackEmail || '').split('@')[0],
+    CampaignID: String(fields && (fields.CampaignID || fields.CampaignId || '') || row && (row.CampaignID || row.CampaignId || '') || ''),
     roleNames: roleNames,
     IsAdmin: !!isAdminFlag,
-    CanLogin: (row && row.CanLogin !== undefined) ? _truthy(row.CanLogin) : true,
-    EmailConfirmed: (row && row.EmailConfirmed !== undefined) ? _truthy(row.EmailConfirmed) : true,
-    ResetRequired: !!(row && _truthy(row.ResetRequired)),
-    Pages: String(row && (row.Pages || row.pages || '') || '')
+    CanLogin: (fields && fields.CanLogin !== undefined) ? _truthy(fields.CanLogin) : true,
+    EmailConfirmed: (fields && fields.EmailConfirmed !== undefined) ? _truthy(fields.EmailConfirmed) : true,
+    ResetRequired: !!(fields && _truthy(fields.ResetRequired)),
+    Pages: String(fields && (fields.Pages || fields.pages || '') || ''),
+    Identity: context ? context.identity : null,
+    IdentitySummary: context ? context.identitySummary : null,
+    IdentityEvaluation: context ? context.identityEvaluation : null,
+    IdentityWarnings: context ? context.identityWarnings.slice() : [],
+    IdentityFields: context ? context.identityFields : (row || null),
+    IdentityHeaders: context ? context.identityHeaders.slice() : ((typeof getCanonicalUserHeaders === 'function') ? getCanonicalUserHeaders() : [])
   };
   return client;
 }
