@@ -1553,7 +1553,8 @@ function reconcileUserIdReferencesAcrossSheets(options) {
 }
 // Base required columns we always expect on Users sheet
 const REQUIRED_USER_COLUMNS = [
-  'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
+  'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash',
+  'PasswordHashFormat', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe', 'PasswordHashAlgorithm', 'ResetRequired',
   'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
   'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
 ];
