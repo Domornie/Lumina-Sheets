@@ -400,10 +400,29 @@ var AuthenticationService = (function () {
     if (!str) {
       return null;
     }
+
+    const normalized = str.replace(/\s+/g, '').toLowerCase();
+    if (normalized === '0'
+      || normalized === '0000-00-00'
+      || normalized === '0000-00-00t00:00:00z'
+      || normalized === 'null'
+      || normalized === 'false') {
+      return null;
+    }
+
     const parsed = new Date(str);
     if (isNaN(parsed.getTime())) {
       return null;
     }
+
+    if (parsed.getTime() === 0) {
+      return null;
+    }
+
+    if (parsed.getFullYear && parsed.getFullYear() <= 1901 && /1899|1900/.test(normalized)) {
+      return null;
+    }
+
     return parsed;
   }
 
@@ -1211,8 +1230,36 @@ var AuthenticationService = (function () {
       return isNaN(ms) ? null : ms;
     }
     if (!value && value !== 0) return null;
-    const parsed = Date.parse(String(value));
-    return isNaN(parsed) ? null : parsed;
+
+    const str = String(value).trim();
+    if (!str) return null;
+
+    const normalized = str.replace(/\s+/g, '').toLowerCase();
+    if (normalized === '0'
+      || normalized === '0000-00-00'
+      || normalized === '0000-00-00t00:00:00z'
+      || normalized === 'null'
+      || normalized === 'false') {
+      return null;
+    }
+
+    const parsed = Date.parse(str);
+    if (isNaN(parsed)) {
+      return null;
+    }
+
+    if (parsed === 0) {
+      return null;
+    }
+
+    if (normalized.indexOf('1899') !== -1 || normalized.indexOf('1900') !== -1) {
+      const parsedDate = new Date(parsed);
+      if (parsedDate.getFullYear && parsedDate.getFullYear() <= 1901) {
+        return null;
+      }
+    }
+
+    return parsed;
   }
 
   function parseIdleTimeoutMinutes(value) {

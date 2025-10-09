@@ -146,14 +146,34 @@ var IdentityService = (function () {
     if (value instanceof Date) {
       return value;
     }
+
     var str = coerceString(value).trim();
     if (!str) {
       return null;
     }
+
+    var normalized = str.replace(/\s+/g, '').toLowerCase();
+    if (normalized === '0'
+      || normalized === '0000-00-00'
+      || normalized === '0000-00-00t00:00:00z'
+      || normalized === 'null'
+      || normalized === 'false') {
+      return null;
+    }
+
     var parsed = new Date(str);
     if (isNaN(parsed.getTime())) {
       return null;
     }
+
+    if (parsed.getTime() === 0) {
+      return null;
+    }
+
+    if (parsed.getFullYear && parsed.getFullYear() <= 1901 && /1899|1900/.test(normalized)) {
+      return null;
+    }
+
     return parsed;
   }
 
