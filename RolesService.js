@@ -52,7 +52,7 @@ function resolveRoleUserIdentity(userId) {
       if (typeof ensureSheetWithHeaders === 'function') {
         try {
           ensureSheetWithHeaders(getUsersSheetName ? getUsersSheetName() : (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users',
-            (typeof getCanonicalUserHeaders === 'function') ? getCanonicalUserHeaders() : USERS_HEADERS);
+            (typeof getCanonicalUserHeaders === 'function') ? getCanonicalUserHeaders() : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : undefined));
         } catch (ensureErr) {
           console.warn('RolesService.resolveRoleUserIdentity: ensure headers failed', ensureErr);
         }

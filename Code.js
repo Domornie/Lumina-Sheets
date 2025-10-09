@@ -54,7 +54,7 @@ function getCanonicalUserSummaryColumns() {
   try {
     const headers = (typeof getCanonicalUserHeaders === 'function')
       ? getCanonicalUserHeaders()
-      : (Array.isArray(USERS_HEADERS) ? USERS_HEADERS.slice() : []);
+      : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS.slice() : []);
 
     const desired = ['ID', 'FullName', 'UserName', 'Email', 'CampaignID', 'Roles', 'Pages'];
     const summary = [];
@@ -278,7 +278,7 @@ const LUMINA_ENTITY_REGISTRY = (function buildEntityRegistry() {
   var usersTableName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
   var canonicalHeaders = (typeof getCanonicalUserHeaders === 'function')
     ? getCanonicalUserHeaders()
-    : (Array.isArray(USERS_HEADERS) ? USERS_HEADERS.slice() : null);
+    : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS.slice() : null);
   var usersSchema = canonicalHeaders && canonicalHeaders.length
     ? { headers: canonicalHeaders.slice(), idColumn: 'ID' }
     : { idColumn: 'ID' };
@@ -5271,7 +5271,7 @@ function initializeMainSheets() {
       const pagesName = (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages';
       const campaignsName = (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns';
 
-      pushDefinition(usersName, Array.isArray(USERS_HEADERS) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
+      pushDefinition(usersName, (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(rolesName, Array.isArray(ROLES_HEADER) ? ROLES_HEADER : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(pagesName, Array.isArray(PAGES_HEADERS) ? PAGES_HEADERS : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(campaignsName, Array.isArray(CAMPAIGNS_HEADERS) ? CAMPAIGNS_HEADERS : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt']);
@@ -5331,7 +5331,7 @@ function initializeSheetHeaders(sheet, sheetName) {
       switch (sheetName) {
         case (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users':
         case 'Users':
-          headers = Array.isArray(USERS_HEADERS)
+          headers = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
             ? USERS_HEADERS.slice()
             : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'CreatedAt', 'UpdatedAt'];
           break;

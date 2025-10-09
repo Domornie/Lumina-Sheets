@@ -33,7 +33,7 @@ function ensureUsersSheetReady() {
   try {
     const headers = (typeof getCanonicalUserHeaders === 'function')
       ? getCanonicalUserHeaders()
-      : (Array.isArray(USERS_HEADERS) ? USERS_HEADERS.slice() : null);
+      : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS.slice() : null);
     if (headers && headers.length) {
       ensureSheetWithHeaders(getUsersSheetName(), headers);
     } else {

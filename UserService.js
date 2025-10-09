@@ -1585,7 +1585,7 @@ function getCanonicalUserHeaderList_(options) {
 
   (Array.isArray(REQUIRED_USER_COLUMNS) ? REQUIRED_USER_COLUMNS : []).forEach(pushUnique);
   (Array.isArray(OPTIONAL_USER_COLUMNS) ? OPTIONAL_USER_COLUMNS : []).forEach(pushUnique);
-  if (Array.isArray(USERS_HEADERS)) {
+  if (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) {
     USERS_HEADERS.forEach(pushUnique);
   }
 
