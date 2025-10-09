@@ -4020,6 +4020,25 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // ERROR HANDLING
     // ───────────────────────────────────────────────────────────────────────────────
+    window.addEventListener('unhandledrejection', function(event) {
+      const reason = event && event.reason ? event.reason : null;
+      const message = reason && typeof reason.message === 'string' ? reason.message : '';
+
+      if (message.includes('A listener indicated an asynchronous response')) {
+        console.warn('Suppressed async messaging warning from host environment.', reason);
+        if (typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      console.error('Unhandled promise rejection:', reason);
+      if (elements.loginBtn.disabled) {
+        setLoading(false);
+        showAlert('error', 'An unexpected error occurred. Please try again.');
+      }
+    });
+
     window.addEventListener('error', function(e) {
       console.error('Global error:', e.error);
       if (elements.loginBtn.disabled) {
