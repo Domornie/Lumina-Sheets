@@ -2204,15 +2204,40 @@ var AuthenticationService = (function () {
   }
 
   function findDeviceByVerificationId(verificationId) {
-    if (!verificationId) {
+    const normalizedId = normalizeString(verificationId);
+    if (!normalizedId) {
       return null;
     }
+
+    const fallbackFields = [
+      'PendingVerificationId',
+      'PendingVerificationID',
+      'VerificationId',
+      'VerificationID',
+      'PendingVerificationReference',
+      'VerificationReference'
+    ];
 
     const records = readTrustedDevices();
     for (let i = 0; i < records.length; i++) {
       const record = records[i];
-      if (String(record.PendingVerificationId || '') === String(verificationId)) {
-        return record;
+      for (let j = 0; j < fallbackFields.length; j++) {
+        const field = fallbackFields[j];
+        if (!Object.prototype.hasOwnProperty.call(record, field)) {
+          continue;
+        }
+
+        const value = normalizeString(record[field]);
+        if (!value) {
+          continue;
+        }
+
+        if (value === normalizedId) {
+          if (!normalizeString(record.PendingVerificationId)) {
+            record.PendingVerificationId = value;
+          }
+          return record;
+        }
       }
     }
     return null;
@@ -2273,8 +2298,17 @@ var AuthenticationService = (function () {
           : (record.TimezoneOffsetMinutes || ''),
         MetadataJson: JSON.stringify(metadata || {}),
         PendingVerificationId: '',
+        PendingVerificationID: '',
+        PendingVerificationReference: '',
         PendingVerificationExpiresAt: '',
+        PendingVerificationExpiry: '',
         PendingVerificationCodeHash: '',
+        PendingCodeHash: '',
+        VerificationId: '',
+        VerificationID: '',
+        VerificationReference: '',
+        VerificationExpiresAt: '',
+        VerificationCodeHash: '',
         PendingMetadataJson: '',
         PendingRememberMe: ''
       });
@@ -2302,6 +2336,15 @@ var AuthenticationService = (function () {
       PendingVerificationId: verificationId,
       PendingVerificationExpiresAt: expiresAtIso,
       PendingVerificationCodeHash: codeHash,
+      PendingVerificationID: verificationId,
+      PendingVerificationReference: verificationId,
+      PendingVerificationExpiry: expiresAtIso,
+      PendingCodeHash: codeHash,
+      VerificationId: verificationId,
+      VerificationID: verificationId,
+      VerificationReference: verificationId,
+      VerificationExpiresAt: expiresAtIso,
+      VerificationCodeHash: codeHash,
       PendingMetadataJson: JSON.stringify(metadata || {}),
       PendingRememberMe: rememberMe ? 'TRUE' : 'FALSE',
       IpAddress: metadata.ipAddress || '',
@@ -2412,13 +2455,28 @@ var AuthenticationService = (function () {
       };
     }
 
-    const expiresAt = record.PendingVerificationExpiresAt ? Date.parse(record.PendingVerificationExpiresAt) : NaN;
+    const expiresAtSource = record.PendingVerificationExpiresAt
+      || record.PendingVerificationExpiry
+      || record.VerificationExpiresAt
+      || record.VerificationExpiry
+      || record.ExpiresAt
+      || record.Expiry;
+    const expiresAt = expiresAtSource ? Date.parse(expiresAtSource) : NaN;
     if (!isNaN(expiresAt) && expiresAt < Date.now()) {
       saveTrustedDeviceRecord(record, {
         Status: 'expired',
         PendingVerificationId: '',
+        PendingVerificationID: '',
+        PendingVerificationReference: '',
         PendingVerificationExpiresAt: '',
+        PendingVerificationExpiry: '',
         PendingVerificationCodeHash: '',
+        PendingCodeHash: '',
+        VerificationId: '',
+        VerificationID: '',
+        VerificationReference: '',
+        VerificationExpiresAt: '',
+        VerificationCodeHash: '',
         PendingMetadataJson: '',
         PendingRememberMe: ''
       });
@@ -2429,7 +2487,11 @@ var AuthenticationService = (function () {
       };
     }
 
-    const expectedHash = record.PendingVerificationCodeHash;
+    const expectedHash = record.PendingVerificationCodeHash
+      || record.PendingCodeHash
+      || record.VerificationCodeHash
+      || record.VerificationHash
+      || record.CodeHash;
     const providedHash = hashMfaCode(normalizedCode, normalizedId);
 
     if (!expectedHash || expectedHash !== providedHash) {
@@ -2564,8 +2626,17 @@ var AuthenticationService = (function () {
       ConfirmedAt: record.ConfirmedAt || nowIso,
       LastSeenAt: nowIso,
       PendingVerificationId: '',
+      PendingVerificationID: '',
+      PendingVerificationReference: '',
       PendingVerificationExpiresAt: '',
+      PendingVerificationExpiry: '',
       PendingVerificationCodeHash: '',
+      PendingCodeHash: '',
+      VerificationId: '',
+      VerificationID: '',
+      VerificationReference: '',
+      VerificationExpiresAt: '',
+      VerificationCodeHash: '',
       PendingMetadataJson: '',
       PendingRememberMe: '',
       MetadataJson: JSON.stringify(mergedMetadata || {}),
@@ -2612,6 +2683,13 @@ var AuthenticationService = (function () {
     }
 
     try {
+      const verificationId = normalizeString(record.PendingVerificationId)
+        || normalizeString(record.PendingVerificationID)
+        || normalizeString(record.VerificationId)
+        || normalizeString(record.VerificationID)
+        || normalizeString(record.PendingVerificationReference)
+        || normalizeString(record.VerificationReference)
+        || '';
       sendDeniedDeviceAlertEmail({
         userEmail: user ? (user.Email || user.UserName || user.ID) : 'Unknown',
         userName: user ? (user.FullName || user.UserName || user.Email || user.ID) : 'Unknown User',
@@ -2620,7 +2698,7 @@ var AuthenticationService = (function () {
         userAgent: (metadata && metadata.userAgent) || record.UserAgent || '',
         platform: (metadata && metadata.platform) || record.Platform || '',
         occurredAt: new Date().toISOString(),
-        verificationId: record.PendingVerificationId || '',
+        verificationId: verificationId,
         fingerprint: record.Fingerprint || ''
       });
     } catch (error) {
@@ -2655,8 +2733,17 @@ var AuthenticationService = (function () {
     saveTrustedDeviceRecord(record, {
       Status: 'denied',
       PendingVerificationId: '',
+      PendingVerificationID: '',
+      PendingVerificationReference: '',
       PendingVerificationExpiresAt: '',
+      PendingVerificationExpiry: '',
       PendingVerificationCodeHash: '',
+      PendingCodeHash: '',
+      VerificationId: '',
+      VerificationID: '',
+      VerificationReference: '',
+      VerificationExpiresAt: '',
+      VerificationCodeHash: '',
       PendingMetadataJson: '',
       PendingRememberMe: '',
       DeniedAt: nowIso,
