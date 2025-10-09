@@ -6,7 +6,7 @@
  * Run seedDefaultData() once to ensure:
  *   • Core roles exist
  *   • A couple of starter campaigns are provisioned
- *   • A super administrator account is created (or refreshed) with a known login
+ *   • The Lumina administrator account is created (or refreshed) with a known login
  *
  * The implementation deliberately delegates to the same helpers used by the
  * production flows (UserService, RolesService, CampaignService, and
@@ -22,18 +22,7 @@ const SEED_ROLE_NAMES = [
 
 const SEED_CAMPAIGNS = [
   { name: 'Lumina HQ', description: 'Lumina internal operations workspace' },
-  { name: 'Credit Suite', description: 'Credit Suite client workspace' }
 ];
-
-const SEED_ADMIN_PROFILE = {
-  userName: 'admin',
-  fullName: 'Lumina Administrator',
-  email: 'admin@vlbpo.com',
-  password: 'ChangeMe123!',
-  defaultCampaign: 'Lumina HQ',
-  roleNames: ['Super Admin', 'Administrator'],
-  seedLabel: 'Super Administrator'
-};
 
 const SEED_LUMINA_ADMIN_PROFILE = {
   userName: 'lumina.admin',
@@ -79,7 +68,6 @@ function seedDefaultData() {
   const summary = {
     roles: { created: [], existing: [] },
     campaigns: { created: [], existing: [] },
-    admin: null,
     luminaAdmin: null
   };
 
@@ -98,9 +86,6 @@ function seedDefaultData() {
 
     const roleIdsByName = ensureCoreRoles(summary);
     const campaignIdsByName = ensureCoreCampaigns(summary);
-
-    const adminInfo = ensureSuperAdminUser(roleIdsByName, campaignIdsByName);
-    summary.admin = adminInfo;
 
     const luminaAdminInfo = ensureLuminaAdminUser(roleIdsByName, campaignIdsByName);
     summary.luminaAdmin = luminaAdminInfo;
@@ -226,17 +211,49 @@ function getCampaignsIndex(forceRefresh) {
 }
 
 /**
- * Ensure there is a super admin user with a known password and permissions.
- */
-function ensureSuperAdminUser(roleIdsByName, campaignIdsByName) {
-  return ensureSeedAdministrator(SEED_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
-}
-
-/**
  * Ensure there is a Lumina admin user with a known password and permissions.
  */
 function ensureLuminaAdminUser(roleIdsByName, campaignIdsByName) {
   return ensureSeedAdministrator(SEED_LUMINA_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
+}
+
+function applySeedPasswordForUser(userRecord, profile, label) {
+  if (!profile || !profile.password || !userRecord || !userRecord.ID) {
+    return userRecord;
+  }
+
+  const resolvedLabel = label || profile.seedLabel || profile.fullName || profile.email;
+
+  if (userRecord.EmailConfirmation) {
+    const setPasswordResult = setPasswordWithToken(userRecord.EmailConfirmation, profile.password);
+    if (!setPasswordResult || !setPasswordResult.success) {
+      throw new Error('Failed to set ' + resolvedLabel + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
+    }
+  } else {
+    setUserPasswordDirect(userRecord.ID, profile.password);
+  }
+
+  if (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail) {
+    const refreshed = AuthenticationService.getUserByEmail(profile.email);
+    if (refreshed && userExistsInSheet(refreshed)) {
+      return refreshed;
+    }
+  }
+
+  const fallbackRow = findUserSheetRow(
+    profile.email,
+    userRecord.ID || userRecord.Id || userRecord.id,
+    { forceFresh: true }
+  );
+  if (fallbackRow) {
+    return buildUserRecordFromRow(
+      fallbackRow,
+      profile.email,
+      userRecord && (userRecord.ID || userRecord.Id || userRecord.id)
+    );
+  }
+
+  return userRecord;
 }
 
 /**
@@ -284,9 +301,13 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
     roles: desiredRoleIds
   }, accountFlags);
 
-  const existing = (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail)
+  let existing = (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail)
     ? AuthenticationService.getUserByEmail(profile.email)
     : null;
+
+  if (existing && !userExistsInSheet(existing)) {
+    existing = null;
+  }
 
   if (existing) {
     const updateResult = clientUpdateUser(existing.ID, payload);
@@ -295,16 +316,23 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
       throw new Error('Failed to refresh ' + label + ': ' + (updateResult && updateResult.error ? updateResult.error : 'Unknown error'));
     }
 
+    existing = applySeedPasswordForUser(existing, profile, label);
     syncUserRoleLinks(existing.ID, desiredRoleIds);
     assignAdminCampaignAccess(existing.ID, Object.values(campaignIdsByName));
     ensureCanLoginFlag(existing.ID, true);
 
-    return {
+    const result = {
       status: 'updated',
       userId: existing.ID,
       email: profile.email,
       message: (updateResult && updateResult.message) || (label + ' refreshed.')
     };
+
+    if (profile.password) {
+      result.password = profile.password;
+    }
+
+    return result;
   }
 
   const createResult = clientRegisterUser(payload);
@@ -313,31 +341,23 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
     throw new Error('Failed to create ' + label + ': ' + (createResult && createResult.error ? createResult.error : 'Unknown error'));
   }
 
-  let adminRecord = AuthenticationService.getUserByEmail(profile.email);
+  const adminRecord = loadSeedUserRecord(profile, label, createResult.userId || createResult.userID || createResult.id);
+
   if (!adminRecord) {
     throw new Error(label + ' record not found after creation.');
   }
 
-  if (profile.password) {
-    if (adminRecord.EmailConfirmation) {
-      const setPasswordResult = setPasswordWithToken(adminRecord.EmailConfirmation, profile.password);
-      if (!setPasswordResult || !setPasswordResult.success) {
-        throw new Error('Failed to set ' + label + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
-      }
-    } else {
-      setUserPasswordDirect(adminRecord.ID, profile.password);
-    }
-  }
+  const persistedRecord = applySeedPasswordForUser(adminRecord, profile, label) || adminRecord;
+  const adminId = persistedRecord.ID || adminRecord.ID;
 
-  adminRecord = AuthenticationService.getUserByEmail(profile.email);
-  syncUserRoleLinks(adminRecord.ID, desiredRoleIds);
-  assignAdminCampaignAccess(adminRecord.ID, Object.values(campaignIdsByName));
-  ensureCanLoginFlag(adminRecord.ID, true);
+  syncUserRoleLinks(adminId, desiredRoleIds);
+  assignAdminCampaignAccess(adminId, Object.values(campaignIdsByName));
+  ensureCanLoginFlag(adminId, true);
 
   const result = {
     status: 'created',
-    userId: adminRecord.ID,
-    email: adminRecord.Email,
+    userId: adminId,
+    email: persistedRecord.Email || adminRecord.Email,
     message: label + ' account created with default credentials. Please change the password after first login.'
   };
 
@@ -346,6 +366,191 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName) {
   }
 
   return result;
+}
+
+function userExistsInSheet(user) {
+  if (!user) return false;
+  if (typeof readSheet !== 'function' && typeof dbSelect !== 'function') {
+    return true;
+  }
+  return Boolean(findUserSheetRow(
+    user.Email || user.email,
+    user.ID || user.Id || user.id,
+    { forceFresh: false }
+  ));
+}
+
+function loadSeedUserRecord(profile, label, expectedUserId) {
+  const attempts = 5;
+  const delayMs = 500;
+  let candidateId = expectedUserId ? String(expectedUserId) : '';
+
+  if (typeof invalidateCache === 'function') {
+    try { invalidateCache(USERS_SHEET); } catch (_) { }
+  }
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const sheetRow = findUserSheetRow(profile.email, candidateId, { forceFresh: attempt > 0 });
+    if (sheetRow) {
+      return buildUserRecordFromRow(sheetRow, profile.email, candidateId);
+    }
+
+    let record = null;
+    if (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail) {
+      try {
+        record = AuthenticationService.getUserByEmail(profile.email);
+      } catch (lookupErr) {
+        console.warn('loadSeedUserRecord: getUserByEmail failed', lookupErr);
+      }
+    }
+
+    if (record) {
+      const recordId = record.ID || record.Id || record.id || candidateId;
+      if (userExistsInSheet(record)) {
+        return record;
+      }
+
+      const refreshedRow = findUserSheetRow(profile.email, recordId, { forceFresh: true });
+      if (refreshedRow) {
+        return buildUserRecordFromRow(refreshedRow, profile.email, recordId);
+      }
+
+      candidateId = recordId ? String(recordId) : candidateId;
+    }
+
+    if (attempt < attempts - 1) {
+      if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
+        SpreadsheetApp.flush();
+      }
+      if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.sleep === 'function') {
+        Utilities.sleep(delayMs);
+      }
+    }
+  }
+
+  throw new Error(label + ' record not found after creation.');
+}
+
+function findUserSheetRow(email, userId, options) {
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : '';
+  const normalizedId = userId ? String(userId).trim() : '';
+  const forceFresh = options && options.forceFresh;
+
+  function matchRows(rows) {
+    if (!Array.isArray(rows)) return null;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      const rowId = row.ID || row.Id || row.id;
+      if (normalizedId && rowId && String(rowId).trim() === normalizedId) {
+        return row;
+      }
+
+      if (normalizedEmail) {
+        const candidates = [
+          row.Email,
+          row.email,
+          row.NormalizedEmail,
+          row.normalizedEmail
+        ];
+        for (let j = 0; j < candidates.length; j++) {
+          const candidate = candidates[j];
+          if (candidate && String(candidate).trim().toLowerCase() === normalizedEmail) {
+            return row;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  if (typeof dbSelect === 'function') {
+    const queries = [];
+    if (normalizedId) {
+      queries.push({ where: { ID: normalizedId }, cache: false, limit: 1 });
+    }
+    if (normalizedEmail) {
+      queries.push({ where: { Email: normalizedEmail }, cache: false, limit: 1 });
+      queries.push({ where: { NormalizedEmail: normalizedEmail }, cache: false, limit: 1 });
+    }
+    if (!queries.length) {
+      queries.push({ cache: false });
+    }
+
+    for (let q = 0; q < queries.length; q++) {
+      try {
+        const dbRows = dbSelect(USERS_SHEET, queries[q]) || [];
+        const match = matchRows(dbRows);
+        if (match) {
+          return match;
+        }
+      } catch (dbErr) {
+        console.warn('findUserSheetRow: dbSelect failed', dbErr);
+      }
+    }
+  }
+
+  if (forceFresh && typeof invalidateCache === 'function') {
+    try { invalidateCache(USERS_SHEET); } catch (_) { }
+  }
+
+  if (typeof readSheet === 'function') {
+    const primaryOptions = forceFresh
+      ? { allowScriptCache: false, useCache: false }
+      : { allowScriptCache: false };
+
+    try {
+      const sheetRows = readSheet(USERS_SHEET, primaryOptions) || [];
+      const match = matchRows(sheetRows);
+      if (match) {
+        return match;
+      }
+
+      if (!forceFresh) {
+        const refreshedRows = readSheet(USERS_SHEET, { allowScriptCache: false, useCache: false }) || [];
+        if (refreshedRows !== sheetRows) {
+          const refreshedMatch = matchRows(refreshedRows);
+          if (refreshedMatch) {
+            return refreshedMatch;
+          }
+        }
+      }
+    } catch (sheetErr) {
+      console.warn('findUserSheetRow: sheet read failed', sheetErr);
+    }
+  }
+
+  return null;
+}
+
+function buildUserRecordFromRow(row, fallbackEmail, fallbackId) {
+  if (!row) return null;
+  const hydrated = Object.assign({}, row);
+
+  const resolvedEmail = hydrated.Email || hydrated.email || hydrated.NormalizedEmail || hydrated.normalizedEmail || fallbackEmail;
+  if (resolvedEmail) {
+    hydrated.Email = resolvedEmail;
+    hydrated.NormalizedEmail = String(resolvedEmail).trim().toLowerCase();
+  }
+
+  const resolvedId = hydrated.ID || hydrated.Id || hydrated.id || fallbackId;
+  if (resolvedId) {
+    hydrated.ID = resolvedId;
+  }
+
+  if (!hydrated.EmailConfirmation) {
+    hydrated.EmailConfirmation = hydrated.emailConfirmation || hydrated.emailconfirmation || hydrated.EmailConfirmationToken || hydrated.emailConfirmationToken;
+  }
+
+  if (!hydrated.UserName && hydrated.username) {
+    hydrated.UserName = hydrated.username;
+  }
+
+  if (!hydrated.NormalizedUserName && hydrated.UserName) {
+    hydrated.NormalizedUserName = String(hydrated.UserName).trim().toLowerCase();
+  }
+
+  return hydrated;
 }
 
 /**
