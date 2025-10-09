@@ -1,145 +1,69 @@
 /**
  * PasswordUtilities.js
  * -----------------------------------------------------------------------------
- * Centralized helpers for password hashing and verification across the Lumina
- * Sheets codebase. These utilities wrap the Google Apps Script `Utilities`
- * cryptographic helpers and provide a consistent API for creating, storing, and
- * validating password hashes.
+ * Fresh password toolkit that coordinates credential hashing, verification and
+ * token generation for the rebuilt authentication stack.  The previous
+ * implementation only generated raw SHA-256 digests which provided no salting,
+ * no version metadata and very little room for evolution.  This version adds a
+ * higher level API that can be composed by the AuthenticationService and the
+ * UserService without leaking implementation details.
+ *
+ * All helpers are pure and intentionally framework-agnostic so they can be
+ * reused inside Apps Script custom functions, triggers or services.  Every
+ * operation returns explicit metadata describing the hashing parameters to
+ * support future migrations.
  */
 
-function __createPasswordUtilitiesModule() {
-  function normalizePasswordInput(raw) {
-    return raw == null ? '' : String(raw);
+(function (global) {
+  if (global.PasswordUtilities && global.PasswordUtilities.__version__ === 2) {
+    return;
   }
 
-  var HEX_HASH_REGEX = /^[0-9a-fA-F]+$/;
-  var BASE64_HASH_REGEX = /^[A-Za-z0-9+/]+={0,2}$/;
-  var BASE64_WEBSAFE_REGEX = /^[A-Za-z0-9_-]+={0,2}$/;
+  // ---------------------------------------------------------------------------
+  // Utility helpers
+  // ---------------------------------------------------------------------------
 
-  function isHexHash(value) {
-    return !!value && HEX_HASH_REGEX.test(value);
-  }
-
-  function isBase64Hash(value) {
-    return !!value && BASE64_HASH_REGEX.test(value);
-  }
-
-  function isBase64WebSafeHash(value) {
-    return !!value && BASE64_WEBSAFE_REGEX.test(value);
-  }
-
-  function stripBase64Padding(value) {
+  function toStringValue(value) {
     if (value === null || typeof value === 'undefined') return '';
-    return String(value).replace(/=+$/, '');
+    return String(value);
   }
 
-  function normalizeHash(hash) {
-    if (hash === null || typeof hash === 'undefined') return '';
-    if (hash instanceof Date) return hash.toISOString();
-    var str = String(hash).trim();
-    if (!str) return '';
-    if (isHexHash(str)) {
-      return str.toLowerCase();
-    }
-    return str;
+  function normalizePasswordInput(raw) {
+    return toStringValue(raw);
   }
 
-  function digestToHex(digest) {
-    if (!digest || typeof digest.map !== 'function') return '';
-    return digest
+  function now() {
+    return new Date();
+  }
+
+  function isoTimestamp(date) {
+    return (date instanceof Date) ? date.toISOString() : new Date(date).toISOString();
+  }
+
+  function randomBytes(length) {
+    var size = Math.max(8, length || 16);
+    return Utilities.getRandomBytes(size);
+  }
+
+  function toBase64(bytes) {
+    return Utilities.base64Encode(bytes);
+  }
+
+  function digestToHex(bytes) {
+    if (!bytes || typeof bytes.map !== 'function') return '';
+    return bytes
       .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
       .join('');
   }
 
-  function computeHashVariants(raw) {
-    var normalized = normalizePasswordInput(raw);
-    var digest = Utilities.computeDigest(
-      Utilities.DigestAlgorithm.SHA_256,
-      normalized,
-      Utilities.Charset.UTF_8
-    );
-
-    return {
-      hex: digestToHex(digest),
-      base64: Utilities.base64Encode(digest),
-      base64WebSafe: Utilities.base64EncodeWebSafe(digest)
-    };
-  }
-
-  function normalizePreferredHashFormat(format) {
-    var normalized = String(format || '').trim().toLowerCase();
-    if (normalized === 'base64' || normalized === 'b64') {
-      return 'base64';
-    }
-    if (normalized === 'base64-websafe' || normalized === 'base64_websafe'
-      || normalized === 'base64websafe' || normalized === 'websafe'
-      || normalized === 'base64url' || normalized === 'base64-url') {
-      return 'base64-websafe';
-    }
-    return 'hex';
-  }
-
-  function selectHashVariantForFormat(variants, format) {
-    if (!variants) {
-      return '';
-    }
-
-    if (format === 'base64' && typeof variants.base64 !== 'undefined') {
-      return variants.base64 || '';
-    }
-
-    if (format === 'base64-websafe' && typeof variants.base64WebSafe !== 'undefined') {
-      return variants.base64WebSafe || '';
-    }
-
-    if (typeof variants.hex !== 'undefined' && variants.hex) {
-      return variants.hex;
-    }
-
-    if (typeof variants.base64 !== 'undefined' && variants.base64) {
-      return variants.base64;
-    }
-
-    if (typeof variants.base64WebSafe !== 'undefined' && variants.base64WebSafe) {
-      return variants.base64WebSafe;
-    }
-
-    return '';
-  }
-
-  function createPasswordRecord(raw, options) {
-    var variants = computeHashVariants(raw);
-    var preferredFormat = normalizePreferredHashFormat(options && options.format);
-    var selectedHash = selectHashVariantForFormat(variants, preferredFormat);
-
-    return {
-      hash: selectedHash,
-      hashFormat: preferredFormat,
-      algorithm: 'SHA-256',
-      variants: variants
-    };
-  }
-
-  function createPasswordHash(raw, options) {
-    return createPasswordRecord(raw, options).hash;
-  }
-
-  function hashPassword(raw) {
-    return createPasswordHash(raw);
-  }
-
-  function hashPasswordBase64(raw) {
-    return createPasswordHash(raw, { format: 'base64' });
-  }
-
-  function hashPasswordWebSafe(raw) {
-    return createPasswordHash(raw, { format: 'base64-websafe' });
+  function generateSalt(length) {
+    return toBase64(randomBytes(length || 16));
   }
 
   function constantTimeEquals(a, b) {
-    if (a == null || b == null) return false;
-    var strA = String(a);
-    var strB = String(b);
+    if (!a || !b) return false;
+    var strA = toStringValue(a);
+    var strB = toStringValue(b);
     if (strA.length !== strB.length) return false;
     var diff = 0;
     for (var i = 0; i < strA.length; i++) {
@@ -148,151 +72,149 @@ function __createPasswordUtilitiesModule() {
     return diff === 0;
   }
 
-  function verifyPassword(raw, expectedHash) {
-    var normalizedExpected = normalizeHash(expectedHash);
-    if (!normalizedExpected) return false;
+  function deriveHash(password, salt, iterations) {
+    var normalizedSalt = toStringValue(salt);
+    var normalizedPassword = normalizePasswordInput(password);
+    var rounds = Math.max(1, iterations || 150000);
 
-    var variants = computeHashVariants(raw);
+    var seed = normalizedSalt + '\u0000' + normalizedPassword;
+    var digest = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      seed,
+      Utilities.Charset.UTF_8
+    );
 
-    if (constantTimeEquals(variants.hex, normalizedExpected)) {
-      return true;
+    for (var i = 1; i < rounds; i++) {
+      var input = Utilities.base64Encode(digest) + '\u0000' + seed + '\u0000' + i;
+      digest = Utilities.computeDigest(
+        Utilities.DigestAlgorithm.SHA_256,
+        input,
+        Utilities.Charset.UTF_8
+      );
     }
 
-    var looksBase64 = isBase64Hash(normalizedExpected);
-    var looksWebSafe = isBase64WebSafeHash(normalizedExpected);
-
-    if (looksBase64 || looksWebSafe) {
-      if (variants.base64 && constantTimeEquals(variants.base64, normalizedExpected)) {
-        return true;
-      }
-
-      if (variants.base64WebSafe && constantTimeEquals(variants.base64WebSafe, normalizedExpected)) {
-        return true;
-      }
-
-      var storedNoPad = stripBase64Padding(normalizedExpected);
-      if (storedNoPad && storedNoPad !== normalizedExpected) {
-        var base64NoPad = stripBase64Padding(variants.base64);
-        var webSafeNoPad = stripBase64Padding(variants.base64WebSafe);
-
-        if (base64NoPad && constantTimeEquals(base64NoPad, storedNoPad)) {
-          return true;
-        }
-
-        if (webSafeNoPad && constantTimeEquals(webSafeNoPad, storedNoPad)) {
-          return true;
-        }
-      }
-
-      try {
-        var decodedHex = digestToHex(Utilities.base64Decode(normalizedExpected));
-        if (decodedHex && constantTimeEquals(decodedHex, variants.hex)) {
-          return true;
-        }
-      } catch (err1) {}
-
-      try {
-        var decodedWebSafeHex = digestToHex(Utilities.base64DecodeWebSafe(normalizedExpected));
-        if (decodedWebSafeHex && constantTimeEquals(decodedWebSafeHex, variants.hex)) {
-          return true;
-        }
-      } catch (err2) {}
-    }
-
-    return false;
+    return Utilities.base64Encode(digest);
   }
 
-  function decodePasswordHash(hash) {
-    return normalizeHash(hash);
+  function hashToken(token) {
+    var normalized = toStringValue(token).trim();
+    if (!normalized) return '';
+    var digest = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      normalized,
+      Utilities.Charset.UTF_8
+    );
+    return digestToHex(digest);
   }
 
-  function createPasswordUpdate(raw, options) {
-    var record = createPasswordRecord(raw, options);
-    var columns = {};
+  function validatePasswordStrength(password) {
+    var value = normalizePasswordInput(password);
+    var errors = [];
 
-    columns.PasswordHash = typeof record.hash === 'undefined' ? '' : record.hash;
-
-    if (!options || options.includeVariants !== false) {
-      if (record.variants && typeof record.variants.hex !== 'undefined') {
-        columns.PasswordHashHex = record.variants.hex || '';
-      }
-      if (record.variants && typeof record.variants.base64 !== 'undefined') {
-        columns.PasswordHashBase64 = record.variants.base64 || '';
-      }
-      if (record.variants && typeof record.variants.base64WebSafe !== 'undefined') {
-        columns.PasswordHashBase64WebSafe = record.variants.base64WebSafe || '';
-      }
+    if (value.length < 10) {
+      errors.push('Password must be at least 10 characters long.');
     }
-
-    if (!options || options.includeFormat !== false) {
-      columns.PasswordHashFormat = record.hashFormat || 'hex';
+    if (!/[A-Z]/.test(value)) {
+      errors.push('Include at least one uppercase letter.');
+    }
+    if (!/[a-z]/.test(value)) {
+      errors.push('Include at least one lowercase letter.');
+    }
+    if (!/[0-9]/.test(value)) {
+      errors.push('Include at least one number.');
+    }
+    if (!/[^A-Za-z0-9]/.test(value)) {
+      errors.push('Include at least one special character.');
     }
 
     return {
-      hash: record.hash,
-      hashFormat: record.hashFormat,
-      algorithm: record.algorithm,
-      variants: record.variants,
-      columns: columns
+      valid: errors.length === 0,
+      errors: errors
     };
   }
 
-  function detectHashFormat(hash) {
-    if (hash === null || typeof hash === 'undefined') {
-      return 'empty';
+  function createPasswordRecord(rawPassword, options) {
+    var password = normalizePasswordInput(rawPassword);
+    var strength = validatePasswordStrength(password);
+    if (options && options.skipValidation !== true && !strength.valid) {
+      var error = new Error('Password does not meet minimum complexity requirements.');
+      error.validationErrors = strength.errors;
+      throw error;
     }
 
-    var trimmed = String(hash).trim();
-    if (!trimmed) {
-      return 'empty';
-    }
+    var iterations = (options && options.iterations) ? Math.max(1, options.iterations | 0) : 150000;
+    var saltLength = (options && options.saltLength) ? Math.max(8, options.saltLength | 0) : 16;
+    var salt = generateSalt(saltLength);
+    var hash = deriveHash(password, salt, iterations);
 
-    if (isHexHash(trimmed)) {
-      return 'hex';
-    }
-
-    if (isBase64WebSafeHash(trimmed)) {
-      return 'base64-websafe';
-    }
-
-    if (isBase64Hash(trimmed)) {
-      return 'base64';
-    }
-
-    return 'unknown';
+    return {
+      hash: hash,
+      salt: salt,
+      iterations: iterations,
+      algorithm: 'SHA-256',
+      version: 1,
+      createdAt: isoTimestamp(now())
+    };
   }
 
-  return {
-    normalizePasswordInput: normalizePasswordInput,
-    normalizeHash: normalizeHash,
-    decodePasswordHash: decodePasswordHash,
-    digestToHex: digestToHex,
-    hashPassword: hashPassword,
-    hashPasswordBase64: hashPasswordBase64,
-    hashPasswordWebSafe: hashPasswordWebSafe,
-    createPasswordHash: createPasswordHash,
-    createPasswordRecord: createPasswordRecord,
-    createPasswordUpdate: createPasswordUpdate,
-    verifyPassword: verifyPassword,
-    comparePassword: verifyPassword,
-    constantTimeEquals: constantTimeEquals,
-    detectHashFormat: detectHashFormat,
-    getPasswordHashVariants: computeHashVariants,
-    isHexHash: isHexHash,
-    isBase64Hash: isBase64Hash,
-    isBase64WebSafeHash: isBase64WebSafeHash
-  };
-}
-
-if (typeof PasswordUtilities === 'undefined' || !PasswordUtilities) {
-  var PasswordUtilities = __createPasswordUtilitiesModule();
-}
-
-var ensurePasswordUtilities = (typeof ensurePasswordUtilities === 'function')
-  ? ensurePasswordUtilities
-  : function ensurePasswordUtilities() {
-    if (typeof PasswordUtilities === 'undefined' || !PasswordUtilities) {
-      PasswordUtilities = __createPasswordUtilitiesModule();
+  function verifyPassword(rawPassword, record) {
+    if (!record || !record.hash || !record.salt) {
+      return false;
     }
-    return PasswordUtilities;
+    var hash = deriveHash(rawPassword, record.salt, record.iterations || 150000);
+    return constantTimeEquals(hash, record.hash);
+  }
+
+  function generateRandomPassword(options) {
+    var length = (options && options.length) ? Math.max(8, options.length | 0) : 14;
+    var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()-_=+[]{}';
+    var bytes = randomBytes(length);
+    var chars = [];
+    for (var i = 0; i < length; i++) {
+      var index = bytes[i] % alphabet.length;
+      chars.push(alphabet.charAt(index));
+    }
+    return chars.join('');
+  }
+
+  function generateToken(options) {
+    var length = (options && options.length) ? Math.max(16, options.length | 0) : 32;
+    return toBase64(randomBytes(length));
+  }
+
+  function createResetToken(options) {
+    var ttlMinutes = (options && options.ttlMinutes) ? Math.max(5, options.ttlMinutes | 0) : 60;
+    var token = generateToken({ length: 24 });
+    var tokenHash = hashToken(token);
+    var issuedAt = now();
+    var expiresAt = new Date(issuedAt.getTime() + ttlMinutes * 60 * 1000);
+
+    return {
+      token: token,
+      tokenHash: tokenHash,
+      issuedAt: isoTimestamp(issuedAt),
+      expiresAt: isoTimestamp(expiresAt)
+    };
+  }
+
+  var api = {
+    __version__: 2,
+    normalizePasswordInput: normalizePasswordInput,
+    validatePasswordStrength: validatePasswordStrength,
+    createPasswordRecord: createPasswordRecord,
+    verifyPassword: verifyPassword,
+    generateRandomPassword: generateRandomPassword,
+    generateToken: generateToken,
+    createResetToken: createResetToken,
+    hashToken: hashToken,
+    now: now
   };
+
+  function ensurePasswordUtilities() {
+    return api;
+  }
+
+  global.PasswordUtilities = api;
+  global.ensurePasswordUtilities = ensurePasswordUtilities;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
