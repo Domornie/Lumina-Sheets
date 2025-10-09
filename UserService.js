@@ -22,7 +22,20 @@ if (typeof G.PAGES_SHEET === 'undefined') G.PAGES_SHEET = 'Pages';
 if (typeof G.CAMPAIGNS_SHEET === 'undefined') G.CAMPAIGNS_SHEET = 'Campaigns';
 if (typeof G.USER_ROLES_SHEET === 'undefined') G.USER_ROLES_SHEET = 'UserRoles';
 if (typeof G.CAMPAIGN_USER_PERMISSIONS_SHEET === 'undefined') G.CAMPAIGN_USER_PERMISSIONS_SHEET = 'CampaignUserPermissions';
-if (typeof G.MANAGER_USERS_SHEET === 'undefined') G.MANAGER_USERS_SHEET = 'MANAGER_USERS';
+if (typeof G.MANAGER_USERS_SHEET === 'undefined') {
+  if (typeof USER_MANAGERS_SHEET !== 'undefined' && USER_MANAGERS_SHEET) {
+    G.MANAGER_USERS_SHEET = USER_MANAGERS_SHEET;
+  } else if (typeof getManagerUsersSheetName_ === 'function') {
+    try {
+      const resolvedName = getManagerUsersSheetName_();
+      G.MANAGER_USERS_SHEET = resolvedName || 'UserManagers';
+    } catch (_) {
+      G.MANAGER_USERS_SHEET = 'UserManagers';
+    }
+  } else {
+    G.MANAGER_USERS_SHEET = 'UserManagers';
+  }
+}
 if (typeof G.USER_CAMPAIGNS_SHEET === 'undefined') {
   if (typeof USER_CAMPAIGNS_SHEET !== 'undefined') {
     G.USER_CAMPAIGNS_SHEET = USER_CAMPAIGNS_SHEET;
@@ -30,7 +43,22 @@ if (typeof G.USER_CAMPAIGNS_SHEET === 'undefined') {
     G.USER_CAMPAIGNS_SHEET = 'UserCampaigns';
   }
 }
-if (typeof G.MANAGER_USERS_HEADER === 'undefined') G.MANAGER_USERS_HEADER = ['ID', 'ManagerUserID', 'UserID', 'CreatedAt', 'UpdatedAt'];
+const MANAGER_USERS_CANON_HEADERS = ['ID', 'ManagerUserID', 'UserID', 'CampaignID', 'CreatedAt', 'UpdatedAt'];
+if (typeof G.MANAGER_USERS_HEADER === 'undefined') {
+  if (typeof USER_MANAGERS_HEADERS !== 'undefined' && Array.isArray(USER_MANAGERS_HEADERS) && USER_MANAGERS_HEADERS.length) {
+    G.MANAGER_USERS_HEADER = USER_MANAGERS_HEADERS.slice();
+  } else if (typeof getManagerUsersHeaders_ === 'function') {
+    try {
+      const resolvedHeaders = getManagerUsersHeaders_();
+      if (Array.isArray(resolvedHeaders) && resolvedHeaders.length) {
+        G.MANAGER_USERS_HEADER = resolvedHeaders.slice();
+      }
+    } catch (_) { /* ignore */ }
+  }
+  if (typeof G.MANAGER_USERS_HEADER === 'undefined') {
+    G.MANAGER_USERS_HEADER = MANAGER_USERS_CANON_HEADERS.slice();
+  }
+}
 if (typeof G.USER_EQUIPMENT_SHEET === 'undefined') G.USER_EQUIPMENT_SHEET = 'UserEquipment';
 if (typeof G.USER_EQUIPMENT_HEADERS === 'undefined') {
   G.USER_EQUIPMENT_HEADERS = [
@@ -2058,7 +2086,11 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
     const sh = getOrCreateCampaignPermsSheet_();
     const data = sh.getDataRange().getValues();
     const headers = data[0] || G.CAMPAIGN_USER_PERMISSIONS_HEADERS;
-    const idx = {}; headers.forEach((h, i) => idx[String(h)] = i);
+    const idx = {};
+    headers.forEach((h, i) => {
+      if (h === null || typeof h === 'undefined') return;
+      idx[String(h)] = i;
+    });
 
     ['ID', 'CampaignID', 'UserID', 'PermissionLevel', 'CanManageUsers', 'CanManagePages', 'CreatedAt', 'UpdatedAt']
       .forEach(h => { if (!(h in idx)) throw new Error('Campaign permissions sheet is missing header: ' + h); });
@@ -4242,6 +4274,10 @@ function clientAssignUsersToManager(managerUserId, userIds) {
     const headers = data[0] || [];
     const idx = { ID: headers.indexOf('ID'), ManagerUserID: headers.indexOf('ManagerUserID'), UserID: headers.indexOf('UserID') };
 
+    if (typeof idx.ManagerUserID !== 'number' || typeof idx.UserID !== 'number') {
+      return { success: false, error: 'Manager mapping sheet is missing required columns' };
+    }
+
     const current = new Set();
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idx.ManagerUserID]) === String(managerUserId)) current.add(String(data[i][idx.UserID]));
@@ -4251,14 +4287,47 @@ function clientAssignUsersToManager(managerUserId, userIds) {
     const toAdd = [...target].filter(id => !current.has(id));
     const toRemove = [...current].filter(id => !target.has(id));
 
+    const userMap = new Map((users || []).map(u => [String(u.ID), u]));
+    const resolveManagedCampaignId = function (userId) {
+      const user = userMap.get(String(userId));
+      if (!user) return '';
+      let campaignIds = [];
+      try {
+        if (typeof getUserCampaignsSafe === 'function') {
+          campaignIds = (getUserCampaignsSafe(user.ID) || [])
+            .map(entry => String(entry && entry.campaignId ? entry.campaignId : ''))
+            .filter(Boolean);
+        }
+      } catch (_) { campaignIds = []; }
+      if (!campaignIds.length && user.CampaignID) {
+        campaignIds = [String(user.CampaignID)];
+      }
+      if (!campaignIds.length) return '';
+      for (let i = 0; i < campaignIds.length; i++) {
+        if (!allowedSet.size || allowedSet.has(campaignIds[i])) return campaignIds[i];
+      }
+      return campaignIds[0];
+    };
+
     for (let r = data.length - 1; r >= 1; r--) {
       const row = data[r];
       if (String(row[idx.ManagerUserID]) === String(managerUserId) && toRemove.includes(String(row[idx.UserID]))) {
         sh.deleteRow(r + 1);
       }
     }
-    const now = new Date();
-    toAdd.forEach(uid => { sh.appendRow([Utilities.getUuid(), managerUserId, uid, now, now]); });
+    const nowIso = new Date().toISOString();
+    toAdd.forEach(uid => {
+      const row = new Array(headers.length).fill('');
+      if (typeof idx.ID === 'number' && idx.ID >= 0) row[idx.ID] = Utilities.getUuid();
+      if (typeof idx.ManagerUserID === 'number' && idx.ManagerUserID >= 0) row[idx.ManagerUserID] = managerUserId;
+      if (typeof idx.UserID === 'number' && idx.UserID >= 0) row[idx.UserID] = uid;
+      if (typeof idx.CampaignID === 'number' && idx.CampaignID >= 0) {
+        row[idx.CampaignID] = resolveManagedCampaignId(uid);
+      }
+      if (typeof idx.CreatedAt === 'number' && idx.CreatedAt >= 0) row[idx.CreatedAt] = nowIso;
+      if (typeof idx.UpdatedAt === 'number' && idx.UpdatedAt >= 0) row[idx.UpdatedAt] = nowIso;
+      sh.appendRow(row);
+    });
 
     invalidateCache && invalidateCache(getManagerUsersSheetName_());
     try { notifyOnManagerAssignment_(managerUserId, toAdd); } catch (_) { }
@@ -4286,15 +4355,28 @@ function notifyOnManagerAssignment_(managerUserId, userIds) {
     });
   } catch (e) { writeError && writeError('notifyOnManagerAssignment_', e); }
 }
-function getManagerUsersSheetName_() { return G.MANAGER_USERS_SHEET; }
-function getManagerUsersHeaders_() { return G.MANAGER_USERS_HEADER; }
-function getOrCreateManagerUsersSheet_() {
-  if (typeof ensureSheetWithHeaders === 'function') return ensureSheetWithHeaders(getManagerUsersSheetName_(), getManagerUsersHeaders_());
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const name = getManagerUsersSheetName_();
-  let sh = ss.getSheetByName(name);
-  if (!sh) { sh = ss.insertSheet(name); sh.appendRow(getManagerUsersHeaders_()); }
-  return sh;
+if (typeof getManagerUsersSheetName_ !== 'function') {
+  function getManagerUsersSheetName_() { return G.MANAGER_USERS_SHEET; }
+}
+if (typeof getManagerUsersHeaders_ !== 'function') {
+  function getManagerUsersHeaders_() {
+    if (Array.isArray(G.MANAGER_USERS_HEADER) && G.MANAGER_USERS_HEADER.length) {
+      return G.MANAGER_USERS_HEADER.slice();
+    }
+    return MANAGER_USERS_CANON_HEADERS.slice();
+  }
+}
+if (typeof getOrCreateManagerUsersSheet_ !== 'function') {
+  function getOrCreateManagerUsersSheet_() {
+    if (typeof ensureSheetWithHeaders === 'function') {
+      return ensureSheetWithHeaders(getManagerUsersSheetName_(), getManagerUsersHeaders_());
+    }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const name = getManagerUsersSheetName_();
+    let sh = ss.getSheetByName(name);
+    if (!sh) { sh = ss.insertSheet(name); sh.appendRow(getManagerUsersHeaders_()); }
+    return sh;
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -5147,5 +5229,54 @@ UserService.ensureUsersHaveIds = ensureUsersHaveIds;
 UserService.reconcileUserIdReferencesAcrossSheets = reconcileUserIdReferencesAcrossSheets;
 UserService.buildUserIdentifierLookup = _buildUserIdentifierLookup_;
 
+(function exposeUserServiceClientApi(global) {
+  if (!global) return;
+
+  function assign(name, fn) {
+    if (typeof fn !== 'function') return;
+    try {
+      global[name] = fn;
+    } catch (_) { }
+    try {
+      if (!UserService || typeof UserService !== 'object') return;
+      UserService[name] = fn;
+    } catch (_) { }
+  }
+
+  [
+    ['clientGetUserSummaries', clientGetUserSummaries],
+    ['clientGetUserDetail', clientGetUserDetail],
+    ['clientCheckUserConflicts', clientCheckUserConflicts],
+    ['clientGetAllUsers', clientGetAllUsers],
+    ['clientRegisterUser', clientRegisterUser],
+    ['clientUpdateUser', clientUpdateUser],
+    ['clientAdminResetPassword', clientAdminResetPassword],
+    ['clientAdminResetPasswordById', clientAdminResetPasswordById],
+    ['clientResendFirstLoginEmail', clientResendFirstLoginEmail],
+    ['clientDeleteUser', clientDeleteUser],
+    ['clientGetAvailablePages', clientGetAvailablePages],
+    ['clientRunEnhancedDiscovery', clientRunEnhancedDiscovery],
+    ['clientGetUserPages', clientGetUserPages],
+    ['clientAssignPagesToUser', clientAssignPagesToUser],
+    ['clientGetUserEquipment', clientGetUserEquipment],
+    ['clientSaveUserEquipment', clientSaveUserEquipment],
+    ['clientDeleteUserEquipment', clientDeleteUserEquipment],
+    ['clientGetUserPermissions', clientGetUserPermissions],
+    ['clientSetUserPermissions', clientSetUserPermissions],
+    ['clientGetAvailableUsersForManager', clientGetAvailableUsersForManager],
+    ['clientGetManagedUsers', clientGetManagedUsers],
+    ['clientGetManagerTeamSummary', clientGetManagerTeamSummary],
+    ['clientAssignUsersToManager', clientAssignUsersToManager],
+    ['clientGetValidEmploymentStatuses', clientGetValidEmploymentStatuses],
+    ['clientGetEmploymentStatusReport', clientGetEmploymentStatusReport],
+    ['clientGetBenefitsSnapshot', clientGetBenefitsSnapshot],
+    ['clientBatchNormalizeBenefits', clientBatchNormalizeBenefits],
+    ['canUserManageOthers', canUserManageOthers],
+    ['getAllCampaigns', getAllCampaigns],
+    ['getAllRoles', getAllRoles]
+  ].forEach(function ([name, fn]) { assign(name, fn); });
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof this !== 'undefined' ? this : null));
+
 console.log('✅ UserService.gs loaded');
 console.log('📦 Features: User CRUD, Roles, Pages, Campaign perms, Manager mapping, HR/Benefits (probation + insurance)');
+console.log('🔌 UserService client API exposed to google.script.run');
