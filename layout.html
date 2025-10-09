@@ -1309,18 +1309,28 @@
         return url;
       }
 
+      const tokenParam = (typeof options.paramName === 'string' && options.paramName.trim())
+        ? options.paramName.trim()
+        : (SESSION_TOKEN_QUERY_PARAM || 'token');
+      const sessionToken = resolveClientSessionToken(options.token);
+
       try {
         const base = (typeof window !== 'undefined' && window.location) ? window.location.href : undefined;
         const parsed = new URL(raw, base);
 
-        if (options.sameOriginOnly !== false) {
-          if (parsed.origin && !isAllowedTokenOrigin(parsed.origin)) {
-            return url;
-          }
+        if (options.sameOriginOnly !== false && parsed.origin && !isAllowedTokenOrigin(parsed.origin)) {
+          return url;
         }
 
-        if (parsed.searchParams.has(SESSION_TOKEN_QUERY_PARAM)) {
-          parsed.searchParams.delete(SESSION_TOKEN_QUERY_PARAM);
+        const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
+        variants.forEach(key => {
+          if (key && parsed.searchParams.has(key)) {
+            parsed.searchParams.delete(key);
+          }
+        });
+
+        if (sessionToken) {
+          parsed.searchParams.set(tokenParam, sessionToken);
         }
 
         if (raw.startsWith('?')) {
@@ -1333,7 +1343,7 @@
 
         return parsed.toString();
       } catch (error) {
-        console.warn('appendSessionTokenToUrl: unable to sanitize token parameter', { url, error });
+        console.warn('appendSessionTokenToUrl: unable to update redirect URL', { url, error });
         return url;
       }
     }
