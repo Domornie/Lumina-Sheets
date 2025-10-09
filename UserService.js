@@ -43,7 +43,14 @@ if (typeof G.USER_CAMPAIGNS_SHEET === 'undefined') {
     G.USER_CAMPAIGNS_SHEET = 'UserCampaigns';
   }
 }
-const MANAGER_USERS_CANON_HEADERS = ['ID', 'ManagerUserID', 'UserID', 'CampaignID', 'CreatedAt', 'UpdatedAt'];
+const DEFAULT_MANAGER_USERS_CANON_HEADERS = ['ID', 'ManagerUserID', 'UserID', 'CampaignID', 'CreatedAt', 'UpdatedAt'];
+if (typeof G.MANAGER_USERS_CANON_HEADERS === 'undefined') {
+  if (typeof MANAGER_USERS_CANON_HEADERS !== 'undefined' && Array.isArray(MANAGER_USERS_CANON_HEADERS) && MANAGER_USERS_CANON_HEADERS.length) {
+    G.MANAGER_USERS_CANON_HEADERS = MANAGER_USERS_CANON_HEADERS.slice();
+  } else {
+    G.MANAGER_USERS_CANON_HEADERS = DEFAULT_MANAGER_USERS_CANON_HEADERS.slice();
+  }
+}
 if (typeof G.MANAGER_USERS_HEADER === 'undefined') {
   if (typeof USER_MANAGERS_HEADERS !== 'undefined' && Array.isArray(USER_MANAGERS_HEADERS) && USER_MANAGERS_HEADERS.length) {
     G.MANAGER_USERS_HEADER = USER_MANAGERS_HEADERS.slice();
@@ -56,7 +63,7 @@ if (typeof G.MANAGER_USERS_HEADER === 'undefined') {
     } catch (_) { /* ignore */ }
   }
   if (typeof G.MANAGER_USERS_HEADER === 'undefined') {
-    G.MANAGER_USERS_HEADER = MANAGER_USERS_CANON_HEADERS.slice();
+    G.MANAGER_USERS_HEADER = resolveManagerUsersCanonHeaders_();
   }
 }
 if (typeof G.USER_EQUIPMENT_SHEET === 'undefined') G.USER_EQUIPMENT_SHEET = 'UserEquipment';
@@ -127,6 +134,16 @@ const OPTIONAL_USER_COLUMNS = [
 
 const USER_LOG_MAX_DEPTH = 4;
 const USER_LOG_MAX_KEYS = 40;
+
+function resolveManagerUsersCanonHeaders_() {
+  if (Array.isArray(G.MANAGER_USERS_CANON_HEADERS) && G.MANAGER_USERS_CANON_HEADERS.length) {
+    return G.MANAGER_USERS_CANON_HEADERS.slice();
+  }
+  if (typeof MANAGER_USERS_CANON_HEADERS !== 'undefined' && Array.isArray(MANAGER_USERS_CANON_HEADERS) && MANAGER_USERS_CANON_HEADERS.length) {
+    return MANAGER_USERS_CANON_HEADERS.slice();
+  }
+  return DEFAULT_MANAGER_USERS_CANON_HEADERS.slice();
+}
 
 function _userSanitizeForLog_(value, depth = 0, seen) {
   if (value === null || value === undefined) return value;
@@ -4363,7 +4380,7 @@ if (typeof getManagerUsersHeaders_ !== 'function') {
     if (Array.isArray(G.MANAGER_USERS_HEADER) && G.MANAGER_USERS_HEADER.length) {
       return G.MANAGER_USERS_HEADER.slice();
     }
-    return MANAGER_USERS_CANON_HEADERS.slice();
+    return resolveManagerUsersCanonHeaders_();
   }
 }
 if (typeof getOrCreateManagerUsersSheet_ !== 'function') {
