@@ -2112,6 +2112,81 @@
     });
   }
 
+  function normalizeUsersResponse(payload) {
+    if (Array.isArray(payload)) {
+      return { users: payload, meta: { totalUsers: payload.length } };
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return { users: [], meta: {} };
+    }
+
+    const candidatePaths = [
+      ['users'],
+      ['data', 'users'],
+      ['result', 'users'],
+      ['payload', 'users'],
+      ['records'],
+      ['items'],
+      ['list']
+    ];
+
+    for (const path of candidatePaths) {
+      let current = payload;
+      let parent = null;
+      let key = null;
+
+      for (const segment of path) {
+        parent = current;
+        key = segment;
+        current = current?.[segment];
+        if (current === undefined || current === null) {
+          current = null;
+          break;
+        }
+      }
+
+      if (Array.isArray(current)) {
+        const metaSource = {};
+        if (parent && typeof parent === 'object') {
+          Object.keys(parent).forEach(k => {
+            if (k !== key) metaSource[k] = parent[k];
+          });
+        }
+        if (parent !== payload && payload && typeof payload === 'object') {
+          Object.keys(payload).forEach(rootKey => {
+            if (!path.includes(rootKey) && typeof metaSource[rootKey] === 'undefined') {
+              metaSource[rootKey] = payload[rootKey];
+            }
+          });
+        }
+
+        if (typeof metaSource.totalUsers !== 'number') {
+          const fallbackKeys = ['totalUsers', 'total', 'count', 'length'];
+          for (const fbKey of fallbackKeys) {
+            if (typeof metaSource[fbKey] === 'number') {
+              metaSource.totalUsers = metaSource[fbKey];
+              break;
+            }
+            if (typeof payload[fbKey] === 'number') {
+              metaSource.totalUsers = payload[fbKey];
+              break;
+            }
+          }
+        }
+
+        return { users: current, meta: metaSource };
+      }
+    }
+
+    if (Array.isArray(payload.data)) {
+      return { users: payload.data, meta: { ...payload, totalUsers: payload.data.length } };
+    }
+
+    logGroup('normalizeUsersResponse.unexpectedPayload', safeForLog(payload), 'warn');
+    return { users: [], meta: { ...payload } };
+  }
+
   // ---------- UX helpers ----------
   function showLoading(show, options = {}) {
     const loader = window.LuminaLoader;
@@ -2294,6 +2369,7 @@
   let usersPage = 1;
   let usersPerPage = 12;
   let filteredUsers = [];
+  let totalUsersReported = 0;
   let userEquipmentItems = [];
   let currentEquipmentEntryId = null;
   let equipmentFormExistingPhotos = [];
@@ -2726,10 +2802,24 @@
       .finally(() => showLoading(false));
   }
 
-  function handleUsersLoaded(users) {
-    allUsers = users || [];
+  function handleUsersLoaded(usersPayload) {
+    const { users, meta } = normalizeUsersResponse(usersPayload);
+    if (!Array.isArray(users)) {
+      logGroup('handleUsersLoaded.invalidUsers', safeForLog({ payload: usersPayload }), 'warn');
+    }
+
+    allUsers = Array.isArray(users) ? users : [];
     filteredUsers = allUsers.slice();
     usersPage = 1;
+
+    totalUsersReported = Number.isFinite(meta?.totalUsers)
+      ? Number(meta.totalUsers)
+      : allUsers.length;
+
+    if (meta && meta.success === false && meta.error) {
+      showAlert('error', meta.error);
+    }
+
     const missingIdUsers = allUsers.filter(user => !user || !user.ID);
     if (missingIdUsers.length) {
       logGroup('handleUsersLoaded.missingIds', safeForLog({
@@ -2739,8 +2829,11 @@
     } else {
       logGroup('handleUsersLoaded.summary', safeForLog({ count: allUsers.length }));
     }
+
     renderUsersPage();
-    $('#userCount').text(`(${allUsers.length})`);
+
+    const displayTotal = Math.max(allUsers.length, Number.isFinite(totalUsersReported) ? totalUsersReported : 0);
+    $('#userCount').text(displayTotal > 0 ? `(${allUsers.length}/${displayTotal})` : `(${allUsers.length})`);
   }
   function handlePagesLoaded(pages) {
     allPages = pages || [];
@@ -3657,7 +3750,8 @@
     filteredUsers = filtered;
     usersPage = 1;
     renderUsersPage();
-    $('#userCount').text(`(${filtered.length}/${allUsers.length})`);
+    const reportedTotal = Math.max(allUsers.length, Number.isFinite(totalUsersReported) ? totalUsersReported : 0);
+    $('#userCount').text(reportedTotal > 0 ? `(${filtered.length}/${reportedTotal})` : `(${filtered.length})`);
   }
 
   // ---------- CRUD ----------
