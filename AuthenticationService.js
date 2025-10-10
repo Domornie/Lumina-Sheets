@@ -1845,6 +1845,24 @@ var AuthenticationService = (function () {
         userPayload.sessionIdleTimeoutMinutes = idleTimeoutMinutes;
       }
 
+      if (resolution && typeof resolution.rememberMe !== 'undefined') {
+        userPayload.sessionRememberMe = !!resolution.rememberMe;
+      }
+
+      const ttlSourceExpiry = (resolution && resolution.expiresAt)
+        || userPayload.sessionExpiresAt
+        || getRecordValue(record, 'ExpiresAt')
+        || null;
+      if (ttlSourceExpiry) {
+        const expiryMs = Date.parse(ttlSourceExpiry);
+        if (!isNaN(expiryMs)) {
+          const ttlSeconds = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
+          if (ttlSeconds) {
+            userPayload.sessionTtlSeconds = ttlSeconds;
+          }
+        }
+      }
+
       userPayload.sessionScope = rawScope || null;
       userPayload.NeedsCampaignAssignment = userPayload.CampaignScope
         ? !!userPayload.CampaignScope.needsCampaignAssignment
@@ -5502,6 +5520,18 @@ var AuthenticationService = (function () {
         result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
       }
 
+      if (typeof persistSessionTokenLinkForCurrentUser === 'function') {
+        try {
+          persistSessionTokenLinkForCurrentUser(sessionToken, {
+            rememberMe: !!rememberMe,
+            expiresAt: sessionResult.expiresAt,
+            ttlSeconds: sessionResult.ttlSeconds
+          });
+        } catch (persistError) {
+          console.warn('login: unable to persist session token link', persistError);
+        }
+      }
+
       return respond(result);
 
     } catch (error) {
@@ -5711,6 +5741,14 @@ var AuthenticationService = (function () {
         removeSessionEntry(entry);
       }
 
+      if (typeof clearPersistedSessionTokenLink === 'function') {
+        try {
+          clearPersistedSessionTokenLink();
+        } catch (clearError) {
+          console.warn('logout: unable to clear session token link', clearError);
+        }
+      }
+
       return { success: true, message: 'Logged out successfully' };
 
     } catch (error) {
@@ -5770,6 +5808,23 @@ var AuthenticationService = (function () {
       const redirectUrl = landing && landing.redirectUrl
         ? landing.redirectUrl
         : buildLandingRedirectUrlFromSlug(redirectSlug);
+
+      if (typeof persistSessionTokenLinkForCurrentUser === 'function') {
+        try {
+          persistSessionTokenLinkForCurrentUser(user.sessionToken || sessionToken, {
+            rememberMe: resolution && typeof resolution.rememberMe !== 'undefined'
+              ? !!resolution.rememberMe
+              : null,
+            expiresAt: (resolution && resolution.expiresAt)
+              || user.sessionExpiresAt
+              || user.sessionExpiry
+              || null,
+            ttlSeconds: ttlSeconds
+          });
+        } catch (persistError) {
+          console.warn('keepAlive: unable to persist session token link', persistError);
+        }
+      }
 
       return {
         success: true,
