@@ -212,6 +212,167 @@
         gap: 0.75rem;
     }
 
+    .identity-panel {
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(14, 165, 233, 0.25);
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(99, 102, 241, 0.08));
+        padding: 0.85rem 1rem;
+        box-shadow: 0 10px 30px rgba(14, 165, 233, 0.12);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .identity-panel--compact {
+        padding: 0.75rem;
+        gap: 0.6rem;
+    }
+
+    .identity-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .identity-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(14, 165, 233, 0.12);
+        color: var(--primary-700);
+        border: 1px solid rgba(14, 165, 233, 0.3);
+    }
+
+    .identity-chip--info {
+        background: rgba(14, 165, 233, 0.12);
+        border-color: rgba(14, 165, 233, 0.35);
+        color: var(--primary-700);
+    }
+
+    .identity-chip--success {
+        background: rgba(34, 197, 94, 0.14);
+        border-color: rgba(34, 197, 94, 0.35);
+        color: #047857;
+    }
+
+    .identity-chip--danger {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #b91c1c;
+    }
+
+    .identity-chip--accent {
+        background: rgba(124, 58, 237, 0.12);
+        border-color: rgba(124, 58, 237, 0.3);
+        color: #5b21b6;
+    }
+
+    .identity-chip--muted {
+        background: rgba(148, 163, 184, 0.15);
+        border-color: rgba(148, 163, 184, 0.3);
+        color: var(--gray-600);
+    }
+
+    .identity-chip--admin {
+        background: linear-gradient(135deg, #f59e0b, #f97316);
+        border-color: rgba(247, 118, 20, 0.6);
+        color: #fff;
+        box-shadow: 0 10px 20px rgba(245, 158, 11, 0.25);
+    }
+
+    .identity-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .identity-metric {
+        flex: 1 1 90px;
+        min-width: 90px;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(226, 232, 240, 0.7);
+        padding: 0.6rem 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .identity-metric-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--gray-500);
+        font-weight: 600;
+    }
+
+    .identity-metric-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--gray-800);
+    }
+
+    .identity-warnings {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: var(--warning-700);
+        font-size: 0.8rem;
+    }
+
+    .identity-warnings li {
+        margin-bottom: 0.25rem;
+    }
+
+    .identity-all-clear {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--success-700);
+        font-weight: 600;
+    }
+
+    .identity-summary-panel {
+        border-radius: var(--border-radius-xs);
+        border: 1px solid rgba(14, 165, 233, 0.2);
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(236, 254, 255, 0.45));
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 12px 30px rgba(14, 165, 233, 0.18);
+        transition: var(--transition);
+    }
+
+    .identity-summary-panel--empty {
+        background: rgba(248, 250, 252, 0.85);
+        border-style: dashed;
+        color: var(--gray-500);
+        box-shadow: none;
+    }
+
+    .identity-summary-empty {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    @media (max-width: 768px) {
+        .identity-metrics {
+            gap: 0.5rem;
+        }
+
+        .identity-metric {
+            flex: 1 1 100%;
+        }
+    }
+
     .user-meta {
         display: grid;
         gap: 0.35rem;
@@ -1356,6 +1517,12 @@
                                     <h6 class="mb-0 fw-bold"><i class="fas fa-id-card me-2"></i>User Identity</h6>
                                 </div>
                                 <div class="card-body">
+                                    <div id="identitySummaryPanel" class="identity-summary-panel identity-summary-panel--empty" aria-live="polite">
+                                        <div class="identity-summary-empty">
+                                            <i class="fas fa-user-clock me-2"></i>
+                                            Identity information will appear once the user is saved.
+                                        </div>
+                                    </div>
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="mb-3">
@@ -3083,6 +3250,7 @@
       </div>
     </div>
     <div class="user-card-body">
+      ${renderIdentitySummaryForCard(user)}
       <div class="user-tags">
         ${renderCampaignBadges(user)}
         ${renderRolesBadges(user)}
@@ -3132,6 +3300,154 @@
     if (country) html += `<span class="employment-badge country"><i class="fas fa-globe me-1"></i>${escapeHtml(country)}</span>`;
     html += '</div>';
     return html;
+  }
+
+  function extractIdentitySummary(user) {
+    if (!user || typeof user !== 'object') return null;
+    const direct = user.IdentitySummary || user.identitySummary;
+    if (direct && typeof direct === 'object') return direct;
+    const identity = user.Identity || user.identity;
+    if (identity && typeof identity === 'object' && identity.summary && typeof identity.summary === 'object') {
+      return identity.summary;
+    }
+    return null;
+  }
+
+  function extractIdentityEvaluation(user) {
+    if (!user || typeof user !== 'object') return null;
+    const direct = user.IdentityEvaluation || user.identityEvaluation;
+    if (direct && typeof direct === 'object') return direct;
+    const identity = user.Identity || user.identity;
+    if (identity && typeof identity === 'object' && identity.evaluation && typeof identity.evaluation === 'object') {
+      return identity.evaluation;
+    }
+    return null;
+  }
+
+  function collectIdentityWarnings(user) {
+    const warnings = [];
+    const summary = extractIdentitySummary(user);
+    if (summary && Array.isArray(summary.warnings)) {
+      warnings.push.apply(warnings, summary.warnings);
+    }
+    const identityWarnings = user && (user.IdentityWarnings || user.identityWarnings);
+    if (Array.isArray(identityWarnings)) {
+      warnings.push.apply(warnings, identityWarnings);
+    }
+    const evaluation = extractIdentityEvaluation(user);
+    if (evaluation && Array.isArray(evaluation.warnings)) {
+      warnings.push.apply(warnings, evaluation.warnings);
+    }
+    const unique = new Set();
+    const output = [];
+    warnings.forEach(function (warning) {
+      const text = safeTrim(warning);
+      if (!text || unique.has(text)) return;
+      unique.add(text);
+      output.push(text);
+    });
+    return output;
+  }
+
+  function formatIdentityLabel(value) {
+    const text = safeTrim(value);
+    if (!text) return '';
+    return text
+      .replace(/[_\s]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  function renderIdentitySummaryContent(summary, warnings, options = {}) {
+    if (!summary || typeof summary !== 'object') return '';
+    const variant = options.variant || 'card';
+
+    const chips = [];
+    const canLogin = (typeof summary.canLogin === 'undefined')
+      ? true
+      : parseBooleanFlag(summary.canLogin);
+    const statusLabel = formatIdentityLabel(summary.status) || (canLogin ? 'Active' : 'Restricted');
+    const statusIcon = canLogin ? 'fa-circle-check' : 'fa-user-slash';
+    const statusClass = canLogin ? 'identity-chip--success' : 'identity-chip--danger';
+    chips.push(`<span class="identity-chip ${statusClass}"><i class="fas ${statusIcon} me-1"></i>${escapeHtml(statusLabel)}</span>`);
+
+    const authLabel = formatIdentityLabel(summary.authenticationLevel) || 'Unknown';
+    chips.push(`<span class="identity-chip identity-chip--info"><i class="fas fa-shield-halved me-1"></i>Auth: ${escapeHtml(authLabel)}</span>`);
+
+    const hasTwoFactor = parseBooleanFlag(summary.hasTwoFactor || summary.hasTwofactor);
+    const twoFactorClass = hasTwoFactor ? 'identity-chip--accent' : 'identity-chip--muted';
+    const twoFactorIcon = hasTwoFactor ? 'fa-lock' : 'fa-lock-open';
+    const twoFactorLabel = hasTwoFactor ? 'MFA Enabled' : 'MFA Pending';
+    chips.push(`<span class="identity-chip ${twoFactorClass}"><i class="fas ${twoFactorIcon} me-1"></i>${escapeHtml(twoFactorLabel)}</span>`);
+
+    if (parseBooleanFlag(summary.isAdmin)) {
+      chips.push(`<span class="identity-chip identity-chip--admin"><i class="fas fa-crown me-1"></i>Admin Access</span>`);
+    }
+
+    const metrics = [
+      { label: 'Roles', value: summary.roleCount, icon: 'fa-id-badge' },
+      { label: 'Campaigns', value: summary.campaignCount, icon: 'fa-diagram-project' },
+      { label: 'Sessions', value: summary.activeSessionCount, icon: 'fa-signal' }
+    ];
+    const metricsHtml = `<div class="identity-metrics">${metrics.map(metric => {
+      const numericValue = Number(metric.value);
+      const displayValue = Number.isFinite(numericValue) ? numericValue : 0;
+      return `<div class="identity-metric">
+        <span class="identity-metric-label"><i class="fas ${metric.icon} me-1"></i>${escapeHtml(metric.label)}</span>
+        <span class="identity-metric-value">${escapeHtml(String(displayValue))}</span>
+      </div>`;
+    }).join('')}</div>`;
+
+    const warningsHtml = (Array.isArray(warnings) && warnings.length)
+      ? `<ul class="identity-warnings">${warnings.map(w => `<li><i class="fas fa-triangle-exclamation me-2"></i>${escapeHtml(w)}</li>`).join('')}</ul>`
+      : '<div class="identity-all-clear"><i class="fas fa-circle-check"></i>All identity checks passed.</div>';
+
+    const panelClass = variant === 'panel'
+      ? 'identity-panel'
+      : 'identity-panel identity-panel--compact';
+
+    return `<div class="${panelClass}">
+      <div class="identity-chip-row">${chips.join('')}</div>
+      ${metricsHtml}
+      ${warningsHtml}
+    </div>`;
+  }
+
+  function renderIdentitySummaryForCard(user) {
+    const summary = extractIdentitySummary(user);
+    if (!summary) return '';
+    const warnings = collectIdentityWarnings(user);
+    return renderIdentitySummaryContent(summary, warnings, { variant: 'card' });
+  }
+
+  function renderIdentitySummaryForPanel(user) {
+    const summary = extractIdentitySummary(user);
+    if (!summary) return '';
+    const warnings = collectIdentityWarnings(user);
+    return renderIdentitySummaryContent(summary, warnings, { variant: 'panel' });
+  }
+
+  function updateIdentitySummaryPanel(user) {
+    const panel = document.getElementById('identitySummaryPanel');
+    if (!panel) return;
+    const html = renderIdentitySummaryForPanel(user);
+    if (html) {
+      panel.innerHTML = html;
+      panel.classList.remove('identity-summary-panel--empty');
+      panel.classList.remove('d-none');
+    } else {
+      resetIdentitySummaryPanel();
+    }
+  }
+
+  function resetIdentitySummaryPanel() {
+    const panel = document.getElementById('identitySummaryPanel');
+    if (!panel) return;
+    panel.innerHTML = '<div class="identity-summary-empty"><i class="fas fa-user-clock me-2"></i>Identity information will appear once the user is saved.</div>';
+    panel.classList.add('identity-summary-panel--empty');
+    panel.classList.remove('d-none');
   }
 
   function renderUserPagesBadges(user) {
@@ -3771,6 +4087,8 @@
       userForm.classList.remove('was-validated');
     }
 
+    resetIdentitySummaryPanel();
+
     $('#roles').val(null).trigger('change');
     document.querySelectorAll('.campaign-checkbox').forEach(cb => cb.checked = false);
     document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = false);
@@ -3835,6 +4153,8 @@
 
     // Reset form and clear all fields first
     document.getElementById('userForm').reset();
+
+    updateIdentitySummaryPanel(u);
 
     // Set basic fields with better field mapping
     document.getElementById('userId').value = userId || '';
