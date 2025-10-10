@@ -53,71 +53,249 @@ if (typeof CHAT_CHANNEL_MEMBERS_SHEET === 'undefined') var CHAT_CHANNEL_MEMBERS_
 // ────────────────────────────────────────────────────────────────────────────
 // Headers (guarded)
 // ────────────────────────────────────────────────────────────────────────────
-if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
-  "ID",
-  "UserName",
-  "FullName",
-  "Email",
-  "CampaignID",
-  "PasswordHash",
-  "PasswordHashFormat",
-  "PasswordHashHex",
-  "PasswordHashBase64",
-  "PasswordHashBase64WebSafe",
-  "PasswordHashAlgorithm",
-  "ResetRequired",
-  "EmailConfirmation",
-  "EmailConfirmed",
-  "PhoneNumber",
-  "EmploymentStatus",
-  "HireDate",
-  "Country",
-  "LockoutEnd",
-  "TwoFactorEnabled",
-  "CanLogin",
-  "Roles",
-  "Pages",
-  "CreatedAt",
-  "UpdatedAt",
-  "IsAdmin",
-  "NormalizedUserName",
-  "NormalizedEmail",
-  "PhoneNumberConfirmed",
-  "LockoutEnabled",
-  "AccessFailedCount",
-  "TwoFactorDelivery",
-  "TwoFactorSecret",
-  "TwoFactorRecoveryCodes",
-  "SecurityStamp",
-  "ConcurrencyStamp",
-  "EmailConfirmationTokenHash",
-  "EmailConfirmationSentAt",
-  "EmailConfirmationExpiresAt",
-  "ResetPasswordToken",
-  "ResetPasswordTokenHash",
-  "ResetPasswordSentAt",
-  "ResetPasswordExpiresAt",
-  "LastLogin",
-  "LastLoginAt",
-  "LastLoginIp",
-  "LastLoginUserAgent",
-  "DeletedAt",
-  "TerminationDate",
-  "ProbationMonths",
-  "ProbationEnd",
-  "ProbationEndDate",
-  "InsuranceEligibleDate",
-  "InsuranceQualifiedDate",
-  "InsuranceEligible",
-  "InsuranceQualified",
-  "InsuranceEnrolled",
-  "InsuranceSignedUp",
-  "InsuranceCardReceivedDate",
-  "MFASecret",
-  "MFABackupCodes",
-  "MFADeliveryPreference",
-  "MFAEnabled"
+if (typeof LUMINA_IDENTITY_SHEET === 'undefined') var LUMINA_IDENTITY_SHEET = USERS_SHEET;
+if (typeof USER_INSURANCE_SHEET === 'undefined') var USER_INSURANCE_SHEET = 'UserInsurance';
+if (typeof LUMINA_IDENTITY_LOGS_SHEET === 'undefined') var LUMINA_IDENTITY_LOGS_SHEET = 'LuminaIdentityLogs';
+
+const LUMINA_IDENTITY_HEADER_GROUPS = {
+  core: [
+    'ID',
+    'UserName',
+    'NormalizedUserName',
+    'Email',
+    'NormalizedEmail',
+    'FirstName',
+    'MiddleName',
+    'LastName',
+    'FullName',
+    'DisplayName',
+    'PreferredName',
+    'Pronouns',
+    'AvatarUrl',
+    'CampaignID',
+    'PrimaryCampaignId',
+    'CampaignContext',
+    'IdentityVersion'
+  ],
+  contact: [
+    'PhoneNumber',
+    'PhoneNumberConfirmed',
+    'Country',
+    'Region',
+    'Timezone',
+    'Locale'
+  ],
+  employment: [
+    'EmploymentStatus',
+    'EmploymentType',
+    'Department',
+    'JobTitle',
+    'ManagerId',
+    'ManagerName',
+    'HireDate',
+    'SeniorityDate',
+    'TerminationDate',
+    'ProbationMonths',
+    'ProbationEnd',
+    'ProbationEndDate'
+  ],
+  campaigns: [
+    'CampaignAssignments',
+    'CampaignIds',
+    'CampaignNames',
+    'PrimaryCampaignName',
+    'SecondaryCampaignIds'
+  ],
+  authorization: [
+    'CanLogin',
+    'IsAdmin',
+    'Roles',
+    'RoleIds',
+    'RoleNames',
+    'PrimaryRole',
+    'Claims',
+    'ClaimTypes',
+    'Pages',
+    'Permissions',
+    'PermissionScope'
+  ],
+  security: [
+    'PasswordHash',
+    'PasswordHashFormat',
+    'PasswordHashHex',
+    'PasswordHashBase64',
+    'PasswordHashBase64WebSafe',
+    'PasswordHashAlgorithm',
+    'ResetRequired',
+    'EmailConfirmation',
+    'EmailConfirmed',
+    'LockoutEnd',
+    'LockoutEnabled',
+    'AccessFailedCount',
+    'SecurityStamp',
+    'ConcurrencyStamp',
+    'EmailConfirmationTokenHash',
+    'EmailConfirmationSentAt',
+    'EmailConfirmationExpiresAt',
+    'ResetPasswordToken',
+    'ResetPasswordTokenHash',
+    'ResetPasswordSentAt',
+    'ResetPasswordExpiresAt'
+  ],
+  multiFactor: [
+    'TwoFactorEnabled',
+    'TwoFactorDelivery',
+    'TwoFactorSecret',
+    'TwoFactorRecoveryCodes',
+    'TwoFactorBackupCodes',
+    'TwoFactorEnrollmentDate',
+    'MFASecret',
+    'MFABackupCodes',
+    'MFADeliveryPreference',
+    'MFAEnabled',
+    'MFAEnforced'
+  ],
+  session: [
+    'LastLogin',
+    'LastLoginAt',
+    'LastLoginIp',
+    'LastLoginUserAgent',
+    'ActiveSessionCount',
+    'SessionIdleTimeout',
+    'SessionExpiry'
+  ],
+  audit: [
+    'CreatedAt',
+    'CreatedBy',
+    'UpdatedAt',
+    'UpdatedBy',
+    'DeletedAt',
+    'IdentityEvaluatedAt',
+    'IdentityEvaluationWarnings'
+  ],
+  metadata: [
+    'Notes',
+    'Tags',
+    'CustomAttributes'
+  ]
+};
+
+function flattenIdentityHeaders_(groups) {
+  const seen = new Set();
+  const flattened = [];
+  Object.keys(groups).forEach(function (key) {
+    const headers = Array.isArray(groups[key]) ? groups[key] : [];
+    headers.forEach(function (header) {
+      const normalized = header == null ? '' : String(header).trim();
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      flattened.push(normalized);
+    });
+  });
+  return flattened;
+}
+
+if (typeof LUMINA_IDENTITY_HEADERS === 'undefined') {
+  var LUMINA_IDENTITY_HEADERS = flattenIdentityHeaders_(LUMINA_IDENTITY_HEADER_GROUPS);
+}
+
+const USER_INSURANCE_FIELD_KEYS = {
+  UserId: 'UserId',
+  PrimaryCampaignId: 'PrimaryCampaignId',
+  EmploymentStatus: 'EmploymentStatus',
+  HireDate: 'HireDate',
+  TerminationDate: 'TerminationDate',
+  ProbationMonths: 'ProbationMonths',
+  ProbationEnd: 'ProbationEnd',
+  ProbationEndDate: 'ProbationEndDate',
+  InsuranceEligibleDate: 'InsuranceEligibleDate',
+  InsuranceQualifiedDate: 'InsuranceQualifiedDate',
+  InsuranceEligible: 'InsuranceEligible',
+  InsuranceQualified: 'InsuranceQualified',
+  InsuranceEnrolled: 'InsuranceEnrolled',
+  InsuranceSignedUp: 'InsuranceSignedUp',
+  InsuranceCardReceivedDate: 'InsuranceCardReceivedDate',
+  LastEvaluatedAt: 'LastEvaluatedAt',
+  EvaluatedBy: 'EvaluatedBy',
+  Notes: 'Notes'
+};
+
+if (typeof USER_INSURANCE_HEADERS === 'undefined') {
+  var USER_INSURANCE_HEADERS = flattenIdentityHeaders_({
+    primary: [
+      USER_INSURANCE_FIELD_KEYS.UserId,
+      USER_INSURANCE_FIELD_KEYS.PrimaryCampaignId,
+      USER_INSURANCE_FIELD_KEYS.EmploymentStatus,
+      USER_INSURANCE_FIELD_KEYS.HireDate,
+      USER_INSURANCE_FIELD_KEYS.TerminationDate
+    ],
+    lifecycle: [
+      USER_INSURANCE_FIELD_KEYS.ProbationMonths,
+      USER_INSURANCE_FIELD_KEYS.ProbationEnd,
+      USER_INSURANCE_FIELD_KEYS.ProbationEndDate,
+      USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate,
+      USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate
+    ],
+    status: [
+      USER_INSURANCE_FIELD_KEYS.InsuranceEligible,
+      USER_INSURANCE_FIELD_KEYS.InsuranceQualified,
+      USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled,
+      USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp,
+      USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate
+    ],
+    audit: [
+      USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt,
+      USER_INSURANCE_FIELD_KEYS.EvaluatedBy,
+      USER_INSURANCE_FIELD_KEYS.Notes
+    ]
+  });
+}
+
+if (typeof LUMINA_IDENTITY_LOGS_HEADERS === 'undefined') {
+  var LUMINA_IDENTITY_LOGS_HEADERS = [
+    'Timestamp',
+    'EventType',
+    'UserId',
+    'UserName',
+    'DisplayName',
+    'Email',
+    'CampaignContext',
+    'RoleContext',
+    'ClaimContext',
+    'AuthenticationLevel',
+    'SessionState',
+    'Source',
+    'Message',
+    'Metadata'
+  ];
+}
+
+const LUMINA_IDENTITY_SUPPLEMENTAL_HEADERS = [
+  'ProbationMonths',
+  'ProbationEnd',
+  'ProbationEndDate',
+  'TerminationDate'
 ];
+
+if (typeof USERS_HEADERS === 'undefined') {
+  var USERS_HEADERS = flattenIdentityHeaders_({
+    core: LUMINA_IDENTITY_HEADERS,
+    supplemental: LUMINA_IDENTITY_SUPPLEMENTAL_HEADERS,
+    compatibility: [
+      USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate,
+      USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate,
+      USER_INSURANCE_FIELD_KEYS.InsuranceEligible,
+      USER_INSURANCE_FIELD_KEYS.InsuranceQualified,
+      USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled,
+      USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp,
+      USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate,
+      'MFASecret',
+      'MFABackupCodes',
+      'MFADeliveryPreference',
+      'MFAEnabled'
+    ]
+  });
+}
 
 if (typeof getCanonicalUserHeaders !== 'function') {
   function getCanonicalUserHeaders(options) {
@@ -371,6 +549,7 @@ function buildCanonicalIdentitySheetMap_() {
     definitions[trimmedName] = normalized;
   };
 
+  addDefinition(LUMINA_IDENTITY_SHEET, LUMINA_IDENTITY_HEADERS);
   addDefinition(USERS_SHEET, USERS_HEADERS);
   addDefinition(ROLES_SHEET, ROLES_HEADER);
   addDefinition(USER_ROLES_SHEET, USER_ROLES_HEADER);
@@ -383,6 +562,8 @@ function buildCanonicalIdentitySheetMap_() {
   addDefinition(CAMPAIGN_USER_PERMISSIONS_SHEET, CAMPAIGN_USER_PERMISSIONS_HEADERS);
   addDefinition(USER_MANAGERS_SHEET, USER_MANAGERS_HEADERS);
   addDefinition(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
+  addDefinition(USER_INSURANCE_SHEET, USER_INSURANCE_HEADERS);
+  addDefinition(LUMINA_IDENTITY_LOGS_SHEET, LUMINA_IDENTITY_LOGS_HEADERS);
 
   return definitions;
 }
@@ -391,6 +572,50 @@ if (typeof listCanonicalIdentitySheets !== 'function') {
   function listCanonicalIdentitySheets() {
     const map = buildCanonicalIdentitySheetMap_();
     return Object.keys(map).map(name => ({ name, headers: map[name].slice() }));
+  }
+}
+
+if (typeof synchronizeLuminaIdentityHeaders === 'undefined') {
+  function synchronizeLuminaIdentityHeaders(options = {}) {
+    const sheetName = options && options.sheetName
+      ? String(options.sheetName)
+      : (LUMINA_IDENTITY_SHEET || USERS_SHEET);
+
+    if (!sheetName) {
+      throw new Error('Lumina Identity sheet name is not defined.');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sh = ss.getSheetByName(sheetName);
+    const canonical = Array.isArray(USERS_HEADERS) && USERS_HEADERS.length
+      ? USERS_HEADERS.slice()
+      : (typeof getCanonicalUserHeaders === 'function'
+        ? getCanonicalUserHeaders({ preferIdentityService: false })
+        : []);
+
+    if (!sh) {
+      if (typeof ensureSheetWithHeaders === 'function') {
+        sh = ensureSheetWithHeaders(sheetName, canonical);
+      } else {
+        sh = ss.insertSheet(sheetName);
+        if (canonical.length) {
+          sh.getRange(1, 1, 1, canonical.length).setValues([canonical]);
+          sh.setFrozenRows(1);
+        }
+      }
+    }
+
+    if (!Array.isArray(canonical) || !canonical.length) {
+      throw new Error('Unable to determine canonical identity headers.');
+    }
+
+    syncSheetColumnsAndHeaders_(sh, canonical);
+
+    return {
+      sheet: sheetName,
+      headers: canonical.slice(),
+      headerCount: canonical.length
+    };
   }
 }
 
@@ -486,15 +711,95 @@ if (typeof ensureIdentitySheetStructures !== 'function') {
 // HR / Benefits – Users sheet upgrade + calculators
 // ────────────────────────────────────────────────────────────────────────────
 
-const USER_BENEFIT_FIELDS = {
+const USER_EMPLOYMENT_FIELDS = {
   TerminationDate: 'TerminationDate',
   ProbationMonths: 'ProbationMonths',
   ProbationEnd: 'ProbationEnd',
-  InsuranceEligibleDate: 'InsuranceEligibleDate', // = ProbationEnd + 3 months
-  InsuranceQualified: 'InsuranceQualified',       // boolean: today >= InsuranceEligibleDate and not Terminated/Inactive
-  InsuranceEnrolled: 'InsuranceEnrolled',         // boolean: user signed up
-  InsuranceCardReceivedDate: 'InsuranceCardReceivedDate'
+  ProbationEndDate: 'ProbationEndDate'
 };
+
+const USER_BENEFIT_FIELDS = Object.assign({}, USER_EMPLOYMENT_FIELDS, {
+  InsuranceEligibleDate: USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate, // = ProbationEnd + 3 months
+  InsuranceQualifiedDate: USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate,
+  InsuranceQualified: USER_INSURANCE_FIELD_KEYS.InsuranceQualified,       // boolean: today >= InsuranceEligibleDate and not Terminated/Inactive
+  InsuranceEligible: USER_INSURANCE_FIELD_KEYS.InsuranceEligible,
+  InsuranceEnrolled: USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled,         // boolean: user signed up
+  InsuranceSignedUp: USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp,
+  InsuranceCardReceivedDate: USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate
+});
+
+function ensureUserInsuranceSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(USER_INSURANCE_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(USER_INSURANCE_SHEET);
+    sh.getRange(1, 1, 1, USER_INSURANCE_HEADERS.length).setValues([USER_INSURANCE_HEADERS]);
+    sh.setFrozenRows(1);
+    return sh;
+  }
+
+  if (!areHeadersAligned_(sh, USER_INSURANCE_HEADERS)) {
+    syncSheetColumnsAndHeaders_(sh, USER_INSURANCE_HEADERS);
+  }
+
+  return sh;
+}
+
+function upsertUserInsuranceRecord_(userId, payload = {}) {
+  if (!userId && userId !== 0) {
+    return { success: false, message: 'UserId is required for insurance upsert.' };
+  }
+
+  try {
+    const sh = ensureUserInsuranceSheet_();
+    const headerRange = sh.getRange(1, 1, 1, sh.getLastColumn());
+    const headers = headerRange.getValues()[0].map(String);
+    const index = {};
+    headers.forEach((header, idx) => { index[header] = idx; });
+
+    const data = sh.getDataRange().getValues();
+    let targetRowIndex = -1;
+    const userIdCol = index[USER_INSURANCE_FIELD_KEYS.UserId];
+    if (userIdCol === undefined) {
+      throw new Error('UserInsurance sheet missing UserId column.');
+    }
+
+    for (let r = 1; r < data.length; r++) {
+      const row = data[r];
+      if (String(row[userIdCol]) === String(userId)) {
+        targetRowIndex = r;
+        break;
+      }
+    }
+
+    const template = new Array(headers.length).fill('');
+    template[userIdCol] = userId;
+
+    const assignable = Object.assign({}, payload);
+    Object.keys(assignable).forEach(key => {
+      if (!Object.prototype.hasOwnProperty.call(index, key)) return;
+      template[index[key]] = assignable[key];
+    });
+
+    if (targetRowIndex >= 0) {
+      sh.getRange(targetRowIndex + 1, 1, 1, headers.length).setValues([template]);
+    } else {
+      sh.appendRow(template);
+    }
+
+    try {
+      invalidateCache(USER_INSURANCE_SHEET);
+      invalidateCache(USERS_SHEET);
+    } catch (cacheError) {
+      console.warn('upsertUserInsuranceRecord_: cache invalidation failed', cacheError);
+    }
+
+    return { success: true };
+  } catch (error) {
+    safeWriteError && safeWriteError('upsertUserInsuranceRecord_', error);
+    return { success: false, message: error && error.message ? error.message : String(error) };
+  }
+}
 
 /** Ensure benefit columns exist (appended) without disturbing existing Users headers */
 function ensureUsersBenefitsColumns_() {
@@ -503,10 +808,13 @@ function ensureUsersBenefitsColumns_() {
   const lastCol = sh.getLastColumn();
   if (lastCol < 1) return;
 
+  ensureUserInsuranceSheet_();
+
   const headerRange = sh.getRange(1, 1, 1, sh.getLastColumn());
   const headers = headerRange.getValues()[0].map(String);
 
-  const missing = Object.values(USER_BENEFIT_FIELDS).filter(h => !headers.includes(h));
+  const employmentHeaders = Object.values(USER_EMPLOYMENT_FIELDS);
+  const missing = employmentHeaders.filter(h => !headers.includes(h));
   if (missing.length === 0) return;
 
   // Append missing columns at the end
@@ -519,9 +827,7 @@ function ensureUsersBenefitsColumns_() {
     // Set sensible defaults for booleans / numbers (without overwriting existing data)
     const colIndex = name => newHeaders.indexOf(name) + 1;
     const defaults = {
-      [USER_BENEFIT_FIELDS.ProbationMonths]: 3,
-      [USER_BENEFIT_FIELDS.InsuranceQualified]: false,
-      [USER_BENEFIT_FIELDS.InsuranceEnrolled]: false
+      [USER_EMPLOYMENT_FIELDS.ProbationMonths]: 3
     };
     Object.entries(defaults).forEach(([key, defVal]) => {
       if (missing.includes(key)) {
@@ -579,16 +885,25 @@ function recalcBenefitsForAllUsers(opts = {}) {
     const headers = data[0].map(String);
     const col = name => headers.indexOf(name);
 
+    const iId = col('ID');
+    const iCampaign = col('CampaignID');
     const iHire = col('HireDate');
     const iEmpStatus = col('EmploymentStatus');
+    const iTermination = col(USER_EMPLOYMENT_FIELDS.TerminationDate);
 
     const iProbMonths = col(USER_BENEFIT_FIELDS.ProbationMonths);
     const iProbEnd = col(USER_BENEFIT_FIELDS.ProbationEnd);
     const iEligible = col(USER_BENEFIT_FIELDS.InsuranceEligibleDate);
     const iQualified = col(USER_BENEFIT_FIELDS.InsuranceQualified);
+    const iQualifiedDate = col(USER_BENEFIT_FIELDS.InsuranceQualifiedDate);
+    const iEligibleFlag = col(USER_BENEFIT_FIELDS.InsuranceEligible);
+    const iEnrolled = col(USER_BENEFIT_FIELDS.InsuranceEnrolled);
+    const iSigned = col(USER_BENEFIT_FIELDS.InsuranceSignedUp);
+    const iCard = col(USER_BENEFIT_FIELDS.InsuranceCardReceivedDate);
 
-    if ([iHire, iEmpStatus, iProbMonths, iProbEnd, iEligible, iQualified].some(ix => ix < 0)) {
-      return { updated: 0, warning: 'One or more benefit columns are missing.' };
+    const requiredIndices = [iHire, iEmpStatus, iProbMonths, iProbEnd];
+    if (requiredIndices.some(ix => ix < 0)) {
+      return { updated: 0, warning: 'One or more employment columns are missing.' };
     }
 
     let updated = 0;
@@ -598,6 +913,8 @@ function recalcBenefitsForAllUsers(opts = {}) {
       const row = data[r];
 
       // Source fields
+      const userId = iId >= 0 ? row[iId] : '';
+      const campaignId = iCampaign >= 0 ? row[iCampaign] : '';
       const hire = parseAsDate_(row[iHire]);
       let probMonths = Number(row[iProbMonths]);
       if (!Number.isFinite(probMonths) || probMonths <= 0) probMonths = 3;
@@ -605,21 +922,65 @@ function recalcBenefitsForAllUsers(opts = {}) {
       let probEnd = parseAsDate_(row[iProbEnd]);
       if (!probEnd || force) {
         probEnd = hire ? addMonths_(hire, probMonths) : null;
-        if (probEnd) { row[iProbEnd] = probEnd; updated++; }
+        if (iProbEnd >= 0) { row[iProbEnd] = probEnd || ''; }
+        updated++;
       }
 
       let eligible = parseAsDate_(row[iEligible]);
       const recomputedEligible = probEnd ? addMonths_(probEnd, 3) : null;
       if (!eligible || force) {
         eligible = recomputedEligible;
-        if (eligible) { row[iEligible] = eligible; updated++; }
+        if (iEligible >= 0) { row[iEligible] = eligible || ''; }
+        updated++;
       }
 
       // Qualified boolean
       const qualified = isInsuranceQualified_(row[iEmpStatus], eligible);
-      if (row[iQualified] !== qualified) {
+      if (iQualified >= 0 && row[iQualified] !== qualified) {
         row[iQualified] = qualified;
         updated++;
+      }
+
+      const enrollment = iEnrolled >= 0 ? row[iEnrolled] : (iSigned >= 0 ? row[iSigned] : '');
+      const eligibleFlag = iEligibleFlag >= 0 ? row[iEligibleFlag] : '';
+      const qualifiedDate = iQualifiedDate >= 0 ? row[iQualifiedDate] : eligible;
+      const cardReceived = iCard >= 0 ? row[iCard] : '';
+      const terminationDate = iTermination >= 0 ? row[iTermination] : '';
+
+      const evaluator = (function () {
+        try {
+          if (typeof getCurrentUser === 'function') {
+            const current = getCurrentUser();
+            if (current) {
+              return current.Email || current.UserName || current.ID || 'Lumina Identity';
+            }
+          }
+        } catch (identityEvaluatorErr) {
+          console.warn('recalcBenefitsForAllUsers evaluator lookup failed', identityEvaluatorErr);
+        }
+        return 'Lumina Identity';
+      })();
+
+      if (userId || userId === 0) {
+        upsertUserInsuranceRecord_(userId, {
+          [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
+          [USER_INSURANCE_FIELD_KEYS.PrimaryCampaignId]: campaignId,
+          [USER_INSURANCE_FIELD_KEYS.EmploymentStatus]: row[iEmpStatus],
+          [USER_INSURANCE_FIELD_KEYS.HireDate]: row[iHire],
+          [USER_INSURANCE_FIELD_KEYS.TerminationDate]: terminationDate,
+          [USER_INSURANCE_FIELD_KEYS.ProbationMonths]: probMonths,
+          [USER_INSURANCE_FIELD_KEYS.ProbationEnd]: probEnd,
+          [USER_INSURANCE_FIELD_KEYS.ProbationEndDate]: probEnd,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate]: eligible,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate]: qualifiedDate || eligible,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceEligible]: eligibleFlag !== '' ? eligibleFlag : qualified,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceQualified]: qualified,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled]: enrollment,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp]: enrollment,
+          [USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate]: cardReceived,
+          [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
+          [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: evaluator
+        });
       }
 
       data[r] = row;
@@ -664,13 +1025,23 @@ function recalcBenefitsForUser(userId, opts = {}) {
     const iId = col('ID');
     const iHire = col('HireDate');
     const iEmpStatus = col('EmploymentStatus');
+    const iTermination = col(USER_EMPLOYMENT_FIELDS.TerminationDate);
     const iProbMonths = col(USER_BENEFIT_FIELDS.ProbationMonths);
     const iProbEnd = col(USER_BENEFIT_FIELDS.ProbationEnd);
     const iEligible = col(USER_BENEFIT_FIELDS.InsuranceEligibleDate);
     const iQualified = col(USER_BENEFIT_FIELDS.InsuranceQualified);
+    const iQualifiedDate = col(USER_BENEFIT_FIELDS.InsuranceQualifiedDate);
+    const iEligibleFlag = col(USER_BENEFIT_FIELDS.InsuranceEligible);
+    const iEnrolled = col(USER_BENEFIT_FIELDS.InsuranceEnrolled);
+    const iSigned = col(USER_BENEFIT_FIELDS.InsuranceSignedUp);
+    const iCard = col(USER_BENEFIT_FIELDS.InsuranceCardReceivedDate);
 
+    const requiredIndices = [iHire, iEmpStatus, iProbMonths, iProbEnd];
     const rowIdx = data.findIndex((r, idx) => idx > 0 && String(r[iId]) === userId);
     if (rowIdx < 1) return { success: false, message: 'User row not found' };
+    if (requiredIndices.some(ix => ix < 0)) {
+      return { success: false, message: 'Missing employment columns for recalculation.' };
+    }
 
     const row = data[rowIdx];
     const force = !!opts.force;
@@ -680,18 +1051,54 @@ function recalcBenefitsForUser(userId, opts = {}) {
     if (!Number.isFinite(probMonths) || probMonths <= 0) probMonths = 3;
 
     let probEnd = parseAsDate_(row[iProbEnd]);
-    if (!probEnd || force) probEnd = hire ? addMonths_(hire, probMonths) : null;
+    if (!probEnd || force) {
+      probEnd = hire ? addMonths_(hire, probMonths) : null;
+      if (iProbEnd >= 0) {
+        sh.getRange(rowIdx + 1, iProbEnd + 1).setValue(probEnd || '');
+      }
+    }
 
     let eligible = parseAsDate_(row[iEligible]);
     const recomputedEligible = probEnd ? addMonths_(probEnd, 3) : null;
-    if (!eligible || force) eligible = recomputedEligible;
+    if (!eligible || force) {
+      eligible = recomputedEligible;
+      if (iEligible >= 0) {
+        sh.getRange(rowIdx + 1, iEligible + 1).setValue(eligible || '');
+      }
+    }
 
     const qualified = isInsuranceQualified_(row[iEmpStatus], eligible);
 
     // Persist back
-    if (iProbEnd >= 0) sh.getRange(rowIdx + 1, iProbEnd + 1).setValue(probEnd || '');
-    if (iEligible >= 0) sh.getRange(rowIdx + 1, iEligible + 1).setValue(eligible || '');
     if (iQualified >= 0) sh.getRange(rowIdx + 1, iQualified + 1).setValue(qualified);
+
+    const enrollment = iEnrolled >= 0 ? row[iEnrolled] : (iSigned >= 0 ? row[iSigned] : '');
+    const eligibleFlag = iEligibleFlag >= 0 ? row[iEligibleFlag] : '';
+    const qualifiedDate = iQualifiedDate >= 0 ? row[iQualifiedDate] : eligible;
+    const cardReceived = iCard >= 0 ? row[iCard] : '';
+    const terminationDate = iTermination >= 0 ? row[iTermination] : '';
+
+    if (userId || userId === 0) {
+      upsertUserInsuranceRecord_(userId, {
+        [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
+        [USER_INSURANCE_FIELD_KEYS.PrimaryCampaignId]: row[col('CampaignID')],
+        [USER_INSURANCE_FIELD_KEYS.EmploymentStatus]: row[iEmpStatus],
+        [USER_INSURANCE_FIELD_KEYS.HireDate]: row[iHire],
+        [USER_INSURANCE_FIELD_KEYS.TerminationDate]: terminationDate,
+        [USER_INSURANCE_FIELD_KEYS.ProbationMonths]: row[iProbMonths],
+        [USER_INSURANCE_FIELD_KEYS.ProbationEnd]: probEnd,
+        [USER_INSURANCE_FIELD_KEYS.ProbationEndDate]: probEnd,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate]: eligible,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate]: qualifiedDate || eligible,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceEligible]: eligibleFlag !== '' ? eligibleFlag : qualified,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceQualified]: qualified,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled]: enrollment,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp]: enrollment,
+        [USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate]: cardReceived,
+        [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
+        [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: 'Lumina Identity'
+      });
+    }
 
     invalidateCache(USERS_SHEET);
 
@@ -722,6 +1129,7 @@ function setUserInsuranceEnrollment(userId, enrolled, cardReceivedDate = null) {
     const iId = col('ID');
     const iEnrolled = col(USER_BENEFIT_FIELDS.InsuranceEnrolled);
     const iCard = col(USER_BENEFIT_FIELDS.InsuranceCardReceivedDate);
+    const iSigned = col(USER_BENEFIT_FIELDS.InsuranceSignedUp);
 
     const rowIdx = data.findIndex((r, idx) => idx > 0 && String(r[iId]) === userId);
     if (rowIdx < 1) return { success: false, message: 'User not found' };
@@ -731,6 +1139,19 @@ function setUserInsuranceEnrollment(userId, enrolled, cardReceivedDate = null) {
       const dt = parseAsDate_(cardReceivedDate);
       sh.getRange(rowIdx + 1, iCard + 1).setValue(dt || '');
     }
+    if (iSigned >= 0) {
+      sh.getRange(rowIdx + 1, iSigned + 1).setValue(!!enrolled);
+    }
+
+    upsertUserInsuranceRecord_(userId, {
+      [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
+      [USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled]: !!enrolled,
+      [USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp]: !!enrolled,
+      [USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate]: parseAsDate_(cardReceivedDate) || '',
+      [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
+      [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: 'Lumina Identity'
+    });
+
     invalidateCache(USERS_SHEET);
     return { success: true };
   } catch (e) {
@@ -755,8 +1176,18 @@ function setUserTermination(userId, terminationDate) {
     const rowIdx = data.findIndex((r, idx) => idx > 0 && String(r[iId]) === userId);
     if (rowIdx < 1) return { success: false, message: 'User not found' };
 
-    sh.getRange(rowIdx + 1, iTerm + 1).setValue(parseAsDate_(terminationDate) || '');
+    const parsedTermination = parseAsDate_(terminationDate) || '';
+    sh.getRange(rowIdx + 1, iTerm + 1).setValue(parsedTermination);
     if (iStatus >= 0) sh.getRange(rowIdx + 1, iStatus + 1).setValue('Terminated');
+
+    upsertUserInsuranceRecord_(userId, {
+      [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
+      [USER_INSURANCE_FIELD_KEYS.TerminationDate]: parsedTermination,
+      [USER_INSURANCE_FIELD_KEYS.EmploymentStatus]: 'Terminated',
+      [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
+      [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: 'Lumina Identity'
+    });
+
     invalidateCache(USERS_SHEET);
     return { success: true };
   } catch (e) {
