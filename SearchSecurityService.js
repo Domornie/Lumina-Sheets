@@ -620,6 +620,17 @@ function getUserIdFromRequest(e) {
             token = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
         }
 
+        if (!token && typeof resolveSessionTokenForAuthentication === 'function') {
+            try {
+                const resolved = resolveSessionTokenForAuthentication(e);
+                if (resolved && resolved.token) {
+                    token = resolved.token;
+                }
+            } catch (resolutionError) {
+                console.warn('getUserIdFromRequest: unable to resolve persisted session token', resolutionError);
+            }
+        }
+
         if (token && typeof AuthenticationService !== 'undefined') {
             const user = AuthenticationService.validateToken(token);
             return user ? (user.ID || user.id || 'anonymous') : 'anonymous';

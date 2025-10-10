@@ -295,6 +295,248 @@ function extractSessionTokenFromRequest(e) {
   return '';
 }
 
+const SESSION_LINK_STORAGE_PREFIX = 'lumina.session.link.';
+const SESSION_LINK_CACHE_MIN_TTL_SECONDS = 300; // 5 minutes
+const SESSION_LINK_CACHE_MAX_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
+const SESSION_LINK_DEFAULT_TTL_SECONDS = 60 * 60; // 1 hour fallback
+const SESSION_LINK_REMEMBER_TTL_SECONDS = 24 * 60 * 60; // 24 hours fallback
+
+function getTemporaryUserSessionKey() {
+  try {
+    if (typeof Session !== 'undefined'
+      && Session
+      && typeof Session.getTemporaryActiveUserKey === 'function') {
+      const key = Session.getTemporaryActiveUserKey();
+      if (key) {
+        return String(key);
+      }
+    }
+  } catch (err) {
+    console.warn('getTemporaryUserSessionKey: unable to resolve session key', err);
+  }
+
+  return '';
+}
+
+function computeSessionLinkTtlSeconds(record) {
+  if (!record || typeof record !== 'object') {
+    return SESSION_LINK_DEFAULT_TTL_SECONDS;
+  }
+
+  const now = Date.now();
+  let ttlSeconds = null;
+
+  if (typeof record.ttlSeconds === 'number' && isFinite(record.ttlSeconds) && record.ttlSeconds > 0) {
+    ttlSeconds = Math.floor(record.ttlSeconds);
+  }
+
+  if ((!ttlSeconds || ttlSeconds <= 0) && record.expiresAt) {
+    const expiryTime = Date.parse(record.expiresAt);
+    if (!isNaN(expiryTime)) {
+      const delta = Math.floor((expiryTime - now) / 1000);
+      if (delta > 0) {
+        ttlSeconds = delta;
+      }
+    }
+  }
+
+  if (!ttlSeconds || ttlSeconds <= 0) {
+    const remember = typeof record.rememberMe === 'boolean'
+      ? record.rememberMe
+      : false;
+    ttlSeconds = remember ? SESSION_LINK_REMEMBER_TTL_SECONDS : SESSION_LINK_DEFAULT_TTL_SECONDS;
+  }
+
+  ttlSeconds = Math.max(SESSION_LINK_CACHE_MIN_TTL_SECONDS, ttlSeconds);
+  ttlSeconds = Math.min(SESSION_LINK_CACHE_MAX_TTL_SECONDS, ttlSeconds);
+
+  return ttlSeconds;
+}
+
+function getSessionLinkStorageKey() {
+  const sessionKey = getTemporaryUserSessionKey();
+  if (!sessionKey) {
+    return '';
+  }
+  return SESSION_LINK_STORAGE_PREFIX + sessionKey;
+}
+
+function readPersistedSessionTokenLink() {
+  const storageKey = getSessionLinkStorageKey();
+  if (!storageKey) {
+    return null;
+  }
+
+  let raw = '';
+
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      const cache = CacheService.getUserCache();
+      raw = cache.get(storageKey) || '';
+    }
+  } catch (cacheError) {
+    console.warn('readPersistedSessionTokenLink: unable to read cache', cacheError);
+  }
+
+  if (!raw) {
+    try {
+      if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+        const props = PropertiesService.getUserProperties();
+        raw = props.getProperty(storageKey) || '';
+      }
+    } catch (propsError) {
+      console.warn('readPersistedSessionTokenLink: unable to read properties', propsError);
+    }
+  }
+
+  if (!raw) {
+    return null;
+  }
+
+  let record = null;
+  try {
+    record = JSON.parse(raw);
+  } catch (parseError) {
+    console.warn('readPersistedSessionTokenLink: unable to parse record', parseError);
+    clearPersistedSessionTokenLink();
+    return null;
+  }
+
+  if (!record || !record.token) {
+    clearPersistedSessionTokenLink();
+    return null;
+  }
+
+  const now = Date.now();
+
+  if (record.expiresAt) {
+    const expiryTime = Date.parse(record.expiresAt);
+    if (!isNaN(expiryTime) && expiryTime <= now) {
+      clearPersistedSessionTokenLink();
+      return null;
+    }
+  }
+
+  if (record.ttlSeconds && record.updatedAt) {
+    const ttl = Number(record.ttlSeconds);
+    const updatedAt = Date.parse(record.updatedAt);
+    if (!isNaN(ttl) && ttl > 0 && !isNaN(updatedAt)) {
+      const expiryTime = updatedAt + (ttl * 1000);
+      if (expiryTime <= now) {
+        clearPersistedSessionTokenLink();
+        return null;
+      }
+    }
+  }
+
+  return record;
+}
+
+function clearPersistedSessionTokenLink() {
+  const storageKey = getSessionLinkStorageKey();
+  if (!storageKey) {
+    return;
+  }
+
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      CacheService.getUserCache().remove(storageKey);
+    }
+  } catch (cacheError) {
+    console.warn('clearPersistedSessionTokenLink: unable to clear cache', cacheError);
+  }
+
+  try {
+    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+      PropertiesService.getUserProperties().deleteProperty(storageKey);
+    }
+  } catch (propsError) {
+    console.warn('clearPersistedSessionTokenLink: unable to clear properties', propsError);
+  }
+}
+
+function persistSessionTokenLinkForCurrentUser(token, options) {
+  const storageKey = getSessionLinkStorageKey();
+  if (!storageKey) {
+    return;
+  }
+
+  if (!token) {
+    clearPersistedSessionTokenLink();
+    return;
+  }
+
+  const previous = readPersistedSessionTokenLink();
+
+  const rememberMe = (options && typeof options.rememberMe !== 'undefined')
+    ? !!options.rememberMe
+    : (previous && typeof previous.rememberMe !== 'undefined' ? !!previous.rememberMe : null);
+
+  const expiresAt = (options && options.expiresAt)
+    ? String(options.expiresAt)
+    : (previous && previous.expiresAt ? String(previous.expiresAt) : null);
+
+  let ttlSeconds = null;
+  if (options && typeof options.ttlSeconds === 'number' && isFinite(options.ttlSeconds) && options.ttlSeconds > 0) {
+    ttlSeconds = Math.floor(options.ttlSeconds);
+  } else if (previous && typeof previous.ttlSeconds === 'number' && isFinite(previous.ttlSeconds) && previous.ttlSeconds > 0) {
+    ttlSeconds = Math.floor(previous.ttlSeconds);
+  }
+
+  const record = {
+    token: String(token),
+    rememberMe: typeof rememberMe === 'boolean' ? rememberMe : null,
+    expiresAt: expiresAt || null,
+    ttlSeconds: ttlSeconds !== null ? ttlSeconds : null,
+    updatedAt: new Date().toISOString()
+  };
+
+  const payload = JSON.stringify(record);
+  const ttl = computeSessionLinkTtlSeconds(record);
+
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      CacheService.getUserCache().put(storageKey, payload, ttl);
+    }
+  } catch (cacheError) {
+    console.warn('persistSessionTokenLinkForCurrentUser: unable to update cache', cacheError);
+  }
+
+  try {
+    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+      PropertiesService.getUserProperties().setProperty(storageKey, payload);
+    }
+  } catch (propsError) {
+    console.warn('persistSessionTokenLinkForCurrentUser: unable to update properties', propsError);
+  }
+}
+
+function resolveSessionTokenForAuthentication(e) {
+  const token = extractSessionTokenFromRequest(e);
+  if (token) {
+    return {
+      token: String(token),
+      source: 'request',
+      record: null
+    };
+  }
+
+  const record = readPersistedSessionTokenLink();
+  if (record && record.token) {
+    return {
+      token: String(record.token),
+      source: 'persisted',
+      record: record
+    };
+  }
+
+  return {
+    token: '',
+    source: 'none',
+    record: null
+  };
+}
+
 function getCanonicalUserSummaryColumns() {
   try {
     const headers = (typeof getCanonicalUserHeaders === 'function')
@@ -1430,12 +1672,40 @@ function getCurrentUser() {
  */
 function authenticateUser(e) {
   try {
-    // First check if there's a token parameter
-    const token = extractSessionTokenFromRequest(e);
+    const resolution = resolveSessionTokenForAuthentication(e);
+    const token = resolution && resolution.token ? resolution.token : '';
+
     if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
       const user = AuthenticationService.getSessionUser(token);
       if (user) {
+        if (typeof persistSessionTokenLinkForCurrentUser === 'function') {
+          const rememberHint = (typeof user.sessionRememberMe !== 'undefined')
+            ? !!user.sessionRememberMe
+            : (resolution && resolution.record && typeof resolution.record.rememberMe !== 'undefined'
+              ? !!resolution.record.rememberMe
+              : null);
+
+          const ttlSeconds = (typeof user.sessionTtlSeconds === 'number' && isFinite(user.sessionTtlSeconds) && user.sessionTtlSeconds > 0)
+            ? Math.floor(user.sessionTtlSeconds)
+            : (resolution && resolution.record && typeof resolution.record.ttlSeconds === 'number'
+              ? Math.floor(resolution.record.ttlSeconds)
+              : null);
+
+          const expiry = user.sessionExpiresAt || user.sessionExpiry
+            || (resolution && resolution.record && resolution.record.expiresAt ? resolution.record.expiresAt : null);
+
+          persistSessionTokenLinkForCurrentUser(token, {
+            rememberMe: rememberHint,
+            expiresAt: expiry,
+            ttlSeconds: ttlSeconds
+          });
+        }
+
         return user;
+      }
+
+      if (resolution && resolution.source === 'persisted' && typeof clearPersistedSessionTokenLink === 'function') {
+        clearPersistedSessionTokenLink();
       }
     }
 
@@ -1942,6 +2212,10 @@ function handleLogoutRequest(e) {
       }
     } catch (logoutError) {
       console.warn('handleLogoutRequest: server logout failed', logoutError);
+    }
+
+    if (typeof clearPersistedSessionTokenLink === 'function') {
+      clearPersistedSessionTokenLink();
     }
 
     var returnCandidate = (e && e.parameter && e.parameter.returnUrl) ? e.parameter.returnUrl : '';
