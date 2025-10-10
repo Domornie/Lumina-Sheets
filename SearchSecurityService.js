@@ -631,10 +631,6 @@ function getUserIdFromRequest(e) {
             }
         }
 
-        if (token && typeof AuthenticationService !== 'undefined') {
-            const user = AuthenticationService.validateToken(token);
-            return user ? (user.ID || user.id || 'anonymous') : 'anonymous';
-        }
         return 'anonymous';
     } catch (error) {
         return 'anonymous';

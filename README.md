@@ -139,13 +139,12 @@ etc.) provide a more explicit API.
 
 ### Authentication & campaign-scoped sessions
 
-`AuthenticationService.gs` now persists sessions through `DatabaseManager`, upgrading
-the `Sessions` sheet to track remember-me flags, user agents, IP addresses, and a
-serialized tenant scope. Every login computes a tenant access profile via
-`TenantSecurityService`, blocks accounts that are not assigned to at least one
-campaign (unless they are global administrators), and returns the full list of
-allowed/managed/admin campaigns to the client. Session renewals automatically refresh
-the campaign scope so managers cannot switch to unauthorized tenants mid-session.
+The original Lumina Sheets deployment implemented a robust authentication and
+session management stack backed by `AuthenticationService.gs`.  This repository
+now operates in a fully open mode: the authentication and identity system has
+been removed and all pages render without login.  Tenant and campaign utilities
+remain available for data organization, but access control enforcement is now
+left to the surrounding deployment environment.
 
 
 ## End-to-end call center workflows
@@ -256,9 +255,9 @@ schemas registered with `DatabaseManager`.
   Script project stays in sync across environments.
 - **Web app execution context.** Web deployments execute as the signed-in user
   (`executeAs: USER_ACCESSING`) and require authentication (`access: ANYONE`).
-  This configuration enforces the tenant-aware permission checks implemented in
-  `AuthenticationService.gs` and `TenantSecurityService.gs` while still allowing
-  external client stakeholders to authenticate with Google accounts.
+  If perimeter authentication is handled outside the script, ensure the Apps
+  Script deployment remains restricted to the intended audience because the
+  in-app authentication module has been removed.
 - **Operational documentation.** See [`docs/implementation-map.md`](./docs/implementation-map.md)
   for a cross-reference between the requirements, HTML front-end modules, and
   Apps Script services that fulfill them. Update this document whenever new

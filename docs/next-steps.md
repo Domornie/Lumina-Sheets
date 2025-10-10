@@ -38,11 +38,12 @@ functionality.
 
 ## 3. Prioritize Security Enhancements
 
-1. **Enforce strict login flows**
-   - Ensure the login workflow validates email verification, password hygiene,
-     and campaign assignment before issuing sessions.
-   - Add automated tests (where feasible) to cover login happy-paths and common
-     failure states.
+1. **Assess perimeter security**
+   - Authentication has been removed from the Apps Script layer. Ensure the
+     deployment URL is protected by your hosting environment or network
+     controls.
+   - Document who should have access to the open dashboards and implement
+     protections outside of the script when needed.
 2. **Harden campaign scoping**
    - Centralize campaign resolution (e.g., a shared utility) to remove duplicate
      logic across services.

@@ -3096,8 +3096,6 @@
     <div class="user-card-actions" role="group" aria-label="User actions">
       ${profileAction}
       <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User" aria-label="Edit User"><i class="fas fa-edit"></i></button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password" aria-label="Reset Password"><i class="fas fa-key"></i></button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email" aria-label="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
       <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment" aria-label="Manage Equipment"><i class="fas fa-toolbox"></i></button>
       <button class="btn btn-outline-danger btn-sm user-action-delete" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User" aria-label="Delete User"><i class="fas fa-trash"></i></button>
     </div>
@@ -4273,28 +4271,14 @@
   }
 
   function adminResetPassword(userId) {
-    const u = allUsers.find(x => String(x.ID) === String(userId));
-    if (!u) return showAlert('error', 'User not found');
-    const label = u.Email || u.UserName || u.userName || u.username || u.Username || u.FullName || userId;
-    if (!confirm(`Send password reset to ${label}?`)) return;
-    showLoading(true);
-    callGoogleScript('clientAdminResetPasswordById', userId)
-      .then(res => showAlert(res && res.success ? 'success' : 'error', (res && (res.message || res.error)) || 'Unknown response'))
-      .catch(err => showAlert('error', err.message || String(err)))
-      .finally(() => showLoading(false));
+    showAlert('info', 'Password resets are no longer managed inside the app.');
   }
 
+
   function resendFirstLogin(userId) {
-    const u = allUsers.find(x => String(x.ID) === String(userId));
-    if (!u) return showAlert('error', 'User not found');
-    const label = u.Email || u.UserName || u.userName || u.username || u.Username || u.FullName || userId;
-    if (!confirm(`Resend first-login email to ${label}?`)) return;
-    showLoading(true);
-    callGoogleScript('clientResendFirstLoginEmail', userId)
-      .then(res => showAlert(res && res.success ? 'success' : 'error', (res && (res.message || res.error)) || 'Unknown response'))
-      .catch(err => showAlert('error', err.message || String(err)))
-      .finally(() => showLoading(false));
+    showAlert('info', 'First-login emails are no longer available in this deployment.');
   }
+
 
   // ---------- Employment helpers ----------
   function formatDateTimeForDisplay(dateStr) {
