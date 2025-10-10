@@ -1,12 +1,10 @@
 /** Enhanced Multi-Campaign Google Apps Script - Code.gs
- * Simplified Token-Based Authentication System
- * 
- * Features:
- * - Token-based authentication
- * - Campaign-specific routing (e.g., CreditSuite.QAForm, IBTR.QACollabList)
- * - Enhanced authentication and access control
- * - Clean URL structure
- * - Secure session management via tokens
+ *
+ * Authentication and identity features have been fully removed so the
+ * application operates in a completely open mode.  All routes are now
+ * publicly accessible and session management is no longer performed.
+ * The remaining functionality focuses on routing, campaign utilities,
+ * and the operational dashboards that back the Lumina Sheets solution.
  */
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -30,18 +28,9 @@ const ACCESS_DEBUG = true;
 const ACCESS = {
   ADMIN_ONLY_PAGES: new Set(['admin.users', 'admin.roles', 'admin.campaigns']),
   PUBLIC_PAGES: new Set([
-    'login',
     'landing',
     'landing-about',
     'landing-capabilities',
-    'setpassword',
-    'resetpassword',
-    'forgotpassword',
-    'forgot-password',
-    'resendverification',
-    'resend-verification',
-    'emailconfirmed',
-    'email-confirmed',
     'terms-of-service',
     'privacy-policy',
     'lumina-user-guide'
@@ -1611,138 +1600,53 @@ function _cachePut(key, obj, ttlSec) {
  */
 function getCurrentUser() {
   try {
-    const email = String(
-      (Session.getActiveUser() && Session.getActiveUser().getEmail()) ||
-      (Session.getEffectiveUser() && Session.getEffectiveUser().getEmail()) ||
-      ''
-    ).trim().toLowerCase();
-
-    const identityContext = _lookupUserIdentityByEmail_(email);
-    const row = identityContext && identityContext.identityFields ? identityContext.identityFields : _findUserByEmail_(email);
-    const client = _toClientUser_(row, email, identityContext);
-
-    // Hydrate campaign context
-    try {
-      const globalObj = (typeof globalThis !== 'undefined') ? globalThis : this;
-      const guardKey = '__READ_SHEET_SUPPRESS_TENANT_CONTEXT__';
-      const previousGuard = globalObj && globalObj[guardKey] ? Number(globalObj[guardKey]) : 0;
-      if (globalObj) {
-        globalObj[guardKey] = previousGuard + 1;
-      }
-
-      try {
-        if (client.CampaignID) {
-          if (typeof getCampaignById === 'function') {
-            const c = getCampaignById(client.CampaignID);
-            client.campaignName = c ? (c.Name || c.name || '') : '';
-          }
-          if (typeof getUserCampaignPermissions === 'function') {
-            client.campaignPermissions = getUserCampaignPermissions(client.ID);
-          }
-          if (typeof getCampaignNavigation === 'function') {
-            client.campaignNavigation = getCampaignNavigation(client.CampaignID);
-          }
-        }
-      } finally {
-        if (globalObj) {
-          if (previousGuard) {
-            globalObj[guardKey] = previousGuard;
-          } else {
-            try {
-              delete globalObj[guardKey];
-            } catch (_) {
-              globalObj[guardKey] = 0;
-            }
-          }
-        }
-      }
-    } catch (ctxErr) {
-      console.warn('getCurrentUser: campaign context hydrate failed:', ctxErr);
-    }
-
-    return client;
+    // With authentication removed, always return a guest profile that provides
+    // enough structure for downstream templates expecting a user object.
+    return {
+      ID: 'guest',
+      FullName: 'Guest User',
+      UserName: 'guest',
+      Email: '',
+      CampaignID: '',
+      Roles: [],
+      Pages: [],
+      IsAdmin: false,
+      CanLogin: true,
+      EmailConfirmed: true,
+      ResetRequired: false
+    };
   } catch (e) {
-    writeError && writeError('getCurrentUser', e);
-    return _toClientUser_(null, '', null);
+    if (typeof writeError === 'function') {
+      writeError('getCurrentUser', e);
+    }
+    return {
+      ID: 'guest',
+      FullName: 'Guest User',
+      UserName: 'guest',
+      Email: '',
+      CampaignID: '',
+      Roles: [],
+      Pages: [],
+      IsAdmin: false,
+      CanLogin: true,
+      EmailConfirmed: true,
+      ResetRequired: false
+    };
   }
 }
 
 /**
  * Simple authentication using token parameter
  */
-function authenticateUser(e) {
+function authenticateUser(_e) {
   try {
-    const resolution = resolveSessionTokenForAuthentication(e);
-    const token = resolution && resolution.token ? resolution.token : '';
-
-    if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
-      const user = AuthenticationService.getSessionUser(token);
-      if (user) {
-        if (typeof persistSessionTokenLinkForCurrentUser === 'function') {
-          const rememberHint = (typeof user.sessionRememberMe !== 'undefined')
-            ? !!user.sessionRememberMe
-            : (resolution && resolution.record && typeof resolution.record.rememberMe !== 'undefined'
-              ? !!resolution.record.rememberMe
-              : null);
-
-          const ttlSeconds = (typeof user.sessionTtlSeconds === 'number' && isFinite(user.sessionTtlSeconds) && user.sessionTtlSeconds > 0)
-            ? Math.floor(user.sessionTtlSeconds)
-            : (resolution && resolution.record && typeof resolution.record.ttlSeconds === 'number'
-              ? Math.floor(resolution.record.ttlSeconds)
-              : null);
-
-          const expiry = user.sessionExpiresAt || user.sessionExpiry
-            || (resolution && resolution.record && resolution.record.expiresAt ? resolution.record.expiresAt : null);
-
-          persistSessionTokenLinkForCurrentUser(token, {
-            rememberMe: rememberHint,
-            expiresAt: expiry,
-            ttlSeconds: ttlSeconds
-          });
-        }
-
-        return user;
-      }
-
-      if (resolution && resolution.source === 'persisted' && typeof clearPersistedSessionTokenLink === 'function') {
-        clearPersistedSessionTokenLink();
-      }
-    }
-
-    // Fall back to current user via Google session
-    const user = getCurrentUser();
-    if (!user || !user.ID) {
-      return null;
-    }
-
-    if (user.IdentityEvaluation && user.IdentityEvaluation.allow === false) {
-      return null;
-    }
-
-    if (typeof AuthenticationService !== 'undefined'
-      && AuthenticationService
-      && typeof AuthenticationService.userHasActiveSession === 'function') {
-      try {
-        const hasActiveSession = AuthenticationService.userHasActiveSession(user);
-        if (!hasActiveSession) {
-          return null;
-        }
-      } catch (sessionCheckError) {
-        console.warn('authenticateUser: active session verification failed', sessionCheckError);
-        return null;
-      }
-    }
-
-    // Check if user can login
-    if (!_truthy(user.CanLogin)) {
-      return null;
-    }
-
-    return user;
+    // Authentication is disabled – always operate as the guest user.
+    return getCurrentUser();
   } catch (error) {
-    console.error('Authentication error:', error);
-    writeError('authenticateUser', error);
-    return null;
+    if (typeof writeError === 'function') {
+      writeError('authenticateUser', error);
+    }
+    return getCurrentUser();
   }
 }
 
@@ -1911,56 +1815,26 @@ function isSystemAdmin(user) {
   }
 }
 
-function evaluatePageAccess(user, pageKey, campaignId) {
+function evaluatePageAccess(_user, pageKey, _campaignId) {
   const trace = [];
   try {
-    const u = _normalizeUser(user);
     const page = _normalizePageKey(pageKey || '');
-    const cid = _normalizeId(campaignId || '');
 
-    // Basic account checks
-    if (!u || !u.ID) return { allow: false, reason: 'No session', trace };
-    if (!_truthy(u.CanLogin)) return { allow: false, reason: 'Account disabled', trace };
-    if (u.LockoutEnd && _isFuture(u.LockoutEnd)) return { allow: false, reason: 'Account locked', trace };
-    if (!ACCESS.PUBLIC_PAGES.has(page)) {
-      if (!_truthy(u.EmailConfirmed)) return { allow: false, reason: 'Email not confirmed', trace };
-      if (_truthy(u.ResetRequired)) return { allow: false, reason: 'Password reset required', trace };
-    }
-
-    // Public pages
-    if (ACCESS.PUBLIC_PAGES.has(page)) {
-      trace.push('PUBLIC page');
-      return { allow: true, reason: 'public', trace };
-    }
-
-    // Admin-only pages
     if (ACCESS.ADMIN_ONLY_PAGES.has(page)) {
-      if (isSystemAdmin(u)) {
-        trace.push('admin-only: allowed');
-        return { allow: true, reason: 'admin', trace };
-      }
-      return { allow: false, reason: 'System Admin required', trace };
+      // Without authentication there is no reliable way to determine an
+      // administrator, so deny these routes by default.
+      trace.push('admin-only: denied (authentication disabled)');
+      return { allow: false, reason: 'Authentication disabled', trace };
     }
 
-    // System admin has access to everything
-    if (isSystemAdmin(u)) {
-      trace.push('System Admin: allow');
-      return { allow: true, reason: 'admin', trace };
-    }
-
-    // For regular users, check if they have campaign access
-    if (cid && !hasCampaignAccess(u, cid)) {
-      return { allow: false, reason: 'No campaign access', trace };
-    }
-
-    // Default allow for authenticated users
-    trace.push('Authenticated user access');
-    return { allow: true, reason: 'authenticated', trace };
-
+    trace.push('authentication disabled');
+    return { allow: true, reason: 'public', trace };
   } catch (e) {
-    writeError && writeError('evaluatePageAccess', e);
+    if (typeof writeError === 'function') {
+      writeError('evaluatePageAccess', e);
+    }
     trace.push('exception:' + e.message);
-    return { allow: false, reason: 'Evaluator error', trace };
+    return { allow: true, reason: 'error-fallback', trace };
   }
 }
 
@@ -1995,241 +1869,42 @@ function renderAccessDenied(message) {
 function requireAuth(e) {
   try {
     const user = authenticateUser(e);
-
-    if (!user) {
-      return renderLoginPage(e);
-    }
-
     const pageParam = String(e?.parameter?.page || '').toLowerCase();
     const page = canonicalizePageKey(pageParam);
     const campaignId = String(e?.parameter?.campaign || user.CampaignID || '');
 
     const decision = evaluatePageAccess(user, page, campaignId);
-    _debugAccess && _debugAccess('route', decision, user, page, campaignId);
-
     if (!decision || decision.allow !== true) {
-      return renderAccessDenied((decision && decision.reason) || 'You do not have permission to view this page.');
-    }
-
-    // Hydrate campaign context
-    if (campaignId) {
-      try {
-        if (typeof getCampaignNavigation === 'function') user.campaignNavigation = getCampaignNavigation(campaignId);
-        if (typeof getUserCampaignPermissions === 'function') user.campaignPermissions = getUserCampaignPermissions(user.ID);
-        if (typeof getCampaignById === 'function') {
-          const c = getCampaignById(campaignId);
-          user.campaignName = c ? (c.Name || c.name || '') : '';
-        }
-      } catch (ctxErr) {
-        console.warn('Campaign context hydrate failed:', ctxErr);
-      }
+      return renderAccessDenied((decision && decision.reason) || 'This area is unavailable.');
     }
 
     return user;
-
   } catch (error) {
-    writeError('requireAuth', error);
-    return renderAccessDenied('Authentication error occurred');
+    if (typeof writeError === 'function') {
+      writeError('requireAuth', error);
+    }
+    return getCurrentUser();
   }
 }
 
-function renderLoginPage(e) {
-  let serverMetadata = null;
-  let initialReturnUrl = '';
-
-  if (typeof AuthenticationService !== 'undefined'
-    && AuthenticationService
-    && typeof AuthenticationService.captureLoginRequestContext === 'function') {
-    try {
-      serverMetadata = AuthenticationService.captureLoginRequestContext(e) || null;
-    } catch (contextError) {
-      console.warn('renderLoginPage: unable to capture server metadata', contextError);
-    }
-  }
-
-  if (typeof AuthenticationService !== 'undefined'
-    && AuthenticationService
-    && typeof AuthenticationService.deriveLoginReturnUrlFromEvent === 'function') {
-    try {
-      initialReturnUrl = AuthenticationService.deriveLoginReturnUrlFromEvent(e) || '';
-    } catch (returnError) {
-      console.warn('renderLoginPage: deriveLoginReturnUrlFromEvent failed', returnError);
-    }
-  }
-
-  if (!initialReturnUrl && e && e.parameter) {
-    try {
-      const directReturn = sanitizeLoginReturnUrl(e.parameter.returnUrl || e.parameter.ReturnUrl || '');
-      if (directReturn) {
-        initialReturnUrl = directReturn;
-      }
-    } catch (directError) {
-      console.warn('renderLoginPage: unable to sanitize direct returnUrl', directError);
-    }
-  }
-
-  if (!initialReturnUrl && e && e.parameter) {
-    const requestedPage = String(e.parameter.page || e.parameter.Page || '').trim();
-    if (requestedPage && requestedPage.toLowerCase() !== 'login') {
-      const additionalParams = {};
-      let campaignId = '';
-
-      Object.keys(e.parameter).forEach(function (key) {
-        if (!key) return;
-        if (/^page$/i.test(key)) return;
-        if (/^token$/i.test(key)) return;
-        if (/^returnurl$/i.test(key)) return;
-
-        const value = e.parameter[key];
-        if (value === null || typeof value === 'undefined' || value === '') {
-          return;
-        }
-
-        if (!campaignId && /^campaign$/i.test(key)) {
-          campaignId = value;
-          return;
-        }
-
-        additionalParams[key] = value;
-      });
-
-      try {
-        const builtUrl = getAuthenticatedUrl(requestedPage, campaignId, additionalParams);
-        const sanitizedBuilt = sanitizeLoginReturnUrl(builtUrl);
-        if (sanitizedBuilt) {
-          initialReturnUrl = sanitizedBuilt;
-        }
-      } catch (buildReturnError) {
-        console.warn('renderLoginPage: unable to build fallback return URL', buildReturnError);
-      }
-    }
-  }
-
-  const tpl = HtmlService.createTemplateFromFile('Login');
-  tpl.baseUrl = getBaseUrl();
-  tpl.scriptUrl = SCRIPT_URL;
-  tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
-  tpl.initialReturnUrl = initialReturnUrl || '';
-  return tpl.evaluate()
-    .setTitle('Login - VLBPO LuminaHQ')
-    .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+// Login rendering helpers removed – authentication has been disabled.
+function buildLoginPageUrl() {
+  const base = getBaseUrl() || SCRIPT_URL || '';
+  return base || '#';
 }
 
-function sanitizeLoginReturnUrl(raw) {
+function handleLogoutRequest(_e) {
   try {
-    if (typeof IdentityService !== 'undefined'
-      && IdentityService
-      && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
-      return IdentityService.sanitizeLoginReturnUrl(raw);
-    }
-  } catch (identityError) {
-    console.warn('sanitizeLoginReturnUrl: IdentityService helper failed', identityError);
-  }
-
-  if (!raw && raw !== 0) {
-    return '';
-  }
-
-  try {
-    var value = String(raw).trim();
-    if (!value) {
-      return '';
-    }
-
-    if (/^javascript:/i.test(value)) {
-      return '';
-    }
-
-    if (/^https?:/i.test(value)) {
-      try {
-        var base = getBaseUrl() || '';
-        if (!base && typeof SCRIPT_URL === 'string') {
-          base = SCRIPT_URL;
-        }
-
-        if (base) {
-          var baseMatch = /^https?:\/\/[^/]+/i.exec(base);
-          var targetMatch = /^https?:\/\/[^/]+/i.exec(value);
-          if (baseMatch && targetMatch && baseMatch[0].toLowerCase() !== targetMatch[0].toLowerCase()) {
-            return '';
-          }
-        }
-      } catch (originError) {
-        console.warn('sanitizeLoginReturnUrl fallback origin check failed', originError);
-      }
-    }
-
-    if (value.length > 500) {
-      value = value.slice(0, 500);
-    }
-
-    return value;
-  } catch (error) {
-    console.warn('sanitizeLoginReturnUrl fallback failed', error);
-    return '';
-  }
-}
-
-function buildLoginPageUrl(options) {
-  var base = getBaseUrl() || SCRIPT_URL || '';
-  var parts = ['page=login'];
-
-  if (options && options.returnUrl) {
-    var sanitized = sanitizeLoginReturnUrl(options.returnUrl);
-    if (sanitized) {
-      parts.push('returnUrl=' + encodeURIComponent(sanitized));
-    }
-  }
-
-  if (options && options.message) {
-    parts.push('message=' + encodeURIComponent(String(options.message)));
-  }
-
-  if (options && options.error) {
-    parts.push('error=' + encodeURIComponent(String(options.error)));
-  }
-
-  var query = parts.join('&');
-  if (!base) {
-    return '?' + query;
-  }
-
-  return base + (base.indexOf('?') === -1 ? '?' : '&') + query;
-}
-
-function handleLogoutRequest(e) {
-  try {
-    var token = extractSessionTokenFromRequest(e);
-
-    try {
-      if (typeof AuthenticationService !== 'undefined'
-        && AuthenticationService
-        && typeof AuthenticationService.logout === 'function') {
-        AuthenticationService.logout(token || '');
-      } else if (typeof identitySignOut === 'function') {
-        identitySignOut(token || '');
-      }
-    } catch (logoutError) {
-      console.warn('handleLogoutRequest: server logout failed', logoutError);
-    }
-
     if (typeof clearPersistedSessionTokenLink === 'function') {
       clearPersistedSessionTokenLink();
     }
 
-    var returnCandidate = (e && e.parameter && e.parameter.returnUrl) ? e.parameter.returnUrl : '';
-    var loginUrl = buildLoginPageUrl({ returnUrl: returnCandidate });
-
-    return HtmlService
-      .createHtmlOutput('<script>window.top.location.href = ' + JSON.stringify(loginUrl) + ';</script>')
-      .setTitle('Logging out…')
-      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    return handlePublicPage('landing', { parameter: {} }, getBaseUrl());
   } catch (error) {
-    console.error('handleLogoutRequest: unexpected failure', error);
-    writeError('handleLogoutRequest', error);
-    return renderLoginPage({ parameter: { page: 'login' } });
+    if (typeof writeError === 'function') {
+      writeError('handleLogoutRequest', error);
+    }
+    return createErrorPage('Logout', 'Authentication is disabled.');
   }
 }
 
@@ -2527,40 +2202,6 @@ function doGet(e) {
   try {
     const baseUrl = getBaseUrl();
 
-    function redirectToLanding(user) {
-      const userCampaignId = user.CampaignID || '';
-      let landingSlug = '';
-
-      try {
-        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
-          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
-            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
-              user: user,
-              userPayload: user,
-              rawUser: user
-            });
-            if (landingInfo && landingInfo.slug) {
-              landingSlug = landingInfo.slug;
-            }
-          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
-            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
-          }
-        }
-      } catch (landingError) {
-        console.warn('doGet: failed to compute landing slug', landingError);
-      }
-
-      const redirectPage = landingSlug || 'dashboard';
-      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
-      return HtmlService
-        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-        .setTitle('Redirecting...');
-    }
-
-    // Initialize system
-    // initializeSystem();
-
-    // Handle special actions
     if (e.parameter.page === 'proxy') {
       console.log('doGet: Handling proxy request');
       return serveEnhancedProxy(e);
@@ -2571,26 +2212,6 @@ function doGet(e) {
       return handleLogoutRequest(e);
     }
 
-    if (e.parameter.action === 'confirmEmail' && e.parameter.token) {
-      const confirmationToken = e.parameter.token;
-      const success = confirmEmail(confirmationToken);
-      if (success) {
-        const redirectUrl = `${baseUrl}?page=setpassword&token=${encodeURIComponent(confirmationToken)}`;
-        return HtmlService
-          .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-          .setTitle('Redirecting...');
-      } else {
-        const tpl = HtmlService.createTemplateFromFile('EmailConfirmed');
-        tpl.baseUrl = baseUrl;
-        tpl.success = false;
-        tpl.token = confirmationToken;
-        return tpl.evaluate()
-          .setTitle('Email Confirmation')
-          .addMetaTag('viewport', 'width=device-width,initial-scale=1');
-      }
-    }
-
-    // Handle public pages
     const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
     const page = rawPageParam.toLowerCase();
 
@@ -2598,34 +2219,12 @@ function doGet(e) {
       return handlePublicPage('landing', e, baseUrl);
     }
 
-    if (page === 'login') {
-      try {
-        const existingSession = authenticateUser(e);
-        if (existingSession && existingSession.ID) {
-          return redirectToLanding(existingSession);
-        }
-      } catch (sessionError) {
-        console.warn('doGet: session probe failed for login/default route', sessionError);
-      }
-
-      return renderLoginPage(e);
-    }
-
-    // Handle other public pages
     const publicPages = [
       'landing',
       'landing-about',
       'about',
       'landing-capabilities',
       'capabilities',
-      'setpassword',
-      'resetpassword',
-      'resend-verification',
-      'resendverification',
-      'forgotpassword',
-      'forgot-password',
-      'emailconfirmed',
-      'email-confirmed',
       'terms-of-service',
       'termsofservice',
       'terms',
@@ -2641,25 +2240,13 @@ function doGet(e) {
       return handlePublicPage(page, e, baseUrl);
     }
 
-    // Protected pages - require authentication
+    // Protected pages - evaluate access (primarily for admin specific areas)
     const auth = requireAuth(e);
-    if (auth.getContent) {
-      return auth; // Login or access denied page
+    if (auth && typeof auth.getContent === 'function') {
+      return auth; // Typically an access denied template
     }
 
     const user = auth;
-
-    // Handle password reset requirement
-    if (_truthy(user.ResetRequired)) {
-      const tpl = HtmlService.createTemplateFromFile('ChangePassword');
-      tpl.baseUrl = baseUrl;
-      tpl.scriptUrl = SCRIPT_URL;
-      return tpl.evaluate()
-        .setTitle('Change Password')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
     const campaignId = e.parameter.campaign || user.CampaignID || '';
 
     // Handle CSV exports
@@ -3233,51 +2820,13 @@ function handlePublicPage(page, e, baseUrl) {
 
     case 'setpassword':
     case 'resetpassword':
-      const resetToken = e.parameter.token || '';
-      const tpl = HtmlService.createTemplateFromFile('ChangePassword');
-      tpl.baseUrl = baseUrl;
-      tpl.scriptUrl = scriptUrl;
-      tpl.token = resetToken;
-      tpl.isReset = page === 'resetpassword';
-
-      return tpl.evaluate()
-        .setTitle((page === 'resetpassword' ? 'Reset' : 'Set') + ' Your Password - VLBPO LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
     case 'resend-verification':
     case 'resendverification':
-      const verifyTpl = HtmlService.createTemplateFromFile('ResendVerification');
-      verifyTpl.baseUrl = baseUrl;
-      verifyTpl.scriptUrl = scriptUrl;
-
-      return verifyTpl.evaluate()
-        .setTitle('Resend Email Verification - VLBPO LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
     case 'forgotpassword':
     case 'forgot-password':
-      const forgotTpl = HtmlService.createTemplateFromFile('ForgotPassword');
-      forgotTpl.baseUrl = baseUrl;
-      forgotTpl.scriptUrl = scriptUrl;
-
-      return forgotTpl.evaluate()
-        .setTitle('Forgot Password - VLBPO LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
     case 'emailconfirmed':
     case 'email-confirmed':
-      const confirmTpl = HtmlService.createTemplateFromFile('EmailConfirmed');
-      confirmTpl.baseUrl = baseUrl;
-      confirmTpl.success = e.parameter.success === 'true';
-      confirmTpl.token = e.parameter.token || '';
-
-      return confirmTpl.evaluate()
-        .setTitle('Email Confirmation - VLBPO LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+      return createErrorPage('Authentication Disabled', 'Password and verification workflows are no longer available.');
 
     default:
       return createErrorPage('Page Not Found', `The page "${page}" was not found.`);
@@ -5600,32 +5149,7 @@ function writeDebug(message) {
   console.log(`[DEBUG] ${message}`);
 }
 
-function confirmEmail(token) {
-  try {
-    if (!token) {
-      console.warn('confirmEmail called with empty token');
-      return false;
-    }
-
-    if (typeof IdentityService !== 'undefined'
-      && IdentityService
-      && typeof IdentityService.confirmEmail === 'function') {
-      const result = IdentityService.confirmEmail(token);
-      if (result && result.success) {
-        return true;
-      }
-      console.warn('confirmEmail: IdentityService returned failure', result);
-      return false;
-    }
-
-    console.warn('confirmEmail: IdentityService unavailable; skipping confirmation');
-    return false;
-  } catch (error) {
-    console.error('Error confirming email:', error);
-    writeError('confirmEmail', error);
-    return false;
-  }
-}
+// Legacy confirmation helpers removed along with authentication layer.
 
 function weekStringFromDate(date) {
   try {
@@ -5698,10 +5222,6 @@ function getEmptyQAAnalytics() {
 function initializeSystem() {
   try {
     console.log('Initializing system...');
-
-    if (typeof AuthenticationService !== 'undefined' && AuthenticationService.ensureSheets) {
-      AuthenticationService.ensureSheets();
-    }
 
     try {
       ensureSessionCleanupTrigger();

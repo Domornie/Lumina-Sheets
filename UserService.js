@@ -3615,132 +3615,15 @@ function clientRepairUsernames() {
 // Password / email utilities (admin paths)
 // ───────────────────────────────────────────────────────────────────────────────
 function clientAdminResetPassword(userId, requestingUserId) {
-  try {
-    if (!userId) return { success: false, error: 'User ID is required' };
-    if (requestingUserId) {
-      const allUsers = readSheet(G.USERS_SHEET) || [];
-      const requester = allUsers.find(u => String(u.ID) === String(requestingUserId));
-      if (!requester || !_strToBool_(requester.IsAdmin)) return { success: false, error: 'Only administrators can perform this action' };
-    }
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(G.USERS_SHEET);
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0]; const idx = {}; headers.forEach((h, i) => idx[String(h)] = i);
-
-    let rowIndex = -1, row;
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(userId)) { rowIndex = i; row = data[i]; break; }
-    }
-    if (rowIndex === -1) return { success: false, error: 'User not found' };
-
-    const email = row[idx['Email']] || '';
-    if (!email) return { success: false, error: 'User has no email on file' };
-
-    const canLogin = _strToBool_(row[idx['CanLogin']]);
-    if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
-
-    let token = null;
-    if (typeof IdentityService !== 'undefined'
-      && IdentityService
-      && typeof IdentityService.beginPasswordReset === 'function') {
-      try {
-        const resetResult = IdentityService.beginPasswordReset(email, { sendEmail: false, returnTokens: true });
-        if (resetResult && resetResult.success !== false && resetResult.resetToken) {
-          token = resetResult.resetToken;
-        } else {
-          console.warn('clientAdminResetPassword: IdentityService returned unexpected result', resetResult);
-        }
-      } catch (identityErr) {
-        writeError && writeError('clientAdminResetPassword:IdentityService', identityErr);
-      }
-    }
-
-    if (!token) {
-      token = Utilities.getUuid();
-      const sentAt = new Date();
-      const expiresAtDate = new Date(sentAt.getTime() + 60 * 60000);
-      const sentAtIso = sentAt.toISOString();
-      const expiresAtIso = expiresAtDate.toISOString();
-      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
-      const tokenHash = digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
-
-      if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-      if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
-      if (idx['ResetPasswordTokenHash'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash);
-      if (idx['ResetPasswordSentAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordSentAt'] + 1).setValue(sentAtIso);
-      if (idx['ResetPasswordExpiresAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordExpiresAt'] + 1).setValue(expiresAtIso);
-      if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
-      if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(sentAtIso);
-    }
-
-    invalidateCache && invalidateCache(G.USERS_SHEET);
-
-    try {
-      if (typeof sendAdminPasswordResetEmail === 'function') {
-        sendAdminPasswordResetEmail(email, { resetToken: token });
-      } else if (typeof sendPasswordResetEmail === 'function') {
-        sendPasswordResetEmail(email, token);
-      } else {
-        throw new Error('No email template available (sendAdminPasswordResetEmail/sendPasswordResetEmail)');
-      }
-    } catch (mailErr) {
-      writeError && writeError('clientAdminResetPassword:send', mailErr);
-      return { success: false, error: 'Token saved, but failed to send email: ' + mailErr };
-    }
-    return { success: true, message: 'Password reset email sent' };
-  } catch (e) { writeError && writeError('clientAdminResetPassword', e); return { success: false, error: e.message }; }
+  return { success: false, error: 'Password reset workflow has been removed.' };
 }
+
 function clientAdminResetPasswordById(userId, requestingUserId) { return clientAdminResetPassword(userId, requestingUserId); }
 
-function clientResendFirstLoginEmail(userId, requestingUserId) {
-  try {
-    if (!userId) return { success: false, error: 'User ID is required' };
-    if (requestingUserId) {
-      const allUsers = readSheet(G.USERS_SHEET) || [];
-      const requester = allUsers.find(u => String(u.ID) === String(requestingUserId));
-      if (!requester || !_strToBool_(requester.IsAdmin)) return { success: false, error: 'Only administrators can perform this action' };
-    }
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(G.USERS_SHEET);
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0]; const idx = {}; headers.forEach((h, i) => idx[String(h)] = i);
-
-    let rowIndex = -1, row;
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(userId)) { rowIndex = i; row = data[i]; break; }
-    }
-    if (rowIndex === -1) return { success: false, error: 'User not found' };
-
-    const email = row[idx['Email']] || '';
-    const userName = row[idx['UserName']] || '';
-    const fullName = row[idx['FullName']] || '';
-    if (!email) return { success: false, error: 'User has no email on file' };
-
-    const canLogin = _strToBool_(row[idx['CanLogin']]);
-    if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
-
-    const token = Utilities.getUuid();
-    if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-    if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
-    if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
-
-    invalidateCache && invalidateCache(G.USERS_SHEET);
-
-    try {
-      if (typeof sendFirstLoginResendEmail === 'function') {
-        sendFirstLoginResendEmail(email, { userName, fullName, passwordSetupToken: token });
-      } else if (typeof sendPasswordSetupEmail === 'function') {
-        sendPasswordSetupEmail(email, { userName, fullName, passwordSetupToken: token });
-      } else {
-        throw new Error('No email template available (sendFirstLoginResendEmail/sendPasswordSetupEmail)');
-      }
-    } catch (mailErr) {
-      writeError && writeError('clientResendFirstLoginEmail:send', mailErr);
-      return { success: false, error: 'Token saved, but failed to send email: ' + mailErr };
-    }
-    return { success: true, message: 'First-login/setup email resent' };
-  } catch (e) { writeError && writeError('clientResendFirstLoginEmail', e); return { success: false, error: e.message }; }
+function clientResendFirstLoginEmail() {
+  return { success: false, error: 'First-login emails are no longer available.' };
 }
+
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Delete user (also clears campaign perms, roles, manager links)

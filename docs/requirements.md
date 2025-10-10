@@ -19,8 +19,8 @@ the client-side experience.
 
 ## Authentication & Authorization
 
-- **Strict login policies** ensure that all access is scoped to the specific
-  client campaign(s) a user belongs to.
+- **Perimeter security controls** must restrict access to the published script
+  now that in-app authentication has been removed.
 - **Role tiers**:
   - **Executives (CEO/CFO/HR, etc.)** – full access to every module across all
     clients and campaigns.
@@ -89,6 +89,6 @@ the client-side experience.
    access and role-based permissions as described.
 2. Inventory current HTML/JS modules to map each requirement to its UI
    counterpart, identifying gaps.
-3. Prioritize implementation of strict login flows, campaign scoping, and role
-   management updates before layering additional feature work.
+3. Prioritize perimeter protections, campaign scoping, and role management
+   updates before layering additional feature work.
 

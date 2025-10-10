@@ -10,9 +10,9 @@ features are introduced.
 
 | Requirement focus | Primary services | Supporting assets |
 | --- | --- | --- |
-| Secure login, password resets, verification | `AuthenticationService.js`, `EmailService.js`, `ForgotPassword.html`, `EmailConfirmed.html`, `ResendVerification.html`, `ChangePassword.html` |
+| Authentication & identity (removed) | Authentication stack has been decommissioned; all pages are now public. |
 | Role & claim management | `RolesService.js`, `RoleManagement.html`, `Users.html` |
-| Session persistence & renewal | `AuthenticationService.js`, `MainUtilities.js`, `ScheduleUtilities.js` |
+| Session persistence & renewal | Feature removed; session heartbeat now stubbed in `layout.html`. |
 | Tenant-aware access enforcement | `TenantSecurityService.js`, `CallCenterWorkflowService.js`, `TenantSecurityService` helpers consumed by `CallCenterWorkflowService.js` and individual feature services |
 
 ## 2. Multi-Campaign Operations
@@ -85,9 +85,9 @@ following artifacts support that effort today:
 
 - **Service catalogue:** The tables above summarize CRUD-oriented services and
   their respective modules, addressing the "Catalogue all services" task.
-- **Authorization checkpoints:** `TenantSecurityService.js`,
-  `AuthenticationService.js`, and `CallCenterWorkflowService.js` centralize
-  campaign and role validation as required by the audit plan.
+- **Authorization checkpoints:** `TenantSecurityService.js` and
+  `CallCenterWorkflowService.js` centralize campaign and role validation. The
+  prior `AuthenticationService.js` module has been retired.
 - **UI inventory:** Section 7 aligns HTML modules to the personas defined in the
   requirements, providing the baseline requested in the next-steps document.
 
