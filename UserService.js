@@ -1918,6 +1918,75 @@ function attachIdentityMetadata_(target, fieldMap) {
   return output;
 }
 
+let identityInfrastructureEnsured = false;
+
+function ensureIdentityInfrastructure_(options) {
+  if (typeof IdentityService === 'undefined' || !IdentityService) return null;
+  if (typeof IdentityService.ensureInfrastructure !== 'function') return null;
+  if (identityInfrastructureEnsured && !(options && options.force)) return null;
+  try {
+    const result = IdentityService.ensureInfrastructure(Object.assign({ source: 'UserService' }, options || {}));
+    identityInfrastructureEnsured = true;
+    return result;
+  } catch (err) {
+    identityInfrastructureEnsured = false;
+    try { writeError && writeError('ensureIdentityInfrastructure_', err); } catch (_) { }
+    return null;
+  }
+}
+
+function logIdentityEvent_(eventType, payload) {
+  if (typeof IdentityService === 'undefined' || !IdentityService) return null;
+  if (typeof IdentityService.logIdentityEvent !== 'function') return null;
+  const type = String(eventType || '').trim() || 'USER_IDENTITY_EVENT';
+  try {
+    const safePayload = Object.assign({ source: 'UserService' }, payload || {});
+    return IdentityService.logIdentityEvent(type, safePayload);
+  } catch (err) {
+    try { writeError && writeError('logIdentityEvent_', err); } catch (_) { }
+    return null;
+  }
+}
+
+function synchronizeIdentityForUser_(userRecord, options) {
+  if (!userRecord || typeof userRecord !== 'object') return null;
+  if (typeof IdentityService === 'undefined' || !IdentityService) return null;
+
+  const opts = options || {};
+  try { ensureIdentityInfrastructure_(); } catch (_) { }
+
+  let identity = null;
+  let summary = null;
+  let evaluation = null;
+
+  try {
+    if (typeof IdentityService.buildIdentityStateFromUser === 'function') {
+      identity = IdentityService.buildIdentityStateFromUser(userRecord);
+    }
+    if (identity && typeof IdentityService.summarizeIdentityForClient === 'function') {
+      summary = IdentityService.summarizeIdentityForClient(identity);
+    }
+    if (identity && typeof IdentityService.evaluateIdentityForAuthentication === 'function') {
+      evaluation = IdentityService.evaluateIdentityForAuthentication(identity);
+    }
+  } catch (identityErr) {
+    try { writeError && writeError('synchronizeIdentityForUser_:identity', identityErr); } catch (_) { }
+  }
+
+  if (opts.logEvent !== false) {
+    const eventType = opts.eventType || 'USER_IDENTITY_SYNCED';
+    const logPayload = Object.assign({
+      identity,
+      summary,
+      evaluation,
+      user: userRecord
+    }, opts.logPayload || {});
+    try { logIdentityEvent_(eventType, logPayload); } catch (_) { }
+  }
+
+  return { identity, summary, evaluation };
+}
+
 function ensureOptionalUserColumns_(sh, headers, idx, values) {
   if (!sh || typeof sh.getRange !== 'function') {
     return { headers, idx: idx || {}, values, changed: false };
@@ -2865,6 +2934,9 @@ function clientRegisterUser(userData) {
     headers = ensured.headers;
     idx = ensured.idx;
     values = ensured.values || values;
+    try { ensureIdentityInfrastructure_({ reason: 'clientRegisterUser' }); } catch (infraErr) {
+      try { writeError && writeError('clientRegisterUser.ensureIdentity', infraErr); } catch (_) { }
+    }
     const users = _readUsersAsObjects_();
     const uniq = _buildUniqIndexes_(users);
 
@@ -2965,6 +3037,23 @@ function clientRegisterUser(userData) {
         sh.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
 
         try {
+          const mergedIdentity = synchronizeIdentityForUser_(Object.assign({}, existing, merged), {
+            eventType: 'USER_REGISTERED_MERGED',
+            logPayload: {
+              userId: existing.ID,
+              mode: 'merge',
+              sourceEvent: 'clientRegisterUser'
+            }
+          });
+          _userLog_('[clientRegisterUser] identity synchronized (merge)', {
+            userId: existing.ID,
+            identitySummary: mergedIdentity && mergedIdentity.summary
+          });
+        } catch (identitySyncErr) {
+          try { writeError && writeError('clientRegisterUser:identitySyncMerge', identitySyncErr); } catch (_) { }
+        }
+
+        try {
           if (typeof invalidateCache === 'function') {
             _userLog_('[clientRegisterUser] cache invalidation start (merge)', { sheets: [G.USERS_SHEET] });
             invalidateCache(G.USERS_SHEET);
@@ -3058,6 +3147,23 @@ function clientRegisterUser(userData) {
     Object.keys(idx).forEach(header => { row[idx[header]] = (typeof newUser[header] !== 'undefined') ? newUser[header] : ''; });
     sh.appendRow(row);
     _userLog_('[clientRegisterUser] row appended', { userId: id, rowValues: row });
+
+    try {
+      const identitySync = synchronizeIdentityForUser_(newUser, {
+        eventType: 'USER_REGISTERED',
+        logPayload: {
+          userId: id,
+          mode: 'create',
+          sourceEvent: 'clientRegisterUser'
+        }
+      });
+      _userLog_('[clientRegisterUser] identity synchronized', {
+        userId: id,
+        identitySummary: identitySync && identitySync.summary
+      });
+    } catch (identityErr) {
+      try { writeError && writeError('clientRegisterUser:identitySync', identityErr); } catch (_) { }
+    }
 
     try {
       if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
@@ -3180,6 +3286,9 @@ function clientUpdateUser(userId, userData) {
     headers = ensured.headers;
     idx = ensured.idx;
     values = ensured.values || values;
+    try { ensureIdentityInfrastructure_({ reason: 'clientUpdateUser' }); } catch (infraErr) {
+      try { writeError && writeError('clientUpdateUser.ensureIdentity', infraErr); } catch (_) { }
+    }
     const users = _readUsersAsObjects_();
     const uniq = _buildUniqIndexes_(users);
 
@@ -3286,6 +3395,22 @@ function clientUpdateUser(userId, userData) {
     
     sh.getRange(rowIndex + 1, 1, 1, headers.length).setValues([row]);
     _userLog_('[clientUpdateUser] row updated', { userId, userName: data.userName, rowValues: row });
+
+    try {
+      const identitySync = synchronizeIdentityForUser_(Object.assign({}, current, updated), {
+        eventType: 'USER_UPDATED',
+        logPayload: {
+          userId,
+          sourceEvent: 'clientUpdateUser'
+        }
+      });
+      _userLog_('[clientUpdateUser] identity synchronized', {
+        userId,
+        identitySummary: identitySync && identitySync.summary
+      });
+    } catch (identityErr) {
+      try { writeError && writeError('clientUpdateUser:identitySync', identityErr); } catch (_) { }
+    }
 
     try {
       if (data.campaignId && data.permissionLevel && typeof setCampaignUserPermissions === 'function') {
