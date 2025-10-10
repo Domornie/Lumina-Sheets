@@ -50,6 +50,251 @@ const ACCESS = {
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
 
+function toArray(value) {
+  if (value === null || typeof value === 'undefined') {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice();
+  }
+
+  return [value];
+}
+
+function collectCandidateValues(container, keys) {
+  const collected = [];
+  if (!container || !keys || !keys.length) {
+    return collected;
+  }
+
+  const list = Array.isArray(keys) ? keys : [keys];
+
+  list.forEach(function(key) {
+    if (!key) {
+      return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(container, key)) {
+      collected.push(container[key]);
+    }
+  });
+
+  return collected;
+}
+
+function normalizeParameterKeys(key) {
+  if (!key) {
+    return [];
+  }
+
+  const trimmed = String(key).trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const lower = trimmed.toLowerCase();
+  const upper = trimmed.toUpperCase();
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+
+  const variants = [trimmed];
+
+  if (variants.indexOf(lower) === -1) variants.push(lower);
+  if (variants.indexOf(upper) === -1) variants.push(upper);
+  if (variants.indexOf(capitalized) === -1) variants.push(capitalized);
+
+  return variants;
+}
+
+function getFirstParameterValue(e, key) {
+  if (!e || !key) {
+    return '';
+  }
+
+  const variants = normalizeParameterKeys(key);
+
+  for (let i = 0; i < variants.length; i += 1) {
+    const variant = variants[i];
+    if (!variant) {
+      continue;
+    }
+
+    const parameterContainers = [];
+    if (e.parameter) {
+      parameterContainers.push(e.parameter);
+    }
+    if (e.parameters) {
+      parameterContainers.push(e.parameters);
+    }
+
+    for (let j = 0; j < parameterContainers.length; j += 1) {
+      const container = parameterContainers[j];
+      if (!container || !Object.prototype.hasOwnProperty.call(container, variant)) {
+        continue;
+      }
+
+      const rawValue = container[variant];
+      const values = toArray(rawValue);
+      for (let k = 0; k < values.length; k += 1) {
+        const value = values[k];
+        if (value || value === 0) {
+          const normalized = String(value).trim();
+          if (normalized) {
+            return normalized;
+          }
+        }
+      }
+    }
+  }
+
+  return '';
+}
+
+function gatherCookieStringsFromRequest(e) {
+  if (!e) {
+    return [];
+  }
+
+  const cookieKeys = ['cookie', 'Cookie', 'cookies', 'Cookies', 'httpCookie', 'HttpCookie', 'http_cookie', 'HTTP_COOKIE'];
+  const sources = [];
+
+  function pushCandidate(candidate) {
+    if (candidate === null || typeof candidate === 'undefined') {
+      return;
+    }
+
+    if (Array.isArray(candidate)) {
+      candidate.forEach(pushCandidate);
+      return;
+    }
+
+    if (typeof candidate === 'object') {
+      if (Object.prototype.hasOwnProperty.call(candidate, 'toString') && candidate.toString !== Object.prototype.toString) {
+        const stringified = candidate.toString();
+        if (stringified) {
+          sources.push(String(stringified));
+        }
+        return;
+      }
+    }
+
+    const value = String(candidate);
+    if (value) {
+      sources.push(value);
+    }
+  }
+
+  const containers = [e.parameter, e.parameters, e.headers];
+  if (e.context && e.context.headers) {
+    containers.push(e.context.headers);
+  }
+
+  containers.forEach(function(container) {
+    if (!container) {
+      return;
+    }
+    const candidates = collectCandidateValues(container, cookieKeys);
+    candidates.forEach(pushCandidate);
+  });
+
+  return sources;
+}
+
+function parseCookiesFromStrings(strings) {
+  const cookies = {};
+
+  strings.forEach(function(raw) {
+    if (!raw && raw !== 0) {
+      return;
+    }
+
+    String(raw).split(';').forEach(function(segment) {
+      const part = segment ? segment.trim() : '';
+      if (!part) {
+        return;
+      }
+
+      const equalsIndex = part.indexOf('=');
+      if (equalsIndex === -1) {
+        return;
+      }
+
+      const name = part.slice(0, equalsIndex).trim();
+      if (!name) {
+        return;
+      }
+
+      let value = part.slice(equalsIndex + 1).trim();
+      if (!value && value !== '') {
+        return;
+      }
+
+      if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
+        value = value.slice(1, -1);
+      }
+
+      try {
+        value = decodeURIComponent(value);
+      } catch (decodeErr) {
+        // Ignore malformed encoding
+      }
+
+      cookies[name] = value;
+      const lower = name.toLowerCase();
+      if (!Object.prototype.hasOwnProperty.call(cookies, lower)) {
+        cookies[lower] = value;
+      }
+    });
+  });
+
+  return cookies;
+}
+
+function getRequestCookie(e, name) {
+  if (!name) {
+    return '';
+  }
+
+  const sources = gatherCookieStringsFromRequest(e);
+  if (!sources.length) {
+    return '';
+  }
+
+  const cookies = parseCookiesFromStrings(sources);
+  if (!cookies) {
+    return '';
+  }
+
+  const direct = cookies[name];
+  if (direct || direct === '') {
+    return String(direct);
+  }
+
+  const lower = String(name).toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(cookies, lower)) {
+    return String(cookies[lower]);
+  }
+
+  return '';
+}
+
+function extractSessionTokenFromRequest(e) {
+  const directToken = getFirstParameterValue(e, 'token')
+    || getFirstParameterValue(e, 'sessionToken')
+    || getFirstParameterValue(e, 'authToken');
+
+  if (directToken) {
+    return directToken;
+  }
+
+  const cookieToken = getRequestCookie(e, 'authToken');
+  if (cookieToken) {
+    return String(cookieToken).trim();
+  }
+
+  return '';
+}
+
 function getCanonicalUserSummaryColumns() {
   try {
     const headers = (typeof getCanonicalUserHeaders === 'function')
@@ -1186,7 +1431,7 @@ function getCurrentUser() {
 function authenticateUser(e) {
   try {
     // First check if there's a token parameter
-    const token = e.parameter.token;
+    const token = extractSessionTokenFromRequest(e);
     if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
       const user = AuthenticationService.getSessionUser(token);
       if (user) {
@@ -1685,7 +1930,7 @@ function buildLoginPageUrl(options) {
 
 function handleLogoutRequest(e) {
   try {
-    var token = (e && e.parameter && e.parameter.token) ? String(e.parameter.token) : '';
+    var token = extractSessionTokenFromRequest(e);
 
     try {
       if (typeof AuthenticationService !== 'undefined'

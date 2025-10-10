@@ -606,7 +606,20 @@ function createSecurityBlockedPage(url, reason) {
  */
 function getUserIdFromRequest(e) {
     try {
-        const token = e.parameter.token || '';
+        var token = '';
+        try {
+            if (typeof extractSessionTokenFromRequest === 'function') {
+                token = extractSessionTokenFromRequest(e);
+            }
+        } catch (helperError) {
+            // Ignore helper failures and fall back to direct parameter lookup
+            token = '';
+        }
+
+        if (!token) {
+            token = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
+        }
+
         if (token && typeof AuthenticationService !== 'undefined') {
             const user = AuthenticationService.validateToken(token);
             return user ? (user.ID || user.id || 'anonymous') : 'anonymous';
