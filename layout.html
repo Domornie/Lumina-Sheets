@@ -1312,27 +1312,10 @@
       const tokenParam = (typeof options.paramName === 'string' && options.paramName.trim())
         ? options.paramName.trim()
         : (SESSION_TOKEN_QUERY_PARAM || 'token');
-      const sessionToken = resolveClientSessionToken(options.token);
+      const includeTokenInUrl = options && options.includeTokenInUrl === true;
+      const sessionToken = includeTokenInUrl ? resolveClientSessionToken(options.token) : '';
 
-      try {
-        const base = (typeof window !== 'undefined' && window.location) ? window.location.href : undefined;
-        const parsed = new URL(raw, base);
-
-        if (options.sameOriginOnly !== false && parsed.origin && !isAllowedTokenOrigin(parsed.origin)) {
-          return url;
-        }
-
-        const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
-        variants.forEach(key => {
-          if (key && parsed.searchParams.has(key)) {
-            parsed.searchParams.delete(key);
-          }
-        });
-
-        if (sessionToken) {
-          parsed.searchParams.set(tokenParam, sessionToken);
-        }
-
+      const serializeUrl = parsed => {
         if (raw.startsWith('?')) {
           return (parsed.search || '') + (parsed.hash || '');
         }
@@ -1342,6 +1325,30 @@
         }
 
         return parsed.toString();
+      };
+
+      try {
+        const base = (typeof window !== 'undefined' && window.location) ? window.location.href : undefined;
+        const parsed = new URL(raw, base);
+
+        const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
+        variants.forEach(key => {
+          if (key && parsed.searchParams.has(key)) {
+            parsed.searchParams.delete(key);
+          }
+        });
+
+        const sanitizedResult = serializeUrl(parsed);
+
+        if (options.sameOriginOnly !== false && parsed.origin && !isAllowedTokenOrigin(parsed.origin)) {
+          return sanitizedResult;
+        }
+
+        if (includeTokenInUrl && sessionToken) {
+          parsed.searchParams.set(tokenParam, sessionToken);
+        }
+
+        return includeTokenInUrl && sessionToken ? serializeUrl(parsed) : sanitizedResult;
       } catch (error) {
         console.warn('appendSessionTokenToUrl: unable to update redirect URL', { url, error });
         return url;

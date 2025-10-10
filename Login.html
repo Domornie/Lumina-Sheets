@@ -2810,7 +2810,7 @@
       return url;
     }
 
-    function appendSessionTokenToUrl(url) {
+    function appendSessionTokenToUrl(url, options = {}) {
       if (!url) {
         return url;
       }
@@ -2820,15 +2820,12 @@
         return url;
       }
 
-      const sessionToken = resolveSessionTokenForRedirect();
+      const includeTokenInUrl = options && options.includeTokenInUrl === true;
+      const sessionToken = includeTokenInUrl ? resolveSessionTokenForRedirect() : '';
 
       try {
         const base = window.location && window.location.href ? window.location.href : undefined;
         const parsed = new URL(raw, base);
-
-        if (!isAllowedRedirectOrigin(parsed.origin)) {
-          return stripTokenFromUrl(url);
-        }
 
         const tokenParam = SESSION_TOKEN_QUERY_PARAM || 'token';
         const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
@@ -2838,19 +2835,39 @@
           }
         });
 
-        if (sessionToken) {
+        const sanitizedResult = (function serialize(parsedUrl) {
+          if (raw.startsWith('?')) {
+            return (parsedUrl.search || '') + (parsedUrl.hash || '');
+          }
+
+          if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
+            return parsedUrl.pathname + (parsedUrl.search || '') + (parsedUrl.hash || '');
+          }
+
+          return parsedUrl.toString();
+        })(parsed);
+
+        if (!isAllowedRedirectOrigin(parsed.origin)) {
+          return sanitizedResult;
+        }
+
+        if (includeTokenInUrl && sessionToken) {
           parsed.searchParams.set(tokenParam, sessionToken);
         }
 
-        if (raw.startsWith('?')) {
-          return (parsed.search || '') + (parsed.hash || '');
+        if (includeTokenInUrl && sessionToken) {
+          if (raw.startsWith('?')) {
+            return (parsed.search || '') + (parsed.hash || '');
+          }
+
+          if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
+            return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
+          }
+
+          return parsed.toString();
         }
 
-        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
-          return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
-        }
-
-        return parsed.toString();
+        return sanitizedResult;
       } catch (error) {
         console.warn('appendSessionTokenToUrl: Unable to append session token to redirect URL', error);
         return url;
