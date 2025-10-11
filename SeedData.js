@@ -21,20 +21,132 @@ const SEED_ROLE_NAMES = [
 ];
 
 const SEED_CAMPAIGNS = [
-  { name: 'Lumina HQ', description: 'Lumina internal operations workspace' },
-  { name: 'Credit Suite', description: 'Credit Suite operations campaign' },
-  { name: 'HiyaCar', description: 'HiyaCar mobility support campaign' },
-  { name: 'Benefits Resource Center (iBTR)', description: 'Benefits Resource Center member services' },
-  { name: 'Independence Insurance Agency', description: 'Independence Insurance Agency customer care' },
-  { name: 'JSC', description: 'JSC customer success campaign' },
-  { name: 'Kids in the Game', description: 'Kids in the Game coaching support' },
-  { name: 'Kofi Group', description: 'Kofi Group recruiting operations' },
-  { name: 'PAW Law Firm', description: 'PAW Law Firm client services' },
-  { name: 'Pro House Photos', description: 'Pro House Photos client success' },
-  { name: 'Independence Agency & Credit Suite', description: 'Independence Agency & Credit Suite blended operations' },
-  { name: 'Proozy', description: 'Proozy ecommerce support' },
-  { name: 'The Grounding', description: 'The Grounding campaign (TGC)' },
-  { name: 'CO', description: 'CO services campaign' }
+  {
+    name: 'Lumina HQ',
+    description: 'Lumina internal operations workspace',
+    clientName: 'Lumina',
+    status: 'Active',
+    channel: 'Operations',
+    timezone: 'America/New_York',
+    slaTier: 'Enterprise'
+  },
+  {
+    name: 'Credit Suite',
+    description: 'Credit Suite operations campaign',
+    clientName: 'Credit Suite',
+    status: 'Active',
+    channel: 'Financial Services',
+    timezone: 'America/New_York',
+    slaTier: 'Gold'
+  },
+  {
+    name: 'HiyaCar',
+    description: 'HiyaCar mobility support campaign',
+    clientName: 'HiyaCar',
+    status: 'Active',
+    channel: 'Mobility',
+    timezone: 'Europe/London',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'Benefits Resource Center (iBTR)',
+    description: 'Benefits Resource Center member services',
+    clientName: 'Benefits Resource Center',
+    status: 'Active',
+    channel: 'Benefits Support',
+    timezone: 'America/Chicago',
+    slaTier: 'Gold'
+  },
+  {
+    name: 'Independence Insurance Agency',
+    description: 'Independence Insurance Agency customer care',
+    clientName: 'Independence Insurance Agency',
+    status: 'Active',
+    channel: 'Insurance',
+    timezone: 'America/New_York',
+    slaTier: 'Gold'
+  },
+  {
+    name: 'JSC',
+    description: 'JSC customer success campaign',
+    clientName: 'JSC',
+    status: 'Active',
+    channel: 'Customer Success',
+    timezone: 'America/New_York',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'Kids in the Game',
+    description: 'Kids in the Game coaching support',
+    clientName: 'Kids in the Game',
+    status: 'Active',
+    channel: 'Coaching Support',
+    timezone: 'America/New_York',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'Kofi Group',
+    description: 'Kofi Group recruiting operations',
+    clientName: 'Kofi Group',
+    status: 'Active',
+    channel: 'Recruiting',
+    timezone: 'America/Chicago',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'PAW Law Firm',
+    description: 'PAW Law Firm client services',
+    clientName: 'PAW Law Firm',
+    status: 'Active',
+    channel: 'Legal Services',
+    timezone: 'America/New_York',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'Pro House Photos',
+    description: 'Pro House Photos client success',
+    clientName: 'Pro House Photos',
+    status: 'Active',
+    channel: 'Real Estate',
+    timezone: 'America/Chicago',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'Independence Agency & Credit Suite',
+    description: 'Independence Agency & Credit Suite blended operations',
+    clientName: 'Independence Agency & Credit Suite',
+    status: 'Active',
+    channel: 'Blended Operations',
+    timezone: 'America/New_York',
+    slaTier: 'Gold'
+  },
+  {
+    name: 'Proozy',
+    description: 'Proozy ecommerce support',
+    clientName: 'Proozy',
+    status: 'Active',
+    channel: 'Ecommerce',
+    timezone: 'America/Chicago',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'The Grounding',
+    description: 'The Grounding campaign (TGC)',
+    clientName: 'The Grounding Company',
+    status: 'Active',
+    channel: 'Wellness',
+    timezone: 'America/Los_Angeles',
+    slaTier: 'Standard'
+  },
+  {
+    name: 'CO',
+    description: 'CO services campaign',
+    clientName: 'CO',
+    status: 'Active',
+    channel: 'Operations',
+    timezone: 'America/New_York',
+    slaTier: 'Standard'
+  }
 ];
 
 const SEED_LUMINA_ADMIN_PROFILE = {
@@ -81,7 +193,7 @@ const PASSWORD_UTILS = (function resolvePasswordUtilities() {
 function seedDefaultData() {
   const summary = {
     roles: { created: [], existing: [] },
-    campaigns: { created: [], existing: [] },
+    campaigns: { created: [], updated: [], existing: [], errors: [] },
     systemPages: { initialized: false, added: 0, updated: 0, total: 0 },
     navigation: {},
     luminaAdmin: null
@@ -176,12 +288,34 @@ function ensureCoreRoles(summary) {
  * @returns {Object} Map of campaign name -> campaignId
  */
 function ensureCoreCampaigns(summary) {
-  const existing = getCampaignsIndex();
+  const existingRecords = loadCampaignSeedRecords();
+  const existingIndex = {};
 
-  SEED_CAMPAIGNS.forEach(campaign => {
-    const key = campaign.name.toLowerCase();
-    if (existing[key]) {
-      summary.campaigns.existing.push(campaign.name);
+  existingRecords.forEach(record => {
+    const normalized = normalizeKey(record.name);
+    if (normalized && !existingIndex[normalized]) {
+      existingIndex[normalized] = record;
+    }
+  });
+
+  SEED_CAMPAIGNS.forEach(seedDefinition => {
+    const desired = normalizeCampaignSeedDefinition(seedDefinition);
+    const normalizedName = normalizeKey(desired.name);
+    if (!normalizedName) {
+      return;
+    }
+
+    const existing = existingIndex[normalizedName];
+    if (existing && existing.id) {
+      summary.campaigns.existing.push(desired.name);
+      const syncResult = synchronizeCampaignSeed(existing, desired);
+      if (syncResult.updated) {
+        summary.campaigns.updated.push(desired.name);
+      }
+      if (syncResult.error) {
+        if (!summary.campaigns.errors) summary.campaigns.errors = [];
+        summary.campaigns.errors.push({ name: desired.name, error: syncResult.error });
+      }
       return;
     }
 
@@ -189,17 +323,200 @@ function ensureCoreCampaigns(summary) {
       throw new Error('CampaignService.csCreateCampaign is not available');
     }
 
-    const result = csCreateCampaign(campaign.name, campaign.description || '');
+    const creationOptions = {
+      clientName: desired.clientName,
+      status: desired.status,
+      channel: desired.channel,
+      timezone: desired.timezone,
+      slaTier: desired.slaTier,
+      deletedAt: desired.deletedAt
+    };
+
+    const result = csCreateCampaign(desired.name, desired.description || '', creationOptions);
     if (result && result.success) {
-      summary.campaigns.created.push(campaign.name);
+      summary.campaigns.created.push(desired.name);
     } else {
-      // Treat duplicates as existing so re-runs stay idempotent.
-      summary.campaigns.existing.push(campaign.name);
+      const errorMessage = result && result.error ? result.error : 'Unknown campaign creation error';
+      if (/already exists/i.test(errorMessage)) {
+        summary.campaigns.existing.push(desired.name);
+      } else {
+        summary.campaigns.existing.push(desired.name);
+        if (!summary.campaigns.errors) summary.campaigns.errors = [];
+        summary.campaigns.errors.push({ name: desired.name, error: errorMessage });
+      }
     }
   });
 
   // Refresh to pick up any IDs assigned during creation.
   return getCampaignsIndex(true);
+}
+
+function normalizeCampaignSeedDefinition(definition) {
+  const name = definition && definition.name ? String(definition.name).trim() : '';
+  const description = definition && definition.description ? String(definition.description).trim() : '';
+  const clientName = definition && definition.clientName ? String(definition.clientName).trim() : name;
+  const status = definition && definition.status ? String(definition.status).trim() : 'Active';
+  const channel = definition && definition.channel ? String(definition.channel).trim() : 'Operations';
+  const timezone = definition && definition.timezone ? String(definition.timezone).trim() : 'UTC';
+  const slaTier = definition && definition.slaTier ? String(definition.slaTier).trim() : 'Standard';
+  const deletedAt = definition && Object.prototype.hasOwnProperty.call(definition, 'deletedAt')
+    ? (definition.deletedAt || '')
+    : '';
+
+  return { name, description, clientName, status, channel, timezone, slaTier, deletedAt };
+}
+
+function loadCampaignSeedRecords() {
+  if (typeof readSheet !== 'function') {
+    return [];
+  }
+
+  const rows = readSheet(CAMPAIGNS_SHEET) || [];
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  return rows.map(projectCampaignRow).filter(record => record.name);
+}
+
+function projectCampaignRow(row) {
+  const record = row || {};
+  return {
+    id: record.ID || record.Id || record.id || '',
+    name: record.Name || record.name || '',
+    description: record.Description || record.description || '',
+    clientName: record.ClientName || record.clientName || '',
+    status: record.Status || record.status || '',
+    channel: record.Channel || record.channel || '',
+    timezone: record.Timezone || record.timezone || '',
+    slaTier: record.SlaTier || record.slaTier || '',
+    createdAt: record.CreatedAt || record.createdAt || record.Created || '',
+    updatedAt: record.UpdatedAt || record.updatedAt || record.Updated || '',
+    deletedAt: record.DeletedAt || record.deletedAt || ''
+  };
+}
+
+function synchronizeCampaignSeed(existing, desired) {
+  const updates = {};
+
+  if (!valuesEqual(existing.description, desired.description)) {
+    updates.Description = desired.description || '';
+  }
+  if (!valuesEqual(existing.clientName, desired.clientName)) {
+    updates.ClientName = desired.clientName || '';
+  }
+  if (!valuesEqual(existing.status, desired.status)) {
+    updates.Status = desired.status || '';
+  }
+  if (!valuesEqual(existing.channel, desired.channel)) {
+    updates.Channel = desired.channel || '';
+  }
+  if (!valuesEqual(existing.timezone, desired.timezone)) {
+    updates.Timezone = desired.timezone || '';
+  }
+  if (!valuesEqual(existing.slaTier, desired.slaTier)) {
+    updates.SlaTier = desired.slaTier || '';
+  }
+  if (!valuesEqual(existing.deletedAt, desired.deletedAt)) {
+    updates.DeletedAt = desired.deletedAt || '';
+  }
+
+  if (!existing.createdAt) {
+    updates.CreatedAt = existing.updatedAt || new Date();
+  }
+
+  if (!Object.keys(updates).length) {
+    return { updated: false };
+  }
+
+  updates.UpdatedAt = new Date();
+
+  const applyResult = applyCampaignUpdates(existing.id, updates);
+  if (!applyResult.success) {
+    return { updated: false, error: applyResult.error || 'Failed to update campaign metadata.' };
+  }
+
+  return { updated: true };
+}
+
+function valuesEqual(a, b) {
+  const normalizedA = normalizeCampaignValue(a);
+  const normalizedB = normalizeCampaignValue(b);
+  return normalizedA === normalizedB;
+}
+
+function normalizeCampaignValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const stringValue = String(value).trim();
+  return stringValue;
+}
+
+function applyCampaignUpdates(campaignId, updates) {
+  if (!campaignId) {
+    return { success: false, error: 'Campaign ID is required for updates.' };
+  }
+
+  if (!updates || !Object.keys(updates).length) {
+    return { success: true, updated: false };
+  }
+
+  if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || !SpreadsheetApp.getActiveSpreadsheet) {
+    return { success: false, error: 'SpreadsheetApp is not available.' };
+  }
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CAMPAIGNS_SHEET);
+  if (!sheet) {
+    return { success: false, error: 'Campaigns sheet not found.' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) {
+    return { success: false, error: 'Campaigns data is empty.' };
+  }
+
+  const headers = data[0];
+  const idIndex = headers.indexOf('ID');
+  if (idIndex === -1) {
+    return { success: false, error: 'Campaigns sheet is missing an ID column.' };
+  }
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+    if (String(data[rowIndex][idIndex]) !== String(campaignId)) {
+      continue;
+    }
+
+    Object.keys(updates).forEach(columnName => {
+      const columnIndex = headers.indexOf(columnName);
+      if (columnIndex === -1) {
+        return;
+      }
+      sheet.getRange(rowIndex + 1, columnIndex + 1).setValue(updates[columnName]);
+    });
+
+    if (!Object.prototype.hasOwnProperty.call(updates, 'UpdatedAt')) {
+      const updatedIndex = headers.indexOf('UpdatedAt');
+      if (updatedIndex !== -1) {
+        sheet.getRange(rowIndex + 1, updatedIndex + 1).setValue(new Date());
+      }
+    }
+
+    if (typeof commitChanges === 'function') {
+      commitChanges();
+    }
+
+    if (typeof clearCampaignCaches === 'function') {
+      clearCampaignCaches(campaignId);
+    }
+
+    return { success: true, updated: true };
+  }
+
+  return { success: false, error: 'Campaign row not found for updates.' };
 }
 
 /**
