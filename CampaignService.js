@@ -659,7 +659,7 @@ function csGetCampaignStats() {
 /**
  * Create new campaign
  */
-function csCreateCampaign(name, description = '') {
+function csCreateCampaign(name, description = '', options = {}) {
   try {
     if (!name || !name.trim()) {
       return { success: false, error: 'Campaign name is required' };
@@ -667,6 +667,7 @@ function csCreateCampaign(name, description = '') {
 
     name = name.trim();
     description = (description || '').trim();
+    const metadata = normalizeCampaignCreationMetadata(name, options);
 
     // Check for duplicates
     const existing = readSheet(CAMPAIGNS_SHEET) || [];
@@ -681,9 +682,23 @@ function csCreateCampaign(name, description = '') {
     return safeSheetOperation(() => {
       const campaignId = Utilities.getUuid();
       const now = new Date();
+      const createdAt = metadata.createdAt || now;
+      const updatedAt = metadata.updatedAt || now;
       const sheet = ensureSheetWithHeaders(CAMPAIGNS_SHEET, CAMPAIGNS_HEADERS);
 
-      sheet.appendRow([campaignId, name, description, now, now]);
+      sheet.appendRow([
+        campaignId,
+        name,
+        description,
+        metadata.clientName,
+        metadata.status,
+        metadata.channel,
+        metadata.timezone,
+        metadata.slaTier,
+        createdAt,
+        updatedAt,
+        metadata.deletedAt
+      ]);
       commitChanges();
 
       // Clear caches
@@ -697,8 +712,14 @@ function csCreateCampaign(name, description = '') {
           id: campaignId,
           name: name,
           description: description,
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString()
+          clientName: metadata.clientName,
+          status: metadata.status,
+          channel: metadata.channel,
+          timezone: metadata.timezone,
+          slaTier: metadata.slaTier,
+          createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt,
+          updatedAt: updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt,
+          deletedAt: metadata.deletedAt
         }
       };
     });
@@ -1583,7 +1604,7 @@ function deleteRowsByColumnValue(sheetName, columnName, value) {
 // Maintain compatibility with existing frontend code
 function clientGetAllCampaigns() { return csGetAllCampaigns(); }
 function clientGetCampaignStats() { return csGetCampaignStats(); }
-function clientAddCampaign(name, description) { return csCreateCampaign(name, description); }
+function clientAddCampaign(name, description, options) { return csCreateCampaign(name, description, options); }
 function clientUpdateCampaign(id, name, description) { return csUpdateCampaign(id, name, description); }
 function clientDeleteCampaign(id) { return csDeleteCampaign(id); }
 function clientGetAllPages() { return csGetAllPages(); }
@@ -1707,4 +1728,32 @@ function forceClearAllCaches(campaignId) {
     console.error('Error clearing caches:', error);
     return { success: false, error: error.message };
   }
+}
+
+function normalizeCampaignCreationMetadata(name, options) {
+  const safeOptions = options && typeof options === 'object' ? options : {};
+  const metadata = {
+    clientName: safeOptions.clientName ? String(safeOptions.clientName).trim() : name,
+    status: safeOptions.status ? String(safeOptions.status).trim() : 'Active',
+    channel: safeOptions.channel ? String(safeOptions.channel).trim() : 'Operations',
+    timezone: safeOptions.timezone ? String(safeOptions.timezone).trim() : 'UTC',
+    slaTier: safeOptions.slaTier ? String(safeOptions.slaTier).trim() : 'Standard',
+    deletedAt: safeOptions.deletedAt ? String(safeOptions.deletedAt).trim() : ''
+  };
+
+  metadata.createdAt = coerceCampaignDateValue(safeOptions.createdAt);
+  metadata.updatedAt = coerceCampaignDateValue(safeOptions.updatedAt);
+
+  return metadata;
+}
+
+function coerceCampaignDateValue(value) {
+  if (!value && value !== 0) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
