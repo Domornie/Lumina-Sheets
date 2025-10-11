@@ -180,6 +180,75 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
   ]
 };
 
+const DEFAULT_USER_HEADERS_FALLBACK = [
+  "ID",
+  "UserName",
+  "FullName",
+  "Email",
+  "CampaignID",
+  "PasswordHash",
+  "PasswordHashFormat",
+  "PasswordHashHex",
+  "PasswordHashBase64",
+  "PasswordHashBase64WebSafe",
+  "PasswordHashAlgorithm",
+  "ResetRequired",
+  "EmailConfirmation",
+  "EmailConfirmed",
+  "PhoneNumber",
+  "EmploymentStatus",
+  "HireDate",
+  "Country",
+  "LockoutEnd",
+  "TwoFactorEnabled",
+  "CanLogin",
+  "Roles",
+  "Pages",
+  "CreatedAt",
+  "UpdatedAt",
+  "IsAdmin",
+  "NormalizedUserName",
+  "NormalizedEmail",
+  "PhoneNumberConfirmed",
+  "LockoutEnabled",
+  "AccessFailedCount",
+  "TwoFactorDelivery",
+  "TwoFactorSecret",
+  "TwoFactorRecoveryCodes",
+  "SecurityStamp",
+  "ConcurrencyStamp",
+  "EmailConfirmationTokenHash",
+  "EmailConfirmationSentAt",
+  "EmailConfirmationExpiresAt",
+  "ResetPasswordToken",
+  "ResetPasswordTokenHash",
+  "ResetPasswordSentAt",
+  "ResetPasswordExpiresAt",
+  "ActiveSessionCount",
+  "SessionIdleTimeout",
+  "SessionExpiry",
+  "LastLogin",
+  "LastLoginAt",
+  "LastLoginIp",
+  "LastLoginUserAgent",
+  "DeletedAt",
+  "TerminationDate",
+  "ProbationMonths",
+  "ProbationEnd",
+  "ProbationEndDate",
+  "InsuranceEligibleDate",
+  "InsuranceQualifiedDate",
+  "InsuranceEligible",
+  "InsuranceQualified",
+  "InsuranceEnrolled",
+  "InsuranceSignedUp",
+  "InsuranceCardReceivedDate",
+  "MFASecret",
+  "MFABackupCodes",
+  "MFADeliveryPreference",
+  "MFAEnabled"
+];
+
 function flattenIdentityHeaders_(groups) {
   const seen = new Set();
   const flattened = [];
@@ -295,6 +364,10 @@ if (typeof USERS_HEADERS === 'undefined') {
       'MFAEnabled'
     ]
   });
+
+  if (!Array.isArray(USERS_HEADERS) || USERS_HEADERS.length === 0) {
+    USERS_HEADERS = DEFAULT_USER_HEADERS_FALLBACK.slice();
+  }
 }
 
 if (typeof getCanonicalUserHeaders !== 'function') {
@@ -319,71 +392,7 @@ if (typeof getCanonicalUserHeaders !== 'function') {
       return USERS_HEADERS.slice();
     }
 
-    return [
-      "ID",
-      "UserName",
-      "FullName",
-      "Email",
-      "CampaignID",
-      "PasswordHash",
-      "PasswordHashFormat",
-      "PasswordHashHex",
-      "PasswordHashBase64",
-      "PasswordHashBase64WebSafe",
-      "PasswordHashAlgorithm",
-      "ResetRequired",
-      "EmailConfirmation",
-      "EmailConfirmed",
-      "PhoneNumber",
-      "EmploymentStatus",
-      "HireDate",
-      "Country",
-      "LockoutEnd",
-      "TwoFactorEnabled",
-      "CanLogin",
-      "Roles",
-      "Pages",
-      "CreatedAt",
-      "UpdatedAt",
-      "IsAdmin",
-      "NormalizedUserName",
-      "NormalizedEmail",
-      "PhoneNumberConfirmed",
-      "LockoutEnabled",
-      "AccessFailedCount",
-      "TwoFactorDelivery",
-      "TwoFactorSecret",
-      "TwoFactorRecoveryCodes",
-      "SecurityStamp",
-      "ConcurrencyStamp",
-      "EmailConfirmationTokenHash",
-      "EmailConfirmationSentAt",
-      "EmailConfirmationExpiresAt",
-      "ResetPasswordToken",
-      "ResetPasswordTokenHash",
-      "ResetPasswordSentAt",
-      "ResetPasswordExpiresAt",
-      "LastLogin",
-      "LastLoginAt",
-      "LastLoginIp",
-      "LastLoginUserAgent",
-      "DeletedAt",
-      "TerminationDate",
-      "ProbationMonths",
-      "ProbationEnd",
-      "ProbationEndDate",
-      "InsuranceEligibleDate",
-      "InsuranceQualifiedDate",
-      "InsuranceEligible",
-      "InsuranceQualified",
-      "InsuranceEnrolled",
-      "InsuranceSignedUp",
-      "InsuranceCardReceivedDate",
-      "MFASecret",
-      "MFABackupCodes",
-      "MFADeliveryPreference",
-      "MFAEnabled"
-    ];
+    return DEFAULT_USER_HEADERS_FALLBACK.slice();
   }
 }
 
@@ -1719,7 +1728,7 @@ const __ensureSheetWithHeaders = (function () {
       }
       PropertiesService.getScriptProperties().setProperty(recursionGuardKey, 'active');
 
-      if (!headers || !Array.isArray(headers) || headers.some(h => !h || typeof h !== 'string')) {
+      if (!headers || !Array.isArray(headers) || headers.length === 0 || headers.some(h => !h || typeof h !== 'string')) {
         throw new Error('Invalid or empty headers provided');
       }
       const uniqueHeaders = new Set(headers);
