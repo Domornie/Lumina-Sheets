@@ -2356,6 +2356,7 @@ function getAllPagesFromActualRouting() {
     { key: 'notifications', title: 'Notifications', icon: 'fas fa-bell', description: 'System notifications and alerts', isSystem: true, requiresAdmin: false, category: 'Communication' },
 
     // ADMINISTRATION
+    { key: 'admincenter', title: 'Lumina Admin Center', icon: 'fas fa-solar-panel', description: 'AI-driven control plane for governance and automation', isSystem: true, requiresAdmin: true, category: 'Administration' },
     { key: 'manageuser', title: 'User Management', icon: 'fas fa-users-cog', description: 'Manage system users and permissions', isSystem: true, requiresAdmin: true, category: 'Administration' },
     { key: 'manageroles', title: 'Role Management', icon: 'fas fa-user-shield', description: 'Manage user roles and permissions', isSystem: true, requiresAdmin: true, category: 'Administration' },
     { key: 'managecampaign', title: 'Campaign Management', icon: 'fas fa-bullhorn', description: 'Manage campaigns and their configurations', isSystem: true, requiresAdmin: true, category: 'Administration' },

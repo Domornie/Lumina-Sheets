@@ -3475,6 +3475,14 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       });
     }
 
+    if (
+      page === 'admincenter' ||
+      page === 'lumina-admin' ||
+      page === 'admin-dashboard'
+    ) {
+      return serveAdminPage('AdminCenter', e, baseUrl, user);
+    }
+
     if (page === 'users' || page === 'manageuser') {
       return serveAdminPage('Users', e, baseUrl, user);
     }
