@@ -521,6 +521,12 @@
       const returnUrlEl = document.getElementById('returnUrl');
       const togglePasswordEl = document.getElementById('togglePassword');
 
+      function isGoogleScriptAvailable() {
+        return typeof google !== 'undefined'
+          && !!google.script
+          && !!google.script.run;
+      }
+
       const scriptUrl = <?!= JSON.stringify(scriptUrl || baseUrl || '') ?>;
       const baseUrl = <?!= JSON.stringify(baseUrl || '') ?>;
       const sessionTokenParam = <?!= JSON.stringify(sessionTokenParam || 'token') ?>;
@@ -735,6 +741,52 @@
         return '';
       }
 
+      function resolveOpenModeRedirect() {
+        const currentHref = (typeof window !== 'undefined' && window.location && window.location.href)
+          ? window.location.href
+          : '';
+        const candidates = [
+          returnUrlEl && returnUrlEl.value ? returnUrlEl.value.trim() : '',
+          scriptUrl,
+          baseUrl,
+          'Landing.html',
+          'Dashboard.html',
+          '/'
+        ];
+
+        for (let index = 0; index < candidates.length; index += 1) {
+          const candidate = candidates[index];
+          if (!candidate) {
+            continue;
+          }
+
+          let resolved = candidate;
+          if (currentHref) {
+            try {
+              resolved = new URL(candidate, currentHref).toString();
+            } catch (err) {
+              if (candidate && candidate.charAt(0) !== '/' && !/^https?:/i.test(candidate)) {
+                try {
+                  const base = new URL(currentHref);
+                  base.pathname = candidate;
+                  base.search = '';
+                  base.hash = '';
+                  resolved = base.toString();
+                } catch (_) { }
+              }
+            }
+          }
+
+          if (currentHref && resolved === currentHref) {
+            continue;
+          }
+
+          return resolved;
+        }
+
+        return currentHref || 'Landing.html';
+      }
+
       function attachTokenToUrl(url, token) {
         const param = sessionTokenParam || 'token';
         if (!token) {
@@ -787,6 +839,27 @@
         persistIdentitySnapshot(null);
         const text = (error && error.message) ? error.message : 'A network error occurred. Please try again.';
         showAlert(errorEl, text, 'danger');
+      }
+
+      function handleOpenModeAccess() {
+        const identifier = identifierEl && identifierEl.value ? identifierEl.value.trim() : '';
+        if (identifier) {
+          persistLastIdentifier(identifier);
+        }
+        if (rememberEl) {
+          persistRememberPreference(!!rememberEl.checked);
+        }
+
+        clearStoredSession();
+        persistIdentitySnapshot(null);
+        showAlert(errorEl, '', 'danger');
+        showAlert(messageEl, 'Lumina Identity is disabled in this open-source build. Redirecting to the workspace…', 'info');
+        setLoading(true);
+
+        const target = resolveOpenModeRedirect();
+        setTimeout(function () {
+          window.location.href = target;
+        }, 300);
       }
 
       function bootstrapFromExistingSession() {
@@ -845,6 +918,11 @@
           return;
         }
 
+        if (!isGoogleScriptAvailable()) {
+          handleOpenModeAccess();
+          return;
+        }
+
         showAlert(errorEl, '', 'danger');
         showAlert(messageEl, 'Signing you in…', 'info');
         setLoading(true);
@@ -895,6 +973,13 @@
       }
 
       bootstrapFromExistingSession();
+
+      if (!isGoogleScriptAvailable()) {
+        const existing = messageEl && messageEl.textContent ? messageEl.textContent.trim() : '';
+        const notice = 'Lumina Identity is disabled in this open-source build. Select “Log in” to continue directly to the workspace.';
+        const combined = existing ? existing + ' ' + notice : notice;
+        showAlert(messageEl, combined.trim(), 'info');
+      }
     })();
   </script>
 </body>
