@@ -30,6 +30,10 @@
       --transition: all 0.3s ease;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -41,6 +45,7 @@
       background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 45%, #ffffff 100%);
       min-height: 100vh;
       overflow-x: hidden;
+      transition: background 0.6s ease;
     }
 
     body::before,
@@ -55,11 +60,122 @@
       filter: blur(60px);
       opacity: 0.45;
       z-index: -1;
+      animation: ambientShift 22s ease-in-out infinite alternate;
     }
 
     body::after {
       inset: -12% -8% auto auto;
       background: radial-gradient(circle at center, rgba(29, 78, 216, 0.22), transparent 70%);
+      animation-delay: 6s;
+    }
+
+    @keyframes ambientShift {
+      0% {
+        transform: translate3d(-12px, 6px, 0) scale(0.98);
+        opacity: 0.38;
+      }
+      50% {
+        transform: translate3d(8px, -10px, 0) scale(1.05);
+        opacity: 0.58;
+      }
+      100% {
+        transform: translate3d(-6px, 14px, 0) scale(1.02);
+        opacity: 0.45;
+      }
+    }
+
+    @keyframes pulseGlow {
+      0%,
+      100% {
+        transform: scale(0.98);
+        opacity: 0.75;
+      }
+      50% {
+        transform: scale(1.02);
+        opacity: 1;
+      }
+    }
+
+    @keyframes float {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-12px);
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+      100% {
+        background-position: 200% 0;
+      }
+    }
+
+    @keyframes drift {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes orbitSpin {
+      0% {
+        transform: rotate(0deg) scale(1);
+      }
+      50% {
+        transform: rotate(180deg) scale(1.03);
+      }
+      100% {
+        transform: rotate(360deg) scale(1);
+      }
+    }
+
+    @keyframes orbitPulse {
+      0%,
+      100% {
+        transform: translate(-50%, -50%) scale(0.96);
+        opacity: 0.45;
+      }
+      50% {
+        transform: translate(-50%, -50%) scale(1.08);
+        opacity: 0.75;
+      }
+    }
+
+    .scroll-progress {
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: 4px;
+      background: linear-gradient(90deg, rgba(14, 165, 233, 0.95), rgba(37, 99, 235, 0.95));
+      transform-origin: left;
+      transform: scaleX(0);
+      box-shadow: 0 0 18px rgba(37, 99, 235, 0.45);
+      z-index: 120;
+      transition: transform 0.2s ease-out;
+    }
+
+    .cursor-glow {
+      position: fixed;
+      width: 220px;
+      height: 220px;
+      pointer-events: none;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(56, 189, 248, 0.4), rgba(14, 165, 233, 0));
+      mix-blend-mode: screen;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.35s ease, transform 0.12s ease-out;
+      z-index: 50;
+    }
+
+    .cursor-glow.is-active {
+      opacity: 0.4;
     }
 
     header {
@@ -160,6 +276,52 @@
     main {
       display: flex;
       flex-direction: column;
+      gap: 6rem;
+      padding-bottom: 6rem;
+    }
+
+    .preloader {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(29, 78, 216, 0.18), transparent 60%),
+        linear-gradient(135deg, #f8fbff 0%, #dbeafe 45%, #eff6ff 100%);
+      display: grid;
+      place-items: center;
+      z-index: 200;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+
+    .preloader.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .preloader-inner {
+      text-align: center;
+      display: grid;
+      gap: 1.2rem;
+      padding: 2.5rem 3rem;
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .loader-track {
+      height: 6px;
+      width: 220px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.25);
+      overflow: hidden;
+    }
+
+    .loader-indicator {
+      height: 100%;
+      width: 45%;
+      background: linear-gradient(90deg, rgba(29, 78, 216, 0.8), rgba(59, 130, 246, 0.9), rgba(6, 182, 212, 0.85));
+      background-size: 200% 100%;
+      animation: shimmer 1.2s linear infinite;
+      border-radius: inherit;
     }
 
     section {
@@ -175,30 +337,42 @@
     }
 
     .hero {
-      background: var(--gradient-blue);
+      position: relative;
+      background: radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.18), transparent 55%),
+        radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.2), transparent 62%),
+        linear-gradient(120deg, #0b1950 0%, #1d4ed8 48%, #1e293b 100%);
       color: var(--white);
-      padding-top: 7rem;
-      padding-bottom: 7.5rem;
+      padding-top: 8rem;
+      padding-bottom: 8rem;
       overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -25% -20% auto;
+      height: 520px;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.18), transparent 70%);
+      transform: rotate(12deg);
+      opacity: 0.65;
     }
 
     .hero::after {
       content: "";
       position: absolute;
-      top: 15%;
-      right: -8%;
-      width: 520px;
-      height: 520px;
-      background: radial-gradient(circle at center, rgba(56, 189, 248, 0.25), transparent 68%);
-      filter: blur(10px);
-      opacity: 0.7;
-      transform: rotate(-12deg);
+      inset: auto -15% -35% 45%;
+      width: 620px;
+      height: 620px;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.26), transparent 75%);
+      filter: blur(12px);
+      opacity: 0.6;
+      animation: drift 28s linear infinite;
     }
 
     .hero-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 3rem;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 3.2rem;
       align-items: center;
       position: relative;
       z-index: 1;
@@ -214,6 +388,36 @@
       font-weight: 600;
       color: rgba(255, 255, 255, 0.78);
       margin-bottom: 1.4rem;
+    }
+
+    .hero-badges {
+      position: absolute;
+      inset: 14% auto auto -14%;
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .hero-badges span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.55rem 0.95rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--white);
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .hero-badges span:nth-child(2) {
+      animation-delay: 1.4s;
+    }
+
+    .hero-badges span:nth-child(3) {
+      animation-delay: 2.2s;
     }
 
     .eyebrow span {
@@ -250,75 +454,173 @@
       display: inline-flex;
       align-items: center;
       gap: 0.65rem;
-      padding: 0.95rem 1.95rem;
+      padding: 0.95rem 2.1rem;
       border-radius: 999px;
       font-weight: 600;
       text-decoration: none;
       transition: var(--transition);
       font-size: 1rem;
+      position: relative;
+      overflow: hidden;
     }
 
     .primary-btn {
       color: var(--white);
-      background: linear-gradient(120deg, #2563eb, #38bdf8);
-      box-shadow: 0 20px 40px rgba(14, 116, 233, 0.35);
+      background: linear-gradient(120deg, #0b1950, #1d4ed8 55%, #38bdf8);
+      box-shadow: 0 25px 48px rgba(15, 23, 42, 0.35);
+    }
+
+    .primary-btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 65%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
 
     .primary-btn:hover {
       transform: translateY(-3px);
-      box-shadow: 0 28px 52px rgba(15, 23, 42, 0.35);
+      box-shadow: 0 32px 60px rgba(15, 23, 42, 0.4);
+    }
+
+    .primary-btn:hover::after {
+      opacity: 1;
     }
 
     .ghost-btn {
+      color: var(--blue);
+      border: 1px solid rgba(255, 255, 255, 0.38);
+      background: rgba(255, 255, 255, 0.12);
       color: var(--white);
-      border: 1px solid rgba(255, 255, 255, 0.32);
-      background: rgba(15, 23, 42, 0.25);
     }
 
     .ghost-btn:hover {
-      background: rgba(15, 23, 42, 0.45);
-      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(15, 23, 42, 0.4);
+      border-color: rgba(255, 255, 255, 0.55);
     }
 
     .hero-metrics {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1.6rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.2rem;
     }
 
     .hero-metrics div {
-      padding-left: 1.4rem;
-      border-left: 3px solid rgba(56, 189, 248, 0.9);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1.4rem 1.6rem;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-metrics div::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(59, 130, 246, 0.18), rgba(14, 165, 233, 0.12), transparent 60%);
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .hero-metrics div:hover::after {
+      opacity: 1;
     }
 
     .hero-metrics strong {
       display: block;
-      font-size: 1.7rem;
+      font-size: 1.75rem;
       font-family: "Space Grotesk", sans-serif;
+      color: var(--white);
+    }
+
+    .hero-metrics span {
+      color: rgba(226, 232, 240, 0.82);
+      font-size: 0.95rem;
     }
 
     .hero-visual {
       position: relative;
+      padding: 1.5rem;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 30px 70px rgba(15, 23, 42, 0.16);
+      transform-style: preserve-3d;
+      transition: transform 0.6s ease;
     }
 
-    .hero-visual::before {
+    .hero-visual::before,
+    .hero-visual::after {
       content: "";
       position: absolute;
-      inset: 0;
-      border-radius: 28px;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(16, 185, 129, 0.16));
-      filter: blur(0px);
-      transform: rotate(2deg);
-      opacity: 0.9;
+      inset: 10% -20% -18% -20%;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(14, 165, 233, 0.15), transparent 70%);
+      z-index: -1;
+      animation: pulseGlow 12s ease-in-out infinite;
     }
 
-    .hero-visual svg,
-    .hero-visual img {
+    .hero-visual::after {
+      inset: auto -15% -25% 25%;
+      background: radial-gradient(circle at center, rgba(20, 184, 166, 0.16), transparent 70%);
+      filter: blur(50px);
+    }
+
+    .hero-orbits {
+      position: absolute;
+      inset: -18% -22% -18% -22%;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    .hero-orbits .orbit {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      animation: orbitSpin 26s linear infinite;
+    }
+
+    .hero-orbits .orbit:nth-child(1) {
+      inset: 6% 12% 18% 8%;
+      border-color: rgba(37, 99, 235, 0.3);
+      animation-duration: 24s;
+    }
+
+    .hero-orbits .orbit:nth-child(2) {
+      inset: 18% 4% 6% 20%;
+      border-color: rgba(14, 165, 233, 0.28);
+      animation-duration: 28s;
+      animation-direction: reverse;
+    }
+
+    .hero-orbits .orbit:nth-child(3) {
+      inset: -4% 22% 24% -6%;
+      border-color: rgba(16, 185, 129, 0.25);
+      animation-duration: 32s;
+    }
+
+    .hero-orbits .orbit:nth-child(4) {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 140px;
+      height: 140px;
+      border: none;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.32), rgba(56, 189, 248, 0));
+      transform: translate(-50%, -50%);
+      animation: orbitPulse 8s ease-in-out infinite;
+    }
+
+    .hero-visual svg {
       position: relative;
       width: 100%;
-      border-radius: 26px;
+      border-radius: 22px;
       border: 1px solid rgba(148, 163, 184, 0.25);
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(6px);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
     }
 
     .section-heading {
@@ -350,31 +652,67 @@
     }
 
     .momentum {
-      background: linear-gradient(180deg, rgba(240, 249, 255, 0.65) 0%, rgba(255, 255, 255, 0.9) 100%);
+      background: linear-gradient(180deg, rgba(240, 249, 255, 0.65) 0%, rgba(255, 255, 255, 0.92) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .momentum::before {
+      content: "";
+      position: absolute;
+      inset: -15% 10% auto;
+      height: 420px;
+      background: radial-gradient(circle at center, rgba(191, 219, 254, 0.3), transparent 70%);
+      opacity: 0.5;
+      filter: blur(20px);
     }
 
     .momentum-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 2.2rem;
+      gap: 2rem;
+      position: relative;
+      z-index: 1;
     }
 
     .momentum-item {
-      padding-left: 1.4rem;
-      border-left: 3px solid rgba(29, 78, 216, 0.28);
+      padding: 1.8rem 1.6rem;
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 22px 40px rgba(15, 23, 42, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .momentum-item::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.06));
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .momentum-item:hover::after {
+      opacity: 1;
     }
 
     .momentum-item h3 {
       margin: 0;
-      font-size: 1.4rem;
+      font-size: 1.35rem;
       color: var(--navy);
       font-family: "Space Grotesk", sans-serif;
+      position: relative;
+      z-index: 1;
     }
 
     .momentum-item p {
-      margin: 0.6rem 0 0;
+      margin: 0.75rem 0 0;
       color: var(--stone);
-      line-height: 1.6;
+      line-height: 1.65;
+      position: relative;
+      z-index: 1;
     }
 
     .solutions {
@@ -384,19 +722,45 @@
     .solutions-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 2.4rem;
+      gap: 2rem;
     }
 
     .solution {
-      padding: 0 0 0 1.4rem;
-      border-left: 3px solid rgba(29, 78, 216, 0.2);
+      position: relative;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 20px;
+      padding: 1.8rem 1.6rem;
+      box-shadow: 0 20px 46px rgba(15, 23, 42, 0.1);
       display: grid;
       gap: 0.85rem;
+      overflow: hidden;
+      transition: transform 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .solution::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(56, 189, 248, 0.08));
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+
+    .solution:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 30px 60px rgba(15, 23, 42, 0.15);
+    }
+
+    .solution:hover::after {
+      opacity: 1;
     }
 
     .solution i {
       color: var(--blue);
       font-size: 1.45rem;
+      position: relative;
+      z-index: 1;
     }
 
     .solution h3 {
@@ -404,12 +768,16 @@
       font-size: 1.35rem;
       color: var(--navy);
       font-family: "Space Grotesk", sans-serif;
+      position: relative;
+      z-index: 1;
     }
 
     .solution p {
       margin: 0;
       color: var(--stone);
       line-height: 1.65;
+      position: relative;
+      z-index: 1;
     }
 
     .platform {
@@ -552,6 +920,32 @@
       color: rgba(148, 163, 184, 0.82);
     }
 
+    .footer-links {
+      display: inline-flex;
+      gap: 1.2rem;
+    }
+
+    .footer-links a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--sky);
+    }
+
+    [data-reveal] {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    [data-reveal].is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
     @media (max-width: 960px) {
       .nav-wrap {
         padding: 1rem 1.6rem;
@@ -574,6 +968,14 @@
         padding: 0 1.6rem;
       }
 
+      .hero-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero-badges {
+        display: none;
+      }
+
       footer {
         padding: 3.5rem 0 2.5rem;
       }
@@ -593,6 +995,10 @@
         align-items: stretch;
       }
 
+      .hero-metrics {
+        grid-template-columns: 1fr;
+      }
+
       .primary-btn,
       .ghost-btn,
       .nav-cta {
@@ -603,10 +1009,37 @@
         flex-direction: column;
         align-items: flex-start;
       }
+
+      .solutions-grid,
+      .momentum-grid,
+      .platform-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="preloader" role="status" aria-live="polite">
+    <div class="preloader-inner">
+      <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ preloader" width="64" height="64" />
+      <div class="loader-track">
+        <div class="loader-indicator"></div>
+      </div>
+      <span style="font-weight: 600; color: var(--blue); letter-spacing: 0.04em;">Preparing the Lumina control room…</span>
+    </div>
+  </div>
+  <div class="scroll-progress" aria-hidden="true"></div>
   <header>
     <div class="nav-wrap">
       <a class="brand" href="Landing.html">
@@ -628,9 +1061,14 @@
     </div>
   </header>
   <main>
-    <section class="hero" id="banner">
+    <section class="hero" id="banner" data-reveal>
       <div class="container hero-grid">
         <div class="hero-copy">
+          <div class="hero-badges" aria-hidden="true">
+            <span><i class="fa-solid fa-bolt"></i> Live telemetry feed</span>
+            <span><i class="fa-solid fa-shield"></i> Enterprise security</span>
+            <span><i class="fa-solid fa-cloud"></i> Cloud native</span>
+          </div>
           <div class="eyebrow"><span></span> Workforce intelligence</div>
           <h1>Command every dimension of workforce performance from a single cockpit.</h1>
           <p>
@@ -662,7 +1100,13 @@
             </div>
           </div>
         </div>
-        <div class="hero-visual" aria-hidden="true">
+        <div class="hero-visual" aria-hidden="true" data-parallax>
+          <div class="hero-orbits" aria-hidden="true">
+            <span class="orbit"></span>
+            <span class="orbit"></span>
+            <span class="orbit"></span>
+            <span class="orbit"></span>
+          </div>
           <svg viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="heroGradient" x1="62" y1="38" x2="462" y2="454" gradientUnits="userSpaceOnUse">
@@ -695,7 +1139,7 @@
       </div>
     </section>
 
-    <section class="momentum" id="momentum">
+    <section class="momentum" id="momentum" data-reveal>
       <div class="container">
         <div class="section-heading">
           <span>Momentum</span>
@@ -706,26 +1150,26 @@
           </p>
         </div>
         <div class="momentum-grid">
-          <div class="momentum-item">
+          <div class="momentum-item" data-reveal>
             <h3>Unified command fabric</h3>
             <p>
               Centralize planning, QA, analytics, and reporting with a trusted source of truth that scales across every program and
               geography.
             </p>
           </div>
-          <div class="momentum-item">
+          <div class="momentum-item" data-reveal>
             <h3>Automation without friction</h3>
             <p>
               Launch workflows that nudge agents, notify leaders, and rebalance teams as soon as performance signals shift.
             </p>
           </div>
-          <div class="momentum-item">
+          <div class="momentum-item" data-reveal>
             <h3>Insights people can act on</h3>
             <p>
               Push curated dashboards and alerts to leaders so they can intervene with clarity, speed, and measurable impact.
             </p>
           </div>
-          <div class="momentum-item">
+          <div class="momentum-item" data-reveal>
             <h3>Security-ready foundation</h3>
             <p>
               Govern access with granular controls, audit transparency, and enterprise SSO to keep your data protected end-to-end.
@@ -735,7 +1179,7 @@
       </div>
     </section>
 
-    <section class="solutions" id="solutions">
+    <section class="solutions" id="solutions" data-reveal>
       <div class="container">
         <div class="section-heading">
           <span>Solutions</span>
@@ -745,28 +1189,28 @@
           </p>
         </div>
         <div class="solutions-grid">
-          <div class="solution">
+          <div class="solution" data-reveal>
             <i class="fa-solid fa-sitemap"></i>
             <h3>Scheduling intelligence</h3>
             <p>
               Optimize rosters and shift coverage with AI-guided forecasts, instant overrides, and real-time adherence telemetry.
             </p>
           </div>
-          <div class="solution">
+          <div class="solution" data-reveal>
             <i class="fa-solid fa-headset"></i>
             <h3>Coaching workflows</h3>
             <p>
               Automate coaching cadences, surface key interactions, and deliver personalized development journeys per agent.
             </p>
           </div>
-          <div class="solution">
+          <div class="solution" data-reveal>
             <i class="fa-solid fa-chart-line"></i>
             <h3>Quality and compliance</h3>
             <p>
               Standardize evaluations, enforce policy, and escalate faster with configurable quality pipelines and smart routing.
             </p>
           </div>
-          <div class="solution">
+          <div class="solution" data-reveal>
             <i class="fa-solid fa-wave-square"></i>
             <h3>Insights & analytics</h3>
             <p>
@@ -777,7 +1221,7 @@
       </div>
     </section>
 
-    <section class="platform" id="platform">
+    <section class="platform" id="platform" data-reveal>
       <div class="container">
         <div class="section-heading">
           <span>Platform</span>
@@ -788,20 +1232,20 @@
         </div>
         <div class="platform-grid">
           <div class="platform-highlights">
-            <div class="highlight">
+            <div class="highlight" data-reveal>
               <strong>Composable integrations</strong>
               <span>Deploy connectors to CRM, WFM, QA, and analytics platforms without reinventing your stack.</span>
             </div>
-            <div class="highlight">
+            <div class="highlight" data-reveal>
               <strong>Adaptive roles</strong>
               <span>Control access with fine-grained permissions that match the way your organization operates.</span>
             </div>
-            <div class="highlight">
+            <div class="highlight" data-reveal>
               <strong>Global readiness</strong>
               <span>Deliver local experiences with multi-language interfaces and localized compliance controls.</span>
             </div>
           </div>
-          <div class="platform-visual" aria-hidden="true">
+          <div class="platform-visual" aria-hidden="true" data-reveal>
             <svg viewBox="0 0 420 320" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="30" y="26" width="360" height="268" rx="28" fill="rgba(15, 23, 42, 0.55)" stroke="rgba(56, 189, 248, 0.45)" stroke-width="2" />
               <rect x="74" y="74" width="132" height="180" rx="18" fill="rgba(29, 78, 216, 0.22)" stroke="rgba(56, 189, 248, 0.6)" />
@@ -819,7 +1263,7 @@
       </div>
     </section>
 
-    <section class="cta" id="cta">
+    <section class="cta" id="cta" data-reveal>
       <div class="container">
         <span class="eyebrow" style="justify-content: center"><span></span>Ready to engage</span>
         <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.2rem, 4vw, 3.2rem); margin: 0;">
@@ -842,7 +1286,7 @@
       </div>
     </section>
   </main>
-  <footer>
+  <footer data-reveal>
     <div class="footer-grid">
       <div class="footer-brand">
         <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" />
@@ -866,12 +1310,126 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>© <script>document.write(new Date().getFullYear());</script> LuminaHQ. All rights reserved.</span>
-      <span>
-        <a href="TermsOfService.html" style="color: inherit; text-decoration: none; margin-right: 1.2rem;">Terms</a>
-        <a href="PrivacyPolicy.html" style="color: inherit; text-decoration: none;">Privacy</a>
-      </span>
+      <span>© <span id="year"></span> LuminaHQ. All rights reserved.</span>
+      <div class="footer-links">
+        <a href="TermsOfService.html">Terms</a>
+        <a href="PrivacyPolicy.html">Privacy</a>
+      </div>
     </div>
   </footer>
+  <div class="cursor-glow" aria-hidden="true"></div>
+  <script>
+    (function () {
+      const preloader = document.querySelector('.preloader');
+      window.addEventListener('load', () => {
+        window.setTimeout(() => {
+          if (preloader) {
+            preloader.classList.add('hidden');
+          }
+        }, 450);
+      });
+
+      const revealTargets = Array.from(document.querySelectorAll('[data-reveal]'));
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const progressBar = document.querySelector('.scroll-progress');
+      const updateProgress = () => {
+        if (!progressBar) {
+          return;
+        }
+        const doc = document.documentElement;
+        const scrollable = doc.scrollHeight - window.innerHeight;
+        const progress = scrollable > 0 ? window.scrollY / scrollable : 0;
+        progressBar.style.transform = `scaleX(${Math.min(1, Math.max(0, progress))})`;
+      };
+
+      updateProgress();
+      window.addEventListener('scroll', updateProgress, { passive: true });
+      window.addEventListener('resize', updateProgress);
+
+      if (!reducedMotion && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries, obs) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                obs.unobserve(entry.target);
+              }
+            });
+          },
+          {
+            threshold: 0.18,
+            rootMargin: '0px 0px -40px 0px'
+          }
+        );
+
+        revealTargets.forEach((el) => observer.observe(el));
+      } else {
+        revealTargets.forEach((el) => el.classList.add('is-visible'));
+      }
+
+      const heroVisual = document.querySelector('[data-parallax]');
+      if (heroVisual && !reducedMotion) {
+        const state = { active: false };
+
+        const resetParallax = () => {
+          heroVisual.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)';
+        };
+
+        const handleMove = (event) => {
+          if (!state.active) {
+            return;
+          }
+          const xRatio = event.clientX / window.innerWidth - 0.5;
+          const yRatio = event.clientY / window.innerHeight - 0.5;
+          const rotateY = xRatio * 12;
+          const rotateX = yRatio * -10;
+          heroVisual.style.transform = `perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
+        };
+
+        const updateParallax = () => {
+          state.active = window.innerWidth > 960;
+          if (!state.active) {
+            resetParallax();
+          }
+        };
+
+        updateParallax();
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('resize', updateParallax);
+        heroVisual.addEventListener('mouseleave', resetParallax);
+      }
+
+      const cursorGlow = document.querySelector('.cursor-glow');
+      const hasFinePointer = window.matchMedia('(pointer: fine)').matches;
+      if (cursorGlow && hasFinePointer && !reducedMotion) {
+        let fadeTimeout;
+        document.addEventListener(
+          'pointermove',
+          (event) => {
+            const offset = cursorGlow.offsetWidth / 2;
+            cursorGlow.style.transform = `translate(${event.clientX - offset}px, ${event.clientY - offset}px)`;
+            cursorGlow.classList.add('is-active');
+            if (fadeTimeout) {
+              window.clearTimeout(fadeTimeout);
+            }
+            fadeTimeout = window.setTimeout(() => {
+              cursorGlow.classList.remove('is-active');
+            }, 500);
+          },
+          { passive: true }
+        );
+
+        document.addEventListener('pointerleave', () => {
+          cursorGlow.classList.remove('is-active');
+        });
+      }
+
+      const yearNode = document.getElementById('year');
+      if (yearNode) {
+        yearNode.textContent = new Date().getFullYear();
+      }
+    })();
+  </script>
 </body>
 </html>
