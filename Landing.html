@@ -209,12 +209,13 @@
         display: flex;
         flex-direction: column;
         gap: 6rem;
-        padding-bottom: 6rem;
+        padding-bottom: 1.5rem;
       }
 
       section {
         position: relative;
         width: 100%;
+        scroll-margin-top: 120px;
       }
 
       .container {
@@ -638,62 +639,11 @@
         color: var(--navy);
       }
 
-      .testimonial {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 3rem;
-        align-items: center;
-      }
-
-      .testimonial-slider {
-        position: relative;
-        overflow: hidden;
-      }
-
-      .testimonial-track {
-        display: flex;
-        transition: transform 0.6s ease;
-      }
-
-      .testimonial-card {
-        min-width: min(360px, 100%);
-        margin-right: 1.5rem;
-        padding: 2.2rem;
-        border-radius: var(--radius);
-        background: var(--white);
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        box-shadow: var(--shadow);
-      }
-
-      .testimonial-card p {
-        margin: 0 0 1.5rem;
-        line-height: 1.7;
-      }
-
-      .testimonial-card strong {
-        display: block;
-        color: var(--navy);
-      }
-
-      .testimonial-nav {
-        display: inline-flex;
-        gap: 0.8rem;
-        margin-top: 1rem;
-      }
-
-      .testimonial-nav button {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        border: none;
-        cursor: pointer;
-        color: var(--violet);
-        background: rgba(99, 102, 241, 0.12);
-        transition: var(--transition);
-      }
-
-      .testimonial-nav button:hover {
-        background: rgba(99, 102, 241, 0.2);
+      @media (min-width: 1200px) {
+        .services-grid,
+        .feature-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
       }
 
       .case-study {
@@ -920,14 +870,6 @@
 
         .brands-row {
           gap: 1.5rem;
-        }
-
-        .testimonial {
-          grid-template-columns: 1fr;
-        }
-
-        .testimonial-card {
-          min-width: 100%;
         }
 
         footer {
@@ -1245,59 +1187,6 @@
         </div>
       </section>
 
-      <section class="testimonial" id="testimonial">
-        <div class="container">
-          <div class="section-heading" data-reveal>
-            <span>Client voice</span>
-            <h2>Leaders rely on LuminaHQ to modernize their programs.</h2>
-            <p>
-              Hear how our partners accelerate transformation while keeping customer trust front and center.
-            </p>
-          </div>
-          <div class="testimonial">
-            <div class="testimonial-slider" data-reveal>
-              <div class="testimonial-track" id="testimonialTrack">
-                <article class="testimonial-card">
-                  <p>
-                    “LuminaHQ guided our entire digital transformation. Their team orchestrated data migrations, automated QA
-                    routines, and gave our supervisors a unified command center.”
-                  </p>
-                  <strong>Riley Bennett</strong>
-                  <span>SVP Operations, Northwind Communications</span>
-                </article>
-                <article class="testimonial-card">
-                  <p>
-                    “We replaced five disparate scheduling tools with LuminaHQ’s integrated suite. Visibility improved overnight
-                    and agent engagement scores jumped 15%.”
-                  </p>
-                  <strong>Jordan Lee</strong>
-                  <span>Director of Workforce, Stellar BPO</span>
-                </article>
-                <article class="testimonial-card">
-                  <p>
-                    “Security and compliance were non-negotiable. LuminaHQ embedded governance into every workflow while keeping
-                    the experience intuitive for our global teams.”
-                  </p>
-                  <strong>Priya Natarajan</strong>
-                  <span>Chief Compliance Officer, Horizon Labs</span>
-                </article>
-              </div>
-              <div class="testimonial-nav">
-                <button type="button" aria-label="Previous" data-direction="prev"><i class="fa-solid fa-arrow-left"></i></button>
-                <button type="button" aria-label="Next" data-direction="next"><i class="fa-solid fa-arrow-right"></i></button>
-              </div>
-            </div>
-            <div data-reveal>
-              <img
-                src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1000&q=80"
-                alt="Leadership workshop"
-                style="width: 100%; border-radius: 26px; box-shadow: var(--shadow);"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="case-study" id="case">
         <div class="container">
           <div class="case-grid">
@@ -1493,41 +1382,22 @@
           activateCounters();
         }
 
-        const track = document.getElementById('testimonialTrack');
-        const navButtons = document.querySelectorAll('.testimonial-nav button');
-        if (track && navButtons.length && !reducedMotion) {
-          const slides = Array.from(track.children);
-          let index = 0;
-          const updateSlider = () => {
-            const width = slides[0].getBoundingClientRect().width + 24;
-            track.style.transform = `translateX(${-index * width}px)`;
-          };
-
-          navButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-              if (button.dataset.direction === 'next') {
-                index = (index + 1) % slides.length;
-              } else {
-                index = (index - 1 + slides.length) % slides.length;
+        const header = document.querySelector('header');
+        const anchorLinks = document.querySelectorAll('a[href^="#"]:not([href="#"])');
+        if (!reducedMotion && anchorLinks.length) {
+          const getOffset = () => (header ? header.offsetHeight + 16 : 0);
+          anchorLinks.forEach((link) => {
+            link.addEventListener('click', (event) => {
+              const id = link.getAttribute('href')?.slice(1);
+              const target = id ? document.getElementById(id) : null;
+              if (!target) {
+                return;
               }
-              updateSlider();
+              event.preventDefault();
+              const targetTop = target.getBoundingClientRect().top + window.scrollY - getOffset();
+              window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
             });
           });
-
-          window.addEventListener('resize', updateSlider);
-          let autoAdvance;
-          const startAuto = () => {
-            stopAuto();
-            autoAdvance = window.setInterval(() => {
-              index = (index + 1) % slides.length;
-              updateSlider();
-            }, 6000);
-          };
-          const stopAuto = () => autoAdvance && window.clearInterval(autoAdvance);
-          startAuto();
-
-          track.addEventListener('mouseenter', stopAuto);
-          track.addEventListener('mouseleave', startAuto);
         }
       })();
     </script>
