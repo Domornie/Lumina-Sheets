@@ -3,531 +3,575 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LuminaHQ Capabilities • Command Suite Map</title>
+  <title>LuminaHQ Capabilities • Command Suite</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
     :root {
-      --lumina-navy: #030c1d;
-      --lumina-deep: #06142b;
-      --lumina-blue: #0478d3;
-      --lumina-cyan: #38bdf8;
-      --lumina-lilac: #7dd3fc;
-      --radius-lg: 30px;
-      --radius-md: 20px;
-      --radius-sm: 14px;
-      --transition: all 0.3s ease;
+      --navy: #0f172a;
+      --ink: #1e293b;
+      --blue: #2563eb;
+      --sky: #38bdf8;
+      --violet: #8b5cf6;
+      --teal: #0ea5e9;
+      --mint: #34d399;
+      --pink: #fb7185;
+      --sun: #facc15;
+      --text-primary: #0f172a;
+      --text-muted: #475569;
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 18px;
+      --shadow-soft: 0 18px 60px rgba(37, 99, 235, 0.15);
+      --shadow-card: 0 12px 40px rgba(15, 23, 42, 0.12);
+      --transition: all 0.32s ease;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       font-family: "Inter", sans-serif;
-      color: rgba(226, 232, 240, 0.92);
-      background: radial-gradient(circle at 18% 16%, rgba(56, 189, 248, 0.25), transparent 45%),
-        radial-gradient(circle at 90% 10%, rgba(4, 120, 211, 0.35), transparent 58%),
-        linear-gradient(160deg, var(--lumina-navy), #010510 70%);
+      color: var(--text-primary);
+      background: radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.16), transparent 55%),
+        radial-gradient(circle at 85% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
+        linear-gradient(180deg, #f6f9ff 0%, #ffffff 48%, #f7fbff 100%);
       min-height: 100vh;
-      overflow-x: hidden;
     }
 
     header {
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(3, 12, 29, 0.8);
-      border-bottom: 1px solid rgba(56, 189, 248, 0.18);
-      backdrop-filter: blur(18px);
+      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.78);
+      border-bottom: 1px solid rgba(37, 99, 235, 0.1);
     }
 
-    .nav-grid {
-      max-width: 1180px;
+    .nav-wrap {
+      max-width: 1160px;
       margin: 0 auto;
-      padding: 1.3rem 2.3rem;
+      padding: 1.2rem 2.6rem;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      gap: 1.5rem;
+      gap: 1.6rem;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .brand-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(4, 120, 211, 0.55));
-      box-shadow: inset 0 0 20px rgba(4, 120, 211, 0.4), 0 8px 20px rgba(4, 120, 211, 0.22);
-      color: rgba(226, 232, 240, 0.85);
-      font-size: 1.2rem;
-    }
-
-    .brand span {
-      display: block;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
+      gap: 0.75rem;
       font-family: "Space Grotesk", sans-serif;
+      font-weight: 600;
+      color: var(--navy);
     }
 
-    .brand small {
-      display: block;
-      font-size: 0.68rem;
-      letter-spacing: 0.4em;
-      color: rgba(148, 163, 184, 0.75);
-      margin-top: 0.12rem;
+    .brand img {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
     }
 
     nav ul {
       list-style: none;
+      display: flex;
+      gap: 1.4rem;
       margin: 0;
       padding: 0;
-      display: flex;
-      gap: 1.6rem;
-      letter-spacing: 0.14em;
-      font-size: 0.82rem;
-      text-transform: uppercase;
+      font-weight: 500;
     }
 
     nav a {
-      color: rgba(203, 213, 225, 0.75);
+      color: var(--text-muted);
       text-decoration: none;
-      border-bottom: 1px solid transparent;
-      padding-bottom: 0.3rem;
+      position: relative;
+      padding-bottom: 0.25rem;
       transition: var(--transition);
     }
 
-    nav a:hover {
-      color: var(--lumina-cyan);
-      border-bottom-color: rgba(56, 189, 248, 0.5);
+    nav a::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -0.35rem;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--violet));
+      border-radius: 999px;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: var(--transition);
+    }
+
+    nav a:hover,
+    nav a:focus {
+      color: var(--blue);
+    }
+
+    nav a:hover::after,
+    nav a:focus::after {
+      transform: scaleX(1);
+    }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.55rem;
+      border-radius: 999px;
+      background: linear-gradient(120deg, var(--blue), var(--violet));
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      box-shadow: var(--shadow-soft);
+      transition: var(--transition);
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 46px rgba(37, 99, 235, 0.24);
     }
 
     main {
-      max-width: 1180px;
+      max-width: 1160px;
       margin: 0 auto;
-      padding: 4rem 2.3rem 6rem;
+      padding: 3.5rem 2.6rem 5rem;
       display: flex;
       flex-direction: column;
       gap: 4.2rem;
     }
 
-    .intro {
+    section {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: var(--radius-xl);
+      padding: 3.2rem 3.1rem;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      overflow: hidden;
+    }
+
+    section::before {
+      content: "";
+      position: absolute;
+      inset: -38% 52% 60% -25%;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.14), transparent 62%);
+      pointer-events: none;
+    }
+
+    h1, h2, h3 { font-family: "Space Grotesk", sans-serif; margin: 0; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--blue);
+      margin-bottom: 1rem;
+    }
+
+    .eyebrow span {
+      width: 24px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--sky));
+      border-radius: 999px;
+    }
+
+    #banner {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 3rem;
+      gap: 3.2rem;
       align-items: center;
     }
 
-    .intro h1 {
-      font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(2.3rem, 4.2vw, 3.3rem);
-      margin: 0 0 1.4rem;
-      line-height: 1.1;
-      letter-spacing: 0.04em;
+    #banner h1 {
+      font-size: clamp(2.4rem, 4vw, 3.1rem);
+      line-height: 1.12;
+      background: linear-gradient(120deg, var(--navy), var(--blue));
+      -webkit-background-clip: text;
+      color: transparent;
     }
 
-    .intro p {
-      margin: 0;
-      color: rgba(203, 213, 225, 0.78);
-      font-size: 1.02rem;
-      line-height: 1.6;
+    #banner p {
+      margin: 1.25rem 0 2rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      font-size: 1.06rem;
     }
 
-    .map-grid {
-      background: rgba(3, 12, 29, 0.78);
-      border-radius: var(--radius-lg);
-      border: 1px solid rgba(56, 189, 248, 0.2);
-      padding: 2.6rem;
+    .hero-points {
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .hero-points li {
+      list-style: none;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 1rem 1.2rem;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(37, 99, 235, 0.12);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+    }
+
+    .hero-points i {
+      color: var(--violet);
+      margin-top: 0.2rem;
+    }
+
+    #suites {
+      display: grid;
+      gap: 2.4rem;
+    }
+
+    .suite-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1.8rem;
-      position: relative;
-      overflow: hidden;
     }
 
-    .map-grid::before {
-      content: "";
-      position: absolute;
-      inset: -15% -25% 0 45%;
-      background: linear-gradient(120deg, rgba(56, 189, 248, 0.2), rgba(56, 189, 248, 0));
-      opacity: 0.7;
-      pointer-events: none;
-      transform: rotate(-6deg);
-    }
-
-    .map-card {
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(56, 189, 248, 0.18);
-      background: rgba(6, 20, 43, 0.75);
-      padding: 1.9rem;
+    .suite-card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: var(--radius-lg);
+      padding: 2rem 1.8rem;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow: var(--shadow-card);
       display: grid;
-      gap: 1rem;
-      position: relative;
-      overflow: hidden;
+      gap: 1.1rem;
       transition: var(--transition);
     }
 
-    .map-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.25), transparent 60%);
-      opacity: 0.6;
-    }
-
-    .map-card:hover {
+    .suite-card:hover {
       transform: translateY(-6px);
-      border-color: rgba(56, 189, 248, 0.45);
-      box-shadow: 0 18px 36px rgba(3, 12, 29, 0.6);
+      box-shadow: 0 28px 42px rgba(14, 165, 233, 0.24);
     }
 
-    .map-card span {
-      letter-spacing: 0.2em;
-      font-size: 0.75rem;
-      color: rgba(148, 163, 184, 0.85);
+    .suite-card .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.12);
+      color: var(--blue);
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      font-size: 0.78rem;
     }
 
-    .map-card strong {
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 1.1rem;
-      letter-spacing: 0.12em;
+    .suite-card:nth-child(2) .badge { background: rgba(139, 92, 246, 0.14); color: var(--violet); }
+    .suite-card:nth-child(3) .badge { background: rgba(14, 165, 233, 0.14); color: var(--teal); }
+    .suite-card:nth-child(4) .badge { background: rgba(250, 204, 21, 0.16); color: var(--sun); }
+
+    .suite-card h3 {
+      font-size: 1.3rem;
+      color: var(--ink);
     }
 
-    .map-card p {
+    .suite-card p {
       margin: 0;
-      color: rgba(203, 213, 225, 0.78);
-      font-size: 0.92rem;
+      color: var(--text-muted);
       line-height: 1.6;
     }
 
-    .orbit-rail {
-      background: rgba(6, 20, 43, 0.78);
-      border-radius: var(--radius-lg);
-      border: 1px solid rgba(56, 189, 248, 0.2);
-      padding: 2.6rem;
+    #automations {
+      background: linear-gradient(140deg, rgba(37, 99, 235, 0.1), rgba(139, 92, 246, 0.12));
+    }
+
+    #automations::before {
+      inset: 45% -20% -35% 55%;
+      background: radial-gradient(circle, rgba(52, 211, 153, 0.24), transparent 62%);
+    }
+
+    .automation-grid {
       display: grid;
-      gap: 2rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .orbit-rail::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), transparent 60%);
-      opacity: 0.7;
-    }
-
-    .rail-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1.4rem;
-      flex-wrap: wrap;
-      position: relative;
-      z-index: 1;
-    }
-
-    .rail-header h2 {
-      margin: 0;
-      font-family: "Space Grotesk", sans-serif;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      font-size: 1.2rem;
-      color: rgba(226, 232, 240, 0.85);
-    }
-
-    .rail-pills {
-      display: flex;
-      gap: 0.7rem;
-      flex-wrap: wrap;
-    }
-
-    .rail-pills span {
-      border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.28);
-      padding: 0.45rem 1.05rem;
-      letter-spacing: 0.18em;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      color: rgba(148, 163, 184, 0.85);
-    }
-
-    .rail-grid {
-      position: relative;
-      z-index: 1;
-      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 1.6rem;
     }
 
-    .rail-item {
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(56, 189, 248, 0.18);
-      background: rgba(6, 20, 43, 0.75);
-      padding: 1.8rem;
+    .automation-card {
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: var(--radius-lg);
+      padding: 1.8rem 1.6rem;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: var(--shadow-card);
       display: grid;
       gap: 0.9rem;
       transition: var(--transition);
-      position: relative;
-      overflow: hidden;
     }
 
-    .rail-item::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, rgba(56, 189, 248, 0.2), transparent 60%);
-      opacity: 0.6;
+    .automation-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 26px 38px rgba(37, 99, 235, 0.22);
     }
 
-    .rail-item:hover {
-      transform: translateY(-6px);
-      border-color: rgba(56, 189, 248, 0.45);
+    .automation-card i {
+      font-size: 1.6rem;
     }
 
-    .rail-item strong {
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 1.05rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
+    .automation-card:nth-child(1) i { color: var(--teal); }
+    .automation-card:nth-child(2) i { color: var(--pink); }
+    .automation-card:nth-child(3) i { color: var(--mint); }
+    .automation-card:nth-child(4) i { color: var(--violet); }
 
-    .rail-item p {
-      margin: 0;
-      color: rgba(203, 213, 225, 0.78);
-      font-size: 0.9rem;
-      line-height: 1.6;
-    }
-
-    .cta-banner {
-      background: rgba(3, 12, 29, 0.82);
-      border-radius: var(--radius-lg);
-      border: 1px solid rgba(56, 189, 248, 0.2);
-      padding: 2.4rem;
+    #analytics {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.8rem;
-      align-items: center;
-      position: relative;
-      overflow: hidden;
+      gap: 2.5rem;
     }
 
-    .cta-banner::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at 90% 20%, rgba(56, 189, 248, 0.2), transparent 50%);
-      opacity: 0.6;
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 2rem;
+      align-items: stretch;
     }
 
-    .cta-banner h3 {
-      margin: 0;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 1.5rem;
-      letter-spacing: 0.05em;
-    }
-
-    .cta-banner p {
-      margin: 0;
-      color: rgba(203, 213, 225, 0.75);
-      line-height: 1.6;
-    }
-
-    .cta-banner a {
-      justify-self: start;
-      text-decoration: none;
-      border-radius: 999px;
-      padding: 0.7rem 1.4rem;
-      letter-spacing: 0.18em;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      color: rgba(226, 232, 240, 0.85);
+    .analytics-card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: var(--radius-lg);
+      padding: 2rem 1.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: var(--shadow-card);
+      display: grid;
+      gap: 0.8rem;
       transition: var(--transition);
-      position: relative;
-      z-index: 1;
     }
 
-    .cta-banner a:hover {
-      background: rgba(56, 189, 248, 0.92);
-      color: #041025;
-      box-shadow: 0 12px 24px rgba(56, 189, 248, 0.25);
+    .analytics-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 38px rgba(37, 99, 235, 0.2);
+    }
+
+    .analytics-card strong {
+      font-size: 2.4rem;
+      color: var(--blue);
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    .analytics-card span {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    #cta {
+      background: linear-gradient(120deg, rgba(37, 99, 235, 0.12), rgba(139, 92, 246, 0.12));
+      text-align: center;
+      padding: 3.6rem 3rem;
+    }
+
+    #cta::before { display: none; }
+
+    #cta h2 {
+      font-size: 2.1rem;
+      color: var(--navy);
+    }
+
+    #cta p {
+      margin: 1.1rem auto 2.2rem;
+      max-width: 560px;
+      color: var(--text-muted);
+      line-height: 1.7;
     }
 
     footer {
-      padding: 3.2rem 2.3rem 4rem;
-      border-top: 1px solid rgba(56, 189, 248, 0.15);
-      background: rgba(3, 12, 29, 0.7);
-      backdrop-filter: blur(12px);
-      margin-top: 4rem;
+      max-width: 1160px;
+      margin: 0 auto 4rem;
+      padding: 0 2.6rem;
+      color: rgba(15, 23, 42, 0.6);
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
 
-    footer p {
-      max-width: 1180px;
-      margin: 0 auto;
-      text-align: center;
-      letter-spacing: 0.2em;
-      font-size: 0.76rem;
-      text-transform: uppercase;
-      color: rgba(148, 163, 184, 0.75);
-    }
-
-    .reveal {
+    [data-animate] {
       opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
+      transform: translateY(28px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
     }
 
-    .reveal.is-visible {
+    [data-animate].visible {
       opacity: 1;
       transform: translateY(0);
     }
 
-    @media (max-width: 768px) {
-      .nav-grid {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      nav ul {
-        flex-wrap: wrap;
-      }
-
-      main {
-        padding: 3.6rem 1.5rem 5rem;
-      }
+    @media (max-width: 960px) {
+      header { position: static; }
+      .nav-wrap { flex-direction: column; }
+      nav ul { flex-wrap: wrap; justify-content: center; }
+      main { padding: 3rem 1.5rem 4rem; gap: 3.2rem; }
+      section { padding: 2.6rem 2.2rem; }
+      footer { padding: 0 1.5rem; }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="nav-grid">
+    <div class="nav-wrap">
       <a class="brand" href="Landing.html">
-        <span class="brand-icon"><i class="fa-solid fa-satellite"></i></span>
-        <span>LuminaHQ <small>Command Suite</small></span>
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" />
+        LuminaHQ
       </a>
       <nav>
         <ul>
-          <li><a href="#map">Map</a></li>
-          <li><a href="#rail">Orbit Rail</a></li>
-          <li><a href="#cta">Engage</a></li>
+          <li><a href="#banner">Overview</a></li>
+          <li><a href="#suites">Command suites</a></li>
+          <li><a href="#automations">Automations</a></li>
+          <li><a href="#analytics">Analytics</a></li>
         </ul>
       </nav>
-      <a class="cta-banner-link" href="LandingAbout.html" style="text-decoration:none;border:1px solid rgba(56,189,248,0.4);padding:0.55rem 1.2rem;border-radius:999px;letter-spacing:0.18em;font-size:0.78rem;text-transform:uppercase;color:rgba(226,232,240,0.85);transition:var(--transition);">Meet the Collective</a>
+      <a class="nav-cta" href="Landing.html"><i class="fa-solid fa-house"></i> Back to home</a>
     </div>
   </header>
 
   <main>
-    <section class="intro reveal">
+    <section id="banner" data-animate>
       <div>
-        <h1>Map every dimension of your workforce universe.</h1>
-        <p>LuminaHQ’s command suite unifies the instruments you rely on to orchestrate performance. Explore the layers of telemetry, automation, and human-centered workflows that keep your operation resilient.</p>
+        <div class="eyebrow"><span></span> Capability Map</div>
+        <h1>Every LuminaHQ module works together like a symphony.</h1>
+        <p>From forecasting to compliance, LuminaHQ orchestrates workflows into a single command suite. Explore the tools that energize leaders, empower agents, and protect your operation.</p>
+        <ul class="hero-points">
+          <li><i class="fa-solid fa-palette"></i>Beautiful, role-aware spaces that highlight what matters most for every teammate.</li>
+          <li><i class="fa-solid fa-lock"></i>Enterprise security, auditing, and access controls woven throughout the experience.</li>
+          <li><i class="fa-solid fa-bolt"></i>Responsive automations that launch actions instantly when thresholds or anomalies appear.</li>
+        </ul>
       </div>
-      <div class="map-grid" id="map">
-        <div class="map-card">
-          <span>Layer 01</span>
-          <strong>Schedule intelligence</strong>
-          <p>Dynamically align staffing, shift bids, and adherence to live demand curves across every channel.</p>
-        </div>
-        <div class="map-card">
-          <span>Layer 02</span>
-          <strong>Quality constellations</strong>
-          <p>Reveal agent strengths and opportunities through AI-assisted QA workflows and adaptive scorecards.</p>
-        </div>
-        <div class="map-card">
-          <span>Layer 03</span>
-          <strong>Coaching studio</strong>
-          <p>Synchronize coaching cadences with intelligent nudges, curated content, and celebratory highlights.</p>
-        </div>
-        <div class="map-card">
-          <span>Layer 04</span>
-          <strong>Escalation harmonics</strong>
-          <p>Route and resolve critical signals with transparent audit trails, response SLAs, and collaborative triage.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="orbit-rail reveal" id="rail">
-      <div class="rail-header">
-        <h2>Command orbit rail</h2>
-        <div class="rail-pills">
-          <span>predictive staffing</span>
-          <span>qa automation</span>
-          <span>knowledge orchestration</span>
-          <span>performance intelligence</span>
-        </div>
-      </div>
-      <div class="rail-grid">
-        <div class="rail-item">
-          <strong>Pulse analytics</strong>
-          <p>Blend real-time dashboards with alerting thresholds to spotlight the metrics that need your attention now.</p>
-        </div>
-        <div class="rail-item">
-          <strong>Scenario lab</strong>
-          <p>Model staffing and quality scenarios in minutes, testing the ripple effects of every decision before it goes live.</p>
-        </div>
-        <div class="rail-item">
-          <strong>Autopilot lanes</strong>
-          <p>Deploy automations that reconcile data, schedule follow-ups, and notify stakeholders without slowing operations.</p>
-        </div>
-        <div class="rail-item">
-          <strong>Experience beacon</strong>
-          <p>Curate agent and customer success stories, reinforcing the culture that keeps teams inspired.</p>
-        </div>
+      <div data-animate>
+        <svg viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="cap-gradient" x1="80" y1="60" x2="320" y2="360" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#38bdf8" />
+              <stop offset="0.45" stop-color="#2563eb" />
+              <stop offset="1" stop-color="#8b5cf6" />
+            </linearGradient>
+          </defs>
+          <rect x="50" y="50" width="320" height="320" rx="46" fill="url(#cap-gradient)" opacity="0.9" />
+          <rect x="100" y="100" width="220" height="220" rx="32" fill="#ffffff" opacity="0.95" />
+          <path d="M130 160H290" stroke="#2563eb" stroke-width="5" stroke-linecap="round" opacity="0.6" />
+          <path d="M130 200H260" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" opacity="0.5" />
+          <path d="M130 240H250" stroke="#8b5cf6" stroke-width="5" stroke-linecap="round" opacity="0.45" />
+          <circle cx="210" cy="260" r="46" fill="#2563eb" opacity="0.12" />
+          <circle cx="210" cy="260" r="18" fill="#38bdf8" opacity="0.75" />
+          <circle cx="210" cy="260" r="8" fill="#facc15" />
+          <path d="M210 116V96" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" />
+          <path d="M210 324V304" stroke="#8b5cf6" stroke-width="6" stroke-linecap="round" />
+          <circle cx="140" cy="120" r="14" fill="#facc15" opacity="0.85" />
+          <circle cx="290" cy="300" r="18" fill="#34d399" opacity="0.78" />
+        </svg>
       </div>
     </section>
 
-    <section class="cta-banner reveal" id="cta">
-      <h3>Ready to chart your LuminaHQ deployment?</h3>
-      <p>Connect with our architects to calibrate a blueprint for your contact center. We’ll tailor the command suite to your existing stack and future ambitions.</p>
-      <a href="mailto:hello@luminahq.com">Initiate Contact</a>
+    <section id="suites" data-animate>
+      <div class="eyebrow"><span></span> Command Suites</div>
+      <h2>Modules designed for every leadership rhythm.</h2>
+      <div class="suite-grid">
+        <article class="suite-card">
+          <span class="badge"><i class="fa-solid fa-person-chalkboard"></i> Coach</span>
+          <h3>Performance & Coaching Studio</h3>
+          <p>Automate session prep, personalize feedback, and celebrate wins across cohorts with dynamic scorecards and action plans.</p>
+        </article>
+        <article class="suite-card">
+          <span class="badge"><i class="fa-solid fa-clipboard-check"></i> Quality</span>
+          <h3>Quality Collaboration Hub</h3>
+          <p>Centralize evaluations, calibrations, and QA trends while sharing rich context and video clips in seconds.</p>
+        </article>
+        <article class="suite-card">
+          <span class="badge"><i class="fa-solid fa-chart-line"></i> Workforce</span>
+          <h3>Workforce Pulse Deck</h3>
+          <p>Track staffing, adherence, and forecast accuracy in real time, complete with alerts and scenario planning.</p>
+        </article>
+        <article class="suite-card">
+          <span class="badge"><i class="fa-solid fa-scale-balanced"></i> Compliance</span>
+          <h3>Risk & Compliance Console</h3>
+          <p>Monitor regulatory updates, policy acknowledgements, and remediation workflows with transparent audit trails.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="automations" data-animate>
+      <div class="eyebrow"><span></span> Automation Engine</div>
+      <h2>Turn insight into action automatically.</h2>
+      <div class="automation-grid">
+        <article class="automation-card">
+          <i class="fa-solid fa-network-wired"></i>
+          <h3>Cross-system triggers</h3>
+          <p>Launch tasks in WFM, CRM, or ticketing tools instantly using LuminaHQ connectors and conditional logic.</p>
+        </article>
+        <article class="automation-card">
+          <i class="fa-solid fa-signal"></i>
+          <h3>Threshold alerts</h3>
+          <p>Set guardrails for CSAT, AHT, occupancy, or compliance signals and route alerts to the right leader automatically.</p>
+        </article>
+        <article class="automation-card">
+          <i class="fa-solid fa-sparkles"></i>
+          <h3>Guided celebrations</h3>
+          <p>Automatically broadcast recognition moments when agents crush goals or finish key enablement tracks.</p>
+        </article>
+        <article class="automation-card">
+          <i class="fa-solid fa-gear"></i>
+          <h3>Self-healing workflows</h3>
+          <p>Let LuminaHQ adjust staffing rosters, QA assignments, and knowledge prompts the moment gaps appear.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="analytics" data-animate>
+      <div class="eyebrow"><span></span> Analytics & Trust</div>
+      <h2>See further with layered insight and governance.</h2>
+      <div class="analytics-grid">
+        <article class="analytics-card">
+          <strong>360°</strong>
+          <span>Unified view across workforce, quality, compliance, and enablement metrics.</span>
+        </article>
+        <article class="analytics-card">
+          <strong>2 min</strong>
+          <span>Average time to publish a new insight tile or share a custom dashboard.</span>
+        </article>
+        <article class="analytics-card">
+          <strong>Role-sync</strong>
+          <span>Adaptive permissions and experiences align to role, location, and campaign in seconds.</span>
+        </article>
+        <article class="analytics-card">
+          <strong>SOC2</strong>
+          <span>Compliant architecture with encrypted data flows and continuous monitoring.</span>
+        </article>
+      </div>
+    </section>
+
+    <section id="cta" data-animate>
+      <div class="eyebrow" style="justify-content: center; color: var(--violet);"><span></span> Your next chapter</div>
+      <h2>Let’s architect your command center together.</h2>
+      <p>Schedule a discovery workshop to tailor LuminaHQ modules, automations, and analytics to your operations blueprint.</p>
+      <a class="nav-cta" href="LandingAbout.html">Meet the team</a>
     </section>
   </main>
 
   <footer>
-    <p>© 2024 LuminaHQ • Precision-crafted capabilities for the neural workforce era.</p>
+    <span>© <script>document.write(new Date().getFullYear());</script> LuminaHQ. Every capability, unified.</span>
+    <span><a href="Landing.html" style="color: var(--blue); text-decoration: none; font-weight: 600;">Return to landing</a></span>
   </footer>
 
   <script>
     const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
+      (entries) => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
+            entry.target.classList.add('visible');
           }
         });
       },
-      { threshold: 0.12 }
+      { threshold: 0.2 }
     );
 
-    document.querySelectorAll('.reveal').forEach(section => observer.observe(section));
-
-    const ctaLink = document.querySelector('.cta-banner-link');
-    ctaLink.addEventListener('mouseenter', () => {
-      ctaLink.style.background = 'rgba(56, 189, 248, 0.92)';
-      ctaLink.style.color = '#041025';
-      ctaLink.style.boxShadow = '0 12px 24px rgba(56, 189, 248, 0.25)';
-    });
-    ctaLink.addEventListener('mouseleave', () => {
-      ctaLink.style.background = 'transparent';
-      ctaLink.style.color = 'rgba(226, 232, 240, 0.85)';
-      ctaLink.style.boxShadow = 'none';
-    });
+    document.querySelectorAll('[data-animate]').forEach((section) => observer.observe(section));
   </script>
 </body>
 </html>
