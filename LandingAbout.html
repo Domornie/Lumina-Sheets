@@ -335,6 +335,18 @@
     }
 
     .hero {
+      background: var(--gradient-hero);
+      color: var(--white);
+      padding-top: 7rem;
+      padding-bottom: 7rem;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 3.2rem;
+      align-items: center;
       position: relative;
       background: radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.2), transparent 52%),
         radial-gradient(circle at 80% 12%, rgba(37, 99, 235, 0.24), transparent 65%),
@@ -1193,6 +1205,22 @@
             <strong>Camille Rivers</strong>
             <p>Partners with every client to ensure adoption, governance, and measurable outcomes.</p>
           </div>
+          <div class="leader">
+            <span>Director, Client Success</span>
+            <strong>Camille Rivers</strong>
+            <p>Partners with every client to ensure adoption, governance, and measurable outcomes.</p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section id="journey" data-animate>
+      <div class="eyebrow"><span></span> Journey Map</div>
+      <h2>Milestones that shaped LuminaHQ.</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <h3>2019</h3>
+          <p>LuminaHQ begins as a collaboration between operations leaders and technologists determined to replace spreadsheet chaos with guided intelligence.</p>
         </div>
       </div>
     </section>
