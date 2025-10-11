@@ -1,35 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <base target="_top">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LuminaHQ – Intelligent Workforce Command Center</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LuminaHQ • Command the Future of Workforce Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
     :root {
-      --lumina-navy: #0b1b3f;
-      --lumina-navy-alt: #103060;
+      --lumina-navy: #07132b;
+      --lumina-midnight: #0b1f3f;
       --lumina-blue: #0478d3;
-      --lumina-blue-dark: #035799;
       --lumina-cyan: #38bdf8;
-      --lumina-surface: #ffffff;
-      --lumina-muted: #f1f5fb;
-      --lumina-muted-dark: #d6e2f5;
-      --lumina-text: #101828;
-      --lumina-text-muted: #475467;
-      --shadow-primary: 0 12px 24px rgba(4, 120, 211, 0.18);
-      --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.08);
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --radius-sm: 12px;
-      --transition: all 0.28s ease;
+      --lumina-slate: #94a3b8;
+      --lumina-void: rgba(4, 14, 33, 0.94);
+      --lumina-panel: rgba(9, 21, 45, 0.68);
+      --lumina-border: rgba(148, 163, 184, 0.2);
+      --radius-lg: 28px;
+      --radius-md: 20px;
+      --radius-sm: 14px;
+      --transition: all 0.35s ease;
     }
 
     * {
@@ -37,720 +29,822 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       margin: 0;
-      color: var(--lumina-text);
-      background: var(--lumina-surface);
+      font-family: "Inter", sans-serif;
+      color: #e2e8f0;
+      background: radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.18), transparent 48%),
+        radial-gradient(circle at 90% 22%, rgba(4, 120, 211, 0.24), transparent 55%),
+        linear-gradient(160deg, var(--lumina-navy), #020812 68%);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      overflow-x: hidden;
     }
 
-    body.landing-page {
-      background: var(--lumina-surface);
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -20% -10% auto;
+      height: 60vh;
+      pointer-events: none;
+      background: conic-gradient(from 160deg at 50% 50%, rgba(56, 189, 248, 0.55), rgba(4, 120, 211, 0.15), transparent 70%);
+      mix-blend-mode: screen;
+      opacity: 0.6;
+      transform: rotate(6deg);
     }
 
-    body.landing-page::before {
-      display: none;
+    .boot-sequence {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(7, 19, 43, 0.96), rgba(0, 7, 18, 0.98));
+      z-index: 1000;
+      display: grid;
+      place-items: center;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
     }
 
-    .page-shell {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      width: 100%;
+    .boot-sequence.hidden {
+      opacity: 0;
+      visibility: hidden;
     }
 
-    .landing-main {
-      width: 100%;
-      max-width: none;
-      margin: 0;
-      padding: 0;
-    }
-
-    .hero {
-      padding: clamp(4rem, 5vw + 2rem, 6rem) 1.25rem clamp(3rem, 5vw, 5rem);
-      width: 100%;
-      margin: 0;
+    .boot-core {
       position: relative;
-      background: var(--lumina-navy-alt);
-      color: rgba(226, 232, 240, 0.92);
+      width: 160px;
+      height: 160px;
+      border-radius: 30% 70% 55% 45% / 55% 45% 55% 45%;
+      background: linear-gradient(140deg, rgba(56, 189, 248, 0.85), rgba(4, 120, 211, 0.75));
+      filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.55));
+      animation: corePulse 2.6s ease-in-out infinite;
     }
 
-    .hero-inner {
-      max-width: 1200px;
-      margin: 0 auto;
+    .boot-core::before {
+      content: "";
+      position: absolute;
+      inset: -22px;
+      border-radius: inherit;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      opacity: 0.65;
+      animation: rotateHalo 8s linear infinite;
     }
 
-    .hero-surface {
-      background: transparent;
-      border-radius: var(--radius-lg);
-      border: none;
-      box-shadow: none;
-      padding: clamp(2.5rem, 5vw, 3.2rem);
+    .boot-grid {
+      position: absolute;
+      inset: -120px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 14px;
+      opacity: 0.38;
+      filter: blur(0.2px);
+    }
+
+    .boot-grid span {
+      width: 18px;
+      height: 110px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(56, 189, 248, 0.8));
+      animation: columnRise 1.4s ease-in-out infinite;
+    }
+
+    .boot-grid span:nth-child(odd) {
+      animation-delay: 0.3s;
+    }
+
+    .boot-grid span:nth-child(3n + 1) {
+      animation-delay: 0.6s;
+    }
+
+    @keyframes corePulse {
+      0%,
+      100% {
+        transform: scale(0.96) rotate(-2deg);
+      }
+      50% {
+        transform: scale(1.05) rotate(4deg);
+      }
+    }
+
+    @keyframes rotateHalo {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes columnRise {
+      0%,
+      100% {
+        transform: translateY(18px) scaleY(0.85);
+        opacity: 0.4;
+      }
+      50% {
+        transform: translateY(-18px) scaleY(1.2);
+        opacity: 1;
+      }
     }
 
     header {
       position: sticky;
       top: 0;
-      z-index: 10;
-      backdrop-filter: blur(14px);
-      background: rgba(255, 255, 255, 0.85);
-      border-bottom: 1px solid rgba(226, 232, 240, 0.7);
-      margin: 0;
-      padding: 0;
+      z-index: 50;
+      background: rgba(4, 14, 33, 0.6);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.1);
     }
 
-    .nav-container {
+    .nav-wrap {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 1rem 1.25rem;
+      padding: 1.4rem 2.4rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 1.5rem;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.85rem;
+      gap: 1rem;
       text-decoration: none;
+      color: inherit;
     }
 
-    .brand-logo {
-      height: 46px;
-      width: auto;
-      display: block;
+    .brand-glyph {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(4, 120, 211, 0.6));
+      display: grid;
+      place-items: center;
+      color: var(--lumina-cyan);
+      font-size: 1.4rem;
+      box-shadow: inset 0 0 18px rgba(4, 120, 211, 0.55), 0 8px 24px rgba(4, 120, 211, 0.25);
     }
 
-    .brand h1 {
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--lumina-navy);
+    .brand-copy h1 {
       margin: 0;
-      letter-spacing: 0.01em;
-    }
-
-    .brand span {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 500;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.55rem;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: var(--lumina-text-muted);
-      letter-spacing: 0.14em;
     }
 
-    .nav-actions {
+    .brand-copy span {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.42em;
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    nav ul {
+      margin: 0;
+      padding: 0;
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      gap: 1.5rem;
+      list-style: none;
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
     }
 
-    .nav-actions a {
+    nav a {
       text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
+      color: rgba(226, 232, 240, 0.82);
+      padding-bottom: 0.25rem;
+      border-bottom: 1px solid transparent;
+      transition: var(--transition);
+    }
+
+    nav a:hover {
+      color: var(--lumina-cyan);
+      border-bottom-color: rgba(56, 189, 248, 0.6);
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+    }
+
+    .cta-group a {
+      text-decoration: none;
       padding: 0.65rem 1.3rem;
       border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
       transition: var(--transition);
     }
 
-    .nav-actions .btn-outline {
-      color: var(--lumina-blue-dark);
-      background: transparent;
-      border: 1px solid rgba(4, 120, 211, 0.36);
+    .cta-outline {
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: rgba(226, 232, 240, 0.8);
     }
 
-    .nav-actions .btn-outline:hover {
-      background: rgba(4, 120, 211, 0.1);
-      transform: translateY(-1px);
+    .cta-outline:hover {
+      color: #0b1f3f;
+      background: rgba(56, 189, 248, 0.95);
+      box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2);
     }
 
-    .nav-actions .btn-primary {
-      color: white;
-      background: var(--lumina-blue);
-      box-shadow: none;
+    .cta-solid {
+      background: linear-gradient(120deg, rgba(4, 120, 211, 0.9), rgba(56, 189, 248, 0.9));
+      color: #061226;
+      box-shadow: 0 8px 25px rgba(4, 120, 211, 0.4);
     }
 
-    .nav-actions .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(4, 120, 211, 0.24);
+    .cta-solid:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 35px rgba(56, 189, 248, 0.35);
     }
 
-    .hero-content {
-      position: relative;
-      display: grid;
-      gap: clamp(2.5rem, 5vw, 3.5rem);
-      align-items: center;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      z-index: 1;
-    }
-
-    .hero-copy {
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 4rem 2.4rem 6rem;
       display: flex;
       flex-direction: column;
-      gap: 1.75rem;
+      gap: 5rem;
     }
 
-    .hero-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.55rem 1rem;
-      background: rgba(56, 189, 248, 0.16);
-      color: var(--lumina-surface);
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .hero-title {
-      font-size: clamp(2.4rem, 3.4vw + 1rem, 3.7rem);
-      line-height: 1.1;
-      margin: 0;
-      color: var(--lumina-surface);
-    }
-
-    .hero-subtitle {
-      margin: 0;
-      max-width: 520px;
-      font-size: 1.05rem;
-      color: rgba(226, 232, 240, 0.72);
-    }
-
-    .hero-ctas {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .hero-ctas a {
-      text-decoration: none;
-      font-weight: 600;
-      padding: 0.8rem 1.6rem;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      transition: var(--transition);
-    }
-
-    .hero-ctas .primary {
-      background: var(--lumina-blue);
-      color: white;
-      box-shadow: none;
-    }
-
-    .hero-ctas .primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(4, 120, 211, 0.22);
-    }
-
-    .hero-ctas .ghost {
-      background: rgba(255, 255, 255, 0.12);
-      color: var(--lumina-surface);
-      border: 1px solid rgba(226, 232, 240, 0.28);
-    }
-
-    .hero-ctas .ghost:hover {
-      background: rgba(255, 255, 255, 0.18);
-      color: var(--lumina-surface);
-      border-color: rgba(226, 232, 240, 0.32);
-    }
-
-    .hero-showcase {
-      background: rgba(11, 27, 63, 0.55);
-      border-radius: var(--radius-md);
-      padding: clamp(1.5rem, 3vw, 2rem);
-      box-shadow: none;
-      border: 1px solid rgba(226, 232, 240, 0.15);
+    .hero {
       display: grid;
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 3rem;
+      align-items: center;
+      position: relative;
     }
 
-    .showcase-header {
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: -20% -30% -30% 50%;
+      background: radial-gradient(circle, rgba(4, 120, 211, 0.32), rgba(7, 19, 43, 0));
+      opacity: 0.65;
+      filter: blur(18px);
+      z-index: -1;
+    }
+
+    .hero-copy h2 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2.6rem, 5vw, 3.5rem);
+      margin: 0 0 1.5rem;
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-copy p {
+      margin: 0 0 2rem;
+      color: rgba(203, 213, 225, 0.85);
+      font-size: 1.05rem;
+      max-width: 520px;
+    }
+
+    .signal-bar {
       display: flex;
+      gap: 1rem;
       align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .signal-pip {
+      width: 10px;
+      height: 48px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0), rgba(56, 189, 248, 0.9));
+      animation: signal 1.4s ease-in-out infinite;
+    }
+
+    .signal-pip:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .signal-pip:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes signal {
+      0%,
+      100% {
+        transform: scaleY(0.6);
+        opacity: 0.4;
+      }
+      50% {
+        transform: scaleY(1);
+        opacity: 1;
+      }
+    }
+
+    .hero-console {
+      position: relative;
+      border-radius: var(--radius-lg);
+      padding: 2.2rem;
+      background: linear-gradient(150deg, rgba(9, 21, 45, 0.94), rgba(7, 19, 43, 0.78));
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.12), 0 25px 60px rgba(2, 8, 18, 0.85);
+      overflow: hidden;
+    }
+
+    .hero-console::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(115deg, rgba(148, 163, 184, 0.05) 25%, transparent 25%);
+      background-size: 22px 22px;
+      opacity: 0.45;
+      mix-blend-mode: screen;
+      transform: rotate(-2deg);
+    }
+
+    .console-header {
+      display: flex;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .console-header span {
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.24em;
+      font-size: 0.75rem;
+      color: rgba(148, 163, 184, 0.6);
+    }
+
+    .console-orbits {
+      display: grid;
       gap: 1rem;
     }
 
-    .showcase-header h2 {
-      font-size: 1.1rem;
-      margin: 0;
-      color: var(--lumina-surface);
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.45rem 0.85rem;
-      border-radius: 999px;
-      background: rgba(56, 189, 248, 0.24);
-      color: var(--lumina-surface);
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1.25rem;
-    }
-
-    .metric-card {
-      background: rgba(15, 23, 42, 0.45);
-      color: var(--lumina-surface);
+    .orbit-card {
       padding: 1.4rem;
       border-radius: var(--radius-md);
-      border: 1px solid rgba(226, 232, 240, 0.12);
+      background: rgba(7, 19, 43, 0.65);
+      border: 1px solid rgba(56, 189, 248, 0.1);
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
       position: relative;
+      overflow: hidden;
+      transition: var(--transition);
     }
 
-    .metric-card strong {
+    .orbit-card:hover {
+      transform: translateX(6px);
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 12px 30px rgba(4, 120, 211, 0.28);
+    }
+
+    .orbit-card i {
+      font-size: 1.45rem;
+      color: var(--lumina-cyan);
+    }
+
+    .orbit-card strong {
       display: block;
-      font-size: 2rem;
-      font-weight: 700;
-    }
-
-    .metric-card span {
-      font-size: 0.85rem;
-      letter-spacing: 0.06em;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.05rem;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(226, 232, 240, 0.7);
     }
 
-    .metric-card i {
-      font-size: 1.4rem;
-      opacity: 0.85;
+    .orbit-card p {
+      margin: 0.35rem 0 0;
+      font-size: 0.9rem;
+      color: rgba(203, 213, 225, 0.75);
     }
 
-    .metric-card .icon-circle {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.14);
-      display: grid;
-      place-items: center;
-      margin-bottom: 1rem;
+    section h3 {
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 1.1rem;
+      color: rgba(148, 163, 184, 0.85);
+      margin-bottom: 1.5rem;
     }
 
-    .section {
-      width: 100%;
-      margin: 0;
-      padding: clamp(3rem, 5vw + 1rem, 4.5rem) 1.25rem;
-    }
-
-    .section-light {
-      background: var(--lumina-surface);
-    }
-
-    .section-dark {
-      background: var(--lumina-navy);
-      color: rgba(226, 232, 240, 0.9);
-    }
-
-    .section-shell {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      gap: 2.5rem;
-    }
-
-    .section-dark .section-shell {
-      max-width: 1100px;
-    }
-
-    .section-header {
-      display: grid;
-      gap: 0.75rem;
-      max-width: 720px;
-    }
-
-    .section-header h2 {
-      margin: 0;
-      font-size: clamp(2rem, 2vw + 1rem, 2.6rem);
-      color: var(--lumina-navy);
-    }
-
-    .section-header p {
-      margin: 0;
-      color: var(--lumina-text-muted);
-      font-size: 1.02rem;
-    }
-
-    .section-dark .section-header h2 {
-      color: var(--lumina-surface);
-    }
-
-    .section-dark .section-header p {
-      color: rgba(226, 232, 240, 0.75);
-    }
-
-    .feature-grid {
+    .grid-panels {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1.6rem;
     }
 
-    .feature-card {
-      background: var(--lumina-surface);
+    .panel {
+      background: rgba(7, 19, 43, 0.75);
       border-radius: var(--radius-md);
-      padding: 1.8rem;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      display: grid;
-      gap: 1rem;
+      padding: 2rem;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      position: relative;
+      overflow: hidden;
       transition: var(--transition);
     }
 
-    .feature-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 10px 18px rgba(4, 120, 211, 0.1);
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.22), transparent 55%);
+      opacity: 0.7;
     }
 
-    .feature-icon {
-      width: 54px;
-      height: 54px;
-      border-radius: 16px;
-      background: #e6f2ff;
-      display: grid;
-      place-items: center;
-      color: var(--lumina-blue-dark);
-      font-size: 1.35rem;
+    .panel:hover {
+      transform: translateY(-6px);
+      border-color: rgba(56, 189, 248, 0.45);
     }
 
-    .feature-card h3 {
+    .panel h4 {
+      margin: 0 0 0.8rem;
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .panel p {
       margin: 0;
-      font-size: 1.2rem;
-      color: var(--lumina-navy);
-    }
-
-    .feature-card p {
-      margin: 0;
-      color: var(--lumina-text-muted);
+      color: rgba(203, 213, 225, 0.76);
+      font-size: 0.95rem;
       line-height: 1.6;
     }
 
-    .section-cta {
+    .panel small {
+      display: block;
+      margin-top: 1.2rem;
+      letter-spacing: 0.2em;
+      font-size: 0.75rem;
+      color: rgba(56, 189, 248, 0.65);
+    }
+
+    .flux-layout {
+      background: rgba(7, 19, 43, 0.8);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(4, 120, 211, 0.22);
+      padding: 2.8rem;
+      display: grid;
+      gap: 2.6rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flux-layout::after {
+      content: "";
+      position: absolute;
+      inset: -30% 40% 0 -20%;
+      background: linear-gradient(120deg, rgba(4, 120, 211, 0.12), rgba(56, 189, 248, 0));
+      opacity: 0.9;
+      pointer-events: none;
+      transform: rotate(-8deg);
+    }
+
+    .flux-header {
       display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.5rem;
       flex-wrap: wrap;
+    }
+
+    .flux-header h3 {
+      margin: 0;
+      font-size: 1.4rem;
+      letter-spacing: 0.24em;
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .flux-pills {
+      display: flex;
       gap: 0.75rem;
-      align-items: center;
+      flex-wrap: wrap;
     }
 
-    .section-cta a {
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.65rem 1.35rem;
+    .flux-pills span {
       border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: var(--transition);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      padding: 0.5rem 1.1rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.9);
     }
 
-    .section-cta a.primary {
-      background: var(--lumina-blue);
-      color: #fff;
-      box-shadow: 0 12px 20px rgba(4, 120, 211, 0.18);
-      border: 1px solid transparent;
-    }
-
-    .section-cta a.ghost {
-      background: transparent;
-      color: var(--lumina-blue-dark);
-      border: 1px solid rgba(4, 120, 211, 0.28);
-    }
-
-    .section-cta a:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 16px 26px rgba(4, 120, 211, 0.16);
-    }
-
-    .section-dark .section-cta a {
-      box-shadow: none;
-    }
-
-    .section-dark .section-cta a.primary {
-      background: rgba(255, 255, 255, 0.12);
-      color: var(--lumina-surface);
-      border: 1px solid rgba(255, 255, 255, 0.28);
-    }
-
-    .section-dark .section-cta a.ghost {
-      color: rgba(226, 232, 240, 0.9);
-      border: 1px solid rgba(226, 232, 240, 0.28);
-    }
-
-    .section-dark .section-cta a:hover {
-      background: rgba(255, 255, 255, 0.14);
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.45);
-    }
-
-    .about-grid {
+    .flux-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 2rem;
+      gap: 1.8rem;
     }
 
-    .about-card {
-      background: var(--lumina-surface);
+    .flux-card {
+      background: rgba(4, 14, 33, 0.8);
       border-radius: var(--radius-md);
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      padding: 2rem;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      padding: 1.8rem;
       display: grid;
-      gap: 0.75rem;
-      box-shadow: none;
+      gap: 0.8rem;
+      position: relative;
+      overflow: hidden;
     }
 
-    .section-dark .feature-card {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(226, 232, 240, 0.18);
+    .flux-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), transparent 55%);
+      opacity: 0.6;
     }
 
-    .section-dark .feature-card h3,
-    .section-dark .feature-card p {
-      color: var(--lumina-surface);
+    .flux-card strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1rem;
+      letter-spacing: 0.18em;
     }
 
-    .section-dark .feature-card p {
-      color: rgba(226, 232, 240, 0.78);
-    }
-
-    .section-dark .feature-icon {
-      background: rgba(56, 189, 248, 0.18);
-      color: var(--lumina-surface);
-    }
-
-    .section-dark .feature-card:hover {
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-    }
-
-    .about-card small {
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--lumina-blue-dark);
-      font-weight: 600;
-    }
-
-    .about-card h3 {
+    .flux-card p {
       margin: 0;
-      color: var(--lumina-navy);
-    }
-
-    .about-card p {
-      margin: 0;
-      color: var(--lumina-text-muted);
+      color: rgba(203, 213, 225, 0.75);
+      font-size: 0.92rem;
       line-height: 1.6;
+    }
+
+    .flux-card span {
+      letter-spacing: 0.2em;
+      font-size: 0.75rem;
+      color: rgba(56, 189, 248, 0.65);
+      text-transform: uppercase;
     }
 
     footer {
-      padding: 2.5rem 1.25rem 2rem;
-      background: var(--lumina-navy);
-      color: rgba(226, 232, 240, 0.9);
-      margin-top: auto;
-      width: 100%;
-      margin-left: 0;
-      margin-right: 0;
+      padding: 4rem 2.4rem;
+      border-top: 1px solid rgba(56, 189, 248, 0.12);
+      background: rgba(4, 14, 33, 0.82);
+      backdrop-filter: blur(12px);
     }
 
-    .footer-shell {
-      max-width: 1100px;
+    .footer-grid {
+      max-width: 1200px;
       margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2rem;
+      color: rgba(203, 213, 225, 0.75);
+      font-size: 0.9rem;
     }
 
-    .footer-shell a {
-      color: rgba(226, 232, 240, 0.85);
+    .footer-grid h4 {
+      margin: 0 0 1rem;
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.75);
+      font-size: 0.85rem;
+    }
+
+    .footer-grid ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .footer-grid a {
+      color: rgba(148, 163, 184, 0.8);
       text-decoration: none;
-      font-weight: 500;
+      letter-spacing: 0.12em;
+      font-size: 0.78rem;
+      transition: var(--transition);
     }
 
-    .footer-shell a:hover {
-      color: white;
+    .footer-grid a:hover {
+      color: var(--lumina-cyan);
     }
 
-    @media (max-width: 720px) {
-      header {
-        position: static;
-      }
+    .footer-note {
+      margin-top: 2rem;
+      text-align: center;
+      letter-spacing: 0.18em;
+      font-size: 0.75rem;
+      color: rgba(148, 163, 184, 0.6);
+    }
 
-      .nav-container {
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+      .nav-wrap {
         flex-direction: column;
         align-items: flex-start;
       }
 
+      nav ul {
+        flex-wrap: wrap;
+      }
+
+      main {
+        padding: 3rem 1.5rem 5rem;
+      }
+
       .hero {
-        padding-top: 3rem;
+        gap: 2.4rem;
       }
 
-      .hero-ctas {
-        width: 100%;
-      }
-
-      .hero-ctas a {
-        flex: 1;
-        justify-content: center;
+      .flux-header {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
   </style>
-  <?
-    var __landingBase = scriptUrl || baseUrl || '';
-    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
-    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
-    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
-    var landingWorkspaceUrl = __landingBase ? __landingBase + '?page=dashboard' : 'Dashboard.html';
-  ?>
 </head>
+<body>
+  <div class="boot-sequence" id="boot-sequence">
+    <div class="boot-core"></div>
+    <div class="boot-grid">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
 
-<body class="landing-page">
-  <div class="page-shell">
-    <header>
-      <div class="nav-container">
-        <a class="brand" href="#top" aria-label="LuminaHQ home">
-          <img class="brand-logo" src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
-          <div>
-            <span>LuminaHQ</span>
-            <h1>Command Center</h1>
-          </div>
-        </a>
-        <div class="nav-actions">
-          <a class="btn-outline" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
-          <a class="btn-primary" href="<?!= landingWorkspaceUrl ?>"><i class="fa-solid fa-chart-simple"></i> Enter workspace</a>
+  <header>
+    <div class="nav-wrap">
+      <a href="#" class="brand">
+        <span class="brand-glyph"><i class="fa-solid fa-sparkles"></i></span>
+        <span class="brand-copy">
+          <h1>LuminaHQ</h1>
+          <span>WORKFORCE NEURAL NETWORK</span>
+        </span>
+      </a>
+      <nav>
+        <ul>
+          <li><a href="#vision">Vision</a></li>
+          <li><a href="#grid">Command Grid</a></li>
+          <li><a href="#flux">Telemetry</a></li>
+        </ul>
+      </nav>
+      <div class="cta-group">
+        <a class="cta-outline" href="LandingCapabilities.html">Explore Modules</a>
+        <a class="cta-solid" href="LandingAbout.html">Meet the Architects</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero reveal" id="vision">
+      <div class="hero-copy">
+        <div class="signal-bar">
+          <div class="signal-pip"></div>
+          <div class="signal-pip"></div>
+          <div class="signal-pip"></div>
+          <span style="letter-spacing: 0.38em; font-size: 0.75rem; text-transform: uppercase; color: rgba(148, 163, 184, 0.8);">Initializing Workforce Intelligence</span>
+        </div>
+        <h2>Designing a neural cockpit for every operational decision.</h2>
+        <p>LuminaHQ synchronizes schedules, quality, compliance, and coaching data into a single adaptive dashboard. Command the health of your contact center with crystalline telemetry, predictive guidance, and zero-friction collaboration.</p>
+        <div class="cta-group">
+          <a class="cta-solid" href="LandingCapabilities.html">Launch Command Suite</a>
+          <a class="cta-outline" href="LandingAbout.html">Decode our Story</a>
         </div>
       </div>
-    </header>
-
-    <main class="landing-main">
-      <section class="hero" id="top">
-        <div class="hero-inner">
-          <div class="hero-surface">
-            <div class="hero-content">
-              <div class="hero-copy">
-                <span class="hero-tag"><i class="fa-solid fa-sparkles"></i> Modern Operations Platform</span>
-                <h2 class="hero-title">Unify your workforce intelligence from one elevated workspace.</h2>
-                <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
-                <div class="hero-ctas">
-                  <a class="primary" href="<?!= landingWorkspaceUrl ?>"><i class="fa-solid fa-chart-simple"></i> Open the workspace</a>
-                  <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
-                </div>
-              </div>
-              <aside class="hero-showcase" aria-label="Platform highlights">
-                <div class="showcase-header">
-                  <h2>Live intelligence snapshot</h2>
-                  <span class="status-pill"><i class="fa-solid fa-signal"></i> Real-time sync</span>
-                </div>
-                <div class="metrics-grid">
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-people-group"></i></div>
-                    <strong>2.8K</strong>
-                    <span>Active agents</span>
-                  </div>
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-chart-line"></i></div>
-                    <strong>98%</strong>
-                    <span>Service level</span>
-                  </div>
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-stopwatch"></i></div>
-                    <strong>15m</strong>
-                    <span>Avg. onboarding</span>
-                  </div>
-                </div>
-                <p class="hero-subtitle" style="margin:0;">Designed for managers, analysts, and specialists who need actionable clarity every hour.</p>
-              </aside>
+      <div class="hero-console">
+        <div class="console-header">
+          <span>Quantum Orchestrator</span>
+          <i class="fa-solid fa-hexagon-nodes" style="color: rgba(56, 189, 248, 0.65);"></i>
+        </div>
+        <div class="console-orbits">
+          <div class="orbit-card">
+            <i class="fa-solid fa-wave-square"></i>
+            <div>
+              <strong>Signal Fusion</strong>
+              <p>Every workforce signal streams into a unified, real-time lattice, revealing anomalies before they impact customer trust.</p>
+            </div>
+          </div>
+          <div class="orbit-card">
+            <i class="fa-solid fa-gauge-high"></i>
+            <div>
+              <strong>Predictive Velocity</strong>
+              <p>Machine-calibrated forecasts tune staffing, QA, and performance objectives with adaptive pacing across every team.</p>
+            </div>
+          </div>
+          <div class="orbit-card">
+            <i class="fa-solid fa-user-astronaut"></i>
+            <div>
+              <strong>Agent Empowerment</strong>
+              <p>Guided workflows, instant knowledge boosts, and intelligent nudges keep every agent mission-ready.</p>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="section section-dark" id="features">
-        <div class="section-shell">
-          <div class="section-header">
-            <h2>Why teams trust LuminaHQ</h2>
-            <p>Built with a modern flat UI system, LuminaHQ keeps your workforce aligned while surfacing the KPIs that matter. Every module is orchestrated to boost operational clarity and coach teams at scale.</p>
-          </div>
-          <div class="feature-grid">
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-headset"></i></div>
-              <h3>Unified agent visibility</h3>
-              <p>Track live schedules, skill coverage, and coaching plans without hopping between spreadsheets or dashboards.</p>
-            </article>
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-gauge-high"></i></div>
-              <h3>Performance intelligence</h3>
-              <p>Layer KPIs, QA feedback, and campaign health into interactive scorecards that spotlight opportunities faster.</p>
-            </article>
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
-              <h3>Secure, tenant-ready</h3>
-              <p>Multi-tenant architecture keeps each campaign isolated with granular access controls for admins and managers.</p>
-            </article>
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-rocket"></i></div>
-              <h3>Ready in minutes</h3>
-              <p>Deploy LuminaHQ directly on Google Workspace infrastructure so your team stays productive without new logins.</p>
-            </article>
-          </div>
-          <div class="section-cta">
-            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore full capabilities</a>
-            <a class="ghost" href="<?!= landingWorkspaceUrl ?>"><i class="fa-solid fa-chart-simple"></i> Open the workspace</a>
-          </div>
-        </div>
-      </section>
+    <section class="grid-panels reveal" id="grid">
+      <div class="panel">
+        <small>01 • STRATEGY</small>
+        <h4>Command choreography</h4>
+        <p>Interlink governance, quality, and coaching cadences with configurable playbooks that flex to every campaign.</p>
+      </div>
+      <div class="panel">
+        <small>02 • INTELLIGENCE</small>
+        <h4>Telemetry fabric</h4>
+        <p>Glass dashboards stitch together AI-assisted analytics, providing clarity on every SLA pulse in milliseconds.</p>
+      </div>
+      <div class="panel">
+        <small>03 • EXPERIENCE</small>
+        <h4>Empathy interface</h4>
+        <p>Human-centered cards keep attention on the moments that matter—celebrations, escalations, and opportunities.</p>
+      </div>
+      <div class="panel">
+        <small>04 • AUTOMATION</small>
+        <h4>Autopilot bridges</h4>
+        <p>Trigger-ready automations deploy updates, escalate decisions, and reconcile data without slowing execution.</p>
+      </div>
+    </section>
 
-      <section class="section section-light" id="about">
-        <div class="section-shell">
-          <div class="section-header">
-            <h2>Where LuminaHQ was crafted</h2>
-            <p>Conceived inside Lumina's Innovation Lab in Kingston, Jamaica, the platform blends contact center expertise with modern data engineering to streamline every customer interaction.</p>
-          </div>
-          <div class="about-grid">
-            <article class="about-card">
-              <small>Purpose</small>
-              <h3>Elevate every customer moment</h3>
-              <p>Give managers, analysts, and enablement leaders a cohesive view of scheduling, coaching, QA, and collaboration so they can focus on people instead of manual busywork.</p>
-            </article>
-            <article class="about-card">
-              <small>Built For</small>
-              <h3>Global call center teams</h3>
-              <p>From BPO networks to in-house support centers, LuminaHQ adapts to campaigns of every scale with tenant-aware governance baked in.</p>
-            </article>
-            <article class="about-card">
-              <small>Crafted In</small>
-              <h3>Kingston, Jamaica</h3>
-              <p>Engineered by Lumina's product studio with a focus on modern, flat UI systems and a seamless Google Apps Script backbone.</p>
-            </article>
-          </div>
-          <div class="section-cta">
-            <a class="primary" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> Discover our story</a>
-            <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <div class="footer-shell">
-        <p>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Built with secure Google Workspace automation.</p>
-        <div>
-          <a href="PrivacyPolicy.html">Privacy</a> &middot;
-          <a href="TermsOfService.html">Terms</a> &middot;
-          <a href="<?!= landingWorkspaceUrl ?>">Workspace</a>
+    <section class="flux-layout reveal" id="flux">
+      <div class="flux-header">
+        <h3>Operational flux monitor</h3>
+        <div class="flux-pills">
+          <span>schedule iq</span>
+          <span>qa telemetry</span>
+          <span>escalation routing</span>
+          <span>coaching resonance</span>
         </div>
       </div>
-    </footer>
-  </div>
-</body>
+      <div class="flux-grid">
+        <div class="flux-card">
+          <span>Signal 01</span>
+          <strong>Velocity grid</strong>
+          <p>Blend interval staffing, adherence, and attendance to create an always-on picture of workforce readiness.</p>
+        </div>
+        <div class="flux-card">
+          <span>Signal 02</span>
+          <strong>Quality constellations</strong>
+          <p>AI-assisted QA pipelines map strengths and gaps, aligning improvement narratives with business outcomes.</p>
+        </div>
+        <div class="flux-card">
+          <span>Signal 03</span>
+          <strong>Escalation harmonics</strong>
+          <p>Live escalation queues visualize resolution energy, ensuring high-stakes signals never fall out of orbit.</p>
+        </div>
+        <div class="flux-card">
+          <span>Signal 04</span>
+          <strong>Coaching resonance</strong>
+          <p>Adaptive feedback loops surface micro-wins and opportunities, sustaining growth momentum for every agent.</p>
+        </div>
+      </div>
+    </section>
+  </main>
 
+  <footer>
+    <div class="footer-grid">
+      <div>
+        <h4>Platform Core</h4>
+        <ul>
+          <li><a href="LandingCapabilities.html">Capabilities</a></li>
+          <li><a href="LandingAbout.html">Team &amp; Vision</a></li>
+          <li><a href="Dashboard.html">Operations Console</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Modules</h4>
+        <ul>
+          <li><a href="ScheduleManagement.html">Scheduling</a></li>
+          <li><a href="QualityView.html">Quality Intelligence</a></li>
+          <li><a href="CoachingDashboard.html">Coaching Studio</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="LuminaHQUserGuide.html">User Guide</a></li>
+          <li><a href="PrivacyPolicy.html">Privacy</a></li>
+          <li><a href="TermsOfService.html">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="footer-note">© 2024 LuminaHQ. Crafted for the neural workforce frontier.</p>
+  </footer>
+
+  <script>
+    const boot = document.getElementById('boot-sequence');
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        boot.classList.add('hidden');
+      }, 900);
+    });
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        threshold: 0.12,
+      }
+    );
+
+    document.querySelectorAll('.reveal').forEach(section => observer.observe(section));
+  </script>
+</body>
 </html>

@@ -1,36 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>About LuminaHQ</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-  <?
-    var __landingBase = scriptUrl || baseUrl || '';
-    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
-    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
-    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
-  ?>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inside LuminaHQ • Architects of the Neural Workforce</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
     :root {
-      --lumina-navy: #0b1b3f;
+      --lumina-navy: #040d22;
+      --lumina-deep: #07142f;
       --lumina-blue: #0478d3;
-      --lumina-blue-dark: #035799;
       --lumina-cyan: #38bdf8;
-      --lumina-surface: #f5f8ff;
-      --lumina-card: #ffffff;
-      --lumina-muted: #475467;
-      --lumina-border: rgba(15, 23, 42, 0.08);
-      --lumina-gradient: linear-gradient(135deg, rgba(11, 27, 63, 0.96), rgba(4, 120, 211, 0.9));
-      --shadow-card: 0 30px 60px rgba(11, 27, 63, 0.12);
-      --radius-lg: 26px;
-      --radius-md: 18px;
-      --transition: all 0.28s ease;
+      --lumina-mint: #67e8f9;
+      --lumina-border: rgba(56, 189, 248, 0.22);
+      --radius-lg: 32px;
+      --radius-md: 22px;
+      --radius-sm: 14px;
+      --transition: all 0.32s ease;
     }
 
     * {
@@ -39,480 +28,502 @@
 
     body {
       margin: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: var(--lumina-navy);
-      background: radial-gradient(circle at 20% 20%, rgba(4, 120, 211, 0.08), transparent 55%),
-        radial-gradient(circle at 80% 0, rgba(56, 189, 248, 0.1), transparent 45%),
-        var(--lumina-surface);
+      font-family: "Inter", sans-serif;
+      color: rgba(226, 232, 240, 0.92);
+      background: radial-gradient(circle at 16% 20%, rgba(56, 189, 248, 0.22), transparent 45%),
+        radial-gradient(circle at 85% 8%, rgba(4, 120, 211, 0.35), transparent 55%),
+        linear-gradient(160deg, var(--lumina-navy), #020611 75%);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      overflow-x: hidden;
     }
 
-    a {
-      color: inherit;
-    }
-
-    .page-shell {
-      flex: 1;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
+    .orbital-overlay {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.04) 0px, rgba(148, 163, 184, 0.04) 1px, transparent 1px, transparent 90px);
+      opacity: 0.4;
+      pointer-events: none;
     }
 
     header {
       position: sticky;
       top: 0;
-      backdrop-filter: blur(16px);
-      background: rgba(255, 255, 255, 0.82);
-      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-      z-index: 20;
+      z-index: 30;
+      background: rgba(4, 13, 34, 0.65);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.18);
+      backdrop-filter: blur(18px);
     }
 
-    .nav-container {
-      max-width: 1200px;
+    .nav-shell {
+      max-width: 1180px;
       margin: 0 auto;
-      padding: 1rem 1.5rem;
+      padding: 1.3rem 2.3rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 1rem;
+      gap: 1.5rem;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.85rem;
+      gap: 1rem;
       text-decoration: none;
       color: inherit;
     }
 
-    .brand img {
-      width: 46px;
-      height: 46px;
-    }
-
-    .brand h1 {
-      margin: 0;
+    .brand i {
+      width: 50px;
+      height: 50px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(4, 120, 211, 0.25), rgba(56, 189, 248, 0.6));
+      box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.4), 0 8px 20px rgba(4, 120, 211, 0.28);
+      color: rgba(226, 232, 240, 0.85);
       font-size: 1.25rem;
-      font-weight: 700;
     }
 
     .brand span {
       display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--lumina-muted);
+      font-family: "Space Grotesk", sans-serif;
     }
 
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+    .brand small {
+      display: block;
+      font-size: 0.7rem;
+      letter-spacing: 0.38em;
+      color: rgba(148, 163, 184, 0.75);
+      margin-top: 0.15rem;
     }
 
-    .nav-actions a {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 999px;
-      transition: var(--transition);
-      color: var(--lumina-blue-dark);
-      border: 1px solid rgba(4, 120, 211, 0.32);
-      background: rgba(255, 255, 255, 0.9);
-    }
-
-    .nav-actions a.primary {
-      color: #fff;
-      background: var(--lumina-blue);
-      border-color: transparent;
-      box-shadow: 0 18px 30px rgba(4, 120, 211, 0.18);
-    }
-
-    .nav-actions a:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 14px 22px rgba(4, 120, 211, 0.15);
-    }
-
-    main {
-      flex: 1;
-    }
-
-    .hero {
-      position: relative;
-      padding: clamp(4rem, 5vw + 2rem, 6rem) 1.5rem 4rem;
-      color: rgba(241, 247, 255, 0.96);
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 0 0 48px 48px;
-      background: var(--lumina-gradient);
-      z-index: 0;
-    }
-
-    .hero-inner {
-      position: relative;
-      z-index: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      gap: 2.5rem;
-      align-items: center;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    }
-
-    .hero-copy h2 {
-      font-size: clamp(2.4rem, 4vw, 3.2rem);
-      margin-bottom: 1.2rem;
-      line-height: 1.1;
-    }
-
-    .hero-copy p {
-      font-size: 1.05rem;
-      line-height: 1.7;
-      max-width: 520px;
-      margin-bottom: 1.5rem;
-    }
-
-    .hero-meta {
-      display: grid;
-      gap: 1rem;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    }
-
-    .meta-card {
-      background: rgba(255, 255, 255, 0.14);
-      padding: 1.25rem 1.4rem;
-      border-radius: var(--radius-md);
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-    }
-
-    .meta-card span {
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-weight: 600;
-      font-size: 0.72rem;
-      color: rgba(248, 250, 252, 0.72);
-    }
-
-    .meta-card strong {
-      font-size: 1.4rem;
-      font-weight: 700;
-    }
-
-    .content-section {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: clamp(3rem, 5vw, 4.5rem) 1.5rem;
-      display: grid;
-      gap: 2.75rem;
-    }
-
-    .section-header {
-      max-width: 760px;
-    }
-
-    .section-header h3 {
-      font-size: clamp(2rem, 3.5vw, 2.6rem);
-      margin-bottom: 1rem;
-      color: var(--lumina-navy);
-    }
-
-    .section-header p {
-      font-size: 1.05rem;
-      line-height: 1.8;
-      color: var(--lumina-muted);
-    }
-
-    .value-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.75rem;
-    }
-
-    .value-card {
-      background: var(--lumina-card);
-      border-radius: var(--radius-md);
-      padding: 2rem 2.2rem;
-      border: 1px solid var(--lumina-border);
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .value-card i {
-      font-size: 1.5rem;
-      color: var(--lumina-blue);
-    }
-
-    .value-card h4 {
-      margin: 0;
-      font-size: 1.35rem;
-    }
-
-    .value-card p {
-      margin: 0;
-      line-height: 1.7;
-      color: var(--lumina-muted);
-    }
-
-    .story-timeline {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1.5rem;
-      position: relative;
-    }
-
-    .story-card {
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: var(--radius-md);
-      padding: 1.75rem 1.9rem;
-      border: 1px solid var(--lumina-border);
-      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-    }
-
-    .story-card strong {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--lumina-blue-dark);
-    }
-
-    .story-card h4 {
-      font-size: 1.35rem;
-      margin: 0.75rem 0;
-    }
-
-    .story-card p {
-      margin: 0;
-      line-height: 1.7;
-      color: var(--lumina-muted);
-    }
-
-    .culture-banner {
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(4, 120, 211, 0.18));
-      border-radius: var(--radius-lg);
-      padding: 3rem 2.5rem;
-      display: grid;
-      gap: 2rem;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      border: 1px solid rgba(4, 120, 211, 0.25);
-    }
-
-    .culture-banner h4 {
-      margin: 0;
-      font-size: 1.6rem;
-    }
-
-    .culture-banner ul {
+    nav ul {
       list-style: none;
       margin: 0;
       padding: 0;
-      display: grid;
-      gap: 0.9rem;
+      display: flex;
+      gap: 1.8rem;
+      letter-spacing: 0.14em;
+      font-size: 0.85rem;
+      text-transform: uppercase;
     }
 
-    .culture-banner li {
+    nav a {
+      color: rgba(203, 213, 225, 0.78);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      padding-bottom: 0.3rem;
+      transition: var(--transition);
+    }
+
+    nav a:hover {
+      color: var(--lumina-cyan);
+      border-bottom-color: rgba(56, 189, 248, 0.55);
+    }
+
+    .cta-link {
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 0.55rem 1.2rem;
+      border-radius: 999px;
+      letter-spacing: 0.18em;
+      font-size: 0.78rem;
+      text-decoration: none;
+      color: rgba(226, 232, 240, 0.85);
+      transition: var(--transition);
+    }
+
+    .cta-link:hover {
+      background: rgba(56, 189, 248, 0.9);
+      color: #041025;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 4rem 2.3rem 6rem;
       display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      color: var(--lumina-muted);
+      flex-direction: column;
+      gap: 4.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .mission-copy h1 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2.4rem, 4.2vw, 3.4rem);
+      margin: 0 0 1.4rem;
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+    }
+
+    .mission-copy p {
+      margin: 0 0 2rem;
+      color: rgba(203, 213, 225, 0.8);
+      font-size: 1.05rem;
       line-height: 1.6;
     }
 
-    .culture-banner li i {
-      color: var(--lumina-blue);
-      margin-top: 0.2rem;
+    .mission-badges {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 0.6rem 1.3rem;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      letter-spacing: 0.18em;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.9);
+    }
+
+    .timeline {
+      background: rgba(4, 13, 34, 0.75);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      padding: 2.4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), transparent 58%);
+      opacity: 0.7;
+    }
+
+    .timeline-track {
+      position: relative;
+      border-left: 1px solid rgba(56, 189, 248, 0.28);
+      padding-left: 2rem;
+      display: grid;
+      gap: 2rem;
+    }
+
+    .timeline-node {
+      position: relative;
+      padding: 1.5rem 1.5rem 1.5rem 0;
+      border-radius: var(--radius-sm);
+    }
+
+    .timeline-node::before {
+      content: "";
+      position: absolute;
+      top: 1.8rem;
+      left: -2.65rem;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(4, 120, 211, 0.8), rgba(56, 189, 248, 0.9));
+      box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.18), 0 0 16px rgba(56, 189, 248, 0.4);
+    }
+
+    .timeline-node h3 {
+      margin: 0 0 0.6rem;
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 0.95rem;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .timeline-node strong {
+      display: block;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.2rem;
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.05em;
+    }
+
+    .timeline-node p {
+      margin: 0;
+      color: rgba(203, 213, 225, 0.75);
+      line-height: 1.6;
+    }
+
+    .team-holo {
+      background: rgba(4, 13, 34, 0.8);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      padding: 2.6rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .team-holo::after {
+      content: "";
+      position: absolute;
+      inset: -25% 40% 0 -20%;
+      background: linear-gradient(120deg, rgba(4, 120, 211, 0.12), rgba(56, 189, 248, 0));
+      opacity: 0.9;
+      pointer-events: none;
+      transform: rotate(-5deg);
+    }
+
+    .persona {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      background: rgba(7, 20, 43, 0.7);
+      padding: 1.8rem;
+      display: grid;
+      gap: 1rem;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .persona::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.2), transparent 60%);
+      opacity: 0.65;
+    }
+
+    .persona:hover {
+      transform: translateY(-6px);
+      border-color: rgba(56, 189, 248, 0.45);
+      box-shadow: 0 18px 36px rgba(4, 13, 34, 0.55);
+    }
+
+    .persona span {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: rgba(148, 163, 184, 0.85);
+      text-transform: uppercase;
+    }
+
+    .persona strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.05em;
+    }
+
+    .persona p {
+      margin: 0;
+      color: rgba(203, 213, 225, 0.78);
+      line-height: 1.6;
+      font-size: 0.94rem;
+    }
+
+    .signal-lab {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.8rem;
+    }
+
+    .lab-card {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      background: rgba(7, 20, 43, 0.78);
+      padding: 2rem;
+      display: grid;
+      gap: 0.8rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lab-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), transparent 60%);
+      opacity: 0.6;
+    }
+
+    .lab-card strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .lab-card p {
+      margin: 0;
+      color: rgba(203, 213, 225, 0.75);
+      line-height: 1.6;
+      font-size: 0.9rem;
     }
 
     footer {
-      padding: 2.5rem 1.5rem 3rem;
-      background: #0b1b3f;
-      color: rgba(226, 232, 240, 0.85);
-      margin-top: auto;
+      padding: 3.5rem 2.3rem;
+      border-top: 1px solid rgba(56, 189, 248, 0.15);
+      background: rgba(4, 13, 34, 0.72);
+      backdrop-filter: blur(12px);
+      margin-top: 5rem;
     }
 
-    .footer-shell {
-      max-width: 1100px;
+    footer p {
+      max-width: 1180px;
       margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+      letter-spacing: 0.2em;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.7);
+      text-align: center;
     }
 
-    .footer-shell a {
-      color: rgba(148, 163, 184, 0.85);
-      text-decoration: none;
+    .reveal {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
     }
 
-    .footer-shell a:hover {
-      color: #fff;
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
     }
 
-    @media (max-width: 720px) {
-      header {
-        position: static;
-      }
-
-      .nav-container {
+    @media (max-width: 768px) {
+      .nav-shell {
         flex-direction: column;
         align-items: flex-start;
+      }
+
+      nav ul {
+        flex-wrap: wrap;
+      }
+
+      main {
+        padding: 3.5rem 1.5rem 5rem;
       }
     }
   </style>
 </head>
-
 <body>
-  <div class="page-shell">
-    <header>
-      <div class="nav-container">
-        <a class="brand" href="<?!= landingHomeUrl ?>">
-          <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
-          <div>
-            <span>LuminaHQ</span>
-            <h1>Command Center</h1>
-          </div>
-        </a>
-        <div class="nav-actions">
-          <a href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
-          <a class="primary" href="<?!= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Back to landing</a>
+  <div class="orbital-overlay"></div>
+  <header>
+    <div class="nav-shell">
+      <a class="brand" href="Landing.html">
+        <i class="fa-solid fa-compass-drafting"></i>
+        <span>LuminaHQ <small>Architects of Precision</small></span>
+      </a>
+      <nav>
+        <ul>
+          <li><a href="#mission">Mission</a></li>
+          <li><a href="#timeline">Timeline</a></li>
+          <li><a href="#team">Crew</a></li>
+          <li><a href="#lab">Signal Lab</a></li>
+        </ul>
+      </nav>
+      <a class="cta-link" href="LandingCapabilities.html">View Capabilities</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-grid reveal" id="mission">
+      <div class="mission-copy">
+        <h1>We translate complex workforce choreography into confident action.</h1>
+        <p>LuminaHQ was forged by operators, analysts, and experience designers who spent decades inside contact centers. We reimagined the command stack with a singular goal: illuminate every decision with clarity, empathy, and accountable intelligence.</p>
+        <div class="mission-badges">
+          <span class="badge">mission control</span>
+          <span class="badge">human-centered ai</span>
+          <span class="badge">global ops heritage</span>
         </div>
       </div>
-    </header>
-
-    <main>
-      <section class="hero">
-        <div class="hero-inner">
-          <div class="hero-copy">
-            <h2>Built for teams who turn every customer moment into momentum.</h2>
-            <p>LuminaHQ started as a skunkworks experiment inside Lumina's Innovation Lab in Kingston, Jamaica. What began as a scheduling toolkit for a single campaign now orchestrates workforce intelligence across global BPO operations.</p>
-            <div class="hero-meta">
-              <div class="meta-card">
-                <span>Origins</span>
-                <strong>Kingston, Jamaica</strong>
-                <p>Where our product studio designs, prototypes, and ships every module.</p>
-              </div>
-              <div class="meta-card">
-                <span>Focus</span>
-                <strong>Workforce clarity</strong>
-                <p>Unifying scheduling, QA, coaching, and collaboration into one control tower.</p>
-              </div>
-            </div>
+      <div class="timeline" id="timeline">
+        <div class="timeline-track">
+          <div class="timeline-node">
+            <h3>2014</h3>
+            <strong>Origins in operations</strong>
+            <p>Our founders led large-scale CX organizations, wrestling with disjointed data and siloed tooling. The blueprint for LuminaHQ was drafted in after-hours war rooms.</p>
           </div>
-          <div class="hero-visual" aria-hidden="true">
-            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1710450011/vlbpo/lumina/about-grid_qws7ir.png" alt="LuminaHQ culture collage" style="width:100%;border-radius:24px;box-shadow:0 32px 60px rgba(8, 47, 73, 0.2);object-fit:cover;">
+          <div class="timeline-node">
+            <h3>2018</h3>
+            <strong>Telemetry breakthrough</strong>
+            <p>We prototyped the first Lumina neural mesh, fusing schedule, QA, and coaching telemetry into a single predictive graph.</p>
+          </div>
+          <div class="timeline-node">
+            <h3>2021</h3>
+            <strong>Human-centered redesign</strong>
+            <p>With behavior scientists and UI futurists, we rebuilt the interface to put empathy, equity, and coaching at the center of every workflow.</p>
+          </div>
+          <div class="timeline-node">
+            <h3>Today</h3>
+            <strong>Neural workforce frontier</strong>
+            <p>LuminaHQ now stewards mission-critical teams worldwide, orchestrating resilient experiences for agents and customers alike.</p>
           </div>
         </div>
-      </section>
-
-      <section class="content-section">
-        <div class="section-header">
-          <h3>Why we exist</h3>
-          <p>Call center leaders are asked to coach, staff, report, and innovate without friction. LuminaHQ removes the swivel-chair work by giving teams an integrated workspace that adapts to each campaign, geography, and client requirement.</p>
-        </div>
-        <div class="value-grid">
-          <article class="value-card">
-            <i class="fa-solid fa-compass"></i>
-            <h4>Customer-first design</h4>
-            <p>Every workflow is tested with active operations teams to ensure the UI stays intuitive even for fast-scaling programs.</p>
-          </article>
-          <article class="value-card">
-            <i class="fa-solid fa-people-group"></i>
-            <h4>Human-centered automation</h4>
-            <p>Automation is only useful when it empowers analysts and supervisors. Our scripts reduce manual steps while keeping people in control.</p>
-          </article>
-          <article class="value-card">
-            <i class="fa-solid fa-shield-heart"></i>
-            <h4>Secure collaboration</h4>
-            <p>Multi-tenant controls, audit trails, and granular permissions protect customer data while keeping teams aligned.</p>
-          </article>
-          <article class="value-card">
-            <i class="fa-solid fa-globe"></i>
-            <h4>Global reach, local roots</h4>
-            <p>We support distributed teams across the Americas, yet maintain our product craft and culture in the Caribbean.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="content-section">
-        <div class="section-header">
-          <h3>How LuminaHQ evolved</h3>
-          <p>A cross-functional team of engineers, data analysts, and operations specialists continues to expand LuminaHQ based on real-world call center use cases.</p>
-        </div>
-        <div class="story-timeline">
-          <article class="story-card">
-            <strong><i class="fa-solid fa-flag"></i> 2019</strong>
-            <h4>Scheduling foundations</h4>
-            <p>Introduced the first Google Workspace scripts to automate agent shift updates and broadcast daily coaching plans.</p>
-          </article>
-          <article class="story-card">
-            <strong><i class="fa-solid fa-rocket"></i> 2021</strong>
-            <h4>Unified coaching</h4>
-            <p>Expanded into coaching dashboards, QA data pipelines, and collaboration workflows for hybrid teams.</p>
-          </article>
-          <article class="story-card">
-            <strong><i class="fa-solid fa-shield"></i> 2023</strong>
-            <h4>Enterprise-ready security</h4>
-            <p>Shipped tenant-aware access controls, SSO alignment, and audit logging for compliance-driven partners.</p>
-          </article>
-          <article class="story-card">
-            <strong><i class="fa-solid fa-chart-line"></i> Today</strong>
-            <h4>Predictive intelligence</h4>
-            <p>Integrating forecasting, AI summarization, and proactive alerts so teams anticipate changes instead of reacting to them.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="content-section" style="padding-bottom:4.5rem;">
-        <div class="culture-banner">
-          <div>
-            <h4>Inside the LuminaHQ culture</h4>
-            <p style="color:var(--lumina-muted);line-height:1.7;margin-top:0.75rem;">We operate with curiosity, empathy, and a bias toward shipping. Our product rituals keep customer teams connected to the builders shaping their tools.</p>
-          </div>
-          <div>
-            <ul>
-              <li><i class="fa-solid fa-lightbulb"></i> Weekly design reviews align engineering, QA, and enablement on new feature experiments.</li>
-              <li><i class="fa-solid fa-person-chalkboard"></i> Immersive onboarding embeds our product team directly inside partner operations for live feedback.</li>
-              <li><i class="fa-solid fa-hands"></i> Community initiatives reinvest in Jamaican tech talent through mentorship, internships, and open-source learning.</li>
-            </ul>
-          </div>
-          <div>
-            <ul>
-              <li><i class="fa-solid fa-headset"></i> Dedicated customer pods pair product managers with operations leads for faster roadmap alignment.</li>
-              <li><i class="fa-solid fa-leaf"></i> We balance rapid delivery with sustainable workloads to maintain a resilient team.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <div class="footer-shell">
-        <strong>Ready to explore the workspace?</strong>
-        <div>
-          <a href="<?!= landingCapabilitiesUrl ?>">Discover LuminaHQ capabilities</a> &middot;
-          <a href="<?!= landingHomeUrl ?>#about">Back to landing overview</a>
-        </div>
-        <small>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Crafted by Lumina's Innovation Lab in Kingston, Jamaica.</small>
       </div>
-    </footer>
-  </div>
+    </section>
+
+    <section class="team-holo reveal" id="team">
+      <div class="persona">
+        <span>Command</span>
+        <strong>Nova Quinn • Chief Experience Officer</strong>
+        <p>Nova guides the Lumina story and ensures every interaction—digital or human—fosters trust. She champions accessibility, inclusive design, and purpose-driven storytelling.</p>
+      </div>
+      <div class="persona">
+        <span>Telemetry</span>
+        <strong>Ravi Sol • Principal Systems Architect</strong>
+        <p>Ravi designs the neural data mesh, translating millions of signals into actionable intelligence with uncompromising reliability.</p>
+      </div>
+      <div class="persona">
+        <span>Ops Science</span>
+        <strong>Elena Mars • VP, Workforce Strategy</strong>
+        <p>Elena shapes coaching methodologies, performance frameworks, and the strategic playbooks that keep operations aligned.</p>
+      </div>
+      <div class="persona">
+        <span>Automation</span>
+        <strong>Zane Kei • Director, Autopilot Systems</strong>
+        <p>Zane leads automation and escalation design, embedding adaptive decisioning inside every Lumina workflow.</p>
+      </div>
+    </section>
+
+    <section class="signal-lab reveal" id="lab">
+      <div class="lab-card">
+        <strong>Design rituals</strong>
+        <p>Every release begins with empathy mapping and operator interviews to ensure LuminaHQ listens to real-world frontline needs.</p>
+      </div>
+      <div class="lab-card">
+        <strong>Governance ethics</strong>
+        <p>We embed responsible AI standards across data ingestion, model training, and deployment for auditable transparency.</p>
+      </div>
+      <div class="lab-card">
+        <strong>Continuous calibration</strong>
+        <p>Live telemetry loops measure satisfaction, accuracy, and adoption, allowing us to iterate in days—not quarters.</p>
+      </div>
+      <div class="lab-card">
+        <strong>Global alliance</strong>
+        <p>Our partner network spans analytics, workforce management, and coaching experts to ensure LuminaHQ scales across industries.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Mission crafted by the LuminaHQ Collective • Explore the command frontier with us.</p>
+  </footer>
+
+  <script>
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+
+    document.querySelectorAll('.reveal').forEach(section => observer.observe(section));
+  </script>
 </body>
-
 </html>
