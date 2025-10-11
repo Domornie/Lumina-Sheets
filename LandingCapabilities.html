@@ -145,6 +145,21 @@
       }
     }
 
+    @keyframes flareDrift {
+      0% {
+        transform: translate3d(0, 0, 0) scale(0.82);
+        opacity: 0.34;
+      }
+      50% {
+        transform: translate3d(22px, -20px, 0) scale(1.05);
+        opacity: 0.7;
+      }
+      100% {
+        transform: translate3d(-20px, 24px, 0) scale(0.9);
+        opacity: 0.46;
+      }
+    }
+
     .scroll-progress {
       position: fixed;
       inset: 0 0 auto 0;
@@ -332,6 +347,51 @@
       padding: 0 2.75rem;
     }
 
+    .preloader.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .preloader-inner {
+      text-align: center;
+      display: grid;
+      gap: 1.2rem;
+      padding: 2.5rem 3rem;
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .loader-track {
+      height: 6px;
+      width: 220px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.25);
+      overflow: hidden;
+    }
+
+    .loader-indicator {
+      height: 100%;
+      width: 45%;
+      background: linear-gradient(90deg, rgba(29, 78, 216, 0.8), rgba(59, 130, 246, 0.9), rgba(6, 182, 212, 0.85));
+      background-size: 200% 100%;
+      animation: shimmer 1.2s linear infinite;
+      border-radius: inherit;
+    }
+
+    section {
+      width: 100%;
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 2.75rem;
+    }
+
     section {
       width: 100%;
       padding: 6rem 0;
@@ -343,6 +403,47 @@
       padding-top: 8rem;
       padding-bottom: 8rem;
       overflow: hidden;
+    }
+
+    .hero-flares {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      mix-blend-mode: screen;
+    }
+
+    .hero-flares span {
+      position: absolute;
+      width: clamp(130px, 20vw, 240px);
+      height: clamp(130px, 20vw, 240px);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.26), rgba(14, 165, 233, 0.08) 68%, transparent 80%);
+      animation: flareDrift 20s ease-in-out infinite;
+    }
+
+    .hero-flares span:nth-child(1) {
+      top: 12%;
+      left: 12%;
+      animation-duration: 24s;
+    }
+
+    .hero-flares span:nth-child(2) {
+      bottom: 16%;
+      right: 18%;
+      animation-duration: 18s;
+      animation-delay: -6s;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.32), rgba(37, 99, 235, 0.12) 68%, transparent 80%);
+    }
+
+    .hero-flares span:nth-child(3) {
+      top: 24%;
+      right: 36%;
+      width: clamp(110px, 16vw, 200px);
+      height: clamp(110px, 16vw, 200px);
+      animation-duration: 26s;
+      animation-delay: -12s;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.34), rgba(59, 130, 246, 0.12) 68%, transparent 80%);
     }
 
     .hero::before {
@@ -1016,7 +1117,7 @@
           <li><a href="LandingAbout.html">About</a></li>
         </ul>
       </nav>
-      <a class="nav-cta" href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
+      <a class="nav-cta" data-platform-link href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
         <i class="fa-solid fa-right-to-bracket"></i>
         Enter platform
       </a>
@@ -1024,6 +1125,11 @@
   </header>
   <main>
     <section class="hero" id="banner" data-reveal>
+      <div class="hero-flares" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <div class="container hero-grid">
         <div class="hero-copy">
           <div class="hero-badges" aria-hidden="true">
@@ -1038,7 +1144,7 @@
             the suite powering modern workforce intelligence.
           </p>
           <div class="hero-actions">
-            <a class="primary-btn" href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
+            <a class="primary-btn" data-platform-link href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
               <i class="fa-solid fa-rocket"></i>
               Enter platform
             </a>
@@ -1167,7 +1273,7 @@
           Activate LuminaHQ and give every leader the tools to plan, coach, analyze, and automate with confidence.
         </p>
         <div class="hero-actions" style="justify-content: center;">
-          <a class="primary-btn" href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
+          <a class="primary-btn" data-platform-link href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
             <i class="fa-solid fa-right-to-bracket"></i>
             Enter platform
           </a>
@@ -1213,6 +1319,14 @@
   <div class="cursor-glow" aria-hidden="true"></div>
   <script>
     (function () {
+      const PLATFORM_URL = 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec';
+
+      document.querySelectorAll('[data-platform-link]').forEach((link) => {
+        if (link) {
+          link.setAttribute('href', PLATFORM_URL);
+        }
+      });
+
       const preloader = document.querySelector('.preloader');
       window.addEventListener('load', () => {
         window.setTimeout(() => {
@@ -1291,6 +1405,22 @@
         window.addEventListener('mousemove', handleMove);
         window.addEventListener('resize', updateParallax);
         heroVisual.addEventListener('mouseleave', resetParallax);
+      }
+
+      const heroFlares = document.querySelectorAll('.hero-flares span');
+      if (heroFlares.length && !reducedMotion) {
+        window.addEventListener(
+          'pointermove',
+          (event) => {
+            const x = (event.clientX / window.innerWidth - 0.5) * 34;
+            const y = (event.clientY / window.innerHeight - 0.5) * 24;
+            heroFlares.forEach((flare, index) => {
+              const depth = (index + 1) / heroFlares.length;
+              flare.style.transform = `translate3d(${x * depth}px, ${y * depth}px, 0)`;
+            });
+          },
+          { passive: true }
+        );
       }
 
       const cursorGlow = document.querySelector('.cursor-glow');

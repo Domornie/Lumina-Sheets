@@ -148,6 +148,21 @@
       }
     }
 
+    @keyframes flareDrift {
+      0% {
+        transform: translate3d(0, 0, 0) scale(0.85);
+        opacity: 0.35;
+      }
+      50% {
+        transform: translate3d(28px, -24px, 0) scale(1.05);
+        opacity: 0.68;
+      }
+      100% {
+        transform: translate3d(-24px, 28px, 0) scale(0.9);
+        opacity: 0.45;
+      }
+    }
+
     .scroll-progress {
       position: fixed;
       inset: 0 0 auto 0;
@@ -345,6 +360,48 @@
       padding-top: 8rem;
       padding-bottom: 8rem;
       overflow: hidden;
+    }
+
+    .hero-flares {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      mix-blend-mode: screen;
+    }
+
+    .hero-flares span {
+      position: absolute;
+      width: clamp(140px, 22vw, 260px);
+      height: clamp(140px, 22vw, 260px);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.28), rgba(14, 165, 233, 0.08) 68%, transparent 80%);
+      filter: blur(0);
+      animation: flareDrift 18s ease-in-out infinite;
+    }
+
+    .hero-flares span:nth-child(1) {
+      top: 8%;
+      left: 12%;
+      animation-duration: 22s;
+    }
+
+    .hero-flares span:nth-child(2) {
+      bottom: 12%;
+      right: 16%;
+      animation-duration: 19s;
+      animation-delay: -6s;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.1) 65%, transparent 78%);
+    }
+
+    .hero-flares span:nth-child(3) {
+      top: 18%;
+      right: 35%;
+      width: clamp(110px, 16vw, 200px);
+      height: clamp(110px, 16vw, 200px);
+      animation-duration: 24s;
+      animation-delay: -12s;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.34), rgba(59, 130, 246, 0.12) 68%, transparent 80%);
     }
 
     .hero::before {
@@ -1054,7 +1111,7 @@
           <li><a href="LandingCapabilities.html">Capabilities</a></li>
         </ul>
       </nav>
-      <a class="nav-cta" href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
+      <a class="nav-cta" data-platform-link href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
         <i class="fa-solid fa-right-to-bracket"></i>
         Enter platform
       </a>
@@ -1062,6 +1119,11 @@
   </header>
   <main>
     <section class="hero" id="banner" data-reveal>
+      <div class="hero-flares" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <div class="container hero-grid">
         <div class="hero-copy">
           <div class="hero-badges" aria-hidden="true">
@@ -1076,7 +1138,7 @@
             accurate decisions, orchestrate automations, and energize your teams with real-time clarity.
           </p>
           <div class="hero-actions">
-            <a class="primary-btn" href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
+            <a class="primary-btn" data-platform-link href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
               <i class="fa-solid fa-rocket"></i>
               Enter platform
             </a>
@@ -1274,7 +1336,7 @@
           partner with you from onboarding to scale.
         </p>
         <div class="cta-actions">
-          <a class="primary-btn" href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
+          <a class="primary-btn" data-platform-link href="https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec">
             <i class="fa-solid fa-right-to-bracket"></i>
             Enter platform
           </a>
@@ -1320,6 +1382,15 @@
   <div class="cursor-glow" aria-hidden="true"></div>
   <script>
     (function () {
+      const PLATFORM_URL = 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec';
+
+      const platformLinks = document.querySelectorAll('[data-platform-link]');
+      platformLinks.forEach((link) => {
+        if (link) {
+          link.setAttribute('href', PLATFORM_URL);
+        }
+      });
+
       const preloader = document.querySelector('.preloader');
       window.addEventListener('load', () => {
         window.setTimeout(() => {
@@ -1398,6 +1469,29 @@
         window.addEventListener('mousemove', handleMove);
         window.addEventListener('resize', updateParallax);
         heroVisual.addEventListener('mouseleave', resetParallax);
+      }
+
+      const heroFlares = document.querySelectorAll('.hero-flares span');
+      if (heroFlares.length && !reducedMotion) {
+        const baseTransforms = Array.from(heroFlares).map(() => ({ x: 0, y: 0 }));
+
+        window.addEventListener(
+          'pointermove',
+          (event) => {
+            const intensityX = (event.clientX / window.innerWidth - 0.5) * 36;
+            const intensityY = (event.clientY / window.innerHeight - 0.5) * 28;
+
+            heroFlares.forEach((flare, index) => {
+              const depth = (index + 1) / heroFlares.length;
+              const x = intensityX * depth;
+              const y = intensityY * depth;
+              baseTransforms[index].x = x;
+              baseTransforms[index].y = y;
+              flare.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            });
+          },
+          { passive: true }
+        );
       }
 
       const cursorGlow = document.querySelector('.cursor-glow');
