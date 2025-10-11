@@ -187,6 +187,33 @@ const PASSWORD_UTILS = (function resolvePasswordUtilities() {
 
 })();
 
+const PASSWORD_GENERATOR = (function resolvePasswordGenerator() {
+  if (typeof ensurePasswordGenerator === 'function') {
+    return ensurePasswordGenerator();
+  }
+
+  if (typeof PasswordGenerator !== 'undefined' && PasswordGenerator) {
+    return PasswordGenerator;
+  }
+
+  if (typeof __createPasswordGeneratorModule === 'function') {
+    const generator = __createPasswordGeneratorModule();
+
+    if (typeof PasswordGenerator === 'undefined' || !PasswordGenerator) {
+      PasswordGenerator = generator;
+    }
+
+    if (typeof ensurePasswordGenerator !== 'function') {
+      ensurePasswordGenerator = function ensurePasswordGenerator() { return generator; };
+    }
+
+    return generator;
+  }
+
+  return null;
+
+})();
+
 /**
  * Public entry point. Returns a structured summary of what was ensured.
  */
@@ -1464,8 +1491,94 @@ function setPasswordWithTokenViaSheet(token, password, options) {
   return { success: false, message: 'No matching user row found for password update' };
 }
 
-function applySeedPasswordForUser(userRecord, profile, label) {
-  if (!profile || !profile.password || !userRecord || !userRecord.ID) {
+function resolveSeedPasswordArtifacts(profile) {
+  const artifacts = {
+    password: '',
+    encrypted: '',
+    format: '',
+    source: 'none'
+  };
+
+  if (!profile) {
+    return artifacts;
+  }
+
+  if (profile.password) {
+    artifacts.password = String(profile.password);
+    artifacts.source = 'plaintext';
+  }
+
+  let encryptedCandidate = '';
+  let encryptedFormat = profile.passwordFormat || profile.passwordEncryptedFormat || '';
+
+  if (!artifacts.password) {
+    if (profile.passwordSeed && typeof profile.passwordSeed === 'object') {
+      encryptedCandidate = profile.passwordSeed.value || profile.passwordSeed.encrypted || '';
+      if (!encryptedFormat) {
+        encryptedFormat = profile.passwordSeed.format || profile.passwordSeed.encryptedFormat || '';
+      }
+    } else if (profile.passwordEncrypted || profile.encryptedPassword) {
+      encryptedCandidate = profile.passwordEncrypted || profile.encryptedPassword;
+    } else if (typeof profile.passwordSeed !== 'undefined' && profile.passwordSeed !== null) {
+      encryptedCandidate = profile.passwordSeed;
+    }
+  }
+
+  if (!artifacts.password && encryptedCandidate && PASSWORD_GENERATOR && typeof PASSWORD_GENERATOR.decryptPassword === 'function') {
+    const decrypted = PASSWORD_GENERATOR.decryptPassword(encryptedCandidate, { format: encryptedFormat });
+    if (decrypted) {
+      artifacts.password = decrypted;
+      artifacts.encrypted = String(encryptedCandidate);
+      artifacts.format = encryptedFormat || (PASSWORD_GENERATOR.detectEncryptedFormat
+        ? PASSWORD_GENERATOR.detectEncryptedFormat(artifacts.encrypted)
+        : '');
+      artifacts.source = 'encrypted';
+    }
+  }
+
+  const generatorOptions = (profile.passwordGeneratorOptions && typeof profile.passwordGeneratorOptions === 'object')
+    ? profile.passwordGeneratorOptions
+    : (profile.generatePassword && typeof profile.generatePassword === 'object')
+      ? profile.generatePassword
+      : {};
+  const shouldGeneratePassword = !artifacts.password && (
+    profile.generatePassword === true
+    || (profile.generatePassword && typeof profile.generatePassword === 'object')
+    || (profile.passwordGeneratorOptions && typeof profile.passwordGeneratorOptions === 'object')
+  );
+
+  if (shouldGeneratePassword) {
+    if (PASSWORD_GENERATOR && typeof PASSWORD_GENERATOR.generatePassword === 'function') {
+      const generated = PASSWORD_GENERATOR.generatePassword(generatorOptions);
+      if (generated && generated.password) {
+        artifacts.password = generated.password;
+        artifacts.encrypted = generated.encrypted || '';
+        artifacts.format = generated.encryptedFormat || '';
+        artifacts.generated = generated;
+        artifacts.source = 'generated';
+      }
+    }
+  }
+
+  if (artifacts.password && !artifacts.encrypted && PASSWORD_GENERATOR && typeof PASSWORD_GENERATOR.encryptPassword === 'function') {
+    const encoded = PASSWORD_GENERATOR.encryptPassword(artifacts.password, { format: encryptedFormat });
+    if (encoded && encoded.value) {
+      artifacts.encrypted = encoded.value;
+      artifacts.format = encoded.format || artifacts.format || '';
+    }
+  }
+
+  if (artifacts.password && PASSWORD_UTILS && typeof PASSWORD_UTILS.createPasswordRecord === 'function') {
+    artifacts.hashRecord = PASSWORD_UTILS.createPasswordRecord(artifacts.password, { format: profile.passwordHashFormat });
+  }
+
+  return artifacts;
+}
+
+function applySeedPasswordForUser(userRecord, profile, label, passwordArtifacts) {
+  const artifacts = passwordArtifacts || resolveSeedPasswordArtifacts(profile);
+
+  if (!artifacts || !artifacts.password || !userRecord || !userRecord.ID) {
     return userRecord;
   }
 
@@ -1474,7 +1587,7 @@ function applySeedPasswordForUser(userRecord, profile, label) {
   if (userRecord.EmailConfirmation) {
     const setPasswordResult = ensurePasswordWithToken(
       userRecord.EmailConfirmation,
-      profile.password,
+      artifacts.password,
       {
         label: resolvedLabel,
         userId: userRecord.ID || userRecord.Id || userRecord.id
@@ -1485,7 +1598,7 @@ function applySeedPasswordForUser(userRecord, profile, label) {
       throw new Error('Failed to set ' + resolvedLabel + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
     }
   } else {
-    setUserPasswordDirect(userRecord.ID, profile.password);
+    setUserPasswordDirect(userRecord.ID, artifacts.password);
   }
 
   if (typeof AuthenticationService !== 'undefined' && AuthenticationService.getUserByEmail) {
@@ -1532,6 +1645,8 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
     : [];
   const resolvedPageCatalog = Array.isArray(pageCatalog) ? pageCatalog : resolveSeedPageCatalog();
 
+  const passwordArtifacts = resolveSeedPasswordArtifacts(profile);
+
   const defaultCampaignKey = profile.defaultCampaign
     ? String(profile.defaultCampaign).toLowerCase()
     : '';
@@ -1575,7 +1690,7 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
       throw new Error('Failed to refresh ' + label + ': ' + (updateResult && updateResult.error ? updateResult.error : 'Unknown error'));
     }
 
-    existing = applySeedPasswordForUser(existing, profile, label);
+    existing = applySeedPasswordForUser(existing, profile, label, passwordArtifacts);
     syncUserRoleLinks(existing.ID, desiredRoleIds);
     const campaignAccess = assignAdminCampaignAccess(existing.ID, Object.values(campaignIdsByName));
     ensureCanLoginFlag(existing.ID, true);
@@ -1599,8 +1714,20 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
       normalization
     };
 
-    if (profile.password) {
-      result.password = profile.password;
+    if (passwordArtifacts && passwordArtifacts.password) {
+      result.password = passwordArtifacts.password;
+    }
+    if (passwordArtifacts && passwordArtifacts.encrypted) {
+      result.passwordEncrypted = passwordArtifacts.encrypted;
+      if (passwordArtifacts.format) {
+        result.passwordFormat = passwordArtifacts.format;
+      }
+    }
+    if (passwordArtifacts && passwordArtifacts.source && passwordArtifacts.source !== 'none') {
+      result.passwordSource = passwordArtifacts.source;
+    }
+    if (passwordArtifacts && passwordArtifacts.generated) {
+      result.generatedPassword = passwordArtifacts.generated;
     }
 
     return result;
@@ -1618,7 +1745,7 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
     throw new Error(label + ' record not found after creation.');
   }
 
-  const persistedRecord = applySeedPasswordForUser(adminRecord, profile, label) || adminRecord;
+  const persistedRecord = applySeedPasswordForUser(adminRecord, profile, label, passwordArtifacts) || adminRecord;
   const adminId = persistedRecord.ID || adminRecord.ID;
 
   syncUserRoleLinks(adminId, desiredRoleIds);
@@ -1644,8 +1771,20 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
     normalization
   };
 
-  if (profile.password) {
-    result.password = profile.password;
+  if (passwordArtifacts && passwordArtifacts.password) {
+    result.password = passwordArtifacts.password;
+  }
+  if (passwordArtifacts && passwordArtifacts.encrypted) {
+    result.passwordEncrypted = passwordArtifacts.encrypted;
+    if (passwordArtifacts.format) {
+      result.passwordFormat = passwordArtifacts.format;
+    }
+  }
+  if (passwordArtifacts && passwordArtifacts.source && passwordArtifacts.source !== 'none') {
+    result.passwordSource = passwordArtifacts.source;
+  }
+  if (passwordArtifacts && passwordArtifacts.generated) {
+    result.generatedPassword = passwordArtifacts.generated;
   }
 
   return result;
