@@ -948,6 +948,188 @@ function isRowActive(value) {
   return normalized === 'TRUE' || normalized === 'YES' || normalized === 'Y' || normalized === '1' || normalized === 'ON';
 }
 
+function ensurePasswordWithToken(token, password, options) {
+  const label = options && options.label ? String(options.label) : 'user';
+  const userId = options && options.userId ? String(options.userId) : '';
+
+  if (!token) {
+    return { success: false, message: 'No setup token provided for ' + label };
+  }
+
+  const directHandlers = [];
+
+  if (typeof setPasswordWithToken === 'function') {
+    directHandlers.push({
+      name: 'global setPasswordWithToken',
+      fn: setPasswordWithToken
+    });
+  }
+
+  if (typeof AuthenticationService !== 'undefined'
+    && AuthenticationService
+    && typeof AuthenticationService.setPasswordWithToken === 'function') {
+    directHandlers.push({
+      name: 'AuthenticationService.setPasswordWithToken',
+      fn: function invokeAuthService(tokenValue, passwordValue) {
+        return AuthenticationService.setPasswordWithToken(tokenValue, passwordValue);
+      }
+    });
+  }
+
+  let lastError = null;
+
+  for (let i = 0; i < directHandlers.length; i++) {
+    const handler = directHandlers[i];
+    try {
+      const result = handler.fn(token, password);
+      if (result && result.success) {
+        return Object.assign({ via: handler.name }, result);
+      }
+      lastError = result || { message: handler.name + ' returned an unexpected response' };
+    } catch (handlerErr) {
+      lastError = { message: handlerErr && handlerErr.message ? handlerErr.message : String(handlerErr) };
+      if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
+        console.warn('ensurePasswordWithToken: ' + handler.name + ' failed', handlerErr);
+      }
+    }
+  }
+
+  const fallbackResult = setPasswordWithTokenViaSheet(token, password, { label, userId });
+  if (fallbackResult && fallbackResult.success) {
+    return fallbackResult;
+  }
+
+  return fallbackResult || lastError || { success: false, message: 'Unable to set password for ' + label };
+}
+
+function setPasswordWithTokenViaSheet(token, password, options) {
+  const label = options && options.label ? String(options.label) : 'user';
+  const normalizedToken = token ? String(token).trim() : '';
+  const normalizedUserId = options && options.userId ? String(options.userId).trim() : '';
+
+  if (!normalizedToken && !normalizedUserId) {
+    return { success: false, message: 'No token or user ID available to set password for ' + label };
+  }
+
+  if (typeof SpreadsheetApp === 'undefined'
+    || !SpreadsheetApp
+    || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
+    return { success: false, message: 'Spreadsheet access unavailable to set password for ' + label };
+  }
+
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) {
+    return { success: false, message: 'Spreadsheet not available for password update' };
+  }
+
+  const usersSheetName = (typeof USERS_SHEET !== 'undefined' && USERS_SHEET) ? USERS_SHEET : 'Users';
+  const sheet = spreadsheet.getSheetByName(usersSheetName);
+  if (!sheet) {
+    return { success: false, message: 'Users sheet not found for password update' };
+  }
+
+  const range = sheet.getDataRange();
+  if (!range) {
+    return { success: false, message: 'Users sheet range unavailable for password update' };
+  }
+
+  const data = range.getValues();
+  if (!data || data.length < 2) {
+    return { success: false, message: 'Users sheet does not contain any data to update passwords' };
+  }
+
+  const headers = data[0].map(value => (value == null ? '' : String(value)));
+  const columnIndex = {};
+  headers.forEach((header, idx) => {
+    const normalized = String(header || '').trim();
+    if (!normalized) return;
+    columnIndex[normalized] = idx;
+    columnIndex[normalized.toLowerCase()] = idx;
+  });
+
+  const idIdx = columnIndex.ID != null ? columnIndex.ID : columnIndex.id;
+  const tokenIdx = columnIndex.EmailConfirmation != null ? columnIndex.EmailConfirmation : columnIndex.emailconfirmation;
+  const tokenHashIdx = columnIndex.EmailConfirmationTokenHash != null ? columnIndex.EmailConfirmationTokenHash : columnIndex.emailconfirmationtokenhash;
+  const confirmedIdx = columnIndex.EmailConfirmed != null ? columnIndex.EmailConfirmed : columnIndex.emailconfirmed;
+  const resetIdx = columnIndex.ResetRequired != null ? columnIndex.ResetRequired : columnIndex.resetrequired;
+  const updatedIdx = columnIndex.UpdatedAt != null ? columnIndex.UpdatedAt : columnIndex.updatedat;
+
+  const tokenHashes = [];
+  if (tokenHashIdx != null && tokenHashIdx >= 0 && PASSWORD_UTILS && typeof PASSWORD_UTILS.createPasswordUpdate === 'function' && normalizedToken) {
+    try {
+      const tokenRecord = PASSWORD_UTILS.createPasswordUpdate(normalizedToken);
+      if (tokenRecord) {
+        if (tokenRecord.hash) {
+          tokenHashes.push(String(tokenRecord.hash).trim());
+        }
+        if (tokenRecord.variants) {
+          Object.keys(tokenRecord.variants).forEach(key => {
+            const variantValue = tokenRecord.variants[key];
+            if (variantValue) {
+              tokenHashes.push(String(variantValue).trim());
+            }
+          });
+        }
+      }
+    } catch (hashErr) {
+      if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
+        console.warn('setPasswordWithTokenViaSheet: failed to compute token hash', hashErr);
+      }
+    }
+  }
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+    const row = data[rowIndex] || [];
+    const rowToken = tokenIdx != null && tokenIdx >= 0 ? String(row[tokenIdx] || '').trim() : '';
+    const rowId = idIdx != null && idIdx >= 0 ? String(row[idIdx] || '').trim() : '';
+    const rowTokenHash = tokenHashIdx != null && tokenHashIdx >= 0 ? String(row[tokenHashIdx] || '').trim() : '';
+
+    const matchesToken = normalizedToken && rowToken && rowToken === normalizedToken;
+    const matchesHash = rowTokenHash && tokenHashes.some(candidate => candidate && candidate === rowTokenHash);
+    const matchesUserId = normalizedUserId && rowId && rowId === normalizedUserId;
+
+    if (!matchesToken && !matchesHash && !matchesUserId) {
+      continue;
+    }
+
+    const targetUserId = rowId || normalizedUserId || '';
+    if (targetUserId) {
+      setUserPasswordDirect(targetUserId, password);
+    } else if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
+      console.warn('setPasswordWithTokenViaSheet: unable to resolve user ID for password update', { rowIndex });
+    }
+
+    if (tokenIdx != null && tokenIdx >= 0) {
+      sheet.getRange(rowIndex + 1, tokenIdx + 1).setValue('');
+    }
+    if (tokenHashIdx != null && tokenHashIdx >= 0) {
+      sheet.getRange(rowIndex + 1, tokenHashIdx + 1).setValue('');
+    }
+    if (confirmedIdx != null && confirmedIdx >= 0) {
+      sheet.getRange(rowIndex + 1, confirmedIdx + 1).setValue('TRUE');
+    }
+    if (resetIdx != null && resetIdx >= 0) {
+      sheet.getRange(rowIndex + 1, resetIdx + 1).setValue('FALSE');
+    }
+    if (updatedIdx != null && updatedIdx >= 0) {
+      sheet.getRange(rowIndex + 1, updatedIdx + 1).setValue(new Date());
+    }
+
+    if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
+      SpreadsheetApp.flush();
+    }
+
+    const invalidateTarget = (typeof USERS_SHEET !== 'undefined' && USERS_SHEET) ? USERS_SHEET : usersSheetName;
+    if (typeof invalidateCache === 'function') {
+      try { invalidateCache(invalidateTarget); } catch (_) { }
+    }
+
+    return { success: true, via: 'sheet-direct' };
+  }
+
+  return { success: false, message: 'No matching user row found for password update' };
+}
+
 function applySeedPasswordForUser(userRecord, profile, label) {
   if (!profile || !profile.password || !userRecord || !userRecord.ID) {
     return userRecord;
@@ -956,7 +1138,15 @@ function applySeedPasswordForUser(userRecord, profile, label) {
   const resolvedLabel = label || profile.seedLabel || profile.fullName || profile.email;
 
   if (userRecord.EmailConfirmation) {
-    const setPasswordResult = setPasswordWithToken(userRecord.EmailConfirmation, profile.password);
+    const setPasswordResult = ensurePasswordWithToken(
+      userRecord.EmailConfirmation,
+      profile.password,
+      {
+        label: resolvedLabel,
+        userId: userRecord.ID || userRecord.Id || userRecord.id
+      }
+    );
+
     if (!setPasswordResult || !setPasswordResult.success) {
       throw new Error('Failed to set ' + resolvedLabel + ' password: ' + (setPasswordResult && setPasswordResult.message ? setPasswordResult.message : 'Unknown error'));
     }
