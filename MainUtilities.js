@@ -1358,7 +1358,7 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
     }
   }
 
-  let finalLastCol = sheet.getLastColumn();
+  let finalLastCol = Math.max(sheet.getLastColumn(), headerCount);
   let finalRange = sheet.getRange(1, 1, 1, finalLastCol);
   let finalRaw = finalRange.getValues()[0];
   let finalNormalized = finalRaw.map(normalizeHeaderName_);
@@ -1388,7 +1388,7 @@ function syncSheetColumnsAndHeaders_(sheet, headers) {
       sheet.deleteColumn(columnsToDelete[i]);
     }
     structureMutated = true;
-    finalLastCol = sheet.getLastColumn();
+    finalLastCol = Math.max(sheet.getLastColumn(), headerCount);
     finalRange = sheet.getRange(1, 1, 1, finalLastCol);
     finalRaw = finalRange.getValues()[0];
     finalNormalized = finalRaw.map(normalizeHeaderName_);

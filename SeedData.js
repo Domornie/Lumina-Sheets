@@ -68,6 +68,8 @@ function seedDefaultData() {
   const summary = {
     roles: { created: [], existing: [] },
     campaigns: { created: [], existing: [] },
+    systemPages: { initialized: false, added: 0, updated: 0, total: 0 },
+    navigation: {},
     luminaAdmin: null
   };
 
@@ -86,6 +88,9 @@ function seedDefaultData() {
 
     const roleIdsByName = ensureCoreRoles(summary);
     const campaignIdsByName = ensureCoreCampaigns(summary);
+
+    summary.systemPages = ensureSystemPageCatalog();
+    summary.navigation = ensureCampaignNavigationSeeds(campaignIdsByName);
 
     const luminaAdminInfo = ensureLuminaAdminUser(roleIdsByName, campaignIdsByName);
     summary.luminaAdmin = luminaAdminInfo;
@@ -215,6 +220,732 @@ function getCampaignsIndex(forceRefresh) {
  */
 function ensureLuminaAdminUser(roleIdsByName, campaignIdsByName) {
   return ensureSeedAdministrator(SEED_LUMINA_ADMIN_PROFILE, roleIdsByName, campaignIdsByName);
+}
+
+/**
+ * Ensure system pages are synchronized so campaign navigation can be seeded accurately.
+ */
+function ensureSystemPageCatalog() {
+  const result = { initialized: false, added: 0, updated: 0, total: 0 };
+
+  try {
+    ensureSheetWithHeaders(PAGES_SHEET, PAGES_HEADERS);
+
+    if (typeof initializeEnhancedSystemPages === 'function') {
+      try {
+        initializeEnhancedSystemPages();
+        result.initialized = true;
+      } catch (initError) {
+        console.warn('initializeEnhancedSystemPages during seeding failed:', initError);
+      }
+    }
+
+    if (typeof enhancedAutoDiscoverAndSavePages === 'function') {
+      try {
+        const discovery = enhancedAutoDiscoverAndSavePages({ force: true, minIntervalSec: 0 });
+        if (discovery) {
+          if (discovery.skipped) {
+            result.skipped = true;
+          }
+          if (discovery.success === false) {
+            result.error = discovery.error || 'Unknown discovery error';
+          } else {
+            result.added = discovery.added || 0;
+            result.updated = discovery.updated || 0;
+            result.total = discovery.total || 0;
+          }
+        }
+      } catch (discoveryError) {
+        console.warn('enhancedAutoDiscoverAndSavePages during seeding failed:', discoveryError);
+        result.error = discoveryError && discoveryError.message ? discoveryError.message : String(discoveryError);
+      }
+    }
+
+    if (!result.total) {
+      const rows = (typeof readSheet === 'function') ? (readSheet(PAGES_SHEET) || []) : [];
+      result.total = Array.isArray(rows) ? rows.length : 0;
+    }
+  } catch (error) {
+    console.error('ensureSystemPageCatalog error:', error);
+    if (typeof writeError === 'function') {
+      writeError('ensureSystemPageCatalog', error);
+    }
+    result.error = error && error.message ? error.message : String(error);
+  }
+
+  return result;
+}
+
+/**
+ * Ensure every seeded campaign receives default categories and page assignments.
+ */
+function ensureCampaignNavigationSeeds(campaignIdsByName) {
+  const result = {};
+
+  try {
+    if (!campaignIdsByName || !Object.keys(campaignIdsByName).length) {
+      return result;
+    }
+
+    const pageCatalog = resolveSeedPageCatalog();
+    const categoryDefinitions = resolveSeedCategoryDefinitions(pageCatalog);
+    const seededCampaignNames = Array.isArray(SEED_CAMPAIGNS)
+      ? SEED_CAMPAIGNS.map(c => c && c.name).filter(Boolean)
+      : [];
+    const processedNames = new Set();
+
+    seededCampaignNames.forEach(campaignName => {
+      const normalizedName = normalizeKey(campaignName);
+      if (!normalizedName || processedNames.has(normalizedName)) {
+        return;
+      }
+
+      processedNames.add(normalizedName);
+      const campaignId = resolveCampaignIdByName(campaignIdsByName, campaignName);
+
+      if (!campaignId) {
+        result[campaignName] = { error: 'Campaign not found during navigation seeding.' };
+        return;
+      }
+
+      result[campaignName] = ensureCampaignNavigationForCampaign(
+        campaignId,
+        campaignName,
+        pageCatalog,
+        categoryDefinitions
+      );
+    });
+  } catch (error) {
+    console.error('ensureCampaignNavigationSeeds error:', error);
+    if (typeof writeError === 'function') {
+      writeError('ensureCampaignNavigationSeeds', error);
+    }
+  }
+
+  return result;
+}
+
+function ensureCampaignNavigationForCampaign(campaignId, campaignName, pageCatalog, categoryDefinitions) {
+  const summary = {
+    categories: { created: [], existing: [] },
+    pages: { created: [], updated: [], existing: [] }
+  };
+
+  try {
+    const categoryResult = ensureCampaignCategoryRecords(campaignId, campaignName, categoryDefinitions);
+    summary.categories.created = categoryResult.created || [];
+    summary.categories.existing = categoryResult.existing || [];
+    if (categoryResult.errors && categoryResult.errors.length) {
+      summary.categories.errors = categoryResult.errors;
+    }
+
+    const pageResult = ensureCampaignPageRecords(
+      campaignId,
+      campaignName,
+      pageCatalog,
+      categoryResult.idsByName || {},
+      categoryDefinitions
+    );
+    summary.pages.created = pageResult.created || [];
+    summary.pages.updated = pageResult.updated || [];
+    summary.pages.existing = pageResult.existing || [];
+    if (pageResult.errors && pageResult.errors.length) {
+      summary.pages.errors = pageResult.errors;
+    }
+
+    if (categoryResult.changed || pageResult.changed) {
+      if (typeof clearCampaignCaches === 'function') {
+        try { clearCampaignCaches(campaignId); } catch (cacheError) { console.warn('clearCampaignCaches during seeding failed:', cacheError); }
+      }
+    }
+
+    if (typeof csRefreshNavigation === 'function') {
+      try { csRefreshNavigation(campaignId); } catch (navError) { console.warn('csRefreshNavigation during seeding failed:', navError); }
+    } else if (typeof forceRefreshCampaignNavigation === 'function') {
+      try { forceRefreshCampaignNavigation(campaignId); } catch (navError) { console.warn('forceRefreshCampaignNavigation during seeding failed:', navError); }
+    }
+  } catch (error) {
+    console.error('ensureCampaignNavigationForCampaign error:', error);
+    if (typeof writeError === 'function') {
+      writeError('ensureCampaignNavigationForCampaign', error);
+    }
+    summary.error = error && error.message ? error.message : String(error);
+  }
+
+  return summary;
+}
+
+function ensureCampaignCategoryRecords(campaignId, campaignName, categoryDefinitions) {
+  const result = { created: [], existing: [], errors: [], idsByName: {}, changed: false };
+
+  try {
+    ensureSheetWithHeaders(PAGE_CATEGORIES_SHEET, PAGE_CATEGORIES_HEADERS);
+    const existingCategories = loadCampaignCategoryRows(campaignId);
+    const existingMap = {};
+
+    existingCategories.forEach(cat => {
+      const name = cat.categoryName || cat.CategoryName;
+      const id = cat.id || cat.ID;
+      const normalized = normalizeKey(name);
+      if (normalized) {
+        existingMap[normalized] = id;
+        result.idsByName[normalized] = id;
+      }
+      if (name && id) {
+        result.idsByName[name] = id;
+      }
+    });
+
+    const entries = Object.entries(categoryDefinitions || {}).sort((a, b) => {
+      const sortA = parseInt(a[1] && a[1].sortOrder, 10) || 999;
+      const sortB = parseInt(b[1] && b[1].sortOrder, 10) || 999;
+      if (sortA === sortB) return a[0].localeCompare(b[0]);
+      return sortA - sortB;
+    });
+
+    entries.forEach(([name, meta], index) => {
+      const normalized = normalizeKey(name);
+      if (!normalized) return;
+
+      if (existingMap[normalized]) {
+        result.existing.push(name);
+        return;
+      }
+
+      const icon = normalizeCategoryIcon(meta && meta.icon);
+      const sortOrder = parseInt(meta && meta.sortOrder, 10) || ((index + 1) * 10);
+      let createResult = null;
+
+      if (typeof csCreateCategory === 'function') {
+        createResult = csCreateCategory(campaignId, name, icon, sortOrder);
+      }
+
+      if (!createResult || createResult.success === false) {
+        createResult = addCategoryRowDirect(campaignId, name, icon, sortOrder);
+      }
+
+      if (createResult && createResult.success) {
+        result.created.push(name);
+        result.changed = true;
+      } else if (createResult && /exists/i.test(createResult.error || '')) {
+        result.existing.push(name);
+      } else {
+        result.errors.push({ category: name, error: (createResult && createResult.error) || 'Unknown error' });
+      }
+    });
+
+    const refreshed = loadCampaignCategoryRows(campaignId);
+    refreshed.forEach(cat => {
+      const name = cat.categoryName || cat.CategoryName;
+      const id = cat.id || cat.ID;
+      const normalized = normalizeKey(name);
+      if (name && id) {
+        result.idsByName[name] = id;
+      }
+      if (normalized) {
+        result.idsByName[normalized] = id;
+      }
+    });
+  } catch (error) {
+    console.error('ensureCampaignCategoryRecords error:', error);
+    if (typeof writeError === 'function') {
+      writeError('ensureCampaignCategoryRecords', error);
+    }
+    result.errors.push({ error: error && error.message ? error.message : String(error) });
+  }
+
+  if (!result.errors.length) delete result.errors;
+  return result;
+}
+
+function ensureCampaignPageRecords(campaignId, campaignName, pageCatalog, categoryIdsByName, categoryDefinitions) {
+  const result = { created: [], updated: [], existing: [], errors: [], changed: false };
+
+  try {
+    ensureSheetWithHeaders(CAMPAIGN_PAGES_SHEET, CAMPAIGN_PAGES_HEADERS);
+    const existingPages = loadCampaignPageRows(campaignId);
+    const existingMap = {};
+
+    existingPages.forEach(page => {
+      const key = page.pageKey || page.PageKey;
+      const normalized = normalizeKey(key);
+      if (normalized && !existingMap[normalized]) {
+        existingMap[normalized] = page;
+      }
+    });
+
+    const systemPages = (typeof readSheet === 'function') ? (readSheet(PAGES_SHEET) || []) : [];
+    const systemPageMap = {};
+    (systemPages || []).forEach(page => {
+      const normalized = normalizeKey(page.PageKey);
+      if (normalized) {
+        systemPageMap[normalized] = page;
+      }
+    });
+
+    const categoryCounters = {};
+    const processedKeys = new Set();
+
+    (pageCatalog || []).forEach(page => {
+      const key = page && page.key ? String(page.key).trim() : '';
+      if (!key) return;
+
+      const normalizedKey = key.toLowerCase();
+      if (processedKeys.has(normalizedKey)) {
+        return;
+      }
+      processedKeys.add(normalizedKey);
+
+      const categoryName = page.category || 'General';
+      const categoryKey = normalizeKey(categoryName);
+      const categoryMeta = categoryDefinitions[categoryName] || categoryDefinitions[categoryKey] || categoryDefinitions['General'] || {};
+      const categoryId = categoryIdsByName[categoryKey] || categoryIdsByName[categoryName] || categoryIdsByName['general'] || categoryIdsByName['General'] || '';
+
+      const indexWithinCategory = (categoryCounters[categoryKey] || 0) + 1;
+      categoryCounters[categoryKey] = indexWithinCategory;
+      const desiredSortOrder = computeCategorySortOrder(categoryMeta, indexWithinCategory);
+
+      const systemPage = systemPageMap[normalizedKey] || {};
+      const title = page.title || systemPage.PageTitle || inferPageTitleFromKey(key);
+      let icon = normalizePageIcon(page.icon, key);
+      if (!icon && systemPage.PageIcon) {
+        icon = normalizePageIcon(systemPage.PageIcon, key);
+      }
+
+      const existing = existingMap[normalizedKey];
+      if (existing) {
+        const updates = {};
+        const existingTitle = existing.pageTitle || existing.PageTitle || '';
+        const existingIcon = existing.pageIcon || existing.PageIcon || '';
+        const existingCategory = existing.categoryId || existing.CategoryID || '';
+        const existingSortOrder = parseInt(existing.sortOrder || existing.SortOrder, 10) || 0;
+
+        if (existingTitle !== title) {
+          updates.PageTitle = title;
+        }
+        if (existingIcon !== icon) {
+          updates.PageIcon = icon;
+        }
+        const normalizedExistingCategory = existingCategory ? String(existingCategory) : '';
+        const normalizedDesiredCategory = categoryId ? String(categoryId) : '';
+        if (normalizedExistingCategory !== normalizedDesiredCategory) {
+          updates.CategoryID = categoryId || '';
+        }
+        if (existingSortOrder !== desiredSortOrder) {
+          updates.SortOrder = desiredSortOrder;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          let updateResult = null;
+          if (typeof csUpdateCampaignPage === 'function') {
+            updateResult = csUpdateCampaignPage(existing.id || existing.ID, updates);
+          }
+
+          if (!updateResult || updateResult.success === false) {
+            updateResult = updateCampaignPageRowDirect(existing.id || existing.ID || existing.Id, updates);
+          }
+
+          if (updateResult && updateResult.success) {
+            result.updated.push(key);
+            result.changed = true;
+          } else if (updateResult && updateResult.error) {
+            result.errors.push({ pageKey: key, error: updateResult.error });
+          }
+        } else {
+          result.existing.push(key);
+        }
+
+        return;
+      }
+
+      let createResult = null;
+      if (typeof csAddPageToCampaign === 'function') {
+        createResult = csAddPageToCampaign(campaignId, key, title, icon, categoryId || null, desiredSortOrder);
+      }
+
+      if (!createResult || createResult.success === false) {
+        createResult = addCampaignPageRowDirect(campaignId, {
+          pageKey: key,
+          pageTitle: title,
+          pageIcon: icon,
+          categoryId: categoryId || '',
+          sortOrder: desiredSortOrder
+        });
+      }
+
+      if (createResult && createResult.success) {
+        result.created.push(key);
+        result.changed = true;
+      } else if (createResult && /assigned/i.test(createResult.error || '')) {
+        result.existing.push(key);
+      } else {
+        result.errors.push({ pageKey: key, error: (createResult && createResult.error) || 'Unknown error' });
+      }
+    });
+  } catch (error) {
+    console.error('ensureCampaignPageRecords error:', error);
+    if (typeof writeError === 'function') {
+      writeError('ensureCampaignPageRecords', error);
+    }
+    result.errors.push({ error: error && error.message ? error.message : String(error) });
+  }
+
+  if (!result.errors.length) delete result.errors;
+  return result;
+}
+
+function resolveSeedPageCatalog() {
+  let pages = [];
+
+  try {
+    if (typeof getAllPagesFromActualRouting === 'function') {
+      pages = getAllPagesFromActualRouting() || [];
+    }
+  } catch (error) {
+    console.warn('getAllPagesFromActualRouting during seeding failed:', error);
+  }
+
+  if (!Array.isArray(pages) || !pages.length) {
+    pages = [{
+      key: 'dashboard',
+      title: 'Dashboard',
+      icon: 'fas fa-tachometer-alt',
+      description: 'Primary dashboard overview',
+      category: 'Dashboard & Analytics'
+    }];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  pages.forEach(page => {
+    if (!page || !page.key) return;
+    const key = String(page.key).trim();
+    if (!key) return;
+
+    const normalizedKey = key.toLowerCase();
+    if (seen.has(normalizedKey)) {
+      return;
+    }
+    seen.add(normalizedKey);
+
+    normalized.push({
+      key,
+      title: page.title || inferPageTitleFromKey(key),
+      icon: normalizePageIcon(page.icon, key),
+      description: page.description || '',
+      category: page.category || 'General',
+      requiresAdmin: page.requiresAdmin === true,
+      isPublic: page.isPublic === true
+    });
+  });
+
+  normalized.sort((a, b) => {
+    const categoryCompare = a.category.localeCompare(b.category);
+    if (categoryCompare !== 0) return categoryCompare;
+    return a.title.localeCompare(b.title);
+  });
+
+  return normalized;
+}
+
+function resolveSeedCategoryDefinitions(pageCatalog) {
+  const definitions = {};
+
+  try {
+    if (typeof getEnhancedPageCategories === 'function') {
+      const base = getEnhancedPageCategories();
+      Object.keys(base || {}).forEach(name => {
+        if (!name) return;
+        const meta = base[name] || {};
+        definitions[name] = {
+          icon: normalizeCategoryIcon(meta.icon),
+          description: meta.description || '',
+          sortOrder: meta.sortOrder || meta.order || meta.position || 999
+        };
+      });
+    }
+  } catch (error) {
+    console.warn('getEnhancedPageCategories during seeding failed:', error);
+  }
+
+  (pageCatalog || []).forEach(page => {
+    if (!page || !page.category) return;
+    if (!definitions[page.category]) {
+      definitions[page.category] = {
+        icon: normalizeCategoryIcon('fas fa-folder'),
+        description: '',
+        sortOrder: 999
+      };
+    }
+  });
+
+  if (!definitions.General) {
+    definitions.General = {
+      icon: normalizeCategoryIcon('fas fa-folder-open'),
+      description: 'General purpose pages and utilities',
+      sortOrder: 999
+    };
+  }
+
+  const names = Object.keys(definitions).sort((a, b) => {
+    const sortA = parseInt(definitions[a].sortOrder, 10) || 999;
+    const sortB = parseInt(definitions[b].sortOrder, 10) || 999;
+    if (sortA === sortB) return a.localeCompare(b);
+    return sortA - sortB;
+  });
+
+  names.forEach((name, index) => {
+    const meta = definitions[name];
+    meta.icon = normalizeCategoryIcon(meta.icon);
+    const parsedSort = parseInt(meta.sortOrder, 10);
+    meta.sortOrder = Number.isFinite(parsedSort) ? parsedSort : ((index + 1) * 10);
+  });
+
+  return definitions;
+}
+
+function resolveCampaignIdByName(map, name) {
+  if (!map || !name) return '';
+  if (map[name]) return map[name];
+  const normalized = normalizeKey(name);
+  if (normalized && map[normalized]) return map[normalized];
+  return '';
+}
+
+function normalizeKey(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+  return String(value).trim().toLowerCase();
+}
+
+function normalizePageIcon(icon, key) {
+  let resolved = icon;
+  if (!resolved && typeof suggestIconForPageKey === 'function') {
+    try { resolved = suggestIconForPageKey(key); } catch (error) { console.warn('suggestIconForPageKey during seeding failed:', error); }
+  }
+  if (!resolved) {
+    return 'fas fa-file';
+  }
+  resolved = String(resolved).trim();
+  if (/^(fas|far|fal|fad|fab)\s+fa-/.test(resolved)) {
+    return resolved;
+  }
+  if (/^fa-/.test(resolved)) {
+    return 'fas ' + resolved;
+  }
+  return resolved;
+}
+
+function normalizeCategoryIcon(icon) {
+  if (!icon) {
+    return 'fas fa-folder';
+  }
+  const value = String(icon).trim();
+  if (/^(fas|far|fal|fad|fab)\s+fa-/.test(value)) {
+    return value;
+  }
+  if (/^fa-/.test(value)) {
+    return 'fas ' + value;
+  }
+  return value;
+}
+
+function inferPageTitleFromKey(key) {
+  const value = String(key || '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!value) {
+    return 'Untitled Page';
+  }
+  return value.replace(/\b([a-z])/gi, (_, ch) => ch.toUpperCase());
+}
+
+function computeCategorySortOrder(meta, indexWithinCategory) {
+  const base = parseInt(meta && meta.sortOrder, 10);
+  const normalizedBase = Number.isFinite(base) ? base : 999;
+  const offset = Number(indexWithinCategory) || 1;
+  return (normalizedBase * 100) + offset;
+}
+
+function loadCampaignCategoryRows(campaignId) {
+  try {
+    if (typeof csGetCampaignCategories === 'function') {
+      return (csGetCampaignCategories(campaignId) || [])
+        .map(cat => ({
+          id: cat.id || cat.ID,
+          categoryName: cat.categoryName || cat.CategoryName,
+          sortOrder: cat.sortOrder || cat.SortOrder
+        }))
+        .filter(cat => cat.id && cat.categoryName);
+    }
+
+    const rows = (typeof readSheet === 'function') ? (readSheet(PAGE_CATEGORIES_SHEET) || []) : [];
+    return rows
+      .filter(row => row && String(row.CampaignID) === String(campaignId) && isRowActive(row.IsActive))
+      .map(row => ({ id: row.ID, categoryName: row.CategoryName, sortOrder: row.SortOrder }))
+      .filter(cat => cat.id && cat.categoryName);
+  } catch (error) {
+    console.warn('loadCampaignCategoryRows error:', error);
+    return [];
+  }
+}
+
+function loadCampaignPageRows(campaignId) {
+  try {
+    if (typeof csGetCampaignPages === 'function') {
+      return (csGetCampaignPages(campaignId) || []).map(page => ({
+        id: page.id || page.ID,
+        pageKey: page.pageKey || page.PageKey,
+        pageTitle: page.pageTitle || page.PageTitle,
+        pageIcon: page.pageIcon || page.PageIcon,
+        categoryId: page.categoryId || page.CategoryID,
+        sortOrder: page.sortOrder || page.SortOrder
+      }));
+    }
+
+    const rows = (typeof readSheet === 'function') ? (readSheet(CAMPAIGN_PAGES_SHEET) || []) : [];
+    return rows
+      .filter(row => row && String(row.CampaignID) === String(campaignId) && isRowActive(row.IsActive))
+      .map(row => ({
+        id: row.ID,
+        pageKey: row.PageKey,
+        pageTitle: row.PageTitle,
+        pageIcon: row.PageIcon,
+        categoryId: row.CategoryID,
+        sortOrder: row.SortOrder
+      }));
+  } catch (error) {
+    console.warn('loadCampaignPageRows error:', error);
+    return [];
+  }
+}
+
+function addCategoryRowDirect(campaignId, name, icon, sortOrder) {
+  try {
+    const sheet = ensureSheetWithHeaders(PAGE_CATEGORIES_SHEET, PAGE_CATEGORIES_HEADERS);
+    const id = Utilities.getUuid();
+    const now = new Date();
+    sheet.appendRow([id, campaignId, name, icon, parseInt(sortOrder, 10) || 999, true, now, now]);
+    if (typeof commitChanges === 'function') {
+      commitChanges();
+    }
+    return { success: true, data: { id } };
+  } catch (error) {
+    console.error('addCategoryRowDirect error:', error);
+    if (typeof writeError === 'function') {
+      writeError('addCategoryRowDirect', error);
+    }
+    return { success: false, error: error && error.message ? error.message : String(error) };
+  }
+}
+
+function addCampaignPageRowDirect(campaignId, details) {
+  try {
+    const sheet = ensureSheetWithHeaders(CAMPAIGN_PAGES_SHEET, CAMPAIGN_PAGES_HEADERS);
+    const id = Utilities.getUuid();
+    const now = new Date();
+
+    sheet.appendRow([
+      id,
+      campaignId,
+      details.pageKey,
+      details.pageTitle,
+      details.pageIcon,
+      details.categoryId || '',
+      parseInt(details.sortOrder, 10) || 999,
+      true,
+      now,
+      now
+    ]);
+
+    if (typeof commitChanges === 'function') {
+      commitChanges();
+    }
+
+    return { success: true, data: { id } };
+  } catch (error) {
+    console.error('addCampaignPageRowDirect error:', error);
+    if (typeof writeError === 'function') {
+      writeError('addCampaignPageRowDirect', error);
+    }
+    return { success: false, error: error && error.message ? error.message : String(error) };
+  }
+}
+
+function updateCampaignPageRowDirect(pageId, updates) {
+  try {
+    if (!pageId) {
+      return { success: false, error: 'Page ID is required for updates.' };
+    }
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CAMPAIGN_PAGES_SHEET);
+    if (!sheet) {
+      return { success: false, error: 'Campaign pages sheet not found.' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (!data || data.length < 2) {
+      return { success: false, error: 'Campaign pages data is empty.' };
+    }
+
+    const headers = data[0];
+    const idIndex = headers.indexOf('ID');
+    if (idIndex === -1) {
+      return { success: false, error: 'Campaign pages sheet is missing an ID column.' };
+    }
+
+    for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+      if (String(data[rowIndex][idIndex]) === String(pageId)) {
+        Object.keys(updates || {}).forEach(field => {
+          const colIndex = headers.indexOf(field);
+          if (colIndex === -1) return;
+
+          let value = updates[field];
+          if (field === 'SortOrder') {
+            value = parseInt(value, 10) || 999;
+          }
+          if (field === 'CategoryID' && (value === null || typeof value === 'undefined')) {
+            value = '';
+          }
+
+          sheet.getRange(rowIndex + 1, colIndex + 1).setValue(value);
+        });
+
+        const updatedAtIndex = headers.indexOf('UpdatedAt');
+        if (updatedAtIndex !== -1) {
+          sheet.getRange(rowIndex + 1, updatedAtIndex + 1).setValue(new Date());
+        }
+
+        if (typeof commitChanges === 'function') {
+          commitChanges();
+        }
+
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: 'Campaign page row not found for update.' };
+  } catch (error) {
+    console.error('updateCampaignPageRowDirect error:', error);
+    if (typeof writeError === 'function') {
+      writeError('updateCampaignPageRowDirect', error);
+    }
+    return { success: false, error: error && error.message ? error.message : String(error) };
+  }
+}
+
+function isRowActive(value) {
+  if (typeof isActive === 'function') {
+    return isActive(value);
+  }
+  if (value === true) return true;
+  if (value === false || value === null || typeof value === 'undefined') return false;
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return false;
+  return normalized === 'TRUE' || normalized === 'YES' || normalized === 'Y' || normalized === '1' || normalized === 'ON';
 }
 
 function applySeedPasswordForUser(userRecord, profile, label) {
