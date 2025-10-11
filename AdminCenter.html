@@ -1,0 +1,843 @@
+<?!= include('layout', {
+      baseUrl: baseUrl || '',
+      scriptUrl: scriptUrl,
+      user: user || {},
+      currentPage: currentPage || 'admincenter',
+      pageTitle: 'Lumina Admin Center',
+      pageDescription: 'Unified AI-driven command center for LuminaHQ'
+    }) ?>
+
+<div class="admin-center" id="adminCenter">
+  <section class="admin-hero">
+    <div class="hero-copy">
+      <span class="badge rounded-pill bg-warning-subtle text-warning fw-semibold mb-3">
+        <i class="fas fa-crown me-2"></i>Administrator Access
+      </span>
+      <h1 class="hero-title">Lumina Admin Center</h1>
+      <p class="hero-subtitle">
+        Orchestrate workforce operations, customer experience quality, and governance from a single AI-assisted control plane.
+      </p>
+      <div class="hero-meta">
+        <span><i class="fas fa-robot me-2"></i><span id="aiStatus">Synthesizing signals…</span></span>
+        <span class="separator">•</span>
+        <span><i class="far fa-clock me-2"></i>Last refreshed <span id="snapshotTimestamp">just now</span></span>
+      </div>
+    </div>
+    <div class="hero-metrics" id="heroMetrics">
+      <div class="metric-tile loading"></div>
+      <div class="metric-tile loading"></div>
+      <div class="metric-tile loading"></div>
+    </div>
+  </section>
+
+  <section class="insights" id="insightsSection">
+    <div class="section-header">
+      <div>
+        <h2><i class="fas fa-lightbulb me-2 text-warning"></i>AI Operational Insights</h2>
+        <p class="section-subtitle">Proactive guidance generated from live Lumina telemetry.</p>
+      </div>
+      <button class="btn btn-outline-light btn-sm" id="refreshSnapshotBtn">
+        <i class="fas fa-rotate me-2"></i>Refresh Snapshot
+      </button>
+    </div>
+    <div class="insight-grid" id="insightGrid"></div>
+  </section>
+
+  <section class="module-section">
+    <div class="section-header">
+      <div>
+        <h2><i class="fas fa-sitemap me-2 text-primary"></i>Service Control Modules</h2>
+        <p class="section-subtitle">Deep-link into every Lumina service tier and trigger automation with one click.</p>
+      </div>
+    </div>
+    <div class="module-grid" id="moduleGrid"></div>
+  </section>
+
+  <section class="campaign-pulse" id="campaignPulse">
+    <div class="section-header">
+      <div>
+        <h2><i class="fas fa-bullseye me-2 text-success"></i>Campaign Pulse</h2>
+        <p class="section-subtitle">Multi-campaign staffing footprint, navigation breadth, and adoption telemetry.</p>
+      </div>
+    </div>
+    <div class="table-responsive shadow-sm rounded-4">
+      <table class="table table-hover align-middle mb-0" id="campaignTable">
+        <thead>
+          <tr>
+            <th scope="col">Campaign</th>
+            <th scope="col">Linked Users</th>
+            <th scope="col">Active Pages</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="campaignTableBody">
+          <tr class="loading-row">
+            <td colspan="4"><span class="skeleton-text w-25"></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="activity-log" id="controlLog">
+    <div class="section-header">
+      <div>
+        <h2><i class="fas fa-terminal me-2 text-info"></i>Automation Journal</h2>
+        <p class="section-subtitle">Every control executed from the admin center is logged here for transparency.</p>
+      </div>
+    </div>
+    <div class="log-stream" id="logStream">
+      <div class="log-entry muted">Awaiting administrator commands…</div>
+    </div>
+  </section>
+</div>
+
+<style>
+  :root {
+    --admin-gradient: linear-gradient(135deg, #003177 0%, #0059b3 100%);
+    --admin-surface: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    background: #0f172a;
+    color: #f8fafc;
+  }
+
+  .admin-center {
+    padding: 2.5rem 3rem 4rem;
+    background: radial-gradient(circle at top right, rgba(0, 93, 255, 0.12), transparent 55%),
+                radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.15), transparent 45%);
+    min-height: 100vh;
+  }
+
+  .admin-hero {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 2.75rem;
+    border-radius: 2rem;
+    background: var(--admin-gradient);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .admin-hero::after {
+    content: '';
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    top: -160px;
+    right: -120px;
+    background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+    filter: blur(2px);
+    opacity: 0.7;
+  }
+
+  .hero-copy {
+    max-width: 540px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .hero-title {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.5px;
+  }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.92;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.95rem;
+    opacity: 0.85;
+  }
+
+  .hero-meta .separator {
+    opacity: 0.5;
+  }
+
+  .hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 1rem;
+    position: relative;
+    z-index: 2;
+    min-width: 320px;
+  }
+
+  .metric-tile {
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .metric-tile:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 28px 60px rgba(15, 23, 42, 0.35);
+  }
+
+  .metric-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+  }
+
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    display: block;
+  }
+
+  .metric-trend {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    opacity: 0.8;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 3rem 0 1.5rem;
+  }
+
+  .section-header h2 {
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .section-subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+    color: rgba(226, 232, 240, 0.78);
+  }
+
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .insight-card {
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .insight-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255,255,255,0.08), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .insight-card:hover::after {
+    opacity: 1;
+  }
+
+  .insight-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .insight-card p {
+    margin: 0 0 0.75rem;
+    line-height: 1.5;
+    color: rgba(226, 232, 240, 0.9);
+  }
+
+  .insight-card .recommendation {
+    font-size: 0.9rem;
+    color: rgba(148, 163, 184, 0.95);
+  }
+
+  .severity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .severity-critical { background: rgba(248, 113, 113, 0.18); color: #fca5a5; border: 1px solid rgba(248,113,113,0.3); }
+  .severity-warning { background: rgba(250, 204, 21, 0.18); color: #facc15; border: 1px solid rgba(250,204,21,0.32); }
+  .severity-info { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56,189,248,0.32); }
+  .severity-success { background: rgba(74, 222, 128, 0.18); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .module-card {
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 1.75rem;
+    padding: 1.75rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 18px 30px rgba(15, 23, 42, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+  }
+
+  .module-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(56, 189, 248, 0.35);
+  }
+
+  .module-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .module-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    background: rgba(56, 189, 248, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #38bdf8;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .status-good { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+  .status-warning { background: rgba(249, 115, 22, 0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.32); }
+  .status-critical { background: rgba(248, 113, 113, 0.2); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .status-unknown { background: rgba(148, 163, 184, 0.22); color: #cbd5f5; border: 1px solid rgba(148,163,184,0.32); }
+
+  .metric-pill {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .metric-pill .label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(148, 163, 184, 0.9);
+  }
+
+  .metric-pill .value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
+
+  .metric-wrap {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .module-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .module-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  .module-links a {
+    color: #60a5fa;
+    text-decoration: none;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.18);
+    border: 1px solid rgba(37, 99, 235, 0.32);
+  }
+
+  .module-links a:hover {
+    background: rgba(37, 99, 235, 0.28);
+  }
+
+  .campaign-pulse .table {
+    color: #e2e8f0;
+  }
+
+  .campaign-pulse .table thead th {
+    border-color: rgba(255,255,255,0.08);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: rgba(148, 163, 184, 0.9);
+  }
+
+  .campaign-pulse .table tbody td {
+    border-color: rgba(255,255,255,0.05);
+  }
+
+  .badge-nano {
+    border-radius: 999px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    background: rgba(56,189,248,0.15);
+    color: #38bdf8;
+  }
+
+  .activity-log {
+    margin-top: 3rem;
+  }
+
+  .log-stream {
+    background: rgba(15, 23, 42, 0.65);
+    border-radius: 1.5rem;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 1.5rem;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+  }
+
+  .log-entry {
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.75rem;
+    background: rgba(30, 41, 59, 0.75);
+    color: rgba(226, 232, 240, 0.92);
+  }
+
+  .log-entry.success { border-left: 3px solid #34d399; }
+  .log-entry.warning { border-left: 3px solid #fbbf24; }
+  .log-entry.error { border-left: 3px solid #f87171; }
+  .log-entry.muted { color: rgba(148, 163, 184, 0.8); background: rgba(30, 41, 59, 0.5); }
+
+  .skeleton-text {
+    display: inline-block;
+    height: 1rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s infinite;
+  }
+
+  .loading .skeleton-text {
+    width: 100%;
+    height: 100%;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @media (max-width: 992px) {
+    .admin-center { padding: 2rem 1.5rem 3rem; }
+    .hero-metrics { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  }
+
+  @media (max-width: 768px) {
+    .admin-hero { padding: 2rem; }
+    .hero-title { font-size: 2.25rem; }
+  }
+</style>
+
+<script>
+  (function() {
+    const state = {
+      snapshot: null,
+      actions: {},
+      userId: (user && (user.ID || user.Id || user.id)) || ''
+    };
+
+    const numberFormatter = new Intl.NumberFormat('en-US');
+    const percentFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+
+    function init() {
+      document.getElementById('refreshSnapshotBtn').addEventListener('click', fetchSnapshot);
+      fetchSnapshot();
+    }
+
+    function fetchSnapshot() {
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(handleSnapshot)
+        .withFailureHandler(handleError)
+        .clientGetAdminCenterSnapshot(state.userId, {});
+    }
+
+    function setLoading(isLoading) {
+      const btn = document.getElementById('refreshSnapshotBtn');
+      if (!btn) return;
+      btn.disabled = isLoading;
+      btn.innerHTML = isLoading
+        ? '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Refreshing'
+        : '<i class="fas fa-rotate me-2"></i>Refresh Snapshot';
+    }
+
+    function handleSnapshot(snapshot) {
+      setLoading(false);
+      state.snapshot = snapshot || {};
+      state.actions = Array.isArray(snapshot && snapshot.controlActions)
+        ? snapshot.controlActions.reduce((acc, action) => {
+            acc[action.key] = action;
+            return acc;
+          }, {})
+        : {};
+      renderHero(snapshot.summary || {});
+      renderInsights(snapshot.aiInsights || []);
+      renderModules(snapshot.modules || [], snapshot.summary || {});
+      renderCampaignTable((snapshot.summary && snapshot.summary.campaignStats) || []);
+      document.getElementById('aiStatus').textContent = 'AI orchestration ready';
+      if (snapshot.generatedAt) {
+        document.getElementById('snapshotTimestamp').textContent = formatRelativeTime(snapshot.generatedAt);
+      }
+    }
+
+    function handleError(error) {
+      setLoading(false);
+      const message = error && error.message ? error.message : 'Failed to load admin snapshot.';
+      logEvent('error', 'Snapshot error: ' + message);
+      if (typeof $.notify === 'function') {
+        $.notify(message, 'error');
+      }
+    }
+
+    function renderHero(summary) {
+      const metricsRoot = document.getElementById('heroMetrics');
+      if (!metricsRoot) return;
+      metricsRoot.innerHTML = '';
+      const heroMetrics = [
+        {
+          label: 'Total Workforce',
+          value: summary.totals ? summary.totals.users : null,
+          trend: summary.totals ? summary.totals.activeUsers + ' active' : ''
+        },
+        {
+          label: 'Campaign Coverage',
+          value: summary.totals ? summary.totals.campaigns : null,
+          trend: summary.totals ? summary.totals.admins + ' admins' : ''
+        },
+        {
+          label: 'QA Health',
+          value: summary.health && summary.health.qaAverage != null ? summary.health.qaAverage + '%' : '—',
+          trend: summary.totals ? summary.totals.qaEvaluations + ' evaluations' : ''
+        }
+      ];
+
+      heroMetrics.forEach(metric => {
+        const tile = document.createElement('div');
+        tile.className = 'metric-tile';
+        const label = document.createElement('span');
+        label.className = 'metric-label';
+        label.textContent = metric.label;
+        const value = document.createElement('span');
+        value.className = 'metric-value';
+        value.textContent = formatMetricValue(metric.value);
+        const trend = document.createElement('div');
+        trend.className = 'metric-trend';
+        trend.textContent = metric.trend || '';
+        tile.appendChild(label);
+        tile.appendChild(value);
+        if (metric.trend) tile.appendChild(trend);
+        metricsRoot.appendChild(tile);
+      });
+    }
+
+    function renderInsights(insights) {
+      const container = document.getElementById('insightGrid');
+      if (!container) return;
+      container.innerHTML = '';
+      insights.forEach(function (insight) {
+        const card = document.createElement('div');
+        card.className = 'insight-card';
+        const badge = document.createElement('span');
+        const severity = (insight.severity || 'info').toLowerCase();
+        badge.className = 'severity-badge severity-' + severity;
+        badge.innerHTML = '<i class="fas fa-signal"></i>' + severity;
+        const title = document.createElement('h3');
+        title.textContent = insight.title || 'Insight';
+        const message = document.createElement('p');
+        message.textContent = insight.message || '';
+        const recommendation = document.createElement('div');
+        recommendation.className = 'recommendation';
+        recommendation.innerHTML = '<i class="fas fa-arrow-circle-right me-2"></i>' + (insight.recommendation || 'Maintain monitoring cadence.');
+        card.appendChild(badge);
+        card.appendChild(title);
+        card.appendChild(message);
+        card.appendChild(recommendation);
+        container.appendChild(card);
+      });
+    }
+
+    function renderModules(modules, summary) {
+      const container = document.getElementById('moduleGrid');
+      if (!container) return;
+      container.innerHTML = '';
+      const actionsByModule = buildModuleActionMap();
+
+      modules.forEach(function (module) {
+        const card = document.createElement('div');
+        card.className = 'module-card';
+
+        const header = document.createElement('div');
+        header.className = 'module-header';
+
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'module-icon';
+        iconWrap.innerHTML = '<i class="' + (module.icon || 'fas fa-circle') + '"></i>';
+
+        const headerText = document.createElement('div');
+        const title = document.createElement('h3');
+        title.className = 'mb-1';
+        title.textContent = module.title || 'Module';
+        const status = document.createElement('span');
+        const level = module.status && module.status.level ? module.status.level : 'unknown';
+        status.className = 'status-badge status-' + level;
+        status.innerHTML = '<i class="fas fa-circle"></i>' + ((module.status && module.status.label) || 'Unknown');
+        headerText.appendChild(title);
+        headerText.appendChild(status);
+
+        header.appendChild(iconWrap);
+        header.appendChild(headerText);
+        card.appendChild(header);
+
+        if (module.description) {
+          const desc = document.createElement('p');
+          desc.className = 'mb-2 text-secondary';
+          desc.textContent = module.description;
+          card.appendChild(desc);
+        }
+
+        const metricWrap = document.createElement('div');
+        metricWrap.className = 'metric-wrap';
+        (module.metrics || []).forEach(function (metric) {
+          const pill = document.createElement('div');
+          pill.className = 'metric-pill';
+          const label = document.createElement('div');
+          label.className = 'label';
+          label.textContent = metric.label || 'Metric';
+          const value = document.createElement('div');
+          value.className = 'value';
+          value.textContent = formatMetricValue(metric.value, metric.unit);
+          pill.appendChild(label);
+          pill.appendChild(value);
+          if (metric.helpText) {
+            pill.setAttribute('title', metric.helpText);
+          }
+          metricWrap.appendChild(pill);
+        });
+        card.appendChild(metricWrap);
+
+        const moduleActions = actionsByModule[module.key] || [];
+        if (moduleActions.length) {
+          const actionWrap = document.createElement('div');
+          actionWrap.className = 'module-actions';
+          moduleActions.forEach(function (action) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm btn-' + (action.variant === 'primary' ? 'primary' : 'outline-light');
+            btn.innerHTML = '<i class="' + (action.icon || 'fas fa-bolt') + ' me-2"></i>' + action.label;
+            btn.dataset.actionKey = action.key;
+            btn.addEventListener('click', function () { triggerAction(action.key, btn); });
+            actionWrap.appendChild(btn);
+          });
+          card.appendChild(actionWrap);
+        }
+
+        if (Array.isArray(module.links) && module.links.length) {
+          const linkWrap = document.createElement('div');
+          linkWrap.className = 'module-links';
+          module.links.forEach(function (link) {
+            const anchor = document.createElement('a');
+            anchor.href = buildPageLink(link.page || 'dashboard');
+            anchor.innerHTML = '<i class="' + (link.icon || 'fas fa-arrow-right') + ' me-2"></i>' + link.label;
+            linkWrap.appendChild(anchor);
+          });
+          card.appendChild(linkWrap);
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function renderCampaignTable(stats) {
+      const tbody = document.getElementById('campaignTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (!stats.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.className = 'text-center text-secondary py-4';
+        cell.textContent = 'No campaign telemetry available yet.';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+
+      stats.forEach(function (stat) {
+        const row = document.createElement('tr');
+        const campaignCell = document.createElement('td');
+        campaignCell.innerHTML = '<span class="fw-semibold">' + (stat.id || 'Campaign') + '</span>';
+        const usersCell = document.createElement('td');
+        usersCell.innerHTML = '<span class="badge-nano"><i class="fas fa-users me-1"></i>' + numberFormatter.format(stat.userCount || 0) + '</span>';
+        const pagesCell = document.createElement('td');
+        pagesCell.innerHTML = '<span class="badge-nano"><i class="fas fa-layer-group me-1"></i>' + numberFormatter.format(stat.pageCount || 0) + '</span>';
+        const actionsCell = document.createElement('td');
+        actionsCell.className = 'text-end';
+        const viewLink = document.createElement('a');
+        viewLink.href = buildPageLink('managecampaign') + '&campaign=' + encodeURIComponent(stat.id || '');
+        viewLink.className = 'btn btn-sm btn-outline-light';
+        viewLink.innerHTML = '<i class="fas fa-arrow-up-right-from-square me-2"></i>Open';
+        actionsCell.appendChild(viewLink);
+        row.appendChild(campaignCell);
+        row.appendChild(usersCell);
+        row.appendChild(pagesCell);
+        row.appendChild(actionsCell);
+        tbody.appendChild(row);
+      });
+    }
+
+    function buildModuleActionMap() {
+      const map = {};
+      Object.keys(state.actions).forEach(function (key) {
+        const action = state.actions[key];
+        if (!action || !action.moduleKey) return;
+        if (!map[action.moduleKey]) map[action.moduleKey] = [];
+        map[action.moduleKey].push(action);
+      });
+      return map;
+    }
+
+    function triggerAction(actionKey, button) {
+      if (!actionKey) return;
+      const action = state.actions[actionKey];
+      if (!action) return;
+      const originalHtml = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Running';
+      google.script.run
+        .withSuccessHandler(function (result) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+          const status = (result && result.status) || 'ok';
+          const message = (result && result.message) || 'Action completed.';
+          logEvent(status, action.label + ': ' + message);
+          if (status === 'ok' && typeof $.notify === 'function') {
+            $.notify(message, 'success');
+          } else if (status === 'warning' && typeof $.notify === 'function') {
+            $.notify(message, 'warn');
+          } else if (status === 'error' && typeof $.notify === 'function') {
+            $.notify(message, 'error');
+          }
+        })
+        .withFailureHandler(function (error) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+          const message = error && error.message ? error.message : 'Action failed.';
+          logEvent('error', action.label + ': ' + message);
+          if (typeof $.notify === 'function') {
+            $.notify(message, 'error');
+          }
+        })
+        .clientRunAdminControlAction(actionKey, { requestingUserId: state.userId }, state.userId);
+    }
+
+    function formatMetricValue(value, unit) {
+      if (value === null || typeof value === 'undefined' || value === '') {
+        return '—';
+      }
+      if (typeof value === 'number') {
+        if (unit && unit.indexOf('%') !== -1) {
+          return percentFormatter.format(value) + '%';
+        }
+        return numberFormatter.format(value);
+      }
+      return value;
+    }
+
+    function buildPageLink(page) {
+      var base = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+      var script = (typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : '';
+      var target = base || script || '';
+      if (!target) {
+        return '?page=' + encodeURIComponent(page);
+      }
+      var hasQuery = target.indexOf('?') !== -1;
+      var separator = hasQuery ? (/[?&]$/.test(target) ? '' : '&') : '?';
+      return target + separator + 'page=' + encodeURIComponent(page);
+    }
+
+    function formatRelativeTime(isoString) {
+      try {
+        const date = new Date(isoString);
+        const diff = Date.now() - date.getTime();
+        if (!isFinite(diff)) return 'moments ago';
+        const minutes = Math.round(diff / 60000);
+        if (minutes <= 1) return 'just now';
+        if (minutes < 60) return minutes + ' minutes ago';
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return hours + ' hours ago';
+        const days = Math.round(hours / 24);
+        return days + ' days ago';
+      } catch (_) {
+        return 'moments ago';
+      }
+    }
+
+    function logEvent(level, message) {
+      const stream = document.getElementById('logStream');
+      if (!stream) return;
+      if (stream.firstElementChild && stream.firstElementChild.classList.contains('muted')) {
+        stream.removeChild(stream.firstElementChild);
+      }
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + (level || 'info');
+      entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + message;
+      stream.prepend(entry);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+</script>

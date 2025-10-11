@@ -85,6 +85,9 @@
     </a>
 
     <? if (isAdminValue) { ?>
+    <a href="<?= generateLink('admincenter') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Admin Center">
+      <i class="fas fa-solar-panel"></i>
+    </a>
     <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
       title="Employment Report">
       <i class="fas fa-chart-bar"></i>
