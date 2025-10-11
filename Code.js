@@ -1,10 +1,10 @@
 /** Enhanced Multi-Campaign Google Apps Script - Code.gs
  *
- * Authentication and identity features have been fully removed so the
- * application operates in a completely open mode.  All routes are now
- * publicly accessible and session management is no longer performed.
- * The remaining functionality focuses on routing, campaign utilities,
- * and the operational dashboards that back the Lumina Sheets solution.
+ * Lumina Identity integration provides authentication, session
+ * management, and campaign-aware routing for the Lumina Sheets web app.
+ * Sessions are issued when a user successfully signs in through the
+ * Lumina Identity login experience and validated on every request to the
+ * Apps Script backend.
  */
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -33,7 +33,8 @@ const ACCESS = {
     'landing-capabilities',
     'terms-of-service',
     'privacy-policy',
-    'lumina-user-guide'
+    'lumina-user-guide',
+    'login'
   ]),
   DEFAULT_PAGE: 'dashboard',
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
@@ -523,6 +524,429 @@ function resolveSessionTokenForAuthentication(e) {
     token: '',
     source: 'none',
     record: null
+  };
+}
+
+function getSessionsHeaders_() {
+  try {
+    if (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length) {
+      return SESSIONS_HEADERS.slice();
+    }
+  } catch (_) { /* ignore */ }
+  return [
+    'Token',
+    'TokenHash',
+    'TokenSalt',
+    'UserId',
+    'CreatedAt',
+    'LastActivityAt',
+    'ExpiresAt',
+    'IdleTimeoutMinutes',
+    'RememberMe',
+    'CampaignScope',
+    'UserAgent',
+    'IpAddress',
+    'ServerIp'
+  ];
+}
+
+function ensureSessionsSheet_() {
+  const name = (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions';
+  const headers = getSessionsHeaders_();
+
+  if (typeof ensureSheetWithHeaders === 'function') {
+    try {
+      return ensureSheetWithHeaders(name, headers);
+    } catch (sheetErr) {
+      console.warn('ensureSessionsSheet_: ensureSheetWithHeaders failed', sheetErr);
+    }
+  }
+
+  if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp) {
+    throw new Error('SpreadsheetApp not available');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    throw new Error('Active spreadsheet not available');
+  }
+
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+  }
+
+  if (headers.length) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+function constantTimeEquals_(a, b) {
+  if (a == null || b == null) return false;
+  const strA = String(a);
+  const strB = String(b);
+  if (strA.length !== strB.length) return false;
+  let diff = 0;
+  for (let i = 0; i < strA.length; i++) {
+    diff |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function generateSessionSalt_() {
+  try {
+    return Utilities.getUuid().replace(/-/g, '');
+  } catch (err) {
+    const rand = Math.random().toString(16).slice(2);
+    const time = Date.now().toString(16);
+    return rand + time;
+  }
+}
+
+function generateSessionToken_() {
+  try {
+    const entropy = Utilities.getUuid() + '|' + Date.now() + '|' + Math.random();
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, entropy);
+    return Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
+  } catch (err) {
+    const fallback = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36));
+    return fallback.slice(0, 44);
+  }
+}
+
+function hashSessionToken_(token, salt) {
+  if (!token && token !== 0) {
+    return '';
+  }
+
+  const material = String(salt || '') + '|' + String(token);
+
+  try {
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material);
+    return digest.map(function (b) {
+      const value = (b < 0 ? b + 256 : b);
+      return (value < 16 ? '0' : '') + value.toString(16);
+    }).join('');
+  } catch (err) {
+    console.warn('hashSessionToken_: digest failed', err);
+    return ''; 
+  }
+}
+
+function normalizeBooleanFlag_(value) {
+  if (value === true || value === false) {
+    return value;
+  }
+  const str = String(value || '').trim().toLowerCase();
+  if (!str) return false;
+  return ['true', '1', 'yes', 'y', 'on'].indexOf(str) !== -1;
+}
+
+function computeSessionExpiration_(record, nowMillis) {
+  const now = typeof nowMillis === 'number' && isFinite(nowMillis) ? nowMillis : Date.now();
+
+  const rawExpires = record && (record.ExpiresAt || record.expiresAt);
+  if (rawExpires instanceof Date) {
+    return new Date(rawExpires.getTime());
+  }
+  if (rawExpires) {
+    const parsed = Date.parse(rawExpires);
+    if (!isNaN(parsed)) {
+      return new Date(parsed);
+    }
+  }
+
+  const idleMinutes = Number(record && (record.IdleTimeoutMinutes || record.idleTimeoutMinutes || 0));
+  if (idleMinutes > 0 && isFinite(idleMinutes)) {
+    const referenceRaw = record.LastActivityAt || record.lastActivityAt || record.CreatedAt || record.createdAt;
+    let reference = referenceRaw instanceof Date ? referenceRaw.getTime() : Date.parse(referenceRaw);
+    if (isNaN(reference)) {
+      reference = now;
+    }
+    return new Date(reference + idleMinutes * 60000);
+  }
+
+  const remember = normalizeBooleanFlag_(record && (record.RememberMe || record.rememberMe));
+  const fallbackSeconds = remember ? SESSION_LINK_REMEMBER_TTL_SECONDS : SESSION_LINK_DEFAULT_TTL_SECONDS;
+  const createdRaw = record && (record.CreatedAt || record.createdAt);
+  let created = createdRaw instanceof Date ? createdRaw.getTime() : Date.parse(createdRaw);
+  if (isNaN(created)) {
+    created = now;
+  }
+  return new Date(created + fallbackSeconds * 1000);
+}
+
+function readSessionsTable_() {
+  try {
+    const sheet = ensureSessionsSheet_();
+    if (!sheet) {
+      return { sheet: null, headers: getSessionsHeaders_(), rows: [] };
+    }
+
+    const headers = getSessionsHeaders_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return { sheet: sheet, headers: headers, rows: [] };
+    }
+
+    const lastColumn = Math.max(sheet.getLastColumn(), headers.length);
+    const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+    const resolvedHeaders = values[0].map(function (header, idx) {
+      const canonical = headers[idx] || headers[idx] === '' ? headers[idx] : String(header || '').trim();
+      return canonical || String(header || '').trim();
+    });
+
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      const rowValues = values[i];
+      const record = {};
+      for (let j = 0; j < resolvedHeaders.length; j++) {
+        record[resolvedHeaders[j]] = rowValues[j];
+      }
+      record.__rowIndex = i + 1;
+      rows.push(record);
+    }
+
+    return { sheet: sheet, headers: resolvedHeaders, rows: rows };
+  } catch (err) {
+    console.warn('readSessionsTable_: failed to read sessions', err);
+    return { sheet: null, headers: getSessionsHeaders_(), rows: [] };
+  }
+}
+
+function appendSessionRecord_(record) {
+  try {
+    const sheet = ensureSessionsSheet_();
+    if (!sheet) {
+      return null;
+    }
+
+    const headers = getSessionsHeaders_();
+    const row = headers.map(function (header) {
+      if (Object.prototype.hasOwnProperty.call(record, header)) {
+        return record[header];
+      }
+      if (header === 'UserID' && Object.prototype.hasOwnProperty.call(record, 'UserId')) {
+        return record.UserId;
+      }
+      return '';
+    });
+
+    sheet.appendRow(row);
+    return { sheet: sheet, headers: headers, rowIndex: sheet.getLastRow() };
+  } catch (err) {
+    console.warn('appendSessionRecord_: failed to append session', err);
+    return null;
+  }
+}
+
+function touchSessionRow_(sheet, rowIndex, headers, record, now) {
+  if (!sheet || !rowIndex || !Array.isArray(headers)) {
+    return;
+  }
+
+  const timestamp = (now instanceof Date ? now : new Date());
+  const iso = timestamp.toISOString();
+  const updates = [];
+  const columns = [];
+
+  const lastActivityIdx = headers.indexOf('LastActivityAt');
+  if (lastActivityIdx !== -1) {
+    updates.push(iso);
+    columns.push(lastActivityIdx + 1);
+  }
+
+  const idleMinutes = Number(record && (record.IdleTimeoutMinutes || record.idleTimeoutMinutes || 0));
+  if (idleMinutes > 0 && isFinite(idleMinutes)) {
+    const expiresIdx = headers.indexOf('ExpiresAt');
+    if (expiresIdx !== -1) {
+      const nextExpiry = new Date(timestamp.getTime() + idleMinutes * 60000).toISOString();
+      updates.push(nextExpiry);
+      columns.push(expiresIdx + 1);
+    }
+  }
+
+  for (let i = 0; i < columns.length; i++) {
+    try {
+      sheet.getRange(rowIndex, columns[i]).setValue(updates[i]);
+    } catch (err) {
+      console.warn('touchSessionRow_: unable to update column', columns[i], err);
+    }
+  }
+}
+
+function removeSessionRow_(sheet, rowIndex) {
+  if (!sheet || !rowIndex) {
+    return false;
+  }
+  try {
+    sheet.deleteRow(rowIndex);
+    return true;
+  } catch (err) {
+    console.warn('removeSessionRow_: failed to delete row', err);
+    return false;
+  }
+}
+
+function findSessionRecordByToken_(token) {
+  if (!token && token !== 0) {
+    return null;
+  }
+
+  const lookup = readSessionsTable_();
+  if (!lookup.sheet) {
+    return null;
+  }
+
+  const tokenStr = String(token);
+  const rows = lookup.rows || [];
+  const now = Date.now();
+  const expiredRows = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const record = rows[i];
+    const storedHash = record.TokenHash || record.tokenHash || '';
+    const salt = record.TokenSalt || record.tokenSalt || '';
+    if (!storedHash) {
+      continue;
+    }
+
+    const computed = hashSessionToken_(tokenStr, salt);
+    if (!computed || !constantTimeEquals_(computed, storedHash)) {
+      continue;
+    }
+
+    const expiresAt = computeSessionExpiration_(record, now);
+    if (expiresAt && expiresAt.getTime() <= now) {
+      expiredRows.push(record.__rowIndex);
+      continue;
+    }
+
+    touchSessionRow_(lookup.sheet, record.__rowIndex, lookup.headers, record, new Date());
+
+    return {
+      sheet: lookup.sheet,
+      headers: lookup.headers,
+      record: record,
+      rowIndex: record.__rowIndex,
+      expiresAt: expiresAt,
+      rememberMe: normalizeBooleanFlag_(record.RememberMe || record.rememberMe),
+      idleTimeoutMinutes: Number(record.IdleTimeoutMinutes || record.idleTimeoutMinutes || 0)
+    };
+  }
+
+  if (expiredRows.length) {
+    expiredRows.sort(function (a, b) { return b - a; }).forEach(function (rowIndex) {
+      removeSessionRow_(lookup.sheet, rowIndex);
+    });
+  }
+
+  return null;
+}
+
+function revokeSessionToken(token) {
+  try {
+    const found = findSessionRecordByToken_(token);
+    if (found && found.sheet && found.rowIndex) {
+      found.sheet.deleteRow(found.rowIndex);
+      return true;
+    }
+  } catch (err) {
+    console.warn('revokeSessionToken: failed to revoke token', err);
+  }
+  return false;
+}
+
+function cleanupExpiredSessionsJob() {
+  try {
+    const lookup = readSessionsTable_();
+    if (!lookup.sheet) {
+      return { success: false, removed: 0, reason: 'NO_SESSIONS_SHEET' };
+    }
+
+    const now = Date.now();
+    const expiredRows = [];
+
+    (lookup.rows || []).forEach(function (record) {
+      const expiresAt = computeSessionExpiration_(record, now);
+      if (expiresAt && expiresAt.getTime() <= now) {
+        expiredRows.push(record.__rowIndex);
+      }
+    });
+
+    expiredRows.sort(function (a, b) { return b - a; }).forEach(function (rowIndex) {
+      removeSessionRow_(lookup.sheet, rowIndex);
+    });
+
+    return { success: true, removed: expiredRows.length };
+  } catch (err) {
+    console.error('cleanupExpiredSessionsJob failed', err);
+    if (typeof writeError === 'function') {
+      try { writeError('cleanupExpiredSessionsJob', err); } catch (_) { /* ignore */ }
+    }
+    return { success: false, error: err && err.message ? err.message : String(err) };
+  }
+}
+
+function createSessionForUser(userId, options) {
+  const normalizedId = (userId || userId === 0) ? String(userId).trim() : '';
+  if (!normalizedId) {
+    return { success: false, error: 'USER_ID_REQUIRED' };
+  }
+
+  const now = new Date();
+  const rememberMe = !!(options && options.rememberMe);
+  let idleTimeoutMinutes = Number(options && options.idleTimeoutMinutes);
+  if (!isFinite(idleTimeoutMinutes) || idleTimeoutMinutes <= 0) {
+    idleTimeoutMinutes = 0;
+  }
+
+  let ttlSeconds = Number(options && options.ttlSeconds);
+  if (!isFinite(ttlSeconds) || ttlSeconds <= 0) {
+    ttlSeconds = idleTimeoutMinutes > 0 ? Math.floor(idleTimeoutMinutes * 60) : (rememberMe ? SESSION_LINK_REMEMBER_TTL_SECONDS : SESSION_LINK_DEFAULT_TTL_SECONDS);
+  }
+
+  const expiresAt = (options && options.expiresAt)
+    ? new Date(options.expiresAt)
+    : new Date(now.getTime() + ttlSeconds * 1000);
+
+  const token = generateSessionToken_();
+  const salt = generateSessionSalt_();
+  const hash = hashSessionToken_(token, salt);
+
+  const record = {
+    Token: token ? token.slice(0, 6) + '…' + token.slice(-4) : '',
+    TokenHash: hash,
+    TokenSalt: salt,
+    UserId: normalizedId,
+    UserID: normalizedId,
+    CreatedAt: now.toISOString(),
+    LastActivityAt: now.toISOString(),
+    ExpiresAt: expiresAt.toISOString(),
+    IdleTimeoutMinutes: idleTimeoutMinutes > 0 ? idleTimeoutMinutes : '',
+    RememberMe: rememberMe ? 'TRUE' : 'FALSE',
+    CampaignScope: options && options.campaignScope ? String(options.campaignScope) : '',
+    UserAgent: options && options.userAgent ? String(options.userAgent) : '',
+    IpAddress: options && options.ipAddress ? String(options.ipAddress) : '',
+    ServerIp: options && options.serverIp ? String(options.serverIp) : ''
+  };
+
+  const appendResult = appendSessionRecord_(record);
+  if (!appendResult) {
+    return { success: false, error: 'SESSION_APPEND_FAILED' };
+  }
+
+  record.__rowIndex = appendResult.rowIndex;
+
+  return {
+    success: true,
+    token: token,
+    session: record,
+    ttlSeconds: Math.max(1, Math.floor((expiresAt.getTime() - now.getTime()) / 1000)),
+    expiresAt: expiresAt.toISOString()
   };
 }
 
@@ -1598,55 +2022,395 @@ function _cachePut(key, obj, ttlSec) {
 /**
  * Get current user from session using Google Apps Script built-in authentication
  */
-function getCurrentUser() {
+function setCurrentAuthState_(state) {
   try {
-    // With authentication removed, always return a guest profile that provides
-    // enough structure for downstream templates expecting a user object.
-    return {
-      ID: 'guest',
-      FullName: 'Guest User',
-      UserName: 'guest',
-      Email: '',
-      CampaignID: '',
-      Roles: [],
-      Pages: [],
-      IsAdmin: false,
-      CanLogin: true,
-      EmailConfirmed: true,
-      ResetRequired: false
-    };
-  } catch (e) {
-    if (typeof writeError === 'function') {
-      writeError('getCurrentUser', e);
+    GLOBAL_SCOPE.__LUMINA_AUTH_STATE__ = state || null;
+  } catch (_) {
+    // Ignore storage issues to avoid breaking authentication flow.
+  }
+  return state || null;
+}
+
+function clearCurrentAuthState_() {
+  try {
+    delete GLOBAL_SCOPE.__LUMINA_AUTH_STATE__;
+  } catch (_) {
+    GLOBAL_SCOPE.__LUMINA_AUTH_STATE__ = null;
+  }
+}
+
+function getCurrentAuthState() {
+  try {
+    return GLOBAL_SCOPE.__LUMINA_AUTH_STATE__ || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function loadIdentityContextForUser_(userId) {
+  const normalizedId = (userId || userId === 0) ? String(userId).trim() : '';
+  if (!normalizedId) {
+    return null;
+  }
+
+  if (typeof IdentityService !== 'undefined'
+    && IdentityService
+    && typeof IdentityService.getUserIdentityById === 'function') {
+    try {
+      const identity = IdentityService.getUserIdentityById(normalizedId);
+      if (identity) {
+        return identity;
+      }
+    } catch (identityErr) {
+      console.warn('loadIdentityContextForUser_: IdentityService lookup failed', identityErr);
     }
-    return {
-      ID: 'guest',
-      FullName: 'Guest User',
-      UserName: 'guest',
-      Email: '',
-      CampaignID: '',
-      Roles: [],
-      Pages: [],
-      IsAdmin: false,
-      CanLogin: true,
-      EmailConfirmed: true,
-      ResetRequired: false
-    };
+  }
+
+  try {
+    const users = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
+    for (let i = 0; i < users.length; i++) {
+      const row = users[i];
+      const rowId = String(row.ID || row.Id || row.UserId || row.UserID || '').trim();
+      if (!rowId || rowId !== normalizedId) {
+        continue;
+      }
+      const augmentation = buildIdentityAugmentation(row);
+      return {
+        identity: augmentation.identity,
+        identitySummary: augmentation.identitySummary,
+        summary: augmentation.identitySummary,
+        identityEvaluation: augmentation.identityEvaluation,
+        evaluation: augmentation.identityEvaluation,
+        warnings: augmentation.identityWarnings,
+        identityWarnings: augmentation.identityWarnings,
+        identityFields: augmentation.identityFields,
+        identityHeaders: augmentation.identityHeaders,
+        rawRecord: augmentation.rawRecord || row
+      };
+    }
+  } catch (err) {
+    console.warn('loadIdentityContextForUser_: fallback read failed', err);
+  }
+
+  return null;
+}
+
+function buildAuthenticatedUserFromIdentity_(identityResult) {
+  if (!identityResult) {
+    return null;
+  }
+
+  const identity = identityResult.identity || identityResult.Identity || null;
+  const summary = identityResult.identitySummary || identityResult.summary || null;
+  const evaluation = identityResult.identityEvaluation || identityResult.evaluation || null;
+  const fields = identityResult.identityFields || (identity && identity.fields) || identityResult.rawRecord || {};
+  const warnings = identityResult.warnings || identityResult.identityWarnings || [];
+
+  const idCandidate = summary && summary.id ? summary.id : (fields.ID || fields.Id || fields.UserId || fields.UserID || '');
+  const id = idCandidate !== null && typeof idCandidate !== 'undefined' ? String(idCandidate).trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  const userName = summary && summary.userName
+    ? summary.userName
+    : String(fields.UserName || fields.userName || fields.Username || id).trim();
+  const fullName = summary && summary.displayName
+    ? summary.displayName
+    : String(fields.FullName || fields.fullName || userName || id).trim();
+  const email = summary && summary.email
+    ? summary.email
+    : String(fields.Email || fields.email || '').trim();
+
+  const assignments = summary && Array.isArray(summary.campaignAssignments)
+    ? summary.campaignAssignments.slice()
+    : (Array.isArray(fields.CampaignAssignments) ? fields.CampaignAssignments.slice() : []);
+
+  const campaignNames = [];
+  assignments.forEach(function (assignment) {
+    if (assignment && assignment.campaignName) {
+      campaignNames.push(String(assignment.campaignName));
+    }
+  });
+
+  if (!campaignNames.length && fields.CampaignNames) {
+    if (Array.isArray(fields.CampaignNames)) {
+      fields.CampaignNames.forEach(function (name) {
+        if (name) campaignNames.push(String(name));
+      });
+    } else {
+      String(fields.CampaignNames).split(/[,\s]+/).forEach(function (name) {
+        if (name) campaignNames.push(name.trim());
+      });
+    }
+  }
+
+  const campaignIds = (function resolveCampaignIds() {
+    if (summary && Array.isArray(summary.campaignIds) && summary.campaignIds.length) {
+      return summary.campaignIds.map(function (value) { return String(value); }).filter(Boolean);
+    }
+    const raw = fields.CampaignIds || fields.campaignIds;
+    if (!raw) {
+      return [];
+    }
+    if (Array.isArray(raw)) {
+      return raw.map(function (value) { return String(value); }).filter(Boolean);
+    }
+    return String(raw).split(/[,\s]+/).map(function (part) { return part.trim(); }).filter(Boolean);
+  })();
+
+  const roleNames = (function resolveRoleNames() {
+    if (summary && Array.isArray(summary.roles)) {
+      return summary.roles.map(function (value) { return String(value); }).filter(Boolean);
+    }
+    if (Array.isArray(fields.RoleNames)) {
+      return fields.RoleNames.map(function (value) { return String(value); }).filter(Boolean);
+    }
+    if (!fields.Roles) {
+      return [];
+    }
+    return String(fields.Roles).split(/[,]+/).map(function (value) { return value.trim(); }).filter(Boolean);
+  })();
+
+  const roleIds = (function resolveRoleIds() {
+    if (summary && Array.isArray(summary.roleIds)) {
+      return summary.roleIds.map(function (value) { return String(value); }).filter(Boolean);
+    }
+    if (!fields.RoleIds) {
+      return [];
+    }
+    return String(fields.RoleIds).split(/[,]+/).map(function (value) { return value.trim(); }).filter(Boolean);
+  })();
+
+  const primaryCampaignId = summary && summary.primaryCampaignId
+    ? summary.primaryCampaignId
+    : (fields.PrimaryCampaignId || fields.CampaignID || fields.CampaignId || '');
+
+  const user = {
+    ID: id,
+    UserName: userName,
+    FullName: fullName || userName || email || id,
+    Email: email,
+    CampaignID: primaryCampaignId ? String(primaryCampaignId) : '',
+    CampaignIds: campaignIds.join(', '),
+    CampaignAssignments: assignments,
+    CampaignNames: campaignNames.join(', '),
+    Roles: roleNames.join(', '),
+    RoleNames: roleNames.slice(),
+    RoleIds: roleIds.slice(),
+    Identity: identity || null,
+    IdentitySummary: summary || null,
+    IdentityEvaluation: evaluation || null,
+    IdentityWarnings: warnings.slice(),
+    IdentityHeaders: identityResult.identityHeaders ? identityResult.identityHeaders.slice() : [],
+    IdentityFields: fields,
+    Pages: fields.Pages || fields.pages || '',
+    IsAdmin: evaluation ? !!evaluation.isAdmin : !!fields.IsAdmin,
+    CanLogin: evaluation ? !!evaluation.canLogin : !!fields.CanLogin,
+    EmailConfirmed: (fields.EmailConfirmed || fields.emailConfirmed || (summary && summary.emailConfirmed)) ? true : false,
+    ResetRequired: !!(fields.ResetRequired || fields.resetRequired),
+    LastLoginAt: fields.LastLoginAt || fields.LastLogin || '',
+    LastLoginIp: fields.LastLoginIp || '',
+    LastLoginUserAgent: fields.LastLoginUserAgent || '',
+    PrimaryCampaignName: summary && summary.primaryCampaignName ? summary.primaryCampaignName : (fields.PrimaryCampaignName || fields.CampaignName || ''),
+    ActiveSessionCount: evaluation && typeof evaluation.activeSessionCount !== 'undefined'
+      ? evaluation.activeSessionCount
+      : (identity && identity.security ? identity.security.activeSessionCount || 0 : 0)
+  };
+
+  return user;
+}
+
+function resolveAuthenticatedUser_(e) {
+  const existing = getCurrentAuthState();
+  if (existing && existing.user && (!e || !e.parameter)) {
+    return existing;
+  }
+
+  const resolvedToken = resolveSessionTokenForAuthentication(e);
+  if (!resolvedToken || !resolvedToken.token) {
+    return setCurrentAuthState_({
+      user: null,
+      identity: null,
+      session: null,
+      token: '',
+      rememberMe: false,
+      resolvedAt: new Date().toISOString()
+    });
+  }
+
+  const sessionLookup = findSessionRecordByToken_(resolvedToken.token);
+  if (!sessionLookup) {
+    if (resolvedToken.source === 'persisted') {
+      try { clearPersistedSessionTokenLink(); } catch (_) { /* ignore */ }
+    }
+    return setCurrentAuthState_({
+      user: null,
+      identity: null,
+      session: null,
+      token: '',
+      rememberMe: false,
+      resolvedAt: new Date().toISOString()
+    });
+  }
+
+  const sessionRecord = sessionLookup.record || {};
+  const userId = sessionRecord.UserId || sessionRecord.UserID || '';
+  const identityContext = loadIdentityContextForUser_(userId);
+  const user = buildAuthenticatedUserFromIdentity_(identityContext);
+
+  const state = {
+    user: user || null,
+    identity: identityContext || null,
+    session: sessionLookup,
+    token: resolvedToken.token,
+    rememberMe: !!sessionLookup.rememberMe,
+    idleTimeoutMinutes: sessionLookup.idleTimeoutMinutes || 0,
+    expiresAt: sessionLookup.expiresAt instanceof Date ? sessionLookup.expiresAt.toISOString() : '',
+    resolvedAt: new Date().toISOString()
+  };
+
+  setCurrentAuthState_(state);
+
+  try {
+    persistSessionTokenLinkForCurrentUser(resolvedToken.token, {
+      rememberMe: state.rememberMe,
+      ttlSeconds: state.idleTimeoutMinutes > 0 ? Math.floor(state.idleTimeoutMinutes * 60) : undefined,
+      expiresAt: state.expiresAt || undefined
+    });
+  } catch (persistErr) {
+    console.warn('resolveAuthenticatedUser_: unable to persist session token', persistErr);
+  }
+
+  return state;
+}
+
+function lookupUserRecordForLogin_(identifier) {
+  const raw = (identifier || identifier === 0) ? String(identifier).trim() : '';
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.toLowerCase();
+
+  try {
+    const users = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
+    for (let i = 0; i < users.length; i++) {
+      const row = users[i];
+      const id = String(row.ID || row.Id || row.UserId || row.UserID || '').trim();
+      const email = String(row.Email || row.email || '').trim().toLowerCase();
+      const normalizedEmail = String(row.NormalizedEmail || row.normalizedEmail || '').trim().toLowerCase();
+      const userName = String(row.UserName || row.username || '').trim().toLowerCase();
+      const normalizedUserName = String(row.NormalizedUserName || row.normalizedUserName || '').trim().toLowerCase();
+
+      if ((id && id.toLowerCase() === normalized)
+        || (email && email === normalized)
+        || (normalizedEmail && normalizedEmail === normalized)
+        || (userName && userName === normalized)
+        || (normalizedUserName && normalizedUserName === normalized)) {
+        return row;
+      }
+    }
+  } catch (err) {
+    console.warn('lookupUserRecordForLogin_: unable to read users', err);
+  }
+
+  return null;
+}
+
+function extractStoredPasswordHash_(userRecord) {
+  if (!userRecord) {
+    return '';
+  }
+  if (userRecord.PasswordHash) return String(userRecord.PasswordHash);
+  if (userRecord.PasswordHashHex) return String(userRecord.PasswordHashHex);
+  if (userRecord.PasswordHashBase64) return String(userRecord.PasswordHashBase64);
+  if (userRecord.PasswordHashBase64WebSafe) return String(userRecord.PasswordHashBase64WebSafe);
+  return '';
+}
+
+function verifyUserPassword_(userRecord, rawPassword) {
+  const hash = extractStoredPasswordHash_(userRecord);
+  if (!hash) {
+    return false;
+  }
+  try {
+    const utils = (typeof ensurePasswordUtilities === 'function')
+      ? ensurePasswordUtilities()
+      : (typeof PasswordUtilities !== 'undefined' ? PasswordUtilities : null);
+    if (!utils || typeof utils.verifyPassword !== 'function') {
+      console.warn('verifyUserPassword_: password utilities unavailable');
+      return false;
+    }
+    return !!utils.verifyPassword(rawPassword, hash);
+  } catch (err) {
+    console.warn('verifyUserPassword_: verification failed', err);
+    return false;
+  }
+}
+
+function determineSessionIdleTimeoutMinutes_(identityContext) {
+  if (!identityContext) {
+    return 0;
+  }
+  const fields = identityContext.identityFields || {};
+  const identity = identityContext.identity || {};
+  const security = identity.security || {};
+
+  const candidates = [
+    fields.SessionIdleTimeout,
+    fields.IdleTimeoutMinutes,
+    security.sessionIdleTimeout,
+    security.sessionIdleTimeoutMinutes,
+    security.sessionIdleMinutes
+  ];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const value = Number(candidates[i]);
+    if (isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+
+  return 0;
+}
+
+function determinePostLoginRedirect_(requestedUrl, user, identityContext) {
+  const defaultUrl = getAuthenticatedUrl('dashboard', user && user.CampaignID ? user.CampaignID : '');
+  if (!requestedUrl) {
+    return defaultUrl;
+  }
+  return sanitizeRedirectUrl_(requestedUrl, defaultUrl);
+}
+
+function getCurrentAuthContext(e) {
+  return resolveAuthenticatedUser_(e);
+}
+
+function getCurrentUser(e) {
+  try {
+    const state = resolveAuthenticatedUser_(e);
+    return state && state.user ? state.user : null;
+  } catch (err) {
+    if (typeof writeError === 'function') {
+      writeError('getCurrentUser', err);
+    }
+    return null;
   }
 }
 
 /**
  * Simple authentication using token parameter
  */
-function authenticateUser(_e) {
+function authenticateUser(e) {
   try {
-    // Authentication is disabled – always operate as the guest user.
-    return getCurrentUser();
+    const state = resolveAuthenticatedUser_(e);
+    return state && state.user ? state.user : null;
   } catch (error) {
     if (typeof writeError === 'function') {
       writeError('authenticateUser', error);
     }
-    return getCurrentUser();
+    return null;
   }
 }
 
@@ -1815,37 +2579,92 @@ function isSystemAdmin(user) {
   }
 }
 
-function evaluatePageAccess(_user, pageKey, _campaignId) {
+function evaluatePageAccess(user, pageKey, campaignId) {
   const trace = [];
   try {
     const page = _normalizePageKey(pageKey || '');
+    trace.push('page:' + page);
 
-    if (ACCESS.ADMIN_ONLY_PAGES.has(page)) {
-      // Without authentication there is no reliable way to determine an
-      // administrator, so deny these routes by default.
-      trace.push('admin-only: denied (authentication disabled)');
-      return { allow: false, reason: 'Authentication disabled', trace };
+    if (!user || !user.ID) {
+      trace.push('user:missing');
+      return { allow: false, reason: 'Authentication required', trace };
     }
 
-    trace.push('authentication disabled');
-    return { allow: true, reason: 'public', trace };
+    if (ACCESS.ADMIN_ONLY_PAGES.has(page)) {
+      if (!isSystemAdmin(user)) {
+        trace.push('admin-only:denied');
+        return { allow: false, reason: 'Administrator access required', trace };
+      }
+      trace.push('admin-only:granted');
+    }
+
+    if (campaignId) {
+      const allowed = hasCampaignAccess(user, campaignId);
+      trace.push(allowed ? 'campaign:granted' : 'campaign:denied');
+      if (!allowed) {
+        return { allow: false, reason: 'Campaign access denied', trace };
+      }
+    }
+
+    return { allow: true, reason: 'authorized', trace };
   } catch (e) {
     if (typeof writeError === 'function') {
       writeError('evaluatePageAccess', e);
     }
-    trace.push('exception:' + e.message);
-    return { allow: true, reason: 'error-fallback', trace };
+    trace.push('exception:' + (e && e.message ? e.message : String(e)));
+    return { allow: false, reason: 'Access evaluation failed', trace };
   }
 }
 
 function hasCampaignAccess(user, campaignId) {
   try {
-    const u = _normalizeUser(user);
     const cid = _normalizeId(campaignId);
-    if (!cid) return true;
-    if (isSystemAdmin(u)) return true;
-    if (_normalizeId(u.CampaignID) === cid) return true;
-    return false;
+    if (!cid) {
+      return true;
+    }
+
+    if (!user) {
+      return false;
+    }
+
+    if (isSystemAdmin(user)) {
+      return true;
+    }
+
+    const primary = _normalizeId(user.CampaignID || user.campaignId);
+    if (primary && primary === cid) {
+      return true;
+    }
+
+    const assignments = [];
+
+    if (user.CampaignAssignments && Array.isArray(user.CampaignAssignments)) {
+      user.CampaignAssignments.forEach(function (assignment) {
+        if (!assignment) return;
+        const assignmentId = _normalizeId(assignment.campaignId || assignment.CampaignID || assignment.CampaignId);
+        if (assignmentId) assignments.push(assignmentId);
+      });
+    }
+
+    const summary = user.IdentitySummary || user.identitySummary || null;
+    if (summary && Array.isArray(summary.campaignIds)) {
+      summary.campaignIds.forEach(function (value) {
+        const id = _normalizeId(value);
+        if (id) assignments.push(id);
+      });
+    }
+
+    if (user.CampaignIds) {
+      const rawCampaignIds = Array.isArray(user.CampaignIds)
+        ? user.CampaignIds
+        : String(user.CampaignIds).split(/[,\s]+/);
+      rawCampaignIds.forEach(function (value) {
+        const id = _normalizeId(value);
+        if (id) assignments.push(id);
+      });
+    }
+
+    return assignments.indexOf(cid) !== -1;
   } catch (e) {
     writeError && writeError('hasCampaignAccess', e);
     return false;
@@ -1863,19 +2682,157 @@ function renderAccessDenied(message) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+function buildReturnUrlFromRequest(e) {
+  try {
+    const baseCandidate = getBaseUrl() || SCRIPT_URL || '';
+    const base = baseCandidate ? baseCandidate.replace(/[?#].*$/, '') : '';
+    const params = {};
+    const rawParams = (e && e.parameter) ? e.parameter : {};
+    const excluded = new Set(['token', 'sessiontoken', 'authtoken', 'remember', 'rememberme']);
+
+    Object.keys(rawParams || {}).forEach(function (key) {
+      if (!key && key !== 0) {
+        return;
+      }
+      const normalizedKey = String(key);
+      if (excluded.has(normalizedKey.toLowerCase())) {
+        return;
+      }
+      const value = rawParams[key];
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+      const trimmed = String(value).trim();
+      if (!trimmed) {
+        return;
+      }
+      params[normalizedKey] = trimmed;
+    });
+
+    if (!params.page || String(params.page).toLowerCase() === 'login') {
+      params.page = 'dashboard';
+    }
+
+    const query = Object.keys(params).map(function (key) {
+      return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+    });
+
+    if (!base) {
+      return query.length ? SCRIPT_URL + '?' + query.join('&') : SCRIPT_URL;
+    }
+
+    return query.length ? base + '?' + query.join('&') : base;
+  } catch (err) {
+    console.warn('buildReturnUrlFromRequest: unable to construct return URL', err);
+    return getAuthenticatedUrl('dashboard');
+  }
+}
+
+function sanitizeRedirectUrl_(candidate, fallback) {
+  try {
+    const base = getBaseUrl() || SCRIPT_URL || '';
+    if (!candidate && candidate !== '') {
+      return fallback;
+    }
+
+    const trimmed = String(candidate).trim();
+    if (!trimmed) {
+      return fallback;
+    }
+
+    if (!base) {
+      if (trimmed.startsWith('/') || trimmed.startsWith('?')) {
+        return trimmed;
+      }
+      return fallback;
+    }
+
+    const baseUrl = new URL(base);
+    const target = new URL(trimmed, baseUrl);
+    if (target.origin === baseUrl.origin) {
+      return target.toString();
+    }
+  } catch (err) {
+    console.warn('sanitizeRedirectUrl_: failed to parse candidate', err);
+  }
+
+  if (candidate && (candidate.startsWith('/') || candidate.startsWith('?'))) {
+    const base = getBaseUrl() || SCRIPT_URL || '';
+    return base ? base.replace(/[?#].*$/, '') + candidate : candidate;
+  }
+
+  return fallback;
+}
+
+function attachTokenToUrl_(url, token, queryParam) {
+  if (!url || !token) {
+    return url;
+  }
+
+  const param = (queryParam && String(queryParam).trim()) || 'token';
+
+  try {
+    const parsed = new URL(url, getBaseUrl() || SCRIPT_URL || undefined);
+    parsed.searchParams.set(param, token);
+    return parsed.toString();
+  } catch (err) {
+    const separator = url.indexOf('?') === -1 ? '?' : '&';
+    return url + separator + encodeURIComponent(param) + '=' + encodeURIComponent(token);
+  }
+}
+
+function renderLoginPage(e, options) {
+  try {
+    const tpl = HtmlService.createTemplateFromFile('Login');
+    tpl.baseUrl = getBaseUrl();
+    tpl.scriptUrl = SCRIPT_URL;
+    tpl.returnUrl = (options && options.returnUrl) ? options.returnUrl : buildReturnUrlFromRequest(e);
+    tpl.message = options && options.message ? options.message : '';
+    tpl.error = options && options.error ? options.error : '';
+    tpl.prefillIdentifier = options && options.identifier ? options.identifier : '';
+    tpl.sessionTokenParam = (typeof SESSION_TOKEN_QUERY_PARAM === 'string'
+      && SESSION_TOKEN_QUERY_PARAM.trim())
+      ? SESSION_TOKEN_QUERY_PARAM.trim()
+      : 'token';
+    tpl.sessionTokenStorageKeys = (typeof SESSION_TOKEN_STORAGE_KEYS !== 'undefined'
+      && Array.isArray(SESSION_TOKEN_STORAGE_KEYS)
+      && SESSION_TOKEN_STORAGE_KEYS.length)
+      ? SESSION_TOKEN_STORAGE_KEYS.slice()
+      : ['lumina.session.token', 'lumina.auth.sessionToken', 'lumina.auth.fallbackToken'];
+
+    return tpl.evaluate()
+      .setTitle('Sign in to LuminaHQ')
+      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (err) {
+    if (typeof writeError === 'function') {
+      writeError('renderLoginPage', err);
+    }
+    return createErrorPage('Login Unavailable', 'Unable to render the login page. Please try again later.');
+  }
+}
+
 /**
  * Simplified authentication requirement function
  */
 function requireAuth(e) {
   try {
-    const user = authenticateUser(e);
-    const pageParam = String(e?.parameter?.page || '').toLowerCase();
+    const pageParam = String(e && e.parameter && e.parameter.page ? e.parameter.page : '').toLowerCase();
     const page = canonicalizePageKey(pageParam);
-    const campaignId = String(e?.parameter?.campaign || user.CampaignID || '');
+    const state = getCurrentAuthContext(e);
+    const user = state && state.user ? state.user : null;
+    const campaignId = String((e && e.parameter && e.parameter.campaign) || (user && user.CampaignID) || '');
+
+    if (!user || !user.ID) {
+      return renderLoginPage(e, {
+        returnUrl: buildReturnUrlFromRequest(e),
+        message: 'Please sign in to continue.'
+      });
+    }
 
     const decision = evaluatePageAccess(user, page, campaignId);
     if (!decision || decision.allow !== true) {
-      return renderAccessDenied((decision && decision.reason) || 'This area is unavailable.');
+      return renderAccessDenied((decision && decision.reason) || 'Access denied.');
     }
 
     return user;
@@ -1883,29 +2840,177 @@ function requireAuth(e) {
     if (typeof writeError === 'function') {
       writeError('requireAuth', error);
     }
-    return getCurrentUser();
+    return renderLoginPage(e, {
+      returnUrl: buildReturnUrlFromRequest(e),
+      message: 'Please sign in to continue.'
+    });
   }
 }
 
-// Login rendering helpers removed – authentication has been disabled.
-function buildLoginPageUrl() {
-  const base = getBaseUrl() || SCRIPT_URL || '';
-  return base || '#';
-}
+function handleLogoutRequest(e) {
+  try {
+    const resolved = resolveSessionTokenForAuthentication(e);
+    if (resolved && resolved.token) {
+      revokeSessionToken(resolved.token);
+    }
+  } catch (revokeErr) {
+    console.warn('handleLogoutRequest: unable to revoke session', revokeErr);
+  }
 
-function handleLogoutRequest(_e) {
   try {
     if (typeof clearPersistedSessionTokenLink === 'function') {
       clearPersistedSessionTokenLink();
     }
+  } catch (clearErr) {
+    console.warn('handleLogoutRequest: unable to clear persisted session link', clearErr);
+  }
 
-    return handlePublicPage('landing', { parameter: {} }, getBaseUrl());
+  clearCurrentAuthState_();
+
+  return renderLoginPage(e, {
+    returnUrl: buildAuthenticatedUrl('dashboard'),
+    message: 'You have been signed out.'
+  });
+}
+
+function clientLogin(payload) {
+  try {
+    const data = payload || {};
+    const identifier = String(data.identifier || data.email || data.userName || data.username || '').trim();
+    const password = data.password ? String(data.password) : '';
+    const rememberMe = !!data.rememberMe;
+    const returnUrl = data.returnUrl ? String(data.returnUrl) : '';
+    const userAgent = data.userAgent ? String(data.userAgent) : '';
+    const ipAddress = data.ipAddress ? String(data.ipAddress) : '';
+
+    if (!identifier || !password) {
+      return { success: false, error: 'Please provide your username or email and password.' };
+    }
+
+    const userRecord = lookupUserRecordForLogin_(identifier);
+    if (!userRecord) {
+      return { success: false, error: 'Invalid username or password.' };
+    }
+
+    if (typeof userRecord.CanLogin !== 'undefined' && !normalizeBooleanFlag_(userRecord.CanLogin)) {
+      return { success: false, error: 'This account is not permitted to sign in.' };
+    }
+
+    if (!verifyUserPassword_(userRecord, password)) {
+      return { success: false, error: 'Invalid username or password.' };
+    }
+
+    const userId = userRecord.ID || userRecord.Id || userRecord.UserId || userRecord.UserID;
+    const identityContext = loadIdentityContextForUser_(userId);
+    if (!identityContext) {
+      return { success: false, error: 'Unable to load your identity profile.' };
+    }
+
+    const evaluation = identityContext.identityEvaluation || identityContext.evaluation || null;
+    if (evaluation && evaluation.canLogin === false) {
+      return {
+        success: false,
+        error: 'This account is not permitted to sign in.',
+        warnings: Array.isArray(evaluation.warnings) ? evaluation.warnings.slice() : []
+      };
+    }
+
+    if (evaluation && evaluation.status && String(evaluation.status).toLowerCase() === 'restricted' && evaluation.canLogin !== true) {
+      return {
+        success: false,
+        error: 'This account is temporarily restricted from signing in.',
+        warnings: Array.isArray(evaluation.warnings) ? evaluation.warnings.slice() : []
+      };
+    }
+
+    const idleTimeoutMinutes = determineSessionIdleTimeoutMinutes_(identityContext);
+    const sessionResult = createSessionForUser(userId, {
+      rememberMe: rememberMe,
+      idleTimeoutMinutes: idleTimeoutMinutes,
+      userAgent: userAgent,
+      ipAddress: ipAddress,
+      campaignScope: data.campaignId || data.campaign || ''
+    });
+
+    if (!sessionResult || !sessionResult.success) {
+      return { success: false, error: 'Unable to create a session. Please try again.' };
+    }
+
+    try {
+      persistSessionTokenLinkForCurrentUser(sessionResult.token, {
+        rememberMe: rememberMe,
+        ttlSeconds: sessionResult.ttlSeconds,
+        expiresAt: sessionResult.expiresAt
+      });
+    } catch (persistErr) {
+      console.warn('clientLogin: unable to persist session token link', persistErr);
+    }
+
+    const user = buildAuthenticatedUserFromIdentity_(identityContext);
+    const sanitizedRedirect = determinePostLoginRedirect_(returnUrl, user, identityContext);
+    const redirectWithToken = attachTokenToUrl_(sanitizedRedirect, sessionResult.token, (typeof SESSION_TOKEN_QUERY_PARAM === 'string' && SESSION_TOKEN_QUERY_PARAM.trim()) || 'token');
+
+    setCurrentAuthState_({
+      user: user,
+      identity: identityContext,
+      session: {
+        record: sessionResult.session,
+        rowIndex: sessionResult.session && sessionResult.session.__rowIndex ? sessionResult.session.__rowIndex : null,
+        rememberMe: rememberMe,
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        expiresAt: sessionResult.expiresAt ? new Date(sessionResult.expiresAt) : null
+      },
+      token: sessionResult.token,
+      rememberMe: rememberMe,
+      idleTimeoutMinutes: idleTimeoutMinutes,
+      expiresAt: sessionResult.expiresAt,
+      resolvedAt: new Date().toISOString()
+    });
+
+    return {
+      success: true,
+      token: sessionResult.token,
+      ttlSeconds: sessionResult.ttlSeconds,
+      expiresAt: sessionResult.expiresAt,
+      rememberMe: rememberMe,
+      redirectUrl: sanitizedRedirect,
+      redirectUrlWithToken: redirectWithToken,
+      user: user,
+      identity: identityContext.identity || null,
+      identitySummary: identityContext.identitySummary || null,
+      identityEvaluation: identityContext.identityEvaluation || null,
+      warnings: Array.isArray(identityContext.warnings) ? identityContext.warnings.slice() : [],
+      message: 'Signed in successfully.'
+    };
   } catch (error) {
     if (typeof writeError === 'function') {
-      writeError('handleLogoutRequest', error);
+      writeError('clientLogin', error);
     }
-    return createErrorPage('Logout', 'Authentication is disabled.');
+    return { success: false, error: error && error.message ? error.message : 'Unable to sign in.' };
   }
+}
+
+function clientLogout(token) {
+  try {
+    const resolved = token ? { token: token } : resolveSessionTokenForAuthentication();
+    if (resolved && resolved.token) {
+      revokeSessionToken(resolved.token);
+    }
+  } catch (revokeErr) {
+    console.warn('clientLogout: unable to revoke token', revokeErr);
+  }
+
+  try {
+    if (typeof clearPersistedSessionTokenLink === 'function') {
+      clearPersistedSessionTokenLink();
+    }
+  } catch (clearErr) {
+    console.warn('clientLogout: unable to clear persisted session link', clearErr);
+  }
+
+  clearCurrentAuthState_();
+
+  return { success: true };
 }
 
 function canonicalizePageKey(k) {
@@ -1942,6 +3047,13 @@ function canonicalizePageKey(k) {
     case 'capabilities':
     case 'explore-capabilities':
       return 'landing-capabilities';
+
+    case 'login':
+    case 'sign-in':
+    case 'signin':
+    case 'sign-on':
+    case 'signon':
+      return 'login';
 
     // Legal & public resources
     case 'terms-of-service':
@@ -2219,6 +3331,10 @@ function doGet(e) {
       return handlePublicPage('landing', e, baseUrl);
     }
 
+    if (['login', 'sign-in', 'signin', 'signon', 'sign-on'].includes(page)) {
+      return renderLoginPage(e, { returnUrl: buildReturnUrlFromRequest(e) });
+    }
+
     const publicPages = [
       'landing',
       'landing-about',
@@ -2233,7 +3349,8 @@ function doGet(e) {
       'privacy',
       'lumina-user-guide',
       'lumina-hq-user-guide',
-      'user-guide'
+      'user-guide',
+      'login'
     ];
 
     if (publicPages.includes(page)) {
