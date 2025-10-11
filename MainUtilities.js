@@ -180,6 +180,75 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
   ]
 };
 
+const DEFAULT_USER_HEADERS_FALLBACK = [
+  "ID",
+  "UserName",
+  "FullName",
+  "Email",
+  "CampaignID",
+  "PasswordHash",
+  "PasswordHashFormat",
+  "PasswordHashHex",
+  "PasswordHashBase64",
+  "PasswordHashBase64WebSafe",
+  "PasswordHashAlgorithm",
+  "ResetRequired",
+  "EmailConfirmation",
+  "EmailConfirmed",
+  "PhoneNumber",
+  "EmploymentStatus",
+  "HireDate",
+  "Country",
+  "LockoutEnd",
+  "TwoFactorEnabled",
+  "CanLogin",
+  "Roles",
+  "Pages",
+  "CreatedAt",
+  "UpdatedAt",
+  "IsAdmin",
+  "NormalizedUserName",
+  "NormalizedEmail",
+  "PhoneNumberConfirmed",
+  "LockoutEnabled",
+  "AccessFailedCount",
+  "TwoFactorDelivery",
+  "TwoFactorSecret",
+  "TwoFactorRecoveryCodes",
+  "SecurityStamp",
+  "ConcurrencyStamp",
+  "EmailConfirmationTokenHash",
+  "EmailConfirmationSentAt",
+  "EmailConfirmationExpiresAt",
+  "ResetPasswordToken",
+  "ResetPasswordTokenHash",
+  "ResetPasswordSentAt",
+  "ResetPasswordExpiresAt",
+  "ActiveSessionCount",
+  "SessionIdleTimeout",
+  "SessionExpiry",
+  "LastLogin",
+  "LastLoginAt",
+  "LastLoginIp",
+  "LastLoginUserAgent",
+  "DeletedAt",
+  "TerminationDate",
+  "ProbationMonths",
+  "ProbationEnd",
+  "ProbationEndDate",
+  "InsuranceEligibleDate",
+  "InsuranceQualifiedDate",
+  "InsuranceEligible",
+  "InsuranceQualified",
+  "InsuranceEnrolled",
+  "InsuranceSignedUp",
+  "InsuranceCardReceivedDate",
+  "MFASecret",
+  "MFABackupCodes",
+  "MFADeliveryPreference",
+  "MFAEnabled"
+];
+
 function flattenIdentityHeaders_(groups) {
   const seen = new Set();
   const flattened = [];
@@ -295,6 +364,10 @@ if (typeof USERS_HEADERS === 'undefined') {
       'MFAEnabled'
     ]
   });
+
+  if (!Array.isArray(USERS_HEADERS) || USERS_HEADERS.length === 0) {
+    USERS_HEADERS = DEFAULT_USER_HEADERS_FALLBACK.slice();
+  }
 }
 
 if (typeof getCanonicalUserHeaders !== 'function') {
@@ -319,71 +392,7 @@ if (typeof getCanonicalUserHeaders !== 'function') {
       return USERS_HEADERS.slice();
     }
 
-    return [
-      "ID",
-      "UserName",
-      "FullName",
-      "Email",
-      "CampaignID",
-      "PasswordHash",
-      "PasswordHashFormat",
-      "PasswordHashHex",
-      "PasswordHashBase64",
-      "PasswordHashBase64WebSafe",
-      "PasswordHashAlgorithm",
-      "ResetRequired",
-      "EmailConfirmation",
-      "EmailConfirmed",
-      "PhoneNumber",
-      "EmploymentStatus",
-      "HireDate",
-      "Country",
-      "LockoutEnd",
-      "TwoFactorEnabled",
-      "CanLogin",
-      "Roles",
-      "Pages",
-      "CreatedAt",
-      "UpdatedAt",
-      "IsAdmin",
-      "NormalizedUserName",
-      "NormalizedEmail",
-      "PhoneNumberConfirmed",
-      "LockoutEnabled",
-      "AccessFailedCount",
-      "TwoFactorDelivery",
-      "TwoFactorSecret",
-      "TwoFactorRecoveryCodes",
-      "SecurityStamp",
-      "ConcurrencyStamp",
-      "EmailConfirmationTokenHash",
-      "EmailConfirmationSentAt",
-      "EmailConfirmationExpiresAt",
-      "ResetPasswordToken",
-      "ResetPasswordTokenHash",
-      "ResetPasswordSentAt",
-      "ResetPasswordExpiresAt",
-      "LastLogin",
-      "LastLoginAt",
-      "LastLoginIp",
-      "LastLoginUserAgent",
-      "DeletedAt",
-      "TerminationDate",
-      "ProbationMonths",
-      "ProbationEnd",
-      "ProbationEndDate",
-      "InsuranceEligibleDate",
-      "InsuranceQualifiedDate",
-      "InsuranceEligible",
-      "InsuranceQualified",
-      "InsuranceEnrolled",
-      "InsuranceSignedUp",
-      "InsuranceCardReceivedDate",
-      "MFASecret",
-      "MFABackupCodes",
-      "MFADeliveryPreference",
-      "MFAEnabled"
-    ];
+    return DEFAULT_USER_HEADERS_FALLBACK.slice();
   }
 }
 
@@ -1702,6 +1711,81 @@ if (typeof readManagerAssignments_ !== 'function') {
 // ────────────────────────────────────────────────────────────────────────────
 // Setup: Create/Repair sheet with headers (idempotent w/ caching & retry)
 // ────────────────────────────────────────────────────────────────────────────
+function resolveHeadersForEnsure_(name, headers) {
+  const safeName = (name == null) ? '' : String(name);
+  const normalized = Array.isArray(headers)
+    ? headers
+      .map(header => (header == null) ? '' : String(header).trim())
+      .filter(Boolean)
+    : [];
+
+  const hasValidInput = normalized.length > 0;
+  let candidate = hasValidInput ? normalized : [];
+
+  if (!candidate.length) {
+    let fallback = [];
+    let fallbackSource = '';
+
+    if (typeof getCanonicalSheetHeaders === 'function') {
+      try {
+        const canonical = getCanonicalSheetHeaders(safeName);
+        if (Array.isArray(canonical) && canonical.length) {
+          fallback = canonical;
+          fallbackSource = 'canonical-map';
+        }
+      } catch (canonicalErr) {
+        console.warn(`resolveHeadersForEnsure_: getCanonicalSheetHeaders(${safeName}) failed`, canonicalErr);
+      }
+    }
+
+    if (!fallback.length
+      && typeof getCanonicalUserHeaders === 'function'
+      && safeName === (typeof USERS_SHEET === 'string' && USERS_SHEET ? USERS_SHEET : 'Users')) {
+      try {
+        const canonicalUsers = getCanonicalUserHeaders({ preferIdentityService: false });
+        if (Array.isArray(canonicalUsers) && canonicalUsers.length) {
+          fallback = canonicalUsers;
+          fallbackSource = 'canonical-users';
+        }
+      } catch (userHeaderErr) {
+        console.warn('resolveHeadersForEnsure_: getCanonicalUserHeaders failed', userHeaderErr);
+      }
+    }
+
+    if (!fallback.length
+      && safeName === (typeof USERS_SHEET === 'string' && USERS_SHEET ? USERS_SHEET : 'Users')
+      && Array.isArray(DEFAULT_USER_HEADERS_FALLBACK)) {
+      fallback = DEFAULT_USER_HEADERS_FALLBACK.slice();
+      fallbackSource = 'default-users';
+    }
+
+    candidate = Array.isArray(fallback)
+      ? fallback
+        .map(header => (header == null) ? '' : String(header).trim())
+        .filter(Boolean)
+      : [];
+
+    if (candidate.length && fallbackSource) {
+      console.warn(`resolveHeadersForEnsure_: Using fallback headers (${fallbackSource}) for ${safeName}`);
+    }
+  }
+
+  if (!candidate.length) {
+    throw new Error('Invalid or empty headers provided');
+  }
+
+  const seen = new Set();
+  const deduped = [];
+  candidate.forEach(header => {
+    if (!seen.has(header)) {
+      seen.add(header);
+      deduped.push(header);
+    }
+  });
+
+  return deduped;
+}
+
 const __ensureSheetWithHeaders = (function () {
   function ensureSheetWithHeadersImpl(name, headers) {
     const MAX_RETRIES = 3;
@@ -1719,11 +1803,9 @@ const __ensureSheetWithHeaders = (function () {
       }
       PropertiesService.getScriptProperties().setProperty(recursionGuardKey, 'active');
 
-      if (!headers || !Array.isArray(headers) || headers.some(h => !h || typeof h !== 'string')) {
-        throw new Error('Invalid or empty headers provided');
-      }
-      const uniqueHeaders = new Set(headers);
-      if (uniqueHeaders.size !== headers.length) {
+      const resolvedHeaders = resolveHeadersForEnsure_(name, headers);
+      const uniqueHeaders = new Set(resolvedHeaders);
+      if (uniqueHeaders.size !== resolvedHeaders.length) {
         throw new Error('Duplicate headers detected');
       }
 
@@ -1731,9 +1813,9 @@ const __ensureSheetWithHeaders = (function () {
       const cached = scriptCache.get(cacheKey);
       let sh = ss.getSheetByName(name);
 
-      if (sh && areHeadersAligned_(sh, headers)) {
+      if (sh && areHeadersAligned_(sh, resolvedHeaders)) {
         if (typeof registerTableSchema === 'function') {
-          try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+          try { registerTableSchema(name, { headers: resolvedHeaders }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
         }
         return sh;
       }
@@ -1751,7 +1833,7 @@ const __ensureSheetWithHeaders = (function () {
             console.log(`Created sheet ${name}`);
           }
 
-          const mutated = syncSheetColumnsAndHeaders_(sh, headers);
+          const mutated = syncSheetColumnsAndHeaders_(sh, resolvedHeaders);
           if (mutated) {
             console.log(`Synchronized headers for ${name}`);
           }
@@ -1764,7 +1846,7 @@ const __ensureSheetWithHeaders = (function () {
           scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
 
           if (typeof registerTableSchema === 'function') {
-            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+            try { registerTableSchema(name, { headers: resolvedHeaders }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
           }
 
           return sh;
