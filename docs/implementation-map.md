@@ -52,6 +52,9 @@ features are introduced.
 - **DatabaseManager.js** and **DatabaseBindings.js** register schema metadata,
   provide CRUD helpers, and attach timestamp/tenant hooks used across all
   services.
+- **EnterpriseSecurityService.js** enforces column-level encryption,
+  tamper-evident signatures, and security audit logging for the tables
+  registered through `DatabaseBindings.js`.
 - **MainUtilities.js**, **ScheduleUtilities.js**, **IBTRUtilities.js**, and
   **TGCUtilities.js** encapsulate cross-cutting helpers for formatting,
   calculations, and service orchestration.

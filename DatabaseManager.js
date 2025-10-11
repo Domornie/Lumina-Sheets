@@ -45,6 +45,39 @@
     return copy;
   }
 
+  function getSecurityModule() {
+    if (typeof global.EnterpriseSecurity !== 'undefined' && global.EnterpriseSecurity) {
+      return global.EnterpriseSecurity;
+    }
+    return null;
+  }
+
+  function normalizeSecurityConfig(config) {
+    if (!config) return null;
+    var security = getSecurityModule();
+    if (security && typeof security.normalizeConfig === 'function') {
+      return security.normalizeConfig(config);
+    }
+    var normalized = clone(config);
+    if (!normalized) return null;
+    if (!Object.prototype.hasOwnProperty.call(normalized, 'enabled')) {
+      normalized.enabled = true;
+    }
+    if (!Array.isArray(normalized.sensitiveFields)) {
+      normalized.sensitiveFields = [];
+    }
+    if (!Array.isArray(normalized.redactedFields)) {
+      normalized.redactedFields = normalized.sensitiveFields.slice();
+    }
+    if (!normalized.auditSheet) {
+      normalized.auditSheet = 'SecurityAuditTrail';
+    }
+    if (!normalized.classification) {
+      normalized.classification = 'restricted';
+    }
+    return normalized;
+  }
+
   function SpreadsheetHandle(table) {
     this.table = table;
   }
@@ -134,6 +167,7 @@
     } else {
       this.idColumn = DEFAULT_ID_COLUMN;
     }
+    this.securityConfig = normalizeSecurityConfig(config && config.security);
     this.cacheTTL = (config && config.cacheTTL) || DEFAULT_CACHE_TTL;
     if (config && config.timestamps === false) {
       this.timestamps = null;
@@ -366,14 +400,15 @@
     this.headers = finalHeaders;
   };
 
-  Table.prototype.toObjects = function (rows) {
+  Table.prototype.toObjects = function (rows, context, operation) {
     var headers = this.headers;
+    var self = this;
     return rows.map(function (row) {
       var obj = {};
       headers.forEach(function (header, index) {
         obj[header] = typeof row[index] === 'undefined' ? '' : row[index];
       });
-      return obj;
+      return self.applySecurityAfterRead(obj, context, operation || 'read');
     });
   };
 
@@ -399,6 +434,88 @@
           throw new Error('Validation failed for column "' + key + '"');
         }
       }
+    }
+  };
+
+  Table.prototype.resolveSecurityContext = function (context, tenantAccess) {
+    if (tenantAccess && tenantAccess.context) {
+      return tenantAccess.context;
+    }
+    if (typeof this.normalizeContext === 'function') {
+      return this.normalizeContext(context);
+    }
+    return normalizeTenantContext(context);
+  };
+
+  Table.prototype.applySecurityBeforeWrite = function (record, context, operation) {
+    if (!this.securityConfig) return record;
+    var security = getSecurityModule();
+    if (!security || typeof security.protectRecord !== 'function') {
+      return record;
+    }
+    return security.protectRecord(record, {
+      table: this.name,
+      context: context || null,
+      operation: operation || 'write',
+      recordId: this.idColumn ? record[this.idColumn] : null,
+      config: this.securityConfig
+    });
+  };
+
+  Table.prototype.applySecurityAfterRead = function (record, context, operation) {
+    if (!this.securityConfig) return record;
+    var security = getSecurityModule();
+    if (!security || typeof security.revealRecord !== 'function') {
+      return record;
+    }
+    return security.revealRecord(record, {
+      table: this.name,
+      context: context || null,
+      operation: operation || 'read',
+      recordId: this.idColumn ? record[this.idColumn] : null,
+      config: this.securityConfig
+    });
+  };
+
+  Table.prototype.captureAuditSnapshot = function (record, context) {
+    if (!record) return null;
+    var security = getSecurityModule();
+    if (security && typeof security.redactRecord === 'function' && this.securityConfig) {
+      return security.redactRecord(record, {
+        table: this.name,
+        context: context || null,
+        config: this.securityConfig
+      });
+    }
+    return clone(record);
+  };
+
+  Table.prototype.recordSecurityAudit = function (action, context, beforeRecord, afterRecord, metadata) {
+    if (!this.securityConfig || this.securityConfig.audit === false) return;
+    var security = getSecurityModule();
+    if (!security || typeof security.recordAuditEvent !== 'function') {
+      return;
+    }
+    var normalizedContext = this.resolveSecurityContext(context, null) || {};
+    var recordId = null;
+    if (afterRecord && this.idColumn && Object.prototype.hasOwnProperty.call(afterRecord, this.idColumn)) {
+      recordId = afterRecord[this.idColumn];
+    } else if (beforeRecord && this.idColumn && Object.prototype.hasOwnProperty.call(beforeRecord, this.idColumn)) {
+      recordId = beforeRecord[this.idColumn];
+    }
+    try {
+      security.recordAuditEvent({
+        table: this.name,
+        action: action,
+        context: normalizedContext,
+        recordId: recordId,
+        before: beforeRecord || null,
+        after: afterRecord || null,
+        metadata: metadata || {},
+        meta: { config: this.securityConfig }
+      });
+    } catch (auditErr) {
+      logger.warn('Security audit logging failed for table ' + this.name + ': ' + auditErr);
     }
   };
 
@@ -656,6 +773,7 @@
     var useCache = finalOptions.cache !== false;
     var cache = CacheService.getScriptCache();
     var headers = this.headers;
+    var normalizedContext = this.resolveSecurityContext(context, prepared.tenantAccess);
 
     if (useCache) {
       var cached = cache.get(this.cacheKey);
@@ -670,7 +788,7 @@
     }
 
     var rows = this.sheetHandle.readAllRows();
-    var objects = this.toObjects(rows);
+    var objects = this.toObjects(rows, normalizedContext, 'read');
 
     if (useCache) {
       try {
@@ -715,15 +833,21 @@
     }
     var copy = clone(record);
     var tenantAccess = this.getTenantAccess(context, false);
+    var securityContext = this.resolveSecurityContext(context, tenantAccess);
     this.enforceTenantOnRecord(copy, tenantAccess);
     this.ensureId(copy);
     this.applyDefaults(copy, true);
     this.touchTimestamps(copy, true);
     this.validateRecord(copy);
 
-    var rowValues = this.serialize(copy);
+    var storedRecord = this.applySecurityBeforeWrite(copy, securityContext, 'insert');
+    if (this.securityConfig && this.securityConfig.signatureColumn) {
+      copy[this.securityConfig.signatureColumn] = storedRecord[this.securityConfig.signatureColumn];
+    }
+    var rowValues = this.serialize(storedRecord);
     this.sheetHandle.appendRow(rowValues);
     this.invalidateCache();
+    this.recordSecurityAudit('insert', securityContext, null, this.captureAuditSnapshot(copy, securityContext), { batch: false });
     return copy;
   };
 
@@ -735,6 +859,8 @@
     var processed = [];
     var rows = [];
     var tenantAccess = this.getTenantAccess(context, false);
+    var securityContext = this.resolveSecurityContext(context, tenantAccess);
+    var auditSnapshots = [];
 
     for (var i = 0; i < records.length; i++) {
       var copy = clone(records[i]);
@@ -743,14 +869,29 @@
       this.applyDefaults(copy, true);
       this.touchTimestamps(copy, true);
       this.validateRecord(copy);
+      var storedRecord = this.applySecurityBeforeWrite(copy, securityContext, 'insert');
+      if (this.securityConfig && this.securityConfig.signatureColumn) {
+        copy[this.securityConfig.signatureColumn] = storedRecord[this.securityConfig.signatureColumn];
+      }
       processed.push(copy);
-      rows.push(this.serialize(copy));
+      rows.push(this.serialize(storedRecord));
+      auditSnapshots.push(this.captureAuditSnapshot(copy, securityContext));
     }
 
     if (rows.length) {
       var startRow = sheet.getLastRow() + 1;
       sheet.getRange(startRow, 1, rows.length, this.headers.length).setValues(rows);
       this.invalidateCache();
+    }
+
+    if (auditSnapshots.length) {
+      for (var j = 0; j < auditSnapshots.length; j++) {
+        this.recordSecurityAudit('insert', securityContext, null, auditSnapshots[j], {
+          batch: true,
+          index: j,
+          total: auditSnapshots.length
+        });
+      }
     }
 
     return processed;
@@ -777,27 +918,38 @@
 
     var updatedRecord = null;
     var tenantAccess = this.getTenantAccess(context, false);
+    var securityContext = this.resolveSecurityContext(context, tenantAccess);
 
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
-        var record = {};
+        var storedRecord = {};
         for (var j = 0; j < headers.length; j++) {
-          record[headers[j]] = values[i][j];
+          storedRecord[headers[j]] = values[i][j];
         }
 
-        var existingRecord = clone(record);
+        var decryptedRecord = this.applySecurityAfterRead(storedRecord, securityContext, 'update');
+        var existingRecord = clone(decryptedRecord);
         this.ensureExistingTenantAllowed(existingRecord, tenantAccess);
 
         Object.keys(updates || {}).forEach(function (key) {
-          record[key] = updates[key];
+          decryptedRecord[key] = updates[key];
         });
 
-        this.enforceTenantOnRecord(record, tenantAccess);
-        this.touchTimestamps(record, false);
-        this.validateRecord(record);
-        var serialized = this.serialize(record);
+        this.enforceTenantOnRecord(decryptedRecord, tenantAccess);
+        this.touchTimestamps(decryptedRecord, false);
+        this.validateRecord(decryptedRecord);
+        var auditBefore = this.captureAuditSnapshot(existingRecord, securityContext);
+        var serializedRecord = this.applySecurityBeforeWrite(decryptedRecord, securityContext, 'update');
+        if (this.securityConfig && this.securityConfig.signatureColumn) {
+          decryptedRecord[this.securityConfig.signatureColumn] = serializedRecord[this.securityConfig.signatureColumn];
+        }
+        var auditAfter = this.captureAuditSnapshot(decryptedRecord, securityContext);
+        var serialized = this.serialize(serializedRecord);
         range.getCell(i + 1, 1).offset(0, 0, 1, headers.length).setValues([serialized]);
-        updatedRecord = record;
+        updatedRecord = decryptedRecord;
+        this.recordSecurityAudit('update', securityContext, auditBefore, auditAfter, {
+          updatedColumns: Object.keys(updates || {})
+        });
         break;
       }
     }
@@ -848,16 +1000,20 @@
     var values = range.getValues();
 
     var tenantAccess = this.getTenantAccess(context, false);
+    var securityContext = this.resolveSecurityContext(context, tenantAccess);
 
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
-        var record = {};
+        var storedRecord = {};
         for (var j = 0; j < headers.length; j++) {
-          record[headers[j]] = values[i][j];
+          storedRecord[headers[j]] = values[i][j];
         }
-        this.ensureExistingTenantAllowed(record, tenantAccess);
+        var decryptedRecord = this.applySecurityAfterRead(storedRecord, securityContext, 'delete');
+        this.ensureExistingTenantAllowed(decryptedRecord, tenantAccess);
+        var auditBefore = this.captureAuditSnapshot(decryptedRecord, securityContext);
         sheet.deleteRow(i + 2);
         this.invalidateCache();
+        this.recordSecurityAudit('delete', securityContext, auditBefore, null, {});
         return true;
       }
     }
@@ -907,6 +1063,9 @@
         headers.push(key);
       }
     });
+    if (table.securityConfig && table.securityConfig.signatureColumn && headers.indexOf(table.securityConfig.signatureColumn) === -1) {
+      headers.push(table.securityConfig.signatureColumn);
+    }
     return headers;
   }
 

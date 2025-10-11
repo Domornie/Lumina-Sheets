@@ -263,3 +263,19 @@ schemas registered with `DatabaseManager`.
   Apps Script services that fulfill them. Update this document whenever new
   modules are introduced so auditors can validate coverage quickly.
 
+### Enterprise security controls
+
+- **EnterpriseSecurityService.** Sensitive data written through `DatabaseManager`
+  is now protected by `EnterpriseSecurityService.js`. The module derives a
+  tenant-scoped encryption key from a master secret stored in Apps Script
+  properties, encrypts flagged columns (such as user password hashes and
+  session tokens), and attaches tamper-evident signatures to each record.
+- **Automated audit trail.** Every insert, update, and delete routed through
+  `DatabaseManager` emits a redacted audit event to the `SecurityAuditTrail`
+  sheet so investigators can trace the actor, tenant, and change history
+  without exposing the underlying secrets.
+- **Schema-bound protections.** `DatabaseBindings.js` registers security
+  metadata for the `Users`, `Sessions`, and `UserClaims` tables, ensuring that
+  the new encryption and audit guarantees are enforced automatically whenever
+  those sheets are accessed.
+
