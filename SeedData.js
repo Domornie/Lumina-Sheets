@@ -881,6 +881,262 @@ function ensureLuminaAdminUser(roleIdsByName, campaignIdsByName, pageCatalog) {
 }
 
 /**
+ * Ensure the canonical seed administrator exists with appropriate access.
+ */
+function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, pageCatalog) {
+  if (!profile) {
+    throw new Error('Seed administrator profile is required.');
+  }
+
+  const identityRepo = (typeof IdentityRepository !== 'undefined') ? IdentityRepository : null;
+  if (!identityRepo || typeof identityRepo.list !== 'function' || typeof identityRepo.upsert !== 'function') {
+    throw new Error('IdentityRepository not initialized');
+  }
+
+  const authService = (typeof AuthService !== 'undefined') ? AuthService : null;
+  if (!authService || typeof authService.hashPassword !== 'function') {
+    throw new Error('AuthService not initialized');
+  }
+
+  const utilitiesService = (typeof Utilities !== 'undefined' && Utilities)
+    ? Utilities
+    : ((typeof globalThis !== 'undefined' && globalThis && globalThis.Utilities) ? globalThis.Utilities : null);
+  if (!utilitiesService || typeof utilitiesService.getUuid !== 'function') {
+    throw new Error('Utilities service unavailable for seeding administrator');
+  }
+
+  const normalizeValue = (value) => {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+    return String(value).trim();
+  };
+
+  const normalizeKeyValue = (value) => normalizeValue(value).toLowerCase();
+
+  const resolveField = (record, candidates) => {
+    for (let i = 0; i < candidates.length; i += 1) {
+      const key = candidates[i];
+      if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== null && typeof record[key] !== 'undefined') {
+        return record[key];
+      }
+    }
+    return '';
+  };
+
+  const nowIso = new Date().toISOString();
+  const tempPassword = profile.tempPassword || 'ChangeMe!1!';
+
+  if (typeof authService.validatePassword === 'function') {
+    authService.validatePassword(tempPassword);
+  }
+
+  const users = identityRepo.list('Users') || [];
+  const normalizedEmail = normalizeKeyValue(profile.email || '');
+  const normalizedUsername = normalizeKeyValue(profile.userName || profile.email || '');
+
+  let existingUser = null;
+  for (let i = 0; i < users.length; i += 1) {
+    const user = users[i] || {};
+    const userEmail = normalizeKeyValue(resolveField(user, ['Email', 'email', 'UserEmail']));
+    const userUsername = normalizeKeyValue(resolveField(user, ['Username', 'UserName', 'username']));
+    if (normalizedEmail && userEmail === normalizedEmail) {
+      existingUser = user;
+      break;
+    }
+    if (normalizedUsername && userUsername === normalizedUsername) {
+      existingUser = user;
+      break;
+    }
+  }
+
+  const userId = existingUser ? normalizeValue(resolveField(existingUser, ['UserId', 'UserID', 'ID', 'Id'])) || utilitiesService.getUuid() : utilitiesService.getUuid();
+  const fullName = normalizeValue(profile.fullName) || normalizeValue(resolveField(existingUser || {}, ['FullName', 'DisplayName'])) || (profile.userName || profile.email);
+  const username = normalizeValue(profile.userName || profile.email || userId);
+  const primaryCampaignName = profile.defaultCampaign || 'Lumina HQ';
+  const primaryCampaignId = resolveCampaignIdByName(campaignIdsByName, primaryCampaignName)
+    || normalizeValue(resolveField(existingUser || {}, ['PrimaryCampaignId', 'PrimaryCampaignID', 'CampaignId', 'CampaignID']));
+
+  const userRecord = existingUser ? Object.assign({}, existingUser) : {};
+  userRecord.UserId = userId;
+  userRecord.UserID = userId;
+  userRecord.ID = userRecord.ID || userId;
+  userRecord.Email = profile.email;
+  userRecord.Username = username;
+  userRecord.UserName = username;
+  userRecord.FullName = fullName;
+  userRecord.DisplayName = fullName;
+  userRecord.NormalizedEmail = normalizedEmail;
+  userRecord.NormalizedUserName = normalizeValue(username).toLowerCase();
+  userRecord.EmailVerified = 'Y';
+  userRecord.Status = 'Active';
+  userRecord.PrimaryCampaignId = primaryCampaignId;
+  userRecord.PrimaryCampaignID = primaryCampaignId;
+  userRecord.CampaignId = primaryCampaignId;
+  userRecord.CampaignID = primaryCampaignId;
+  userRecord.LastLoginAt = userRecord.LastLoginAt || '';
+  userRecord.CreatedAt = userRecord.CreatedAt || nowIso;
+  userRecord.UpdatedAt = nowIso;
+  userRecord.PasswordHash = authService.hashPassword(tempPassword);
+  userRecord.EmailNormalized = userRecord.NormalizedEmail;
+  userRecord.SeedLabel = profile.seedLabel || 'Seed Administrator';
+  userRecord.TimeZone = userRecord.TimeZone || 'America/New_York';
+  userRecord.PreferredLocale = userRecord.PreferredLocale || 'en-US';
+  userRecord.Watchlist = userRecord.Watchlist || 'N';
+  userRecord.CanLogin = 'Y';
+
+  identityRepo.upsert('Users', 'UserId', userRecord);
+
+  const assignments = identityRepo.list('UserCampaigns') || [];
+  const existingAssignments = {};
+  assignments.forEach(row => {
+    if (!row) return;
+    const assignmentUserId = normalizeValue(resolveField(row, ['UserId', 'UserID']));
+    if (assignmentUserId !== normalizeValue(userId)) {
+      return;
+    }
+    const campaignId = normalizeValue(resolveField(row, ['CampaignId', 'CampaignID']));
+    if (!campaignId) {
+      return;
+    }
+    existingAssignments[campaignId] = row;
+  });
+
+  const desiredCampaignIds = [];
+  if (primaryCampaignId) {
+    desiredCampaignIds.push(String(primaryCampaignId));
+  }
+  if (Array.isArray(profile.additionalCampaigns)) {
+    profile.additionalCampaigns.forEach(name => {
+      const campaignId = resolveCampaignIdByName(campaignIdsByName, name);
+      if (campaignId) {
+        desiredCampaignIds.push(String(campaignId));
+      }
+    });
+  }
+
+  const assignmentSummary = { ensured: [], existing: [] };
+  const uniqueCampaignIds = Array.from(new Set(desiredCampaignIds.filter(Boolean)));
+
+  uniqueCampaignIds.forEach((campaignId, index) => {
+    const existingAssignment = existingAssignments[campaignId] || null;
+    const assignmentPayload = existingAssignment ? Object.assign({}, existingAssignment) : {};
+    assignmentPayload.AssignmentId = assignmentPayload.AssignmentId || assignmentPayload.ID || utilitiesService.getUuid();
+    assignmentPayload.UserId = userId;
+    assignmentPayload.UserID = userId;
+    assignmentPayload.CampaignId = campaignId;
+    assignmentPayload.CampaignID = campaignId;
+    assignmentPayload.Role = assignmentPayload.Role || (Array.isArray(profile.roleNames) && profile.roleNames.length ? profile.roleNames[0] : 'Administrator');
+    assignmentPayload.IsPrimary = (index === 0) ? 'Y' : (assignmentPayload.IsPrimary || 'N');
+    assignmentPayload.AddedBy = assignmentPayload.AddedBy || (profile.seedLabel || 'seed');
+    assignmentPayload.AddedAt = assignmentPayload.AddedAt || nowIso;
+    assignmentPayload.Watchlist = assignmentPayload.Watchlist || 'N';
+
+    identityRepo.upsert('UserCampaigns', 'AssignmentId', assignmentPayload);
+
+    if (existingAssignment) {
+      assignmentSummary.existing.push(campaignId);
+    } else {
+      assignmentSummary.ensured.push(campaignId);
+    }
+  });
+
+  const employmentRows = identityRepo.list('EmploymentStatus') || [];
+  const hasEmployment = employmentRows.some(row => {
+    if (!row) return false;
+    const rowUserId = normalizeValue(resolveField(row, ['UserId', 'UserID']));
+    const rowCampaign = normalizeValue(resolveField(row, ['CampaignId', 'CampaignID']));
+    const rowState = normalizeKeyValue(resolveField(row, ['State', 'EmploymentState', 'Status']));
+    return rowUserId === normalizeValue(userId) && rowCampaign === normalizeValue(primaryCampaignId) && rowState === 'active';
+  });
+
+  if (!hasEmployment && primaryCampaignId) {
+    identityRepo.append('EmploymentStatus', {
+      UserId: userId,
+      CampaignId: primaryCampaignId,
+      State: 'Active',
+      EffectiveDate: nowIso,
+      Reason: 'Seed data',
+      Notes: (profile.seedLabel || 'Seed administrator') + ' bootstrap'
+    });
+  }
+
+  const roleSummary = { requested: Array.isArray(profile.roleNames) ? profile.roleNames.slice() : [], assigned: [], existing: [], missing: [], errors: [] };
+  const existingRoleIds = new Set();
+
+  if (typeof getUserRoleIds === 'function') {
+    (getUserRoleIds(userId) || []).forEach(roleId => {
+      if (roleId) {
+        existingRoleIds.add(String(roleId));
+      }
+    });
+  }
+
+  const assignRole = (roleId, roleName) => {
+    if (!roleId) {
+      roleSummary.missing.push(roleName);
+      return;
+    }
+    if (existingRoleIds.has(String(roleId))) {
+      roleSummary.existing.push(roleName);
+      return;
+    }
+
+    try {
+      if (typeof addUserRole === 'function') {
+        addUserRole(userId, roleId, { scope: primaryCampaignId || '', assignedBy: profile.seedLabel || 'seed' });
+      } else {
+        throw new Error('addUserRole unavailable');
+      }
+      roleSummary.assigned.push(roleName);
+      existingRoleIds.add(String(roleId));
+    } catch (roleError) {
+      console.warn('ensureSeedAdministrator: failed to assign role', roleName, roleError);
+      roleSummary.errors.push({ role: roleName, error: roleError && roleError.message ? roleError.message : String(roleError) });
+    }
+  };
+
+  (roleSummary.requested || []).forEach(roleName => {
+    const normalizedRole = normalizeKeyValue(roleName);
+    const resolvedRoleId = roleIdsByName && (roleIdsByName[roleName] || roleIdsByName[normalizedRole])
+      ? roleIdsByName[roleName] || roleIdsByName[normalizedRole]
+      : null;
+    assignRole(resolvedRoleId, roleName);
+  });
+
+  if (!roleSummary.errors.length) {
+    delete roleSummary.errors;
+  }
+
+  const claimsResult = ensureUserClaims(userId, profile.claimTypes || []);
+  ensureCanLoginFlag(userId, true);
+
+  const assignedCampaigns = summarizeCampaignAssignments(campaignIdsByName, uniqueCampaignIds);
+
+  return {
+    userId,
+    email: profile.email,
+    userName: username,
+    fullName,
+    tempPassword,
+    created: !existingUser,
+    updated: !!existingUser,
+    defaultCampaignId: primaryCampaignId,
+    defaultCampaignName: primaryCampaignName,
+    assignedCampaigns,
+    assignments: assignmentSummary,
+    roles: roleSummary,
+    claims: claimsResult,
+    pageCatalogStats: {
+      totalPages: Array.isArray(pageCatalog) ? pageCatalog.length : 0,
+      adminPages: Array.isArray(pageCatalog)
+        ? pageCatalog.filter(page => page && page.requiresAdmin === true).length
+        : 0
+    }
+  };
+}
+
+/**
  * Ensure system pages are synchronized so campaign navigation can be seeded accurately.
  */
 function ensureSystemPageCatalog() {
