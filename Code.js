@@ -40,6 +40,14 @@ const ACCESS = {
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
 
+var PASSWORD_RESET_TOKEN_TTL_MINUTES = (typeof PASSWORD_RESET_TOKEN_TTL_MINUTES === 'number')
+  ? PASSWORD_RESET_TOKEN_TTL_MINUTES
+  : 60; // 1 hour default
+
+var PASSWORD_SETUP_TOKEN_TTL_MINUTES = (typeof PASSWORD_SETUP_TOKEN_TTL_MINUTES === 'number')
+  ? PASSWORD_SETUP_TOKEN_TTL_MINUTES
+  : (60 * 24 * 7); // 7 days default
+
 function toArray(value) {
   if (value === null || typeof value === 'undefined') {
     return [];
@@ -643,6 +651,444 @@ function normalizeBooleanFlag_(value) {
   const str = String(value || '').trim().toLowerCase();
   if (!str) return false;
   return ['true', '1', 'yes', 'y', 'on'].indexOf(str) !== -1;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// PASSWORD TOKEN HELPERS
+// ───────────────────────────────────────────────────────────────────────────────
+
+function hashTokenForStorage_(token) {
+  const normalized = (token || token === 0) ? String(token).trim() : '';
+  if (!normalized) {
+    return '';
+  }
+
+  try {
+    if (typeof Utilities === 'undefined' || !Utilities || typeof Utilities.computeDigest !== 'function') {
+      return normalized;
+    }
+
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, normalized, Utilities.Charset.UTF_8);
+    return digest
+      .map(function (byte) {
+        const value = byte < 0 ? byte + 256 : byte;
+        return (value < 16 ? '0' : '') + value.toString(16);
+      })
+      .join('');
+  } catch (err) {
+    console.warn('hashTokenForStorage_: failed to hash token', err);
+    return normalized;
+  }
+}
+
+function maskTokenForSheet_(token) {
+  const normalized = (token || token === 0) ? String(token).trim() : '';
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.length <= 4) {
+    return '••••';
+  }
+
+  const prefix = normalized.slice(0, 4);
+  const suffix = normalized.slice(-4);
+  return prefix + '…' + suffix;
+}
+
+function maskEmailForDisplay_(email) {
+  const normalized = (email || email === 0) ? String(email).trim() : '';
+  if (!normalized) {
+    return '';
+  }
+
+  const parts = normalized.split('@');
+  if (parts.length !== 2) {
+    return normalized;
+  }
+
+  const local = parts[0];
+  const domain = parts[1];
+  if (!local) {
+    return '***@' + domain;
+  }
+
+  if (local.length <= 2) {
+    return local.charAt(0) + '***@' + domain;
+  }
+
+  return local.charAt(0) + '***' + local.charAt(local.length - 1) + '@' + domain;
+}
+
+function resolveUsersSheetName_() {
+  if (typeof USERS_SHEET !== 'undefined' && USERS_SHEET) {
+    return USERS_SHEET;
+  }
+  if (typeof G !== 'undefined' && G && G.USERS_SHEET) {
+    return G.USERS_SHEET;
+  }
+  return 'Users';
+}
+
+function buildHeaderIndex_(headers) {
+  const index = {};
+  if (!Array.isArray(headers)) {
+    return index;
+  }
+
+  headers.forEach(function (header, idx) {
+    const value = String(header || '').trim();
+    if (!value && value !== '') {
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(index, value)) {
+      index[value] = idx;
+    }
+
+    const lower = value.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(index, lower)) {
+      index[lower] = idx;
+    }
+  });
+
+  return index;
+}
+
+function resolveHeaderIndex_(headerIndex, key) {
+  if (!headerIndex || !key) {
+    return -1;
+  }
+
+  const directKey = String(key);
+  if (Object.prototype.hasOwnProperty.call(headerIndex, directKey)) {
+    return headerIndex[directKey];
+  }
+
+  const lowerKey = directKey.toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(headerIndex, lowerKey)) {
+    return headerIndex[lowerKey];
+  }
+
+  return -1;
+}
+
+function getRowValue_(row, headerIndex, key) {
+  if (!row) {
+    return '';
+  }
+
+  const idx = resolveHeaderIndex_(headerIndex, key);
+  if (idx === -1) {
+    return '';
+  }
+
+  return row[idx];
+}
+
+function applyRowUpdates_(rowValues, headerIndex, updates) {
+  const base = Array.isArray(rowValues) ? rowValues.slice() : [];
+  const map = headerIndex || {};
+
+  const keys = Object.keys(updates || {});
+  if (!keys.length) {
+    return base;
+  }
+
+  keys.forEach(function (key) {
+    const idx = resolveHeaderIndex_(map, key);
+    if (idx === -1) {
+      return;
+    }
+    base[idx] = updates[key];
+  });
+
+  return base;
+}
+
+function parseDateValue_(value) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+
+  const parsed = Date.parse(value);
+  if (isNaN(parsed)) {
+    return null;
+  }
+
+  return new Date(parsed);
+}
+
+function isTokenExpired_(value) {
+  const date = parseDateValue_(value);
+  if (!date) {
+    return false;
+  }
+  return date.getTime() <= Date.now();
+}
+
+function loadUsersSheetDataForAuth_() {
+  if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
+    return { sheet: null, headers: [], values: [], headerIndex: {} };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) {
+      return { sheet: null, headers: [], values: [], headerIndex: {} };
+    }
+
+    const sheetName = resolveUsersSheetName_();
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      return { sheet: null, headers: [], values: [], headerIndex: {} };
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastColumn = Math.max(sheet.getLastColumn(), 1);
+    if (lastRow < 1 || lastColumn < 1) {
+      return { sheet: sheet, headers: [], values: [], headerIndex: {} };
+    }
+
+    const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+    if (!values || !values.length) {
+      return { sheet: sheet, headers: [], values: [], headerIndex: {} };
+    }
+
+    const headers = values[0].map(function (value) { return String(value || '').trim(); });
+    return {
+      sheet: sheet,
+      headers: headers,
+      values: values,
+      headerIndex: buildHeaderIndex_(headers)
+    };
+  } catch (err) {
+    console.warn('loadUsersSheetDataForAuth_: failed to load users sheet', err);
+    try { writeError && writeError('loadUsersSheetDataForAuth_', err); } catch (_) { /* no-op */ }
+    return { sheet: null, headers: [], values: [], headerIndex: {} };
+  }
+}
+
+function findUserRowByToken_(token, dataset) {
+  const normalized = (token || token === 0) ? String(token).trim() : '';
+  if (!normalized || !dataset || !dataset.sheet) {
+    return null;
+  }
+
+  const hashed = hashTokenForStorage_(normalized);
+  const headerIndex = dataset.headerIndex || buildHeaderIndex_(dataset.headers);
+  const values = Array.isArray(dataset.values) ? dataset.values : [];
+  const now = Date.now();
+
+  for (let i = 1; i < values.length; i += 1) {
+    const row = values[i];
+    if (!row) {
+      continue;
+    }
+
+    const storedHash = String(getRowValue_(row, headerIndex, 'ResetPasswordTokenHash') || '').trim();
+    const storedToken = String(getRowValue_(row, headerIndex, 'EmailConfirmation') || '').trim();
+
+    const matchesHash = storedHash && hashed && storedHash === hashed;
+    const matchesEmailToken = storedToken && storedToken === normalized;
+    if (!matchesHash && !matchesEmailToken) {
+      continue;
+    }
+
+    const expiresRaw = getRowValue_(row, headerIndex, 'ResetPasswordExpiresAt');
+    const expiresAt = parseDateValue_(expiresRaw);
+    const sentAt = parseDateValue_(getRowValue_(row, headerIndex, 'ResetPasswordSentAt'));
+
+    const email = String(getRowValue_(row, headerIndex, 'Email') || '').trim();
+    const fullName = String(getRowValue_(row, headerIndex, 'FullName') || '').trim();
+    const userName = String(getRowValue_(row, headerIndex, 'UserName') || '').trim();
+    const userId = String(getRowValue_(row, headerIndex, 'ID') || '').trim();
+    const hasPassword = String(getRowValue_(row, headerIndex, 'PasswordHash') || '').trim() !== '';
+    const resetRequired = normalizeBooleanFlag_(getRowValue_(row, headerIndex, 'ResetRequired'));
+
+    const reason = matchesEmailToken || !hasPassword ? 'setup' : 'reset';
+
+    if (expiresAt && expiresAt.getTime() <= now) {
+      return {
+        expired: true,
+        rowIndex: i,
+        rowValues: row.slice(),
+        email: email,
+        fullName: fullName,
+        userName: userName,
+        userId: userId,
+        reason: reason,
+        expiresAt: expiresAt,
+        sentAt: sentAt,
+        resetRequired: resetRequired
+      };
+    }
+
+    return {
+      rowIndex: i,
+      rowValues: row.slice(),
+      email: email,
+      fullName: fullName,
+      userName: userName,
+      userId: userId,
+      reason: reason,
+      expiresAt: expiresAt,
+      sentAt: sentAt,
+      resetRequired: resetRequired
+    };
+  }
+
+  return null;
+}
+
+function recordPasswordResetRequest_(userRecord, token, options) {
+  const dataset = loadUsersSheetDataForAuth_();
+  if (!dataset.sheet) {
+    return { success: false, message: 'USERS_SHEET_UNAVAILABLE' };
+  }
+
+  const headerIndex = dataset.headerIndex || buildHeaderIndex_(dataset.headers);
+  const values = Array.isArray(dataset.values) ? dataset.values : [];
+
+  const normalizedEmail = String((userRecord && (userRecord.Email || userRecord.email)) || '').trim().toLowerCase();
+  const normalizedId = String((userRecord && (userRecord.ID || userRecord.Id || userRecord.UserId || userRecord.UserID)) || '').trim();
+
+  let rowIndex = -1;
+  for (let i = 1; i < values.length; i += 1) {
+    const row = values[i];
+    if (!row) {
+      continue;
+    }
+
+    const rowId = String(getRowValue_(row, headerIndex, 'ID') || '').trim();
+    const rowEmail = String(getRowValue_(row, headerIndex, 'Email') || '').trim().toLowerCase();
+
+    if ((normalizedId && rowId === normalizedId) || (normalizedEmail && rowEmail === normalizedEmail)) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return { success: false, message: 'USER_NOT_FOUND' };
+  }
+
+  const now = new Date();
+  const ttlMinutes = Number((options && options.ttlMinutes) || PASSWORD_RESET_TOKEN_TTL_MINUTES);
+  const expiresAt = (isFinite(ttlMinutes) && ttlMinutes > 0)
+    ? new Date(now.getTime() + ttlMinutes * 60000)
+    : '';
+
+  const updates = {
+    ResetPasswordToken: maskTokenForSheet_(token),
+    ResetPasswordTokenHash: hashTokenForStorage_(token),
+    ResetPasswordSentAt: now,
+    ResetPasswordExpiresAt: expiresAt || '',
+    ResetRequired: 'TRUE',
+    UpdatedAt: now
+  };
+
+  if (!options || options.clearEmailConfirmation !== false) {
+    updates.EmailConfirmation = '';
+  }
+
+  const updatedRow = applyRowUpdates_(values[rowIndex], headerIndex, updates);
+  values[rowIndex] = updatedRow;
+  dataset.sheet.getRange(rowIndex + 1, 1, 1, dataset.headers.length).setValues([updatedRow]);
+
+  if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
+    SpreadsheetApp.flush();
+  }
+
+  try {
+    if (typeof invalidateCache === 'function') {
+      invalidateCache(resolveUsersSheetName_());
+    }
+  } catch (cacheErr) {
+    console.warn('recordPasswordResetRequest_: cache invalidation failed', cacheErr);
+  }
+
+  return {
+    success: true,
+    email: String(getRowValue_(updatedRow, headerIndex, 'Email') || '').trim(),
+    fullName: String(getRowValue_(updatedRow, headerIndex, 'FullName') || '').trim(),
+    userName: String(getRowValue_(updatedRow, headerIndex, 'UserName') || '').trim(),
+    userId: String(getRowValue_(updatedRow, headerIndex, 'ID') || '').trim()
+  };
+}
+
+function applyPasswordChangeForToken_(token, password, options) {
+  const dataset = loadUsersSheetDataForAuth_();
+  if (!dataset.sheet) {
+    return { success: false, message: 'USERS_SHEET_UNAVAILABLE' };
+  }
+
+  const match = findUserRowByToken_(token, dataset);
+  if (!match) {
+    return { success: false, message: 'TOKEN_INVALID' };
+  }
+
+  if (match.expired) {
+    return Object.assign({ success: false, message: 'TOKEN_EXPIRED', expired: true }, match);
+  }
+
+  const utils = (typeof ensurePasswordUtilities === 'function') ? ensurePasswordUtilities() : null;
+  if (!utils || typeof utils.createPasswordUpdate !== 'function') {
+    return { success: false, message: 'PASSWORD_UTILS_UNAVAILABLE' };
+  }
+
+  const passwordRecord = utils.createPasswordUpdate(password, {});
+  const updates = Object.assign({}, passwordRecord.columns || {});
+  updates.PasswordHashAlgorithm = passwordRecord.algorithm || 'SHA-256';
+  updates.ResetRequired = 'FALSE';
+  updates.ResetPasswordToken = '';
+  updates.ResetPasswordTokenHash = '';
+  updates.ResetPasswordSentAt = '';
+  updates.ResetPasswordExpiresAt = '';
+  updates.EmailConfirmation = '';
+  updates.UpdatedAt = new Date();
+
+  if (match.reason === 'setup') {
+    updates.EmailConfirmed = 'TRUE';
+  }
+
+  const headerIndex = dataset.headerIndex || buildHeaderIndex_(dataset.headers);
+  const updatedRow = applyRowUpdates_(match.rowValues, headerIndex, updates);
+  dataset.values[match.rowIndex] = updatedRow;
+  dataset.sheet.getRange(match.rowIndex + 1, 1, 1, dataset.headers.length).setValues([updatedRow]);
+
+  if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
+    SpreadsheetApp.flush();
+  }
+
+  try {
+    if (typeof invalidateCache === 'function') {
+      invalidateCache(resolveUsersSheetName_());
+    }
+  } catch (cacheErr) {
+    console.warn('applyPasswordChangeForToken_: cache invalidation failed', cacheErr);
+  }
+
+  if (typeof sendPasswordChangeConfirmation === 'function' && match.email) {
+    try {
+      sendPasswordChangeConfirmation(match.email, { timestamp: updates.UpdatedAt });
+    } catch (mailErr) {
+      try { writeError && writeError('applyPasswordChangeForToken_:confirmation', mailErr); } catch (_) { /* ignore */ }
+    }
+  }
+
+  return {
+    success: true,
+    reason: match.reason,
+    email: match.email,
+    fullName: match.fullName,
+    userName: match.userName,
+    userId: match.userId
+  };
 }
 
 function computeSessionExpiration_(record, nowMillis) {
@@ -2892,6 +3338,14 @@ function clientLogin(payload) {
       return { success: false, error: 'Invalid username or password.' };
     }
 
+    if (normalizeBooleanFlag_(userRecord.ResetRequired)) {
+      return {
+        success: false,
+        error: 'You need to finish setting your password before signing in. Use the email link we sent or request a new reset.',
+        resetRequired: true
+      };
+    }
+
     if (typeof userRecord.CanLogin !== 'undefined' && !normalizeBooleanFlag_(userRecord.CanLogin)) {
       return { success: false, error: 'This account is not permitted to sign in.' };
     }
@@ -3011,6 +3465,163 @@ function clientLogout(token) {
   clearCurrentAuthState_();
 
   return { success: true };
+}
+
+function clientRequestPasswordReset(payload) {
+  try {
+    const data = payload || {};
+    const identifier = String(data.identifier || data.email || data.userName || data.username || '').trim();
+
+    if (!identifier) {
+      return { success: false, error: 'Enter the email address associated with your account.' };
+    }
+
+    const userRecord = lookupUserRecordForLogin_(identifier);
+    if (!userRecord || !userRecord.Email) {
+      return {
+        success: true,
+        delivered: false,
+        message: 'If an account exists for that email, you will receive password reset instructions shortly.'
+      };
+    }
+
+    let token = '';
+    try {
+      if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
+        token = Utilities.getUuid();
+      }
+    } catch (_) { /* ignore */ }
+    if (!token) {
+      token = (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).toUpperCase();
+    }
+
+    const recorded = recordPasswordResetRequest_(userRecord, token, { clearEmailConfirmation: true, ttlMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES });
+    if (!recorded || !recorded.success) {
+      return { success: false, error: 'We were unable to generate a reset link. Contact your administrator for help.' };
+    }
+
+    let emailSent = false;
+    if (typeof sendPasswordResetEmail === 'function') {
+      try {
+        emailSent = !!sendPasswordResetEmail(recorded.email || userRecord.Email, token);
+      } catch (mailErr) {
+        try { writeError && writeError('clientRequestPasswordReset.email', mailErr); } catch (_) { /* ignore */ }
+      }
+    }
+
+    return {
+      success: true,
+      delivered: emailSent,
+      message: 'If an account exists for that email, you will receive password reset instructions shortly.',
+      emailHint: maskEmailForDisplay_(recorded.email || userRecord.Email || '')
+    };
+  } catch (err) {
+    try { writeError && writeError('clientRequestPasswordReset', err); } catch (_) { /* ignore */ }
+    return { success: false, error: 'We were unable to process your request. Please try again later.' };
+  }
+}
+
+function clientValidatePasswordToken(token) {
+  try {
+    const normalized = (token || token === 0) ? String(token).trim() : '';
+    if (!normalized) {
+      return { success: false, error: 'Missing password reset token.' };
+    }
+
+    const dataset = loadUsersSheetDataForAuth_();
+    if (!dataset.sheet) {
+      return { success: false, error: 'Password reset service is currently unavailable.' };
+    }
+
+    const match = findUserRowByToken_(normalized, dataset);
+    if (!match) {
+      return { success: false, error: 'This link is not valid. Request a new password reset.' };
+    }
+
+    if (match.expired) {
+      return {
+        success: false,
+        expired: true,
+        error: 'This link has expired. Request a new password reset.',
+        emailHint: maskEmailForDisplay_(match.email || '')
+      };
+    }
+
+    return {
+      success: true,
+      reason: match.reason,
+      emailHint: maskEmailForDisplay_(match.email || ''),
+      sentAt: match.sentAt instanceof Date ? match.sentAt.toISOString() : '',
+      expiresAt: match.expiresAt instanceof Date ? match.expiresAt.toISOString() : ''
+    };
+  } catch (err) {
+    try { writeError && writeError('clientValidatePasswordToken', err); } catch (_) { /* ignore */ }
+    return { success: false, error: 'Unable to validate this link. Please request a new password reset.' };
+  }
+}
+
+function clientCompletePasswordReset(payload) {
+  try {
+    const data = payload || {};
+    const token = String(data.token || data.resetToken || data.passwordToken || '').trim();
+    const password = data.password ? String(data.password) : '';
+    const confirm = data.confirmPassword ? String(data.confirmPassword) : String(data.passwordConfirm || '');
+
+    if (!token) {
+      return { success: false, error: 'Missing password reset token.' };
+    }
+
+    if (!password || password.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters long.' };
+    }
+
+    if (confirm && password !== confirm) {
+      return { success: false, error: 'Passwords do not match.' };
+    }
+
+    const result = applyPasswordChangeForToken_(token, password, {});
+    if (!result || !result.success) {
+      if (result && result.expired) {
+        return { success: false, error: 'This link has expired. Request a new password reset.', expired: true };
+      }
+
+      const friendlyError = (function mapError(message) {
+        switch (message) {
+          case 'TOKEN_INVALID':
+            return 'This link is not valid. Request a new password reset.';
+          case 'USERS_SHEET_UNAVAILABLE':
+            return 'Password reset service is currently unavailable.';
+          default:
+            return '';
+        }
+      })(result && result.message);
+
+      return { success: false, error: friendlyError || (result && result.message) || 'Unable to update password.' };
+    }
+
+    const successMessage = result.reason === 'setup'
+      ? 'Your LuminaHQ password has been created. You can sign in now.'
+      : 'Your password was updated successfully.';
+
+    return {
+      success: true,
+      message: successMessage,
+      reason: result.reason
+    };
+  } catch (err) {
+    try { writeError && writeError('clientCompletePasswordReset', err); } catch (_) { /* ignore */ }
+    return { success: false, error: 'Unable to update your password. Please try again.' };
+  }
+}
+
+function setPasswordWithToken(token, password) {
+  if (!token) {
+    return { success: false, message: 'TOKEN_REQUIRED' };
+  }
+  if (!password) {
+    return { success: false, message: 'PASSWORD_REQUIRED' };
+  }
+  return applyPasswordChangeForToken_(token, password, {});
 }
 
 function canonicalizePageKey(k) {
@@ -3943,15 +4554,48 @@ function handlePublicPage(page, e, baseUrl) {
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
+    case 'forgotpassword':
+    case 'forgot-password': {
+      const tpl = HtmlService.createTemplateFromFile('ForgotPassword');
+      tpl.baseUrl = baseUrl;
+      tpl.scriptUrl = scriptUrl;
+      tpl.supportEmail = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.supportEmail)
+        ? EMAIL_CONFIG.supportEmail
+        : 'support@vlbpo.com';
+      tpl.brandName = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.brandName)
+        ? EMAIL_CONFIG.brandName
+        : 'Lumina Identity';
+
+      return tpl.evaluate()
+        .setTitle('Reset your password • ' + tpl.brandName)
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+
     case 'setpassword':
     case 'resetpassword':
+    case 'emailconfirmed':
+    case 'email-confirmed': {
+      const tpl = HtmlService.createTemplateFromFile('SetPassword');
+      tpl.baseUrl = baseUrl;
+      tpl.scriptUrl = scriptUrl;
+      tpl.token = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
+      tpl.brandName = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.brandName)
+        ? EMAIL_CONFIG.brandName
+        : 'Lumina Identity';
+      tpl.supportEmail = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.supportEmail)
+        ? EMAIL_CONFIG.supportEmail
+        : 'support@vlbpo.com';
+
+      return tpl.evaluate()
+        .setTitle('Create your password • ' + tpl.brandName)
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+
     case 'resend-verification':
     case 'resendverification':
-    case 'forgotpassword':
-    case 'forgot-password':
-    case 'emailconfirmed':
-    case 'email-confirmed':
-      return createErrorPage('Authentication Disabled', 'Password and verification workflows are no longer available.');
+      return createErrorPage('Verification Unavailable', 'Email verification is not required for this environment.');
 
     default:
       return createErrorPage('Page Not Found', `The page "${page}" was not found.`);
