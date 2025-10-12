@@ -3092,6 +3092,12 @@ function clientRegisterUser(userData) {
     const id = Utilities.getUuid();
     const createdAt = _now_();
     const setupToken = Utilities.getUuid();
+    const setupTtlMinutes = (typeof PASSWORD_SETUP_TOKEN_TTL_MINUTES === 'number' && PASSWORD_SETUP_TOKEN_TTL_MINUTES > 0)
+      ? PASSWORD_SETUP_TOKEN_TTL_MINUTES
+      : (60 * 24 * 7);
+    const setupExpiresAt = new Date(createdAt.getTime() + setupTtlMinutes * 60000);
+    const hashedSetupToken = (typeof hashTokenForStorage_ === 'function') ? hashTokenForStorage_(setupToken) : setupToken;
+    const maskedSetupToken = (typeof maskTokenForSheet_ === 'function') ? maskTokenForSheet_(setupToken) : (setupToken ? '••••' : '');
 
     // Benefits compute
     const probEnd = data.probationEnd || calcProbationEndDate_(data.hireDate || '', data.probationMonths || '');
@@ -3115,6 +3121,10 @@ function clientRegisterUser(userData) {
       ResetRequired: _boolToStr_(data.canLogin),
       EmailConfirmation: setupToken,
       EmailConfirmed: 'TRUE',
+      ResetPasswordToken: maskedSetupToken,
+      ResetPasswordTokenHash: hashedSetupToken,
+      ResetPasswordSentAt: createdAt,
+      ResetPasswordExpiresAt: setupExpiresAt,
       PhoneNumber: data.phoneNumber || '',
       EmploymentStatus: data.employmentStatus || '',
       HireDate: data.hireDate || '',
