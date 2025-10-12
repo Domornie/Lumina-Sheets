@@ -493,7 +493,7 @@
           </button>
 
           <div class="forgot-wrap">
-            <a class="forgot-link" href="mailto:identity@lumina.com?subject=LuminaHQ%20Password%20Reset">Forgot your password?</a>
+            <a class="forgot-link" href="?page=forgotpassword">Forgot your password?</a>
           </div>
         </form>
 
@@ -522,6 +522,12 @@
       const togglePasswordEl = document.getElementById('togglePassword');
       const openModeEnabled = <?!= JSON.stringify(typeof openModeEnabled !== 'undefined' ? openModeEnabled : false) ?>;
       let openModeRedirectScheduled = false;
+
+      function isGoogleScriptAvailable() {
+        return typeof google !== 'undefined'
+          && !!google.script
+          && !!google.script.run;
+      }
 
       function isGoogleScriptAvailable() {
         return typeof google !== 'undefined'
