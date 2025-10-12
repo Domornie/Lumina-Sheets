@@ -2221,14 +2221,267 @@ function buildAuthenticatedUserFromIdentity_(identityResult) {
   return user;
 }
 
+function isOpenModeEnabled_() {
+  try {
+    if (typeof GLOBAL_SCOPE !== 'undefined' && GLOBAL_SCOPE) {
+      if (Object.prototype.hasOwnProperty.call(GLOBAL_SCOPE, '__OPEN_MODE_ENABLED__')) {
+        return !!GLOBAL_SCOPE.__OPEN_MODE_ENABLED__;
+      }
+      if (Object.prototype.hasOwnProperty.call(GLOBAL_SCOPE, 'LUMINA_OPEN_MODE')) {
+        const configured = !!GLOBAL_SCOPE.LUMINA_OPEN_MODE;
+        GLOBAL_SCOPE.__OPEN_MODE_ENABLED__ = configured;
+        return configured;
+      }
+    }
+  } catch (_) { }
+
+  const fallback = (typeof AuthenticationService === 'undefined' || !AuthenticationService);
+  try { GLOBAL_SCOPE.__OPEN_MODE_ENABLED__ = fallback; } catch (_) { }
+  return fallback;
+}
+
+function ensureOpenModeSeedData_() {
+  if (!isOpenModeEnabled_()) {
+    return false;
+  }
+
+  try {
+    if (typeof GLOBAL_SCOPE !== 'undefined' && GLOBAL_SCOPE) {
+      if (GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ === true) {
+        return true;
+      }
+      if (GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ === false) {
+        return false;
+      }
+    }
+  } catch (_) { }
+
+  if (typeof seedDefaultData === 'function') {
+    try {
+      const result = seedDefaultData();
+      const success = !result || result.success !== false;
+      try { GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ = success; } catch (_) { }
+      return success;
+    } catch (err) {
+      console.warn('ensureOpenModeSeedData_: failed to seed data', err);
+      try { GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ = false; } catch (_) { }
+      return false;
+    }
+  }
+
+  try { GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ = false; } catch (_) { }
+  return false;
+}
+
+function resolveOpenModeDefaultCampaign_() {
+  if (!isOpenModeEnabled_()) {
+    return { id: '', name: 'LuminaHQ Workspace' };
+  }
+
+  try {
+    if (typeof GLOBAL_SCOPE !== 'undefined' && GLOBAL_SCOPE && GLOBAL_SCOPE.__OPEN_MODE_DEFAULT_CAMPAIGN__) {
+      return GLOBAL_SCOPE.__OPEN_MODE_DEFAULT_CAMPAIGN__;
+    }
+  } catch (_) { }
+
+  ensureOpenModeSeedData_();
+
+  let result = { id: '', name: 'LuminaHQ Workspace' };
+  try {
+    const rows = (typeof readSheet === 'function') ? (readSheet(CAMPAIGNS_SHEET || 'Campaigns') || []) : [];
+    if (Array.isArray(rows) && rows.length) {
+      const active = rows.find(function (row) {
+        const status = row && (row.Status || row.status || '');
+        const normalizedStatus = String(status).trim().toLowerCase();
+        return normalizedStatus !== 'inactive' && normalizedStatus !== 'archived';
+      }) || rows[0];
+      if (active) {
+        const id = active.ID || active.Id || active.CampaignID || active.CampaignId || active.id;
+        const name = active.CampaignName || active.Name || active.name || active.ClientName || active.clientName;
+        result = {
+          id: id ? String(id) : '',
+          name: name ? String(name) : 'LuminaHQ Workspace'
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('resolveOpenModeDefaultCampaign_: unable to read campaigns', err);
+  }
+
+  try { GLOBAL_SCOPE.__OPEN_MODE_DEFAULT_CAMPAIGN__ = result; } catch (_) { }
+  return result;
+}
+
+function createOpenModeStubRecord_() {
+  const campaign = resolveOpenModeDefaultCampaign_();
+  const assignments = campaign.id
+    ? [{
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      permissionLevel: 'ADMIN'
+    }]
+    : [];
+
+  return {
+    ID: 'open-mode-user',
+    UserName: 'open.mode',
+    FullName: 'Lumina Open Mode',
+    Email: 'open.mode@lumina.dev',
+    CampaignID: campaign.id,
+    CampaignAssignments: assignments,
+    CampaignNames: campaign.name,
+    Roles: 'System Admin, Administrator',
+    RoleNames: ['System Admin', 'Administrator'],
+    RoleIds: [],
+    CanLogin: true,
+    IsAdmin: true,
+    Pages: ''
+  };
+}
+
+function selectOpenModeUserRecord_() {
+  ensureOpenModeSeedData_();
+
+  let rows = [];
+  try {
+    rows = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
+  } catch (err) {
+    console.warn('selectOpenModeUserRecord_: unable to read users', err);
+    rows = [];
+  }
+
+  if (!Array.isArray(rows) || !rows.length) {
+    return createOpenModeStubRecord_();
+  }
+
+  const prioritized = rows.filter(function (row) {
+    return normalizeBooleanFlag_(row.IsAdmin)
+      || normalizeBooleanFlag_(row.isAdmin)
+      || normalizeBooleanFlag_(row.CanLogin)
+      || normalizeBooleanFlag_(row.canLogin);
+  });
+
+  const candidate = prioritized.length ? prioritized[0] : rows[0];
+  const fallbackEmail = candidate && (candidate.Email || candidate.email || candidate.NormalizedEmail || candidate.normalizedEmail || '');
+  const fallbackId = candidate && (candidate.ID || candidate.Id || candidate.UserId || candidate.UserID || candidate.id || 'open-mode-user');
+
+  if (typeof buildUserRecordFromRow === 'function') {
+    return buildUserRecordFromRow(candidate, fallbackEmail, fallbackId);
+  }
+
+  if (candidate && !candidate.ID && fallbackId) {
+    candidate.ID = fallbackId;
+  }
+
+  return candidate;
+}
+
+function buildOpenModeAuthState_(e) {
+  if (!isOpenModeEnabled_()) {
+    return null;
+  }
+
+  const existing = getCurrentAuthState();
+  if (existing && existing.user && existing.openMode) {
+    return existing;
+  }
+
+  const record = selectOpenModeUserRecord_();
+  if (!record) {
+    return null;
+  }
+
+  const campaign = resolveOpenModeDefaultCampaign_();
+  if (!record.CampaignID && campaign.id) {
+    record.CampaignID = campaign.id;
+  }
+  if ((!record.CampaignAssignments || !record.CampaignAssignments.length) && campaign.id) {
+    record.CampaignAssignments = [{
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      permissionLevel: 'ADMIN'
+    }];
+  }
+  if (!record.CampaignNames && campaign.name) {
+    record.CampaignNames = campaign.name;
+  }
+
+  const augmentation = buildIdentityAugmentation(record, { preferIdentityService: false });
+  const identityContext = {
+    identity: augmentation.identity,
+    identitySummary: augmentation.identitySummary,
+    identityEvaluation: augmentation.identityEvaluation,
+    identityWarnings: augmentation.identityWarnings,
+    warnings: augmentation.identityWarnings,
+    identityFields: augmentation.identityFields,
+    identityHeaders: augmentation.identityHeaders,
+    rawRecord: augmentation.rawRecord || record
+  };
+
+  let user = buildAuthenticatedUserFromIdentity_(identityContext);
+  if (!user) {
+    user = projectRecordWithFallback(record, { preferIdentityService: false });
+    if (user) {
+      user.ID = user.ID || record.ID || record.Id || record.UserId || record.UserID || 'open-mode-user';
+      user.UserName = user.UserName || record.UserName || record.username || 'open.mode';
+      user.FullName = user.FullName || record.FullName || record.fullName || user.UserName || 'Lumina Open Mode';
+      user.Email = user.Email || record.Email || record.email || '';
+      user.CampaignID = user.CampaignID || record.CampaignID || '';
+      if (!user.RoleNames || !user.RoleNames.length) {
+        const roleNames = Array.isArray(record.RoleNames)
+          ? record.RoleNames.slice()
+          : String(record.Roles || '').split(/[,]+/).map(function (value) { return value.trim(); }).filter(Boolean);
+        user.RoleNames = roleNames;
+        user.Roles = roleNames.join(', ');
+      }
+      user.CampaignAssignments = record.CampaignAssignments || [];
+      user.CampaignNames = record.CampaignNames || (user.CampaignAssignments && user.CampaignAssignments.length
+        ? user.CampaignAssignments.map(function (assignment) { return assignment.campaignName; }).filter(Boolean).join(', ')
+        : '');
+    }
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  user.Identity = user.Identity || identityContext.identity || null;
+  user.IdentitySummary = user.IdentitySummary || identityContext.identitySummary || null;
+  user.IdentityEvaluation = user.IdentityEvaluation || identityContext.identityEvaluation || null;
+  user.IdentityWarnings = user.IdentityWarnings || identityContext.identityWarnings || [];
+  user.IdentityFields = user.IdentityFields || identityContext.identityFields || null;
+  user.IdentityHeaders = user.IdentityHeaders || identityContext.identityHeaders || [];
+  user.IsAdmin = user.IsAdmin !== undefined ? user.IsAdmin : true;
+  user.CanLogin = user.CanLogin !== undefined ? user.CanLogin : true;
+  user.OpenMode = true;
+
+  const state = {
+    user: user,
+    identity: identityContext,
+    session: null,
+    token: '',
+    rememberMe: false,
+    idleTimeoutMinutes: 0,
+    expiresAt: '',
+    resolvedAt: new Date().toISOString(),
+    openMode: true
+  };
+
+  return setCurrentAuthState_(state);
+}
+
 function resolveAuthenticatedUser_(e) {
   const existing = getCurrentAuthState();
-  if (existing && existing.user && (!e || !e.parameter)) {
+  if (existing && existing.user && ((!e || !e.parameter) || existing.openMode)) {
     return existing;
   }
 
   const resolvedToken = resolveSessionTokenForAuthentication(e);
   if (!resolvedToken || !resolvedToken.token) {
+    const openModeState = buildOpenModeAuthState_(e);
+    if (openModeState) {
+      return openModeState;
+    }
     return setCurrentAuthState_({
       user: null,
       identity: null,
@@ -2243,6 +2496,10 @@ function resolveAuthenticatedUser_(e) {
   if (!sessionLookup) {
     if (resolvedToken.source === 'persisted') {
       try { clearPersistedSessionTokenLink(); } catch (_) { /* ignore */ }
+    }
+    const openModeState = buildOpenModeAuthState_(e);
+    if (openModeState) {
+      return openModeState;
     }
     return setCurrentAuthState_({
       user: null,
@@ -2799,6 +3056,7 @@ function renderLoginPage(e, options) {
       && SESSION_TOKEN_STORAGE_KEYS.length)
       ? SESSION_TOKEN_STORAGE_KEYS.slice()
       : ['lumina.session.token', 'lumina.auth.sessionToken', 'lumina.auth.fallbackToken'];
+    tpl.openModeEnabled = isOpenModeEnabled_();
 
     return tpl.evaluate()
       .setTitle('Sign in to LuminaHQ')
@@ -2824,6 +3082,10 @@ function requireAuth(e) {
     const campaignId = String((e && e.parameter && e.parameter.campaign) || (user && user.CampaignID) || '');
 
     if (!user || !user.ID) {
+      const openState = buildOpenModeAuthState_(e);
+      if (openState && openState.user && openState.user.ID) {
+        return openState.user;
+      }
       return renderLoginPage(e, {
         returnUrl: buildReturnUrlFromRequest(e),
         message: 'Please sign in to continue.'
@@ -2839,6 +3101,10 @@ function requireAuth(e) {
   } catch (error) {
     if (typeof writeError === 'function') {
       writeError('requireAuth', error);
+    }
+    const openState = buildOpenModeAuthState_(e);
+    if (openState && openState.user && openState.user.ID) {
+      return openState.user;
     }
     return renderLoginPage(e, {
       returnUrl: buildReturnUrlFromRequest(e),
@@ -2867,6 +3133,12 @@ function handleLogoutRequest(e) {
 
   clearCurrentAuthState_();
 
+  if (isOpenModeEnabled_()) {
+    const target = buildAuthenticatedUrl('dashboard');
+    return HtmlService.createHtmlOutput('<script>window.location.href = ' + JSON.stringify(target) + ';</script>')
+      .setTitle('Redirecting to LuminaHQ…');
+  }
+
   return renderLoginPage(e, {
     returnUrl: buildAuthenticatedUrl('dashboard'),
     message: 'You have been signed out.'
@@ -2882,6 +3154,30 @@ function clientLogin(payload) {
     const returnUrl = data.returnUrl ? String(data.returnUrl) : '';
     const userAgent = data.userAgent ? String(data.userAgent) : '';
     const ipAddress = data.ipAddress ? String(data.ipAddress) : '';
+
+    if (isOpenModeEnabled_()) {
+      const openState = buildOpenModeAuthState_();
+      if (openState && openState.user) {
+        const sanitizedRedirect = determinePostLoginRedirect_(returnUrl, openState.user, openState.identity);
+        return {
+          success: true,
+          token: '',
+          ttlSeconds: null,
+          expiresAt: '',
+          rememberMe: false,
+          redirectUrl: sanitizedRedirect,
+          redirectUrlWithToken: sanitizedRedirect,
+          user: openState.user,
+          identity: openState.identity ? openState.identity.identity : null,
+          identitySummary: openState.identity ? openState.identity.identitySummary : null,
+          identityEvaluation: openState.identity ? openState.identity.identityEvaluation : null,
+          warnings: openState.identity && Array.isArray(openState.identity.identityWarnings)
+            ? openState.identity.identityWarnings.slice()
+            : [],
+          message: 'Authentication is disabled for this open deployment. Redirecting to the workspace.'
+        };
+      }
+    }
 
     if (!identifier || !password) {
       return { success: false, error: 'Please provide your username or email and password.' };
