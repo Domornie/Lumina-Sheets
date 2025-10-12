@@ -951,12 +951,18 @@
   // Public API: Authentication helpers
   // ───────────────────────────────────────────────────────────────────────────────
 
-  WorkflowService.login = function () {
-    return { success: false, error: 'Authentication has been removed from this deployment.' };
+  WorkflowService.login = function (email, password, rememberMe) {
+    if (!global.AuthenticationService || typeof global.AuthenticationService.login !== 'function') {
+      throw new Error('AuthenticationService.login is not available');
+    }
+    return global.AuthenticationService.login(email, password, rememberMe);
   };
 
-  WorkflowService.issueSessionForUser = function () {
-    return { success: false, error: 'Session issuance is unavailable because authentication has been removed.' };
+  WorkflowService.issueSessionForUser = function (userId, rememberMe) {
+    if (!global.AuthenticationService || typeof global.AuthenticationService.createSessionFor !== 'function') {
+      throw new Error('AuthenticationService.createSessionFor is not available');
+    }
+    return global.AuthenticationService.createSessionFor(userId, null, !!rememberMe);
   };
 
   // ───────────────────────────────────────────────────────────────────────────────

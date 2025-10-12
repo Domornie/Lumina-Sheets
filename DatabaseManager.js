@@ -5,7 +5,7 @@
  * Usage:
  *   const usersTable = DatabaseManager.defineTable('Users', {
  *     headers: ['ID', 'UserName', 'Email'],
- *     defaults: {},
+ *     defaults: { CanLogin: true },
  *   });
  *   const user = usersTable.insert({ UserName: 'alice', Email: 'alice@example.com' });
  *
@@ -43,39 +43,6 @@
       copy[key] = value[key];
     });
     return copy;
-  }
-
-  function getSecurityModule() {
-    if (typeof global.EnterpriseSecurity !== 'undefined' && global.EnterpriseSecurity) {
-      return global.EnterpriseSecurity;
-    }
-    return null;
-  }
-
-  function normalizeSecurityConfig(config) {
-    if (!config) return null;
-    var security = getSecurityModule();
-    if (security && typeof security.normalizeConfig === 'function') {
-      return security.normalizeConfig(config);
-    }
-    var normalized = clone(config);
-    if (!normalized) return null;
-    if (!Object.prototype.hasOwnProperty.call(normalized, 'enabled')) {
-      normalized.enabled = true;
-    }
-    if (!Array.isArray(normalized.sensitiveFields)) {
-      normalized.sensitiveFields = [];
-    }
-    if (!Array.isArray(normalized.redactedFields)) {
-      normalized.redactedFields = normalized.sensitiveFields.slice();
-    }
-    if (!normalized.auditSheet) {
-      normalized.auditSheet = 'SecurityAuditTrail';
-    }
-    if (!normalized.classification) {
-      normalized.classification = 'restricted';
-    }
-    return normalized;
   }
 
   function SpreadsheetHandle(table) {
@@ -167,7 +134,6 @@
     } else {
       this.idColumn = DEFAULT_ID_COLUMN;
     }
-    this.securityConfig = normalizeSecurityConfig(config && config.security);
     this.cacheTTL = (config && config.cacheTTL) || DEFAULT_CACHE_TTL;
     if (config && config.timestamps === false) {
       this.timestamps = null;
@@ -400,15 +366,14 @@
     this.headers = finalHeaders;
   };
 
-  Table.prototype.toObjects = function (rows, context, operation) {
+  Table.prototype.toObjects = function (rows) {
     var headers = this.headers;
-    var self = this;
     return rows.map(function (row) {
       var obj = {};
       headers.forEach(function (header, index) {
         obj[header] = typeof row[index] === 'undefined' ? '' : row[index];
       });
-      return self.applySecurityAfterRead(obj, context, operation || 'read');
+      return obj;
     });
   };
 
@@ -437,88 +402,6 @@
     }
   };
 
-  Table.prototype.resolveSecurityContext = function (context, tenantAccess) {
-    if (tenantAccess && tenantAccess.context) {
-      return tenantAccess.context;
-    }
-    if (typeof this.normalizeContext === 'function') {
-      return this.normalizeContext(context);
-    }
-    return normalizeTenantContext(context);
-  };
-
-  Table.prototype.applySecurityBeforeWrite = function (record, context, operation) {
-    if (!this.securityConfig) return record;
-    var security = getSecurityModule();
-    if (!security || typeof security.protectRecord !== 'function') {
-      return record;
-    }
-    return security.protectRecord(record, {
-      table: this.name,
-      context: context || null,
-      operation: operation || 'write',
-      recordId: this.idColumn ? record[this.idColumn] : null,
-      config: this.securityConfig
-    });
-  };
-
-  Table.prototype.applySecurityAfterRead = function (record, context, operation) {
-    if (!this.securityConfig) return record;
-    var security = getSecurityModule();
-    if (!security || typeof security.revealRecord !== 'function') {
-      return record;
-    }
-    return security.revealRecord(record, {
-      table: this.name,
-      context: context || null,
-      operation: operation || 'read',
-      recordId: this.idColumn ? record[this.idColumn] : null,
-      config: this.securityConfig
-    });
-  };
-
-  Table.prototype.captureAuditSnapshot = function (record, context) {
-    if (!record) return null;
-    var security = getSecurityModule();
-    if (security && typeof security.redactRecord === 'function' && this.securityConfig) {
-      return security.redactRecord(record, {
-        table: this.name,
-        context: context || null,
-        config: this.securityConfig
-      });
-    }
-    return clone(record);
-  };
-
-  Table.prototype.recordSecurityAudit = function (action, context, beforeRecord, afterRecord, metadata) {
-    if (!this.securityConfig || this.securityConfig.audit === false) return;
-    var security = getSecurityModule();
-    if (!security || typeof security.recordAuditEvent !== 'function') {
-      return;
-    }
-    var normalizedContext = this.resolveSecurityContext(context, null) || {};
-    var recordId = null;
-    if (afterRecord && this.idColumn && Object.prototype.hasOwnProperty.call(afterRecord, this.idColumn)) {
-      recordId = afterRecord[this.idColumn];
-    } else if (beforeRecord && this.idColumn && Object.prototype.hasOwnProperty.call(beforeRecord, this.idColumn)) {
-      recordId = beforeRecord[this.idColumn];
-    }
-    try {
-      security.recordAuditEvent({
-        table: this.name,
-        action: action,
-        context: normalizedContext,
-        recordId: recordId,
-        before: beforeRecord || null,
-        after: afterRecord || null,
-        metadata: metadata || {},
-        meta: { config: this.securityConfig }
-      });
-    } catch (auditErr) {
-      logger.warn('Security audit logging failed for table ' + this.name + ': ' + auditErr);
-    }
-  };
-
   Table.prototype.applyDefaults = function (record, isInsert) {
     var defaults = this.defaults;
     var keys = Object.keys(defaults);
@@ -541,209 +424,6 @@
       record[this.idColumn] = Utilities.getUuid();
     }
     return record;
-  };
-
-  Table.prototype.backfillMissingIds = function (context) {
-    if (!this.idColumn) {
-      return {
-        table: this.name,
-        totalRows: 0,
-        missingIds: 0,
-        updated: 0,
-        skipped: 0,
-        attempted: 0,
-        pending: 0,
-        writeFailed: false
-      };
-    }
-
-    var headers = this.headers || [];
-    var idIndex = headers.indexOf(this.idColumn);
-    if (idIndex === -1) {
-      logger.warn('backfillMissingIds: ID column ' + this.idColumn + ' not found for table ' + this.name);
-      return {
-        table: this.name,
-        totalRows: 0,
-        missingIds: 0,
-        updated: 0,
-        skipped: 0,
-        attempted: 0,
-        pending: 0,
-        writeFailed: false,
-        error: 'ID column not found'
-      };
-    }
-
-    var tenantAccess;
-    try {
-      tenantAccess = this.getTenantAccess(context, false);
-    } catch (err) {
-      logger.error('backfillMissingIds: tenant access denied for table ' + this.name + ': ' + err);
-      return {
-        table: this.name,
-        totalRows: 0,
-        missingIds: 0,
-        updated: 0,
-        skipped: 0,
-        attempted: 0,
-        pending: 0,
-        writeFailed: false,
-        error: err && err.message ? err.message : String(err)
-      };
-    }
-
-    var sheet = this.sheetHandle.getSheet();
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) {
-      return {
-        table: this.name,
-        totalRows: 0,
-        missingIds: 0,
-        updated: 0,
-        skipped: 0,
-        attempted: 0,
-        pending: 0,
-        writeFailed: false
-      };
-    }
-
-    var tenantIndex = this.tenantColumn ? headers.indexOf(this.tenantColumn) : -1;
-    if (tenantAccess.enforce && this.tenantColumn && tenantIndex === -1) {
-      var missingTenantColumnMessage = 'Tenant column ' + this.tenantColumn + ' not found for table ' + this.name + ' while enforcing access';
-      logger.error('backfillMissingIds: ' + missingTenantColumnMessage);
-      return {
-        table: this.name,
-        totalRows: 0,
-        missingIds: 0,
-        updated: 0,
-        skipped: 0,
-        attempted: 0,
-        pending: 0,
-        writeFailed: false,
-        error: missingTenantColumnMessage
-      };
-    }
-    var allowedSet = null;
-    if (tenantAccess.enforce) {
-      allowedSet = {};
-      for (var i = 0; i < tenantAccess.allowed.length; i++) {
-        allowedSet[toStringValue(tenantAccess.allowed[i])] = true;
-      }
-    }
-
-    var values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-    var result = {
-      table: this.name,
-      totalRows: values.length,
-      missingIds: 0,
-      updated: 0,
-      skipped: 0,
-      attempted: 0,
-      pending: 0,
-      writeFailed: false
-    };
-    var updates = [];
-    var attemptedUpdates = 0;
-
-    for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
-      var row = values[rowIndex];
-      var existingId = toStringValue(row[idIndex]);
-
-      if (!existingId) {
-        result.missingIds += 1;
-
-        if (tenantAccess.enforce) {
-          var tenantValue = toStringValue(tenantIndex !== -1 ? row[tenantIndex] : '');
-          if (!tenantValue || !allowedSet[tenantValue]) {
-            result.skipped += 1;
-            continue;
-          }
-        }
-
-        var newId = Utilities.getUuid();
-        updates.push({
-          rowNumber: rowIndex + 2,
-          value: newId
-        });
-        attemptedUpdates += 1;
-      }
-    }
-
-    if (updates.length > 0) {
-      updates.sort(function (a, b) { return a.rowNumber - b.rowNumber; });
-
-      var column = idIndex + 1;
-      var startRow = updates[0].rowNumber;
-      var buffer = [];
-      var expectedRow = startRow;
-      var writeFailed = false;
-      var self = this;
-      var appliedUpdates = 0;
-
-      function flushBuffer() {
-        if (writeFailed || !buffer.length) {
-          return true;
-        }
-        var valuesMatrix = [];
-        for (var i = 0; i < buffer.length; i++) {
-          valuesMatrix.push([buffer[i]]);
-        }
-        try {
-          sheet.getRange(startRow, column, buffer.length, 1).setValues(valuesMatrix);
-          appliedUpdates += buffer.length;
-          return true;
-        } catch (writeError) {
-          writeFailed = true;
-          var message = writeError && writeError.message ? writeError.message : String(writeError);
-          result.error = message;
-          result.writeError = message;
-          logger.error('backfillMissingIds: failed to write IDs for table ' + self.name + ': ' + message);
-          return false;
-        }
-      }
-
-      for (var updateIndex = 0; updateIndex < updates.length; updateIndex++) {
-        if (writeFailed) {
-          break;
-        }
-        var update = updates[updateIndex];
-        if (update.rowNumber !== expectedRow) {
-          if (!flushBuffer()) {
-            break;
-          }
-          startRow = update.rowNumber;
-          buffer = [];
-          expectedRow = update.rowNumber;
-        }
-        buffer.push(update.value);
-        expectedRow += 1;
-      }
-
-      if (!writeFailed) {
-        flushBuffer();
-      }
-      if (appliedUpdates > 0) {
-        self.invalidateCache();
-      }
-
-      result.updated = appliedUpdates;
-      result.attempted = attemptedUpdates;
-      result.writeFailed = writeFailed;
-      if (attemptedUpdates > appliedUpdates) {
-        result.pending = attemptedUpdates - appliedUpdates;
-      }
-    }
-
-    if (!updates.length) {
-      result.updated = 0;
-      result.attempted = attemptedUpdates;
-      result.writeFailed = false;
-      if (attemptedUpdates > 0) {
-        result.pending = attemptedUpdates;
-      }
-    }
-
-    return result;
   };
 
   Table.prototype.touchTimestamps = function (record, isInsert) {
@@ -773,7 +453,6 @@
     var useCache = finalOptions.cache !== false;
     var cache = CacheService.getScriptCache();
     var headers = this.headers;
-    var normalizedContext = this.resolveSecurityContext(context, prepared.tenantAccess);
 
     if (useCache) {
       var cached = cache.get(this.cacheKey);
@@ -788,7 +467,7 @@
     }
 
     var rows = this.sheetHandle.readAllRows();
-    var objects = this.toObjects(rows, normalizedContext, 'read');
+    var objects = this.toObjects(rows);
 
     if (useCache) {
       try {
@@ -833,21 +512,15 @@
     }
     var copy = clone(record);
     var tenantAccess = this.getTenantAccess(context, false);
-    var securityContext = this.resolveSecurityContext(context, tenantAccess);
     this.enforceTenantOnRecord(copy, tenantAccess);
     this.ensureId(copy);
     this.applyDefaults(copy, true);
     this.touchTimestamps(copy, true);
     this.validateRecord(copy);
 
-    var storedRecord = this.applySecurityBeforeWrite(copy, securityContext, 'insert');
-    if (this.securityConfig && this.securityConfig.signatureColumn) {
-      copy[this.securityConfig.signatureColumn] = storedRecord[this.securityConfig.signatureColumn];
-    }
-    var rowValues = this.serialize(storedRecord);
+    var rowValues = this.serialize(copy);
     this.sheetHandle.appendRow(rowValues);
     this.invalidateCache();
-    this.recordSecurityAudit('insert', securityContext, null, this.captureAuditSnapshot(copy, securityContext), { batch: false });
     return copy;
   };
 
@@ -859,8 +532,6 @@
     var processed = [];
     var rows = [];
     var tenantAccess = this.getTenantAccess(context, false);
-    var securityContext = this.resolveSecurityContext(context, tenantAccess);
-    var auditSnapshots = [];
 
     for (var i = 0; i < records.length; i++) {
       var copy = clone(records[i]);
@@ -869,29 +540,14 @@
       this.applyDefaults(copy, true);
       this.touchTimestamps(copy, true);
       this.validateRecord(copy);
-      var storedRecord = this.applySecurityBeforeWrite(copy, securityContext, 'insert');
-      if (this.securityConfig && this.securityConfig.signatureColumn) {
-        copy[this.securityConfig.signatureColumn] = storedRecord[this.securityConfig.signatureColumn];
-      }
       processed.push(copy);
-      rows.push(this.serialize(storedRecord));
-      auditSnapshots.push(this.captureAuditSnapshot(copy, securityContext));
+      rows.push(this.serialize(copy));
     }
 
     if (rows.length) {
       var startRow = sheet.getLastRow() + 1;
       sheet.getRange(startRow, 1, rows.length, this.headers.length).setValues(rows);
       this.invalidateCache();
-    }
-
-    if (auditSnapshots.length) {
-      for (var j = 0; j < auditSnapshots.length; j++) {
-        this.recordSecurityAudit('insert', securityContext, null, auditSnapshots[j], {
-          batch: true,
-          index: j,
-          total: auditSnapshots.length
-        });
-      }
     }
 
     return processed;
@@ -918,38 +574,27 @@
 
     var updatedRecord = null;
     var tenantAccess = this.getTenantAccess(context, false);
-    var securityContext = this.resolveSecurityContext(context, tenantAccess);
 
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
-        var storedRecord = {};
+        var record = {};
         for (var j = 0; j < headers.length; j++) {
-          storedRecord[headers[j]] = values[i][j];
+          record[headers[j]] = values[i][j];
         }
 
-        var decryptedRecord = this.applySecurityAfterRead(storedRecord, securityContext, 'update');
-        var existingRecord = clone(decryptedRecord);
+        var existingRecord = clone(record);
         this.ensureExistingTenantAllowed(existingRecord, tenantAccess);
 
         Object.keys(updates || {}).forEach(function (key) {
-          decryptedRecord[key] = updates[key];
+          record[key] = updates[key];
         });
 
-        this.enforceTenantOnRecord(decryptedRecord, tenantAccess);
-        this.touchTimestamps(decryptedRecord, false);
-        this.validateRecord(decryptedRecord);
-        var auditBefore = this.captureAuditSnapshot(existingRecord, securityContext);
-        var serializedRecord = this.applySecurityBeforeWrite(decryptedRecord, securityContext, 'update');
-        if (this.securityConfig && this.securityConfig.signatureColumn) {
-          decryptedRecord[this.securityConfig.signatureColumn] = serializedRecord[this.securityConfig.signatureColumn];
-        }
-        var auditAfter = this.captureAuditSnapshot(decryptedRecord, securityContext);
-        var serialized = this.serialize(serializedRecord);
+        this.enforceTenantOnRecord(record, tenantAccess);
+        this.touchTimestamps(record, false);
+        this.validateRecord(record);
+        var serialized = this.serialize(record);
         range.getCell(i + 1, 1).offset(0, 0, 1, headers.length).setValues([serialized]);
-        updatedRecord = decryptedRecord;
-        this.recordSecurityAudit('update', securityContext, auditBefore, auditAfter, {
-          updatedColumns: Object.keys(updates || {})
-        });
+        updatedRecord = record;
         break;
       }
     }
@@ -1000,20 +645,16 @@
     var values = range.getValues();
 
     var tenantAccess = this.getTenantAccess(context, false);
-    var securityContext = this.resolveSecurityContext(context, tenantAccess);
 
     for (var i = 0; i < values.length; i++) {
       if (String(values[i][idIndex]) === String(id)) {
-        var storedRecord = {};
+        var record = {};
         for (var j = 0; j < headers.length; j++) {
-          storedRecord[headers[j]] = values[i][j];
+          record[headers[j]] = values[i][j];
         }
-        var decryptedRecord = this.applySecurityAfterRead(storedRecord, securityContext, 'delete');
-        this.ensureExistingTenantAllowed(decryptedRecord, tenantAccess);
-        var auditBefore = this.captureAuditSnapshot(decryptedRecord, securityContext);
+        this.ensureExistingTenantAllowed(record, tenantAccess);
         sheet.deleteRow(i + 2);
         this.invalidateCache();
-        this.recordSecurityAudit('delete', securityContext, auditBefore, null, {});
         return true;
       }
     }
@@ -1063,9 +704,6 @@
         headers.push(key);
       }
     });
-    if (table.securityConfig && table.securityConfig.signatureColumn && headers.indexOf(table.securityConfig.signatureColumn) === -1) {
-      headers.push(table.securityConfig.signatureColumn);
-    }
     return headers;
   }
 
@@ -1257,7 +895,7 @@
     return new ScopedTable(this.table, merged);
   };
 
-  var PROXIED_METHODS = ['read', 'project', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count', 'backfillMissingIds'];
+  var PROXIED_METHODS = ['read', 'project', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count'];
   PROXIED_METHODS.forEach(function (method) {
     if (typeof Table.prototype[method] !== 'function') return;
     ScopedTable.prototype[method] = function () {
@@ -1299,104 +937,6 @@
       if (tables[name]) {
         tables[name].invalidateCache();
       }
-    },
-    backfillMissingIds: function (name, context) {
-      if (!name) {
-        throw new Error('Table name is required');
-      }
-      var table = ensureTable(name);
-      if (!table || !table.idColumn) {
-        return {
-          table: name,
-          totalRows: 0,
-          missingIds: 0,
-          updated: 0,
-          skipped: 0,
-          skippedReason: 'No idColumn',
-          attempted: 0,
-          pending: 0,
-          writeFailed: false
-        };
-      }
-      var result = table.backfillMissingIds(context);
-      if (!result || typeof result !== 'object') {
-        result = {
-          table: table.name,
-          totalRows: 0,
-          missingIds: 0,
-          updated: 0,
-          skipped: 0,
-          attempted: 0,
-          pending: 0,
-          writeFailed: false
-        };
-      }
-      if (!Object.prototype.hasOwnProperty.call(result, 'table')) {
-        result.table = table.name;
-      }
-      if (!Object.prototype.hasOwnProperty.call(result, 'attempted')) {
-        result.attempted = 0;
-      }
-      if (!Object.prototype.hasOwnProperty.call(result, 'pending')) {
-        result.pending = 0;
-      }
-      if (!Object.prototype.hasOwnProperty.call(result, 'writeFailed')) {
-        result.writeFailed = false;
-      }
-      return result;
-    },
-    backfillAllMissingIds: function (context) {
-      var summaries = [];
-      var names = this.listTables();
-      for (var i = 0; i < names.length; i++) {
-        var tableName = names[i];
-        var table = ensureTable(tableName);
-        if (!table || !table.idColumn) {
-          continue;
-        }
-        try {
-          var summary = table.backfillMissingIds(context);
-          if (!summary || typeof summary !== 'object') {
-            summary = {
-              table: tableName,
-              totalRows: 0,
-              missingIds: 0,
-              updated: 0,
-              skipped: 0,
-              attempted: 0,
-              pending: 0,
-              writeFailed: false
-            };
-          }
-          if (!Object.prototype.hasOwnProperty.call(summary, 'table')) {
-            summary.table = tableName;
-          }
-          if (!Object.prototype.hasOwnProperty.call(summary, 'attempted')) {
-            summary.attempted = 0;
-          }
-          if (!Object.prototype.hasOwnProperty.call(summary, 'pending')) {
-            summary.pending = 0;
-          }
-          if (!Object.prototype.hasOwnProperty.call(summary, 'writeFailed')) {
-            summary.writeFailed = false;
-          }
-          summaries.push(summary);
-        } catch (err) {
-          logger.error('backfillAllMissingIds failed for table ' + tableName + ': ' + err);
-          summaries.push({
-            table: tableName,
-            totalRows: 0,
-            missingIds: 0,
-            updated: 0,
-            skipped: 0,
-            attempted: 0,
-            pending: 0,
-            writeFailed: true,
-            error: err && err.message ? err.message : String(err)
-          });
-        }
-      }
-      return summaries;
     },
     tenant: function (context) {
       var normalized = normalizeTenantContext(context) || context || null;

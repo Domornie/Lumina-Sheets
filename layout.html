@@ -61,133 +61,6 @@
       __layoutSlugCandidate
     ];
 
-    if (__layoutSlugCandidate) {
-      var __layoutCollapsedSlugCandidate = __layoutSlugCandidate.replace(/-/g, '');
-      if (__layoutCollapsedSlugCandidate && __layoutCollapsedSlugCandidate !== __layoutSlugCandidate) {
-        __layoutSlugSources.push(__layoutCollapsedSlugCandidate);
-      }
-    }
-
-    var __layoutPageDescriptionEntries = {
-      'ackform': 'Send coaching acknowledgement links and capture agent sign-off confirmations.',
-      'admincenter': 'AI-orchestrated control plane for Lumina administrators overseeing every service domain.',
-      'admin-dashboard': 'Reference security tools, governance policies, and documentation for LuminaHQ administrators.',
-      'agent-experience': 'Personalized workspace that surfaces coaching, quality, and productivity insights for agents.',
-      'attendancereports': 'Analyze attendance trends, compliance health, and time-off insights across the workforce.',
-      'bookmarks': 'Organize quick-access bookmarks to critical LuminaHQ dashboards and tools.',
-      'calendar': 'Visualize schedules, coverage, and operational events in a shared calendar view.',
-      'callreports': 'Review call performance analytics, AI insights, and exportable call summaries.',
-      'chat': 'Collaborate with teams in real-time chat rooms and announcement channels.',
-      'coachingdashboard': 'Monitor coaching programs, completion metrics, and follow-up priorities.',
-      'coachinglist': 'Track scheduled coaching sessions, ownership, and completion status.',
-      'coachingsheet': 'Document coaching conversations, commitments, and agreed action plans.',
-      'coachingview': 'Review coaching session details, notes, and acknowledgement history.',
-      'collaboration-reporting': 'Unify reporting for quality, attendance, and executive workflows in one hub.',
-      'creditsuiteqa': 'Evaluate Credit Suite cases with standardized QA scoring and compliance checks.',
-      'dashboard': 'View OKR performance, goal progress, and campaign-level analytics.',
-      'eodreport': 'Compile end-of-day summaries, escalations, and operational highlights.',
-      'escalations': 'Manage customer escalations, ownership, and resolution progress.',
-      'goalsetting': 'Set, track, and update operational goals with transparent accountability.',
-      'groundingqaform': 'Capture grounding QA results with agent feedback and compliance scoring.',
-      'home': 'Navigate primary LuminaHQ destinations and quick links.',
-      'importattendance': 'Upload attendance source files to refresh LuminaHQ workforce data.',
-      'import-call-report': 'Import call report CSV files to enrich analytics and dashboards.',
-      'independencequality': 'Complete independence QA evaluations with policy-aligned scoring.',
-      'managecampaign': 'Manage campaign records, navigation pages, and assignment permissions.',
-      'manager-executive-experience': 'Executive dashboards for cross-campaign coaching, quality, and outcomes.',
-      'manageroles': 'Administer roles, permissions, and access policies across LuminaHQ.',
-      'manageuser': 'Manage LuminaHQ users, profile access, and client assignments.',
-      'notifications': 'Configure and review LuminaHQ notification settings and alerts.',
-      'privacy-policy': 'Review how LuminaHQ protects workforce and client data.',
-      'qacollablist': 'Monitor collaborative QA submissions and workflow statuses.',
-      'qacollabview': 'Review collaborative QA details, commentary, and resolution steps.',
-      'qadashboard': 'Track quality assurance KPIs, agent performance, and review cadence.',
-      'qalist': 'Browse quality evaluations with filters, tags, and analyst insights.',
-      'qualitycollabform': 'Launch collaborative QA evaluations with shared reviewer inputs.',
-      'qualityform': 'Submit new quality assessments with rubric-driven scoring.',
-      'qualityview': 'Inspect detailed QA evaluation results, scoring, and trend history.',
-      'schedulemanagement': 'Coordinate schedules, shift swaps, and staffing coverage in LuminaHQ.',
-      'search': 'Search Lumina knowledge, dashboards, and operational resources.',
-      'shift-slot-management': 'Manage shift slots, staffing requests, and capacity planning.',
-      'taskboard': 'Plan and track operational work across kanban-style boards.',
-      'taskform': 'Create or edit LuminaHQ tasks with assignments and due dates.',
-      'tasklist': 'Review prioritized task lists and workflow statuses.',
-      'terms-of-service': 'Understand LuminaHQ platform terms and user responsibilities.',
-      'unifiedqadashboard': 'Blend QA insights across programs with unified analytics.',
-      'user-profile': 'Review and update your LuminaHQ profile, roles, and equipment.'
-    };
-
-    var __layoutPageDescriptionLookup = {};
-    for (var __layoutDescriptionKey in __layoutPageDescriptionEntries) {
-      if (!Object.prototype.hasOwnProperty.call(__layoutPageDescriptionEntries, __layoutDescriptionKey)) {
-        continue;
-      }
-
-      var __layoutDescriptionValue = __layoutPageDescriptionEntries[__layoutDescriptionKey];
-      if (!__layoutDescriptionValue) {
-        continue;
-      }
-
-      __layoutPageDescriptionLookup[__layoutDescriptionKey] = __layoutDescriptionValue;
-
-      var __layoutCollapsedKey = __layoutDescriptionKey.replace(/-/g, '');
-      if (
-        __layoutCollapsedKey &&
-        __layoutCollapsedKey !== __layoutDescriptionKey &&
-        !Object.prototype.hasOwnProperty.call(__layoutPageDescriptionEntries, __layoutCollapsedKey) &&
-        !Object.prototype.hasOwnProperty.call(__layoutPageDescriptionLookup, __layoutCollapsedKey)
-      ) {
-        __layoutPageDescriptionLookup[__layoutCollapsedKey] = __layoutDescriptionValue;
-      }
-    }
-
-    var __layoutPageDescriptionSource = '';
-    var __layoutResolvedDescriptionSlug = '';
-    var __layoutResolvedSlugCandidates = [];
-    var __layoutFallbackDescription = 'LuminaHQ operations workspace overview.';
-
-    function __layoutResolvePageDescription() {
-      if (__layoutPageDescriptionText) {
-        __layoutPageDescriptionSource = 'inline';
-        return __layoutPageDescriptionText;
-      }
-
-      for (var i = 0; i < __layoutSlugSources.length; i++) {
-        var candidateSlug = __layoutSlugify(__layoutSlugSources[i]);
-        if (!candidateSlug) {
-          continue;
-        }
-
-        __layoutResolvedSlugCandidates.push(candidateSlug);
-
-        if (Object.prototype.hasOwnProperty.call(__layoutPageDescriptionLookup, candidateSlug)) {
-          __layoutResolvedDescriptionSlug = candidateSlug;
-          __layoutPageDescriptionSource = 'lookup';
-          return __layoutPageDescriptionLookup[candidateSlug];
-        }
-      }
-
-      __layoutPageDescriptionSource = 'fallback';
-
-      if (typeof console !== 'undefined' && console && typeof console.warn === 'function') {
-        try {
-          console.warn(
-            'Lumina banner description fallback in use for page candidates:',
-            __layoutResolvedSlugCandidates
-          );
-        } catch (loggingError) {
-          // Swallow logging issues to avoid breaking rendering.
-        }
-      }
-
-      return __layoutFallbackDescription;
-    }
-
-    __layoutPageDescriptionText = __layoutResolvePageDescription();
-    if ((typeof pageDescription === 'undefined' || !pageDescription) && __layoutPageDescriptionText) {
-      pageDescription = __layoutPageDescriptionText;
-    }
-
     var __layoutRawReturnUrl = (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '';
 
     var __layoutInvalidPanelPattern = /usercodeapppanel/i;
@@ -202,27 +75,7 @@
         return '';
       }
 
-      // Strip any accidental HTML tags or encoded fragments to avoid
-      // injecting markup into navigation URLs.
-      var withoutTags = trimmed.replace(/<[^>]*>/g, '').trim();
-      if (!withoutTags) {
-        return '';
-      }
-
-      // Some malformed payloads append additional tokens after the URL –
-      // keep only the first whitespace-delimited segment to avoid
-      // propagating the corruption.
-      var firstToken = withoutTags.split(/\s+/)[0];
-      return firstToken;
-    }
-
-    function __layoutIsValidNavigationUrl(url) {
-      if (!url) {
-        return false;
-      }
-
-      // Accept https/http script endpoints only.
-      return /^https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]+$/.test(url);
+      return trimmed;
     }
 
     function __layoutFixPanelUrl(value) {
@@ -240,16 +93,11 @@
 
     function __layoutSanitizeNavigationUrl(url, fallback) {
       var primary = __layoutFixPanelUrl(url);
-      if (__layoutIsValidNavigationUrl(primary)) {
+      if (primary) {
         return primary;
       }
 
-      var alt = __layoutFixPanelUrl(fallback);
-      if (__layoutIsValidNavigationUrl(alt)) {
-        return alt;
-      }
-
-      return '';
+      return __layoutFixPanelUrl(fallback);
     }
 
     var __layoutRawBaseUrl = (typeof baseUrl !== 'undefined') ? baseUrl : '';
@@ -268,153 +116,6 @@
   <?!= includeOnce('CookieHandler') ?>
   <?!= includeOnce('layoutAlerts') ?>
   <?!= includeOnce('ResponsiveStyles') ?>
-
-  <script>
-    if (typeof window !== 'undefined') {
-      window.__LUMINA_PAGE_SLUG = <?!= JSON.stringify(__layoutSlugCandidate || '') ?>;
-      window.__LUMINA_PAGE_DESCRIPTION = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
-      window.__LUMINA_PAGE_DESCRIPTION_SOURCE = <?!= JSON.stringify(__layoutPageDescriptionSource || '') ?>;
-      window.__LUMINA_PAGE_DESCRIPTION_LOOKUP = <?!= JSON.stringify(__layoutPageDescriptionLookup) ?>;
-      window.__LUMINA_PAGE_DESCRIPTION_DEBUG = <?!= JSON.stringify({
-        candidates: __layoutResolvedSlugCandidates,
-        resolvedSlug: __layoutResolvedDescriptionSlug,
-        fallbackDescription: __layoutFallbackDescription
-      }) ?>;
-    }
-
-    (function initializeLuminaTheme() {
-      const STORAGE_KEY = 'lumina-theme';
-      const docEl = document.documentElement;
-
-      const readStoredTheme = () => {
-        try {
-          return window.localStorage.getItem(STORAGE_KEY);
-        } catch (err) {
-          console.warn('Lumina theme: unable to read stored theme', err);
-          return null;
-        }
-      };
-
-      const writeStoredTheme = (theme) => {
-        try {
-          window.localStorage.setItem(STORAGE_KEY, theme);
-        } catch (err) {
-          console.warn('Lumina theme: unable to persist theme', err);
-        }
-      };
-
-      const applyTheme = (theme) => {
-        const next = theme === 'dark' ? 'dark' : 'light';
-        docEl.setAttribute('data-theme', next);
-        if (document.body) {
-          document.body.setAttribute('data-theme', next);
-        }
-        return next;
-      };
-
-      const ensureBodySync = () => {
-        if (document.body) {
-          document.body.setAttribute('data-theme', docEl.getAttribute('data-theme') || 'light');
-        }
-      };
-
-      const stored = readStoredTheme();
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initial = stored || (prefersDark ? 'dark' : 'light');
-      applyTheme(initial);
-
-      if (document.readyState !== 'loading') {
-        ensureBodySync();
-      } else {
-        document.addEventListener('DOMContentLoaded', ensureBodySync, { once: true });
-      }
-
-      const notify = (theme, meta) => {
-        try {
-          const detail = Object.assign({ theme }, meta || {});
-          window.dispatchEvent(new CustomEvent('lumina:theme-changed', { detail }));
-        } catch (err) {
-          console.warn('Lumina theme: unable to dispatch theme change', err);
-        }
-      };
-
-      const setTheme = (theme, meta) => {
-        const options = Object.assign({}, meta || {});
-        const next = applyTheme(theme);
-        if (options.persist === false) {
-          // Respect caller request to skip persistence (used for system preference follow).
-        } else {
-          writeStoredTheme(next);
-        }
-        notify(next, options);
-        return next;
-      };
-
-      const themeApi = {
-        get() {
-          return docEl.getAttribute('data-theme') || 'light';
-        },
-        set(theme, meta) {
-          const options = Object.assign({ source: 'manual' }, meta || {});
-          return setTheme(theme, options);
-        },
-        toggle() {
-          const current = themeApi.get();
-          const next = current === 'dark' ? 'light' : 'dark';
-          return setTheme(next, { source: 'toggle' });
-        },
-        apply: applyTheme
-      };
-
-      window.__luminaTheme = themeApi;
-
-      const mediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-      if (mediaQuery && typeof mediaQuery.addEventListener === 'function') {
-        mediaQuery.addEventListener('change', (event) => {
-          if (readStoredTheme()) {
-            return;
-          }
-          setTheme(event.matches ? 'dark' : 'light', { source: 'system', persist: false });
-        });
-      }
-
-      const updateToggleButtons = () => {
-        const isDark = themeApi.get() === 'dark';
-        const title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
-        const state = isDark ? 'dark' : 'light';
-        document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
-          button.setAttribute('aria-pressed', String(isDark));
-          button.setAttribute('title', title);
-          button.setAttribute('aria-label', title);
-          button.setAttribute('data-theme-state', state);
-          button.setAttribute('data-bs-original-title', title);
-          const icon = button.querySelector('i');
-          if (icon) {
-            icon.classList.toggle('fa-moon', !isDark);
-            icon.classList.toggle('fa-sun', isDark);
-          }
-          if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-            const tooltip = bootstrap.Tooltip.getInstance(button);
-            if (tooltip && typeof tooltip.setContent === 'function') {
-              tooltip.setContent({ '.tooltip-inner': title });
-            }
-          }
-        });
-      };
-
-      document.addEventListener('DOMContentLoaded', () => {
-        updateToggleButtons();
-        document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
-          button.addEventListener('click', (event) => {
-            event.preventDefault();
-            themeApi.toggle();
-          });
-        });
-      });
-
-      window.addEventListener('lumina:theme-changed', updateToggleButtons);
-    })();
-  </script>
 
   <script>
     // Base URLs for navigation
@@ -457,6 +158,66 @@
 
     BASE_URL = __BASE_URL || __SCRIPT_URL || BASE_URL;
     SCRIPT_URL = __SCRIPT_URL || __BASE_URL || SCRIPT_URL;
+
+    function __appendLoginQuery(candidate) {
+      if (!candidate) {
+        return '';
+      }
+
+      try {
+        const url = new URL(candidate);
+        url.searchParams.set('page', 'login');
+        url.hash = '';
+        return url.toString();
+      } catch (err) {
+        const sanitized = String(candidate).replace(/#.*$/, '');
+        if (!sanitized) {
+          return '';
+        }
+        if (/[?&]page=/i.test(sanitized)) {
+          return sanitized.replace(/([?&]page=)([^&]*)/i, '$1login');
+        }
+        const separator = sanitized.indexOf('?') === -1 ? '?' : '&';
+        return sanitized + separator + 'page=login';
+      }
+    }
+
+    const LOGIN_URL = (function computeLoginUrl() {
+      const candidates = [];
+      if (typeof __RAW_RETURN_URL !== 'undefined' && __RAW_RETURN_URL) {
+        candidates.push(__RAW_RETURN_URL);
+      }
+      if (__BASE_URL) {
+        candidates.push(__BASE_URL);
+      }
+      if (__SCRIPT_URL && __SCRIPT_URL !== __BASE_URL) {
+        candidates.push(__SCRIPT_URL);
+      }
+      try {
+        if (window && window.location && window.location.href) {
+          candidates.push(window.location.href);
+        }
+      } catch (err) {
+        console.warn('Unable to derive login URL from location', err);
+      }
+
+      for (let i = 0; i < candidates.length; i += 1) {
+        const candidate = candidates[i];
+        if (!candidate) {
+          continue;
+        }
+        const sanitized = sanitizeNavigationUrl(candidate, '') || candidate;
+        const loginCandidate = __appendLoginQuery(sanitized);
+        if (loginCandidate) {
+          return loginCandidate;
+        }
+      }
+
+      return __appendLoginQuery(__SCRIPT_URL || __BASE_URL || '');
+    })();
+
+    window.__LUMINA_LOGIN_URL = LOGIN_URL;
+
     function createSlug(value, fallback) {
       const queue = [];
 
@@ -508,504 +269,12 @@
 
     const PAGE_SLUG = createSlug(__PAGE_SLUG_SOURCES);
 
-    function stripUrlToNavigationBase(candidate) {
-      if (!candidate) {
-        return '';
-      }
-
-      try {
-        const base = (typeof window !== 'undefined' && window.location && window.location.href)
-          ? window.location.href
-          : undefined;
-        const parsed = new URL(candidate, base);
-        parsed.search = '';
-        parsed.hash = '';
-        return parsed.toString();
-      } catch (err) {
-        const sanitized = String(candidate).replace(/[?#].*$/, '').trim();
-        if (sanitized) {
-          return sanitized;
-        }
-      }
-
-      return '';
-    }
-
-    const NAVIGATION_BASE_URL = (function deriveNavigationBase() {
-      const primary = stripUrlToNavigationBase(BASE_URL || SCRIPT_URL);
-      if (primary) {
-        return primary;
-      }
-
-      if (BASE_URL) {
-        return BASE_URL;
-      }
-
-      if (SCRIPT_URL) {
-        return SCRIPT_URL;
-      }
-
-      return '';
-    })();
-
-    // Session token persistence helpers
-    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
-    const IDENTITY_STORAGE_KEY = 'lumina.identity.snapshot';
-    var SESSION_TOKEN_QUERY_PARAM = (typeof SESSION_TOKEN_QUERY_PARAM === 'string'
-      && SESSION_TOKEN_QUERY_PARAM.trim())
-      ? SESSION_TOKEN_QUERY_PARAM.trim()
-      : 'token';
-    var SESSION_TOKEN_STORAGE_KEYS = (typeof SESSION_TOKEN_STORAGE_KEYS !== 'undefined'
-      && Array.isArray(SESSION_TOKEN_STORAGE_KEYS)
-      && SESSION_TOKEN_STORAGE_KEYS.length)
-      ? SESSION_TOKEN_STORAGE_KEYS.slice()
-      : [
-        'lumina.session.token',
-        'lumina.auth.sessionToken',
-        'lumina.auth.fallbackToken'
-      ];
-
-    const TOKEN_ORIGIN_ALLOWLIST = (function deriveAllowedTokenOrigins() {
-      const origins = [];
-      const seen = new Set();
-
-      function record(candidate) {
-        if (!candidate) {
-          return;
-        }
-
-        try {
-          const parsed = new URL(candidate, (typeof window !== 'undefined' && window.location && window.location.href)
-            ? window.location.href
-            : undefined);
-          if (parsed.origin && !seen.has(parsed.origin)) {
-            seen.add(parsed.origin);
-            origins.push(parsed.origin);
-          }
-          return;
-        } catch (primaryError) {
-          // Fall back to extracting the origin manually for malformed but salvageable inputs.
-          try {
-            const match = /^https?:\/\/[^/]+/i.exec(String(candidate));
-            if (match && match[0] && !seen.has(match[0])) {
-              seen.add(match[0]);
-              origins.push(match[0]);
-            }
-          } catch (_) {
-            // Ignore secondary failures; the candidate is not usable.
-          }
-        }
-      }
-
-      try {
-        if (typeof window !== 'undefined' && window.location) {
-          if (window.location.origin) {
-            record(window.location.origin);
-          }
-          if (window.location.href) {
-            record(window.location.href);
-          }
-        }
-      } catch (originError) {
-        console.warn('deriveAllowedTokenOrigins: unable to read window origin', originError);
-      }
-
-      [BASE_URL, SCRIPT_URL, NAVIGATION_BASE_URL].forEach(record);
-
-      if (typeof window !== 'undefined'
-        && Array.isArray(window.__LUMINA_ALLOWED_TOKEN_ORIGINS)
-        && window.__LUMINA_ALLOWED_TOKEN_ORIGINS.length) {
-        window.__LUMINA_ALLOWED_TOKEN_ORIGINS.forEach(record);
-      }
-
-      // Include common Google Apps Script hostnames to support cross-host navigation.
-      ['https://script.google.com', 'https://script.googleusercontent.com'].forEach(record);
-
-      return origins;
-    })();
-
-    try {
-      if (typeof window !== 'undefined') {
-        window.__LUMINA_ALLOWED_TOKEN_ORIGINS = TOKEN_ORIGIN_ALLOWLIST.slice();
-      }
-    } catch (exposeError) {
-      console.warn('Unable to expose allowed token origins', exposeError);
-    }
-
-    function isAllowedTokenOrigin(origin) {
-      if (!origin) {
-        return true;
-      }
-
-      if (!Array.isArray(TOKEN_ORIGIN_ALLOWLIST) || !TOKEN_ORIGIN_ALLOWLIST.length) {
-        return true;
-      }
-
-      return TOKEN_ORIGIN_ALLOWLIST.some(candidate => {
-        try {
-          return candidate && candidate.toLowerCase() === origin.toLowerCase();
-        } catch (_) {
-          return candidate === origin;
-        }
-      });
-    }
-
-    function normalizeIdentitySnapshot(identityContext) {
-      if (!identityContext) {
-        return null;
-      }
-
-      const source = identityContext || {};
-      const identity = source.identity || source.Identity || null;
-      const identitySummary = source.identitySummary || source.IdentitySummary || (identity && identity.summary) || null;
-      const identityEvaluation = source.identityEvaluation || source.IdentityEvaluation || null;
-      const rawWarnings = source.identityWarnings || source.IdentityWarnings
-        || (identityEvaluation && Array.isArray(identityEvaluation.warnings) ? identityEvaluation.warnings : []);
-      const warnings = Array.isArray(rawWarnings) ? rawWarnings.filter(Boolean) : [];
-      const identityFields = source.identityFields || source.IdentityFields || (identity && identity.fields) || null;
-      let identityHeaders = source.identityHeaders || source.IdentityHeaders || (identity && identity.headers) || null;
-      const userId = source.userId
-        || (identitySummary && identitySummary.id)
-        || (identityFields && (identityFields.ID || identityFields.Id))
-        || (source.user && (source.user.ID || source.user.Id))
-        || null;
-      const email = source.email
-        || (identitySummary && identitySummary.email)
-        || (identityFields && (identityFields.Email || identityFields.email))
-        || (source.user && (source.user.Email || source.user.email))
-        || null;
-
-      if (!identity && !identitySummary && !identityEvaluation && !identityFields && !warnings.length && !email && !userId) {
-        return null;
-      }
-
-      if ((!identityHeaders || (Array.isArray(identityHeaders) && !identityHeaders.length))
-        && identityFields && typeof identityFields === 'object') {
-        try {
-          identityHeaders = Object.keys(identityFields).filter(function (key) {
-            return key || key === 0;
-          });
-        } catch (headerResolveError) {
-          console.warn('layout.normalizeIdentitySnapshot: unable to derive identity headers', headerResolveError);
-          identityHeaders = [];
-        }
-      }
-
-      return {
-        identity: identity || null,
-        identitySummary: identitySummary || null,
-        identityEvaluation: identityEvaluation || null,
-        identityWarnings: warnings,
-        identityFields: identityFields || null,
-        identityHeaders: identityHeaders || null,
-        userId: userId || null,
-        email: email || null,
-        storedAt: new Date().toISOString()
-      };
-    }
-
-    function persistIdentityToClient(identityContext) {
-      const snapshot = normalizeIdentitySnapshot(identityContext);
-      if (!snapshot) {
-        clearIdentityFromClient();
-        return null;
-      }
-
-      const serialized = JSON.stringify(snapshot);
-
-      try {
-        if (typeof window !== 'undefined' && window.sessionStorage) {
-          window.sessionStorage.setItem(IDENTITY_STORAGE_KEY, serialized);
-        }
-      } catch (sessionError) {
-        console.warn('persistIdentityToClient: unable to persist snapshot to sessionStorage', sessionError);
-      }
-
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(IDENTITY_STORAGE_KEY, serialized);
-        }
-      } catch (localError) {
-        console.warn('persistIdentityToClient: unable to persist snapshot to localStorage', localError);
-      }
-
-      try {
-        if (typeof window !== 'undefined') {
-          window.__LUMINA_IDENTITY_SNAPSHOT__ = snapshot;
-          window.__LUMINA_IDENTITY__ = snapshot.identity || null;
-        }
-      } catch (exposeError) {
-        console.warn('persistIdentityToClient: unable to expose snapshot on window', exposeError);
-      }
-
-      return snapshot;
-    }
-
-    function clearIdentityFromClient() {
-      try {
-        if (typeof window !== 'undefined' && window.sessionStorage) {
-          window.sessionStorage.removeItem(IDENTITY_STORAGE_KEY);
-        }
-      } catch (sessionError) {
-        console.warn('clearIdentityFromClient: unable to clear sessionStorage snapshot', sessionError);
-      }
-
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem(IDENTITY_STORAGE_KEY);
-        }
-      } catch (localError) {
-        console.warn('clearIdentityFromClient: unable to clear localStorage snapshot', localError);
-      }
-
-      try {
-        if (typeof window !== 'undefined') {
-          window.__LUMINA_IDENTITY_SNAPSHOT__ = null;
-          window.__LUMINA_IDENTITY__ = null;
-        }
-      } catch (exposeError) {
-        console.warn('clearIdentityFromClient: unable to clear snapshot from window', exposeError);
-      }
-
-      return null;
-    }
-
-    function persistTokenToClient(token, options) {
-      if (!token) {
-        return '';
-      }
-
-      const persistenceOptions = options || {};
-      let identitySnapshot = undefined;
-      const hasIdentityOption = persistenceOptions && Object.prototype.hasOwnProperty.call(persistenceOptions, 'identity');
-
-      try {
-        if (typeof window !== 'undefined'
-          && window.CookieHandler
-          && typeof window.CookieHandler.persistAuthToken === 'function') {
-          window.CookieHandler.persistAuthToken(token, persistenceOptions);
-        }
-      } catch (err) {
-        console.warn('persistTokenToClient: unable to persist auth cookie', err);
-      }
-
-      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
-
-      storageKeys.forEach(function (key) {
-        if (!key) {
-          return;
-        }
-
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem(key, token);
-          }
-        } catch (localErr) {
-          console.warn('persistTokenToClient: unable to persist token to localStorage', { key: key, error: localErr });
-        }
-
-        try {
-          if (typeof window !== 'undefined' && window.sessionStorage) {
-            window.sessionStorage.setItem(key, token);
-          }
-        } catch (sessionErr) {
-          console.warn('persistTokenToClient: unable to persist token to sessionStorage', { key: key, error: sessionErr });
-        }
-      });
-
-      if (hasIdentityOption) {
-        if (persistenceOptions.identity) {
-          identitySnapshot = persistIdentityToClient(persistenceOptions.identity);
-        } else {
-          identitySnapshot = clearIdentityFromClient();
-        }
-      }
-
-      try {
-        broadcastSessionTokenChange(token, identitySnapshot);
-      } catch (broadcastError) {
-        console.warn('persistTokenToClient: unable to broadcast token change', broadcastError);
-      }
-
-      return token;
-    }
-
-    function clearTokenFromClient(options) {
-      const clearingOptions = options || {};
-
-      try {
-        if (typeof window !== 'undefined'
-          && window.CookieHandler
-          && typeof window.CookieHandler.clearAuthToken === 'function') {
-          window.CookieHandler.clearAuthToken(clearingOptions);
-        }
-      } catch (err) {
-        console.warn('clearTokenFromClient: unable to clear auth cookie', err);
-      }
-
-      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
-
-      storageKeys.forEach(function (key) {
-        if (!key) {
-          return;
-        }
-
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.removeItem(key);
-          }
-        } catch (localErr) {
-          console.warn('clearTokenFromClient: unable to clear localStorage token', { key: key, error: localErr });
-        }
-
-        try {
-          if (typeof window !== 'undefined' && window.sessionStorage) {
-            window.sessionStorage.removeItem(key);
-          }
-        } catch (sessionErr) {
-          console.warn('clearTokenFromClient: unable to clear sessionStorage token', { key: key, error: sessionErr });
-        }
-      });
-
-      const clearedSnapshot = clearIdentityFromClient();
-
-      try {
-        broadcastSessionTokenChange('', clearedSnapshot);
-      } catch (broadcastError) {
-        console.warn('clearTokenFromClient: unable to broadcast token removal', broadcastError);
-      }
-    }
-
-    function extractTokenFromLocation(paramName) {
-      if (typeof window === 'undefined' || !window.location) {
-        return '';
-      }
-
-      const queryParam = typeof paramName === 'string' && paramName.trim()
-        ? paramName.trim()
-        : SESSION_TOKEN_QUERY_PARAM;
-
-      try {
-        const params = new URLSearchParams(window.location.search || '');
-        const value = params.get(queryParam);
-        return value ? String(value).trim() : '';
-      } catch (err) {
-        console.warn('extractTokenFromLocation: unable to parse token from URL', err);
-        return '';
-      }
-    }
-
-    function removeTokenFromLocation(paramName) {
-      if (typeof window === 'undefined'
-        || !window.history
-        || typeof window.history.replaceState !== 'function'
-        || !window.location) {
-        return false;
-      }
-
-      const queryParam = typeof paramName === 'string' && paramName.trim()
-        ? paramName.trim()
-        : SESSION_TOKEN_QUERY_PARAM;
-
-      try {
-        const currentUrl = new URL(window.location.href);
-        if (!currentUrl.searchParams.has(queryParam)) {
-          return false;
-        }
-
-        currentUrl.searchParams.delete(queryParam);
-        const sanitized = currentUrl.pathname + (currentUrl.search || '') + (currentUrl.hash || '');
-        const title = (typeof document !== 'undefined' && document.title) ? document.title : '';
-        window.history.replaceState({}, title, sanitized || currentUrl.pathname);
-        return true;
-      } catch (err) {
-        console.warn('removeTokenFromLocation: unable to sanitize token parameter', err);
-        return false;
-      }
-    }
-
-    const __INITIAL_URL_TOKEN__ = extractTokenFromLocation();
-    if (__INITIAL_URL_TOKEN__) {
-      persistTokenToClient(__INITIAL_URL_TOKEN__, { reason: 'url-import' });
-      removeTokenFromLocation();
-    }
-
-    if (typeof window !== 'undefined') {
-      if (Array.isArray(window.SESSION_TOKEN_STORAGE_KEYS) && window.SESSION_TOKEN_STORAGE_KEYS.length) {
-        SESSION_TOKEN_STORAGE_KEYS = window.SESSION_TOKEN_STORAGE_KEYS.slice();
-      } else {
-        window.SESSION_TOKEN_STORAGE_KEYS = SESSION_TOKEN_STORAGE_KEYS.slice();
-      }
-
-      if (typeof window.SESSION_TOKEN_QUERY_PARAM === 'string' && window.SESSION_TOKEN_QUERY_PARAM.trim()) {
-        SESSION_TOKEN_QUERY_PARAM = window.SESSION_TOKEN_QUERY_PARAM.trim();
-      } else {
-        window.SESSION_TOKEN_QUERY_PARAM = SESSION_TOKEN_QUERY_PARAM;
-      }
-    }
-
-    function setLogoutReason(reason) {
-      try {
-        if (!window.sessionStorage) {
-          return;
-        }
-        if (!reason) {
-          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
-        } else {
-          window.sessionStorage.setItem(LOGOUT_REASON_STORAGE_KEY, String(reason));
-        }
-      } catch (err) {
-        console.warn('setLogoutReason: unable to persist logout reason', err);
-      }
-    }
-
-    function getLogoutReason() {
-      try {
-        if (window.sessionStorage) {
-          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
-        }
-      } catch (err) {
-        console.warn('getLogoutReason: unable to read logout reason', err);
-      }
-      return '';
-    }
-
-    function clearLogoutReason() {
-      setLogoutReason('');
-    }
-
     /**
      * Generate URLs for navigation
      */
-    function resolveNavigationBaseUrl() {
-      const directBase = NAVIGATION_BASE_URL || BASE_URL || SCRIPT_URL;
-      if (directBase) {
-        return directBase;
-      }
-
-      if (typeof window !== 'undefined' && window.location) {
-        try {
-          const { origin, pathname, href } = window.location;
-          if (origin && pathname) {
-            return origin + pathname;
-          }
-          if (href) {
-            const parsed = new URL(href);
-            parsed.search = '';
-            parsed.hash = '';
-            return parsed.toString();
-          }
-        } catch (resolveErr) {
-          console.warn('Unable to derive navigation base URL from window.location', resolveErr);
-        }
-      }
-
-      return '';
-    }
-
     function generateUrl(page, _campaign = null, additionalParams = {}) {
       // _campaign is kept for backward compatibility but intentionally unused to avoid exposing it in URLs
-      let url = resolveNavigationBaseUrl();
+      let url = BASE_URL || SCRIPT_URL;
       const params = new URLSearchParams();
 
       if (page) {
@@ -1020,15 +289,7 @@
       });
       
       const queryString = params.toString();
-
-      if (!url) {
-        const relativeUrl = queryString ? `?${queryString}` : '';
-        return appendSessionTokenToUrl(relativeUrl);
-      }
-
-      const separator = url.includes('?') ? (/[?&]$/.test(url) ? '' : '&') : '?';
-      const builtUrl = queryString ? `${url}${separator}${queryString}` : url;
-      return appendSessionTokenToUrl(builtUrl);
+      return queryString ? `${url}?${queryString}` : url;
     }
 
     /**
@@ -1099,26 +360,15 @@
     };
 
     if (typeof document !== 'undefined') {
-      const handleDomReady = () => {
-        __applySlugMetadata();
-        applySessionTokenToLinks();
-      };
-
       if (document.body) {
-        handleDomReady();
+        __applySlugMetadata();
       } else {
         try {
-          document.addEventListener('DOMContentLoaded', handleDomReady, { once: true });
+          document.addEventListener('DOMContentLoaded', __applySlugMetadata, { once: true });
         } catch (err) {
-          document.addEventListener('DOMContentLoaded', handleDomReady, false);
+          document.addEventListener('DOMContentLoaded', __applySlugMetadata, false);
         }
       }
-    }
-
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('lumina:session-token', function() {
-        applySessionTokenToLinks();
-      });
     }
 
     // Make utilities available globally
@@ -1130,193 +380,6 @@
     window.deriveReturnUrl = (rawUrl, slug = PAGE_SLUG) => deriveReturnUrl(rawUrl, slug);
     window.buildReturnUrl = buildReturnUrl;
     window.getReturnUrl = buildReturnUrl;
-
-    function resolveClientSessionToken(providedToken) {
-      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
-      if (normalizedProvided) {
-        return normalizedProvided;
-      }
-
-      try {
-        if (typeof window !== 'undefined' && window.__LUMINA_SESSION_TOKEN__) {
-          const globalToken = String(window.__LUMINA_SESSION_TOKEN__).trim();
-          if (globalToken) {
-            return globalToken;
-          }
-        }
-      } catch (_) {
-        // Ignore global token resolution errors
-      }
-
-      try {
-        if (typeof window !== 'undefined'
-          && window.CookieHandler
-          && typeof window.CookieHandler.readAuthToken === 'function') {
-          const cookieToken = window.CookieHandler.readAuthToken();
-          if (cookieToken) {
-            return cookieToken;
-          }
-        }
-      } catch (_) {
-        // Ignore cookie resolution errors
-      }
-
-      const storageKeys = Array.isArray(SESSION_TOKEN_STORAGE_KEYS) ? SESSION_TOKEN_STORAGE_KEYS : [];
-
-      for (let i = 0; i < storageKeys.length; i += 1) {
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            const value = window.localStorage.getItem(storageKeys[i]);
-            if (value) {
-              return value;
-            }
-          }
-        } catch (_) {
-          // Ignore localStorage errors
-        }
-      }
-
-      for (let i = 0; i < storageKeys.length; i += 1) {
-        try {
-          if (typeof window !== 'undefined' && window.sessionStorage) {
-            const value = window.sessionStorage.getItem(storageKeys[i]);
-            if (value) {
-              return value;
-            }
-          }
-        } catch (_) {
-          // Ignore sessionStorage errors
-        }
-      }
-
-      return '';
-    }
-
-    function broadcastSessionTokenChange(token, identitySnapshot) {
-      try {
-        if (typeof window === 'undefined') {
-          return;
-        }
-
-        window.__LUMINA_SESSION_TOKEN__ = token || '';
-
-        if (typeof identitySnapshot !== 'undefined') {
-          window.__LUMINA_IDENTITY_SNAPSHOT__ = identitySnapshot || null;
-          window.__LUMINA_IDENTITY__ = identitySnapshot && identitySnapshot.identity ? identitySnapshot.identity : null;
-        }
-
-        if (typeof window.dispatchEvent !== 'function') {
-          return;
-        }
-
-        const detail = {
-          token: token || '',
-          identity: identitySnapshot ? identitySnapshot.identity || null : null,
-          identitySummary: identitySnapshot ? identitySnapshot.identitySummary || null : null,
-          identityEvaluation: identitySnapshot ? identitySnapshot.identityEvaluation || null : null,
-          identityWarnings: identitySnapshot && Array.isArray(identitySnapshot.identityWarnings)
-            ? identitySnapshot.identityWarnings.slice()
-            : [],
-          identityFields: identitySnapshot ? identitySnapshot.identityFields || null : null,
-          identityHeaders: identitySnapshot ? identitySnapshot.identityHeaders || null : null,
-          userId: identitySnapshot ? identitySnapshot.userId || null : null,
-          email: identitySnapshot ? identitySnapshot.email || null : null,
-          storedAt: identitySnapshot ? identitySnapshot.storedAt || new Date().toISOString() : null
-        };
-        let event = null;
-
-        if (typeof CustomEvent === 'function') {
-          event = new CustomEvent('lumina:session-token', { detail });
-        } else if (window.document && typeof window.document.createEvent === 'function') {
-          event = window.document.createEvent('CustomEvent');
-          event.initCustomEvent('lumina:session-token', false, false, detail);
-        }
-
-        if (event) {
-          window.dispatchEvent(event);
-        }
-      } catch (err) {
-        console.warn('broadcastSessionTokenChange: unable to notify listeners', err);
-      }
-    }
-
-    function appendSessionTokenToUrl(url, options = {}) {
-      if (!url) {
-        return url;
-      }
-
-      const raw = String(url).trim();
-      if (!raw || raw.startsWith('#') || /^(mailto:|tel:|javascript:)/i.test(raw)) {
-        return url;
-      }
-
-      const tokenParam = (typeof options.paramName === 'string' && options.paramName.trim())
-        ? options.paramName.trim()
-        : (SESSION_TOKEN_QUERY_PARAM || 'token');
-      const includeTokenInUrl = options && options.includeTokenInUrl === true;
-      const sessionToken = includeTokenInUrl ? resolveClientSessionToken(options.token) : '';
-
-      const serializeUrl = parsed => {
-        if (raw.startsWith('?')) {
-          return (parsed.search || '') + (parsed.hash || '');
-        }
-
-        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
-          return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
-        }
-
-        return parsed.toString();
-      };
-
-      try {
-        const base = (typeof window !== 'undefined' && window.location) ? window.location.href : undefined;
-        const parsed = new URL(raw, base);
-
-        const variants = [tokenParam, tokenParam.toLowerCase(), tokenParam.toUpperCase()];
-        variants.forEach(key => {
-          if (key && parsed.searchParams.has(key)) {
-            parsed.searchParams.delete(key);
-          }
-        });
-
-        const sanitizedResult = serializeUrl(parsed);
-
-        if (options.sameOriginOnly !== false && parsed.origin && !isAllowedTokenOrigin(parsed.origin)) {
-          return sanitizedResult;
-        }
-
-        if (includeTokenInUrl && sessionToken) {
-          parsed.searchParams.set(tokenParam, sessionToken);
-        }
-
-        return includeTokenInUrl && sessionToken ? serializeUrl(parsed) : sanitizedResult;
-      } catch (error) {
-        console.warn('appendSessionTokenToUrl: unable to update redirect URL', { url, error });
-        return url;
-      }
-    }
-
-    function applySessionTokenToLinks() {
-      if (typeof document === 'undefined') {
-        return;
-      }
-
-      const anchors = document.querySelectorAll('a[href]');
-      anchors.forEach(anchor => {
-        const href = anchor.getAttribute('href');
-        if (!href) {
-          return;
-        }
-
-        const updated = appendSessionTokenToUrl(href, { sameOriginOnly: true });
-        if (updated && updated !== href) {
-          anchor.setAttribute('href', updated);
-        }
-      });
-    }
-    window.setLogoutReason = setLogoutReason;
-    window.getLogoutReason = getLogoutReason;
-    window.clearLogoutReason = clearLogoutReason;
   </script>
 
   <style>
@@ -1344,18 +407,6 @@
       --shadow-hover: rgba(15, 23, 42, 0.2);
       --glass-bg: rgba(255, 255, 255, 0.1);
       --glass-border: rgba(255, 255, 255, 0.2);
-      --body-background: linear-gradient(135deg, var(--surface-variant) 0%, #ffffff 100%);
-      --body-text-color: #1e293b;
-      --topbar-bg: rgba(255, 255, 255, 0.95);
-      --topbar-border: var(--outline);
-      --topbar-icon-color: #64748b;
-      --topbar-icon-bg: rgba(248, 250, 252, 0.8);
-      --topbar-icon-border: rgba(226, 232, 240, 0.5);
-      --topbar-icon-hover-bg: rgba(14, 165, 233, 0.1);
-      --topbar-icon-hover-color: var(--primary);
-      --topbar-icon-hover-border: rgba(14, 165, 233, 0.3);
-      --topbar-text-muted: #64748b;
-      --topbar-text-strong: #1e293b;
 
       --sidebar-width: 320px;
       --sidebar-collapsed: 80px;
@@ -1367,28 +418,6 @@
       --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    :root[data-theme="dark"] {
-      --surface: #111827;
-      --surface-variant: #0b1120;
-      --outline: rgba(148, 163, 184, 0.25);
-      --shadow: rgba(2, 6, 23, 0.45);
-      --shadow-hover: rgba(2, 6, 23, 0.6);
-      --glass-bg: rgba(15, 23, 42, 0.55);
-      --glass-border: rgba(148, 163, 184, 0.35);
-      --body-background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
-      --body-text-color: #e2e8f0;
-      --topbar-bg: rgba(15, 23, 42, 0.92);
-      --topbar-border: rgba(148, 163, 184, 0.25);
-      --topbar-icon-color: #e2e8f0;
-      --topbar-icon-bg: rgba(30, 41, 59, 0.85);
-      --topbar-icon-border: rgba(71, 85, 105, 0.6);
-      --topbar-icon-hover-bg: rgba(14, 165, 233, 0.22);
-      --topbar-icon-hover-color: #38bdf8;
-      --topbar-icon-hover-border: rgba(56, 189, 248, 0.45);
-      --topbar-text-muted: #94a3b8;
-      --topbar-text-strong: #f8fafc;
-    }
-
     * {
       box-sizing: border-box;
     }
@@ -1397,8 +426,8 @@
       margin: 0;
       padding: 0;
       font-family: 'Inter', "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--body-background);
-      color: var(--body-text-color);
+      background: linear-gradient(135deg, var(--surface-variant) 0%, #ffffff 100%);
+      color: #1e293b;
       overflow-x: hidden;
       font-size: 14px;
       line-height: 1.6;
@@ -2138,9 +1167,9 @@
       left: var(--sidebar-width);
       right: 0;
       height: var(--topbar-height);
-      background: var(--topbar-bg);
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--topbar-border);
+      border-bottom: 1px solid var(--outline);
       z-index: 999;
       display: flex;
       align-items: center;
@@ -2157,7 +1186,7 @@
       background: none;
       border: none;
       font-size: 1.25rem;
-      color: var(--topbar-icon-color);
+      color: #64748b;
       padding: 0.75rem;
       border-radius: 50%;
       transition: var(--transition-smooth);
@@ -2170,8 +1199,8 @@
     }
 
     .topbar-toggle:hover {
-      background: var(--topbar-icon-hover-bg);
-      color: var(--topbar-icon-hover-color);
+      background: rgba(100, 116, 139, 0.1);
+      color: var(--primary);
       transform: scale(1.05);
     }
 
@@ -2179,13 +1208,13 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      color: var(--topbar-text-muted);
+      color: #64748b;
       font-size: 0.95rem;
       font-weight: 500;
     }
 
     .breadcrumb-nav .current-page {
-      color: var(--topbar-text-strong);
+      color: #1e293b;
       font-weight: 700;
       font-size: 1.125rem;
     }
@@ -2207,7 +1236,7 @@
       background: none;
       border: none;
       font-size: 1.25rem;
-      color: var(--topbar-icon-color);
+      color: #64748b;
       padding: 0.75rem;
       border-radius: 50%;
       transition: var(--transition-smooth);
@@ -2217,27 +1246,18 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--topbar-icon-bg);
+      background: rgba(248, 250, 252, 0.8);
       backdrop-filter: blur(8px);
-      border: 1px solid var(--topbar-icon-border);
+      border: 1px solid rgba(226, 232, 240, 0.5);
     }
 
     .notification-btn:hover {
-      background: var(--topbar-icon-hover-bg);
-      color: var(--topbar-icon-hover-color);
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--primary);
       text-decoration: none;
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
-      border-color: var(--topbar-icon-hover-border);
-    }
-
-    .theme-toggle-btn .fa-sun {
-      color: #facc15;
-      transition: color 0.3s ease;
-    }
-
-    :root[data-theme="dark"] .theme-toggle-btn .fa-sun {
-      color: #fde68a;
+      border-color: rgba(14, 165, 233, 0.3);
     }
 
     .notification-badge {
@@ -2248,7 +1268,7 @@
       height: 10px;
       background: linear-gradient(135deg, var(--danger), #dc2626);
       border-radius: 50%;
-      border: 2px solid var(--topbar-icon-bg);
+      border: 2px solid var(--surface);
       box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
       animation: pulse 2s infinite;
     }
@@ -2270,11 +1290,11 @@
     /* Enhanced Topbar Logout Button */
     .logout-btn-topbar {
       position: relative;
-      background: var(--topbar-icon-bg);
+      background: rgba(248, 250, 252, 0.8);
       backdrop-filter: blur(8px);
-      border: 1px solid var(--topbar-icon-border);
+      border: 1px solid rgba(226, 232, 240, 0.5);
       font-size: 1.25rem;
-      color: var(--topbar-icon-color);
+      color: #64748b;
       padding: 0.75rem;
       border-radius: 50%;
       transition: var(--transition-smooth);
@@ -2287,7 +1307,7 @@
     }
 
     .logout-btn-topbar:hover {
-      background: rgba(239, 68, 68, 0.12);
+      background: rgba(239, 68, 68, 0.1);
       color: var(--danger);
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
@@ -2347,11 +1367,11 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 3vw, 1.25rem) 1.25rem;
+        margin: calc(var(--topbar-height) + 1.5rem) clamp(1.25rem, 4vw, 1.75rem) 1.75rem;
       }
 
       #sidebar.collapsed~#maincontent {
-        margin-left: clamp(0.75rem, 3vw, 1.25rem);
+        margin-left: clamp(1.25rem, 4vw, 1.75rem);
       }
 
       body.sidebar-open #maincontent {
@@ -2379,7 +1399,7 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 0.85rem) clamp(0.75rem, 5vw, 1.25rem) 1.25rem;
+        margin: calc(var(--topbar-height) + 1.25rem) clamp(1rem, 5vw, 1.5rem) 1.5rem;
       }
 
       .breadcrumb-nav {
@@ -2396,7 +1416,7 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 0.75rem) clamp(0.5rem, 6vw, 1rem) 1rem;
+        margin: calc(var(--topbar-height) + 1rem) clamp(0.75rem, 6vw, 1.25rem) 1.25rem;
       }
 
       .topbar-toggle {
@@ -2411,31 +1431,31 @@
     }
 
     #maincontent {
-      margin-left: calc(var(--sidebar-width) + 1.25rem);
-      margin-top: calc(var(--topbar-height) + 1.1rem);
-      margin-right: 1.25rem;
-      margin-bottom: 1.25rem;
+      margin-left: calc(var(--sidebar-width) + 2rem);
+      margin-top: calc(var(--topbar-height) + 2rem);
+      margin-right: 2rem;
+      margin-bottom: 2rem;
       transition: var(--transition-smooth);
-      min-height: calc(100vh - var(--topbar-height) - 2.5rem);
+      min-height: calc(100vh - var(--topbar-height) - 4rem);
     }
 
     #sidebar.collapsed~#maincontent {
-      margin-left: calc(var(--sidebar-collapsed) + 1.25rem);
+      margin-left: calc(var(--sidebar-collapsed) + 2rem);
     }
 
     /* Unified global page banner */
     .lumina-banner {
       position: relative;
       background:
-        radial-gradient(135% 120% at -15% 15%, rgba(56, 189, 248, 0.32) 0%, rgba(56, 189, 248, 0) 60%),
-        radial-gradient(150% 150% at 110% 5%, rgba(4, 120, 211, 0.35) 0%, rgba(4, 120, 211, 0) 65%),
-        conic-gradient(from 210deg at 70% 78%, rgba(3, 87, 153, 0.28) 0deg, rgba(11, 27, 63, 0) 165deg),
-        linear-gradient(160deg, rgba(11, 27, 63, 0.96) 0%, rgba(16, 48, 96, 0.95) 45%, rgba(3, 87, 153, 0.92) 100%);
-      border: 1px solid rgba(56, 189, 248, 0.22);
+        radial-gradient(140% 115% at -10% 15%, rgba(34, 197, 247, 0.35) 0%, rgba(2, 132, 199, 0) 55%),
+        radial-gradient(160% 140% at 110% 15%, rgba(6, 182, 212, 0.28) 0%, rgba(13, 71, 161, 0) 60%),
+        conic-gradient(from 210deg at 70% 75%, rgba(56, 189, 248, 0.2) 0deg, rgba(30, 64, 175, 0) 160deg),
+        linear-gradient(150deg, rgba(2, 6, 23, 0.96) 0%, rgba(12, 19, 41, 0.96) 42%, rgba(4, 47, 46, 0.92) 100%);
+      border: 1px solid rgba(125, 211, 252, 0.18);
       border-radius: 34px;
       padding: clamp(1.9rem, 3.5vw, 3.1rem);
       margin-bottom: 2.5rem;
-      box-shadow: 0 42px 90px -48px rgba(8, 23, 53, 0.9), 0 24px 55px -40px rgba(4, 120, 211, 0.4);
+      box-shadow: 0 40px 80px -45px rgba(2, 6, 23, 0.85), 0 20px 40px -35px rgba(12, 74, 110, 0.5);
       color: #e2e8f0;
       overflow: hidden;
       backdrop-filter: blur(9px);
@@ -2447,13 +1467,13 @@
       position: absolute;
       inset: -12% -8% -20% -8%;
       background:
-        radial-gradient(48% 55% at 16% 26%, rgba(148, 197, 255, 0.5) 0%, rgba(148, 197, 255, 0) 65%),
-        radial-gradient(58% 62% at 82% 15%, rgba(56, 189, 248, 0.4) 0%, rgba(56, 189, 248, 0) 72%),
-        conic-gradient(from 135deg at 78% 64%, rgba(4, 120, 211, 0.55) 0deg, rgba(3, 105, 161, 0.08) 150deg, rgba(4, 120, 211, 0.45) 320deg, rgba(4, 120, 211, 0) 360deg),
-        linear-gradient(112deg, rgba(3, 87, 153, 0.25) 0%, rgba(56, 189, 248, 0.08) 40%);
+        radial-gradient(50% 50% at 15% 25%, rgba(125, 211, 252, 0.45) 0%, rgba(125, 211, 252, 0) 62%),
+        radial-gradient(60% 60% at 85% 18%, rgba(191, 219, 254, 0.3) 0%, rgba(191, 219, 254, 0) 70%),
+        conic-gradient(from 140deg at 80% 65%, rgba(14, 165, 233, 0.5) 0deg, rgba(8, 145, 178, 0.05) 140deg, rgba(14, 165, 233, 0.4) 320deg, rgba(14, 165, 233, 0) 360deg),
+        linear-gradient(115deg, rgba(59, 130, 246, 0.25) 0%, rgba(13, 148, 136, 0) 40%);
       mix-blend-mode: screen;
       pointer-events: none;
-      opacity: 0.92;
+      opacity: 0.9;
       filter: blur(0.5px);
     }
 
@@ -2462,10 +1482,10 @@
       position: absolute;
       inset: 1px;
       border-radius: 32px;
-      border: 1px solid rgba(148, 197, 255, 0.22);
+      border: 1px solid rgba(148, 197, 255, 0.2);
       background:
-        radial-gradient(120% 180% at 105% 105%, rgba(4, 120, 211, 0.18) 0%, rgba(4, 120, 211, 0) 60%),
-        linear-gradient(158deg, rgba(148, 197, 255, 0.12) 0%, rgba(11, 27, 63, 0.1) 55%, rgba(3, 87, 153, 0) 100%);
+        radial-gradient(120% 180% at 105% 105%, rgba(56, 189, 248, 0.16) 0%, rgba(56, 189, 248, 0) 60%),
+        linear-gradient(160deg, rgba(148, 163, 184, 0.08) 0%, rgba(14, 116, 144, 0.12) 45%, rgba(2, 6, 23, 0) 100%);
       pointer-events: none;
     }
 
@@ -2495,15 +1515,15 @@
       letter-spacing: 0.2em;
       text-transform: uppercase;
       font-weight: 700;
-      color: rgba(226, 240, 254, 0.9);
-      background: linear-gradient(125deg, rgba(4, 120, 211, 0.7) 0%, rgba(56, 189, 248, 0.6) 100%);
+      color: rgba(226, 240, 254, 0.88);
+      background: linear-gradient(120deg, rgba(15, 118, 110, 0.55) 0%, rgba(14, 165, 233, 0.5) 100%);
       padding: 0.45rem 0.95rem;
       border-radius: 999px;
-      box-shadow: inset 0 0 0 1px rgba(148, 197, 255, 0.55), 0 10px 18px -15px rgba(4, 120, 211, 0.65);
+      box-shadow: inset 0 0 0 1px rgba(165, 243, 252, 0.55), 0 10px 18px -15px rgba(59, 130, 246, 0.65);
     }
 
     .lumina-banner__eyebrow i {
-      color: #38bdf8;
+      color: #bef264;
     }
 
     .lumina-banner__title-row {
@@ -2593,19 +1613,8 @@
       box-shadow: 0 18px 34px -25px rgba(14, 165, 233, 0.85);
     }
 
-    .lumina-banner__action span,
-    .lumina-banner__action i {
-      color: inherit;
-    }
-
     .lumina-banner__action i {
       font-size: 0.95rem;
-    }
-
-    .lumina-banner__action--force-light,
-    .lumina-banner__action--force-light span,
-    .lumina-banner__action--force-light i {
-      color: #f8fafc !important;
     }
 
     .lumina-banner__action--primary {
@@ -2766,7 +1775,6 @@
 </head>
 
 <body
-  data-theme="light"
   data-page-slug="<?!= __layoutSlugCandidate ?>"
   data-return-url="<?!= __layoutRawReturnUrl ?>"
 >
@@ -3032,68 +2040,8 @@
             'text-uppercase'
         ];
 
-        const LIGHT_TEXT_LUMINANCE_THRESHOLD = 165;
-
-        function ensureBannerActionContrast(element) {
-            if (!element || !(element instanceof HTMLElement)) {
-                return;
-            }
-
-            const applyLightText = () => {
-                element.classList.add('lumina-banner__action--force-light');
-            };
-
-            const evaluate = () => {
-                try {
-                    const computed = window.getComputedStyle ? window.getComputedStyle(element) : null;
-                    if (!computed) {
-                        applyLightText();
-                        return;
-                    }
-
-                    const color = computed.color || '';
-                    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-                    if (!match) {
-                        applyLightText();
-                        return;
-                    }
-
-                    const r = parseInt(match[1], 10);
-                    const g = parseInt(match[2], 10);
-                    const b = parseInt(match[3], 10);
-                    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-                        applyLightText();
-                        return;
-                    }
-
-                    const luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
-                    if (luminance < LIGHT_TEXT_LUMINANCE_THRESHOLD) {
-                        applyLightText();
-                    } else {
-                        element.classList.remove('lumina-banner__action--force-light');
-                    }
-                } catch (contrastErr) {
-                    console.warn('Banner action contrast fallback triggered', contrastErr);
-                    applyLightText();
-                }
-            };
-
-            const schedule = () => {
-                if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-                    window.requestAnimationFrame(evaluate);
-                } else {
-                    setTimeout(evaluate, 0);
-                }
-            };
-
-            schedule();
-            if (typeof window !== 'undefined') {
-                window.setTimeout(schedule, 150);
-            }
-        }
-
         function absorbLocalBanners() {
-            const selectorList = [
+            const selectors = [
                 '.page-header',
                 '.modern-page-header',
                 '.dashboard-header',
@@ -3108,12 +2056,8 @@
                 '.global-page-header',
                 '.hero-header',
                 '.page-hero',
-                '.tos-hero',
-                '.policy-header',
-                '[data-banner-source]'
+                '[data-banner-source="page-hero"]'
             ];
-
-            const selectors = Array.from(new Set(selectorList));
 
             const bannerData = {
                 titleText: '',
@@ -3138,9 +2082,7 @@
                 'button-group',
                 'btn-group',
                 'control-bar',
-                'filter-actions',
-                'top-actions',
-                'quick-actions'
+                'filter-actions'
             ];
 
             const shouldSkipHeader = (header) => {
@@ -3174,15 +2116,6 @@
             const cleanupButton = (button, variant) => {
                 REMOVABLE_BANNER_BUTTON_CLASSES.forEach(cls => button.classList.remove(cls));
                 button.classList.add('lumina-banner__action', `lumina-banner__action--${variant}`);
-                button.classList.remove('active');
-                ['color', 'background', 'background-color', 'border', 'border-color', 'box-shadow'].forEach(prop => {
-                    try {
-                        button.style.removeProperty(prop);
-                    } catch (styleErr) {
-                        // Ignore cleanup issues for unsupported properties
-                    }
-                });
-                ensureBannerActionContrast(button);
             };
 
             const extractActionsFrom = (root) => {
@@ -3258,19 +2191,7 @@
             const harvestHeader = (header) => {
                 if (shouldSkipHeader(header)) return;
 
-                const hasBannerSignals = (
-                    header.matches('[data-banner-source], [data-banner-title], [data-banner-description]') ||
-                    header.hasAttribute('data-banner-title') ||
-                    header.hasAttribute('data-banner-description') ||
-                    header.querySelector('[data-banner-title], h1, h2, h3, h4, h5, h6') ||
-                    header.querySelector('button, a')
-                );
-
                 processedHeaders.add(header);
-
-                if (!hasBannerSignals) {
-                    return;
-                }
 
                 const campaignAttr = header.getAttribute('data-banner-campaign') || header.getAttribute('data-banner-meta-campaign');
                 if (campaignAttr && !bannerData.campaignName) {
@@ -3701,7 +2622,6 @@
                     }
 
                     actionsEl.appendChild(element);
-                    ensureBannerActionContrast(element);
                 });
 
                 if (actions.length) {
@@ -3899,13 +2819,7 @@
             } catch (e) {
                 console.warn('⚠️ Could not clear storage:', e);
             }
-
-            try {
-                setLogoutReason('manual');
-            } catch (reasonError) {
-                console.warn('handleLogout: unable to persist manual logout reason', reasonError);
-            }
-
+            
             // Call server logout
             google.script.run
                 .withSuccessHandler(function(result) {
@@ -3932,19 +2846,13 @@
             } catch (e) {
                 console.warn('Could not clear storage:', e);
             }
-
-            try {
-                setLogoutReason('manual');
-            } catch (reasonError) {
-                console.warn('performLogout: unable to persist manual logout reason', reasonError);
-            }
-
+            
             // Show logout message and redirect
             showLogoutMessage();
 
             setTimeout(function() {
-                const target = BASE_URL || SCRIPT_URL || '/?page=landing';
-                window.location.href = target;
+                const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL;
+                window.location.href = target || BASE_URL;
             }, 2000);
         }
 
@@ -3963,10 +2871,26 @@
         // ──────────────────────────────────────────────────────────────────────────────
         // AUTHENTICATION GUARD – PREVENT ACCESS AFTER LOGOUT
         // ──────────────────────────────────────────────────────────────────────────────
-        const AUTH_FALLBACK_STORAGE_KEYS = SESSION_TOKEN_STORAGE_KEYS;
+        const AUTH_FALLBACK_STORAGE_KEYS = [
+            'lumina.session.token',
+            'lumina.auth.sessionToken',
+            'lumina.auth.fallbackToken'
+        ];
 
         function shouldEnforceAuthGuard() {
-            return false;
+            if (window.__LUMINA_DISABLE_AUTH_GUARD === true || window.disableLuminaAuthGuard === true) {
+                return false;
+            }
+
+            const body = document.body;
+            if (body) {
+                const publicPageAttr = body.getAttribute('data-public-page');
+                if ((body.dataset && body.dataset.publicPage === 'true') || publicPageAttr === 'true') {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         function readAuthTokenForGuard() {
@@ -4033,24 +2957,32 @@
             }
 
             try {
-                clearTokenFromClient({ reason: reason || 'auth-guard' });
-            } catch (tokenClearError) {
-                console.warn('AuthGuard: unable to clear client token state', tokenClearError);
+                if (window.CookieHandler && typeof window.CookieHandler.clearAuthToken === 'function') {
+                    window.CookieHandler.clearAuthToken();
+                }
+            } catch (cookieError) {
+                console.warn('AuthGuard: unable to clear auth cookie', cookieError);
             }
 
             try {
-                const existingReason = getLogoutReason();
-                if (existingReason && existingReason.toLowerCase() === 'manual' && reason !== 'manual') {
-                    return;
+                if (window.localStorage) {
+                    AUTH_FALLBACK_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
                 }
-                setLogoutReason(reason === 'manual' ? 'manual' : 'auto');
-            } catch (reasonError) {
-                console.warn('AuthGuard: unable to persist logout reason', reasonError);
+            } catch (localStorageError) {
+                console.warn('AuthGuard: unable to clear localStorage tokens', localStorageError);
+            }
+
+            try {
+                if (window.sessionStorage) {
+                    AUTH_FALLBACK_STORAGE_KEYS.forEach(key => window.sessionStorage.removeItem(key));
+                }
+            } catch (sessionStorageError) {
+                console.warn('AuthGuard: unable to clear sessionStorage tokens', sessionStorageError);
             }
         }
 
-        function redirectToLogin(_options) {
-            const target = BASE_URL || SCRIPT_URL || '/?page=landing';
+        function redirectToLogin() {
+            const target = window.__LUMINA_LOGIN_URL || LOGIN_URL || BASE_URL || '/';
             try {
                 if (window.location && typeof window.location.replace === 'function') {
                     window.location.replace(target);
@@ -4075,10 +3007,7 @@
 
             console.log('🔒 AuthGuard: missing auth token, enforcing logout redirect', context);
             clearClientAuthState(context || 'auth-guard');
-            const currentLocation = (typeof window !== 'undefined' && window.location && window.location.href)
-                ? window.location.href
-                : '';
-            redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: currentLocation });
+            redirectToLogin();
             return false;
         }
 
@@ -4123,7 +3052,6 @@
 
             const defaultTitle = <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>;
             const defaultDescription = <?!= JSON.stringify(__layoutPageDescriptionText || '') ?>;
-            const fallbackBannerTitle = <?!= JSON.stringify((__layoutCampaignName || 'LuminaHQ')) ?>;
 
             const identityPieces = [];
             if (__LAYOUT_CLIENT_NAME) {
@@ -4140,7 +3068,7 @@
                 .join(' • ');
 
             const initialConfig = {
-                title: absorbed.titleText || defaultTitle || fallbackBannerTitle,
+                title: absorbed.titleText || defaultTitle,
                 titleFragments: absorbed.titleFragments,
                 description: combinedDescription,
                 descriptionElements: absorbed.descriptionElements,
@@ -4408,20 +3336,524 @@
             if (!global) {
                 return;
             }
+            if (global.LuminaSessionHeartbeat) {
+                return;
+            }
 
-            global.LuminaSessionHeartbeat = {
-                start: function () { return false; },
-                stop: function () { return true; },
-                refreshFromResult: function () { },
-                runNow: function () { return false; },
-                persistToken: function () { },
-                getState: function () { return { disabled: true }; }
+            const MIN_INTERVAL_MS = 60 * 1000;
+            const MAX_INTERVAL_MS = 5 * 60 * 1000;
+            const DEFAULT_IDLE_MINUTES = 30;
+            const FALLBACK_STORAGE_KEY = 'lumina.session.token';
+
+            const state = {
+                token: '',
+                remember: false,
+                idleMinutes: DEFAULT_IDLE_MINUTES,
+                ttlSeconds: null,
+                expiresAt: null,
+                timer: null,
+                intervalMs: null,
+                nextRunAt: null,
+                inFlight: false,
+                consecutiveFailures: 0,
+                started: false,
+                lastResult: null
             };
 
-            if (global.console && typeof global.console.info === 'function') {
-                console.info('LuminaSessionHeartbeat disabled – authentication removed.');
+            function dispatchStatus(status, detail) {
+                const payload = Object.assign({
+                    status: status,
+                    timestamp: new Date().toISOString()
+                }, detail || {});
+
+                try {
+                    const event = new CustomEvent('lumina:session-status', { detail: payload });
+                    global.dispatchEvent(event);
+                } catch (err) {
+                    try {
+                        if (typeof document !== 'undefined' && typeof document.createEvent === 'function') {
+                            const fallbackEvent = document.createEvent('CustomEvent');
+                            fallbackEvent.initCustomEvent('lumina:session-status', true, true, payload);
+                            global.dispatchEvent(fallbackEvent);
+                        }
+                    } catch (fallbackError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to dispatch session-status event', fallbackError);
+                        }
+                    }
+                }
             }
-        })(window);
+
+            function readTokenFromStorage() {
+                let token = '';
+
+                try {
+                    if (global.CookieHandler && typeof global.CookieHandler.readAuthToken === 'function') {
+                        token = global.CookieHandler.readAuthToken();
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to read auth cookie', err);
+                    }
+                }
+
+                if (!token) {
+                    try {
+                        if (global.localStorage) {
+                            token = global.localStorage.getItem(FALLBACK_STORAGE_KEY) || '';
+                        }
+                    } catch (storageError) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: unable to read fallback token', storageError);
+                        }
+                    }
+                }
+
+                return token || '';
+            }
+
+            function persistToken(token, options) {
+                if (!token) {
+                    clearToken(options);
+                    return '';
+                }
+
+                try {
+                    if (global.CookieHandler && typeof global.CookieHandler.persistAuthToken === 'function') {
+                        global.CookieHandler.persistAuthToken(token, options || {});
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to persist auth cookie', err);
+                    }
+                }
+
+                try {
+                    if (global.localStorage) {
+                        global.localStorage.setItem(FALLBACK_STORAGE_KEY, token);
+                    }
+                } catch (storageError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to persist fallback token', storageError);
+                    }
+                }
+
+                state.token = token;
+                return token;
+            }
+
+            function clearToken(options) {
+                try {
+                    if (global.CookieHandler && typeof global.CookieHandler.clearAuthToken === 'function') {
+                        global.CookieHandler.clearAuthToken(options || {});
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to clear auth cookie', err);
+                    }
+                }
+
+                try {
+                    if (global.localStorage) {
+                        global.localStorage.removeItem(FALLBACK_STORAGE_KEY);
+                    }
+                } catch (storageError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to clear fallback token', storageError);
+                    }
+                }
+
+                state.token = '';
+            }
+
+            function clearTimer() {
+                if (state.timer) {
+                    global.clearTimeout(state.timer);
+                    state.timer = null;
+                }
+            }
+
+            function computeIdleMs() {
+                const minutes = (typeof state.idleMinutes === 'number' && state.idleMinutes > 0)
+                    ? state.idleMinutes
+                    : DEFAULT_IDLE_MINUTES;
+                return Math.max(1, minutes) * 60 * 1000;
+            }
+
+            function computeNextInterval() {
+                const idleMs = computeIdleMs();
+                let interval = Math.max(MIN_INTERVAL_MS, Math.floor(idleMs / 2));
+                let ttlMs = null;
+
+                if (typeof state.ttlSeconds === 'number' && state.ttlSeconds > 0) {
+                    ttlMs = state.ttlSeconds * 1000;
+                } else if (state.expiresAt) {
+                    const expiry = Date.parse(state.expiresAt);
+                    if (!isNaN(expiry)) {
+                        ttlMs = Math.max(0, expiry - Date.now());
+                    }
+                }
+
+                if (ttlMs !== null && ttlMs > 0) {
+                    interval = Math.min(interval, Math.max(MIN_INTERVAL_MS, Math.floor(ttlMs / 2)));
+                }
+
+                const safetyWindow = Math.max(MIN_INTERVAL_MS, Math.floor(idleMs * 0.2));
+                interval = Math.min(interval, Math.max(MIN_INTERVAL_MS, idleMs - safetyWindow));
+                interval = Math.min(Math.max(interval, MIN_INTERVAL_MS), MAX_INTERVAL_MS);
+                return interval;
+            }
+
+            function schedule(nextMs) {
+                const delay = Math.min(Math.max(MIN_INTERVAL_MS, Math.floor(nextMs || MIN_INTERVAL_MS)), MAX_INTERVAL_MS);
+                clearTimer();
+                state.intervalMs = delay;
+                state.nextRunAt = Date.now() + delay;
+                state.timer = global.setTimeout(runHeartbeat, delay);
+                return delay;
+            }
+
+            function notifyExpired(message) {
+                const text = message || 'Your session has expired. Please sign in again.';
+
+                try {
+                    if (typeof global.showLuminaToast === 'function') {
+                        global.showLuminaToast(text, {
+                            type: 'info',
+                            title: 'Session Expired'
+                        });
+                        return;
+                    }
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: toast notification failed', err);
+                    }
+                }
+
+                try {
+                    if (typeof global.alert === 'function') {
+                        global.alert(text);
+                    }
+                } catch (alertError) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: unable to display alert', alertError);
+                    }
+                }
+            }
+
+            function redirectToLogin() {
+                const target = global.__LUMINA_LOGIN_URL || global.LOGIN_URL || global.BASE_URL || (global.location ? global.location.href : '/');
+                global.setTimeout(function () {
+                    try {
+                        global.location.href = target;
+                    } catch (err) {
+                        if (global.console && typeof global.console.warn === 'function') {
+                            console.warn('LuminaSessionHeartbeat: redirect failed', err);
+                        }
+                    }
+                }, 500);
+            }
+
+            function stop(options) {
+                const opts = options || {};
+                clearTimer();
+                state.started = false;
+                state.inFlight = false;
+                state.intervalMs = null;
+                state.nextRunAt = null;
+
+                if (opts.clearAuth) {
+                    clearToken(opts);
+                }
+
+                if (!opts.silent) {
+                    dispatchStatus('stopped', {
+                        reason: opts.reason || 'manual'
+                    });
+                }
+
+                return true;
+            }
+
+            function handleExpired(result) {
+                const reason = result && result.reason ? String(result.reason) : 'EXPIRED';
+                dispatchStatus('expired', {
+                    result: result,
+                    reason: reason
+                });
+                stop({ clearAuth: true, reason: reason, silent: true });
+                notifyExpired(result && result.message ? result.message : 'Your session has expired. Please sign in again.');
+                redirectToLogin();
+            }
+
+            function handleSuccess(result) {
+                state.inFlight = false;
+
+                if (!result || result.success !== true) {
+                    if (result && result.expired) {
+                        handleExpired(result);
+                        return;
+                    }
+                    handleFailure(result || new Error('Unexpected keep-alive response'));
+                    return;
+                }
+
+                state.lastResult = result;
+                state.consecutiveFailures = 0;
+
+                const resolvedIdle = (typeof result.idleTimeoutMinutes === 'number' && result.idleTimeoutMinutes > 0)
+                    ? result.idleTimeoutMinutes
+                    : (typeof result.sessionIdleTimeoutMinutes === 'number' && result.sessionIdleTimeoutMinutes > 0
+                        ? result.sessionIdleTimeoutMinutes
+                        : state.idleMinutes);
+                state.idleMinutes = Math.max(1, Math.round(resolvedIdle));
+
+                if (typeof result.rememberMe === 'boolean') {
+                    state.remember = result.rememberMe;
+                }
+
+                if (typeof result.sessionTtlSeconds === 'number' && result.sessionTtlSeconds > 0) {
+                    state.ttlSeconds = result.sessionTtlSeconds;
+                }
+                if (result.sessionExpiresAt) {
+                    state.expiresAt = result.sessionExpiresAt;
+                }
+
+                const token = result.sessionToken || state.token || readTokenFromStorage();
+                if (token) {
+                    persistToken(token, {
+                        rememberMe: state.remember,
+                        ttlSeconds: state.ttlSeconds,
+                        expiresAt: state.expiresAt
+                    });
+                }
+
+                const nextDelay = computeNextInterval();
+                schedule(nextDelay);
+
+                dispatchStatus('active', {
+                    result: result,
+                    nextRunInMs: nextDelay,
+                    idleTimeoutMinutes: state.idleMinutes
+                });
+            }
+
+            function handleFailure(error) {
+                state.inFlight = false;
+                state.consecutiveFailures += 1;
+
+                const base = state.intervalMs || computeNextInterval();
+                const multiplier = Math.min(5, 1 + state.consecutiveFailures * 0.5);
+                const nextDelay = Math.min(MAX_INTERVAL_MS, Math.max(MIN_INTERVAL_MS, Math.floor(base * multiplier)));
+
+                schedule(nextDelay);
+
+                dispatchStatus('error', {
+                    error: error && error.message ? error.message : error,
+                    consecutiveFailures: state.consecutiveFailures,
+                    nextRunInMs: nextDelay
+                });
+            }
+
+            function runHeartbeat() {
+                if (!state.started) {
+                    return;
+                }
+
+                if (state.inFlight) {
+                    return;
+                }
+
+                const token = state.token || readTokenFromStorage();
+                if (!token) {
+                    dispatchStatus('missing-token', { message: 'No session token available' });
+                    stop({ clearAuth: true, reason: 'missing-token', silent: true });
+                    notifyExpired('Your session has ended. Please sign in again.');
+                    redirectToLogin();
+                    return;
+                }
+
+                state.token = token;
+
+                if (!global.google || !global.google.script || !global.google.script.run) {
+                    dispatchStatus('unavailable', { message: 'google.script.run not ready' });
+                    schedule(MAX_INTERVAL_MS);
+                    return;
+                }
+
+                state.inFlight = true;
+                try {
+                    global.google.script.run
+                        .withSuccessHandler(handleSuccess)
+                        .withFailureHandler(handleFailure)
+                        .keepAlive(token);
+                } catch (err) {
+                    state.inFlight = false;
+                    handleFailure(err);
+                }
+            }
+
+            function start(options) {
+                const opts = options || {};
+                const token = opts.token || state.token || readTokenFromStorage();
+                if (!token) {
+                    dispatchStatus('missing-token', { message: 'No session token available' });
+                    return false;
+                }
+
+                state.token = token;
+                state.started = true;
+
+                if (typeof opts.rememberMe === 'boolean') {
+                    state.remember = opts.rememberMe;
+                }
+                if (typeof opts.idleTimeoutMinutes === 'number' && opts.idleTimeoutMinutes > 0) {
+                    state.idleMinutes = Math.max(1, Math.round(opts.idleTimeoutMinutes));
+                }
+                if (typeof opts.sessionTtlSeconds === 'number' && opts.sessionTtlSeconds > 0) {
+                    state.ttlSeconds = opts.sessionTtlSeconds;
+                }
+                if (opts.sessionExpiresAt) {
+                    state.expiresAt = opts.sessionExpiresAt;
+                }
+
+                const initialDelay = computeNextInterval();
+                const scheduled = schedule(opts.immediate === true ? MIN_INTERVAL_MS : initialDelay);
+
+                if (opts.immediate === true) {
+                    global.setTimeout(runHeartbeat, 100);
+                }
+
+                dispatchStatus('started', {
+                    idleTimeoutMinutes: state.idleMinutes,
+                    nextRunInMs: scheduled,
+                    rememberMe: state.remember
+                });
+
+                return true;
+            }
+
+            function refreshFromResult(result) {
+                if (!result) {
+                    return;
+                }
+
+                if (typeof result.idleTimeoutMinutes === 'number' && result.idleTimeoutMinutes > 0) {
+                    state.idleMinutes = Math.max(1, Math.round(result.idleTimeoutMinutes));
+                } else if (typeof result.sessionIdleTimeoutMinutes === 'number' && result.sessionIdleTimeoutMinutes > 0) {
+                    state.idleMinutes = Math.max(1, Math.round(result.sessionIdleTimeoutMinutes));
+                }
+
+                if (typeof result.rememberMe === 'boolean') {
+                    state.remember = result.rememberMe;
+                }
+
+                if (typeof result.sessionTtlSeconds === 'number' && result.sessionTtlSeconds > 0) {
+                    state.ttlSeconds = result.sessionTtlSeconds;
+                }
+                if (result.sessionExpiresAt) {
+                    state.expiresAt = result.sessionExpiresAt;
+                }
+
+                if (result.sessionToken) {
+                    persistToken(result.sessionToken, {
+                        rememberMe: state.remember,
+                        ttlSeconds: state.ttlSeconds,
+                        expiresAt: state.expiresAt
+                    });
+                }
+
+                if (!state.started) {
+                    start({
+                        token: state.token,
+                        rememberMe: state.remember,
+                        idleTimeoutMinutes: state.idleMinutes,
+                        sessionTtlSeconds: state.ttlSeconds,
+                        sessionExpiresAt: state.expiresAt,
+                        immediate: true
+                    });
+                    return;
+                }
+
+                const nextDelay = computeNextInterval();
+                schedule(nextDelay);
+
+                dispatchStatus('refreshed', {
+                    result: result,
+                    nextRunInMs: nextDelay
+                });
+            }
+
+            function runNow() {
+                clearTimer();
+                if (!state.started) {
+                    const token = state.token || readTokenFromStorage();
+                    if (!token) {
+                        dispatchStatus('missing-token', { message: 'No session token available' });
+                        return false;
+                    }
+                    state.started = true;
+                    state.token = token;
+                }
+                runHeartbeat();
+                return true;
+            }
+
+            function getState() {
+                return Object.assign({}, state);
+            }
+
+            global.LuminaSessionHeartbeat = {
+                start: start,
+                stop: stop,
+                refreshFromResult: refreshFromResult,
+                runNow: runNow,
+                persistToken: persistToken,
+                getState: getState
+            };
+
+            const initialToken = readTokenFromStorage();
+            if (initialToken) {
+                state.token = initialToken;
+                start({ token: initialToken });
+            } else {
+                dispatchStatus('missing-token', { message: 'No session token found at initialization' });
+            }
+
+            global.addEventListener('lumina:session-refresh', function (event) {
+                try {
+                    refreshFromResult(event && event.detail ? event.detail : null);
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: session-refresh handler failed', err);
+                    }
+                }
+            });
+
+            global.addEventListener('lumina:session-start', function (event) {
+                try {
+                    start(event && event.detail ? event.detail : {});
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: session-start handler failed', err);
+                    }
+                }
+            });
+
+            global.addEventListener('lumina:session-stop', function (event) {
+                try {
+                    stop(event && event.detail ? event.detail : {});
+                } catch (err) {
+                    if (global.console && typeof global.console.warn === 'function') {
+                        console.warn('LuminaSessionHeartbeat: session-stop handler failed', err);
+                    }
+                }
+            });
+
+            global.addEventListener('lumina:session-force-heartbeat', function () {
+                runNow();
+            });
+        })(typeof window !== 'undefined' ? window : this);
     </script>
     <script>
         (function registerGlobalChannelClosedHandler() {

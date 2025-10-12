@@ -17,26 +17,6 @@ const SCHEDULE_CONFIG = {
   CACHE_DURATION: 300 // 5 minutes
 };
 
-function scheduleFlagToBool(value) {
-  if (value === true) return true;
-  if (value === false || value === null || typeof value === 'undefined') return false;
-  if (typeof value === 'number') return value !== 0;
-
-  const normalized = String(value).trim().toUpperCase();
-  if (!normalized) return false;
-
-  switch (normalized) {
-    case 'TRUE':
-    case 'YES':
-    case 'Y':
-    case '1':
-    case 'ON':
-      return true;
-    default:
-      return false;
-  }
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -71,10 +51,11 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       const requestingUser = allUsers.find(u => normalizeUserIdValue(u.ID) === normalizedManagerId);
 
       if (requestingUser) {
-        const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
+        const isAdmin = requestingUser.IsAdmin === true || String(requestingUser.IsAdmin).toUpperCase() === 'TRUE';
 
         if (!isAdmin) {
-          const managedUserIds = buildManagedUserSet(normalizedManagerId);
+          const managedUserIds = getDirectManagedUserIds(normalizedManagerId);
+          managedUserIds.add(normalizedManagerId);
 
           filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user.ID)));
         }
@@ -84,7 +65,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
     // Transform to schedule-friendly format
     const scheduleUsers = filteredUsers
       .filter(user => user && user.ID && (user.UserName || user.FullName))
-      .filter(user => isUserConsideredActive(user))
+      .filter(user => user.EmploymentStatus === 'Active' || !user.EmploymentStatus)
       .map(user => {
         const campaignName = getCampaignById(user.CampaignID)?.Name || '';
         return {
@@ -96,7 +77,8 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           campaignName: campaignName,
           EmploymentStatus: user.EmploymentStatus || 'Active',
           HireDate: user.HireDate || '',
-          isActive: isUserConsideredActive(user)
+          canLogin: user.CanLogin === 'TRUE' || user.CanLogin === true,
+          isActive: true
         };
       });
 
@@ -205,10 +187,6 @@ function clientCreateShiftSlot(slotData) {
     const slotId = Utilities.getUuid();
 
     const toNumber = (value, fallback = '') => {
-      if (value === null || value === undefined || value === '') {
-        return fallback;
-      }
-
       const num = Number(value);
       return Number.isFinite(num) ? num : fallback;
     };
@@ -303,14 +281,10 @@ function clientCreateShiftSlot(slotData) {
 
   } catch (error) {
     console.error('❌ Error creating shift slot:', error);
-    try {
-      safeWriteError('clientCreateShiftSlot', error);
-    } catch (loggingError) {
-      console.error('Error logging shift slot failure:', loggingError);
-    }
+    safeWriteError('clientCreateShiftSlot', error);
     return {
       success: false,
-      error: error && error.message ? error.message : String(error || 'Unknown error')
+      error: error.message
     };
   }
 }
@@ -413,62 +387,6 @@ function clientCreateEnhancedShiftSlot(slotData) {
   return clientCreateShiftSlot(slotData);
 }
 
-function buildManagedUserSet(managerId) {
-  const managedUserIds = getDirectManagedUserIds(managerId);
-  const normalizedManagerId = normalizeUserIdValue(managerId);
-
-  if (normalizedManagerId) {
-    managedUserIds.add(normalizedManagerId);
-  }
-
-  try {
-    if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
-      const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
-      campaigns.forEach(campaign => {
-        try {
-          const campaignUsers = getUsersByCampaign(campaign.ID) || [];
-          campaignUsers.forEach(user => {
-            const normalizedId = normalizeUserIdValue(user.ID);
-            if (normalizedId) {
-              managedUserIds.add(normalizedId);
-            }
-          });
-        } catch (campaignErr) {
-          console.warn('Failed to append campaign users for campaign', campaign && campaign.ID, campaignErr);
-        }
-      });
-    }
-  } catch (error) {
-    console.warn('Unable to expand managed users via campaigns:', error);
-  }
-
-  return managedUserIds;
-}
-
-function isUserConsideredActive(user) {
-  if (!user) {
-    return false;
-  }
-
-  const status = typeof user.EmploymentStatus === 'string'
-    ? user.EmploymentStatus.trim().toLowerCase()
-    : '';
-
-  if (!status) {
-    return true;
-  }
-
-  if (['active', 'activated'].includes(status)) {
-    return true;
-  }
-
-  if (['terminated', 'inactive', 'disabled', 'separated'].includes(status)) {
-    return false;
-  }
-
-  return true;
-}
-
 /**
  * Get all shift slots - uses ScheduleUtilities
  */
@@ -484,17 +402,6 @@ function clientGetAllShiftSlots() {
       console.log('No shift slots found, creating defaults');
       createDefaultShiftSlots();
       slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    }
-
-    if (!slots.length) {
-      const legacySlotSheets = ['Shift Slots', 'Shifts', 'ShiftTemplates'];
-      for (let i = 0; i < legacySlotSheets.length && !slots.length; i++) {
-        const legacyRows = readSheet(legacySlotSheets[i]);
-        if (Array.isArray(legacyRows) && legacyRows.length) {
-          console.log(`Found legacy shift slot data in ${legacySlotSheets[i]}`);
-          slots = legacyRows.map(convertLegacyShiftSlotRecord).filter(Boolean);
-        }
-      }
     }
 
     const normalizeBoolean = value => {
@@ -520,11 +427,9 @@ function clientGetAllShiftSlots() {
     return slots.map(slot => {
       const normalizedSlot = {
         ...slot,
-        DaysOfWeekArray: Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length
-          ? slot.DaysOfWeekArray
-          : slot.DaysOfWeek
-            ? String(slot.DaysOfWeek).split(',').map(d => parseInt(String(d).trim(), 10)).filter(d => !isNaN(d))
-            : [1, 2, 3, 4, 5]
+        DaysOfWeekArray: slot.DaysOfWeek ?
+          slot.DaysOfWeek.split(',').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d)) :
+          [1, 2, 3, 4, 5]
       };
 
       normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
@@ -837,18 +742,7 @@ function clientGetAllSchedules(filters = {}) {
     console.log('📋 Getting all schedules with filters:', filters);
 
     // Use ScheduleUtilities to read schedules
-    let schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-
-    if (!schedules.length) {
-      const legacySheets = ['Schedules', 'Schedule', 'AgentSchedules'];
-      for (let i = 0; i < legacySheets.length && !schedules.length; i++) {
-        const legacyRows = readSheet(legacySheets[i]);
-        if (Array.isArray(legacyRows) && legacyRows.length) {
-          console.log(`Discovered legacy schedule data in ${legacySheets[i]}`);
-          schedules = legacyRows.map(convertLegacyScheduleRecord).filter(Boolean);
-        }
-      }
-    }
+    const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
 
     console.log(`📊 Total schedules in sheet: ${schedules.length}`);
 
@@ -1045,106 +939,6 @@ function clientImportSchedules(importRequest = {}) {
   } catch (error) {
     console.error('❌ Error importing schedules:', error);
     safeWriteError('clientImportSchedules', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Fetch schedule data directly from a Google Sheet link for importing
- */
-function clientFetchScheduleSheetData(request = {}) {
-  try {
-    const options = typeof request === 'string' ? { url: request } : (request || {});
-    const sheetUrl = (options.url || options.sheetUrl || '').trim();
-    const sheetName = (options.sheetName || options.tabName || '').trim();
-    const sheetRange = (options.range || options.sheetRange || '').trim();
-    const spreadsheetId = (options.id || options.sheetId || options.spreadsheetId || '').trim();
-    const gidValue = options.gid || options.sheetGid || options.sheetNumericId;
-
-    if (!sheetUrl && !spreadsheetId) {
-      throw new Error('A Google Sheets link or ID is required to import schedules.');
-    }
-
-    let spreadsheet = null;
-    if (spreadsheetId) {
-      spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-    }
-
-    if (!spreadsheet) {
-      const candidateUrl = sheetUrl;
-      if (candidateUrl) {
-        try {
-          spreadsheet = SpreadsheetApp.openByUrl(candidateUrl);
-        } catch (urlError) {
-          const extractedId = extractSpreadsheetId(candidateUrl);
-          if (extractedId) {
-            spreadsheet = SpreadsheetApp.openById(extractedId);
-          } else {
-            throw urlError;
-          }
-        }
-      }
-    }
-
-    if (!spreadsheet) {
-      throw new Error('Unable to open the provided Google Sheets link.');
-    }
-
-    let sheet = null;
-    if (sheetName) {
-      sheet = spreadsheet.getSheetByName(sheetName);
-      if (!sheet) {
-        throw new Error(`Could not find a sheet named "${sheetName}" in ${spreadsheet.getName()}.`);
-      }
-    }
-
-    if (!sheet && gidValue !== undefined && gidValue !== null && gidValue !== '') {
-      const numericId = Number(gidValue);
-      if (!Number.isNaN(numericId)) {
-        sheet = spreadsheet.getSheets().find(tab => tab.getSheetId() === numericId) || null;
-      }
-    }
-
-    if (!sheet) {
-      const sheets = spreadsheet.getSheets();
-      if (!sheets || sheets.length === 0) {
-        throw new Error('The spreadsheet does not contain any sheets to import.');
-      }
-      sheet = sheets[0];
-    }
-
-    const range = sheetRange ? sheet.getRange(sheetRange) : sheet.getDataRange();
-    const values = range.getDisplayValues();
-
-    if (!values || values.length === 0) {
-      return {
-        success: true,
-        rows: [],
-        spreadsheetName: spreadsheet.getName(),
-        sheetName: sheet.getName(),
-        sheetId: sheet.getSheetId(),
-        range: range.getA1Notation(),
-        rowCount: 0,
-        columnCount: 0
-      };
-    }
-
-    return {
-      success: true,
-      rows: values,
-      spreadsheetName: spreadsheet.getName(),
-      sheetName: sheet.getName(),
-      sheetId: sheet.getSheetId(),
-      range: range.getA1Notation(),
-      rowCount: values.length,
-      columnCount: values[0] ? values[0].length : 0
-    };
-  } catch (error) {
-    console.error('❌ Error fetching schedule data from Google Sheets:', error);
-    safeWriteError('clientFetchScheduleSheetData', error);
     return {
       success: false,
       error: error.message
@@ -2581,151 +2375,6 @@ function calculateDaySpanCount(startDate, endDate, minDate, maxDate) {
   return days > 0 ? days : 0;
 }
 
-function convertLegacyShiftSlotRecord(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const resolve = (candidates, fallback = '') => {
-    for (let i = 0; i < candidates.length; i++) {
-      const value = raw[candidates[i]];
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        return value;
-      }
-    }
-    return fallback;
-  };
-
-  const daysOfWeek = resolve(['DaysOfWeek', 'Days', 'DayCodes', 'DayIndexes']);
-  const parsedDays = Array.isArray(daysOfWeek)
-    ? daysOfWeek
-    : typeof daysOfWeek === 'string'
-      ? daysOfWeek.split(/[;,]/).map(d => parseInt(String(d).trim(), 10)).filter(d => !isNaN(d))
-      : [];
-
-  const uuid = (typeof Utilities !== 'undefined' && Utilities.getUuid)
-    ? Utilities.getUuid()
-    : `legacy-slot-${Math.random().toString(36).slice(2)}`;
-
-  return {
-    ID: resolve(['ID', 'SlotID', 'Slot Id', 'Guid', 'Uuid'], uuid),
-    Name: resolve(['Name', 'SlotName', 'Title', 'ShiftName', 'Shift']),
-    StartTime: resolve(['StartTime', 'Start', 'Start Time', 'ShiftStart']),
-    EndTime: resolve(['EndTime', 'End', 'End Time', 'ShiftEnd']),
-    DaysOfWeek: parsedDays.length ? parsedDays.join(',') : '1,2,3,4,5',
-    DaysOfWeekArray: parsedDays.length ? parsedDays : undefined,
-    Department: resolve(['Department', 'Team', 'Campaign', 'Program'], 'General'),
-    Location: resolve(['Location', 'Site'], 'Office'),
-    MaxCapacity: resolve(['MaxCapacity', 'Capacity', 'Max Agents', 'Headcount'], ''),
-    MinCoverage: resolve(['MinCoverage', 'MinimumCoverage', 'Min Agents'], ''),
-    Priority: resolve(['Priority', 'Rank', 'Weight'], 2),
-    Description: resolve(['Description', 'Notes'], ''),
-    BreakDuration: resolve(['BreakDuration', 'Break Minutes', 'BreakLength'], ''),
-    LunchDuration: resolve(['LunchDuration', 'Lunch Minutes', 'LunchLength'], ''),
-    Break1Duration: resolve(['Break1Duration', 'BreakDuration', 'Break1'], ''),
-    Break2Duration: resolve(['Break2Duration', 'Break2'], ''),
-    EnableStaggeredBreaks: resolve(['EnableStaggeredBreaks', 'StaggerBreaks', 'Staggered'], false),
-    BreakGroups: resolve(['BreakGroups', 'StaggerGroups'], ''),
-    StaggerInterval: resolve(['StaggerInterval', 'StaggerMinutes'], ''),
-    MinCoveragePct: resolve(['MinCoveragePct', 'CoveragePct'], ''),
-    EnableOvertime: resolve(['EnableOvertime', 'AllowOT', 'Overtime'], false),
-    MaxDailyOT: resolve(['MaxDailyOT', 'DailyOTHours', 'DailyOvertime'], ''),
-    MaxWeeklyOT: resolve(['MaxWeeklyOT', 'WeeklyOTHours', 'WeeklyOvertime'], ''),
-    OTApproval: resolve(['OTApproval', 'OvertimeApproval'], ''),
-    OTRate: resolve(['OTRate', 'OvertimeRate'], ''),
-    OTPolicy: resolve(['OTPolicy', 'OvertimePolicy'], ''),
-    AllowSwaps: resolve(['AllowSwaps', 'SwapAllowed'], ''),
-    WeekendPremium: resolve(['WeekendPremium', 'Weekend'], ''),
-    HolidayPremium: resolve(['HolidayPremium', 'Holiday'], ''),
-    AutoAssignment: resolve(['AutoAssignment', 'AutoAssign'], ''),
-    RestPeriod: resolve(['RestPeriod', 'RestHours'], ''),
-    NotificationLead: resolve(['NotificationLead', 'NotifyHours'], ''),
-    HandoverTime: resolve(['HandoverTime', 'Handover'], ''),
-    OvertimePolicy: resolve(['OvertimePolicy', 'OTPolicy'], ''),
-    IsActive: resolve(['IsActive', 'Active', 'Enabled'], true),
-    CreatedBy: resolve(['CreatedBy', 'Author', 'Owner'], 'Legacy Import'),
-    CreatedAt: resolve(['CreatedAt', 'Created', 'Created On'], ''),
-    UpdatedAt: resolve(['UpdatedAt', 'Updated', 'Updated On'], '')
-  };
-}
-
-function convertLegacyScheduleRecord(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const resolve = (candidates, fallback = '') => {
-    for (let i = 0; i < candidates.length; i++) {
-      const key = candidates[i];
-      if (key == null) {
-        continue;
-      }
-      const value = raw[key];
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        return value;
-      }
-    }
-    return fallback;
-  };
-
-  const userName = resolve(['UserName', 'Agent', 'AgentName', 'Name', 'User']);
-  const userId = resolve(['UserID', 'UserId', 'AgentID', 'AgentId', 'EmployeeID']);
-  const scheduleDate = resolve(['Date', 'ScheduleDate', 'ShiftDate', 'Day']);
-  const slotName = resolve(['SlotName', 'Shift', 'ShiftName', 'Schedule']);
-
-  const timezone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
-    ? Session.getScriptTimeZone()
-    : 'UTC';
-
-  const normalizeDate = (value) => {
-    if (!value) return '';
-    if (value instanceof Date && !isNaN(value.getTime())) {
-      return Utilities.formatDate(value, timezone, 'yyyy-MM-dd');
-    }
-
-    const parsed = new Date(value);
-    if (!isNaN(parsed.getTime())) {
-      return Utilities.formatDate(parsed, timezone, 'yyyy-MM-dd');
-    }
-
-    return value;
-  };
-
-  const uuid = (typeof Utilities !== 'undefined' && Utilities.getUuid)
-    ? Utilities.getUuid()
-    : `legacy-schedule-${Math.random().toString(36).slice(2)}`;
-
-  return {
-    ID: resolve(['ID', 'ScheduleID', 'Schedule Id', 'RecordID'], uuid),
-    UserID: userId || normalizeUserIdValue(userName),
-    UserName: userName || userId,
-    Date: normalizeDate(scheduleDate),
-    SlotID: resolve(['SlotID', 'ShiftID', 'TemplateID'], ''),
-    SlotName: slotName || 'Shift',
-    StartTime: resolve(['StartTime', 'Start', 'ShiftStart', 'Begin']),
-    EndTime: resolve(['EndTime', 'End', 'ShiftEnd', 'Finish']),
-    OriginalStartTime: resolve(['OriginalStartTime', 'StartTime', 'Start']),
-    OriginalEndTime: resolve(['OriginalEndTime', 'EndTime', 'End']),
-    BreakStart: resolve(['BreakStart', 'BreakStartTime']),
-    BreakEnd: resolve(['BreakEnd', 'BreakEndTime']),
-    LunchStart: resolve(['LunchStart', 'LunchStartTime']),
-    LunchEnd: resolve(['LunchEnd', 'LunchEndTime']),
-    IsDST: resolve(['IsDST', 'DST', 'DaylightSavings'], false),
-    Status: (resolve(['Status', 'State'], 'PENDING') || 'PENDING').toString().toUpperCase(),
-    GeneratedBy: resolve(['GeneratedBy', 'CreatedBy', 'Author'], 'Legacy Import'),
-    ApprovedBy: resolve(['ApprovedBy', 'Supervisor']),
-    NotificationSent: resolve(['NotificationSent', 'Notified'], false),
-    CreatedAt: resolve(['CreatedAt', 'Created', 'Created On'], ''),
-    UpdatedAt: resolve(['UpdatedAt', 'Updated', 'Updated On'], ''),
-    RecurringScheduleID: resolve(['RecurringScheduleID', 'RecurringID']),
-    SwapRequestID: resolve(['SwapRequestID', 'SwapID']),
-    Priority: resolve(['Priority', 'Rank'], 2),
-    Notes: resolve(['Notes', 'Comments']),
-    Location: resolve(['Location', 'Site', 'Office']),
-    Department: resolve(['Department', 'Campaign', 'Program'])
-  };
-}
-
 function calculateWeekSpanCount(startDate, endDate, minDate, maxDate) {
   const daySpan = calculateDaySpanCount(startDate, endDate, minDate, maxDate);
   if (!daySpan || daySpan <= 0) {
@@ -2743,34 +2392,6 @@ function getMonthNameFromNumber(monthNumber) {
 
   const index = Number(monthNumber) - 1;
   return months[index] || '';
-}
-
-function extractSpreadsheetId(input) {
-  if (!input) {
-    return '';
-  }
-
-  const stringValue = String(input).trim();
-  if (!stringValue) {
-    return '';
-  }
-
-  const directMatch = stringValue.match(/[-\w]{25,}/);
-  if (directMatch && directMatch[0]) {
-    return directMatch[0];
-  }
-
-  const urlMatch = stringValue.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (urlMatch && urlMatch[1]) {
-    return urlMatch[1];
-  }
-
-  const queryMatch = stringValue.match(/[?&]id=([a-zA-Z0-9-_]+)/);
-  if (queryMatch && queryMatch[1]) {
-    return queryMatch[1];
-  }
-
-  return '';
 }
 
 console.log('✅ Enhanced Schedule Management Backend v4.1 loaded successfully');

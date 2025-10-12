@@ -10,303 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────
 // Cache & constants (guarded)
 // ────────────────────────────────────────────────────────────────────────────
-var __luminaGlobalRoot__ = (typeof globalThis !== 'undefined')
-  ? globalThis
-  : (typeof window !== 'undefined')
-    ? window
-    : (typeof global !== 'undefined')
-      ? global
-      : this;
-
-if (!__luminaGlobalRoot__.G || typeof __luminaGlobalRoot__.G !== 'object') {
-  __luminaGlobalRoot__.G = {};
-}
-
-var LUMINA_GLOBALS = __luminaGlobalRoot__.G;
-
 if (typeof CACHE_TTL_SEC === 'undefined') var CACHE_TTL_SEC = 600;
 if (typeof PAGE_SIZE === 'undefined') var PAGE_SIZE = 10;
 if (typeof MAX_BATCH_SIZE === 'undefined') var MAX_BATCH_SIZE = 200;
-if (typeof scriptCache === 'undefined') {
-  var scriptCache;
-  try {
-    scriptCache = CacheService.getScriptCache();
-  } catch (cacheErr) {
-    scriptCache = {
-      get: function () { return null; },
-      put: function () {},
-      remove: function () {}
-    };
-  }
-}
-
-(function (global) {
-  const root = global || this;
-  const luminaGlobals = (LUMINA_GLOBALS && typeof LUMINA_GLOBALS === 'object')
-    ? LUMINA_GLOBALS
-    : (function () {
-      if (!root.G || typeof root.G !== 'object') {
-        root.G = {};
-      }
-      return root.G;
-    })();
-
-  function mirrorConstant(name) {
-    const hasGlobalValue = typeof root[name] !== 'undefined';
-    const hasNamespaceValue = typeof luminaGlobals[name] !== 'undefined';
-
-    if (hasGlobalValue && !hasNamespaceValue) {
-      luminaGlobals[name] = root[name];
-    } else if (!hasGlobalValue && hasNamespaceValue) {
-      root[name] = luminaGlobals[name];
-    }
-  }
-
-  [
-    'CACHE_TTL_SEC',
-    'PAGE_SIZE',
-    'MAX_BATCH_SIZE',
-    'USERS_SHEET',
-    'ROLES_SHEET',
-    'USER_ROLES_SHEET',
-    'USER_CLAIMS_SHEET',
-    'SESSIONS_SHEET',
-    'CAMPAIGNS_SHEET',
-    'PAGES_SHEET',
-    'CAMPAIGN_PAGES_SHEET',
-    'PAGE_CATEGORIES_SHEET',
-    'CAMPAIGN_USER_PERMISSIONS_SHEET',
-    'USER_MANAGERS_SHEET',
-    'USER_CAMPAIGNS_SHEET',
-    'DEBUG_LOGS_SHEET',
-    'ERROR_LOGS_SHEET',
-    'NOTIFICATIONS_SHEET',
-    'MULTI_CAMPAIGN_NAME',
-    'MULTI_CAMPAIGN_ICON',
-    'CHAT_GROUPS_SHEET',
-    'CHAT_CHANNELS_SHEET',
-    'CHAT_MESSAGES_SHEET',
-    'CHAT_GROUP_MEMBERS_SHEET',
-    'CHAT_MESSAGE_REACTIONS_SHEET',
-    'CHAT_USER_PREFERENCES_SHEET',
-    'CHAT_ANALYTICS_SHEET',
-    'CHAT_CHANNEL_MEMBERS_SHEET',
-    'LUMINA_IDENTITY_SHEET',
-    'USER_INSURANCE_SHEET',
-    'LUMINA_IDENTITY_LOGS_SHEET',
-    'IDENTITY_ROLE_PERMISSIONS_SHEET',
-    'IDENTITY_OTP_SHEET',
-    'IDENTITY_LOGIN_ATTEMPTS_SHEET',
-    'IDENTITY_EQUIPMENT_SHEET',
-    'IDENTITY_EMPLOYMENT_STATUS_SHEET',
-    'IDENTITY_ELIGIBILITY_RULES_SHEET',
-    'IDENTITY_AUDIT_LOG_SHEET',
-    'IDENTITY_FEATURE_FLAGS_SHEET',
-    'IDENTITY_POLICIES_SHEET',
-    'IDENTITY_QUALITY_SCORES_SHEET',
-    'IDENTITY_ATTENDANCE_SHEET',
-    'IDENTITY_PERFORMANCE_SHEET',
-    'DEFAULT_CAMPAIGN_ID',
-    'MANAGER_USERS_SHEET',
-    'SCHEDULE_SPREADSHEET_ID',
-    'FALLBACK_TO_MAIN_SPREADSHEET',
-    'SCHEDULE_GENERATION_SHEET',
-    'SHIFT_SLOTS_SHEET',
-    'SHIFT_SWAPS_SHEET',
-    'SCHEDULE_TEMPLATES_SHEET',
-    'SCHEDULE_NOTIFICATIONS_SHEET',
-    'SCHEDULE_ADHERENCE_SHEET',
-    'SCHEDULE_CONFLICTS_SHEET',
-    'RECURRING_SCHEDULES_SHEET',
-    'ATTENDANCE_STATUS_SHEET',
-    'USER_HOLIDAY_PAY_STATUS_SHEET',
-    'HOLIDAYS_SHEET'
-  ].forEach(mirrorConstant);
-
-  function cloneValue_(value) {
-    if (value === null || typeof value === 'undefined') return value;
-    if (Array.isArray(value)) return value.slice();
-    if (typeof value === 'object') {
-      const copy = {};
-      Object.keys(value).forEach(function (key) {
-        copy[key] = cloneValue_(value[key]);
-      });
-      return copy;
-    }
-    return value;
-  }
-
-  function applyDefaults_(target, defaults) {
-    const dest = (target && typeof target === 'object') ? target : {};
-    if (defaults && typeof defaults === 'object') {
-      Object.keys(defaults).forEach(function (key) {
-        const defVal = defaults[key];
-        if (defVal && typeof defVal === 'object' && !Array.isArray(defVal)) {
-          dest[key] = applyDefaults_(dest[key], defVal);
-        } else if (typeof dest[key] === 'undefined') {
-          dest[key] = cloneValue_(defVal);
-        }
-      });
-    }
-    return dest;
-  }
-
-  function logPropertyWarning_(label, error) {
-    if (!error) return;
-    const message = (error && error.message) ? String(error.message) : '';
-    if (message && message.toLowerCase().indexOf('is not defined') !== -1) {
-      return;
-    }
-    try {
-      console.warn(label, error);
-    } catch (_) {}
-  }
-
-  function resolveOkrCacheDuration_(fallbackSeconds) {
-    let resolved = null;
-    try {
-      const props = PropertiesService.getScriptProperties();
-      if (props && typeof props.getProperty === 'function') {
-        const stored = props.getProperty('OKR_CACHE_DURATION');
-        if (stored) {
-          const parsed = parseInt(String(stored).trim(), 10);
-          if (isFinite(parsed) && parsed > 0) {
-            resolved = parsed;
-          }
-        }
-      }
-    } catch (cachePropErr) {
-      logPropertyWarning_('MainUtilities: unable to read OKR cache duration', cachePropErr);
-    }
-    if (!isFinite(resolved) || resolved <= 0) {
-      return fallbackSeconds;
-    }
-    return resolved;
-  }
-
-  const okrConfigDefaults = {
-    SHEETS: {
-      CALLS: 'Call_Reports',
-      ATTENDANCE: 'Attendance',
-      QA: 'QA_Records',
-      TASKS: 'Tasks',
-      COACHING: 'Coaching',
-      GOALS: 'Goals',
-      CAMPAIGNS: 'Campaigns',
-      OKR_DATA: 'OKR_Data'
-    },
-    DEFAULT_TARGETS: {
-      productivity: { callsPerHour: 12, tasksCompleted: 20 },
-      quality: { csat: 90, qaScore: 85 },
-      efficiency: { responseTimeMin: 6, resolutionRate: 0.85 },
-      engagement: { participationRate: 0.75, feedbackScore: 4.5 },
-      growth: { conversionRate: 0.3, revenue: 10000 }
-    },
-    STATUS_THRESHOLDS: { EXCELLENT: 80, GOOD: 60, NEEDS_IMPROVEMENT: 0 },
-    GRADE_THRESHOLDS: { A: 90, B: 80, C: 70, D: 60 },
-    CACHE_DURATION: 300
-  };
-
-  const existingConfig = (typeof root.CONFIG === 'object' && root.CONFIG) ? root.CONFIG : {};
-  const mergedConfig = applyDefaults_(existingConfig, okrConfigDefaults);
-  mergedConfig.CACHE_DURATION = resolveOkrCacheDuration_(mergedConfig.CACHE_DURATION || okrConfigDefaults.CACHE_DURATION);
-
-  root.CONFIG = mergedConfig;
-  luminaGlobals.CONFIG = mergedConfig;
-
-  function ensureNamespaceConfigValue_(key, value) {
-    if (typeof luminaGlobals[key] === 'undefined') {
-      luminaGlobals[key] = cloneValue_(value);
-    }
-  }
-
-  ensureNamespaceConfigValue_('SHEETS', mergedConfig.SHEETS);
-  ensureNamespaceConfigValue_('DEFAULT_TARGETS', mergedConfig.DEFAULT_TARGETS);
-  ensureNamespaceConfigValue_('STATUS_THRESHOLDS', mergedConfig.STATUS_THRESHOLDS);
-  ensureNamespaceConfigValue_('GRADE_THRESHOLDS', mergedConfig.GRADE_THRESHOLDS);
-  if (typeof luminaGlobals.CACHE_DURATION === 'undefined') {
-    luminaGlobals.CACHE_DURATION = mergedConfig.CACHE_DURATION;
-  }
-
-  function resolveDefaultCampaignId_() {
-    try {
-      const props = PropertiesService.getScriptProperties();
-      if (props && typeof props.getProperty === 'function') {
-        const stored = props.getProperty('DEFAULT_CAMPAIGN_ID');
-        if (stored && String(stored).trim()) {
-          return String(stored).trim();
-        }
-      }
-    } catch (defaultCampaignErr) {
-      logPropertyWarning_('MainUtilities: unable to read DEFAULT_CAMPAIGN_ID', defaultCampaignErr);
-    }
-    if (typeof root.MULTI_CAMPAIGN_NAME === 'string' && root.MULTI_CAMPAIGN_NAME) {
-      return root.MULTI_CAMPAIGN_NAME;
-    }
-    return 'SYSTEM_ADMIN';
-  }
-
-  if (typeof luminaGlobals.DEFAULT_CAMPAIGN_ID === 'undefined') {
-    luminaGlobals.DEFAULT_CAMPAIGN_ID = resolveDefaultCampaignId_();
-  }
-  if (typeof root.DEFAULT_CAMPAIGN_ID === 'undefined') {
-    root.DEFAULT_CAMPAIGN_ID = luminaGlobals.DEFAULT_CAMPAIGN_ID;
-  }
-
-  if (typeof luminaGlobals.MANAGER_USERS_SHEET === 'undefined') {
-    const managerSheet = (typeof root.USER_MANAGERS_SHEET === 'string' && root.USER_MANAGERS_SHEET)
-      || (typeof luminaGlobals.USER_MANAGERS_SHEET === 'string' && luminaGlobals.USER_MANAGERS_SHEET)
-      || 'UserManagers';
-    luminaGlobals.MANAGER_USERS_SHEET = managerSheet;
-  }
-  if (typeof root.MANAGER_USERS_SHEET === 'undefined') {
-    root.MANAGER_USERS_SHEET = luminaGlobals.MANAGER_USERS_SHEET;
-  }
-
-  if (typeof luminaGlobals.scriptCache === 'undefined') {
-    luminaGlobals.scriptCache = root.scriptCache;
-  }
-
-  if (typeof luminaGlobals.scriptCache === 'undefined' || luminaGlobals.scriptCache === null) {
-    try {
-      luminaGlobals.scriptCache = CacheService.getScriptCache();
-    } catch (err) {
-      luminaGlobals.scriptCache = {
-        get: function () { return null; },
-        put: function () {},
-        remove: function () {}
-      };
-    }
-  }
-
-  if (typeof root.scriptCache === 'undefined') {
-    root.scriptCache = luminaGlobals.scriptCache;
-  }
-
-  if (typeof luminaGlobals.MAIN_SPREADSHEET_ID === 'undefined') {
-    let resolvedId = '';
-    try {
-      const props = PropertiesService.getScriptProperties();
-      resolvedId = props.getProperty('MAIN_SPREADSHEET_ID') || '';
-    } catch (propErr) {
-      resolvedId = '';
-    }
-
-    if (!resolvedId) {
-      try {
-        resolvedId = SpreadsheetApp.getActiveSpreadsheet().getId();
-      } catch (ssErr) {
-        resolvedId = '';
-      }
-    }
-
-    luminaGlobals.MAIN_SPREADSHEET_ID = resolvedId;
-  }
-
-  if (typeof root.MAIN_SPREADSHEET_ID === 'undefined') {
-    root.MAIN_SPREADSHEET_ID = luminaGlobals.MAIN_SPREADSHEET_ID;
-  }
-})(typeof globalThis !== 'undefined' ? globalThis : this);
+if (typeof scriptCache === 'undefined') var scriptCache = CacheService.getScriptCache();
 
 // ────────────────────────────────────────────────────────────────────────────
 // Identity & Core System Sheet names (guarded)
@@ -346,454 +53,22 @@ if (typeof CHAT_CHANNEL_MEMBERS_SHEET === 'undefined') var CHAT_CHANNEL_MEMBERS_
 // ────────────────────────────────────────────────────────────────────────────
 // Headers (guarded)
 // ────────────────────────────────────────────────────────────────────────────
-if (typeof LUMINA_IDENTITY_SHEET === 'undefined') var LUMINA_IDENTITY_SHEET = USERS_SHEET;
-if (typeof USER_INSURANCE_SHEET === 'undefined') var USER_INSURANCE_SHEET = 'UserInsurance';
-if (typeof LUMINA_IDENTITY_LOGS_SHEET === 'undefined') var LUMINA_IDENTITY_LOGS_SHEET = 'LuminaIdentityLogs';
+if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
+  "ID", "UserName", "FullName", "Email", "CampaignID", "PasswordHash", "ResetRequired",
+  "EmailConfirmation", "EmailConfirmed", "PhoneNumber", "EmploymentStatus", "HireDate", "Country",
+  "LockoutEnd", "TwoFactorEnabled", "CanLogin", "Roles", "Pages", "CreatedAt", "UpdatedAt", "IsAdmin"
+];
 
-const IDENTITY_REPOSITORY_TABLE_HEADERS = (typeof IdentityRepository !== 'undefined'
-  && IdentityRepository
-  && IdentityRepository.TABLE_HEADERS
-  && typeof IdentityRepository.TABLE_HEADERS === 'object')
-  ? IdentityRepository.TABLE_HEADERS
-  : null;
-
-const IDENTITY_TABLE_HEADER_DEFAULTS = Object.freeze({
-  Campaigns: Object.freeze(['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON']),
-  Users: Object.freeze(['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt', 'Role', 'CampaignId', 'UpdatedAt', 'FlagsJson', 'Watchlist']),
-  UserCampaigns: Object.freeze(['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist']),
-  Roles: Object.freeze(['RoleId', 'Role', 'Name', 'Description', 'PermissionsJson', 'DefaultForCampaignManager', 'IsGlobal']),
-  RolePermissions: Object.freeze(['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed']),
-  OTP: Object.freeze(['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount']),
-  Sessions: Object.freeze(['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA']),
-  LoginAttempts: Object.freeze(['EmailOrUsername', 'Count1m', 'Count15m', 'LastAttemptAt', 'LockedUntil']),
-  Equipment: Object.freeze(['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status']),
-  EmploymentStatus: Object.freeze(['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes']),
-  EligibilityRules: Object.freeze(['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active']),
-  AuditLog: Object.freeze(['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'Mode', 'IP', 'UA']),
-  FeatureFlags: Object.freeze(['Key', 'Value', 'Env', 'Description', 'UpdatedAt', 'Flag', 'Notes']),
-  Policies: Object.freeze(['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt']),
-  QualityScores: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Score', 'Date']),
-  Attendance: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Date', 'State', 'Start', 'End', 'Productive', 'Minutes']),
-  Performance: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']),
-  Shifts: Object.freeze(['ShiftId', 'CampaignId', 'UserId', 'Date', 'StartTime', 'EndTime', 'Status']),
-  QAAudits: Object.freeze(['AuditId', 'UserId', 'CampaignId', 'Score', 'Band', 'AutoFail', 'CreatedAt', 'DetailsUrl']),
-  Coaching: Object.freeze(['CoachId', 'UserId', 'CampaignId', 'Plan', 'DueDate', 'Status']),
-  Benefits: Object.freeze(['UserId', 'Eligible', 'Reason', 'EffectiveDate']),
-  PayrollSync: Object.freeze(['CampaignId', 'RunId', 'Status', 'ErrorsJson', 'StartedAt', 'EndedAt']),
-  SystemMessages: Object.freeze(['MessageId', 'Severity', 'Title', 'Body', 'TargetRole', 'TargetCampaignId', 'Status', 'CreatedAt', 'ResolvedAt', 'CreatedBy', 'MetadataJson']),
-  Jobs: Object.freeze(['JobId', 'Name', 'Schedule', 'LastRunAt', 'LastStatus', 'ConfigJson', 'Enabled', 'RunHash'])
-});
-
-LUMINA_GLOBALS.IDENTITY_TABLE_HEADER_DEFAULTS = IDENTITY_TABLE_HEADER_DEFAULTS;
-__luminaGlobalRoot__.LUMINA_IDENTITY_TABLE_HEADER_DEFAULTS = IDENTITY_TABLE_HEADER_DEFAULTS;
-
-if (typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS === 'undefined'
-  || !LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS
-  || typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS !== 'object') {
-  var LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = {};
-}
-
-Object.keys(IDENTITY_TABLE_HEADER_DEFAULTS).forEach(function (tableName) {
-  const defaults = IDENTITY_TABLE_HEADER_DEFAULTS[tableName];
-  if (!Array.isArray(LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName])
-    || !LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName].length) {
-    LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName] = defaults.slice();
-  }
-});
-
-LUMINA_GLOBALS.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS;
-__luminaGlobalRoot__.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS;
-
-function getIdentityTableHeaders_(tableName) {
-  const fromRepository = IDENTITY_REPOSITORY_TABLE_HEADERS
-    && Object.prototype.hasOwnProperty.call(IDENTITY_REPOSITORY_TABLE_HEADERS, tableName)
-    ? IDENTITY_REPOSITORY_TABLE_HEADERS[tableName]
-    : null;
-
-  if (Array.isArray(fromRepository) && fromRepository.length) {
-    return fromRepository.slice();
-  }
-
-  const fallback = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName];
-  return Array.isArray(fallback) ? fallback.slice() : [];
-}
-
-if (typeof getLuminaIdentityTableHeaders === 'undefined') {
-  var getLuminaIdentityTableHeaders = function (tableName) {
-    return getIdentityTableHeaders_(tableName);
-  };
-}
-
-const LUMINA_IDENTITY_CANONICAL_USER_HEADERS = getIdentityTableHeaders_('Users');
-
-const LUMINA_IDENTITY_HEADER_GROUPS = {
-  core: LUMINA_IDENTITY_CANONICAL_USER_HEADERS.concat([
-    'ID',
-    'UserName',
-    'NormalizedUserName',
-    'Email',
-    'NormalizedEmail',
-    'FirstName',
-    'MiddleName',
-    'LastName',
-    'FullName',
-    'DisplayName',
-    'PreferredName',
-    'Pronouns',
-    'AvatarUrl',
-    'CampaignID',
-    'PrimaryCampaignId',
-    'CampaignContext',
-    'IdentityVersion'
-  ]),
-  contact: [
-    'PhoneNumber',
-    'PhoneNumberConfirmed',
-    'Country',
-    'Region',
-    'Timezone',
-    'Locale'
-  ],
-  employment: [
-    'EmploymentStatus',
-    'EmploymentType',
-    'Department',
-    'JobTitle',
-    'ManagerId',
-    'ManagerName',
-    'HireDate',
-    'SeniorityDate',
-    'TerminationDate',
-    'ProbationMonths',
-    'ProbationEnd',
-    'ProbationEndDate'
-  ],
-  campaigns: [
-    'CampaignAssignments',
-    'CampaignIds',
-    'CampaignNames',
-    'PrimaryCampaignName',
-    'SecondaryCampaignIds'
-  ],
-  authorization: [
-    'IsAdmin',
-    'Roles',
-    'RoleIds',
-    'RoleNames',
-    'PrimaryRole',
-    'Claims',
-    'ClaimTypes',
-    'Pages',
-    'Permissions',
-    'PermissionScope'
-  ],
-  security: [
-    'PasswordHash',
-    'EmailVerificationStatus',
-    'EmailVerificationCode',
-    'EmailConfirmation',
-    'EmailConfirmed',
-    'EmailVerified',
-    'LockoutEnd',
-    'LockoutEnabled',
-    'AccessFailedCount',
-    'SecurityStamp',
-    'ConcurrencyStamp',
-    'TOTPEnabled',
-    'TOTPSecretHash',
-    'Status'
-  ],
-  multiFactor: [
-    'TwoFactorEnabled',
-    'TwoFactorDelivery',
-    'TwoFactorSecret',
-    'TwoFactorRecoveryCodes',
-    'TwoFactorBackupCodes',
-    'TwoFactorEnrollmentDate',
-    'MFASecret',
-    'MFABackupCodes',
-    'MFADeliveryPreference',
-    'MFAEnabled',
-    'MFAEnforced'
-  ],
-  session: [
-    'LastLogin',
-    'LastLoginAt',
-    'LastLoginIp',
-    'LastLoginUserAgent',
-    'ActiveSessionCount',
-    'SessionIdleTimeout',
-    'SessionExpiry'
-  ],
-  audit: [
-    'CreatedAt',
-    'CreatedBy',
-    'UpdatedAt',
-    'UpdatedBy',
-    'DeletedAt',
-    'IdentityEvaluatedAt',
-    'IdentityEvaluationWarnings'
-  ],
-  metadata: [
-    'Notes',
-    'Tags',
-    'CustomAttributes'
-  ]
-};
-
-const DEFAULT_USER_HEADERS_FALLBACK = [
-  "UserId",
+if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = [
   "ID",
-  "Username",
-  "UserName",
-  "FullName",
-  "Email",
-  "NormalizedEmail",
-  "EmailVerified",
-  "Status",
-  "CampaignID",
-  "LastLoginAt",
+  "Name",
+  "NormalizedName",
+  "Scope",
+  "Description",
   "CreatedAt",
   "UpdatedAt",
-  "IsAdmin",
-  "PhoneNumber",
-  "EmploymentStatus",
-  "HireDate",
-  "Country",
-  "Roles",
-  "Pages",
-  "NormalizedUserName",
-  "PreferredLocale",
-  "TimeZone",
-  "Language",
-  "ManagerId",
-  "ManagerEmail",
-  "Department",
-  "Title",
-  "EmployeeId",
-  "EmployeeType",
-  "Location",
-  "EmploymentType",
-  "EmploymentStartDate",
-  "EmploymentEndDate",
-  "ProbationEndDate",
-  "Notes",
-  "Tags",
-  "CustomAttributes"
+  "DeletedAt"
 ];
-
-function flattenIdentityHeaders_(groups) {
-  const seen = new Set();
-  const flattened = [];
-  Object.keys(groups).forEach(function (key) {
-    const headers = Array.isArray(groups[key]) ? groups[key] : [];
-    headers.forEach(function (header) {
-      const normalized = header == null ? '' : String(header).trim();
-      if (!normalized || seen.has(normalized)) return;
-      seen.add(normalized);
-      flattened.push(normalized);
-    });
-  });
-  return flattened;
-}
-
-if (typeof LUMINA_IDENTITY_HEADERS === 'undefined') {
-  var LUMINA_IDENTITY_HEADERS = flattenIdentityHeaders_(LUMINA_IDENTITY_HEADER_GROUPS);
-}
-
-const USER_INSURANCE_FIELD_KEYS = {
-  UserId: 'UserId',
-  PrimaryCampaignId: 'PrimaryCampaignId',
-  EmploymentStatus: 'EmploymentStatus',
-  HireDate: 'HireDate',
-  TerminationDate: 'TerminationDate',
-  ProbationMonths: 'ProbationMonths',
-  ProbationEnd: 'ProbationEnd',
-  ProbationEndDate: 'ProbationEndDate',
-  InsuranceEligibleDate: 'InsuranceEligibleDate',
-  InsuranceQualifiedDate: 'InsuranceQualifiedDate',
-  InsuranceEligible: 'InsuranceEligible',
-  InsuranceQualified: 'InsuranceQualified',
-  InsuranceEnrolled: 'InsuranceEnrolled',
-  InsuranceSignedUp: 'InsuranceSignedUp',
-  InsuranceCardReceivedDate: 'InsuranceCardReceivedDate',
-  LastEvaluatedAt: 'LastEvaluatedAt',
-  EvaluatedBy: 'EvaluatedBy',
-  Notes: 'Notes'
-};
-
-if (typeof USER_INSURANCE_HEADERS === 'undefined') {
-  var USER_INSURANCE_HEADERS = flattenIdentityHeaders_({
-    primary: [
-      USER_INSURANCE_FIELD_KEYS.UserId,
-      USER_INSURANCE_FIELD_KEYS.PrimaryCampaignId,
-      USER_INSURANCE_FIELD_KEYS.EmploymentStatus,
-      USER_INSURANCE_FIELD_KEYS.HireDate,
-      USER_INSURANCE_FIELD_KEYS.TerminationDate
-    ],
-    lifecycle: [
-      USER_INSURANCE_FIELD_KEYS.ProbationMonths,
-      USER_INSURANCE_FIELD_KEYS.ProbationEnd,
-      USER_INSURANCE_FIELD_KEYS.ProbationEndDate,
-      USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate,
-      USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate
-    ],
-    status: [
-      USER_INSURANCE_FIELD_KEYS.InsuranceEligible,
-      USER_INSURANCE_FIELD_KEYS.InsuranceQualified,
-      USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled,
-      USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp,
-      USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate
-    ],
-    audit: [
-      USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt,
-      USER_INSURANCE_FIELD_KEYS.EvaluatedBy,
-      USER_INSURANCE_FIELD_KEYS.Notes
-    ]
-  });
-}
-
-if (typeof LUMINA_IDENTITY_LOGS_HEADERS === 'undefined') {
-  var LUMINA_IDENTITY_LOGS_HEADERS = [
-    'Timestamp',
-    'EventType',
-    'UserId',
-    'UserName',
-    'DisplayName',
-    'Email',
-    'CampaignContext',
-    'RoleContext',
-    'ClaimContext',
-    'AuthenticationLevel',
-    'SessionState',
-    'Source',
-    'Message',
-    'Metadata'
-  ];
-}
-
-const LUMINA_IDENTITY_SUPPLEMENTAL_HEADERS = [
-  'ProbationMonths',
-  'ProbationEnd',
-  'ProbationEndDate',
-  'TerminationDate'
-];
-
-if (typeof USERS_HEADERS === 'undefined') {
-  var USERS_HEADERS = flattenIdentityHeaders_({
-    core: LUMINA_IDENTITY_HEADERS,
-    supplemental: LUMINA_IDENTITY_SUPPLEMENTAL_HEADERS,
-    compatibility: [
-      USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate,
-      USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate,
-      USER_INSURANCE_FIELD_KEYS.InsuranceEligible,
-      USER_INSURANCE_FIELD_KEYS.InsuranceQualified,
-      USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled,
-      USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp,
-      USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate,
-      'MFASecret',
-      'MFABackupCodes',
-      'MFADeliveryPreference',
-      'MFAEnabled'
-    ]
-  });
-
-  if (!Array.isArray(USERS_HEADERS) || USERS_HEADERS.length === 0) {
-    USERS_HEADERS = DEFAULT_USER_HEADERS_FALLBACK.slice();
-  }
-}
-
-if (typeof getCanonicalUserHeaders !== 'function') {
-  function getCanonicalUserHeaders(options) {
-    var preferIdentityService = !options || options.preferIdentityService !== false;
-
-    if (preferIdentityService
-      && typeof IdentityService !== 'undefined'
-      && IdentityService
-      && typeof IdentityService.listIdentityFields === 'function') {
-      try {
-        var identityFields = IdentityService.listIdentityFields();
-        if (Array.isArray(identityFields) && identityFields.length) {
-          return identityFields.slice();
-        }
-      } catch (identityFieldError) {
-        console.warn('getCanonicalUserHeaders: IdentityService.listIdentityFields failed', identityFieldError);
-      }
-    }
-
-    if (Array.isArray(USERS_HEADERS) && USERS_HEADERS.length) {
-      return USERS_HEADERS.slice();
-    }
-
-    return DEFAULT_USER_HEADERS_FALLBACK.slice();
-  }
-}
-
-if (typeof projectRecordToCanonicalUser !== 'function') {
-  function projectRecordToCanonicalUser(record, options) {
-    var headers = getCanonicalUserHeaders(options);
-    var projected = {};
-
-    for (var i = 0; i < headers.length; i += 1) {
-      var header = headers[i];
-      if (!header && header !== 0) {
-        continue;
-      }
-
-      var key = String(header);
-      if (!key) {
-        continue;
-      }
-
-      if (record && Object.prototype.hasOwnProperty.call(record, key)) {
-        projected[key] = record[key];
-        continue;
-      }
-
-      if (!record || typeof record !== 'object') {
-        projected[key] = '';
-        continue;
-      }
-
-      var lowerKey = key.toLowerCase();
-      var resolved = '';
-
-      Object.keys(record).some(function (candidate) {
-        if (!candidate && candidate !== 0) {
-          return false;
-        }
-
-        if (String(candidate).toLowerCase() !== lowerKey) {
-          return false;
-        }
-
-        resolved = record[candidate];
-        return true;
-      });
-
-      projected[key] = resolved;
-    }
-
-    return projected;
-  }
-}
-
-const LUMINA_ROLES_CANONICAL_HEADERS = getIdentityTableHeaders_('Roles');
-if (typeof ROLES_HEADER === 'undefined') {
-  var ROLES_HEADER = flattenIdentityHeaders_({
-    canonical: LUMINA_ROLES_CANONICAL_HEADERS,
-    legacy: [
-      "ID",
-      "Name",
-      "NormalizedName",
-      "Scope",
-      "Description",
-      "CreatedAt",
-      "UpdatedAt",
-      "DeletedAt"
-    ]
-  });
-}
 if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = [
   "ID",
   "UserId",
@@ -805,27 +80,21 @@ if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = [
   "DeletedAt"
 ];
 if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ["ID", "UserId", "ClaimType", "CreatedAt", "UpdatedAt"];
-const LUMINA_SESSIONS_CANONICAL_HEADERS = getIdentityTableHeaders_('Sessions');
-if (typeof SESSIONS_HEADERS === 'undefined') {
-  var SESSIONS_HEADERS = flattenIdentityHeaders_({
-    canonical: LUMINA_SESSIONS_CANONICAL_HEADERS,
-    legacy: [
-      "Token",
-      "TokenHash",
-      "TokenSalt",
-      "UserId",
-      "CreatedAt",
-      "LastActivityAt",
-      "ExpiresAt",
-      "IdleTimeoutMinutes",
-      "RememberMe",
-      "CampaignScope",
-      "UserAgent",
-      "IpAddress",
-      "ServerIp"
-    ]
-  });
-}
+if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
+  "Token",
+  "TokenHash",
+  "TokenSalt",
+  "UserId",
+  "CreatedAt",
+  "LastActivityAt",
+  "ExpiresAt",
+  "IdleTimeoutMinutes",
+  "RememberMe",
+  "CampaignScope",
+  "UserAgent",
+  "IpAddress",
+  "ServerIp"
+];
 
 if (typeof CHAT_GROUPS_HEADERS === 'undefined') var CHAT_GROUPS_HEADERS = ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
 if (typeof CHAT_CHANNELS_HEADERS === 'undefined') var CHAT_CHANNELS_HEADERS = ['ID', 'GroupId', 'Name', 'Description', 'IsPrivate', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
@@ -836,25 +105,19 @@ if (typeof CHAT_USER_PREFERENCES_HEADERS === 'undefined') var CHAT_USER_PREFEREN
 if (typeof CHAT_ANALYTICS_HEADERS === 'undefined') var CHAT_ANALYTICS_HEADERS = ['Timestamp', 'UserId', 'Action', 'Details', 'SessionId'];
 if (typeof CHAT_CHANNEL_MEMBERS_HEADERS === 'undefined') var CHAT_CHANNEL_MEMBERS_HEADERS = ["ID", "ChannelId", "UserId", "JoinedAt", "Role", "IsActive"];
 
-const LUMINA_CAMPAIGN_CANONICAL_HEADERS = getIdentityTableHeaders_('Campaigns');
-if (typeof CAMPAIGNS_HEADERS === 'undefined') {
-  var CAMPAIGNS_HEADERS = flattenIdentityHeaders_({
-    canonical: LUMINA_CAMPAIGN_CANONICAL_HEADERS,
-    legacy: [
-      "ID",
-      "Name",
-      "Description",
-      "ClientName",
-      "Status",
-      "Channel",
-      "Timezone",
-      "SlaTier",
-      "CreatedAt",
-      "UpdatedAt",
-      "DeletedAt"
-    ]
-  });
-}
+if (typeof CAMPAIGNS_HEADERS === 'undefined') var CAMPAIGNS_HEADERS = [
+  "ID",
+  "Name",
+  "Description",
+  "ClientName",
+  "Status",
+  "Channel",
+  "Timezone",
+  "SlaTier",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
 if (typeof PAGES_HEADERS === 'undefined') var PAGES_HEADERS = ["PageKey", "PageTitle", "PageIcon", "Description", "IsSystemPage", "RequiresAdmin", "CreatedAt", "UpdatedAt"];
 if (typeof CAMPAIGN_PAGES_HEADERS === 'undefined') var CAMPAIGN_PAGES_HEADERS = ["ID", "CampaignID", "PageKey", "PageTitle", "PageIcon", "CategoryID", "SortOrder", "IsActive", "CreatedAt", "UpdatedAt"];
 if (typeof PAGE_CATEGORIES_HEADERS === 'undefined') var PAGE_CATEGORIES_HEADERS = ["ID", "CampaignID", "CategoryName", "CategoryIcon", "SortOrder", "IsActive", "CreatedAt", "UpdatedAt"];
@@ -873,347 +136,34 @@ if (typeof CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') var CAMPAIGN_USER_
 ];
 if (typeof USER_MANAGERS_HEADERS === 'undefined') var USER_MANAGERS_HEADERS = ["ID", "ManagerUserID", "ManagedUserID", "CampaignID", "CreatedAt", "UpdatedAt"];
 if (typeof ATTENDANCE_LOG_HEADERS === 'undefined') var ATTENDANCE_LOG_HEADERS = ["ID", "Timestamp", "User", "DurationMin", "State", "Date", "UserID", "CreatedAt", "UpdatedAt"];
-const LUMINA_USER_CAMPAIGN_CANONICAL_HEADERS = getIdentityTableHeaders_('UserCampaigns');
-if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') {
-  var USER_CAMPAIGNS_HEADERS = flattenIdentityHeaders_({
-    canonical: LUMINA_USER_CAMPAIGN_CANONICAL_HEADERS,
-    legacy: [
-      "ID",
-      "UserId",
-      "CampaignId",
-      "Role",
-      "IsPrimary",
-      "CreatedAt",
-      "UpdatedAt",
-      "DeletedAt"
-    ]
-  });
-}
+if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') var USER_CAMPAIGNS_HEADERS = [
+  "ID",
+  "UserId",
+  "CampaignId",
+  "Role",
+  "IsPrimary",
+  "CreatedAt",
+  "UpdatedAt",
+  "DeletedAt"
+];
 
 if (typeof DEBUG_LOGS_HEADERS === 'undefined') var DEBUG_LOGS_HEADERS = ["Timestamp", "Message"];
 if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timestamp", "Error", "Stack"];
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
 
-if (typeof IDENTITY_ROLE_PERMISSIONS_SHEET === 'undefined') var IDENTITY_ROLE_PERMISSIONS_SHEET = 'RolePermissions';
-if (typeof IDENTITY_ROLE_PERMISSIONS_HEADERS === 'undefined') var IDENTITY_ROLE_PERMISSIONS_HEADERS = getIdentityTableHeaders_('RolePermissions');
-
-if (typeof IDENTITY_OTP_SHEET === 'undefined') var IDENTITY_OTP_SHEET = 'OTP';
-if (typeof IDENTITY_OTP_HEADERS === 'undefined') var IDENTITY_OTP_HEADERS = getIdentityTableHeaders_('OTP');
-
-if (typeof IDENTITY_LOGIN_ATTEMPTS_SHEET === 'undefined') var IDENTITY_LOGIN_ATTEMPTS_SHEET = 'LoginAttempts';
-if (typeof IDENTITY_LOGIN_ATTEMPTS_HEADERS === 'undefined') var IDENTITY_LOGIN_ATTEMPTS_HEADERS = getIdentityTableHeaders_('LoginAttempts');
-
-if (typeof IDENTITY_EQUIPMENT_SHEET === 'undefined') var IDENTITY_EQUIPMENT_SHEET = 'Equipment';
-if (typeof IDENTITY_EQUIPMENT_HEADERS === 'undefined') var IDENTITY_EQUIPMENT_HEADERS = getIdentityTableHeaders_('Equipment');
-
-if (typeof IDENTITY_EMPLOYMENT_STATUS_SHEET === 'undefined') var IDENTITY_EMPLOYMENT_STATUS_SHEET = 'EmploymentStatus';
-if (typeof IDENTITY_EMPLOYMENT_STATUS_HEADERS === 'undefined') var IDENTITY_EMPLOYMENT_STATUS_HEADERS = getIdentityTableHeaders_('EmploymentStatus');
-
-if (typeof IDENTITY_ELIGIBILITY_RULES_SHEET === 'undefined') var IDENTITY_ELIGIBILITY_RULES_SHEET = 'EligibilityRules';
-if (typeof IDENTITY_ELIGIBILITY_RULES_HEADERS === 'undefined') var IDENTITY_ELIGIBILITY_RULES_HEADERS = getIdentityTableHeaders_('EligibilityRules');
-
-if (typeof IDENTITY_AUDIT_LOG_SHEET === 'undefined') var IDENTITY_AUDIT_LOG_SHEET = 'AuditLog';
-if (typeof IDENTITY_AUDIT_LOG_HEADERS === 'undefined') var IDENTITY_AUDIT_LOG_HEADERS = getIdentityTableHeaders_('AuditLog');
-
-if (typeof IDENTITY_FEATURE_FLAGS_SHEET === 'undefined') var IDENTITY_FEATURE_FLAGS_SHEET = 'FeatureFlags';
-if (typeof IDENTITY_FEATURE_FLAGS_HEADERS === 'undefined') var IDENTITY_FEATURE_FLAGS_HEADERS = getIdentityTableHeaders_('FeatureFlags');
-
-if (typeof IDENTITY_POLICIES_SHEET === 'undefined') var IDENTITY_POLICIES_SHEET = 'Policies';
-if (typeof IDENTITY_POLICIES_HEADERS === 'undefined') var IDENTITY_POLICIES_HEADERS = getIdentityTableHeaders_('Policies');
-
-if (typeof IDENTITY_QUALITY_SCORES_SHEET === 'undefined') var IDENTITY_QUALITY_SCORES_SHEET = 'QualityScores';
-if (typeof IDENTITY_QUALITY_SCORES_HEADERS === 'undefined') var IDENTITY_QUALITY_SCORES_HEADERS = getIdentityTableHeaders_('QualityScores');
-
-if (typeof IDENTITY_ATTENDANCE_SHEET === 'undefined') var IDENTITY_ATTENDANCE_SHEET = 'Attendance';
-if (typeof IDENTITY_ATTENDANCE_HEADERS === 'undefined') var IDENTITY_ATTENDANCE_HEADERS = getIdentityTableHeaders_('Attendance');
-
-if (typeof IDENTITY_PERFORMANCE_SHEET === 'undefined') var IDENTITY_PERFORMANCE_SHEET = 'Performance';
-if (typeof IDENTITY_PERFORMANCE_HEADERS === 'undefined') var IDENTITY_PERFORMANCE_HEADERS = getIdentityTableHeaders_('Performance');
-
-// ────────────────────────────────────────────────────────────────────────────
-// Canonical identity/authentication sheet definitions
-// ────────────────────────────────────────────────────────────────────────────
-
-function buildCanonicalIdentitySheetMap_() {
-  const definitions = {};
-
-  const addDefinition = (name, headers) => {
-    if (!name) return;
-    const trimmedName = String(name).trim();
-    if (!trimmedName || definitions[trimmedName]) return;
-
-    if (!Array.isArray(headers)) return;
-    const normalized = headers
-      .map(header => (header === null || typeof header === 'undefined') ? '' : String(header).trim())
-      .filter(Boolean);
-    if (!normalized.length) return;
-
-    definitions[trimmedName] = normalized;
-  };
-
-  addDefinition(LUMINA_IDENTITY_SHEET, LUMINA_IDENTITY_HEADERS);
-  addDefinition(USERS_SHEET, USERS_HEADERS);
-  addDefinition(ROLES_SHEET, ROLES_HEADER);
-  addDefinition(USER_ROLES_SHEET, USER_ROLES_HEADER);
-  addDefinition(USER_CLAIMS_SHEET, CLAIMS_HEADERS);
-  addDefinition(SESSIONS_SHEET, SESSIONS_HEADERS);
-  addDefinition(CAMPAIGNS_SHEET, CAMPAIGNS_HEADERS);
-  addDefinition(PAGES_SHEET, PAGES_HEADERS);
-  addDefinition(CAMPAIGN_PAGES_SHEET, CAMPAIGN_PAGES_HEADERS);
-  addDefinition(PAGE_CATEGORIES_SHEET, PAGE_CATEGORIES_HEADERS);
-  addDefinition(CAMPAIGN_USER_PERMISSIONS_SHEET, CAMPAIGN_USER_PERMISSIONS_HEADERS);
-  addDefinition(USER_MANAGERS_SHEET, USER_MANAGERS_HEADERS);
-  addDefinition(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
-  addDefinition(USER_INSURANCE_SHEET, USER_INSURANCE_HEADERS);
-  addDefinition(LUMINA_IDENTITY_LOGS_SHEET, LUMINA_IDENTITY_LOGS_HEADERS);
-  addDefinition(IDENTITY_ROLE_PERMISSIONS_SHEET, IDENTITY_ROLE_PERMISSIONS_HEADERS);
-  addDefinition(IDENTITY_OTP_SHEET, IDENTITY_OTP_HEADERS);
-  addDefinition(IDENTITY_LOGIN_ATTEMPTS_SHEET, IDENTITY_LOGIN_ATTEMPTS_HEADERS);
-  addDefinition(IDENTITY_EQUIPMENT_SHEET, IDENTITY_EQUIPMENT_HEADERS);
-  addDefinition(IDENTITY_EMPLOYMENT_STATUS_SHEET, IDENTITY_EMPLOYMENT_STATUS_HEADERS);
-  addDefinition(IDENTITY_ELIGIBILITY_RULES_SHEET, IDENTITY_ELIGIBILITY_RULES_HEADERS);
-  addDefinition(IDENTITY_AUDIT_LOG_SHEET, IDENTITY_AUDIT_LOG_HEADERS);
-  addDefinition(IDENTITY_FEATURE_FLAGS_SHEET, IDENTITY_FEATURE_FLAGS_HEADERS);
-  addDefinition(IDENTITY_POLICIES_SHEET, IDENTITY_POLICIES_HEADERS);
-  addDefinition(IDENTITY_QUALITY_SCORES_SHEET, IDENTITY_QUALITY_SCORES_HEADERS);
-  addDefinition(IDENTITY_ATTENDANCE_SHEET, IDENTITY_ATTENDANCE_HEADERS);
-  addDefinition(IDENTITY_PERFORMANCE_SHEET, IDENTITY_PERFORMANCE_HEADERS);
-
-  return definitions;
-}
-
-if (typeof listCanonicalIdentitySheets !== 'function') {
-  var listCanonicalIdentitySheets = function () {
-    const map = buildCanonicalIdentitySheetMap_();
-    return Object.keys(map).map(name => ({ name, headers: map[name].slice() }));
-  };
-}
-
-if (typeof synchronizeLuminaIdentityHeaders === 'undefined') {
-  function synchronizeLuminaIdentityHeaders(options = {}) {
-    const sheetName = options && options.sheetName
-      ? String(options.sheetName)
-      : (LUMINA_IDENTITY_SHEET || USERS_SHEET);
-
-    if (!sheetName) {
-      throw new Error('Lumina Identity sheet name is not defined.');
-    }
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sh = ss.getSheetByName(sheetName);
-    const canonical = Array.isArray(USERS_HEADERS) && USERS_HEADERS.length
-      ? USERS_HEADERS.slice()
-      : (typeof getCanonicalUserHeaders === 'function'
-        ? getCanonicalUserHeaders({ preferIdentityService: false })
-        : []);
-
-    if (!sh) {
-      if (typeof ensureSheetWithHeaders === 'function') {
-        sh = ensureSheetWithHeaders(sheetName, canonical);
-      } else {
-        sh = ss.insertSheet(sheetName);
-        if (canonical.length) {
-          sh.getRange(1, 1, 1, canonical.length).setValues([canonical]);
-          sh.setFrozenRows(1);
-        }
-      }
-    }
-
-    if (!Array.isArray(canonical) || !canonical.length) {
-      throw new Error('Unable to determine canonical identity headers.');
-    }
-
-    syncSheetColumnsAndHeaders_(sh, canonical);
-
-    return {
-      sheet: sheetName,
-      headers: canonical.slice(),
-      headerCount: canonical.length
-    };
-  }
-}
-
-if (typeof getCanonicalSheetHeaders !== 'function') {
-  function getCanonicalSheetHeaders(sheetName) {
-    if (!sheetName && sheetName !== 0) return null;
-    const target = String(sheetName).trim();
-    if (!target) return null;
-    const map = buildCanonicalIdentitySheetMap_();
-    const headers = map[target];
-    return Array.isArray(headers) ? headers.slice() : null;
-  }
-}
-
-function ensureSheetStructureFromDefinition_(definition) {
-  const result = {
-    sheet: definition && definition.name ? definition.name : '',
-    ensured: false,
-    method: null,
-    error: null
-  };
-
-  if (!definition || !definition.name || !Array.isArray(definition.headers) || !definition.headers.length) {
-    result.error = 'INVALID_DEFINITION';
-    return result;
-  }
-
-  try {
-    let sheet = null;
-
-    if (typeof ensureSheetWithHeaders === 'function') {
-      sheet = ensureSheetWithHeaders(definition.name, definition.headers);
-      result.method = 'ensureSheetWithHeaders';
-    } else if (typeof synchronizeSheetHeaders === 'function') {
-      sheet = synchronizeSheetHeaders(definition.name, definition.headers);
-      result.method = 'synchronizeSheetHeaders';
-    }
-
-    if (!sheet) {
-      if (typeof SpreadsheetApp === 'undefined') {
-        throw new Error('SpreadsheetApp not available');
-      }
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      if (!ss) {
-        throw new Error('Active spreadsheet not available');
-      }
-      sheet = ss.getSheetByName(definition.name);
-      if (!sheet) {
-        sheet = ss.insertSheet(definition.name);
-        result.method = 'manual-create';
-      } else if (!result.method) {
-        result.method = 'manual-sync';
-      }
-
-      sheet.getRange(1, 1, 1, definition.headers.length).setValues([definition.headers]);
-      sheet.setFrozenRows(1);
-    }
-
-    result.ensured = true;
-    if (sheet && typeof sheet.getSheetId === 'function') {
-      result.sheetId = sheet.getSheetId();
-    }
-    return result;
-  } catch (error) {
-    result.error = error && error.message ? error.message : String(error);
-    console.warn(`ensureSheetStructureFromDefinition_: failed for ${result.sheet}`, error);
-    return result;
-  }
-}
-
-if (typeof ensureIdentitySheetStructures !== 'function') {
-  function ensureIdentitySheetStructures(options = {}) {
-    const { sheetNames } = options || {};
-    const allowList = Array.isArray(sheetNames) && sheetNames.length
-      ? new Set(sheetNames.map(name => String(name || '').trim()).filter(Boolean))
-      : null;
-
-    const definitions = listCanonicalIdentitySheets();
-    const results = [];
-
-    definitions.forEach(definition => {
-      if (allowList && !allowList.has(definition.name)) {
-        return;
-      }
-      results.push(ensureSheetStructureFromDefinition_(definition));
-    });
-
-    return results;
-  }
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // HR / Benefits – Users sheet upgrade + calculators
 // ────────────────────────────────────────────────────────────────────────────
 
-const USER_EMPLOYMENT_FIELDS = {
+const USER_BENEFIT_FIELDS = {
   TerminationDate: 'TerminationDate',
   ProbationMonths: 'ProbationMonths',
   ProbationEnd: 'ProbationEnd',
-  ProbationEndDate: 'ProbationEndDate'
+  InsuranceEligibleDate: 'InsuranceEligibleDate', // = ProbationEnd + 3 months
+  InsuranceQualified: 'InsuranceQualified',       // boolean: today >= InsuranceEligibleDate and not Terminated/Inactive
+  InsuranceEnrolled: 'InsuranceEnrolled',         // boolean: user signed up
+  InsuranceCardReceivedDate: 'InsuranceCardReceivedDate'
 };
-
-const USER_BENEFIT_FIELDS = Object.assign({}, USER_EMPLOYMENT_FIELDS, {
-  InsuranceEligibleDate: USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate, // = ProbationEnd + 3 months
-  InsuranceQualifiedDate: USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate,
-  InsuranceQualified: USER_INSURANCE_FIELD_KEYS.InsuranceQualified,       // boolean: today >= InsuranceEligibleDate and not Terminated/Inactive
-  InsuranceEligible: USER_INSURANCE_FIELD_KEYS.InsuranceEligible,
-  InsuranceEnrolled: USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled,         // boolean: user signed up
-  InsuranceSignedUp: USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp,
-  InsuranceCardReceivedDate: USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate
-});
-
-function ensureUserInsuranceSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName(USER_INSURANCE_SHEET);
-  if (!sh) {
-    sh = ss.insertSheet(USER_INSURANCE_SHEET);
-    sh.getRange(1, 1, 1, USER_INSURANCE_HEADERS.length).setValues([USER_INSURANCE_HEADERS]);
-    sh.setFrozenRows(1);
-    return sh;
-  }
-
-  if (!areHeadersAligned_(sh, USER_INSURANCE_HEADERS)) {
-    syncSheetColumnsAndHeaders_(sh, USER_INSURANCE_HEADERS);
-  }
-
-  return sh;
-}
-
-function upsertUserInsuranceRecord_(userId, payload = {}) {
-  if (!userId && userId !== 0) {
-    return { success: false, message: 'UserId is required for insurance upsert.' };
-  }
-
-  try {
-    const sh = ensureUserInsuranceSheet_();
-    const headerRange = sh.getRange(1, 1, 1, sh.getLastColumn());
-    const headers = headerRange.getValues()[0].map(String);
-    const index = {};
-    headers.forEach((header, idx) => { index[header] = idx; });
-
-    const data = sh.getDataRange().getValues();
-    let targetRowIndex = -1;
-    const userIdCol = index[USER_INSURANCE_FIELD_KEYS.UserId];
-    if (userIdCol === undefined) {
-      throw new Error('UserInsurance sheet missing UserId column.');
-    }
-
-    for (let r = 1; r < data.length; r++) {
-      const row = data[r];
-      if (String(row[userIdCol]) === String(userId)) {
-        targetRowIndex = r;
-        break;
-      }
-    }
-
-    const template = new Array(headers.length).fill('');
-    template[userIdCol] = userId;
-
-    const assignable = Object.assign({}, payload);
-    Object.keys(assignable).forEach(key => {
-      if (!Object.prototype.hasOwnProperty.call(index, key)) return;
-      template[index[key]] = assignable[key];
-    });
-
-    if (targetRowIndex >= 0) {
-      sh.getRange(targetRowIndex + 1, 1, 1, headers.length).setValues([template]);
-    } else {
-      sh.appendRow(template);
-    }
-
-    try {
-      invalidateCache(USER_INSURANCE_SHEET);
-      invalidateCache(USERS_SHEET);
-    } catch (cacheError) {
-      console.warn('upsertUserInsuranceRecord_: cache invalidation failed', cacheError);
-    }
-
-    return { success: true };
-  } catch (error) {
-    safeWriteError && safeWriteError('upsertUserInsuranceRecord_', error);
-    return { success: false, message: error && error.message ? error.message : String(error) };
-  }
-}
 
 /** Ensure benefit columns exist (appended) without disturbing existing Users headers */
 function ensureUsersBenefitsColumns_() {
@@ -1222,13 +172,10 @@ function ensureUsersBenefitsColumns_() {
   const lastCol = sh.getLastColumn();
   if (lastCol < 1) return;
 
-  ensureUserInsuranceSheet_();
-
   const headerRange = sh.getRange(1, 1, 1, sh.getLastColumn());
   const headers = headerRange.getValues()[0].map(String);
 
-  const employmentHeaders = Object.values(USER_EMPLOYMENT_FIELDS);
-  const missing = employmentHeaders.filter(h => !headers.includes(h));
+  const missing = Object.values(USER_BENEFIT_FIELDS).filter(h => !headers.includes(h));
   if (missing.length === 0) return;
 
   // Append missing columns at the end
@@ -1241,7 +188,9 @@ function ensureUsersBenefitsColumns_() {
     // Set sensible defaults for booleans / numbers (without overwriting existing data)
     const colIndex = name => newHeaders.indexOf(name) + 1;
     const defaults = {
-      [USER_EMPLOYMENT_FIELDS.ProbationMonths]: 3
+      [USER_BENEFIT_FIELDS.ProbationMonths]: 3,
+      [USER_BENEFIT_FIELDS.InsuranceQualified]: false,
+      [USER_BENEFIT_FIELDS.InsuranceEnrolled]: false
     };
     Object.entries(defaults).forEach(([key, defVal]) => {
       if (missing.includes(key)) {
@@ -1299,25 +248,16 @@ function recalcBenefitsForAllUsers(opts = {}) {
     const headers = data[0].map(String);
     const col = name => headers.indexOf(name);
 
-    const iId = col('ID');
-    const iCampaign = col('CampaignID');
     const iHire = col('HireDate');
     const iEmpStatus = col('EmploymentStatus');
-    const iTermination = col(USER_EMPLOYMENT_FIELDS.TerminationDate);
 
     const iProbMonths = col(USER_BENEFIT_FIELDS.ProbationMonths);
     const iProbEnd = col(USER_BENEFIT_FIELDS.ProbationEnd);
     const iEligible = col(USER_BENEFIT_FIELDS.InsuranceEligibleDate);
     const iQualified = col(USER_BENEFIT_FIELDS.InsuranceQualified);
-    const iQualifiedDate = col(USER_BENEFIT_FIELDS.InsuranceQualifiedDate);
-    const iEligibleFlag = col(USER_BENEFIT_FIELDS.InsuranceEligible);
-    const iEnrolled = col(USER_BENEFIT_FIELDS.InsuranceEnrolled);
-    const iSigned = col(USER_BENEFIT_FIELDS.InsuranceSignedUp);
-    const iCard = col(USER_BENEFIT_FIELDS.InsuranceCardReceivedDate);
 
-    const requiredIndices = [iHire, iEmpStatus, iProbMonths, iProbEnd];
-    if (requiredIndices.some(ix => ix < 0)) {
-      return { updated: 0, warning: 'One or more employment columns are missing.' };
+    if ([iHire, iEmpStatus, iProbMonths, iProbEnd, iEligible, iQualified].some(ix => ix < 0)) {
+      return { updated: 0, warning: 'One or more benefit columns are missing.' };
     }
 
     let updated = 0;
@@ -1327,8 +267,6 @@ function recalcBenefitsForAllUsers(opts = {}) {
       const row = data[r];
 
       // Source fields
-      const userId = iId >= 0 ? row[iId] : '';
-      const campaignId = iCampaign >= 0 ? row[iCampaign] : '';
       const hire = parseAsDate_(row[iHire]);
       let probMonths = Number(row[iProbMonths]);
       if (!Number.isFinite(probMonths) || probMonths <= 0) probMonths = 3;
@@ -1336,65 +274,21 @@ function recalcBenefitsForAllUsers(opts = {}) {
       let probEnd = parseAsDate_(row[iProbEnd]);
       if (!probEnd || force) {
         probEnd = hire ? addMonths_(hire, probMonths) : null;
-        if (iProbEnd >= 0) { row[iProbEnd] = probEnd || ''; }
-        updated++;
+        if (probEnd) { row[iProbEnd] = probEnd; updated++; }
       }
 
       let eligible = parseAsDate_(row[iEligible]);
       const recomputedEligible = probEnd ? addMonths_(probEnd, 3) : null;
       if (!eligible || force) {
         eligible = recomputedEligible;
-        if (iEligible >= 0) { row[iEligible] = eligible || ''; }
-        updated++;
+        if (eligible) { row[iEligible] = eligible; updated++; }
       }
 
       // Qualified boolean
       const qualified = isInsuranceQualified_(row[iEmpStatus], eligible);
-      if (iQualified >= 0 && row[iQualified] !== qualified) {
+      if (row[iQualified] !== qualified) {
         row[iQualified] = qualified;
         updated++;
-      }
-
-      const enrollment = iEnrolled >= 0 ? row[iEnrolled] : (iSigned >= 0 ? row[iSigned] : '');
-      const eligibleFlag = iEligibleFlag >= 0 ? row[iEligibleFlag] : '';
-      const qualifiedDate = iQualifiedDate >= 0 ? row[iQualifiedDate] : eligible;
-      const cardReceived = iCard >= 0 ? row[iCard] : '';
-      const terminationDate = iTermination >= 0 ? row[iTermination] : '';
-
-      const evaluator = (function () {
-        try {
-          if (typeof getCurrentUser === 'function') {
-            const current = getCurrentUser();
-            if (current) {
-              return current.Email || current.UserName || current.ID || 'Lumina Identity';
-            }
-          }
-        } catch (identityEvaluatorErr) {
-          console.warn('recalcBenefitsForAllUsers evaluator lookup failed', identityEvaluatorErr);
-        }
-        return 'Lumina Identity';
-      })();
-
-      if (userId || userId === 0) {
-        upsertUserInsuranceRecord_(userId, {
-          [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
-          [USER_INSURANCE_FIELD_KEYS.PrimaryCampaignId]: campaignId,
-          [USER_INSURANCE_FIELD_KEYS.EmploymentStatus]: row[iEmpStatus],
-          [USER_INSURANCE_FIELD_KEYS.HireDate]: row[iHire],
-          [USER_INSURANCE_FIELD_KEYS.TerminationDate]: terminationDate,
-          [USER_INSURANCE_FIELD_KEYS.ProbationMonths]: probMonths,
-          [USER_INSURANCE_FIELD_KEYS.ProbationEnd]: probEnd,
-          [USER_INSURANCE_FIELD_KEYS.ProbationEndDate]: probEnd,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate]: eligible,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate]: qualifiedDate || eligible,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceEligible]: eligibleFlag !== '' ? eligibleFlag : qualified,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceQualified]: qualified,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled]: enrollment,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp]: enrollment,
-          [USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate]: cardReceived,
-          [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
-          [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: evaluator
-        });
       }
 
       data[r] = row;
@@ -1439,23 +333,13 @@ function recalcBenefitsForUser(userId, opts = {}) {
     const iId = col('ID');
     const iHire = col('HireDate');
     const iEmpStatus = col('EmploymentStatus');
-    const iTermination = col(USER_EMPLOYMENT_FIELDS.TerminationDate);
     const iProbMonths = col(USER_BENEFIT_FIELDS.ProbationMonths);
     const iProbEnd = col(USER_BENEFIT_FIELDS.ProbationEnd);
     const iEligible = col(USER_BENEFIT_FIELDS.InsuranceEligibleDate);
     const iQualified = col(USER_BENEFIT_FIELDS.InsuranceQualified);
-    const iQualifiedDate = col(USER_BENEFIT_FIELDS.InsuranceQualifiedDate);
-    const iEligibleFlag = col(USER_BENEFIT_FIELDS.InsuranceEligible);
-    const iEnrolled = col(USER_BENEFIT_FIELDS.InsuranceEnrolled);
-    const iSigned = col(USER_BENEFIT_FIELDS.InsuranceSignedUp);
-    const iCard = col(USER_BENEFIT_FIELDS.InsuranceCardReceivedDate);
 
-    const requiredIndices = [iHire, iEmpStatus, iProbMonths, iProbEnd];
     const rowIdx = data.findIndex((r, idx) => idx > 0 && String(r[iId]) === userId);
     if (rowIdx < 1) return { success: false, message: 'User row not found' };
-    if (requiredIndices.some(ix => ix < 0)) {
-      return { success: false, message: 'Missing employment columns for recalculation.' };
-    }
 
     const row = data[rowIdx];
     const force = !!opts.force;
@@ -1465,54 +349,18 @@ function recalcBenefitsForUser(userId, opts = {}) {
     if (!Number.isFinite(probMonths) || probMonths <= 0) probMonths = 3;
 
     let probEnd = parseAsDate_(row[iProbEnd]);
-    if (!probEnd || force) {
-      probEnd = hire ? addMonths_(hire, probMonths) : null;
-      if (iProbEnd >= 0) {
-        sh.getRange(rowIdx + 1, iProbEnd + 1).setValue(probEnd || '');
-      }
-    }
+    if (!probEnd || force) probEnd = hire ? addMonths_(hire, probMonths) : null;
 
     let eligible = parseAsDate_(row[iEligible]);
     const recomputedEligible = probEnd ? addMonths_(probEnd, 3) : null;
-    if (!eligible || force) {
-      eligible = recomputedEligible;
-      if (iEligible >= 0) {
-        sh.getRange(rowIdx + 1, iEligible + 1).setValue(eligible || '');
-      }
-    }
+    if (!eligible || force) eligible = recomputedEligible;
 
     const qualified = isInsuranceQualified_(row[iEmpStatus], eligible);
 
     // Persist back
+    if (iProbEnd >= 0) sh.getRange(rowIdx + 1, iProbEnd + 1).setValue(probEnd || '');
+    if (iEligible >= 0) sh.getRange(rowIdx + 1, iEligible + 1).setValue(eligible || '');
     if (iQualified >= 0) sh.getRange(rowIdx + 1, iQualified + 1).setValue(qualified);
-
-    const enrollment = iEnrolled >= 0 ? row[iEnrolled] : (iSigned >= 0 ? row[iSigned] : '');
-    const eligibleFlag = iEligibleFlag >= 0 ? row[iEligibleFlag] : '';
-    const qualifiedDate = iQualifiedDate >= 0 ? row[iQualifiedDate] : eligible;
-    const cardReceived = iCard >= 0 ? row[iCard] : '';
-    const terminationDate = iTermination >= 0 ? row[iTermination] : '';
-
-    if (userId || userId === 0) {
-      upsertUserInsuranceRecord_(userId, {
-        [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
-        [USER_INSURANCE_FIELD_KEYS.PrimaryCampaignId]: row[col('CampaignID')],
-        [USER_INSURANCE_FIELD_KEYS.EmploymentStatus]: row[iEmpStatus],
-        [USER_INSURANCE_FIELD_KEYS.HireDate]: row[iHire],
-        [USER_INSURANCE_FIELD_KEYS.TerminationDate]: terminationDate,
-        [USER_INSURANCE_FIELD_KEYS.ProbationMonths]: row[iProbMonths],
-        [USER_INSURANCE_FIELD_KEYS.ProbationEnd]: probEnd,
-        [USER_INSURANCE_FIELD_KEYS.ProbationEndDate]: probEnd,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceEligibleDate]: eligible,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceQualifiedDate]: qualifiedDate || eligible,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceEligible]: eligibleFlag !== '' ? eligibleFlag : qualified,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceQualified]: qualified,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled]: enrollment,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp]: enrollment,
-        [USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate]: cardReceived,
-        [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
-        [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: 'Lumina Identity'
-      });
-    }
 
     invalidateCache(USERS_SHEET);
 
@@ -1543,7 +391,6 @@ function setUserInsuranceEnrollment(userId, enrolled, cardReceivedDate = null) {
     const iId = col('ID');
     const iEnrolled = col(USER_BENEFIT_FIELDS.InsuranceEnrolled);
     const iCard = col(USER_BENEFIT_FIELDS.InsuranceCardReceivedDate);
-    const iSigned = col(USER_BENEFIT_FIELDS.InsuranceSignedUp);
 
     const rowIdx = data.findIndex((r, idx) => idx > 0 && String(r[iId]) === userId);
     if (rowIdx < 1) return { success: false, message: 'User not found' };
@@ -1553,19 +400,6 @@ function setUserInsuranceEnrollment(userId, enrolled, cardReceivedDate = null) {
       const dt = parseAsDate_(cardReceivedDate);
       sh.getRange(rowIdx + 1, iCard + 1).setValue(dt || '');
     }
-    if (iSigned >= 0) {
-      sh.getRange(rowIdx + 1, iSigned + 1).setValue(!!enrolled);
-    }
-
-    upsertUserInsuranceRecord_(userId, {
-      [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
-      [USER_INSURANCE_FIELD_KEYS.InsuranceEnrolled]: !!enrolled,
-      [USER_INSURANCE_FIELD_KEYS.InsuranceSignedUp]: !!enrolled,
-      [USER_INSURANCE_FIELD_KEYS.InsuranceCardReceivedDate]: parseAsDate_(cardReceivedDate) || '',
-      [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
-      [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: 'Lumina Identity'
-    });
-
     invalidateCache(USERS_SHEET);
     return { success: true };
   } catch (e) {
@@ -1590,18 +424,8 @@ function setUserTermination(userId, terminationDate) {
     const rowIdx = data.findIndex((r, idx) => idx > 0 && String(r[iId]) === userId);
     if (rowIdx < 1) return { success: false, message: 'User not found' };
 
-    const parsedTermination = parseAsDate_(terminationDate) || '';
-    sh.getRange(rowIdx + 1, iTerm + 1).setValue(parsedTermination);
+    sh.getRange(rowIdx + 1, iTerm + 1).setValue(parseAsDate_(terminationDate) || '');
     if (iStatus >= 0) sh.getRange(rowIdx + 1, iStatus + 1).setValue('Terminated');
-
-    upsertUserInsuranceRecord_(userId, {
-      [USER_INSURANCE_FIELD_KEYS.UserId]: userId,
-      [USER_INSURANCE_FIELD_KEYS.TerminationDate]: parsedTermination,
-      [USER_INSURANCE_FIELD_KEYS.EmploymentStatus]: 'Terminated',
-      [USER_INSURANCE_FIELD_KEYS.LastEvaluatedAt]: new Date(),
-      [USER_INSURANCE_FIELD_KEYS.EvaluatedBy]: 'Lumina Identity'
-    });
-
     invalidateCache(USERS_SHEET);
     return { success: true };
   } catch (e) {
@@ -1695,390 +519,6 @@ if (typeof getOrCreateManagerUsersSheet_ !== 'function') {
     return sh;
   }
 }
-
-function normalizeHeaderName_(value) {
-  if (value === null || typeof value === 'undefined') return '';
-  return String(value).trim();
-}
-
-function areHeadersAligned_(sheet, headers) {
-  if (!sheet) return false;
-  if (!headers || headers.length === 0) return false;
-  if (sheet.getLastColumn() < headers.length) return false;
-  const range = sheet.getRange(1, 1, 1, headers.length);
-  const existing = range.getValues()[0].map(normalizeHeaderName_);
-  return existing.length === headers.length && existing.every((h, i) => h === headers[i]);
-}
-
-function syncSheetColumnsAndHeaders_(sheet, headers) {
-  if (!sheet) throw new Error('Sheet is required');
-  if (!headers || headers.length === 0) throw new Error('Headers array is required');
-
-  const headerCount = headers.length;
-  const maxCols = sheet.getMaxColumns();
-  if (maxCols < headerCount) {
-    sheet.insertColumnsAfter(maxCols, headerCount - maxCols);
-  }
-
-  let lastCol = sheet.getLastColumn();
-  if (lastCol < headerCount) {
-    const missing = headerCount - lastCol;
-    const anchor = Math.max(lastCol, 1);
-    sheet.insertColumnsAfter(anchor, missing);
-    lastCol = sheet.getLastColumn();
-  }
-
-  const rangeWidth = Math.max(sheet.getLastColumn(), headerCount);
-  const initialHeaderRange = sheet.getRange(1, 1, 1, rangeWidth);
-  const currentHeaders = initialHeaderRange.getValues()[0].map(normalizeHeaderName_);
-  const maxRows = sheet.getMaxRows();
-  let structureMutated = false;
-
-  for (let i = 0; i < headerCount; i++) {
-    const expected = headers[i];
-    const current = currentHeaders[i] || '';
-    if (current === expected) continue;
-
-    const existingIdx = currentHeaders.indexOf(expected, i + 1);
-    if (existingIdx !== -1) {
-      const colRange = sheet.getRange(1, existingIdx + 1, maxRows, 1);
-      sheet.moveColumns(colRange, i + 1);
-      const [moved] = currentHeaders.splice(existingIdx, 1);
-      currentHeaders.splice(i, 0, moved);
-      structureMutated = true;
-    } else if (current) {
-      const targetCol = i + 1;
-      const currentLast = Math.max(sheet.getLastColumn(), 1);
-      if (targetCol > currentLast) {
-        sheet.insertColumnsAfter(currentLast, 1);
-      } else {
-        sheet.insertColumnsBefore(targetCol, 1);
-      }
-      currentHeaders.splice(i, 0, '');
-      structureMutated = true;
-    }
-
-    if (currentHeaders[i] !== expected) {
-      currentHeaders[i] = expected;
-    }
-  }
-
-  let finalLastCol = Math.max(sheet.getLastColumn(), headerCount);
-  let finalRange = sheet.getRange(1, 1, 1, finalLastCol);
-  let finalRaw = finalRange.getValues()[0];
-  let finalNormalized = finalRaw.map(normalizeHeaderName_);
-  const allowedHeaders = new Set(headers);
-  const seenHeaders = new Set();
-  const columnsToDelete = [];
-
-  for (let idx = 0; idx < finalNormalized.length; idx++) {
-    const headerName = finalNormalized[idx];
-    if (headerName) {
-      if (!allowedHeaders.has(headerName)) {
-        columnsToDelete.push(idx + 1);
-        continue;
-      }
-      if (seenHeaders.has(headerName)) {
-        columnsToDelete.push(idx + 1);
-        continue;
-      }
-      seenHeaders.add(headerName);
-    } else if (idx >= headerCount) {
-      columnsToDelete.push(idx + 1);
-    }
-  }
-
-  if (columnsToDelete.length) {
-    for (let i = columnsToDelete.length - 1; i >= 0; i--) {
-      sheet.deleteColumn(columnsToDelete[i]);
-    }
-    structureMutated = true;
-    finalLastCol = Math.max(sheet.getLastColumn(), headerCount);
-    finalRange = sheet.getRange(1, 1, 1, finalLastCol);
-    finalRaw = finalRange.getValues()[0];
-    finalNormalized = finalRaw.map(normalizeHeaderName_);
-  }
-
-  let headerMutated = false;
-
-  for (let i = 0; i < headerCount; i++) {
-    if (finalNormalized[i] !== headers[i]) {
-      headerMutated = true;
-      break;
-    }
-  }
-
-  const finalHeaderRange = sheet.getRange(1, 1, 1, headerCount);
-  if (headerMutated) {
-    finalHeaderRange.setValues([headers.slice()]);
-  }
-  finalHeaderRange.setFontWeight('bold');
-  sheet.setFrozenRows(1);
-
-  return structureMutated || headerMutated;
-}
-
-if (typeof synchronizeSheetHeaders !== 'function') {
-  function synchronizeSheetHeaders(sheetName, headers) {
-    if (!sheetName) throw new Error('sheetName is required');
-    if (!headers || !Array.isArray(headers) || headers.length === 0) {
-      throw new Error('headers array is required');
-    }
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      return ensureSheetWithHeaders(sheetName, headers);
-    }
-
-    const mutated = syncSheetColumnsAndHeaders_(sheet, headers);
-    if (mutated) {
-      console.log(`Synchronized sheet structure for ${sheetName}`);
-    }
-    return sheet;
-  }
-}
-
-(function (global) {
-  if (global && typeof global.synchronizeSheetHeaders !== 'function' && typeof synchronizeSheetHeaders === 'function') {
-    global.synchronizeSheetHeaders = synchronizeSheetHeaders;
-  }
-})(typeof globalThis !== 'undefined' ? globalThis : this);
-
-function normalizeUserNameValue_(value) {
-  if (value === null || typeof value === 'undefined') return '';
-  return String(value).trim().toUpperCase();
-}
-
-function normalizeEmailValue_(value) {
-  if (value === null || typeof value === 'undefined') return '';
-  return String(value).trim().toLowerCase();
-}
-
-function isBlankCell_(value) {
-  if (value === null || typeof value === 'undefined') return true;
-  if (value instanceof Date) return isNaN(value.getTime());
-  if (typeof value === 'string') return value.trim() === '';
-  return false;
-}
-
-function rowHasMeaningfulData_(row) {
-  if (!Array.isArray(row)) return false;
-  for (let i = 0; i < row.length; i++) {
-    if (!isBlankCell_(row[i])) return true;
-  }
-  return false;
-}
-
-function toSheetBooleanString_(value) {
-  return value ? 'TRUE' : 'FALSE';
-}
-
-function isTruthyFlag(value) {
-  if (value === true) return true;
-  if (value === false || value === null || typeof value === 'undefined') return false;
-  if (typeof value === 'number') return value !== 0;
-
-  const normalized = String(value).trim().toUpperCase();
-  if (!normalized) return false;
-
-  switch (normalized) {
-    case 'TRUE':
-    case 'YES':
-    case 'Y':
-    case '1':
-    case 'ON':
-      return true;
-    default:
-      return false;
-  }
-}
-
-function generateUuid_() {
-  try {
-    if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
-      return Utilities.getUuid();
-    }
-  } catch (_) { }
-  const rand = Math.floor(Math.random() * 1e12);
-  return `uuid-${Date.now()}-${rand}`;
-}
-
-function backfillSheetDataIfPossible_(sheet) {
-  try {
-    if (!sheet) return false;
-    const sheetName = normalizeHeaderName_(sheet.getName());
-    const usersSheetName = normalizeHeaderName_(USERS_SHEET);
-    if (sheetName === usersSheetName) {
-      return backfillUsersSheetDerivedColumns_(sheet);
-    }
-  } catch (err) {
-    console.warn('backfillSheetDataIfPossible_ failed', err);
-  }
-  return false;
-}
-
-function backfillUsersSheetDerivedColumns_(sheet) {
-  const lastRow = sheet.getLastRow();
-  const lastColumn = sheet.getLastColumn();
-  if (lastRow < 2 || lastColumn < 1) {
-    return false;
-  }
-
-  const headerValues = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
-  const normalizedHeaders = headerValues.map(normalizeHeaderName_);
-
-  const indexByHeader = {};
-  for (let i = 0; i < normalizedHeaders.length; i++) {
-    const header = normalizedHeaders[i];
-    if (!header) continue;
-    if (!Object.prototype.hasOwnProperty.call(indexByHeader, header)) {
-      indexByHeader[header] = i;
-    }
-  }
-
-  const idxId = Object.prototype.hasOwnProperty.call(indexByHeader, 'ID') ? indexByHeader.ID : -1;
-  const idxUserName = Object.prototype.hasOwnProperty.call(indexByHeader, 'UserName') ? indexByHeader.UserName : -1;
-  const idxFullName = Object.prototype.hasOwnProperty.call(indexByHeader, 'FullName') ? indexByHeader.FullName : -1;
-  const idxEmail = Object.prototype.hasOwnProperty.call(indexByHeader, 'Email') ? indexByHeader.Email : -1;
-  const idxNormalizedUserName = Object.prototype.hasOwnProperty.call(indexByHeader, 'NormalizedUserName') ? indexByHeader.NormalizedUserName : -1;
-  const idxNormalizedEmail = Object.prototype.hasOwnProperty.call(indexByHeader, 'NormalizedEmail') ? indexByHeader.NormalizedEmail : -1;
-  const idxCampaignId = Object.prototype.hasOwnProperty.call(indexByHeader, 'CampaignID') ? indexByHeader.CampaignID : -1;
-  const idxSecurityStamp = Object.prototype.hasOwnProperty.call(indexByHeader, 'SecurityStamp') ? indexByHeader.SecurityStamp : -1;
-  const idxConcurrencyStamp = Object.prototype.hasOwnProperty.call(indexByHeader, 'ConcurrencyStamp') ? indexByHeader.ConcurrencyStamp : -1;
-  const idxCreatedAt = Object.prototype.hasOwnProperty.call(indexByHeader, 'CreatedAt') ? indexByHeader.CreatedAt : -1;
-  const idxUpdatedAt = Object.prototype.hasOwnProperty.call(indexByHeader, 'UpdatedAt') ? indexByHeader.UpdatedAt : -1;
-  const idxEmailConfirmed = Object.prototype.hasOwnProperty.call(indexByHeader, 'EmailConfirmed') ? indexByHeader.EmailConfirmed : -1;
-  const idxIsAdmin = Object.prototype.hasOwnProperty.call(indexByHeader, 'IsAdmin') ? indexByHeader.IsAdmin : -1;
-
-  const hasAnyManagedColumn = [
-    idxNormalizedUserName,
-    idxNormalizedEmail,
-    idxId,
-    idxSecurityStamp,
-    idxConcurrencyStamp,
-    idxEmailConfirmed,
-    idxIsAdmin,
-    idxCreatedAt,
-    idxUpdatedAt
-  ].some(idx => idx >= 0);
-
-  if (!hasAnyManagedColumn) {
-    return false;
-  }
-
-  const dataRange = sheet.getRange(2, 1, lastRow - 1, lastColumn);
-  const values = dataRange.getValues();
-  let mutated = false;
-
-  for (let rowIndex = 0; rowIndex < values.length; rowIndex++) {
-    const row = values[rowIndex];
-    if (!rowHasMeaningfulData_(row)) {
-      continue;
-    }
-
-    const rawUserName = idxUserName >= 0 ? String(row[idxUserName] || '').trim() : '';
-    const rawEmail = idxEmail >= 0 ? String(row[idxEmail] || '').trim() : '';
-    const rawFullName = idxFullName >= 0 ? String(row[idxFullName] || '').trim() : '';
-    const rawCampaignId = idxCampaignId >= 0 ? String(row[idxCampaignId] || '').trim() : '';
-
-    if (idxNormalizedUserName >= 0) {
-      const candidate = normalizeUserNameValue_(rawUserName || rawEmail);
-      const existingRaw = row[idxNormalizedUserName];
-      const existingNormalized = normalizeUserNameValue_(existingRaw);
-      if (candidate) {
-        if (existingNormalized !== candidate || String(existingRaw || '').trim() !== candidate) {
-          row[idxNormalizedUserName] = candidate;
-          mutated = true;
-        }
-      } else if (existingNormalized && !rawUserName && !rawEmail) {
-        row[idxNormalizedUserName] = '';
-        mutated = true;
-      }
-    }
-
-    if (idxNormalizedEmail >= 0) {
-      const candidate = normalizeEmailValue_(rawEmail);
-      const existingRaw = row[idxNormalizedEmail];
-      const existingNormalized = normalizeEmailValue_(existingRaw);
-      if (candidate) {
-        if (existingNormalized !== candidate || String(existingRaw || '').trim() !== candidate) {
-          row[idxNormalizedEmail] = candidate;
-          mutated = true;
-        }
-      } else if (existingNormalized && !rawEmail) {
-        row[idxNormalizedEmail] = '';
-        mutated = true;
-      }
-    }
-
-    const hasIdentityData = Boolean(
-      (idxId >= 0 && !isBlankCell_(row[idxId])) ||
-      rawUserName ||
-      rawEmail ||
-      rawFullName ||
-      rawCampaignId
-    );
-
-    if (idxId >= 0 && isBlankCell_(row[idxId]) && hasIdentityData) {
-      row[idxId] = generateUuid_();
-      mutated = true;
-    }
-
-    if (idxSecurityStamp >= 0 && isBlankCell_(row[idxSecurityStamp]) && hasIdentityData) {
-      row[idxSecurityStamp] = generateUuid_();
-      mutated = true;
-    }
-
-    if (idxConcurrencyStamp >= 0 && isBlankCell_(row[idxConcurrencyStamp]) && hasIdentityData) {
-      row[idxConcurrencyStamp] = generateUuid_();
-      mutated = true;
-    }
-
-    const ensureBooleanDefault = (idx, defaultValue) => {
-      if (idx < 0) return;
-      if (!isBlankCell_(row[idx])) return;
-      row[idx] = toSheetBooleanString_(defaultValue);
-      mutated = true;
-    };
-
-    ensureBooleanDefault(idxEmailConfirmed, false);
-    ensureBooleanDefault(idxIsAdmin, false);
-
-    let rowTimestamp = null;
-    const ensureTimestamp = idx => {
-      if (idx < 0) return;
-      if (!isBlankCell_(row[idx])) return;
-      if (!rowTimestamp) rowTimestamp = new Date();
-      row[idx] = rowTimestamp;
-      mutated = true;
-    };
-
-    if (idxCreatedAt >= 0 && isBlankCell_(row[idxCreatedAt])) {
-      if (idxUpdatedAt >= 0 && !isBlankCell_(row[idxUpdatedAt])) {
-        row[idxCreatedAt] = row[idxUpdatedAt];
-        mutated = true;
-      } else {
-        ensureTimestamp(idxCreatedAt);
-      }
-    }
-
-    if (idxUpdatedAt >= 0 && isBlankCell_(row[idxUpdatedAt])) {
-      if (idxCreatedAt >= 0 && !isBlankCell_(row[idxCreatedAt])) {
-        row[idxUpdatedAt] = row[idxCreatedAt];
-        mutated = true;
-      } else {
-        ensureTimestamp(idxUpdatedAt);
-      }
-    }
-  }
-
-  if (mutated) {
-    dataRange.setValues(values);
-  }
-
-  return mutated;
-}
 if (typeof readManagerAssignments_ !== 'function') {
   function readManagerAssignments_() {
     const name = getManagerUsersSheetName_();
@@ -2094,81 +534,6 @@ if (typeof readManagerAssignments_ !== 'function') {
 // ────────────────────────────────────────────────────────────────────────────
 // Setup: Create/Repair sheet with headers (idempotent w/ caching & retry)
 // ────────────────────────────────────────────────────────────────────────────
-function resolveHeadersForEnsure_(name, headers) {
-  const safeName = (name == null) ? '' : String(name);
-  const normalized = Array.isArray(headers)
-    ? headers
-      .map(header => (header == null) ? '' : String(header).trim())
-      .filter(Boolean)
-    : [];
-
-  const hasValidInput = normalized.length > 0;
-  let candidate = hasValidInput ? normalized : [];
-
-  if (!candidate.length) {
-    let fallback = [];
-    let fallbackSource = '';
-
-    if (typeof getCanonicalSheetHeaders === 'function') {
-      try {
-        const canonical = getCanonicalSheetHeaders(safeName);
-        if (Array.isArray(canonical) && canonical.length) {
-          fallback = canonical;
-          fallbackSource = 'canonical-map';
-        }
-      } catch (canonicalErr) {
-        console.warn(`resolveHeadersForEnsure_: getCanonicalSheetHeaders(${safeName}) failed`, canonicalErr);
-      }
-    }
-
-    if (!fallback.length
-      && typeof getCanonicalUserHeaders === 'function'
-      && safeName === (typeof USERS_SHEET === 'string' && USERS_SHEET ? USERS_SHEET : 'Users')) {
-      try {
-        const canonicalUsers = getCanonicalUserHeaders({ preferIdentityService: false });
-        if (Array.isArray(canonicalUsers) && canonicalUsers.length) {
-          fallback = canonicalUsers;
-          fallbackSource = 'canonical-users';
-        }
-      } catch (userHeaderErr) {
-        console.warn('resolveHeadersForEnsure_: getCanonicalUserHeaders failed', userHeaderErr);
-      }
-    }
-
-    if (!fallback.length
-      && safeName === (typeof USERS_SHEET === 'string' && USERS_SHEET ? USERS_SHEET : 'Users')
-      && Array.isArray(DEFAULT_USER_HEADERS_FALLBACK)) {
-      fallback = DEFAULT_USER_HEADERS_FALLBACK.slice();
-      fallbackSource = 'default-users';
-    }
-
-    candidate = Array.isArray(fallback)
-      ? fallback
-        .map(header => (header == null) ? '' : String(header).trim())
-        .filter(Boolean)
-      : [];
-
-    if (candidate.length && fallbackSource) {
-      console.warn(`resolveHeadersForEnsure_: Using fallback headers (${fallbackSource}) for ${safeName}`);
-    }
-  }
-
-  if (!candidate.length) {
-    throw new Error('Invalid or empty headers provided');
-  }
-
-  const seen = new Set();
-  const deduped = [];
-  candidate.forEach(header => {
-    if (!seen.has(header)) {
-      seen.add(header);
-      deduped.push(header);
-    }
-  });
-
-  return deduped;
-}
-
 const __ensureSheetWithHeaders = (function () {
   function ensureSheetWithHeadersImpl(name, headers) {
     const MAX_RETRIES = 3;
@@ -2186,9 +551,11 @@ const __ensureSheetWithHeaders = (function () {
       }
       PropertiesService.getScriptProperties().setProperty(recursionGuardKey, 'active');
 
-      const resolvedHeaders = resolveHeadersForEnsure_(name, headers);
-      const uniqueHeaders = new Set(resolvedHeaders);
-      if (uniqueHeaders.size !== resolvedHeaders.length) {
+      if (!headers || !Array.isArray(headers) || headers.some(h => !h || typeof h !== 'string')) {
+        throw new Error('Invalid or empty headers provided');
+      }
+      const uniqueHeaders = new Set(headers);
+      if (uniqueHeaders.size !== headers.length) {
         throw new Error('Duplicate headers detected');
       }
 
@@ -2196,55 +563,62 @@ const __ensureSheetWithHeaders = (function () {
       const cached = scriptCache.get(cacheKey);
       let sh = ss.getSheetByName(name);
 
-      if (sh && areHeadersAligned_(sh, resolvedHeaders)) {
-        if (typeof registerTableSchema === 'function') {
-          try { registerTableSchema(name, { headers: resolvedHeaders }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+      if (sh) {
+        const range = sh.getRange(1, 1, 1, headers.length);
+        const existing = range.getValues()[0] || [];
+        if (existing.length === headers.length && existing.every((h, i) => h === headers[i])) {
+          if (typeof registerTableSchema === 'function') {
+            try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+          }
+          return sh;
         }
-        return sh;
       }
 
       if (cached === 'true' && sh) {
         console.log(`Cache hit: Sheet ${name} exists`);
-      }
-
-      let lastError = null;
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          sh = ss.getSheetByName(name);
-          if (!sh) {
-            sh = ss.insertSheet(name);
-            console.log(`Created sheet ${name}`);
+      } else {
+        let lastError = null;
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            sh = ss.getSheetByName(name);
+            if (!sh) {
+              sh = ss.insertSheet(name);
+              sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+              sh.setFrozenRows(1);
+              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+              console.log(`Created sheet ${name} with bold/frozen headers`);
+            } else {
+              const range = sh.getRange(1, 1, 1, headers.length);
+              const existing = range.getValues()[0] || [];
+              if (existing.length !== headers.length || existing.some((h, i) => h !== headers[i])) {
+                range.clearContent();
+                range.setValues([headers]).setFontWeight('bold');
+                sh.setFrozenRows(1);
+                console.log(`Updated headers for ${name}`);
+              }
+              scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
+            }
+            if (typeof registerTableSchema === 'function') {
+              try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+            }
+            return sh;
+          } catch (e) {
+            lastError = e;
+            if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
+              const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+              console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
+              sleep(delay);
+              continue;
+            }
+            throw e;
           }
-
-          const mutated = syncSheetColumnsAndHeaders_(sh, resolvedHeaders);
-          if (mutated) {
-            console.log(`Synchronized headers for ${name}`);
-          }
-
-          const backfilled = backfillSheetDataIfPossible_(sh);
-          if (backfilled) {
-            console.log(`Backfilled derived data for ${name}`);
-          }
-
-          scriptCache.put(cacheKey, 'true', CACHE_TTL_SEC);
-
-          if (typeof registerTableSchema === 'function') {
-            try { registerTableSchema(name, { headers: resolvedHeaders }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
-          }
-
-          return sh;
-        } catch (e) {
-          lastError = e;
-          if (e.message.includes('timed out') && attempt < MAX_RETRIES) {
-            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-            console.log(`Attempt ${attempt} failed for ${name}: ${e.message}. Retrying after ${delay}ms`);
-            sleep(delay);
-            continue;
-          }
-          throw e;
         }
+        throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
       }
-      throw lastError || new Error(`Failed to ensure sheet ${name} after ${MAX_RETRIES} attempts`);
+      if (typeof registerTableSchema === 'function') {
+        try { registerTableSchema(name, { headers }); } catch (regErr) { console.warn(`registerTableSchema(${name}) failed`, regErr); }
+      }
+      return sh;
     } catch (e) {
       console.error(`ensureSheetWithHeaders(${name}) failed: ${e.message}, Document ID: ${ss.getId()}`);
       throw e;
@@ -2739,7 +1113,6 @@ function getAllPagesFromActualRouting() {
     { key: 'notifications', title: 'Notifications', icon: 'fas fa-bell', description: 'System notifications and alerts', isSystem: true, requiresAdmin: false, category: 'Communication' },
 
     // ADMINISTRATION
-    { key: 'admincenter', title: 'Lumina Admin Center', icon: 'fas fa-solar-panel', description: 'AI-driven control plane for governance and automation', isSystem: true, requiresAdmin: true, category: 'Administration' },
     { key: 'manageuser', title: 'User Management', icon: 'fas fa-users-cog', description: 'Manage system users and permissions', isSystem: true, requiresAdmin: true, category: 'Administration' },
     { key: 'manageroles', title: 'Role Management', icon: 'fas fa-user-shield', description: 'Manage user roles and permissions', isSystem: true, requiresAdmin: true, category: 'Administration' },
     { key: 'managecampaign', title: 'Campaign Management', icon: 'fas fa-bullhorn', description: 'Manage campaigns and their configurations', isSystem: true, requiresAdmin: true, category: 'Administration' },
@@ -2754,8 +1127,14 @@ function getAllPagesFromActualRouting() {
     { key: 'proxy', title: 'Proxy Service', icon: 'fas fa-exchange-alt', description: 'Proxy service for external content access', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
 
     // AUTH
+    { key: 'setpassword', title: 'Set Password', icon: 'fas fa-key', description: 'Set new password for user account', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
+    { key: 'resetpassword', title: 'Reset Password', icon: 'fas fa-unlock-alt', description: 'Reset forgotten password', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
     { key: 'resend-verification', title: 'Resend Verification', icon: 'fas fa-envelope-circle-check', description: 'Resend email verification link', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'resendverification', title: 'Resend Verification', icon: 'fas fa-envelope-circle-check', description: 'Alternative route for resending verification', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true }
+    { key: 'resendverification', title: 'Resend Verification', icon: 'fas fa-envelope-circle-check', description: 'Alternative route for resending verification', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
+    { key: 'forgotpassword', title: 'Forgot Password', icon: 'fas fa-question-circle', description: 'Initiate password reset process', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
+    { key: 'forgot-password', title: 'Forgot Password', icon: 'fas fa-question-circle', description: 'Alternative route for password reset', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
+    { key: 'emailconfirmed', title: 'Email Confirmed', icon: 'fas fa-check-circle', description: 'Email confirmation success page', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
+    { key: 'email-confirmed', title: 'Email Confirmed', icon: 'fas fa-check-circle', description: 'Alternative route for email confirmation', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true }
   ];
   return discoveredPages;
 }
@@ -2934,8 +1313,12 @@ function suggestIconForPageKey(key) {
       importattendance: 'fa-file-upload',
       ackform: 'fa-signature',
       proxy: 'fa-exchange-alt',
+      setpassword: 'fa-key',
+      resetpassword: 'fa-unlock-alt',
       'resend-verification': 'fa-envelope-circle-check',
       resendverification: 'fa-envelope-circle-check',
+      forgotpassword: 'fa-question-circle',
+      'forgot-password': 'fa-question-circle',
       emailconfirmed: 'fa-check-circle',
       'email-confirmed': 'fa-check-circle'
     };
@@ -2951,6 +1334,7 @@ function suggestIconForPageKey(key) {
     if (k.includes('user') || k.includes('manage')) return 'fas fa-users-cog';
     if (k.includes('admin')) return 'fas fa-user-shield';
     if (k.includes('import')) return 'fas fa-file-import';
+    if (k.includes('password') || k.includes('auth')) return 'fas fa-key';
     return 'fas fa-file';
   } catch (e) {
     safeWriteError('suggestIconForPageKey', e);
@@ -3130,7 +1514,7 @@ function getCampaignPages(campaignId) {
     if (cached) return JSON.parse(cached);
 
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET)
-      .filter(cp => cp && cp.CampaignID === campaignId && isTruthyFlag(cp.IsActive));
+      .filter(cp => cp && cp.CampaignID === campaignId && (cp.IsActive === true || cp.IsActive === 'TRUE'));
 
     const allPages = getAllPages();
     const pageMap = {}; allPages.forEach(p => pageMap[p.PageKey] = p);
@@ -3157,7 +1541,7 @@ function getCampaignPageCategories(campaignId) {
     if (cached) return JSON.parse(cached);
 
     const categories = readSheet(PAGE_CATEGORIES_SHEET)
-      .filter(pc => pc && pc.CampaignID === campaignId && isTruthyFlag(pc.IsActive))
+      .filter(pc => pc && pc.CampaignID === campaignId && (pc.IsActive === true || pc.IsActive === 'TRUE'))
       .map(pc => ({
         ID: pc.ID, CampaignID: pc.CampaignID, CategoryName: pc.CategoryName,
         CategoryIcon: pc.CategoryIcon || 'fas fa-folder', SortOrder: pc.SortOrder || 999,
@@ -3231,7 +1615,7 @@ function createCampaignPagesFromSystem(campaignId) {
     let created = 0;
 
     systemPages.forEach((page, idx) => {
-      if (isTruthyFlag(page.RequiresAdmin)) return;
+      if (page.RequiresAdmin === true || page.RequiresAdmin === 'TRUE') return;
       cpSheet.appendRow([generateUniqueId(), campaignId, page.PageKey, page.PageTitle, page.PageIcon, '', idx + 1, true, now, now]);
       created++;
     });
@@ -3255,7 +1639,7 @@ if (typeof getUserManagedCampaigns !== 'function') {
       if (!userId) return [];
       const users = readSheet(USERS_SHEET);
       const u = users.find(x => x.ID === userId);
-      if (u && isTruthyFlag(u.IsAdmin)) return readSheet(CAMPAIGNS_SHEET);
+      if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return readSheet(CAMPAIGNS_SHEET);
 
       const perms = readSheet(CAMPAIGN_USER_PERMISSIONS_SHEET);
       const managedIds = perms.filter(p => p.UserID === userId && (p.PermissionLevel === 'MANAGER' || p.PermissionLevel === 'ADMIN')).map(p => p.CampaignID);
@@ -3280,7 +1664,7 @@ function userCanManageCampaign(userId, campaignId) {
     if (!userId || !campaignId) return false;
     const users = readSheet(USERS_SHEET);
     const u = users.find(x => x.ID === userId);
-    if (u && isTruthyFlag(u.IsAdmin)) return true;
+    if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return true;
 
     const perms = readSheet(CAMPAIGN_USER_PERMISSIONS_SHEET);
     const p = perms.find(x => x.UserID === userId && x.CampaignID === campaignId && (x.PermissionLevel === 'MANAGER' || x.PermissionLevel === 'ADMIN'));
@@ -3331,7 +1715,7 @@ function clientGetAvailableCampaigns(requestingUserId = null) {
 
     const users = readSheet(USERS_SHEET);
     const u = users.find(x => x.ID === requestingUserId);
-    if (u && isTruthyFlag(u.IsAdmin)) return all.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
+    if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return all.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
 
     const managed = getUserManagedCampaigns(requestingUserId);
     return managed.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
@@ -3357,7 +1741,7 @@ function clientCanAccessUser(requestingUserId, targetUserId) {
 
     const users = readSheet(USERS_SHEET);
     const r = users.find(u => u.ID === requestingUserId);
-    if (r && isTruthyFlag(r.IsAdmin)) return true;
+    if (r && (r.IsAdmin === 'TRUE' || r.IsAdmin === true)) return true;
 
     const managedCampaignIds = getUserManagedCampaigns(requestingUserId).map(c => c.ID);
     const targetCampaigns = getUserCampaignsSafe(targetUserId).map(uc => uc.campaignId);
@@ -3391,7 +1775,7 @@ function clientGetNavigationForUser(userId) {
     const cached = scriptCache.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
-    const isSysAdmin = isTruthyFlag(user.IsAdmin);
+    const isSysAdmin = String(user.IsAdmin).toUpperCase() === 'TRUE';
     const multiId = getOrCreateMultiCampaignId();
 
     let accessibleCampaigns = [];

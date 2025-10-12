@@ -437,6 +437,7 @@ function clientOnboardManagedUser(payload) {
     employmentStatus: payload.employmentStatus || 'Active',
     roles: Array.isArray(payload.roleIds) ? payload.roleIds : [],
     pages: Array.isArray(payload.pageKeys) ? payload.pageKeys : [],
+    canLogin: payload.sendInvite === true,
     mergeIfExists: payload.mergeIfExists === true,
     permissionLevel: payload.permissionLevel || 'VIEWER',
     canManageUsers: payload.canManageUsers === true,

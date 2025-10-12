@@ -2,68 +2,6 @@
 
 Call center management system built on Google Apps Script + Google Sheets.
 
-## Lumina Identity platform
-
-The repository now bundles **Lumina Identity**, a tenant-aware security layer that
-implements authentication, OTP/TOTP verification, RBAC, campaign isolation, and
-full employment lifecycle tracking. The identity stack lives in the new `*.gs`
-services (`AuthService`, `SessionService`, `RBACService`, etc.) plus a set of
-HTML front-ends inside `Html/`.
-
-### Prerequisites
-
-1. Create a dedicated Google Sheet to store the identity tables. Add tabs with
-   the exact headers defined in `IdentityRepository.TABLE_HEADERS`. The
-   bootstrap helpers will auto-create sheets that are missing.
-2. (Optional for seeding) Set the following script properties in the Apps Script
-   project:
-   - `IDENTITY_SPREADSHEET_ID`: ID of the sheet created in step 1. When omitted
-     the seeding helpers fall back to the active spreadsheet, but production
-     deployments should still configure this value explicitly.
-   - `IDENTITY_PASSWORD_SALT`: optional, if omitted a random salt is generated
-     on first login.
-3. Deploy the web app with `Execute as: User accessing the web app` and
-   `Who has access: Anyone`. The router enforces per-request permissions.
-
-### Bootstrap & seed data
-
-- Run `seedDefaultData()` to bootstrap the workspace. The helper now also calls
-  `seedLuminaIdentity()` under the hood so the identity roles, permissions, and
-  `System Admin` account are provisioned automatically. Update the default
-  password immediately after the first login.
-- The bootstrap flow now mirrors the seeded administrator into the legacy
-  `Users` directory tab so the default Apps Script container sheet immediately
-  shows the account and its assigned metadata.
-- Use the `/auth/request-otp` endpoint (exposed via the router) to verify email
-  delivery through Apps Script `MailApp` or your preferred SMTP relay.
-
-### API overview
-
-`Router.gs` exposes a JSON API over `doPost`/`action` for
-authentication (`auth/login`, `auth/request-otp`, `auth/enable-totp`), user
-administration (`users/list`, `users/create`, `users/transfer`, `users/lifecycle`),
-equipment control, policies, and audit retrieval. All state-changing requests
-require a valid session plus CSRF token (returned with every login response).
-
-For front-end consumption, the repository ships new HtmlService templates:
-
-- `Html/LuminaIdentityLanding.html` – public landing & marketing hero.
-- `Html/LuminaIdentityLogin.html` – password + OTP/TOTP login interface.
-- `Html/LuminaIdentityApp.html` – authenticated workspace with campaign
-  directory, equipment tracker, policy viewer, and audit timeline.
-
-Integrate the views via `HtmlService.createTemplateFromFile` as needed for your
-deployment. The login page expects the API to be served from the same Apps Script
-endpoint so fetch requests can POST directly.
-
-## Schema change guidelines
-
-- When adding functionality that requires a new column—either in the web app UI
-  definitions or in the backing Google Sheets—add the new column explicitly
-  instead of renaming an existing one. Renaming breaks historical data bindings
-  and cached lookups, so always create a fresh column with the new object name
-  and migrate data deliberately if needed.
-
 ## Frontend lazy-loading harness
 
 - Every layout now includes `EntityLoader.html`, which exposes a global
@@ -104,7 +42,7 @@ schema defaults once and re-use the same interface across every client campaign.
 ```javascript
 const users = DatabaseManager.defineTable('Users', {
   headers: ['ID', 'UserName', 'Email', 'CampaignID'],
-  defaults: {},
+  defaults: { CanLogin: true },
 });
 
 // Create
@@ -118,7 +56,7 @@ const user = users.insert({
 const perCampaign = users.find({ where: { CampaignID: 'credit-suite' } });
 
 // Update
-users.update(user.ID, { IsActive: false });
+users.update(user.ID, { CanLogin: false });
 
 // Delete
 users.delete(user.ID);
@@ -137,7 +75,7 @@ database abstraction without rewriting business logic:
 ```javascript
 // Read data with optional filters/sorting/pagination
 const activeUsers = dbSelect(USERS_SHEET, {
-  where: { CampaignID: campaignId },
+  where: { CampaignID: campaignId, CanLogin: true },
   sortBy: 'FullName'
 });
 
@@ -193,12 +131,13 @@ etc.) provide a more explicit API.
 
 ### Authentication & campaign-scoped sessions
 
-Lumina Identity replaces the legacy authentication layer. Passwords are hashed
-with per-project salts, OTPs expire within five minutes, TOTP secrets are stored
-encrypted, and all sessions are short-lived (10–30 minute sliding window)
-backed by CacheService/PropertiesService. Every login, OTP issuance, lifecycle
-change, transfer, and equipment update writes an immutable entry to the
-`AuditLog` sheet for forensic review.
+`AuthenticationService.gs` now persists sessions through `DatabaseManager`, upgrading
+the `Sessions` sheet to track remember-me flags, user agents, IP addresses, and a
+serialized tenant scope. Every login computes a tenant access profile via
+`TenantSecurityService`, blocks accounts that are not assigned to at least one
+campaign (unless they are global administrators), and returns the full list of
+allowed/managed/admin campaigns to the client. Session renewals automatically refresh
+the campaign scope so managers cannot switch to unauthorized tenants mid-session.
 
 
 ## End-to-end call center workflows
@@ -309,27 +248,11 @@ schemas registered with `DatabaseManager`.
   Script project stays in sync across environments.
 - **Web app execution context.** Web deployments execute as the signed-in user
   (`executeAs: USER_ACCESSING`) and require authentication (`access: ANYONE`).
-  If perimeter authentication is handled outside the script, ensure the Apps
-  Script deployment remains restricted to the intended audience because the
-  in-app authentication module has been removed.
+  This configuration enforces the tenant-aware permission checks implemented in
+  `AuthenticationService.gs` and `TenantSecurityService.gs` while still allowing
+  external client stakeholders to authenticate with Google accounts.
 - **Operational documentation.** See [`docs/implementation-map.md`](./docs/implementation-map.md)
   for a cross-reference between the requirements, HTML front-end modules, and
   Apps Script services that fulfill them. Update this document whenever new
   modules are introduced so auditors can validate coverage quickly.
-
-### Enterprise security controls
-
-- **EnterpriseSecurityService.** Sensitive data written through `DatabaseManager`
-  is now protected by `EnterpriseSecurityService.js`. The module derives a
-  tenant-scoped encryption key from a master secret stored in Apps Script
-  properties, encrypts flagged columns (such as session tokens), and attaches
-  tamper-evident signatures to each record.
-- **Automated audit trail.** Every insert, update, and delete routed through
-  `DatabaseManager` emits a redacted audit event to the `SecurityAuditTrail`
-  sheet so investigators can trace the actor, tenant, and change history
-  without exposing the underlying secrets.
-- **Schema-bound protections.** `DatabaseBindings.js` registers security
-  metadata for the `Users`, `Sessions`, and `UserClaims` tables, ensuring that
-  the new encryption and audit guarantees are enforced automatically whenever
-  those sheets are accessed.
 

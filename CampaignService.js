@@ -22,104 +22,6 @@ function normalizeIdValue(value) {
   return String(value).trim();
 }
 
-function getUsersSheetName() {
-  return (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
-}
-
-function ensureUsersSheetReady() {
-  if (typeof ensureSheetWithHeaders !== 'function') {
-    return;
-  }
-  try {
-    const headers = (typeof getCanonicalUserHeaders === 'function')
-      ? getCanonicalUserHeaders()
-      : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS.slice() : null);
-    if (headers && headers.length) {
-      ensureSheetWithHeaders(getUsersSheetName(), headers);
-    } else {
-      ensureSheetWithHeaders(getUsersSheetName(), ['ID', 'Email', 'FullName', 'CampaignID']);
-    }
-  } catch (ensureError) {
-    console.warn('CampaignService.ensureUsersSheetReady: unable to ensure headers', ensureError);
-  }
-}
-
-function readAllUsers() {
-  ensureUsersSheetReady();
-  try {
-    return (typeof readSheet === 'function')
-      ? (readSheet(getUsersSheetName()) || [])
-      : [];
-  } catch (readError) {
-    console.warn('CampaignService.readAllUsers: unable to read users sheet', readError);
-    return [];
-  }
-}
-
-function resolveUserIdentityById(userId) {
-  const normalized = normalizeIdValue(userId);
-  if (!normalized) {
-    return { success: false, error: 'User ID is required', errorCode: 'USER_ID_REQUIRED' };
-  }
-
-  function projectRecord(record) {
-    if (typeof projectRecordToCanonicalUser === 'function') {
-      return projectRecordToCanonicalUser(record, { preferIdentityService: false });
-    }
-    const source = record || {};
-    const clone = {};
-    Object.keys(source).forEach(function (key) {
-      clone[key] = source[key];
-    });
-    return clone;
-  }
-
-  if (typeof IdentityService !== 'undefined'
-    && IdentityService
-    && typeof IdentityService.getUserIdentityById === 'function') {
-    try {
-      const lookup = IdentityService.getUserIdentityById(normalized);
-      if (lookup && lookup.success && lookup.identity) {
-        const fields = lookup.identity.fields || projectRecord(lookup.identity.raw || {});
-        return {
-          success: true,
-          id: normalizeIdValue(fields.ID || normalized),
-          identity: lookup.identity,
-          summary: lookup.summary || null,
-          fields: fields
-        };
-      }
-      if (lookup && lookup.success === false) {
-        return {
-          success: false,
-          error: lookup.error || 'User not found',
-          errorCode: lookup.errorCode || 'USER_NOT_FOUND'
-        };
-      }
-    } catch (identityError) {
-      console.warn('CampaignService.resolveUserIdentityById: IdentityService lookup failed', identityError);
-    }
-  }
-
-  const users = readAllUsers();
-  const hit = users.find(function (row) {
-    return normalizeIdValue(row && (row.ID || row.Id)) === normalized;
-  }) || null;
-
-  if (!hit) {
-    return { success: false, error: 'User not found', errorCode: 'USER_NOT_FOUND' };
-  }
-
-  const fields = projectRecord(hit);
-  return {
-    success: true,
-    id: normalizeIdValue(fields.ID || normalized),
-    identity: null,
-    summary: null,
-    fields: fields
-  };
-}
-
 function toBooleanFlag(value) {
   if (value === null || typeof value === 'undefined') return false;
   if (typeof value === 'boolean') return value;
@@ -267,22 +169,9 @@ function addUserToCampaign(userId, campaignId, options) {
   try {
     if (!userId || !campaignId) return false;
 
-    const identityInfo = resolveUserIdentityById(userId);
-    if (!identityInfo.success) {
-      safeWriteError && safeWriteError('addUserToCampaign:identity', identityInfo.error || identityInfo.errorCode || 'IDENTITY_RESOLUTION_FAILED');
-      return false;
-    }
-
-    const canonicalUserId = identityInfo.id;
-    const effectiveOptions = Object.assign({}, options || {}, {
-      identity: identityInfo.identity,
-      identitySummary: identityInfo.summary,
-      identityFields: identityInfo.fields
-    });
-
     if (canUseDatabaseManager()) {
       try {
-        const added = addUserToCampaignDb(canonicalUserId, campaignId, effectiveOptions);
+        const added = addUserToCampaignDb(userId, campaignId, options || {});
         invalidateSheetCache(USER_CAMPAIGNS_SHEET);
         return added;
       } catch (err) {
@@ -290,7 +179,7 @@ function addUserToCampaign(userId, campaignId, options) {
       }
     }
 
-    return legacyAddUserToCampaign(canonicalUserId, campaignId, effectiveOptions);
+    return legacyAddUserToCampaign(userId, campaignId, options || {});
   } catch (e) {
     safeWriteError('addUserToCampaign', e);
     return false;
@@ -347,16 +236,9 @@ function removeUserFromCampaign(userId, campaignId) {
   try {
     if (!userId || !campaignId) return { success: false, error: 'userId and campaignId required' };
 
-    const identityInfo = resolveUserIdentityById(userId);
-    if (!identityInfo.success) {
-      return { success: false, error: identityInfo.error || 'User not found', errorCode: identityInfo.errorCode || 'USER_NOT_FOUND' };
-    }
-
-    const canonicalUserId = identityInfo.id;
-
     if (canUseDatabaseManager()) {
       try {
-        const result = removeUserFromCampaignDb(canonicalUserId, campaignId);
+        const result = removeUserFromCampaignDb(userId, campaignId);
         invalidateSheetCache(USER_CAMPAIGNS_SHEET);
         return result;
       } catch (err) {
@@ -364,7 +246,7 @@ function removeUserFromCampaign(userId, campaignId) {
       }
     }
 
-    const removed = legacyRemoveUserFromCampaign(canonicalUserId, campaignId);
+    const removed = legacyRemoveUserFromCampaign(userId, campaignId);
     return { success: true, removed };
   } catch (e) {
     safeWriteError('removeUserFromCampaign', e);
@@ -640,7 +522,7 @@ function csGetAllCampaigns() {
 function csGetCampaignStats() {
   try {
     const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
-    const users = readAllUsers();
+    const users = readSheet(USERS_SHEET) || [];
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET) || [];
 
     return campaigns.map(c => ({
@@ -659,7 +541,7 @@ function csGetCampaignStats() {
 /**
  * Create new campaign
  */
-function csCreateCampaign(name, description = '', options = {}) {
+function csCreateCampaign(name, description = '') {
   try {
     if (!name || !name.trim()) {
       return { success: false, error: 'Campaign name is required' };
@@ -667,7 +549,6 @@ function csCreateCampaign(name, description = '', options = {}) {
 
     name = name.trim();
     description = (description || '').trim();
-    const metadata = normalizeCampaignCreationMetadata(name, options);
 
     // Check for duplicates
     const existing = readSheet(CAMPAIGNS_SHEET) || [];
@@ -682,23 +563,9 @@ function csCreateCampaign(name, description = '', options = {}) {
     return safeSheetOperation(() => {
       const campaignId = Utilities.getUuid();
       const now = new Date();
-      const createdAt = metadata.createdAt || now;
-      const updatedAt = metadata.updatedAt || now;
       const sheet = ensureSheetWithHeaders(CAMPAIGNS_SHEET, CAMPAIGNS_HEADERS);
 
-      sheet.appendRow([
-        campaignId,
-        name,
-        description,
-        metadata.clientName,
-        metadata.status,
-        metadata.channel,
-        metadata.timezone,
-        metadata.slaTier,
-        createdAt,
-        updatedAt,
-        metadata.deletedAt
-      ]);
+      sheet.appendRow([campaignId, name, description, now, now]);
       commitChanges();
 
       // Clear caches
@@ -712,14 +579,8 @@ function csCreateCampaign(name, description = '', options = {}) {
           id: campaignId,
           name: name,
           description: description,
-          clientName: metadata.clientName,
-          status: metadata.status,
-          channel: metadata.channel,
-          timezone: metadata.timezone,
-          slaTier: metadata.slaTier,
-          createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt,
-          updatedAt: updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt,
-          deletedAt: metadata.deletedAt
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString()
         }
       };
     });
@@ -793,7 +654,7 @@ function csDeleteCampaign(campaignId) {
   try {
     return safeSheetOperation(() => {
       // Check for assigned users
-      const users = readAllUsers();
+      const users = readSheet(USERS_SHEET) || [];
       const assignedUsers = users.filter(u => u.CampaignID === campaignId);
 
       if (assignedUsers.length > 0) {
@@ -869,7 +730,7 @@ function csDeleteCampaign(campaignId) {
 function csGetCampaignStatsV2() {
   try {
     const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
-    const users = readAllUsers();
+    const users = readSheet(USERS_SHEET) || [];
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET) || [];
     let uc = [];
     try {
@@ -1505,14 +1366,9 @@ function csRefreshNavigation(campaignId) {
  * Check if a value represents "active" status
  */
 function isActive(value) {
-  if (value === true) return true;
-  if (value === false || value === null || typeof value === 'undefined') return false;
-  if (typeof value === 'number') return value !== 0;
-
-  const normalized = String(value).trim().toUpperCase();
-  if (!normalized) return false;
-
-  return normalized === 'TRUE' || normalized === 'YES' || normalized === 'Y' || normalized === '1' || normalized === 'ON';
+  if (value === true || value === 'TRUE' || value === 'true') return true;
+  if (String(value).toLowerCase() === 'true') return true;
+  return false;
 }
 
 /**
@@ -1604,7 +1460,7 @@ function deleteRowsByColumnValue(sheetName, columnName, value) {
 // Maintain compatibility with existing frontend code
 function clientGetAllCampaigns() { return csGetAllCampaigns(); }
 function clientGetCampaignStats() { return csGetCampaignStats(); }
-function clientAddCampaign(name, description, options) { return csCreateCampaign(name, description, options); }
+function clientAddCampaign(name, description) { return csCreateCampaign(name, description); }
 function clientUpdateCampaign(id, name, description) { return csUpdateCampaign(id, name, description); }
 function clientDeleteCampaign(id) { return csDeleteCampaign(id); }
 function clientGetAllPages() { return csGetAllPages(); }
@@ -1728,32 +1584,4 @@ function forceClearAllCaches(campaignId) {
     console.error('Error clearing caches:', error);
     return { success: false, error: error.message };
   }
-}
-
-function normalizeCampaignCreationMetadata(name, options) {
-  const safeOptions = options && typeof options === 'object' ? options : {};
-  const metadata = {
-    clientName: safeOptions.clientName ? String(safeOptions.clientName).trim() : name,
-    status: safeOptions.status ? String(safeOptions.status).trim() : 'Active',
-    channel: safeOptions.channel ? String(safeOptions.channel).trim() : 'Operations',
-    timezone: safeOptions.timezone ? String(safeOptions.timezone).trim() : 'UTC',
-    slaTier: safeOptions.slaTier ? String(safeOptions.slaTier).trim() : 'Standard',
-    deletedAt: safeOptions.deletedAt ? String(safeOptions.deletedAt).trim() : ''
-  };
-
-  metadata.createdAt = coerceCampaignDateValue(safeOptions.createdAt);
-  metadata.updatedAt = coerceCampaignDateValue(safeOptions.updatedAt);
-
-  return metadata;
-}
-
-function coerceCampaignDateValue(value) {
-  if (!value && value !== 0) {
-    return null;
-  }
-  if (value instanceof Date) {
-    return value;
-  }
-  const parsed = new Date(value);
-  return isNaN(parsed.getTime()) ? null : parsed;
 }

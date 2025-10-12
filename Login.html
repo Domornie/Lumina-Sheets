@@ -1,0 +1,3837 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login – LuminaHQ</title>
+
+  <?!= includeOnce('CookieHandler') ?>
+  <?!= includeOnce('layoutLoader') ?>
+  <?!= includeOnce('layoutAlerts') ?>
+<?!= includeOnce('ResponsiveStyles') ?>
+
+  <!-- Bootstrap 5 & FontAwesome -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --primary-blue: #0478d3;
+      --primary-dark: #035799;
+      --success-green: #1f9254;
+      --danger-red: #dc3545;
+      --warning-yellow: #ffc107;
+      --info-cyan: #17a2b8;
+      --light-gray: #f5f7fb;
+      --surface: #ffffff;
+      --surface-muted: #f2f4f9;
+      --border-color: #e2e8f0;
+      --border-radius: 16px;
+      --border-radius-sm: 12px;
+      --border-radius-lg: 24px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.12);
+      --shadow-xl: 0 26px 55px rgba(15, 23, 42, 0.16);
+      --shadow-2xl: 0 32px 65px rgba(15, 23, 42, 0.18);
+      --text-primary: #101828;
+      --text-secondary: #475467;
+      --text-muted: #667085;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body,
+    html {
+      height: 100%;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      background-color: var(--light-gray);
+      background-image:
+        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.85), transparent 55%),
+        radial-gradient(circle at 78% 4%, rgba(255, 255, 255, 0.7), transparent 60%),
+        linear-gradient(180deg, rgba(247, 249, 253, 0.96), rgba(242, 244, 249, 0.98));
+      font-size: 15px;
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    .page-wrapper {
+      min-height: 100vh;
+    }
+
+    /* Modern Background with subtle pattern */
+    .gradient-bg {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(244, 246, 252, 0.94) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gradient-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(4, 120, 211, 0.14), transparent 55%),
+        radial-gradient(circle at 20% 80%, rgba(3, 87, 153, 0.1), transparent 60%);
+      opacity: 0.25;
+    }
+
+    .feature-panel {
+      background: radial-gradient(circle at 10% 20%, rgba(4, 120, 211, 0.55), transparent 65%),
+        radial-gradient(circle at 75% 85%, rgba(3, 87, 153, 0.45), transparent 60%),
+        linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0b1120 100%);
+      color: #f8fafc;
+      padding: 0 3rem;
+      position: relative;
+      overflow: hidden;
+      min-height: 100vh;
+    }
+
+    .feature-panel::before,
+    .feature-panel::after {
+      content: '';
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.35), transparent 70%);
+      filter: blur(20px);
+      opacity: 0.55;
+      z-index: 0;
+    }
+
+    .feature-panel::before {
+      top: -80px;
+      left: -120px;
+    }
+
+    .feature-panel::after {
+      bottom: -100px;
+      right: -120px;
+    }
+
+    .feature-content {
+      position: relative;
+      z-index: 1;
+      max-width: 420px;
+    }
+
+    .feature-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-heading {
+      font-size: clamp(2rem, 3vw + 1rem, 2.85rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
+    }
+
+    .feature-text {
+      color: rgba(226, 232, 240, 0.85);
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 2.5rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      color: rgba(241, 245, 249, 0.9);
+      font-weight: 500;
+    }
+
+    .feature-list i {
+      color: #38bdf8;
+      font-size: 1.1rem;
+      margin-top: 0.2rem;
+    }
+
+    .feature-illustration {
+      position: relative;
+      border-radius: var(--border-radius-lg);
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      padding: 2rem;
+      box-shadow: 0 25px 55px rgba(2, 6, 23, 0.45);
+    }
+
+    .feature-illustration img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .form-column {
+      position: relative;
+      padding: clamp(2rem, 5vw, 4.5rem);
+      background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .form-column::before {
+      content: '';
+      position: absolute;
+      inset: 8% 6% 10% 8%;
+      background:
+        radial-gradient(circle at top left, rgba(4, 120, 211, 0.18), transparent 65%),
+        radial-gradient(circle at bottom right, rgba(3, 87, 153, 0.12), transparent 70%);
+      filter: blur(90px);
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    /* Modern Form Container */
+    .login-container {
+      width: min(520px, 100%);
+      padding: clamp(2.5rem, 5vw, 3.5rem) clamp(2rem, 4.5vw, 3.25rem);
+      position: relative;
+      z-index: 1;
+    }
+
+    .consent-text {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 1.75rem;
+    }
+
+    .consent-text a {
+      color: var(--primary-blue);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .consent-text a:hover {
+      text-decoration: underline;
+    }
+
+    /* Enhanced Form Controls */
+    .form-label {
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+      letter-spacing: 0.025em;
+    }
+
+    .form-control {
+      border: 2px solid #e2e8f0;
+      border-radius: var(--border-radius);
+      padding: 1rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: var(--transition);
+      background: #ffffff;
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .form-control:focus {
+      border-color: var(--primary-blue);
+      box-shadow: 0 0 0 3px rgba(4, 120, 211, 0.12), var(--shadow-md);
+      background: #ffffff;
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .form-control::placeholder {
+      color: var(--text-muted);
+      opacity: 1;
+      font-weight: 400;
+    }
+
+    /* Enhanced Buttons */
+    .btn {
+      border-radius: var(--border-radius);
+      font-weight: 600;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.025em;
+      font-size: 1rem;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.6s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary {
+      background: var(--primary-blue);
+      border: none;
+      box-shadow: var(--shadow-md);
+      color: white;
+      padding: 1rem 2rem;
+      font-weight: 700;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+      background: #0262ad;
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-primary:focus {
+      box-shadow: 0 0 0 3px rgba(4, 120, 211, 0.25), var(--shadow-md);
+    }
+
+    /* Enhanced Password Field */
+    .password-field {
+      position: relative;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: var(--transition);
+      padding: 0.5rem;
+      border-radius: 50%;
+      z-index: 10;
+    }
+
+    .password-toggle:hover {
+      background: rgba(4, 120, 211, 0.12);
+      color: var(--primary-blue);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .mfa-section {
+      background: rgba(4, 120, 211, 0.06);
+      border: 1px solid rgba(4, 120, 211, 0.18);
+      border-radius: var(--border-radius);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .mfa-section.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .mfa-section .form-label {
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .mfa-message {
+      font-size: 0.9rem;
+      min-height: 1.25rem;
+      transition: var(--transition);
+    }
+
+    /* Enhanced Links */
+    .link-primary {
+      color: var(--primary-blue);
+      text-decoration: none;
+      transition: var(--transition);
+      font-weight: 600;
+    }
+
+    .link-primary:hover {
+      color: var(--primary-dark);
+      text-decoration: underline;
+      transform: translateY(-1px);
+    }
+
+    .loader-content {
+      text-align: center;
+      color: var(--text-primary);
+    }
+
+    .loader-content h4 {
+      margin-top: 1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    /* Enhanced Redirect Section */
+    .redirect-section {
+      display: none;
+      background: rgba(240, 253, 244, 0.9);
+      border: 1px solid rgba(31, 146, 84, 0.35);
+      border-radius: var(--border-radius-lg);
+      padding: 2.5rem;
+      margin-top: 2rem;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+      animation: slideInUp 0.6s ease-out;
+    }
+
+    .next-steps-card {
+      border-radius: var(--border-radius-lg);
+      border: 1px solid rgba(4, 120, 211, 0.16);
+      background: rgba(246, 251, 255, 0.92);
+      box-shadow: var(--shadow-sm);
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+      transition: var(--transition);
+    }
+
+    .next-steps-card[data-tone="warning"] {
+      border-color: rgba(255, 193, 7, 0.28);
+      background: rgba(255, 248, 225, 0.92);
+    }
+
+    .next-steps-card[data-tone="success"] {
+      border-color: rgba(31, 146, 84, 0.26);
+      background: rgba(236, 253, 243, 0.92);
+    }
+
+    .next-steps-card[data-tone="danger"] {
+      border-color: rgba(220, 53, 69, 0.33);
+      background: rgba(254, 242, 242, 0.92);
+    }
+
+    .next-steps-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .next-steps-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: var(--primary-blue);
+      background: rgba(4, 120, 211, 0.12);
+      transition: var(--transition);
+    }
+
+    .next-steps-icon[data-tone="warning"] {
+      background: rgba(255, 193, 7, 0.16);
+      color: #b68400;
+    }
+
+    .next-steps-icon[data-tone="success"] {
+      background: rgba(31, 146, 84, 0.16);
+      color: #1b7d3e;
+    }
+
+    .next-steps-icon[data-tone="danger"] {
+      background: rgba(220, 53, 69, 0.16);
+      color: #b22534;
+    }
+
+    .next-steps-body {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .next-steps-card .btn {
+      border-radius: var(--border-radius-sm);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .next-steps-card .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .device-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+    }
+
+    .device-modal.show {
+      display: flex;
+    }
+
+    .device-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+    }
+
+    .device-modal-dialog {
+      position: relative;
+      z-index: 1;
+      background: #ffffff;
+      border-radius: var(--border-radius-lg);
+      box-shadow: var(--shadow-2xl);
+      padding: 2.5rem;
+      width: min(520px, 92%);
+      max-width: 520px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .device-modal-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--text-primary);
+    }
+
+    .device-modal-body {
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+
+    .device-meta-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+      border: 1px solid rgba(226, 232, 240, 0.7);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+    }
+
+    .device-meta-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      background: rgba(246, 249, 255, 0.55);
+    }
+
+    .device-meta-list li + li {
+      border-top: 1px solid rgba(226, 232, 240, 0.7);
+    }
+
+    .device-meta-label {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-right: 1rem;
+    }
+
+    .device-modal-code-input {
+      font-size: 1.35rem;
+      letter-spacing: 0.4rem;
+      text-align: center;
+      font-weight: 600;
+      padding: 0.85rem 1rem;
+    }
+
+    .device-modal-error {
+      color: var(--danger-red);
+      font-size: 0.9rem;
+      min-height: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .device-modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 576px) {
+      .device-modal-actions {
+        flex-direction: row;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .next-steps-card .btn {
+        width: 100%;
+      }
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .redirect-section.show {
+      display: block !important;
+    }
+
+    .redirect-button {
+      background: var(--success-green);
+      color: #fff;
+      padding: 1.25rem 2.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: var(--transition);
+      box-shadow: var(--shadow-md);
+      font-size: 1.1rem;
+      letter-spacing: 0.025em;
+    }
+
+    .redirect-button:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-xl);
+      color: #fff;
+      background: #177644;
+    }
+
+    .redirect-button:active {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* Enhanced Countdown */
+    .countdown-display {
+      background: rgba(4, 120, 211, 0.08);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      font-weight: 600;
+      border: 1px solid rgba(4, 120, 211, 0.15);
+    }
+
+    .countdown-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--success-green);
+    }
+
+    /* Logo Enhancement */
+    .logo-container {
+      margin-bottom: 2.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .logo-container img {
+      width: 100%;
+      max-width: clamp(220px, 65vw, 320px);
+      height: auto;
+      padding-top: 0.5rem;
+      transition: var(--transition);
+      filter: drop-shadow(0 12px 20px rgba(15, 23, 42, 0.08));
+    }
+
+    .logo-container img:hover {
+      transform: scale(1.02) translateY(-2px);
+    }
+
+    /* Welcome Text */
+    .welcome-text h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .welcome-text p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    /* Alert Styling */
+    .alert-modern {
+      border-radius: var(--border-radius-sm);
+      border: none;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(4, 120, 211, 0.08);
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .alert-modern i {
+      font-size: 1.1rem;
+    }
+
+    .alert-modern.alert-success {
+      background: rgba(31, 146, 84, 0.12);
+      color: #1b7d3e;
+    }
+
+    .alert-modern.alert-danger {
+      background: rgba(220, 53, 69, 0.12);
+      color: #b22534;
+    }
+
+    .alert-modern.alert-warning {
+      background: rgba(255, 193, 7, 0.16);
+      color: #9a6b02;
+    }
+
+    .alert-modern.alert-info {
+      background: rgba(4, 120, 211, 0.12);
+      color: var(--primary-dark);
+    }
+
+    /* Form Animation */
+    .form-slide-out {
+      animation: slideOut 0.5s ease-in-out forwards;
+    }
+
+    @keyframes slideOut {
+      from {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      to {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+    }
+
+    /* Enhanced Checkbox */
+    .form-check {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .form-check-input {
+      border: 2px solid #cbd5e0;
+      border-radius: 6px;
+      background: #ffffff;
+      transition: var(--transition);
+    }
+
+    .form-check-input:checked {
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+      border-color: var(--primary-blue);
+    }
+
+    @media (max-width: 991.98px) {
+      body {
+        overflow: auto;
+      }
+
+      .form-column {
+        min-height: auto;
+      }
+    }
+
+    .form-check-input:focus {
+      box-shadow: 0 0 0 0.25rem rgba(0, 174, 239, 0.15);
+      border-color: var(--primary-blue);
+    }
+
+    .form-check-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* Loading State Enhancement */
+    .btn-loading {
+      position: relative;
+      color: transparent !important;
+    }
+
+    .btn-loading::after {
+      content: '';
+      position: absolute;
+      width: 1.2rem;
+      height: 1.2rem;
+      top: 50%;
+      left: 50%;
+      margin-left: -0.6rem;
+      margin-top: -0.6rem;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Success Icon Animation */
+    .success-icon {
+      animation: bounceIn 0.8s ease-out;
+    }
+
+    @keyframes bounceIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+
+      70% {
+        transform: scale(0.9);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* Footer Links */
+    .footer-links {
+      margin-top: 2rem;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: var(--transition);
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-secondary);
+      transform: translateY(-1px);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 767.98px) {
+      .form-column {
+        padding: 0 1.5rem;
+      }
+
+      .form-column::before {
+        display: none;
+      }
+
+      .login-container {
+        margin: 1rem;
+        padding: 2rem;
+      }
+
+      .consent-text {
+        text-align: center;
+      }
+
+      .logo-container img {
+        max-width: 260px;
+      }
+
+      .welcome-text h1 {
+        font-size: 2rem;
+      }
+
+      .redirect-button {
+        padding: 1rem 2rem;
+        font-size: 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .form-column {
+        padding: 0;
+      }
+
+      .login-container {
+        margin: 0.5rem;
+        padding: 1.5rem;
+      }
+
+      .form-control {
+        padding: 0.875rem 1rem;
+      }
+
+      .btn-primary {
+        padding: 0.875rem 1.5rem;
+      }
+
+      .welcome-text h1 {
+        font-size: 1.65rem;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+
+  <div class="container-fluid h-100 page-wrapper">
+    <div class="row h-100">
+
+      <!-- LEFT: Hero / Feature Panel -->
+      <div class="col-lg-5 d-none d-lg-flex align-items-center justify-content-center feature-panel">
+        <div class="feature-content text-center text-lg-start">
+          <span class="feature-badge">
+            <i class="fas fa-sparkles"></i> LuminaHQ Platform
+          </span>
+          <h2 class="feature-heading">Centralized clarity to lead every client partnership</h2>
+          <p class="feature-text">Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
+          <ul class="feature-list">
+            <li><i class="fas fa-chart-line"></i><span>Real-time insight into quality, productivity, and coaching impact.</span></li>
+            <li><i class="fas fa-people-group"></i><span>Streamlined workflows that keep support, QA, and operations aligned.</span></li>
+            <li><i class="fas fa-shield-check"></i><span>Enterprise-grade controls to protect sensitive customer data.</span></li>
+          </ul>
+          <div class="feature-illustration">
+            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
+                 alt="Team collaboration illustration" loading="lazy">
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Login Form -->
+      <div class="col-lg-7 col-xl-6 ms-auto d-flex align-items-center justify-content-center bg-light form-column">
+        <div class="login-container">
+
+          <!-- Logo Section -->
+          <div class="logo-container">
+            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png"
+                 alt="LuminaHQ" class="img-fluid" loading="lazy">
+          </div>
+
+          <div class="welcome-text">
+            <h1>Welcome back</h1>
+            <p>Log in to access your LuminaHQ operations hub.</p>
+          </div>
+
+          <!-- Enhanced Alerts -->
+          <div id="successAlert" class="alert alert-modern alert-success d-none" role="alert">
+            <i class="fas fa-check-circle me-2"></i><span id="successMessage"></span>
+          </div>
+          <div id="errorAlert" class="alert alert-modern alert-danger d-none" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i><span id="errorMessage"></span>
+          </div>
+          <div id="warningAlert" class="alert alert-modern alert-warning d-none" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i><span id="warningMessage"></span>
+          </div>
+          <div id="infoAlert" class="alert alert-modern alert-info d-none" role="alert">
+            <i class="fas fa-info-circle me-2"></i><span id="infoMessage"></span>
+          </div>
+
+          <div id="nextStepsCard" class="next-steps-card d-none" data-tone="info">
+            <div class="next-steps-header">
+              <div id="nextStepsIcon" class="next-steps-icon" data-tone="info">
+                <i class="fas fa-lightbulb"></i>
+              </div>
+              <div>
+                <h5 id="nextStepsTitle" class="mb-1">Need help signing in?</h5>
+                <p id="nextStepsSubtitle" class="mb-0 text-muted small"></p>
+              </div>
+            </div>
+            <p id="nextStepsBody" class="next-steps-body mb-3"></p>
+            <div id="nextStepsActions" class="d-flex flex-column flex-md-row gap-2"></div>
+          </div>
+
+          <!-- Success Redirect Section -->
+          <div id="redirectSection" class="redirect-section">
+            <i class="fas fa-check-circle fa-4x mb-4 text-success success-icon"></i>
+            <h4 class="text-success fw-bold mb-3">Login Successful!</h4>
+            <div class="countdown-display">
+              <div id="countdown">Preparing your dashboard...</div>
+              <div class="mt-2">
+                <span class="countdown-number" id="countdownNumber">3</span>
+                <small class="text-muted">seconds remaining</small>
+              </div>
+            </div>
+            <a id="continueButton" class="redirect-button" target="_top" href="#">
+              <i class="fas fa-arrow-right"></i>Continue to Dashboard
+            </a>
+            <div class="mt-3">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelRedirect()">
+                <i class="fas fa-times me-1"></i>Cancel Auto-Redirect
+              </button>
+            </div>
+          </div>
+
+          <div id="deviceVerificationModal" class="device-modal" aria-hidden="true">
+            <div class="device-modal-backdrop"></div>
+            <div class="device-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="deviceVerificationTitle">
+              <span class="badge bg-warning-subtle text-warning-emphasis mb-3" id="deviceVerificationBadge">
+                <i class="fas fa-shield-halved me-1"></i> Security Check
+              </span>
+              <h4 id="deviceVerificationTitle" class="device-modal-title">Confirm this sign-in</h4>
+              <p id="deviceVerificationMessage" class="device-modal-body">
+                We sent a verification code to your email address to confirm this device.
+              </p>
+              <ul id="deviceVerificationMeta" class="device-meta-list"></ul>
+              <div class="mb-3">
+                <label for="deviceVerificationCode" class="form-label">Verification code</label>
+                <input type="text" id="deviceVerificationCode" class="form-control device-modal-code-input"
+                       autocomplete="one-time-code" inputmode="numeric" maxlength="8"
+                       placeholder="Enter the code">
+              </div>
+              <div id="deviceVerificationError" class="device-modal-error"></div>
+              <div class="device-modal-actions">
+                <button type="button" id="deviceVerificationConfirmBtn" class="btn btn-primary flex-grow-1">
+                  <i class="fas fa-check me-2"></i>Yes, that was me
+                </button>
+                <button type="button" id="deviceVerificationDenyBtn" class="btn btn-outline-danger flex-grow-1">
+                  <i class="fas fa-ban me-2"></i>No, secure my account
+                </button>
+              </div>
+              <button type="button" id="deviceVerificationCancelBtn" class="btn btn-link text-muted mt-3 p-0">
+                Use a different account
+              </button>
+            </div>
+          </div>
+
+          <!-- Login Form -->
+          <form id="loginForm">
+            <div class="mb-3">
+              <label for="email" class="form-label">Email Address</label>
+              <input type="email" id="email" class="form-control"
+                     placeholder="Enter your email" required autocomplete="email">
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Password</label>
+              <div class="password-field">
+                <input type="password" id="password" class="form-control"
+                       placeholder="Enter your password" required autocomplete="current-password">
+                <button type="button" class="password-toggle" onclick="togglePassword()" title="Show/Hide Password">
+                  <i class="fas fa-eye" id="passwordIcon"></i>
+                </button>
+              </div>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="rememberMe">
+              <label class="form-check-label" for="rememberMe">
+                Remember me for 24 hours
+              </label>
+            </div>
+            <div id="mfaSection" class="mfa-section">
+              <div class="mb-3">
+                <label for="mfaCode" class="form-label">Authentication Code</label>
+                <input type="text" id="mfaCode" class="form-control" placeholder="Enter verification code"
+                       autocomplete="one-time-code" inputmode="numeric">
+              </div>
+              <div class="d-flex flex-column flex-md-row gap-2">
+                <button type="button" id="verifyMfaBtn" class="btn btn-primary flex-grow-1">
+                  <i class="fas fa-shield-check me-2"></i>Verify Code
+                </button>
+                <button type="button" id="resendMfaBtn" class="btn btn-outline-secondary">
+                  <i class="fas fa-paper-plane me-2"></i>Resend Code
+                </button>
+              </div>
+              <div id="mfaMessage" class="mfa-message mt-3 text-muted"></div>
+            </div>
+            <div class="d-grid mb-3">
+              <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
+                <i class="fas fa-sign-in-alt me-2"></i>Log in
+              </button>
+            </div>
+            <div id="feedback" class="text-danger small mb-3"></div>
+          </form>
+
+          <!-- Forgot Password Link -->
+          <div class="text-center mb-4">
+            <a href="<?= baseUrl ?>?page=forgotpassword" class="link-primary">
+              <i class="fas fa-question-circle me-2"></i>Forgot your password?
+            </a>
+          </div>
+
+          <p class="consent-text text-center">
+            By clicking <strong>Log in</strong>, you agree to our <a href="<?= baseUrl ?>?page=terms-of-service" target="_blank" rel="noopener">Terms &amp; Conditions</a> and acknowledge our <a href="<?= baseUrl ?>?page=privacy-policy" target="_blank" rel="noopener">Privacy Policy</a> on how we collect and handle data.
+          </p>
+
+          <div class="footer-links text-center mt-4">
+            <a href="<?= baseUrl ?>?page=privacy-policy" class="small" target="_blank" rel="noopener">Privacy Policy</a>
+            <span class="small mx-2 text-muted">•</span>
+            <a href="<?= baseUrl ?>?page=terms-of-service" class="small" target="_blank" rel="noopener">Terms of Service</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
+    // ───────────────────────────────────────────────────────────────────────────────
+    // SIMPLIFIED AUTHENTICATION CONFIGURATION
+    // ───────────────────────────────────────────────────────────────────────────────
+    const CONFIG = {
+      baseUrl: '<?= baseUrl ?>',
+      scriptUrl: '<?= scriptUrl ?>',
+      redirectDelay: 3000 // 3 seconds
+    };
+
+    const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
+    const SESSION_RESUME_LOADER_DELAY_MS = 500;
+
+    function sanitizeBaseUrl(candidate, fallback) {
+      const invalidPattern = /usercodeapppanel/i;
+
+      const normalize = value => {
+        if (value === null || value === undefined) return '';
+        const trimmed = String(value).trim();
+        if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+          return '';
+        }
+        return trimmed;
+      };
+
+      const ensureNotPanel = value => {
+        if (!value) return '';
+        if (!invalidPattern.test(value)) {
+          return value;
+        }
+        return value.replace(/\/userCodeAppPanel.*$/i, '/exec');
+      };
+
+      const isInvalid = value => {
+        return !value || invalidPattern.test(value);
+      };
+
+      const primary = ensureNotPanel(normalize(candidate));
+      if (!isInvalid(primary)) {
+        return primary;
+      }
+
+      const secondary = ensureNotPanel(normalize(fallback));
+      if (!isInvalid(secondary)) {
+        return secondary;
+      }
+
+      try {
+        const current = new URL(window.location.href);
+        current.search = '';
+        current.hash = '';
+        const derived = ensureNotPanel(current.origin + current.pathname);
+        if (!isInvalid(derived)) {
+          return derived;
+        }
+      } catch (err) {
+        console.warn('Unable to derive base URL from current location', err);
+      }
+
+      return secondary || primary || '';
+    }
+
+    CONFIG.baseUrl = sanitizeBaseUrl(CONFIG.baseUrl, CONFIG.scriptUrl);
+    CONFIG.scriptUrl = sanitizeBaseUrl(CONFIG.scriptUrl, CONFIG.baseUrl);
+
+    if (!CONFIG.baseUrl) {
+      const current = new URL(window.location.href);
+      CONFIG.baseUrl = current.origin + current.pathname;
+    }
+
+    const SUPPORT_EMAIL = 'support@vlbpo.com';
+    const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
+    const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
+    const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
+    const STORAGE_KEYS = {
+      rememberedEmail: 'lumina.auth.rememberedEmail',
+      rememberExpiry: 'lumina.auth.rememberExpiry',
+      lastEmail: 'lumina.auth.lastEmail'
+    };
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // DOM ELEMENTS AND STATE MANAGEMENT
+    // ───────────────────────────────────────────────────────────────────────────────
+    const elements = {
+      feedback: document.getElementById('feedback'),
+      loginBtn: document.getElementById('loginBtn'),
+      emailInput: document.getElementById('email'),
+      passwordInput: document.getElementById('password'),
+      rememberMeCheckbox: document.getElementById('rememberMe'),
+      redirectSection: document.getElementById('redirectSection'),
+      continueButton: document.getElementById('continueButton'),
+      loginForm: document.getElementById('loginForm'),
+      countdown: document.getElementById('countdown'),
+      countdownNumber: document.getElementById('countdownNumber'),
+      nextStepsCard: document.getElementById('nextStepsCard'),
+      nextStepsTitle: document.getElementById('nextStepsTitle'),
+      nextStepsSubtitle: document.getElementById('nextStepsSubtitle'),
+      nextStepsBody: document.getElementById('nextStepsBody'),
+      nextStepsActions: document.getElementById('nextStepsActions'),
+      nextStepsIcon: document.getElementById('nextStepsIcon'),
+      mfaSection: document.getElementById('mfaSection'),
+      mfaCodeInput: document.getElementById('mfaCode'),
+      verifyMfaBtn: document.getElementById('verifyMfaBtn'),
+      resendMfaBtn: document.getElementById('resendMfaBtn'),
+      mfaMessage: document.getElementById('mfaMessage'),
+      deviceModal: document.getElementById('deviceVerificationModal'),
+      deviceModalMessage: document.getElementById('deviceVerificationMessage'),
+      deviceModalMeta: document.getElementById('deviceVerificationMeta'),
+      deviceModalCodeInput: document.getElementById('deviceVerificationCode'),
+      deviceModalConfirmBtn: document.getElementById('deviceVerificationConfirmBtn'),
+      deviceModalDenyBtn: document.getElementById('deviceVerificationDenyBtn'),
+      deviceModalError: document.getElementById('deviceVerificationError'),
+      deviceModalCancelBtn: document.getElementById('deviceVerificationCancelBtn'),
+      deviceModalBadge: document.getElementById('deviceVerificationBadge')
+    };
+
+    // State management
+    let state = {
+      lastEmail: '',
+      redirectTimer: null,
+      isRedirecting: false,
+      redirectUrl: '',
+      countdownValue: 3,
+      authToken: '',
+      hasAttemptedResume: false,
+      loginRequestTimer: null,
+      loginRequestActive: false,
+      loginTimeoutFired: false,
+      pendingLogin: null,
+      autoRetryCount: 0,
+      isAutoRetrying: false,
+      resumeLoaderTimer: null,
+      resumeLoaderVisible: false,
+      pendingMfa: null,
+      mfaDeliveryInFlight: false,
+      mfaVerifyInFlight: false,
+      mfaCountdownTimer: null,
+      mfaBaseMessage: '',
+      pendingDeviceVerification: null,
+      deviceVerificationInFlight: false,
+      keepAliveTimer: null,
+      keepAliveIntervalMs: null,
+      sessionIdleTimeoutMinutes: null,
+      sessionTtlSeconds: null,
+      sessionExpiresAt: null,
+      lastRememberMe: false
+    };
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // ENHANCED ALERT SYSTEM
+    // ───────────────────────────────────────────────────────────────────────────────
+    function showAlert(type, msg) {
+      console.log(`Alert [${type}]:`, msg);
+      
+      // Hide all alerts first
+      ['success', 'error', 'warning', 'info'].forEach(t => {
+        const alert = document.getElementById(t + 'Alert');
+        if (alert) alert.classList.add('d-none');
+      });
+      
+      if (elements.feedback) {
+        elements.feedback.textContent = '';
+      }
+      
+      // Show the specific alert
+      const messageEl = document.getElementById(type + 'Message');
+      const alertEl = document.getElementById(type + 'Alert');
+      
+      if (messageEl && alertEl) {
+        messageEl.textContent = msg;
+        alertEl.classList.remove('d-none');
+        
+        // Add animation
+        alertEl.style.opacity = '0';
+        alertEl.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+          alertEl.style.transition = 'all 0.3s ease';
+          alertEl.style.opacity = '1';
+          alertEl.style.transform = 'translateY(0)';
+        }, 10);
+      }
+    }
+
+    function hideAllAlerts() {
+      ['success', 'error', 'warning', 'info'].forEach(t => {
+        const alert = document.getElementById(t + 'Alert');
+        if (alert) alert.classList.add('d-none');
+      });
+      if (elements.feedback) {
+        elements.feedback.textContent = '';
+      }
+      hideNextSteps();
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // ENHANCED LOADING STATE
+    // ───────────────────────────────────────────────────────────────────────────────
+    function setLoading(isLoading, detailMessage = 'Validating your credentials…') {
+      const loaderApi = window.LuminaLoader;
+      if (loaderApi) {
+        if (isLoading) {
+          const loaderPayload = {
+            title: 'Signing you in…',
+            detail: detailMessage,
+            tip: 'Securing your Lumina workspace',
+            progress: 45
+          };
+          if (typeof loaderApi.isVisible === 'function' && loaderApi.isVisible()) {
+            loaderApi.update(loaderPayload);
+          } else {
+            loaderApi.show(loaderPayload);
+          }
+        } else {
+          loaderApi.hide(200);
+        }
+      }
+
+      if (elements.loginBtn) {
+        elements.loginBtn.disabled = isLoading;
+
+        if (isLoading) {
+          elements.loginBtn.classList.add('btn-loading');
+          elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in…';
+        } else {
+          elements.loginBtn.classList.remove('btn-loading');
+          elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
+        }
+      }
+    }
+
+    function scheduleSessionResumeLoader(detailMessage = 'Restoring your previous session…') {
+      if (state.resumeLoaderTimer || state.resumeLoaderVisible) {
+        return;
+      }
+
+      state.resumeLoaderTimer = setTimeout(() => {
+        state.resumeLoaderTimer = null;
+        state.resumeLoaderVisible = true;
+        setLoading(true, detailMessage);
+      }, SESSION_RESUME_LOADER_DELAY_MS);
+    }
+
+    function cancelSessionResumeLoader({ preserveLoader = false } = {}) {
+      if (state.resumeLoaderTimer) {
+        clearTimeout(state.resumeLoaderTimer);
+        state.resumeLoaderTimer = null;
+      }
+
+      if (state.resumeLoaderVisible) {
+        state.resumeLoaderVisible = false;
+
+        if (!preserveLoader && !state.loginRequestActive) {
+          setLoading(false);
+        }
+      }
+    }
+
+    function clearLoginRequestTimer() {
+      if (state.loginRequestTimer) {
+        clearTimeout(state.loginRequestTimer);
+        state.loginRequestTimer = null;
+      }
+    }
+
+    function finalizeLoginRequest() {
+      clearLoginRequestTimer();
+      state.loginRequestActive = false;
+      state.loginTimeoutFired = false;
+      state.pendingLogin = null;
+      state.autoRetryCount = 0;
+      state.isAutoRetrying = false;
+    }
+
+    function monitorLoginRequest(email, rememberMe) {
+      clearLoginRequestTimer();
+      if (!state.isAutoRetrying) {
+        state.autoRetryCount = 0;
+      }
+      state.isAutoRetrying = false;
+
+      state.loginRequestActive = true;
+      state.loginTimeoutFired = false;
+      state.pendingLogin = { email, rememberMe, autoRetried: false };
+
+      state.loginRequestTimer = setTimeout(() => {
+        state.loginRequestTimer = null;
+        state.loginTimeoutFired = true;
+        state.loginRequestActive = false;
+
+        setLoading(false);
+
+        showAlert('warning', 'Login is taking longer than expected. We refreshed your sign-in timer—please try again.');
+
+        const retryLogin = () => {
+          hideAllAlerts();
+
+          const pending = state.pendingLogin || {};
+          if (elements.emailInput && pending.email && !elements.emailInput.value.trim()) {
+            elements.emailInput.value = pending.email;
+          }
+          if (elements.rememberMeCheckbox && typeof pending.rememberMe === 'boolean') {
+            elements.rememberMeCheckbox.checked = pending.rememberMe;
+          }
+
+          if (elements.loginForm) {
+            const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+            elements.loginForm.dispatchEvent(retryEvent);
+          }
+        };
+
+        showNextSteps({
+          title: 'Still signing you in…',
+          subtitle: 'The server is taking longer than normal to respond.',
+          body: 'We renewed your sign-in session timer so you can try again immediately. If this continues, please contact support.',
+          tone: 'warning',
+          icon: 'fa-hourglass-half',
+          actions: [
+            {
+              type: 'button',
+              label: 'Try Again Now',
+              icon: 'fa-rotate',
+              variant: 'primary',
+              onClick: retryLogin
+            },
+            {
+              type: 'link',
+              label: 'Email Support',
+              icon: 'fa-headset',
+              variant: 'outline-secondary',
+              href: `mailto:${SUPPORT_EMAIL}`,
+              target: '_blank',
+              rel: 'noopener'
+            }
+          ]
+        });
+
+        const pending = state.pendingLogin;
+        if (pending && !pending.autoRetried && state.autoRetryCount < 2) {
+          pending.autoRetried = true;
+          state.autoRetryCount += 1;
+          state.isAutoRetrying = true;
+          setTimeout(() => {
+            retryLogin();
+          }, 200);
+        }
+      }, LOGIN_REQUEST_TIMEOUT_MS);
+    }
+
+    function resetMfaState() {
+      if (state.mfaCountdownTimer) {
+        clearInterval(state.mfaCountdownTimer);
+        state.mfaCountdownTimer = null;
+      }
+      state.pendingMfa = null;
+      state.mfaDeliveryInFlight = false;
+      state.mfaVerifyInFlight = false;
+      state.mfaBaseMessage = '';
+
+      if (elements.mfaSection) {
+        elements.mfaSection.classList.remove('active');
+      }
+      if (elements.mfaMessage) {
+        elements.mfaMessage.textContent = '';
+        elements.mfaMessage.className = 'mfa-message mt-3 text-muted';
+      }
+      if (elements.mfaCodeInput) {
+        elements.mfaCodeInput.value = '';
+        elements.mfaCodeInput.removeAttribute('readonly');
+        elements.mfaCodeInput.disabled = false;
+      }
+      if (elements.emailInput) {
+        elements.emailInput.removeAttribute('readonly');
+        elements.emailInput.disabled = false;
+      }
+      if (elements.passwordInput) {
+        elements.passwordInput.removeAttribute('readonly');
+        elements.passwordInput.disabled = false;
+      }
+      if (elements.verifyMfaBtn) {
+        elements.verifyMfaBtn.disabled = false;
+        elements.verifyMfaBtn.innerHTML = '<i class="fas fa-shield-check me-2"></i>Verify Code';
+      }
+      if (elements.resendMfaBtn) {
+        elements.resendMfaBtn.disabled = false;
+        elements.resendMfaBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Resend Code';
+      }
+      if (elements.loginBtn) {
+        elements.loginBtn.classList.remove('d-none');
+        elements.loginBtn.disabled = false;
+        elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
+      }
+    }
+
+    function setMfaMessage(message, tone = 'info') {
+      if (!elements.mfaMessage) return;
+      state.mfaBaseMessage = message || '';
+      elements.mfaMessage.className = 'mfa-message mt-3';
+      if (tone === 'success') {
+        elements.mfaMessage.classList.add('text-success');
+      } else if (tone === 'error') {
+        elements.mfaMessage.classList.add('text-danger');
+      } else if (tone === 'warning') {
+        elements.mfaMessage.classList.add('text-warning');
+      } else {
+        elements.mfaMessage.classList.add('text-muted');
+      }
+      elements.mfaMessage.textContent = message || '';
+    }
+
+    function updateMfaCountdownLabel() {
+      if (!elements.mfaMessage || !state.pendingMfa || !state.pendingMfa.expiresAt) {
+        return;
+      }
+      const baseMessage = state.mfaBaseMessage || '';
+      const msRemaining = state.pendingMfa.expiresAt - Date.now();
+      if (msRemaining <= 0) {
+        elements.mfaMessage.textContent = baseMessage
+          ? baseMessage + ' (code expired)'
+          : 'The verification code has expired.';
+        return;
+      }
+      const totalSeconds = Math.floor(msRemaining / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const label = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+      const prefix = baseMessage || 'Enter the verification code.';
+      elements.mfaMessage.textContent = `${prefix} (expires in ${label})`;
+    }
+
+    function startMfaCountdown() {
+      if (state.mfaCountdownTimer) {
+        clearInterval(state.mfaCountdownTimer);
+        state.mfaCountdownTimer = null;
+      }
+      if (!state.pendingMfa || !state.pendingMfa.expiresAt) {
+        return;
+      }
+
+      updateMfaCountdownLabel();
+      state.mfaCountdownTimer = setInterval(() => {
+        if (!state.pendingMfa || !state.pendingMfa.expiresAt) {
+          clearInterval(state.mfaCountdownTimer);
+          state.mfaCountdownTimer = null;
+          return;
+        }
+        const msRemaining = state.pendingMfa.expiresAt - Date.now();
+        if (msRemaining <= 0) {
+          clearInterval(state.mfaCountdownTimer);
+          state.mfaCountdownTimer = null;
+          setMfaMessage('The verification code has expired. Request a new one to continue.', 'warning');
+          return;
+        }
+        updateMfaCountdownLabel();
+      }, 1000);
+    }
+
+    function setMfaDeliveryLoading(isLoading) {
+      state.mfaDeliveryInFlight = !!isLoading;
+      if (elements.resendMfaBtn) {
+        elements.resendMfaBtn.disabled = !!isLoading;
+        elements.resendMfaBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Sending...'
+          : '<i class="fas fa-paper-plane me-2"></i>Resend Code';
+      }
+      if (elements.verifyMfaBtn) {
+        elements.verifyMfaBtn.disabled = state.mfaVerifyInFlight || !!isLoading;
+      }
+    }
+
+    function setMfaVerifyLoading(isLoading) {
+      state.mfaVerifyInFlight = !!isLoading;
+      if (elements.verifyMfaBtn) {
+        elements.verifyMfaBtn.disabled = !!isLoading;
+        elements.verifyMfaBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Verifying...'
+          : '<i class="fas fa-shield-check me-2"></i>Verify Code';
+      }
+      if (elements.resendMfaBtn) {
+        elements.resendMfaBtn.disabled = state.mfaDeliveryInFlight || !!isLoading;
+      }
+    }
+
+    function requestMfaCode({ deliveryMethod, silent } = {}) {
+      if (!state.pendingMfa || state.mfaDeliveryInFlight) {
+        return;
+      }
+      setMfaDeliveryLoading(true);
+      if (!silent) {
+        setMfaMessage('Sending verification code…', 'info');
+      }
+
+      const payload = deliveryMethod ? { deliveryMethod } : null;
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setMfaDeliveryLoading(false);
+          handleMfaDeliveryResponse(response);
+        })
+        .withFailureHandler(error => {
+          console.error('requestMfaCode error:', error);
+          setMfaDeliveryLoading(false);
+          setMfaMessage('Unable to send verification code. Please try again.', 'error');
+        })
+        .beginMfaChallenge(state.pendingMfa.challengeId, payload);
+    }
+
+    function handleMfaDeliveryResponse(response) {
+      if (!response || response.success === false) {
+        const message = (response && response.error) || 'Unable to send verification code.';
+        setMfaMessage(message, 'error');
+        if (response && response.challengeExpired) {
+          showAlert('error', 'Your verification challenge expired. Please sign in again.');
+          resetMfaState();
+        }
+        return;
+      }
+
+      if (state.pendingMfa) {
+        state.pendingMfa.maskedDestination = response.maskedDestination || state.pendingMfa.maskedDestination;
+        state.pendingMfa.totp = !!response.totp;
+        state.pendingMfa.deliveriesRemaining = response.deliveriesRemaining;
+        state.pendingMfa.backupCodesRemaining = response.backupCodesRemaining;
+        state.pendingMfa.expiresAt = response.expiresAt ? new Date(response.expiresAt) : null;
+      }
+
+      if (response.totp) {
+        setMfaMessage('Open your authenticator app and enter the current verification code.', 'info');
+      } else if (response.maskedDestination) {
+        setMfaMessage(`We sent a verification code to ${response.maskedDestination}.`, 'success');
+      } else {
+        setMfaMessage('Verification code sent. Check your messages to continue.', 'success');
+      }
+
+      if (elements.mfaCodeInput) {
+        elements.mfaCodeInput.focus();
+        elements.mfaCodeInput.select();
+      }
+
+      if (state.pendingMfa && state.pendingMfa.expiresAt) {
+        startMfaCountdown();
+      }
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '';
+      try {
+        const date = value instanceof Date ? value : new Date(value);
+        if (isNaN(date.getTime())) {
+          return '';
+        }
+        return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      } catch (err) {
+        console.warn('formatDateTime error', err);
+        return '';
+      }
+    }
+
+    function updateDeviceVerificationError(message) {
+      if (elements.deviceModalError) {
+        elements.deviceModalError.textContent = message || '';
+      }
+    }
+
+    function setDeviceVerificationLoading(isLoading) {
+      state.deviceVerificationInFlight = !!isLoading;
+      if (elements.deviceModalConfirmBtn) {
+        elements.deviceModalConfirmBtn.disabled = !!isLoading;
+        elements.deviceModalConfirmBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Verifying…'
+          : '<i class="fas fa-check me-2"></i>Yes, that was me';
+      }
+      if (elements.deviceModalDenyBtn) {
+        elements.deviceModalDenyBtn.disabled = !!isLoading;
+        elements.deviceModalDenyBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Processing…'
+          : '<i class="fas fa-ban me-2"></i>No, secure my account';
+      }
+    }
+
+    function hideDeviceVerificationPrompt({ resetState = true } = {}) {
+      if (elements.deviceModal) {
+        elements.deviceModal.classList.remove('show');
+        elements.deviceModal.setAttribute('aria-hidden', 'true');
+      }
+      state.deviceVerificationInFlight = false;
+      if (resetState) {
+        state.pendingDeviceVerification = null;
+        updateDeviceVerificationError('');
+        if (elements.deviceModalCodeInput) {
+          elements.deviceModalCodeInput.value = '';
+        }
+      }
+      if (elements.deviceModalConfirmBtn) {
+        elements.deviceModalConfirmBtn.disabled = false;
+        elements.deviceModalConfirmBtn.innerHTML = '<i class="fas fa-check me-2"></i>Yes, that was me';
+      }
+      if (elements.deviceModalDenyBtn) {
+        elements.deviceModalDenyBtn.disabled = false;
+        elements.deviceModalDenyBtn.innerHTML = '<i class="fas fa-ban me-2"></i>No, secure my account';
+      }
+    }
+
+    function showDeviceVerificationPrompt(response, email, rememberMe) {
+      const verification = response && response.verification ? response.verification : {};
+      const verificationId = verification.id || verification.verificationId || '';
+      if (!verificationId) {
+        showAlert('error', 'We were unable to start the verification process. Please try again.');
+        return;
+      }
+
+      const expiresAt = verification.expiresAt ? new Date(verification.expiresAt) : null;
+      state.pendingDeviceVerification = {
+        id: verificationId,
+        email: email,
+        rememberMe: !!rememberMe,
+        maskedEmail: verification.maskedEmail || '',
+        ipAddress: verification.ipAddress || '',
+        expiresAt: expiresAt,
+        message: response && response.message ? response.message : (verification.message || ''),
+        codeLength: verification.codeLength || 6
+      };
+
+      if (elements.deviceModalMessage) {
+        const primaryMessage = state.pendingDeviceVerification.message
+          || 'We sent a verification code to confirm this device.';
+        const destination = state.pendingDeviceVerification.maskedEmail
+          ? `Check ${state.pendingDeviceVerification.maskedEmail} for the code.`
+          : 'Check your email for the code.';
+        elements.deviceModalMessage.innerText = `${primaryMessage} ${destination}`.trim();
+      }
+
+      if (elements.deviceModalMeta) {
+        const metaItems = [];
+        if (state.pendingDeviceVerification.maskedEmail) {
+          metaItems.push({ label: 'Email', value: state.pendingDeviceVerification.maskedEmail });
+        }
+        if (state.pendingDeviceVerification.ipAddress) {
+          metaItems.push({ label: 'Observed IP', value: state.pendingDeviceVerification.ipAddress });
+        }
+        if (state.pendingDeviceVerification.expiresAt) {
+          metaItems.push({ label: 'Expires', value: formatDateTime(state.pendingDeviceVerification.expiresAt) });
+        }
+
+        if (metaItems.length) {
+          elements.deviceModalMeta.classList.remove('d-none');
+          elements.deviceModalMeta.innerHTML = metaItems.map(item => (
+            `<li><span class="device-meta-label">${item.label}</span><span>${item.value}</span></li>`
+          )).join('');
+        } else {
+          elements.deviceModalMeta.classList.add('d-none');
+          elements.deviceModalMeta.innerHTML = '';
+        }
+      }
+
+      if (elements.deviceModalCodeInput) {
+        elements.deviceModalCodeInput.value = '';
+        elements.deviceModalCodeInput.maxLength = state.pendingDeviceVerification.codeLength || 8;
+        elements.deviceModalCodeInput.placeholder = `Enter ${state.pendingDeviceVerification.codeLength || 6}-digit code`;
+        setTimeout(() => {
+          elements.deviceModalCodeInput.focus();
+          elements.deviceModalCodeInput.select();
+        }, 120);
+      }
+
+      updateDeviceVerificationError('');
+      if (elements.deviceModal) {
+        elements.deviceModal.classList.add('show');
+        elements.deviceModal.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    function submitDeviceVerification() {
+      if (state.deviceVerificationInFlight) {
+        return;
+      }
+
+      if (!state.pendingDeviceVerification || !state.pendingDeviceVerification.id) {
+        showAlert('error', 'We could not find that verification request. Please sign in again.');
+        hideDeviceVerificationPrompt();
+        return;
+      }
+
+      const codeValue = elements.deviceModalCodeInput ? elements.deviceModalCodeInput.value.trim() : '';
+      if (!codeValue) {
+        updateDeviceVerificationError('Enter the verification code from your email.');
+        if (elements.deviceModalCodeInput) {
+          elements.deviceModalCodeInput.focus();
+        }
+        return;
+      }
+
+      setDeviceVerificationLoading(true);
+      updateDeviceVerificationError('');
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setDeviceVerificationLoading(false);
+          if (response && response.success) {
+            hideDeviceVerificationPrompt();
+            completeAuthenticatedLogin(response, state.pendingDeviceVerification.rememberMe);
+            return;
+          }
+
+          if (response && response.error) {
+            updateDeviceVerificationError(response.error);
+            if (response.errorCode === 'VERIFICATION_EXPIRED') {
+              hideDeviceVerificationPrompt();
+              showAlert('warning', 'The verification request expired. Please sign in again.');
+            }
+            return;
+          }
+
+          updateDeviceVerificationError('We were unable to confirm the device. Please try again.');
+        })
+        .withFailureHandler(error => {
+          console.error('submitDeviceVerification error:', error);
+          setDeviceVerificationLoading(false);
+          updateDeviceVerificationError('A network error occurred while verifying. Please try again.');
+        })
+        .confirmDeviceVerification(state.pendingDeviceVerification.id, codeValue, collectClientMetadata());
+    }
+
+    function denyDeviceVerificationRequest() {
+      if (state.deviceVerificationInFlight) {
+        return;
+      }
+
+      if (!state.pendingDeviceVerification || !state.pendingDeviceVerification.id) {
+        hideDeviceVerificationPrompt();
+        showAlert('error', 'Verification request not found. Please sign in again.');
+        return;
+      }
+
+      setDeviceVerificationLoading(true);
+      updateDeviceVerificationError('');
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setDeviceVerificationLoading(false);
+          if (response && response.success) {
+            hideDeviceVerificationPrompt();
+            showAlert('warning', response.message || 'We blocked that sign-in attempt.');
+            clearAuthCookie();
+            if (elements.passwordInput) {
+              elements.passwordInput.value = '';
+            }
+            return;
+          }
+
+          const message = (response && response.error) || 'We were unable to record your response. Please try again.';
+          updateDeviceVerificationError(message);
+        })
+        .withFailureHandler(error => {
+          console.error('denyDeviceVerificationRequest error:', error);
+          setDeviceVerificationLoading(false);
+          updateDeviceVerificationError('Network error recording your response. Please try again.');
+        })
+        .denyDeviceVerification(state.pendingDeviceVerification.id, collectClientMetadata());
+    }
+    function verifyMfaCodeInput() {
+      if (!state.pendingMfa || state.mfaVerifyInFlight) {
+        return;
+      }
+
+      const code = elements.mfaCodeInput ? elements.mfaCodeInput.value.trim() : '';
+      if (!code) {
+        setMfaMessage('Enter the verification code to continue.', 'warning');
+        if (elements.mfaCodeInput) {
+          elements.mfaCodeInput.focus();
+        }
+        return;
+      }
+
+      setMfaVerifyLoading(true);
+      setMfaMessage('Verifying code…', 'info');
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setMfaVerifyLoading(false);
+          handleMfaVerificationResponse(response);
+        })
+        .withFailureHandler(error => {
+          console.error('verifyMfaCode error:', error);
+          setMfaVerifyLoading(false);
+          setMfaMessage('Unable to verify the code. Please try again.', 'error');
+        })
+        .verifyMfaCode(state.pendingMfa.challengeId, code, collectClientMetadata());
+    }
+
+    function handleMfaVerificationResponse(response) {
+      if (!response || response.success === false) {
+        const message = (response && response.error) || 'The verification code you entered is not valid.';
+        if (response && typeof response.remainingAttempts === 'number') {
+          setMfaMessage(`${message} (${response.remainingAttempts} attempts remaining)`, 'error');
+        } else {
+          setMfaMessage(message, 'error');
+        }
+        if (response && response.challengeExpired) {
+          showAlert('error', 'Your verification session expired. Please sign in again.');
+          resetMfaState();
+        }
+        return;
+      }
+
+      setMfaMessage('Verification successful. Completing sign-in…', 'success');
+      const rememberMe = state.pendingMfa ? !!state.pendingMfa.rememberMe : false;
+      const pendingEmail = state.pendingMfa ? state.pendingMfa.email : '';
+      if (pendingEmail) {
+        persistEmailState(pendingEmail, rememberMe);
+      }
+      resetMfaState();
+      completeAuthenticatedLogin(response, rememberMe);
+    }
+
+    function showMfaStep(response, email, rememberMe) {
+      if (!response || !response.mfa || !response.mfa.challengeId) {
+        return;
+      }
+
+      if (state.mfaCountdownTimer) {
+        clearInterval(state.mfaCountdownTimer);
+        state.mfaCountdownTimer = null;
+      }
+
+      state.pendingMfa = {
+        challengeId: response.mfa.challengeId,
+        email: email,
+        rememberMe: rememberMe,
+        deliveryMethod: response.mfa.deliveryMethod || '',
+        maskedDestination: response.mfa.maskedDestination || '',
+        totp: !!response.mfa.totp,
+        deliveriesRemaining: response.mfa.deliveriesRemaining,
+        backupCodesRemaining: response.mfa.backupCodesRemaining,
+        expiresAt: response.mfa.expiresAt ? new Date(response.mfa.expiresAt) : null
+      };
+
+      if (elements.mfaSection) {
+        elements.mfaSection.classList.add('active');
+      }
+      if (elements.loginBtn) {
+        elements.loginBtn.classList.add('d-none');
+      }
+      if (elements.emailInput) {
+        elements.emailInput.setAttribute('readonly', 'readonly');
+      }
+      if (elements.passwordInput) {
+        elements.passwordInput.setAttribute('readonly', 'readonly');
+      }
+      if (elements.mfaCodeInput) {
+        elements.mfaCodeInput.value = '';
+        elements.mfaCodeInput.focus();
+      }
+
+      setMfaMessage('Sending verification code…', 'info');
+      requestMfaCode({ silent: true });
+      showAlert('info', 'Complete the verification step below to finish signing in.');
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // NEXT STEPS / GUIDANCE PANEL
+    // ───────────────────────────────────────────────────────────────────────────────
+    function hideNextSteps() {
+      if (!elements.nextStepsCard) return;
+      elements.nextStepsCard.classList.add('d-none');
+      elements.nextStepsCard.dataset.tone = 'info';
+      if (elements.nextStepsIcon) {
+        elements.nextStepsIcon.dataset.tone = 'info';
+        elements.nextStepsIcon.innerHTML = '<i class="fas fa-lightbulb"></i>';
+      }
+      if (elements.nextStepsSubtitle) {
+        elements.nextStepsSubtitle.textContent = '';
+        elements.nextStepsSubtitle.classList.add('d-none');
+      }
+      if (elements.nextStepsBody) {
+        elements.nextStepsBody.textContent = '';
+      }
+      if (elements.nextStepsActions) {
+        elements.nextStepsActions.innerHTML = '';
+      }
+    }
+
+    function showNextSteps(options = {}) {
+      if (!elements.nextStepsCard) return;
+
+      const {
+        title = 'Need help signing in?',
+        subtitle = '',
+        body = '',
+        tone = 'info',
+        icon = 'fa-lightbulb',
+        actions = []
+      } = options;
+
+      elements.nextStepsCard.dataset.tone = tone;
+
+      if (elements.nextStepsTitle) {
+        elements.nextStepsTitle.textContent = title;
+      }
+
+      if (elements.nextStepsSubtitle) {
+        if (subtitle) {
+          elements.nextStepsSubtitle.textContent = subtitle;
+          elements.nextStepsSubtitle.classList.remove('d-none');
+        } else {
+          elements.nextStepsSubtitle.textContent = '';
+          elements.nextStepsSubtitle.classList.add('d-none');
+        }
+      }
+
+      if (elements.nextStepsBody) {
+        elements.nextStepsBody.innerHTML = body;
+      }
+
+      if (elements.nextStepsIcon) {
+        elements.nextStepsIcon.dataset.tone = tone;
+        elements.nextStepsIcon.innerHTML = `<i class="fas ${icon}"></i>`;
+      }
+
+      if (elements.nextStepsActions) {
+        elements.nextStepsActions.innerHTML = '';
+        actions.forEach(action => {
+          if (!action) return;
+          const btn = createNextStepAction(action);
+          if (btn) {
+            elements.nextStepsActions.appendChild(btn);
+          }
+        });
+      }
+
+      elements.nextStepsCard.classList.remove('d-none');
+    }
+
+    function createNextStepAction(action) {
+      const variant = action.variant || 'primary';
+      const iconHtml = action.icon ? `<i class="fas ${action.icon} me-2"></i>` : '';
+
+      if (action.type === 'link') {
+        const anchor = document.createElement('a');
+        anchor.className = `btn btn-${variant}`;
+        anchor.href = action.href || '#';
+        anchor.target = action.target || '_top';
+        anchor.rel = action.rel || 'noopener';
+        anchor.innerHTML = `${iconHtml}${action.label || 'Continue'}`;
+        if (typeof action.onClick === 'function') {
+          anchor.addEventListener('click', evt => {
+            evt.preventDefault();
+            action.onClick(evt);
+          });
+        }
+        return anchor;
+      }
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `btn btn-${variant}`;
+      button.innerHTML = `${iconHtml}${action.label || 'Continue'}`;
+
+      if (typeof action.onClick === 'function') {
+        button.addEventListener('click', action.onClick);
+      }
+
+      return button;
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // STORAGE HELPERS FOR REMEMBER ME
+    // ───────────────────────────────────────────────────────────────────────────────
+    function persistEmailState(email, remember) {
+      const normalizedEmail = (email || '').trim();
+      state.lastEmail = normalizedEmail;
+
+      try {
+        sessionStorage.setItem(STORAGE_KEYS.lastEmail, normalizedEmail);
+      } catch (err) {
+        console.warn('Unable to persist last email in session storage', err);
+      }
+
+      try {
+        if (remember && normalizedEmail) {
+          localStorage.setItem(STORAGE_KEYS.rememberedEmail, normalizedEmail);
+          localStorage.setItem(STORAGE_KEYS.rememberExpiry, String(Date.now() + REMEMBER_DURATION_MS));
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+          localStorage.removeItem(STORAGE_KEYS.rememberExpiry);
+        }
+      } catch (err) {
+        console.warn('Unable to persist remember me preference', err);
+      }
+    }
+
+    function restoreEmailFromStorage() {
+      let rememberedEmail = '';
+      let remember = false;
+
+      try {
+        const expiry = parseInt(localStorage.getItem(STORAGE_KEYS.rememberExpiry), 10);
+        if (expiry && expiry > Date.now()) {
+          rememberedEmail = localStorage.getItem(STORAGE_KEYS.rememberedEmail) || '';
+          remember = rememberedEmail.trim().length > 0;
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+          localStorage.removeItem(STORAGE_KEYS.rememberExpiry);
+        }
+      } catch (err) {
+        console.warn('Unable to read remember me preference', err);
+      }
+
+      if (!rememberedEmail) {
+        try {
+          rememberedEmail = sessionStorage.getItem(STORAGE_KEYS.lastEmail) || '';
+        } catch (err) {
+          console.warn('Unable to read last email from session storage', err);
+        }
+      }
+
+      if (rememberedEmail && elements.emailInput) {
+        elements.emailInput.value = rememberedEmail;
+      }
+
+      if (elements.rememberMeCheckbox) {
+        elements.rememberMeCheckbox.checked = remember;
+      }
+
+      state.lastEmail = rememberedEmail;
+    }
+
+    function readAuthCookie() {
+      try {
+        if (window.CookieHandler && typeof CookieHandler.readAuthToken === 'function') {
+          return CookieHandler.readAuthToken();
+        }
+      } catch (err) {
+        console.warn('Unable to read auth cookie', err);
+      }
+      return '';
+    }
+
+    function clearAuthCookie() {
+      stopKeepAliveHeartbeat();
+      try {
+        if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
+          CookieHandler.clearAuthToken();
+        }
+      } catch (err) {
+        console.warn('Unable to clear auth cookie', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.removeItem('lumina.session.token');
+          localStorage.removeItem('lumina.auth.sessionToken');
+          localStorage.removeItem('lumina.auth.fallbackToken');
+        }
+      } catch (err) {
+        console.warn('Unable to clear auth token from localStorage', err);
+      }
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.removeItem('lumina.session.token');
+          sessionStorage.removeItem('lumina.auth.sessionToken');
+          sessionStorage.removeItem('lumina.auth.fallbackToken');
+        }
+      } catch (err) {
+        console.warn('Unable to clear auth token from sessionStorage', err);
+      }
+
+      state.authToken = '';
+      state.sessionIdleTimeoutMinutes = null;
+      state.sessionTtlSeconds = null;
+      state.sessionExpiresAt = null;
+    }
+
+    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
+      if (!token) {
+        clearAuthCookie();
+        return;
+      }
+
+      state.authToken = token;
+      state.lastRememberMe = typeof rememberMe === 'boolean' ? rememberMe : state.lastRememberMe;
+      state.sessionExpiresAt = expiresAtIso || null;
+      state.sessionTtlSeconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0) ? ttlSeconds : null;
+
+      if (typeof idleTimeoutMinutes === 'number' && isFinite(idleTimeoutMinutes) && idleTimeoutMinutes > 0) {
+        state.sessionIdleTimeoutMinutes = Math.max(1, Math.round(idleTimeoutMinutes));
+      }
+
+      let maxAgeSeconds = state.sessionTtlSeconds
+        ? Math.floor(state.sessionTtlSeconds)
+        : (state.lastRememberMe ? REMEMBER_COOKIE_MAX_AGE : SESSION_COOKIE_MAX_AGE);
+
+      if (state.sessionExpiresAt) {
+        const expiryTime = Date.parse(state.sessionExpiresAt);
+        if (!isNaN(expiryTime)) {
+          const delta = Math.floor((expiryTime - Date.now()) / 1000);
+          if (delta > 0) {
+            maxAgeSeconds = delta;
+          }
+        }
+      }
+
+      maxAgeSeconds = Math.max(300, maxAgeSeconds);
+
+      try {
+        if (window.CookieHandler && typeof CookieHandler.persistAuthToken === 'function') {
+          CookieHandler.persistAuthToken(token, { maxAgeSeconds });
+        }
+      } catch (err) {
+        console.warn('Unable to persist auth cookie', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.setItem('lumina.session.token', token);
+          localStorage.setItem('lumina.auth.sessionToken', token);
+          localStorage.setItem('lumina.auth.fallbackToken', token);
+        }
+      } catch (err) {
+        console.warn('Unable to persist auth token in localStorage', err);
+      }
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem('lumina.session.token', token);
+          sessionStorage.setItem('lumina.auth.sessionToken', token);
+          sessionStorage.setItem('lumina.auth.fallbackToken', token);
+        }
+      } catch (err) {
+        console.warn('Unable to persist auth token in sessionStorage', err);
+      }
+
+      restartSessionHeartbeat();
+    }
+
+    function stopKeepAliveHeartbeat() {
+      if (state.keepAliveTimer) {
+        clearTimeout(state.keepAliveTimer);
+        state.keepAliveTimer = null;
+      }
+    }
+
+    function scheduleKeepAliveHeartbeat(delayMs) {
+      stopKeepAliveHeartbeat();
+      if (!delayMs || !isFinite(delayMs) || delayMs <= 0) {
+        return;
+      }
+
+      state.keepAliveIntervalMs = delayMs;
+      state.keepAliveTimer = setTimeout(() => {
+        const tokenForPing = state.authToken || readAuthCookie();
+        if (!tokenForPing) {
+          stopKeepAliveHeartbeat();
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(handleKeepAliveSuccess)
+          .withFailureHandler(handleKeepAliveFailure)
+          .keepAlive(tokenForPing);
+      }, delayMs);
+    }
+
+    function restartSessionHeartbeat() {
+      stopKeepAliveHeartbeat();
+
+      const tokenForPing = state.authToken || readAuthCookie();
+      if (!tokenForPing) {
+        return;
+      }
+
+      const idleMinutes = (state.sessionIdleTimeoutMinutes && state.sessionIdleTimeoutMinutes > 0)
+        ? state.sessionIdleTimeoutMinutes
+        : 30;
+      const idleMs = Math.max(1, idleMinutes) * 60 * 1000;
+
+      let ttlMs = null;
+      if (state.sessionTtlSeconds && state.sessionTtlSeconds > 0) {
+        ttlMs = state.sessionTtlSeconds * 1000;
+      } else if (state.sessionExpiresAt) {
+        const expiryTime = Date.parse(state.sessionExpiresAt);
+        if (!isNaN(expiryTime)) {
+          ttlMs = Math.max(0, expiryTime - Date.now());
+        }
+      }
+
+      let intervalMs = Math.max(60000, Math.floor(idleMs / 2));
+      if (ttlMs !== null && ttlMs > 0) {
+        intervalMs = Math.min(intervalMs, Math.max(60000, Math.floor(ttlMs / 2)));
+      }
+
+      const safetyWindow = Math.max(60000, Math.floor(idleMs * 0.2));
+      intervalMs = Math.min(intervalMs, Math.max(60000, idleMs - safetyWindow));
+
+      if (!isFinite(intervalMs) || intervalMs <= 0) {
+        intervalMs = 60000;
+      }
+
+      scheduleKeepAliveHeartbeat(intervalMs);
+    }
+
+    function handleKeepAliveSuccess(result) {
+      if (!result || !result.success) {
+        if (result && result.expired) {
+          handleSessionExpired(result.reason || 'SESSION_EXPIRED');
+        } else {
+          console.warn('Keep-alive returned unexpected response', result);
+          scheduleKeepAliveHeartbeat(Math.min(state.keepAliveIntervalMs || 300000, 300000));
+        }
+        return;
+      }
+
+      persistSessionToken(
+        result.sessionToken || state.authToken || readAuthCookie(),
+        state.lastRememberMe,
+        result.sessionExpiresAt,
+        result.sessionTtlSeconds,
+        result.idleTimeoutMinutes
+      );
+    }
+
+    function handleKeepAliveFailure(error) {
+      console.warn('Keep-alive failed:', error);
+      const retryDelay = Math.max(60000, Math.min((state.keepAliveIntervalMs || 300000) / 2, 300000));
+      scheduleKeepAliveHeartbeat(retryDelay);
+    }
+
+    function handleSessionExpired(reason) {
+      console.log('Session expired:', reason);
+      clearAuthCookie();
+      try {
+        showAlert('info', 'Your session has expired. Please sign in again.');
+      } catch (err) {
+        console.warn('handleSessionExpired: unable to show alert', err);
+      }
+    }
+
+    function attemptSessionResume() {
+      if (state.hasAttemptedResume) {
+        return false;
+      }
+
+      state.hasAttemptedResume = true;
+      const cookieToken = readAuthCookie();
+
+      if (!cookieToken) {
+        return false;
+      }
+
+      console.log('Attempting to resume session from cookie');
+      scheduleSessionResumeLoader();
+
+      const finalizeResumeAttempt = () => {
+        cancelSessionResumeLoader();
+      };
+
+      google.script.run
+        .withSuccessHandler(result => {
+          finalizeResumeAttempt();
+
+          if (!result || !result.success) {
+            if (result && result.expired) {
+              clearAuthCookie();
+              showAlert('info', 'Your previous session has expired. Please sign in again.');
+            }
+            return;
+          }
+
+          const resolvedToken = result.sessionToken || cookieToken;
+          const rememberFlag = result.rememberMe !== undefined ? !!result.rememberMe : true;
+
+          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds, result.idleTimeoutMinutes);
+
+          const resumedUser = result.user || {};
+          const resumedEmail = (resumedUser.Email || resumedUser.email || '').trim();
+          if (resumedEmail) {
+            persistEmailState(resumedEmail, true);
+            if (elements.emailInput) {
+              elements.emailInput.value = resumedEmail;
+            }
+          }
+
+          hideAllAlerts();
+          const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
+          const resumeUrl = normalizeRedirectUrl(resumeInput);
+          setupRedirect(resumeUrl, resumedUser);
+        })
+        .withFailureHandler(error => {
+          finalizeResumeAttempt();
+          console.error('Session resume validation failed:', error);
+        })
+        .keepAlive(cookieToken);
+
+      return true;
+    }
+
+    function collectClientMetadata() {
+      try {
+        const nav = window.navigator || {};
+        const screen = window.screen || {};
+        const metadata = {
+          userAgent: nav.userAgent || '',
+          platform: nav.platform || '',
+          language: nav.language || (Array.isArray(nav.languages) && nav.languages.length ? nav.languages[0] : ''),
+          timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+          originHost: window.location && window.location.host ? window.location.host : ''
+        };
+
+        if (Array.isArray(nav.languages) && nav.languages.length) {
+          metadata.languages = nav.languages.slice(0, 5);
+        }
+        if (typeof screen.width === 'number') {
+          metadata.screenWidth = screen.width;
+        }
+        if (typeof screen.height === 'number') {
+          metadata.screenHeight = screen.height;
+        }
+        if (typeof nav.deviceMemory === 'number') {
+          metadata.deviceMemory = nav.deviceMemory;
+        }
+        if (typeof nav.hardwareConcurrency === 'number') {
+          metadata.hardwareConcurrency = nav.hardwareConcurrency;
+        }
+        if (SERVER_OBSERVED_METADATA && typeof SERVER_OBSERVED_METADATA === 'object') {
+          if (SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress) {
+            metadata.serverObservedIp = SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress;
+            metadata.serverIp = metadata.serverIp || metadata.serverObservedIp;
+          }
+          if (SERVER_OBSERVED_METADATA.forwardedFor) {
+            metadata.forwardedFor = SERVER_OBSERVED_METADATA.forwardedFor;
+          }
+          if (SERVER_OBSERVED_METADATA.serverUserAgent && !metadata.serverUserAgent) {
+            metadata.serverUserAgent = SERVER_OBSERVED_METADATA.serverUserAgent;
+          }
+          if (SERVER_OBSERVED_METADATA.host) {
+            metadata.host = SERVER_OBSERVED_METADATA.host;
+          }
+          metadata.serverObservedAt = SERVER_OBSERVED_METADATA.serverObservedAt || new Date().toISOString();
+        }
+        return metadata;
+      } catch (err) {
+        console.warn('collectClientMetadata: Unable to gather client details', err);
+        return {
+          userAgent: (window.navigator && window.navigator.userAgent) || '',
+          timezoneOffsetMinutes: new Date().getTimezoneOffset()
+        };
+      }
+    }
+
+    function alignUrlToCurrentContext(url) {
+      const current = new URL(window.location.href);
+
+      if (!(url instanceof URL)) {
+        return new URL(current.toString());
+      }
+
+      if (url.host === current.host && url.pathname === current.pathname) {
+        return url;
+      }
+
+      const normalized = new URL(current.origin + current.pathname);
+      url.searchParams.forEach((value, key) => {
+        normalized.searchParams.set(key, value);
+      });
+
+      if (url.hash) {
+        normalized.hash = url.hash;
+      }
+
+      return normalized;
+    }
+
+    function stripTokenFromUrl(url) {
+      if (!url) {
+        return url;
+      }
+
+      try {
+        const parsed = new URL(url, window.location.href);
+        if (parsed.searchParams.has('token')) {
+          parsed.searchParams.delete('token');
+        }
+        return parsed.toString();
+      } catch (err) {
+        console.warn('Unable to sanitize redirect URL.', err);
+      }
+
+      return url;
+    }
+
+    function buildPageUrl(page, params = {}) {
+      const current = new URL(window.location.href);
+      let baseUrl = null;
+
+      const configuredBase = (CONFIG.baseUrl || '').trim();
+      const hasConfiguredBase = !!configuredBase;
+      if (hasConfiguredBase) {
+        try {
+          baseUrl = new URL(configuredBase, current);
+        } catch (err) {
+          console.warn('Unable to parse configured base URL. Falling back to current location.', err);
+        }
+      }
+
+      if (!baseUrl) {
+        baseUrl = new URL(current.toString());
+      }
+
+      if (!hasConfiguredBase) {
+        baseUrl = alignUrlToCurrentContext(baseUrl);
+      }
+
+      const keysToRemove = new Set(['page']);
+      Object.keys(params || {}).forEach(key => keysToRemove.add(key));
+      keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
+
+      const orderedParams = [];
+      if (params && Object.prototype.hasOwnProperty.call(params, 'token')) {
+        orderedParams.push(['token', params.token]);
+      }
+
+      Object.keys(params || {}).forEach(key => {
+        if (key === 'token') return;
+        orderedParams.push([key, params[key]]);
+      });
+
+      orderedParams.forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+          baseUrl.searchParams.delete(key);
+        } else {
+          baseUrl.searchParams.set(key, value);
+        }
+      });
+
+      baseUrl.searchParams.set('page', page);
+
+      return baseUrl.toString();
+    }
+
+    function normalizeRedirectUrl(serverUrl) {
+      let page = 'dashboard';
+      const params = {};
+
+      if (serverUrl) {
+        try {
+          const parsed = new URL(serverUrl, window.location.href);
+          page = parsed.searchParams.get('page') || page;
+          parsed.searchParams.forEach((value, key) => {
+            if (key === 'page') return;
+            if (key === 'token') return;
+            params[key] = value;
+          });
+        } catch (err) {
+          console.warn('Unable to parse server redirect URL. Falling back to local page builder.', err);
+        }
+      }
+
+      return stripTokenFromUrl(buildPageUrl(page, params));
+    }
+
+    function openPage(page, params = {}) {
+      const url = buildPageUrl(page, params);
+      window.open(url, '_top');
+    }
+
+    function requestPasswordSetupLink(email) {
+      const normalizedEmail = (email || '').trim();
+      if (!normalizedEmail) {
+        showAlert('info', 'Enter your email address first so we know where to send the setup link.');
+        elements.emailInput.focus();
+        return;
+      }
+
+      cancelSessionResumeLoader({ preserveLoader: true });
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoading(false);
+          if (result && result.success) {
+            showAlert('success', result.message || 'Password setup email sent successfully.');
+          } else {
+            showAlert('error', (result && result.error) || 'Unable to send the password setup email.');
+          }
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Password setup email request failed:', error);
+          showAlert('error', 'Unable to send the password setup email. Please try again.');
+        })
+        .resendPasswordSetupEmail(normalizedEmail.toLowerCase());
+    }
+
+    function requestPasswordResetEmail(email) {
+      const normalizedEmail = (email || '').trim();
+      if (!normalizedEmail) {
+        showAlert('info', 'Enter your email address first so we can send the reset link.');
+        elements.emailInput.focus();
+        return;
+      }
+
+      cancelSessionResumeLoader({ preserveLoader: true });
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoading(false);
+          if (result && result.success) {
+            showAlert('success', result.message || 'If that account exists, a reset link is on its way.');
+          } else {
+            showAlert('error', (result && result.error) || 'Unable to send the password reset email.');
+          }
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Password reset email request failed:', error);
+          showAlert('error', 'Unable to send the password reset email. Please try again.');
+        })
+        .requestPasswordReset(normalizedEmail.toLowerCase());
+    }
+
+    function handleLoginFailure(response, email) {
+      clearAuthCookie();
+      resetMfaState();
+      if (state.pendingDeviceVerification) {
+        hideDeviceVerificationPrompt();
+      }
+
+      const normalizedEmail = (email || '').trim();
+      const displayEmail = normalizedEmail || 'your email address';
+
+      const errorMessage = response && response.error
+        ? response.error
+        : 'Login failed. Please check your credentials and try again.';
+      const errorCode = response && response.errorCode
+        ? String(response.errorCode).toUpperCase()
+        : '';
+
+      switch (errorCode) {
+        case 'PASSWORD_RESET_REQUIRED': {
+          showAlert('warning', errorMessage);
+
+          const actions = [];
+          if (response && response.resetToken) {
+            actions.push({
+              type: 'link',
+              label: 'Update Password Now',
+              icon: 'fa-lock',
+              variant: 'success',
+              href: buildPageUrl('setpassword', { token: response.resetToken })
+            });
+          }
+
+          actions.push({
+            type: 'button',
+            label: 'Email Me a Reset Link',
+            icon: 'fa-envelope',
+            variant: 'outline-primary',
+            onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+          });
+
+          actions.push({
+            type: 'link',
+            label: 'Contact Support',
+            icon: 'fa-headset',
+            variant: 'outline-secondary',
+            href: `mailto:${SUPPORT_EMAIL}`,
+            target: '_blank',
+            rel: 'noopener'
+          });
+
+          showNextSteps({
+            title: 'Change your password to continue',
+            subtitle: 'We found your account, but a password update is required.',
+            body: 'For your security, you must set a new password before accessing LuminaHQ. Use the options below to update your password now.',
+            tone: 'warning',
+            icon: 'fa-lock',
+            actions
+          });
+          break;
+        }
+
+        case 'PASSWORD_NOT_SET': {
+          showAlert('info', errorMessage);
+          showNextSteps({
+            title: 'Activate your account',
+            subtitle: 'Looks like you have not set up a password yet.',
+            body: 'Send yourself a fresh welcome email so you can set a password, or contact support if you need help accessing your invitation.',
+            tone: 'info',
+            icon: 'fa-key',
+            actions: [
+              {
+                type: 'button',
+                label: 'Resend Setup Email',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                onClick: () => requestPasswordSetupLink(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Contact Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'EMAIL_NOT_CONFIRMED': {
+          showAlert('warning', errorMessage);
+          showNextSteps({
+            title: 'Confirm your email address',
+            subtitle: 'Check your inbox for the verification email.',
+            body: `We sent a verification link to <strong>${displayEmail}</strong>. If you can\'t find it, request another confirmation email or reach out to support.`,
+            tone: 'warning',
+            icon: 'fa-envelope-open',
+            actions: [
+              {
+                type: 'link',
+                label: 'Resend Verification Email',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                href: buildPageUrl('resend-verification', normalizedEmail ? { email: normalizedEmail } : {})
+              },
+              {
+                type: 'link',
+                label: 'Contact Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'ACCOUNT_DISABLED':
+        case 'NO_CAMPAIGN_ACCESS': {
+          showAlert('warning', errorMessage);
+          showNextSteps({
+            title: 'We need to unlock your access',
+            subtitle: 'Your account requires assistance from an administrator.',
+            body: 'Please reach out to your LuminaHQ administrator or our support team so we can restore your access.',
+            tone: 'danger',
+            icon: 'fa-user-slash',
+            actions: [
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'INVALID_CREDENTIALS': {
+          showAlert('error', errorMessage);
+          showNextSteps({
+            title: 'Trouble remembering your password?',
+            subtitle: 'Reset it in just a few seconds.',
+            body: 'Request a password reset email or double-check that you entered the correct email address for your LuminaHQ account.',
+            tone: 'info',
+            icon: 'fa-circle-question',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send Password Reset Email',
+                icon: 'fa-key',
+                variant: 'primary',
+                onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Forgot Password Page',
+                icon: 'fa-arrow-up-right-from-square',
+                variant: 'outline-primary',
+                href: buildPageUrl('forgotpassword', normalizedEmail ? { email: normalizedEmail } : {})
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'NO_RESPONSE':
+        case 'SESSION_TOKEN_MISSING': {
+          showAlert('error', errorMessage || 'We could not complete the sign-in process.');
+          showNextSteps({
+            title: 'We ran into a problem signing you in',
+            subtitle: 'The authentication service did not respond as expected.',
+            body: 'Please try again in a moment. If the issue persists, reach out to our support team so we can investigate immediately.',
+            tone: 'danger',
+            icon: 'fa-plug-circle-xmark',
+            actions: [
+              {
+                type: 'button',
+                label: 'Try Again',
+                icon: 'fa-rotate',
+                variant: 'primary',
+                onClick: () => {
+                  hideAllAlerts();
+                  if (elements.loginForm) {
+                    const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    elements.loginForm.dispatchEvent(retryEvent);
+                  }
+                }
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        default: {
+          showAlert('error', errorMessage);
+          showNextSteps({
+            title: 'Need help signing in?',
+            subtitle: 'We can send you a reset link or connect you with support.',
+            body: 'If the problem continues, request a password reset email or reach out to our support team for assistance.',
+            tone: 'info',
+            icon: 'fa-circle-info',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send Password Reset Email',
+                icon: 'fa-key',
+                variant: 'primary',
+                onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // NEXT STEPS / GUIDANCE PANEL
+    // ───────────────────────────────────────────────────────────────────────────────
+    function hideNextSteps() {
+      if (!elements.nextStepsCard) return;
+      elements.nextStepsCard.classList.add('d-none');
+      elements.nextStepsCard.dataset.tone = 'info';
+      if (elements.nextStepsIcon) {
+        elements.nextStepsIcon.dataset.tone = 'info';
+        elements.nextStepsIcon.innerHTML = '<i class="fas fa-lightbulb"></i>';
+      }
+      if (elements.nextStepsSubtitle) {
+        elements.nextStepsSubtitle.textContent = '';
+        elements.nextStepsSubtitle.classList.add('d-none');
+      }
+      if (elements.nextStepsBody) {
+        elements.nextStepsBody.textContent = '';
+      }
+      if (elements.nextStepsActions) {
+        elements.nextStepsActions.innerHTML = '';
+      }
+    }
+
+    function showNextSteps(options = {}) {
+      if (!elements.nextStepsCard) return;
+
+      const {
+        title = 'Need help signing in?',
+        subtitle = '',
+        body = '',
+        tone = 'info',
+        icon = 'fa-lightbulb',
+        actions = []
+      } = options;
+
+      elements.nextStepsCard.dataset.tone = tone;
+
+      if (elements.nextStepsTitle) {
+        elements.nextStepsTitle.textContent = title;
+      }
+
+      if (elements.nextStepsSubtitle) {
+        if (subtitle) {
+          elements.nextStepsSubtitle.textContent = subtitle;
+          elements.nextStepsSubtitle.classList.remove('d-none');
+        } else {
+          elements.nextStepsSubtitle.textContent = '';
+          elements.nextStepsSubtitle.classList.add('d-none');
+        }
+      }
+
+      if (elements.nextStepsBody) {
+        elements.nextStepsBody.innerHTML = body;
+      }
+
+      if (elements.nextStepsIcon) {
+        elements.nextStepsIcon.dataset.tone = tone;
+        elements.nextStepsIcon.innerHTML = `<i class="fas ${icon}"></i>`;
+      }
+
+      if (elements.nextStepsActions) {
+        elements.nextStepsActions.innerHTML = '';
+        actions.forEach(action => {
+          if (!action) return;
+          const btn = createNextStepAction(action);
+          if (btn) {
+            elements.nextStepsActions.appendChild(btn);
+          }
+        });
+      }
+
+      elements.nextStepsCard.classList.remove('d-none');
+    }
+
+    function createNextStepAction(action) {
+      const variant = action.variant || 'primary';
+      const iconHtml = action.icon ? `<i class="fas ${action.icon} me-2"></i>` : '';
+
+      if (action.type === 'link') {
+        const anchor = document.createElement('a');
+        anchor.className = `btn btn-${variant}`;
+        anchor.href = action.href || '#';
+        anchor.target = action.target || '_top';
+        anchor.rel = action.rel || 'noopener';
+        anchor.innerHTML = `${iconHtml}${action.label || 'Continue'}`;
+        if (typeof action.onClick === 'function') {
+          anchor.addEventListener('click', evt => {
+            evt.preventDefault();
+            action.onClick(evt);
+          });
+        }
+        return anchor;
+      }
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `btn btn-${variant}`;
+      button.innerHTML = `${iconHtml}${action.label || 'Continue'}`;
+
+      if (typeof action.onClick === 'function') {
+        button.addEventListener('click', action.onClick);
+      }
+
+      return button;
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // STORAGE HELPERS FOR REMEMBER ME
+    // ───────────────────────────────────────────────────────────────────────────────
+    function persistEmailState(email, remember) {
+      const normalizedEmail = (email || '').trim();
+      state.lastEmail = normalizedEmail;
+
+      try {
+        sessionStorage.setItem(STORAGE_KEYS.lastEmail, normalizedEmail);
+      } catch (err) {
+        console.warn('Unable to persist last email in session storage', err);
+      }
+
+      try {
+        if (remember && normalizedEmail) {
+          localStorage.setItem(STORAGE_KEYS.rememberedEmail, normalizedEmail);
+          localStorage.setItem(STORAGE_KEYS.rememberExpiry, String(Date.now() + REMEMBER_DURATION_MS));
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+          localStorage.removeItem(STORAGE_KEYS.rememberExpiry);
+        }
+      } catch (err) {
+        console.warn('Unable to persist remember me preference', err);
+      }
+    }
+
+    function restoreEmailFromStorage() {
+      let rememberedEmail = '';
+      let remember = false;
+
+      try {
+        const expiry = parseInt(localStorage.getItem(STORAGE_KEYS.rememberExpiry), 10);
+        if (expiry && expiry > Date.now()) {
+          rememberedEmail = localStorage.getItem(STORAGE_KEYS.rememberedEmail) || '';
+          remember = rememberedEmail.trim().length > 0;
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+          localStorage.removeItem(STORAGE_KEYS.rememberExpiry);
+        }
+      } catch (err) {
+        console.warn('Unable to read remember me preference', err);
+      }
+
+      if (!rememberedEmail) {
+        try {
+          rememberedEmail = sessionStorage.getItem(STORAGE_KEYS.lastEmail) || '';
+        } catch (err) {
+          console.warn('Unable to read last email from session storage', err);
+        }
+      }
+
+      if (rememberedEmail && elements.emailInput) {
+        elements.emailInput.value = rememberedEmail;
+      }
+
+      if (elements.rememberMeCheckbox) {
+        elements.rememberMeCheckbox.checked = remember;
+      }
+
+      state.lastEmail = rememberedEmail;
+    }
+
+    function buildPageUrl(page, params = {}) {
+      const current = new URL(window.location.href);
+      let baseUrl = null;
+
+      const configuredBase = (CONFIG.baseUrl || '').trim();
+      const hasConfiguredBase = !!configuredBase;
+      if (hasConfiguredBase) {
+        try {
+          baseUrl = new URL(configuredBase, current);
+        } catch (err) {
+          console.warn('Unable to parse configured base URL. Falling back to current location.', err);
+        }
+      }
+
+      if (!baseUrl) {
+        baseUrl = new URL(current.toString());
+      }
+
+      if (!hasConfiguredBase) {
+        baseUrl = alignUrlToCurrentContext(baseUrl);
+      }
+
+      const keysToRemove = new Set(['page']);
+      Object.keys(params || {}).forEach(key => keysToRemove.add(key));
+      keysToRemove.forEach(key => baseUrl.searchParams.delete(key));
+
+      const orderedParams = [];
+      if (params && Object.prototype.hasOwnProperty.call(params, 'token')) {
+        orderedParams.push(['token', params.token]);
+      }
+
+      Object.keys(params || {}).forEach(key => {
+        if (key === 'token') return;
+        orderedParams.push([key, params[key]]);
+      });
+
+      orderedParams.forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+          baseUrl.searchParams.delete(key);
+        } else {
+          baseUrl.searchParams.set(key, value);
+        }
+      });
+
+      baseUrl.searchParams.set('page', page);
+
+      return baseUrl.toString();
+    }
+
+    function openPage(page, params = {}) {
+      const url = buildPageUrl(page, params);
+      window.open(url, '_top');
+    }
+
+    function requestPasswordSetupLink(email) {
+      const normalizedEmail = (email || '').trim();
+      if (!normalizedEmail) {
+        showAlert('info', 'Enter your email address first so we know where to send the setup link.');
+        elements.emailInput.focus();
+        return;
+      }
+
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoading(false);
+          if (result && result.success) {
+            showAlert('success', result.message || 'Password setup email sent successfully.');
+          } else {
+            showAlert('error', (result && result.error) || 'Unable to send the password setup email.');
+          }
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Password setup email request failed:', error);
+          showAlert('error', 'Unable to send the password setup email. Please try again.');
+        })
+        .resendPasswordSetupEmail(normalizedEmail.toLowerCase());
+    }
+
+    function requestPasswordResetEmail(email) {
+      const normalizedEmail = (email || '').trim();
+      if (!normalizedEmail) {
+        showAlert('info', 'Enter your email address first so we can send the reset link.');
+        elements.emailInput.focus();
+        return;
+      }
+
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoading(false);
+          if (result && result.success) {
+            showAlert('success', result.message || 'If that account exists, a reset link is on its way.');
+          } else {
+            showAlert('error', (result && result.error) || 'Unable to send the password reset email.');
+          }
+        })
+        .withFailureHandler(error => {
+          setLoading(false);
+          console.error('Password reset email request failed:', error);
+          showAlert('error', 'Unable to send the password reset email. Please try again.');
+        })
+        .requestPasswordReset(normalizedEmail.toLowerCase());
+    }
+
+    function handleLoginFailure(response, email) {
+      const normalizedEmail = (email || '').trim();
+      const displayEmail = normalizedEmail || 'your email address';
+
+      const errorMessage = response && response.error
+        ? response.error
+        : 'Login failed. Please check your credentials and try again.';
+      const errorCode = response && response.errorCode
+        ? String(response.errorCode).toUpperCase()
+        : '';
+
+      switch (errorCode) {
+        case 'PASSWORD_RESET_REQUIRED': {
+          showAlert('warning', errorMessage);
+
+          const actions = [];
+          if (response && response.resetToken) {
+            actions.push({
+              type: 'link',
+              label: 'Update Password Now',
+              icon: 'fa-lock',
+              variant: 'success',
+              href: buildPageUrl('setpassword', { token: response.resetToken })
+            });
+          }
+
+          actions.push({
+            type: 'button',
+            label: 'Email Me a Reset Link',
+            icon: 'fa-envelope',
+            variant: 'outline-primary',
+            onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+          });
+
+          actions.push({
+            type: 'link',
+            label: 'Contact Support',
+            icon: 'fa-headset',
+            variant: 'outline-secondary',
+            href: `mailto:${SUPPORT_EMAIL}`,
+            target: '_blank',
+            rel: 'noopener'
+          });
+
+          showNextSteps({
+            title: 'Change your password to continue',
+            subtitle: 'We found your account, but a password update is required.',
+            body: 'For your security, you must set a new password before accessing LuminaHQ. Use the options below to update your password now.',
+            tone: 'warning',
+            icon: 'fa-lock',
+            actions
+          });
+          break;
+        }
+
+        case 'PASSWORD_NOT_SET': {
+          showAlert('info', errorMessage);
+          showNextSteps({
+            title: 'Activate your account',
+            subtitle: 'Looks like you have not set up a password yet.',
+            body: 'Send yourself a fresh welcome email so you can set a password, or contact support if you need help accessing your invitation.',
+            tone: 'info',
+            icon: 'fa-key',
+            actions: [
+              {
+                type: 'button',
+                label: 'Resend Setup Email',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                onClick: () => requestPasswordSetupLink(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Contact Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'EMAIL_NOT_CONFIRMED': {
+          showAlert('warning', errorMessage);
+          showNextSteps({
+            title: 'Confirm your email address',
+            subtitle: 'Check your inbox for the verification email.',
+            body: `We sent a verification link to <strong>${displayEmail}</strong>. If you can\'t find it, request another confirmation email or reach out to support.`,
+            tone: 'warning',
+            icon: 'fa-envelope-open',
+            actions: [
+              {
+                type: 'link',
+                label: 'Resend Verification Email',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                href: buildPageUrl('resend-verification', normalizedEmail ? { email: normalizedEmail } : {})
+              },
+              {
+                type: 'link',
+                label: 'Contact Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'ACCOUNT_DISABLED':
+        case 'NO_CAMPAIGN_ACCESS': {
+          showAlert('warning', errorMessage);
+          showNextSteps({
+            title: 'We need to unlock your access',
+            subtitle: 'Your account requires assistance from an administrator.',
+            body: 'Please reach out to your LuminaHQ administrator or our support team so we can restore your access.',
+            tone: 'danger',
+            icon: 'fa-user-slash',
+            actions: [
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'INVALID_CREDENTIALS': {
+          showAlert('error', errorMessage);
+          showNextSteps({
+            title: 'Trouble remembering your password?',
+            subtitle: 'Reset it in just a few seconds.',
+            body: 'Request a password reset email or double-check that you entered the correct email address for your LuminaHQ account.',
+            tone: 'info',
+            icon: 'fa-circle-question',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send Password Reset Email',
+                icon: 'fa-key',
+                variant: 'primary',
+                onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Forgot Password Page',
+                icon: 'fa-arrow-up-right-from-square',
+                variant: 'outline-primary',
+                href: buildPageUrl('forgotpassword', normalizedEmail ? { email: normalizedEmail } : {})
+              }
+            ]
+          });
+          break;
+        }
+
+        case 'NO_RESPONSE':
+        case 'SESSION_TOKEN_MISSING': {
+          showAlert('error', errorMessage || 'We could not complete the sign-in process.');
+          showNextSteps({
+            title: 'We ran into a problem signing you in',
+            subtitle: 'The authentication service did not respond as expected.',
+            body: 'Please try again in a moment. If the issue persists, reach out to our support team so we can investigate immediately.',
+            tone: 'danger',
+            icon: 'fa-plug-circle-xmark',
+            actions: [
+              {
+                type: 'button',
+                label: 'Try Again',
+                icon: 'fa-rotate',
+                variant: 'primary',
+                onClick: () => {
+                  hideAllAlerts();
+                  if (elements.loginForm) {
+                    const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    elements.loginForm.dispatchEvent(retryEvent);
+                  }
+                }
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+
+        default: {
+          showAlert('error', errorMessage);
+          showNextSteps({
+            title: 'Need help signing in?',
+            subtitle: 'We can send you a reset link or connect you with support.',
+            body: 'If the problem continues, request a password reset email or reach out to our support team for assistance.',
+            tone: 'info',
+            icon: 'fa-circle-info',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send Password Reset Email',
+                icon: 'fa-key',
+                variant: 'primary',
+                onClick: () => requestPasswordResetEmail(normalizedEmail || elements.emailInput.value)
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+          break;
+        }
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // PASSWORD TOGGLE
+    // ───────────────────────────────────────────────────────────────────────────────
+    function togglePassword() {
+      const icon = document.getElementById('passwordIcon');
+      const input = elements.passwordInput;
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
+      
+      input.focus();
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // REDIRECT MANAGEMENT
+    // ───────────────────────────────────────────────────────────────────────────────
+    function setupRedirect(url, userInfo = {}) {
+      const safeUrl = stripTokenFromUrl(url);
+      console.log('Setting up redirect to:', safeUrl);
+
+      state.redirectUrl = safeUrl;
+      state.isRedirecting = true;
+      state.countdownValue = 3;
+
+      // Update UI
+      if (elements.continueButton) {
+        elements.continueButton.href = safeUrl;
+      }
+
+      if (elements.loginForm) {
+        elements.loginForm.classList.add('form-slide-out');
+
+        setTimeout(() => {
+          if (elements.loginForm) {
+            elements.loginForm.style.display = 'none';
+          }
+          if (elements.redirectSection) {
+            elements.redirectSection.classList.add('show');
+          }
+          startCountdown();
+        }, 500);
+      } else {
+        if (elements.redirectSection) {
+          elements.redirectSection.classList.add('show');
+        }
+        startCountdown();
+      }
+    }
+
+    function startCountdown() {
+      if (elements.countdown) {
+        elements.countdown.textContent = 'Redirecting to your dashboard...';
+      }
+      if (elements.countdownNumber) {
+        elements.countdownNumber.textContent = state.countdownValue;
+      }
+
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+      }
+
+      state.redirectTimer = setInterval(() => {
+        state.countdownValue--;
+        if (elements.countdownNumber) {
+          elements.countdownNumber.textContent = state.countdownValue;
+        }
+
+        if (state.countdownValue <= 0) {
+          clearInterval(state.redirectTimer);
+          state.redirectTimer = null;
+          executeRedirect();
+        }
+      }, 1000);
+    }
+
+    function executeRedirect() {
+      if (state.redirectUrl && state.isRedirecting) {
+        console.log('Executing redirect to:', state.redirectUrl);
+        if (elements.countdown) {
+          elements.countdown.textContent = 'Redirecting now...';
+        }
+
+        try {
+          if (
+            typeof google !== 'undefined' &&
+            google.script &&
+            google.script.host &&
+            typeof google.script.host.setLocation === 'function'
+          ) {
+            google.script.host.setLocation(state.redirectUrl);
+          } else {
+            window.location.href = state.redirectUrl;
+
+            setTimeout(() => {
+              window.location.assign(state.redirectUrl);
+            }, 100);
+          }
+        } catch (error) {
+          console.error('Redirect failed:', error);
+          showAlert('error', 'Redirect failed. Please click the button below to continue.');
+        }
+      }
+    }
+
+    function cancelRedirect() {
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+        state.redirectTimer = null;
+      }
+      state.isRedirecting = false;
+      if (elements.countdown) {
+        elements.countdown.textContent = 'Auto-redirect cancelled. Click the button when ready.';
+      }
+      if (elements.countdownNumber) {
+        elements.countdownNumber.textContent = '∞';
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // FORM VALIDATION
+    // ───────────────────────────────────────────────────────────────────────────────
+    function validateForm() {
+      const email = elements.emailInput ? elements.emailInput.value.trim() : '';
+      const password = elements.passwordInput ? elements.passwordInput.value : '';
+
+      if (!email || !password) {
+        showAlert('error', 'Please enter both email and password.');
+        if (!email && elements.emailInput) {
+          elements.emailInput.focus();
+        }
+        if (!password && elements.passwordInput) {
+          elements.passwordInput.focus();
+        }
+        return false;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showAlert('error', 'Please enter a valid email address.');
+        if (elements.emailInput) {
+          elements.emailInput.focus();
+        }
+        return false;
+      }
+
+      if (password.length < 3) {
+        showAlert('error', 'Password is too short.');
+        if (elements.passwordInput) {
+          elements.passwordInput.focus();
+        }
+        return false;
+      }
+
+      return true;
+    }
+
+    function completeAuthenticatedLogin(response, rememberMeFallback) {
+      if (!response || !response.success) {
+        return;
+      }
+
+      showAlert('success', response.message || 'Login successful!');
+
+      if (!response.user) {
+        showNextSteps({
+          title: 'We signed you in, but need a moment',
+          subtitle: 'Your profile details were not returned by the server.',
+          body: 'Try again in a moment. If this message keeps appearing, please contact support so we can review your account.',
+          tone: 'warning',
+          icon: 'fa-user-clock',
+          actions: [
+            {
+              type: 'button',
+              label: 'Try Again',
+              icon: 'fa-rotate',
+              variant: 'primary',
+              onClick: () => {
+                hideAllAlerts();
+                if (elements.loginForm) {
+                  const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                  elements.loginForm.dispatchEvent(retryEvent);
+                }
+              }
+            },
+            {
+              type: 'link',
+              label: 'Email Support',
+              icon: 'fa-headset',
+              variant: 'outline-secondary',
+              href: `mailto:${SUPPORT_EMAIL}`,
+              target: '_blank',
+              rel: 'noopener'
+            }
+          ]
+        });
+        setLoading(false);
+        return;
+      }
+
+      persistSessionToken(
+        response.sessionToken,
+        response.rememberMe !== undefined ? !!response.rememberMe : !!rememberMeFallback,
+        response.sessionExpiresAt,
+        response.sessionTtlSeconds,
+        response.sessionIdleTimeoutMinutes
+      );
+
+      const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
+      const destinationUrl = normalizeRedirectUrl(redirectInput);
+      setupRedirect(destinationUrl, response.user);
+      hideNextSteps();
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // SIMPLIFIED LOGIN HANDLER
+    // ───────────────────────────────────────────────────────────────────────────────
+    function handleLogin(email, password, rememberMe) {
+      console.log('Attempting login for:', email);
+
+      monitorLoginRequest(email, rememberMe);
+
+      google.script.run
+        .withSuccessHandler(response => {
+          finalizeLoginRequest();
+
+          console.log('Login response:', response);
+          setLoading(false);
+
+          persistEmailState(email, rememberMe);
+
+          if (response && response.needsMfa) {
+            showMfaStep(response, email, rememberMe);
+            return;
+          }
+
+          if (response && response.needsVerification) {
+            showDeviceVerificationPrompt(response, email, rememberMe);
+            return;
+          }
+
+          if (response && response.success) {
+            console.log('Login successful');
+            completeAuthenticatedLogin(response, rememberMe);
+          } else if (response && response.error) {
+            handleLoginFailure(response, email);
+          } else {
+            handleLoginFailure(null, email);
+          }
+        })
+        .withFailureHandler(error => {
+          finalizeLoginRequest();
+
+          setLoading(false);
+          console.error('Login error:', error);
+          clearAuthCookie();
+          persistEmailState(email, rememberMe);
+          showAlert('error', 'Login request failed. Please check your connection and try again.');
+          showNextSteps({
+            title: 'Unable to reach the server',
+            subtitle: 'It might be a temporary network issue.',
+            body: 'Check your internet connection and try again. If the problem continues, contact support so we can take a closer look.',
+            tone: 'warning',
+            icon: 'fa-wifi',
+            actions: [
+              {
+                type: 'button',
+                label: 'Try Again',
+                icon: 'fa-rotate',
+                variant: 'primary',
+                onClick: () => {
+                  hideAllAlerts();
+                  if (elements.loginForm) {
+                    const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    elements.loginForm.dispatchEvent(retryEvent);
+                  }
+                }
+              },
+              {
+                type: 'link',
+                label: 'Email Support',
+                icon: 'fa-headset',
+                variant: 'outline-secondary',
+                href: `mailto:${SUPPORT_EMAIL}`,
+                target: '_blank',
+                rel: 'noopener'
+              }
+            ]
+          });
+        })
+        .loginUser(email, password, rememberMe, collectClientMetadata());
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // FORM SUBMISSION HANDLER
+    // ───────────────────────────────────────────────────────────────────────────────
+    if (elements.loginForm) {
+      elements.loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        if (state.pendingMfa) {
+          verifyMfaCodeInput();
+          return;
+        }
+
+        hideAllAlerts();
+        hideDeviceVerificationPrompt();
+
+        if (!validateForm()) {
+          return;
+        }
+
+        const email = elements.emailInput ? elements.emailInput.value.trim() : '';
+        const password = elements.passwordInput ? elements.passwordInput.value : '';
+        const rememberMe = elements.rememberMeCheckbox ? elements.rememberMeCheckbox.checked : false;
+
+        state.lastEmail = email;
+        cancelSessionResumeLoader({ preserveLoader: true });
+        setLoading(true);
+
+        persistEmailState(email, rememberMe);
+
+        handleLogin(email, password, rememberMe);
+      });
+    }
+
+    if (elements.verifyMfaBtn) {
+      elements.verifyMfaBtn.addEventListener('click', () => {
+        verifyMfaCodeInput();
+      });
+    }
+
+    if (elements.resendMfaBtn) {
+      elements.resendMfaBtn.addEventListener('click', () => {
+        if (!state.pendingMfa) {
+          showAlert('info', 'Start signing in first so we can send a verification code.');
+          return;
+        }
+        requestMfaCode({ silent: false });
+      });
+    }
+
+    if (elements.deviceModalConfirmBtn) {
+      elements.deviceModalConfirmBtn.addEventListener('click', submitDeviceVerification);
+    }
+
+    if (elements.deviceModalDenyBtn) {
+      elements.deviceModalDenyBtn.addEventListener('click', denyDeviceVerificationRequest);
+    }
+
+    if (elements.deviceModalCancelBtn) {
+      elements.deviceModalCancelBtn.addEventListener('click', () => {
+        hideDeviceVerificationPrompt();
+        showAlert('info', 'Log in again if you still need access.');
+      });
+    }
+
+    if (elements.deviceModalCodeInput) {
+      elements.deviceModalCodeInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitDeviceVerification();
+        }
+      });
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // PAGE INITIALIZATION
+    // ───────────────────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Login page initializing...');
+
+      restoreEmailFromStorage();
+
+      const resumed = attemptSessionResume();
+
+      // Auto-focus email field when not redirecting
+      if (!resumed && elements.emailInput) {
+        elements.emailInput.focus();
+      }
+      
+      // Handle URL parameters for messages/errors
+      const urlParams = new URLSearchParams(window.location.search);
+      const message = urlParams.get('message');
+      const error = urlParams.get('error');
+
+      if (urlParams.has('token')) {
+        const sanitizedParams = new URLSearchParams(urlParams);
+        sanitizedParams.delete('token');
+        const newQuery = sanitizedParams.toString();
+        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+      
+      if (error) {
+        showAlert('error', decodeURIComponent(error));
+      } else if (message) {
+        showAlert('info', decodeURIComponent(message));
+      }
+      
+      // Enhanced keyboard shortcuts
+      document.addEventListener('keydown', function(e) {
+        // Enter key in email field moves to password
+        if (e.key === 'Enter' && e.target === elements.emailInput) {
+          e.preventDefault();
+          elements.passwordInput.focus();
+        }
+        
+        // Escape key cancels redirect
+        if (e.key === 'Escape' && state.isRedirecting) {
+          cancelRedirect();
+        }
+      });
+
+      if (elements.rememberMeCheckbox) {
+        elements.rememberMeCheckbox.addEventListener('change', () => {
+          persistEmailState(elements.emailInput.value.trim(), elements.rememberMeCheckbox.checked);
+        });
+      }
+
+      if (elements.emailInput) {
+        elements.emailInput.addEventListener('blur', () => {
+          persistEmailState(elements.emailInput.value.trim(), elements.rememberMeCheckbox.checked);
+        });
+      }
+
+      console.log('Login page initialized successfully');
+    });
+
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // CLEANUP ON PAGE UNLOAD
+    // ───────────────────────────────────────────────────────────────────────────────
+    window.addEventListener('beforeunload', function() {
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+      }
+    });
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // ERROR HANDLING
+    // ───────────────────────────────────────────────────────────────────────────────
+    window.addEventListener('error', function(e) {
+      console.error('Global error:', e.error);
+      if (elements.loginBtn.disabled) {
+        setLoading(false);
+        showAlert('error', 'An unexpected error occurred. Please try again.');
+      }
+    });
+
+    // Make functions globally available
+    window.togglePassword = togglePassword;
+    window.cancelRedirect = cancelRedirect;
+
+    console.log('Simplified login system loaded successfully');
+  </script>
+</body>
+
+</html>

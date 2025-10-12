@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resend Email Verification - VLBPO DataLog</title>
+  <?!= includeOnce('layoutLoader') ?>
+  <?!= includeOnce('layoutAlerts') ?>
+<?!= includeOnce('ResponsiveStyles') ?>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    body, html { 
+      height: 100%; 
+      margin: 0; 
+      background: linear-gradient(135deg, #00AEEF, #003F87);
+      font-family: Arial, sans-serif;
+    }
+    
+    .verification-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .verification-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      padding: 3rem 2rem;
+      max-width: 500px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .verification-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(135deg, #00AEEF, #003F87);
+    }
+    
+    .logo-container {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .logo-container img {
+      max-height: 60px;
+      margin-bottom: 1rem;
+    }
+    
+    .verification-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fff3cd, #ffeeba);
+      color: #856404;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      font-size: 2.5rem;
+    }
+    
+    .verification-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #2c3e50;
+      text-align: center;
+    }
+    
+    .verification-message {
+      font-size: 1rem;
+      color: #6c757d;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+    
+    .form-control {
+      padding: 15px 20px;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      background: #f8f9ff;
+    }
+    
+    .form-control:focus {
+      outline: none;
+      border-color: #00AEEF;
+      box-shadow: 0 0 0 4px rgba(0, 174, 239, 0.1);
+      background: white;
+    }
+    
+    .btn-primary-custom {
+      background: linear-gradient(135deg, #00AEEF, #003F87);
+      border: none;
+      color: white;
+      padding: 15px 30px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 1rem;
+      width: 100%;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .btn-primary-custom:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 174, 239, 0.3);
+      color: white;
+    }
+    
+    .btn-primary-custom:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-secondary-custom {
+      background: #6c757d;
+      border: none;
+      color: white;
+      padding: 12px 25px;
+      border-radius: 8px;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      font-size: 0.9rem;
+    }
+    
+    .btn-secondary-custom:hover {
+      background: #545b62;
+      transform: translateY(-1px);
+      color: white;
+      text-decoration: none;
+    }
+    
+    .help-section {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e9ecef;
+      text-align: center;
+    }
+    
+    .help-links {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    
+    .help-links a {
+      color: #6c757d;
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+    
+    .help-links a:hover {
+      background: #f8f9fa;
+      color: #495057;
+    }
+    
+    .security-note {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      color: #6c757d;
+      text-align: center;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .verification-card {
+      animation: fadeInUp 0.6s ease-out;
+    }
+    
+    /* Responsive */
+    @media (max-width: 576px) {
+      .verification-card {
+        padding: 2rem 1.5rem;
+        margin: 10px;
+      }
+      
+      .verification-title {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="verification-container">
+    <div class="verification-card">
+      <!-- Logo -->
+      <div class="logo-container">
+        <img src="https://vlbpo.com/wp-content/uploads/2022/03/Asset-1-8.png.webp" alt="VLBPO Logo" loading="lazy">
+        <br>
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1751630242/vlbpo/as_is_-_Edited_yq58rt.png"
+             alt="Datalog Logo" style="max-height: 20px;" loading="lazy">
+      </div>
+
+      <!-- Icon -->
+      <div class="verification-icon">
+        <i class="fas fa-envelope-open-text"></i>
+      </div>
+      
+      <h1 class="verification-title">Resend Email Verification</h1>
+      
+      <p class="verification-message">
+        Enter your email address and we'll send you a new verification link to activate your account.
+      </p>
+
+      <!-- Alerts -->
+      <div id="successAlert" class="alert alert-modern alert-success d-none" role="alert">
+        <i class="fas fa-check-circle"></i>
+        <span id="successMessage"></span>
+      </div>
+
+      <div id="errorAlert" class="alert alert-modern alert-danger d-none" role="alert">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span id="errorMessage"></span>
+      </div>
+
+      <div id="infoAlert" class="alert alert-modern alert-info d-none" role="alert">
+        <i class="fas fa-info-circle"></i>
+        <span id="infoMessage"></span>
+      </div>
+
+      <!-- Form -->
+      <form id="resendForm">
+        <div class="mb-4">
+          <label for="email" class="form-label">Email Address</label>
+          <input type="email" id="email" name="email" class="form-control" 
+                 placeholder="Enter your email address" required>
+        </div>
+        
+        <button type="submit" id="resendBtn" class="btn-primary-custom">
+          <i class="fas fa-paper-plane"></i>
+          Send Verification Email
+        </button>
+      </form>
+
+      <!-- Actions -->
+      <div class="text-center mt-4">
+        <a href="<?= baseUrl ?>" class="btn-secondary-custom">
+          <i class="fas fa-arrow-left"></i>
+          Back to Login
+        </a>
+      </div>
+
+      <!-- Help Section -->
+      <div class="help-section">
+        <p class="small text-muted mb-2">Need help?</p>
+        <div class="help-links">
+          <a href="<?= baseUrl ?>&page=forgotpassword">
+            <i class="fas fa-key me-1"></i>
+            Forgot Password
+          </a>
+          <a href="mailto:support@vlbpo.com">
+            <i class="fas fa-headset me-1"></i>
+            Contact Support
+          </a>
+        </div>
+      </div>
+
+      <div class="security-note">
+        <i class="fas fa-shield-alt me-2"></i>
+        <strong>Security Notice:</strong> Verification links expire after 24 hours. 
+        If you don't receive the email, check your spam folder or contact support.
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Get base URL from current page
+    const baseUrl = window.location.origin + window.location.pathname;
+    
+    // Elements
+    const form = document.getElementById('resendForm');
+    const emailInput = document.getElementById('email');
+    const resendBtn = document.getElementById('resendBtn');
+    const successAlert = document.getElementById('successAlert');
+    const errorAlert = document.getElementById('errorAlert');
+    const infoAlert = document.getElementById('infoAlert');
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    const infoMessage = document.getElementById('infoMessage');
+
+    let alertHideTimer;
+
+    function hideAllAlerts() {
+      [successAlert, errorAlert, infoAlert].forEach(alert => {
+        alert.classList.add('d-none');
+      });
+    }
+
+    function showAlert(type, message) {
+      clearTimeout(alertHideTimer);
+      hideAllAlerts();
+
+      let target;
+      if (type === 'success') {
+        successMessage.textContent = message;
+        target = successAlert;
+      } else if (type === 'info') {
+        infoMessage.textContent = message;
+        target = infoAlert;
+      } else {
+        errorMessage.textContent = message;
+        target = errorAlert;
+      }
+
+      if (target) {
+        target.classList.remove('d-none');
+        alertHideTimer = window.setTimeout(() => {
+          target.classList.add('d-none');
+        }, 8000);
+      }
+    }
+
+    function setLoading(loading) {
+      if (loading) {
+        resendBtn.disabled = true;
+        resendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      } else {
+        resendBtn.disabled = false;
+        resendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Verification Email';
+      }
+    }
+
+    // Pre-fill email from URL parameter
+    document.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const emailParam = urlParams.get('email');
+      
+      if (emailParam) {
+        emailInput.value = decodeURIComponent(emailParam);
+      }
+      
+      emailInput.focus();
+    });
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const email = emailInput.value.trim();
+      
+      if (!email) {
+        showAlert('error', 'Please enter your email address.');
+        return;
+      }
+      
+      if (!emailRegex.test(email)) {
+        showAlert('error', 'Please enter a valid email address.');
+        return;
+      }
+      
+      setLoading(true);
+      
+      // Use the correct aligned function name
+      google.script.run
+        .withSuccessHandler(function(result) {
+          setLoading(false);
+          
+          if (result && result.success) {
+            showAlert('success', result.message || 'Password setup email sent! Please check your inbox.');
+            
+            setTimeout(() => {
+              const loginUrl = `${baseUrl}?message=${encodeURIComponent('Password setup email sent! Please check your inbox.')}&type=info`;
+              window.location.href = loginUrl;
+            }, 3000);
+          } else {
+            showAlert('error', result?.error || 'Failed to send password setup email. Please try again.');
+          }
+        })
+        .withFailureHandler(function(error) {
+          setLoading(false);
+          console.error('Resend failed:', error);
+          showAlert('error', 'An error occurred. Please try again later.');
+        })
+        .resendPasswordSetupEmail(email); // Updated function name
+    });
+  </script>
+</body>
+</html>

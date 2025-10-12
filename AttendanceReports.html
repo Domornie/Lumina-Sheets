@@ -1,4 +1,4 @@
-<?!= includeOnce('ResponsiveStyles') ?>
+    <?!= includeOnce('ResponsiveStyles') ?>
 <?!= include("layout", {
   baseUrl: baseUrl,
   scriptUrl: scriptUrl,
@@ -867,7 +867,7 @@
   })(typeof baseUrl !== 'undefined' ? baseUrl : '');
 ?>
 
-<div class="modern-page-header" data-banner-source>
+<div class="modern-page-header">
   <div class="d-flex gap-3 mb-4 flex-wrap">
     <button id="exportBtn" class="btn btn-light" onclick="showEnhancedExportModal()">
       <i class="fas fa-table me-2"></i>Export Matrix
@@ -2345,11 +2345,11 @@
             
             lunchAllowed = 30 * lunchUserCount;
             breakAllowed = 30 * breakUserCount;
-            displayUnit = '';
+            displayUnit = 'total min';
           } else {
             lunchAllowed = 30;
             breakAllowed = 30;
-            displayUnit = '';
+            displayUnit = 'min';
           }
 
           const lunchPercent = Math.min((lunchMinutes / lunchAllowed) * 100, 150);

@@ -51,38 +51,11 @@
   }
 
   function attemptRegisterKnownSchemas() {
-    registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID', {
-      cacheTTL: 1800,
-      security: {
-        sensitiveFields: [
-          'SecurityStamp', 'RecoveryCodes', 'TwoFactorSecret', 'MfaSecret'
-        ],
-        redactedFields: [
-          'SecurityStamp', 'RecoveryCodes', 'TwoFactorSecret', 'MfaSecret'
-        ],
-        signatureColumn: 'SecuritySignature',
-        classification: 'identity'
-      }
-    });
+    registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID', { cacheTTL: 1800 });
     registerIfDefined(global.ROLES_SHEET || 'Roles', global.ROLES_HEADER, 'ID', { cacheTTL: 3600 });
     registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'UserId', { cacheTTL: 1800 });
-    registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID', {
-      cacheTTL: 1800,
-      security: {
-        sensitiveFields: ['ClaimValue', 'ClaimSecret'],
-        redactedFields: ['ClaimValue', 'ClaimSecret'],
-        signatureColumn: 'SecuritySignature',
-        classification: 'identity'
-      }
-    });
-    registerIfDefined(global.SESSIONS_SHEET || 'Sessions', global.SESSIONS_HEADERS, 'TokenHash', {
-      security: {
-        sensitiveFields: ['Token', 'TokenHash', 'RefreshToken', 'SessionMetadata'],
-        redactedFields: ['Token', 'TokenHash', 'RefreshToken', 'SessionMetadata'],
-        signatureColumn: 'SecuritySignature',
-        classification: 'session'
-      }
-    });
+    registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID', { cacheTTL: 1800 });
+    registerIfDefined(global.SESSIONS_SHEET || 'Sessions', global.SESSIONS_HEADERS, 'TokenHash');
     registerIfDefined(global.CAMPAIGNS_SHEET || 'Campaigns', global.CAMPAIGNS_HEADERS, 'ID', { cacheTTL: 3600 });
     registerIfDefined(global.PAGES_SHEET || 'Pages', global.PAGES_HEADERS, 'PageKey', { cacheTTL: 3600 });
     registerIfDefined(global.CAMPAIGN_PAGES_SHEET || 'CampaignPages', global.CAMPAIGN_PAGES_HEADERS, 'ID', { tenantColumn: 'CampaignID', requireTenant: true, cacheTTL: 2700 });

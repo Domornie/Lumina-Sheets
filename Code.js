@@ -1,10 +1,12 @@
 /** Enhanced Multi-Campaign Google Apps Script - Code.gs
- *
- * Lumina Identity integration provides authentication, session
- * management, and campaign-aware routing for the Lumina Sheets web app.
- * Sessions are issued when a user successfully signs in through the
- * Lumina Identity login experience and validated on every request to the
- * Apps Script backend.
+ * Simplified Token-Based Authentication System
+ * 
+ * Features:
+ * - Token-based authentication
+ * - Campaign-specific routing (e.g., CreditSuite.QAForm, IBTR.QACollabList)
+ * - Enhanced authentication and access control
+ * - Clean URL structure
+ * - Secure session management via tokens
  */
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -28,1328 +30,12 @@ const ACCESS_DEBUG = true;
 const ACCESS = {
   ADMIN_ONLY_PAGES: new Set(['admin.users', 'admin.roles', 'admin.campaigns']),
   PUBLIC_PAGES: new Set([
-    'landing',
-    'landing-about',
-    'landing-capabilities',
-    'terms-of-service',
-    'privacy-policy',
-    'lumina-user-guide',
-    'login'
+    'login', 'setpassword', 'resetpassword', 'forgotpassword', 'forgot-password',
+    'resendverification', 'resend-verification', 'emailconfirmed', 'email-confirmed'
   ]),
   DEFAULT_PAGE: 'dashboard',
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
-
-function toArray(value) {
-  if (value === null || typeof value === 'undefined') {
-    return [];
-  }
-
-  if (Array.isArray(value)) {
-    return value.slice();
-  }
-
-  return [value];
-}
-
-function collectCandidateValues(container, keys) {
-  const collected = [];
-  if (!container || !keys || !keys.length) {
-    return collected;
-  }
-
-  const list = Array.isArray(keys) ? keys : [keys];
-
-  list.forEach(function(key) {
-    if (!key) {
-      return;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(container, key)) {
-      collected.push(container[key]);
-    }
-  });
-
-  return collected;
-}
-
-function normalizeParameterKeys(key) {
-  if (!key) {
-    return [];
-  }
-
-  const trimmed = String(key).trim();
-  if (!trimmed) {
-    return [];
-  }
-
-  const lower = trimmed.toLowerCase();
-  const upper = trimmed.toUpperCase();
-  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-
-  const variants = [trimmed];
-
-  if (variants.indexOf(lower) === -1) variants.push(lower);
-  if (variants.indexOf(upper) === -1) variants.push(upper);
-  if (variants.indexOf(capitalized) === -1) variants.push(capitalized);
-
-  return variants;
-}
-
-function getFirstParameterValue(e, key) {
-  if (!e || !key) {
-    return '';
-  }
-
-  const variants = normalizeParameterKeys(key);
-
-  for (let i = 0; i < variants.length; i += 1) {
-    const variant = variants[i];
-    if (!variant) {
-      continue;
-    }
-
-    const parameterContainers = [];
-    if (e.parameter) {
-      parameterContainers.push(e.parameter);
-    }
-    if (e.parameters) {
-      parameterContainers.push(e.parameters);
-    }
-
-    for (let j = 0; j < parameterContainers.length; j += 1) {
-      const container = parameterContainers[j];
-      if (!container || !Object.prototype.hasOwnProperty.call(container, variant)) {
-        continue;
-      }
-
-      const rawValue = container[variant];
-      const values = toArray(rawValue);
-      for (let k = 0; k < values.length; k += 1) {
-        const value = values[k];
-        if (value || value === 0) {
-          const normalized = String(value).trim();
-          if (normalized) {
-            return normalized;
-          }
-        }
-      }
-    }
-  }
-
-  return '';
-}
-
-function gatherCookieStringsFromRequest(e) {
-  if (!e) {
-    return [];
-  }
-
-  const cookieKeys = ['cookie', 'Cookie', 'cookies', 'Cookies', 'httpCookie', 'HttpCookie', 'http_cookie', 'HTTP_COOKIE'];
-  const sources = [];
-
-  function pushCandidate(candidate) {
-    if (candidate === null || typeof candidate === 'undefined') {
-      return;
-    }
-
-    if (Array.isArray(candidate)) {
-      candidate.forEach(pushCandidate);
-      return;
-    }
-
-    if (typeof candidate === 'object') {
-      if (Object.prototype.hasOwnProperty.call(candidate, 'toString') && candidate.toString !== Object.prototype.toString) {
-        const stringified = candidate.toString();
-        if (stringified) {
-          sources.push(String(stringified));
-        }
-        return;
-      }
-    }
-
-    const value = String(candidate);
-    if (value) {
-      sources.push(value);
-    }
-  }
-
-  const containers = [e.parameter, e.parameters, e.headers];
-  if (e.context && e.context.headers) {
-    containers.push(e.context.headers);
-  }
-
-  containers.forEach(function(container) {
-    if (!container) {
-      return;
-    }
-    const candidates = collectCandidateValues(container, cookieKeys);
-    candidates.forEach(pushCandidate);
-  });
-
-  return sources;
-}
-
-function parseCookiesFromStrings(strings) {
-  const cookies = {};
-
-  strings.forEach(function(raw) {
-    if (!raw && raw !== 0) {
-      return;
-    }
-
-    String(raw).split(';').forEach(function(segment) {
-      const part = segment ? segment.trim() : '';
-      if (!part) {
-        return;
-      }
-
-      const equalsIndex = part.indexOf('=');
-      if (equalsIndex === -1) {
-        return;
-      }
-
-      const name = part.slice(0, equalsIndex).trim();
-      if (!name) {
-        return;
-      }
-
-      let value = part.slice(equalsIndex + 1).trim();
-      if (!value && value !== '') {
-        return;
-      }
-
-      if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
-        value = value.slice(1, -1);
-      }
-
-      try {
-        value = decodeURIComponent(value);
-      } catch (decodeErr) {
-        // Ignore malformed encoding
-      }
-
-      cookies[name] = value;
-      const lower = name.toLowerCase();
-      if (!Object.prototype.hasOwnProperty.call(cookies, lower)) {
-        cookies[lower] = value;
-      }
-    });
-  });
-
-  return cookies;
-}
-
-function getRequestCookie(e, name) {
-  if (!name) {
-    return '';
-  }
-
-  const sources = gatherCookieStringsFromRequest(e);
-  if (!sources.length) {
-    return '';
-  }
-
-  const cookies = parseCookiesFromStrings(sources);
-  if (!cookies) {
-    return '';
-  }
-
-  const direct = cookies[name];
-  if (direct || direct === '') {
-    return String(direct);
-  }
-
-  const lower = String(name).toLowerCase();
-  if (Object.prototype.hasOwnProperty.call(cookies, lower)) {
-    return String(cookies[lower]);
-  }
-
-  return '';
-}
-
-function extractSessionTokenFromRequest(e) {
-  const directToken = getFirstParameterValue(e, 'token')
-    || getFirstParameterValue(e, 'sessionToken')
-    || getFirstParameterValue(e, 'authToken');
-
-  if (directToken) {
-    return directToken;
-  }
-
-  const cookieToken = getRequestCookie(e, 'authToken');
-  if (cookieToken) {
-    return String(cookieToken).trim();
-  }
-
-  return '';
-}
-
-const SESSION_LINK_STORAGE_PREFIX = 'lumina.session.link.';
-const SESSION_LINK_CACHE_MIN_TTL_SECONDS = 300; // 5 minutes
-const SESSION_LINK_CACHE_MAX_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
-const SESSION_LINK_DEFAULT_TTL_SECONDS = 60 * 60; // 1 hour fallback
-const SESSION_LINK_REMEMBER_TTL_SECONDS = 24 * 60 * 60; // 24 hours fallback
-
-function getTemporaryUserSessionKey() {
-  try {
-    if (typeof Session !== 'undefined'
-      && Session
-      && typeof Session.getTemporaryActiveUserKey === 'function') {
-      const key = Session.getTemporaryActiveUserKey();
-      if (key) {
-        return String(key);
-      }
-    }
-  } catch (err) {
-    console.warn('getTemporaryUserSessionKey: unable to resolve session key', err);
-  }
-
-  return '';
-}
-
-function computeSessionLinkTtlSeconds(record) {
-  if (!record || typeof record !== 'object') {
-    return SESSION_LINK_DEFAULT_TTL_SECONDS;
-  }
-
-  const now = Date.now();
-  let ttlSeconds = null;
-
-  if (typeof record.ttlSeconds === 'number' && isFinite(record.ttlSeconds) && record.ttlSeconds > 0) {
-    ttlSeconds = Math.floor(record.ttlSeconds);
-  }
-
-  if ((!ttlSeconds || ttlSeconds <= 0) && record.expiresAt) {
-    const expiryTime = Date.parse(record.expiresAt);
-    if (!isNaN(expiryTime)) {
-      const delta = Math.floor((expiryTime - now) / 1000);
-      if (delta > 0) {
-        ttlSeconds = delta;
-      }
-    }
-  }
-
-  if (!ttlSeconds || ttlSeconds <= 0) {
-    const remember = typeof record.rememberMe === 'boolean'
-      ? record.rememberMe
-      : false;
-    ttlSeconds = remember ? SESSION_LINK_REMEMBER_TTL_SECONDS : SESSION_LINK_DEFAULT_TTL_SECONDS;
-  }
-
-  ttlSeconds = Math.max(SESSION_LINK_CACHE_MIN_TTL_SECONDS, ttlSeconds);
-  ttlSeconds = Math.min(SESSION_LINK_CACHE_MAX_TTL_SECONDS, ttlSeconds);
-
-  return ttlSeconds;
-}
-
-function getSessionLinkStorageKey() {
-  const sessionKey = getTemporaryUserSessionKey();
-  if (!sessionKey) {
-    return '';
-  }
-  return SESSION_LINK_STORAGE_PREFIX + sessionKey;
-}
-
-function readPersistedSessionTokenLink() {
-  const storageKey = getSessionLinkStorageKey();
-  if (!storageKey) {
-    return null;
-  }
-
-  let raw = '';
-
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService) {
-      const cache = CacheService.getUserCache();
-      raw = cache.get(storageKey) || '';
-    }
-  } catch (cacheError) {
-    console.warn('readPersistedSessionTokenLink: unable to read cache', cacheError);
-  }
-
-  if (!raw) {
-    try {
-      if (typeof PropertiesService !== 'undefined' && PropertiesService) {
-        const props = PropertiesService.getUserProperties();
-        raw = props.getProperty(storageKey) || '';
-      }
-    } catch (propsError) {
-      console.warn('readPersistedSessionTokenLink: unable to read properties', propsError);
-    }
-  }
-
-  if (!raw) {
-    return null;
-  }
-
-  let record = null;
-  try {
-    record = JSON.parse(raw);
-  } catch (parseError) {
-    console.warn('readPersistedSessionTokenLink: unable to parse record', parseError);
-    clearPersistedSessionTokenLink();
-    return null;
-  }
-
-  if (!record || !record.token) {
-    clearPersistedSessionTokenLink();
-    return null;
-  }
-
-  const now = Date.now();
-
-  if (record.expiresAt) {
-    const expiryTime = Date.parse(record.expiresAt);
-    if (!isNaN(expiryTime) && expiryTime <= now) {
-      clearPersistedSessionTokenLink();
-      return null;
-    }
-  }
-
-  if (record.ttlSeconds && record.updatedAt) {
-    const ttl = Number(record.ttlSeconds);
-    const updatedAt = Date.parse(record.updatedAt);
-    if (!isNaN(ttl) && ttl > 0 && !isNaN(updatedAt)) {
-      const expiryTime = updatedAt + (ttl * 1000);
-      if (expiryTime <= now) {
-        clearPersistedSessionTokenLink();
-        return null;
-      }
-    }
-  }
-
-  return record;
-}
-
-function clearPersistedSessionTokenLink() {
-  const storageKey = getSessionLinkStorageKey();
-  if (!storageKey) {
-    return;
-  }
-
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService) {
-      CacheService.getUserCache().remove(storageKey);
-    }
-  } catch (cacheError) {
-    console.warn('clearPersistedSessionTokenLink: unable to clear cache', cacheError);
-  }
-
-  try {
-    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
-      PropertiesService.getUserProperties().deleteProperty(storageKey);
-    }
-  } catch (propsError) {
-    console.warn('clearPersistedSessionTokenLink: unable to clear properties', propsError);
-  }
-}
-
-function persistSessionTokenLinkForCurrentUser(token, options) {
-  const storageKey = getSessionLinkStorageKey();
-  if (!storageKey) {
-    return;
-  }
-
-  if (!token) {
-    clearPersistedSessionTokenLink();
-    return;
-  }
-
-  const previous = readPersistedSessionTokenLink();
-
-  const rememberMe = (options && typeof options.rememberMe !== 'undefined')
-    ? !!options.rememberMe
-    : (previous && typeof previous.rememberMe !== 'undefined' ? !!previous.rememberMe : null);
-
-  const expiresAt = (options && options.expiresAt)
-    ? String(options.expiresAt)
-    : (previous && previous.expiresAt ? String(previous.expiresAt) : null);
-
-  let ttlSeconds = null;
-  if (options && typeof options.ttlSeconds === 'number' && isFinite(options.ttlSeconds) && options.ttlSeconds > 0) {
-    ttlSeconds = Math.floor(options.ttlSeconds);
-  } else if (previous && typeof previous.ttlSeconds === 'number' && isFinite(previous.ttlSeconds) && previous.ttlSeconds > 0) {
-    ttlSeconds = Math.floor(previous.ttlSeconds);
-  }
-
-  const record = {
-    token: String(token),
-    rememberMe: typeof rememberMe === 'boolean' ? rememberMe : null,
-    expiresAt: expiresAt || null,
-    ttlSeconds: ttlSeconds !== null ? ttlSeconds : null,
-    updatedAt: new Date().toISOString()
-  };
-
-  const payload = JSON.stringify(record);
-  const ttl = computeSessionLinkTtlSeconds(record);
-
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService) {
-      CacheService.getUserCache().put(storageKey, payload, ttl);
-    }
-  } catch (cacheError) {
-    console.warn('persistSessionTokenLinkForCurrentUser: unable to update cache', cacheError);
-  }
-
-  try {
-    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
-      PropertiesService.getUserProperties().setProperty(storageKey, payload);
-    }
-  } catch (propsError) {
-    console.warn('persistSessionTokenLinkForCurrentUser: unable to update properties', propsError);
-  }
-}
-
-function resolveSessionTokenForAuthentication(e) {
-  const token = extractSessionTokenFromRequest(e);
-  if (token) {
-    return {
-      token: String(token),
-      source: 'request',
-      record: null
-    };
-  }
-
-  const record = readPersistedSessionTokenLink();
-  if (record && record.token) {
-    return {
-      token: String(record.token),
-      source: 'persisted',
-      record: record
-    };
-  }
-
-  return {
-    token: '',
-    source: 'none',
-    record: null
-  };
-}
-
-function getSessionsHeaders_() {
-  try {
-    if (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length) {
-      return SESSIONS_HEADERS.slice();
-    }
-  } catch (_) { /* ignore */ }
-  return [
-    'Token',
-    'TokenHash',
-    'TokenSalt',
-    'UserId',
-    'CreatedAt',
-    'LastActivityAt',
-    'ExpiresAt',
-    'IdleTimeoutMinutes',
-    'RememberMe',
-    'CampaignScope',
-    'UserAgent',
-    'IpAddress',
-    'ServerIp'
-  ];
-}
-
-function ensureSessionsSheet_() {
-  const name = (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions';
-  const headers = getSessionsHeaders_();
-
-  if (typeof ensureSheetWithHeaders === 'function') {
-    try {
-      return ensureSheetWithHeaders(name, headers);
-    } catch (sheetErr) {
-      console.warn('ensureSessionsSheet_: ensureSheetWithHeaders failed', sheetErr);
-    }
-  }
-
-  if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp) {
-    throw new Error('SpreadsheetApp not available');
-  }
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) {
-    throw new Error('Active spreadsheet not available');
-  }
-
-  let sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-  }
-
-  if (headers.length) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheet.setFrozenRows(1);
-  }
-
-  return sheet;
-}
-
-function constantTimeEquals_(a, b) {
-  if (a == null || b == null) return false;
-  const strA = String(a);
-  const strB = String(b);
-  if (strA.length !== strB.length) return false;
-  let diff = 0;
-  for (let i = 0; i < strA.length; i++) {
-    diff |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
-  }
-  return diff === 0;
-}
-
-function generateSessionSalt_() {
-  try {
-    return Utilities.getUuid().replace(/-/g, '');
-  } catch (err) {
-    const rand = Math.random().toString(16).slice(2);
-    const time = Date.now().toString(16);
-    return rand + time;
-  }
-}
-
-function generateSessionToken_() {
-  try {
-    const entropy = Utilities.getUuid() + '|' + Date.now() + '|' + Math.random();
-    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, entropy);
-    return Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
-  } catch (err) {
-    const fallback = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36));
-    return fallback.slice(0, 44);
-  }
-}
-
-function hashSessionToken_(token, salt) {
-  if (!token && token !== 0) {
-    return '';
-  }
-
-  const material = String(salt || '') + '|' + String(token);
-
-  try {
-    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material);
-    return digest.map(function (b) {
-      const value = (b < 0 ? b + 256 : b);
-      return (value < 16 ? '0' : '') + value.toString(16);
-    }).join('');
-  } catch (err) {
-    console.warn('hashSessionToken_: digest failed', err);
-    return ''; 
-  }
-}
-
-function normalizeBooleanFlag_(value) {
-  if (value === true || value === false) {
-    return value;
-  }
-  const str = String(value || '').trim().toLowerCase();
-  if (!str) return false;
-  return ['true', '1', 'yes', 'y', 'on'].indexOf(str) !== -1;
-}
-
-// ───────────────────────────────────────────────────────────────────────────────
-// ───────────────────────────────────────────────────────────────────────────────
-
-function hashTokenForStorage_(token) {
-  const normalized = (token || token === 0) ? String(token).trim() : '';
-  if (!normalized) {
-    return '';
-  }
-
-  try {
-    if (typeof Utilities === 'undefined' || !Utilities || typeof Utilities.computeDigest !== 'function') {
-      return normalized;
-    }
-
-    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, normalized, Utilities.Charset.UTF_8);
-    return digest
-      .map(function (byte) {
-        const value = byte < 0 ? byte + 256 : byte;
-        return (value < 16 ? '0' : '') + value.toString(16);
-      })
-      .join('');
-  } catch (err) {
-    console.warn('hashTokenForStorage_: failed to hash token', err);
-    return normalized;
-  }
-}
-
-function maskTokenForSheet_(token) {
-  const normalized = (token || token === 0) ? String(token).trim() : '';
-  if (!normalized) {
-    return '';
-  }
-
-  if (normalized.length <= 4) {
-    return '••••';
-  }
-
-  const prefix = normalized.slice(0, 4);
-  const suffix = normalized.slice(-4);
-  return prefix + '…' + suffix;
-}
-
-function maskEmailForDisplay_(email) {
-  const normalized = (email || email === 0) ? String(email).trim() : '';
-  if (!normalized) {
-    return '';
-  }
-
-  const parts = normalized.split('@');
-  if (parts.length !== 2) {
-    return normalized;
-  }
-
-  const local = parts[0];
-  const domain = parts[1];
-  if (!local) {
-    return '***@' + domain;
-  }
-
-  if (local.length <= 2) {
-    return local.charAt(0) + '***@' + domain;
-  }
-
-  return local.charAt(0) + '***' + local.charAt(local.length - 1) + '@' + domain;
-}
-
-function resolveUsersSheetName_() {
-  if (typeof USERS_SHEET !== 'undefined' && USERS_SHEET) {
-    return USERS_SHEET;
-  }
-  if (typeof G !== 'undefined' && G && G.USERS_SHEET) {
-    return G.USERS_SHEET;
-  }
-  return 'Users';
-}
-
-function buildHeaderIndex_(headers) {
-  const index = {};
-  if (!Array.isArray(headers)) {
-    return index;
-  }
-
-  headers.forEach(function (header, idx) {
-    const value = String(header || '').trim();
-    if (!value && value !== '') {
-      return;
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(index, value)) {
-      index[value] = idx;
-    }
-
-    const lower = value.toLowerCase();
-    if (!Object.prototype.hasOwnProperty.call(index, lower)) {
-      index[lower] = idx;
-    }
-  });
-
-  return index;
-}
-
-function resolveHeaderIndex_(headerIndex, key) {
-  if (!headerIndex || !key) {
-    return -1;
-  }
-
-  const directKey = String(key);
-  if (Object.prototype.hasOwnProperty.call(headerIndex, directKey)) {
-    return headerIndex[directKey];
-  }
-
-  const lowerKey = directKey.toLowerCase();
-  if (Object.prototype.hasOwnProperty.call(headerIndex, lowerKey)) {
-    return headerIndex[lowerKey];
-  }
-
-  return -1;
-}
-
-function getRowValue_(row, headerIndex, key) {
-  if (!row) {
-    return '';
-  }
-
-  const idx = resolveHeaderIndex_(headerIndex, key);
-  if (idx === -1) {
-    return '';
-  }
-
-  return row[idx];
-}
-
-function applyRowUpdates_(rowValues, headerIndex, updates) {
-  const base = Array.isArray(rowValues) ? rowValues.slice() : [];
-  const map = headerIndex || {};
-
-  const keys = Object.keys(updates || {});
-  if (!keys.length) {
-    return base;
-  }
-
-  keys.forEach(function (key) {
-    const idx = resolveHeaderIndex_(map, key);
-    if (idx === -1) {
-      return;
-    }
-    base[idx] = updates[key];
-  });
-
-  return base;
-}
-
-function parseDateValue_(value) {
-  if (value === null || typeof value === 'undefined' || value === '') {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    return new Date(value.getTime());
-  }
-
-  const parsed = Date.parse(value);
-  if (isNaN(parsed)) {
-    return null;
-  }
-
-  return new Date(parsed);
-}
-
-function isTokenExpired_(value) {
-  const date = parseDateValue_(value);
-  if (!date) {
-    return false;
-  }
-  return date.getTime() <= Date.now();
-}
-
-function loadUsersSheetDataForAuth_() {
-  if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
-    return { sheet: null, headers: [], values: [], headerIndex: {} };
-  }
-
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) {
-      return { sheet: null, headers: [], values: [], headerIndex: {} };
-    }
-
-    const sheetName = resolveUsersSheetName_();
-    const sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      return { sheet: null, headers: [], values: [], headerIndex: {} };
-    }
-
-    const lastRow = sheet.getLastRow();
-    const lastColumn = Math.max(sheet.getLastColumn(), 1);
-    if (lastRow < 1 || lastColumn < 1) {
-      return { sheet: sheet, headers: [], values: [], headerIndex: {} };
-    }
-
-    const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-    if (!values || !values.length) {
-      return { sheet: sheet, headers: [], values: [], headerIndex: {} };
-    }
-
-    const headers = values[0].map(function (value) { return String(value || '').trim(); });
-    return {
-      sheet: sheet,
-      headers: headers,
-      values: values,
-      headerIndex: buildHeaderIndex_(headers)
-    };
-  } catch (err) {
-    console.warn('loadUsersSheetDataForAuth_: failed to load users sheet', err);
-    try { writeError && writeError('loadUsersSheetDataForAuth_', err); } catch (_) { /* no-op */ }
-    return { sheet: null, headers: [], values: [], headerIndex: {} };
-  }
-}
-
-function computeSessionExpiration_(record, nowMillis) {
-  const now = typeof nowMillis === 'number' && isFinite(nowMillis) ? nowMillis : Date.now();
-
-  const rawExpires = record && (record.ExpiresAt || record.expiresAt);
-  if (rawExpires instanceof Date) {
-    return new Date(rawExpires.getTime());
-  }
-  if (rawExpires) {
-    const parsed = Date.parse(rawExpires);
-    if (!isNaN(parsed)) {
-      return new Date(parsed);
-    }
-  }
-
-  const idleMinutes = Number(record && (record.IdleTimeoutMinutes || record.idleTimeoutMinutes || 0));
-  if (idleMinutes > 0 && isFinite(idleMinutes)) {
-    const referenceRaw = record.LastActivityAt || record.lastActivityAt || record.CreatedAt || record.createdAt;
-    let reference = referenceRaw instanceof Date ? referenceRaw.getTime() : Date.parse(referenceRaw);
-    if (isNaN(reference)) {
-      reference = now;
-    }
-    return new Date(reference + idleMinutes * 60000);
-  }
-
-  const remember = normalizeBooleanFlag_(record && (record.RememberMe || record.rememberMe));
-  const fallbackSeconds = remember ? SESSION_LINK_REMEMBER_TTL_SECONDS : SESSION_LINK_DEFAULT_TTL_SECONDS;
-  const createdRaw = record && (record.CreatedAt || record.createdAt);
-  let created = createdRaw instanceof Date ? createdRaw.getTime() : Date.parse(createdRaw);
-  if (isNaN(created)) {
-    created = now;
-  }
-  return new Date(created + fallbackSeconds * 1000);
-}
-
-function readSessionsTable_() {
-  try {
-    const sheet = ensureSessionsSheet_();
-    if (!sheet) {
-      return { sheet: null, headers: getSessionsHeaders_(), rows: [] };
-    }
-
-    const headers = getSessionsHeaders_();
-    const lastRow = sheet.getLastRow();
-    if (lastRow < 2) {
-      return { sheet: sheet, headers: headers, rows: [] };
-    }
-
-    const lastColumn = Math.max(sheet.getLastColumn(), headers.length);
-    const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-    const resolvedHeaders = values[0].map(function (header, idx) {
-      const canonical = headers[idx] || headers[idx] === '' ? headers[idx] : String(header || '').trim();
-      return canonical || String(header || '').trim();
-    });
-
-    const rows = [];
-    for (let i = 1; i < values.length; i++) {
-      const rowValues = values[i];
-      const record = {};
-      for (let j = 0; j < resolvedHeaders.length; j++) {
-        record[resolvedHeaders[j]] = rowValues[j];
-      }
-      record.__rowIndex = i + 1;
-      rows.push(record);
-    }
-
-    return { sheet: sheet, headers: resolvedHeaders, rows: rows };
-  } catch (err) {
-    console.warn('readSessionsTable_: failed to read sessions', err);
-    return { sheet: null, headers: getSessionsHeaders_(), rows: [] };
-  }
-}
-
-function appendSessionRecord_(record) {
-  try {
-    const sheet = ensureSessionsSheet_();
-    if (!sheet) {
-      return null;
-    }
-
-    const headers = getSessionsHeaders_();
-    const row = headers.map(function (header) {
-      if (Object.prototype.hasOwnProperty.call(record, header)) {
-        return record[header];
-      }
-      if (header === 'UserID' && Object.prototype.hasOwnProperty.call(record, 'UserId')) {
-        return record.UserId;
-      }
-      return '';
-    });
-
-    sheet.appendRow(row);
-    return { sheet: sheet, headers: headers, rowIndex: sheet.getLastRow() };
-  } catch (err) {
-    console.warn('appendSessionRecord_: failed to append session', err);
-    return null;
-  }
-}
-
-function touchSessionRow_(sheet, rowIndex, headers, record, now) {
-  if (!sheet || !rowIndex || !Array.isArray(headers)) {
-    return;
-  }
-
-  const timestamp = (now instanceof Date ? now : new Date());
-  const iso = timestamp.toISOString();
-  const updates = [];
-  const columns = [];
-
-  const lastActivityIdx = headers.indexOf('LastActivityAt');
-  if (lastActivityIdx !== -1) {
-    updates.push(iso);
-    columns.push(lastActivityIdx + 1);
-  }
-
-  const idleMinutes = Number(record && (record.IdleTimeoutMinutes || record.idleTimeoutMinutes || 0));
-  if (idleMinutes > 0 && isFinite(idleMinutes)) {
-    const expiresIdx = headers.indexOf('ExpiresAt');
-    if (expiresIdx !== -1) {
-      const nextExpiry = new Date(timestamp.getTime() + idleMinutes * 60000).toISOString();
-      updates.push(nextExpiry);
-      columns.push(expiresIdx + 1);
-    }
-  }
-
-  for (let i = 0; i < columns.length; i++) {
-    try {
-      sheet.getRange(rowIndex, columns[i]).setValue(updates[i]);
-    } catch (err) {
-      console.warn('touchSessionRow_: unable to update column', columns[i], err);
-    }
-  }
-}
-
-function removeSessionRow_(sheet, rowIndex) {
-  if (!sheet || !rowIndex) {
-    return false;
-  }
-  try {
-    sheet.deleteRow(rowIndex);
-    return true;
-  } catch (err) {
-    console.warn('removeSessionRow_: failed to delete row', err);
-    return false;
-  }
-}
-
-function findSessionRecordByToken_(token) {
-  if (!token && token !== 0) {
-    return null;
-  }
-
-  const lookup = readSessionsTable_();
-  if (!lookup.sheet) {
-    return null;
-  }
-
-  const tokenStr = String(token);
-  const rows = lookup.rows || [];
-  const now = Date.now();
-  const expiredRows = [];
-
-  for (let i = 0; i < rows.length; i++) {
-    const record = rows[i];
-    const storedHash = record.TokenHash || record.tokenHash || '';
-    const salt = record.TokenSalt || record.tokenSalt || '';
-    if (!storedHash) {
-      continue;
-    }
-
-    const computed = hashSessionToken_(tokenStr, salt);
-    if (!computed || !constantTimeEquals_(computed, storedHash)) {
-      continue;
-    }
-
-    const expiresAt = computeSessionExpiration_(record, now);
-    if (expiresAt && expiresAt.getTime() <= now) {
-      expiredRows.push(record.__rowIndex);
-      continue;
-    }
-
-    touchSessionRow_(lookup.sheet, record.__rowIndex, lookup.headers, record, new Date());
-
-    return {
-      sheet: lookup.sheet,
-      headers: lookup.headers,
-      record: record,
-      rowIndex: record.__rowIndex,
-      expiresAt: expiresAt,
-      rememberMe: normalizeBooleanFlag_(record.RememberMe || record.rememberMe),
-      idleTimeoutMinutes: Number(record.IdleTimeoutMinutes || record.idleTimeoutMinutes || 0)
-    };
-  }
-
-  if (expiredRows.length) {
-    expiredRows.sort(function (a, b) { return b - a; }).forEach(function (rowIndex) {
-      removeSessionRow_(lookup.sheet, rowIndex);
-    });
-  }
-
-  return null;
-}
-
-function revokeSessionToken(token) {
-  try {
-    const found = findSessionRecordByToken_(token);
-    if (found && found.sheet && found.rowIndex) {
-      found.sheet.deleteRow(found.rowIndex);
-      return true;
-    }
-  } catch (err) {
-    console.warn('revokeSessionToken: failed to revoke token', err);
-  }
-  return false;
-}
-
-function cleanupExpiredSessionsJob() {
-  try {
-    const lookup = readSessionsTable_();
-    if (!lookup.sheet) {
-      return { success: false, removed: 0, reason: 'NO_SESSIONS_SHEET' };
-    }
-
-    const now = Date.now();
-    const expiredRows = [];
-
-    (lookup.rows || []).forEach(function (record) {
-      const expiresAt = computeSessionExpiration_(record, now);
-      if (expiresAt && expiresAt.getTime() <= now) {
-        expiredRows.push(record.__rowIndex);
-      }
-    });
-
-    expiredRows.sort(function (a, b) { return b - a; }).forEach(function (rowIndex) {
-      removeSessionRow_(lookup.sheet, rowIndex);
-    });
-
-    return { success: true, removed: expiredRows.length };
-  } catch (err) {
-    console.error('cleanupExpiredSessionsJob failed', err);
-    if (typeof writeError === 'function') {
-      try { writeError('cleanupExpiredSessionsJob', err); } catch (_) { /* ignore */ }
-    }
-    return { success: false, error: err && err.message ? err.message : String(err) };
-  }
-}
-
-function createSessionForUser(userId, options) {
-  const normalizedId = (userId || userId === 0) ? String(userId).trim() : '';
-  if (!normalizedId) {
-    return { success: false, error: 'USER_ID_REQUIRED' };
-  }
-
-  const now = new Date();
-  const rememberMe = !!(options && options.rememberMe);
-  let idleTimeoutMinutes = Number(options && options.idleTimeoutMinutes);
-  if (!isFinite(idleTimeoutMinutes) || idleTimeoutMinutes <= 0) {
-    idleTimeoutMinutes = 0;
-  }
-
-  let ttlSeconds = Number(options && options.ttlSeconds);
-  if (!isFinite(ttlSeconds) || ttlSeconds <= 0) {
-    ttlSeconds = idleTimeoutMinutes > 0 ? Math.floor(idleTimeoutMinutes * 60) : (rememberMe ? SESSION_LINK_REMEMBER_TTL_SECONDS : SESSION_LINK_DEFAULT_TTL_SECONDS);
-  }
-
-  const expiresAt = (options && options.expiresAt)
-    ? new Date(options.expiresAt)
-    : new Date(now.getTime() + ttlSeconds * 1000);
-
-  const token = generateSessionToken_();
-  const salt = generateSessionSalt_();
-  const hash = hashSessionToken_(token, salt);
-
-  const record = {
-    Token: token ? token.slice(0, 6) + '…' + token.slice(-4) : '',
-    TokenHash: hash,
-    TokenSalt: salt,
-    UserId: normalizedId,
-    UserID: normalizedId,
-    CreatedAt: now.toISOString(),
-    LastActivityAt: now.toISOString(),
-    ExpiresAt: expiresAt.toISOString(),
-    IdleTimeoutMinutes: idleTimeoutMinutes > 0 ? idleTimeoutMinutes : '',
-    RememberMe: rememberMe ? 'TRUE' : 'FALSE',
-    CampaignScope: options && options.campaignScope ? String(options.campaignScope) : '',
-    UserAgent: options && options.userAgent ? String(options.userAgent) : '',
-    IpAddress: options && options.ipAddress ? String(options.ipAddress) : '',
-    ServerIp: options && options.serverIp ? String(options.serverIp) : ''
-  };
-
-  const appendResult = appendSessionRecord_(record);
-  if (!appendResult) {
-    return { success: false, error: 'SESSION_APPEND_FAILED' };
-  }
-
-  record.__rowIndex = appendResult.rowIndex;
-
-  return {
-    success: true,
-    token: token,
-    session: record,
-    ttlSeconds: Math.max(1, Math.floor((expiresAt.getTime() - now.getTime()) / 1000)),
-    expiresAt: expiresAt.toISOString()
-  };
-}
-
-function getCanonicalUserSummaryColumns() {
-  try {
-    const headers = (typeof getCanonicalUserHeaders === 'function')
-      ? getCanonicalUserHeaders()
-      : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS.slice() : []);
-
-    const desired = ['ID', 'FullName', 'UserName', 'Email', 'CampaignID', 'Roles', 'Pages'];
-    const summary = [];
-
-    desired.forEach(function (column) {
-      if (headers.indexOf(column) !== -1 && summary.indexOf(column) === -1) {
-        summary.push(column);
-      }
-    });
-
-    if (!summary.length && headers.length) {
-      return headers.slice(0, Math.min(headers.length, 6));
-    }
-
-    return summary.length ? summary : ['ID', 'FullName', 'UserName', 'CampaignID'];
-  } catch (err) {
-    console.warn('getCanonicalUserSummaryColumns: unable to resolve summary columns', err);
-    return ['ID', 'FullName', 'UserName', 'CampaignID'];
-  }
-}
-
-function projectRecordWithFallback(record, options) {
-  if (typeof projectRecordToCanonicalUser === 'function') {
-    return projectRecordToCanonicalUser(record, options);
-  }
-  const source = record || {};
-  const clone = {};
-  Object.keys(source).forEach(function (key) {
-    clone[key] = source[key];
-  });
-  return clone;
-}
-
-function buildIdentityAugmentation(record, options) {
-  const augmentation = {
-    identity: null,
-    identitySummary: null,
-    identityEvaluation: null,
-    identityWarnings: [],
-    identityFields: null,
-    identityHeaders: [],
-    rawRecord: record || null
-  };
-
-  if (!record) {
-    augmentation.identityFields = projectRecordWithFallback({}, options);
-    augmentation.identityHeaders = getCanonicalUserHeaders();
-    return augmentation;
-  }
-
-  let identityBuilt = false;
-
-  try {
-    if (typeof IdentityService !== 'undefined' && IdentityService) {
-      if (typeof IdentityService.buildIdentityStateFromUser === 'function') {
-        const identity = IdentityService.buildIdentityStateFromUser(record);
-        if (identity) {
-          augmentation.identity = identity;
-          augmentation.identityFields = identity.fields || projectRecordWithFallback(identity.raw || record, options);
-          augmentation.identityHeaders = Array.isArray(identity.headers) && identity.headers.length
-            ? identity.headers.slice()
-            : getCanonicalUserHeaders();
-          identityBuilt = true;
-        }
-      }
-
-      if (augmentation.identity && typeof IdentityService.summarizeIdentityForClient === 'function') {
-        augmentation.identitySummary = IdentityService.summarizeIdentityForClient(augmentation.identity);
-      }
-
-      if (augmentation.identity && typeof IdentityService.evaluateIdentityForAuthentication === 'function') {
-        augmentation.identityEvaluation = IdentityService.evaluateIdentityForAuthentication(augmentation.identity);
-        if (augmentation.identityEvaluation && Array.isArray(augmentation.identityEvaluation.warnings)) {
-          augmentation.identityWarnings = augmentation.identityEvaluation.warnings.slice();
-        }
-      }
-    }
-  } catch (identityError) {
-    console.warn('buildIdentityAugmentation: IdentityService helpers failed', identityError);
-  }
-
-  if (!identityBuilt) {
-    augmentation.identityFields = projectRecordWithFallback(record, options);
-    augmentation.identityHeaders = getCanonicalUserHeaders();
-  }
-
-  if (!augmentation.identitySummary) {
-    const fields = augmentation.identityFields || projectRecordWithFallback(record, options);
-    augmentation.identitySummary = {
-      id: fields.ID || record.ID || '',
-      email: fields.Email || record.Email || '',
-      userName: fields.UserName || record.UserName || '',
-      fullName: fields.FullName || record.FullName || '',
-      campaignId: fields.CampaignID || record.CampaignID || '',
-      roles: (fields.Roles ? String(fields.Roles).split(',').map(function (value) {
-        return value.trim();
-      }).filter(Boolean) : [])
-    };
-  }
-
-  if (!augmentation.identityEvaluation) {
-    const fields = augmentation.identityFields || projectRecordWithFallback(record, options);
-    augmentation.identityEvaluation = {
-      allow: true,
-      status: {
-        emailConfirmed: fields.EmailConfirmed !== undefined ? !!fields.EmailConfirmed : true
-      },
-      warnings: augmentation.identityWarnings.slice()
-    };
-  }
-
-  if (!augmentation.identityWarnings.length && augmentation.identityEvaluation && Array.isArray(augmentation.identityEvaluation.warnings)) {
-    augmentation.identityWarnings = augmentation.identityEvaluation.warnings.slice();
-  }
-
-  return augmentation;
-}
-
-function _lookupUserIdentityByEmail_(email) {
-  const normalized = String(email || '').trim().toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-
-  const cacheKey = 'USR_IDENTITY_EMAIL_' + normalized;
-  const cached = _cacheGet(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  let context = null;
-
-  if (typeof IdentityService !== 'undefined' && IdentityService && typeof IdentityService.getUserIdentityByEmail === 'function') {
-    try {
-      const lookup = IdentityService.getUserIdentityByEmail(normalized);
-      if (lookup && lookup.success && lookup.identity) {
-        context = {
-          identity: lookup.identity,
-          identitySummary: lookup.summary || null,
-          identityEvaluation: lookup.evaluation || null,
-          identityWarnings: lookup.evaluation && Array.isArray(lookup.evaluation.warnings)
-            ? lookup.evaluation.warnings.slice()
-            : [],
-          identityFields: lookup.identity.fields || projectRecordWithFallback(lookup.identity.raw || {}, { preferIdentityService: false }),
-          identityHeaders: Array.isArray(lookup.identity.headers) && lookup.identity.headers.length
-            ? lookup.identity.headers.slice()
-            : getCanonicalUserHeaders(),
-          rawRecord: lookup.identity.raw || null
-        };
-      }
-    } catch (identityLookupError) {
-      console.warn('_lookupUserIdentityByEmail_: IdentityService lookup failed', identityLookupError);
-    }
-  }
-
-  if (!context) {
-    try {
-      const rows = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
-      const hit = rows.find(function (row) {
-        return row && String(row.Email || '').trim().toLowerCase() === normalized;
-      }) || null;
-
-      if (hit) {
-        context = buildIdentityAugmentation(hit);
-      }
-    } catch (legacyError) {
-      console.warn('_lookupUserIdentityByEmail_: legacy sheet lookup failed', legacyError);
-    }
-  }
-
-  if (context) {
-    _cachePut(cacheKey, context, 180);
-  }
-
-  return context;
-}
 
 // ───────────────────────────────────────────────────────────────────────────────
 // LUMINA ENTITY REGISTRY
@@ -1394,65 +80,33 @@ const LUMINA_ENTITY_REGISTRY = (function buildEntityRegistry() {
   registry.qualityrecords = registry.quality;
 
   var usersTableName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
-  var canonicalHeaders = (typeof getCanonicalUserHeaders === 'function')
-    ? getCanonicalUserHeaders()
-    : ((typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS.slice() : null);
-  var usersSchema = canonicalHeaders && canonicalHeaders.length
-    ? { headers: canonicalHeaders.slice(), idColumn: 'ID' }
+  var usersSchema = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
+    ? { headers: sliceHeaders(USERS_HEADERS), idColumn: 'ID' }
     : { idColumn: 'ID' };
   usersSchema.cacheTTL = 1800;
   registry.users = {
     name: 'users',
     tableName: usersTableName,
     idColumn: 'ID',
-    summaryColumns: getCanonicalUserSummaryColumns(),
+    summaryColumns: ['ID', 'FullName', 'UserName', 'CampaignID'],
     schema: usersSchema,
     normalizeSummary: function (row) {
-      var augmentation = buildIdentityAugmentation(row);
-      var fields = augmentation.identityFields || projectRecordWithFallback(row);
-      var summary = augmentation.identitySummary || {};
-      var fullName = coerceString(summary.fullName || fields.FullName || row.FullName || row.fullName);
-      var userName = coerceString(summary.userName || fields.UserName || row.UserName || row.userName || row.Username);
-      var campaignId = coerceString(summary.campaignId || fields.CampaignID || row.CampaignID || row.CampaignId);
-
-      var roleList = Array.isArray(summary.roles) ? summary.roles.slice() : [];
-      if (!roleList.length && fields.Roles) {
-        roleList = String(fields.Roles).split(',').map(function (item) { return item.trim(); }).filter(Boolean);
-      }
-
+      var fullName = coerceString(row.FullName || row.fullName);
+      var userName = coerceString(row.UserName || row.userName || row.Username);
       return {
-        id: summary.id || fields.ID || row.ID,
-        displayName: fullName || userName || (summary.id || fields.ID || row.ID),
+        id: row.ID,
+        displayName: fullName || userName || row.ID,
         fullName: fullName,
         userName: userName,
-        email: coerceString(summary.email || fields.Email || row.Email || row.email || ''),
-        campaignId: campaignId,
-        roles: roleList,
-        identity: augmentation.identity,
-        identitySummary: augmentation.identitySummary,
-        identityEvaluation: augmentation.identityEvaluation,
-        identityWarnings: augmentation.identityWarnings.slice(),
-        identityFields: augmentation.identityFields,
-        identityHeaders: augmentation.identityHeaders.slice(),
-        record: row
+        campaignId: coerceString(row.CampaignID || row.CampaignId)
       };
     },
     normalizeDetail: function (row) {
-      var augmentation = buildIdentityAugmentation(row);
-      var fields = augmentation.identityFields || projectRecordWithFallback(row);
-
       return {
-        id: fields.ID || row.ID,
-        fullName: coerceString(fields.FullName || row.FullName || row.fullName),
-        userName: coerceString(fields.UserName || row.UserName || row.userName),
-        email: coerceString(fields.Email || row.Email || row.email || row.EmailAddress),
-        campaignId: coerceString(fields.CampaignID || row.CampaignID || row.CampaignId),
-        identity: augmentation.identity,
-        identitySummary: augmentation.identitySummary,
-        identityEvaluation: augmentation.identityEvaluation,
-        identityWarnings: augmentation.identityWarnings.slice(),
-        identityFields: augmentation.identityFields,
-        identityHeaders: augmentation.identityHeaders.slice(),
+        id: row.ID,
+        fullName: coerceString(row.FullName || row.fullName),
+        userName: coerceString(row.UserName || row.userName),
+        email: coerceString(row.Email || row.email || row.EmailAddress),
         record: row
       };
     }
@@ -2127,39 +781,8 @@ const GENERIC_FALLBACKS = {
 // UTILITY FUNCTIONS
 // ───────────────────────────────────────────────────────────────────────────────
 
-const ADMIN_ROLE_KEYWORDS = ['system admin', 'administrator', 'super admin', 'account manager', 'global admin'];
-
 function _truthy(v) {
-  if (v === true) return true;
-  if (v === false || v === null || typeof v === 'undefined') return false;
-  if (typeof v === 'number') return v !== 0;
-
-  const normalized = String(v).trim().toUpperCase();
-  if (!normalized) return false;
-
-  switch (normalized) {
-    case 'TRUE':
-    case 'YES':
-    case 'Y':
-    case '1':
-    case 'ON':
-      return true;
-    default:
-      return false;
-  }
-}
-
-function _roleImpliesAdmin(role) {
-  if (role === null || typeof role === 'undefined') {
-    return false;
-  }
-
-  const normalized = String(role).trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return ADMIN_ROLE_KEYWORDS.some(keyword => normalized.indexOf(keyword) !== -1);
+  return v === true || String(v).toUpperCase() === 'TRUE';
 }
 
 function _normalizePageKey(k) {
@@ -2240,562 +863,60 @@ function _cachePut(key, obj, ttlSec) {
 /**
  * Get current user from session using Google Apps Script built-in authentication
  */
-function setCurrentAuthState_(state) {
+function getCurrentUser() {
   try {
-    GLOBAL_SCOPE.__LUMINA_AUTH_STATE__ = state || null;
-  } catch (_) {
-    // Ignore storage issues to avoid breaking authentication flow.
-  }
-  return state || null;
-}
+    const email = String(
+      (Session.getActiveUser() && Session.getActiveUser().getEmail()) ||
+      (Session.getEffectiveUser() && Session.getEffectiveUser().getEmail()) ||
+      ''
+    ).trim().toLowerCase();
 
-function clearCurrentAuthState_() {
-  try {
-    delete GLOBAL_SCOPE.__LUMINA_AUTH_STATE__;
-  } catch (_) {
-    GLOBAL_SCOPE.__LUMINA_AUTH_STATE__ = null;
-  }
-}
+    const row = _findUserByEmail_(email);
+    const client = _toClientUser_(row, email);
 
-function getCurrentAuthState() {
-  try {
-    return GLOBAL_SCOPE.__LUMINA_AUTH_STATE__ || null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function loadIdentityContextForUser_(userId) {
-  const normalizedId = (userId || userId === 0) ? String(userId).trim() : '';
-  if (!normalizedId) {
-    return null;
-  }
-
-  if (typeof IdentityService !== 'undefined'
-    && IdentityService
-    && typeof IdentityService.getUserIdentityById === 'function') {
+    // Hydrate campaign context
     try {
-      const identity = IdentityService.getUserIdentityById(normalizedId);
-      if (identity) {
-        return identity;
+      const globalObj = (typeof globalThis !== 'undefined') ? globalThis : this;
+      const guardKey = '__READ_SHEET_SUPPRESS_TENANT_CONTEXT__';
+      const previousGuard = globalObj && globalObj[guardKey] ? Number(globalObj[guardKey]) : 0;
+      if (globalObj) {
+        globalObj[guardKey] = previousGuard + 1;
       }
-    } catch (identityErr) {
-      console.warn('loadIdentityContextForUser_: IdentityService lookup failed', identityErr);
-    }
-  }
 
-  try {
-    const users = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
-    for (let i = 0; i < users.length; i++) {
-      const row = users[i];
-      const rowId = String(row.ID || row.Id || row.UserId || row.UserID || '').trim();
-      if (!rowId || rowId !== normalizedId) {
-        continue;
+      try {
+        if (client.CampaignID) {
+          if (typeof getCampaignById === 'function') {
+            const c = getCampaignById(client.CampaignID);
+            client.campaignName = c ? (c.Name || c.name || '') : '';
+          }
+          if (typeof getUserCampaignPermissions === 'function') {
+            client.campaignPermissions = getUserCampaignPermissions(client.ID);
+          }
+          if (typeof getCampaignNavigation === 'function') {
+            client.campaignNavigation = getCampaignNavigation(client.CampaignID);
+          }
+        }
+      } finally {
+        if (globalObj) {
+          if (previousGuard) {
+            globalObj[guardKey] = previousGuard;
+          } else {
+            try {
+              delete globalObj[guardKey];
+            } catch (_) {
+              globalObj[guardKey] = 0;
+            }
+          }
+        }
       }
-      const augmentation = buildIdentityAugmentation(row);
-      return {
-        identity: augmentation.identity,
-        identitySummary: augmentation.identitySummary,
-        summary: augmentation.identitySummary,
-        identityEvaluation: augmentation.identityEvaluation,
-        evaluation: augmentation.identityEvaluation,
-        warnings: augmentation.identityWarnings,
-        identityWarnings: augmentation.identityWarnings,
-        identityFields: augmentation.identityFields,
-        identityHeaders: augmentation.identityHeaders,
-        rawRecord: augmentation.rawRecord || row
-      };
+    } catch (ctxErr) {
+      console.warn('getCurrentUser: campaign context hydrate failed:', ctxErr);
     }
-  } catch (err) {
-    console.warn('loadIdentityContextForUser_: fallback read failed', err);
-  }
 
-  return null;
-}
-
-function buildAuthenticatedUserFromIdentity_(identityResult) {
-  if (!identityResult) {
-    return null;
-  }
-
-  const identity = identityResult.identity || identityResult.Identity || null;
-  const summary = identityResult.identitySummary || identityResult.summary || null;
-  const evaluation = identityResult.identityEvaluation || identityResult.evaluation || null;
-  const fields = identityResult.identityFields || (identity && identity.fields) || identityResult.rawRecord || {};
-  const warnings = identityResult.warnings || identityResult.identityWarnings || [];
-
-  const idCandidate = summary && summary.id ? summary.id : (fields.ID || fields.Id || fields.UserId || fields.UserID || '');
-  const id = idCandidate !== null && typeof idCandidate !== 'undefined' ? String(idCandidate).trim() : '';
-  if (!id) {
-    return null;
-  }
-
-  const userName = summary && summary.userName
-    ? summary.userName
-    : String(fields.UserName || fields.userName || fields.Username || id).trim();
-  const fullName = summary && summary.displayName
-    ? summary.displayName
-    : String(fields.FullName || fields.fullName || userName || id).trim();
-  const email = summary && summary.email
-    ? summary.email
-    : String(fields.Email || fields.email || '').trim();
-
-  const assignments = summary && Array.isArray(summary.campaignAssignments)
-    ? summary.campaignAssignments.slice()
-    : (Array.isArray(fields.CampaignAssignments) ? fields.CampaignAssignments.slice() : []);
-
-  const campaignNames = [];
-  assignments.forEach(function (assignment) {
-    if (assignment && assignment.campaignName) {
-      campaignNames.push(String(assignment.campaignName));
-    }
-  });
-
-  if (!campaignNames.length && fields.CampaignNames) {
-    if (Array.isArray(fields.CampaignNames)) {
-      fields.CampaignNames.forEach(function (name) {
-        if (name) campaignNames.push(String(name));
-      });
-    } else {
-      String(fields.CampaignNames).split(/[,\s]+/).forEach(function (name) {
-        if (name) campaignNames.push(name.trim());
-      });
-    }
-  }
-
-  const campaignIds = (function resolveCampaignIds() {
-    if (summary && Array.isArray(summary.campaignIds) && summary.campaignIds.length) {
-      return summary.campaignIds.map(function (value) { return String(value); }).filter(Boolean);
-    }
-    const raw = fields.CampaignIds || fields.campaignIds;
-    if (!raw) {
-      return [];
-    }
-    if (Array.isArray(raw)) {
-      return raw.map(function (value) { return String(value); }).filter(Boolean);
-    }
-    return String(raw).split(/[,\s]+/).map(function (part) { return part.trim(); }).filter(Boolean);
-  })();
-
-  const roleNames = (function resolveRoleNames() {
-    if (summary && Array.isArray(summary.roles)) {
-      return summary.roles.map(function (value) { return String(value); }).filter(Boolean);
-    }
-    if (Array.isArray(fields.RoleNames)) {
-      return fields.RoleNames.map(function (value) { return String(value); }).filter(Boolean);
-    }
-    if (!fields.Roles) {
-      return [];
-    }
-    return String(fields.Roles).split(/[,]+/).map(function (value) { return value.trim(); }).filter(Boolean);
-  })();
-
-  const roleIds = (function resolveRoleIds() {
-    if (summary && Array.isArray(summary.roleIds)) {
-      return summary.roleIds.map(function (value) { return String(value); }).filter(Boolean);
-    }
-    if (!fields.RoleIds) {
-      return [];
-    }
-    return String(fields.RoleIds).split(/[,]+/).map(function (value) { return value.trim(); }).filter(Boolean);
-  })();
-
-  const primaryCampaignId = summary && summary.primaryCampaignId
-    ? summary.primaryCampaignId
-    : (fields.PrimaryCampaignId || fields.CampaignID || fields.CampaignId || '');
-
-  const user = {
-    ID: id,
-    UserName: userName,
-    FullName: fullName || userName || email || id,
-    Email: email,
-    CampaignID: primaryCampaignId ? String(primaryCampaignId) : '',
-    CampaignIds: campaignIds.join(', '),
-    CampaignAssignments: assignments,
-    CampaignNames: campaignNames.join(', '),
-    Roles: roleNames.join(', '),
-    RoleNames: roleNames.slice(),
-    RoleIds: roleIds.slice(),
-    Identity: identity || null,
-    IdentitySummary: summary || null,
-    IdentityEvaluation: evaluation || null,
-    IdentityWarnings: warnings.slice(),
-    IdentityHeaders: identityResult.identityHeaders ? identityResult.identityHeaders.slice() : [],
-    IdentityFields: fields,
-    Pages: fields.Pages || fields.pages || '',
-    IsAdmin: evaluation ? !!evaluation.isAdmin : !!fields.IsAdmin,
-    EmailConfirmed: (fields.EmailConfirmed || fields.emailConfirmed || (summary && summary.emailConfirmed)) ? true : false,
-    PrimaryCampaignName: summary && summary.primaryCampaignName ? summary.primaryCampaignName : (fields.PrimaryCampaignName || fields.CampaignName || ''),
-    ActiveSessionCount: evaluation && typeof evaluation.activeSessionCount !== 'undefined'
-      ? evaluation.activeSessionCount
-      : (identity && identity.security ? identity.security.activeSessionCount || 0 : 0)
-  };
-
-  return user;
-}
-
-function isOpenModeEnabled_() {
-  try {
-    if (typeof GLOBAL_SCOPE !== 'undefined' && GLOBAL_SCOPE) {
-      if (Object.prototype.hasOwnProperty.call(GLOBAL_SCOPE, '__OPEN_MODE_ENABLED__')) {
-        return !!GLOBAL_SCOPE.__OPEN_MODE_ENABLED__;
-      }
-      if (Object.prototype.hasOwnProperty.call(GLOBAL_SCOPE, 'LUMINA_OPEN_MODE')) {
-        const configured = !!GLOBAL_SCOPE.LUMINA_OPEN_MODE;
-        GLOBAL_SCOPE.__OPEN_MODE_ENABLED__ = configured;
-        return configured;
-      }
-    }
-  } catch (_) { }
-
-  const fallback = (typeof AuthenticationService === 'undefined' || !AuthenticationService);
-  try { GLOBAL_SCOPE.__OPEN_MODE_ENABLED__ = fallback; } catch (_) { }
-  return fallback;
-}
-
-function ensureOpenModeSeedData_() {
-  if (!isOpenModeEnabled_()) {
-    return false;
-  }
-
-  try {
-    if (typeof GLOBAL_SCOPE !== 'undefined' && GLOBAL_SCOPE) {
-      if (GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ === true) {
-        return true;
-      }
-      if (GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ === false) {
-        return false;
-      }
-    }
-  } catch (_) { }
-
-  if (typeof seedDefaultData === 'function') {
-    try {
-      const result = seedDefaultData();
-      const success = !result || result.success !== false;
-      try { GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ = success; } catch (_) { }
-      return success;
-    } catch (err) {
-      console.warn('ensureOpenModeSeedData_: failed to seed data', err);
-      try { GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ = false; } catch (_) { }
-      return false;
-    }
-  }
-
-  try { GLOBAL_SCOPE.__OPEN_MODE_SEEDED__ = false; } catch (_) { }
-  return false;
-}
-
-function resolveOpenModeDefaultCampaign_() {
-  if (!isOpenModeEnabled_()) {
-    return { id: '', name: 'LuminaHQ Workspace' };
-  }
-
-  try {
-    if (typeof GLOBAL_SCOPE !== 'undefined' && GLOBAL_SCOPE && GLOBAL_SCOPE.__OPEN_MODE_DEFAULT_CAMPAIGN__) {
-      return GLOBAL_SCOPE.__OPEN_MODE_DEFAULT_CAMPAIGN__;
-    }
-  } catch (_) { }
-
-  ensureOpenModeSeedData_();
-
-  let result = { id: '', name: 'LuminaHQ Workspace' };
-  try {
-    const rows = (typeof readSheet === 'function') ? (readSheet(CAMPAIGNS_SHEET || 'Campaigns') || []) : [];
-    if (Array.isArray(rows) && rows.length) {
-      const active = rows.find(function (row) {
-        const status = row && (row.Status || row.status || '');
-        const normalizedStatus = String(status).trim().toLowerCase();
-        return normalizedStatus !== 'inactive' && normalizedStatus !== 'archived';
-      }) || rows[0];
-      if (active) {
-        const id = active.ID || active.Id || active.CampaignID || active.CampaignId || active.id;
-        const name = active.CampaignName || active.Name || active.name || active.ClientName || active.clientName;
-        result = {
-          id: id ? String(id) : '',
-          name: name ? String(name) : 'LuminaHQ Workspace'
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('resolveOpenModeDefaultCampaign_: unable to read campaigns', err);
-  }
-
-  try { GLOBAL_SCOPE.__OPEN_MODE_DEFAULT_CAMPAIGN__ = result; } catch (_) { }
-  return result;
-}
-
-function createOpenModeStubRecord_() {
-  const campaign = resolveOpenModeDefaultCampaign_();
-  const assignments = campaign.id
-    ? [{
-      campaignId: campaign.id,
-      campaignName: campaign.name,
-      permissionLevel: 'ADMIN'
-    }]
-    : [];
-
-  return {
-    ID: 'open-mode-user',
-    UserName: 'open.mode',
-    FullName: 'Lumina Open Mode',
-    Email: 'open.mode@lumina.dev',
-    CampaignID: campaign.id,
-    CampaignAssignments: assignments,
-    CampaignNames: campaign.name,
-    Roles: 'System Admin, Administrator',
-    RoleNames: ['System Admin', 'Administrator'],
-    RoleIds: [],
-    IsAdmin: true,
-    Pages: ''
-  };
-}
-
-function selectOpenModeUserRecord_() {
-  ensureOpenModeSeedData_();
-
-  let rows = [];
-  try {
-    rows = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
-  } catch (err) {
-    console.warn('selectOpenModeUserRecord_: unable to read users', err);
-    rows = [];
-  }
-
-  if (!Array.isArray(rows) || !rows.length) {
-    return createOpenModeStubRecord_();
-  }
-
-  const prioritized = rows.filter(function (row) {
-    return normalizeBooleanFlag_(row.IsAdmin)
-      || normalizeBooleanFlag_(row.isAdmin);
-  });
-
-  const candidate = prioritized.length ? prioritized[0] : rows[0];
-  const fallbackEmail = candidate && (candidate.Email || candidate.email || candidate.NormalizedEmail || candidate.normalizedEmail || '');
-  const fallbackId = candidate && (candidate.ID || candidate.Id || candidate.UserId || candidate.UserID || candidate.id || 'open-mode-user');
-
-  if (typeof buildUserRecordFromRow === 'function') {
-    return buildUserRecordFromRow(candidate, fallbackEmail, fallbackId);
-  }
-
-  if (candidate && !candidate.ID && fallbackId) {
-    candidate.ID = fallbackId;
-  }
-
-  return candidate;
-}
-
-function buildOpenModeAuthState_(e) {
-  if (!isOpenModeEnabled_()) {
-    return null;
-  }
-
-  const existing = getCurrentAuthState();
-  if (existing && existing.user && existing.openMode) {
-    return existing;
-  }
-
-  const record = selectOpenModeUserRecord_();
-  if (!record) {
-    return null;
-  }
-
-  const campaign = resolveOpenModeDefaultCampaign_();
-  if (!record.CampaignID && campaign.id) {
-    record.CampaignID = campaign.id;
-  }
-  if ((!record.CampaignAssignments || !record.CampaignAssignments.length) && campaign.id) {
-    record.CampaignAssignments = [{
-      campaignId: campaign.id,
-      campaignName: campaign.name,
-      permissionLevel: 'ADMIN'
-    }];
-  }
-  if (!record.CampaignNames && campaign.name) {
-    record.CampaignNames = campaign.name;
-  }
-
-  const augmentation = buildIdentityAugmentation(record, { preferIdentityService: false });
-  const identityContext = {
-    identity: augmentation.identity,
-    identitySummary: augmentation.identitySummary,
-    identityEvaluation: augmentation.identityEvaluation,
-    identityWarnings: augmentation.identityWarnings,
-    warnings: augmentation.identityWarnings,
-    identityFields: augmentation.identityFields,
-    identityHeaders: augmentation.identityHeaders,
-    rawRecord: augmentation.rawRecord || record
-  };
-
-  let user = buildAuthenticatedUserFromIdentity_(identityContext);
-  if (!user) {
-    user = projectRecordWithFallback(record, { preferIdentityService: false });
-    if (user) {
-      user.ID = user.ID || record.ID || record.Id || record.UserId || record.UserID || 'open-mode-user';
-      user.UserName = user.UserName || record.UserName || record.username || 'open.mode';
-      user.FullName = user.FullName || record.FullName || record.fullName || user.UserName || 'Lumina Open Mode';
-      user.Email = user.Email || record.Email || record.email || '';
-      user.CampaignID = user.CampaignID || record.CampaignID || '';
-      if (!user.RoleNames || !user.RoleNames.length) {
-        const roleNames = Array.isArray(record.RoleNames)
-          ? record.RoleNames.slice()
-          : String(record.Roles || '').split(/[,]+/).map(function (value) { return value.trim(); }).filter(Boolean);
-        user.RoleNames = roleNames;
-        user.Roles = roleNames.join(', ');
-      }
-      user.CampaignAssignments = record.CampaignAssignments || [];
-      user.CampaignNames = record.CampaignNames || (user.CampaignAssignments && user.CampaignAssignments.length
-        ? user.CampaignAssignments.map(function (assignment) { return assignment.campaignName; }).filter(Boolean).join(', ')
-        : '');
-    }
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  user.Identity = user.Identity || identityContext.identity || null;
-  user.IdentitySummary = user.IdentitySummary || identityContext.identitySummary || null;
-  user.IdentityEvaluation = user.IdentityEvaluation || identityContext.identityEvaluation || null;
-  user.IdentityWarnings = user.IdentityWarnings || identityContext.identityWarnings || [];
-  user.IdentityFields = user.IdentityFields || identityContext.identityFields || null;
-  user.IdentityHeaders = user.IdentityHeaders || identityContext.identityHeaders || [];
-  user.IsAdmin = user.IsAdmin !== undefined ? user.IsAdmin : true;
-  user.OpenMode = true;
-
-  const state = {
-    user: user,
-    identity: identityContext,
-    session: null,
-    token: '',
-    rememberMe: false,
-    idleTimeoutMinutes: 0,
-    expiresAt: '',
-    resolvedAt: new Date().toISOString(),
-    openMode: true
-  };
-
-  return setCurrentAuthState_(state);
-}
-
-function resolveAuthenticatedUser_(e) {
-  const existing = getCurrentAuthState();
-  if (existing && existing.user && ((!e || !e.parameter) || existing.openMode)) {
-    return existing;
-  }
-
-  const resolvedToken = resolveSessionTokenForAuthentication(e);
-  if (!resolvedToken || !resolvedToken.token) {
-    const openModeState = buildOpenModeAuthState_(e);
-    if (openModeState) {
-      return openModeState;
-    }
-    return setCurrentAuthState_({
-      user: null,
-      identity: null,
-      session: null,
-      token: '',
-      rememberMe: false,
-      resolvedAt: new Date().toISOString()
-    });
-  }
-
-  const sessionLookup = findSessionRecordByToken_(resolvedToken.token);
-  if (!sessionLookup) {
-    if (resolvedToken.source === 'persisted') {
-      try { clearPersistedSessionTokenLink(); } catch (_) { /* ignore */ }
-    }
-    const openModeState = buildOpenModeAuthState_(e);
-    if (openModeState) {
-      return openModeState;
-    }
-    return setCurrentAuthState_({
-      user: null,
-      identity: null,
-      session: null,
-      token: '',
-      rememberMe: false,
-      resolvedAt: new Date().toISOString()
-    });
-  }
-
-  const sessionRecord = sessionLookup.record || {};
-  const userId = sessionRecord.UserId || sessionRecord.UserID || '';
-  const identityContext = loadIdentityContextForUser_(userId);
-  const user = buildAuthenticatedUserFromIdentity_(identityContext);
-
-  const state = {
-    user: user || null,
-    identity: identityContext || null,
-    session: sessionLookup,
-    token: resolvedToken.token,
-    rememberMe: !!sessionLookup.rememberMe,
-    idleTimeoutMinutes: sessionLookup.idleTimeoutMinutes || 0,
-    expiresAt: sessionLookup.expiresAt instanceof Date ? sessionLookup.expiresAt.toISOString() : '',
-    resolvedAt: new Date().toISOString()
-  };
-
-  setCurrentAuthState_(state);
-
-  try {
-    persistSessionTokenLinkForCurrentUser(resolvedToken.token, {
-      rememberMe: state.rememberMe,
-      ttlSeconds: state.idleTimeoutMinutes > 0 ? Math.floor(state.idleTimeoutMinutes * 60) : undefined,
-      expiresAt: state.expiresAt || undefined
-    });
-  } catch (persistErr) {
-    console.warn('resolveAuthenticatedUser_: unable to persist session token', persistErr);
-  }
-
-  return state;
-}
-
-function determineSessionIdleTimeoutMinutes_(identityContext) {
-  if (!identityContext) {
-    return 0;
-  }
-  const fields = identityContext.identityFields || {};
-  const identity = identityContext.identity || {};
-  const security = identity.security || {};
-
-  const candidates = [
-    fields.SessionIdleTimeout,
-    fields.IdleTimeoutMinutes,
-    security.sessionIdleTimeout,
-    security.sessionIdleTimeoutMinutes,
-    security.sessionIdleMinutes
-  ];
-
-  for (let i = 0; i < candidates.length; i++) {
-    const value = Number(candidates[i]);
-    if (isFinite(value) && value > 0) {
-      return value;
-    }
-  }
-
-  return 0;
-}
-
-function determinePostLoginRedirect_(requestedUrl, user, identityContext) {
-  return buildAuthenticatedUrl('dashboard');
-}
-
-
-
-function getCurrentAuthContext(e) {
-  return resolveAuthenticatedUser_(e);
-}
-
-function getCurrentUser(e) {
-  try {
-    const state = resolveAuthenticatedUser_(e);
-    return state && state.user ? state.user : null;
-  } catch (err) {
-    if (typeof writeError === 'function') {
-      writeError('getCurrentUser', err);
-    }
-    return null;
+    return client;
+  } catch (e) {
+    writeError && writeError('getCurrentUser', e);
+    return _toClientUser_(null, '');
   }
 }
 
@@ -2804,12 +925,30 @@ function getCurrentUser(e) {
  */
 function authenticateUser(e) {
   try {
-    const state = resolveAuthenticatedUser_(e);
-    return state && state.user ? state.user : null;
-  } catch (error) {
-    if (typeof writeError === 'function') {
-      writeError('authenticateUser', error);
+    // First check if there's a token parameter
+    const token = e.parameter.token;
+    if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
+      const user = AuthenticationService.getSessionUser(token);
+      if (user) {
+        return user;
+      }
     }
+
+    // Fall back to current user via Google session
+    const user = getCurrentUser();
+    if (!user || !user.ID) {
+      return null;
+    }
+
+    // Check if user can login
+    if (!_truthy(user.CanLogin)) {
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Authentication error:', error);
+    writeError('authenticateUser', error);
     return null;
   }
 }
@@ -2871,60 +1010,42 @@ function getBaseUrl() {
 function _findUserByEmail_(email) {
   if (!email) return null;
   try {
-    const context = _lookupUserIdentityByEmail_(email);
-    if (context && context.identityFields) {
-      return context.identityFields;
-    }
-    return null;
+    const CK = 'USR_BY_EMAIL_' + email.toLowerCase();
+    const cached = _cacheGet(CK);
+    if (cached) return cached;
+
+    const rows = (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
+    const hit = rows.find(r => String(r.Email || '').trim().toLowerCase() === email.toLowerCase()) || null;
+    if (hit) _cachePut(CK, hit, 120);
+    return hit;
   } catch (e) {
     writeError && writeError('_findUserByEmail_', e);
     return null;
   }
 }
 
-function _toClientUser_(row, fallbackEmail, identityContext) {
-  const context = identityContext || (row ? buildIdentityAugmentation(row) : null) || null;
-  const fields = context && context.identityFields ? context.identityFields : row || {};
+function _toClientUser_(row, fallbackEmail) {
   const rolesMap = (typeof getRolesMapping === 'function') ? getRolesMapping() : {};
-  const roleIds = String(fields && fields.Roles || '')
+  const roleIds = String(row && row.Roles || '')
     .split(',').map(s => s.trim()).filter(Boolean);
   const roleNames = roleIds.map(id => rolesMap[id]).filter(Boolean);
-  const additionalRoles = [];
-  if (fields && fields.RoleName) additionalRoles.push(fields.RoleName);
-  if (fields && fields.roleName) additionalRoles.push(fields.roleName);
-  if (fields && fields.PrimaryRole) additionalRoles.push(fields.PrimaryRole);
-  if (fields && fields.primaryRole) additionalRoles.push(fields.primaryRole);
-  if (fields && fields.Title) additionalRoles.push(fields.Title);
-  if (fields && fields.title) additionalRoles.push(fields.title);
-  if (fields && fields.JobTitle) additionalRoles.push(fields.JobTitle);
-  if (fields && fields.jobTitle) additionalRoles.push(fields.jobTitle);
-
-  const allRoleNames = roleNames.concat(additionalRoles)
-    .filter(Boolean)
-    .map(name => String(name).trim())
-    .filter(Boolean);
 
   const isAdminFlag =
-    _truthy(fields && fields.IsAdmin) ||
-    _truthy(fields && fields.isAdmin) ||
-    allRoleNames.some(_roleImpliesAdmin);
+    (String(row && row.IsAdmin).toLowerCase() === 'true') ||
+    roleNames.some(n => /system\s*admin|administrator|super\s*admin/i.test(String(n || '')));
 
   const client = {
-    ID: String(fields && fields.ID || row && row.ID || ''),
-    Email: String(fields && fields.Email || fallbackEmail || '').trim(),
-    FullName: String(fields && (fields.FullName || fields.UserName || '') || row && (row.FullName || row.UserName || '') || '').trim()
-      || String(fallbackEmail || '').split('@')[0],
-    CampaignID: String(fields && (fields.CampaignID || fields.CampaignId || '') || row && (row.CampaignID || row.CampaignId || '') || ''),
+    ID: String(row && row.ID || ''),
+    Email: String(row && row.Email || fallbackEmail || '').trim(),
+    FullName: String(row && (row.FullName || row.UserName || '') || '').trim() ||
+      String(fallbackEmail || '').split('@')[0],
+    CampaignID: String(row && (row.CampaignID || row.CampaignId || '') || ''),
     roleNames: roleNames,
     IsAdmin: !!isAdminFlag,
-    EmailConfirmed: (fields && fields.EmailConfirmed !== undefined) ? _truthy(fields.EmailConfirmed) : true,
-    Pages: String(fields && (fields.Pages || fields.pages || '') || ''),
-    Identity: context ? context.identity : null,
-    IdentitySummary: context ? context.identitySummary : null,
-    IdentityEvaluation: context ? context.identityEvaluation : null,
-    IdentityWarnings: context ? context.identityWarnings.slice() : [],
-    IdentityFields: context ? context.identityFields : (row || null),
-    IdentityHeaders: context ? context.identityHeaders.slice() : ((typeof getCanonicalUserHeaders === 'function') ? getCanonicalUserHeaders() : [])
+    CanLogin: (row && row.CanLogin !== undefined) ? _truthy(row.CanLogin) : true,
+    EmailConfirmed: (row && row.EmailConfirmed !== undefined) ? _truthy(row.EmailConfirmed) : true,
+    ResetRequired: !!(row && _truthy(row.ResetRequired)),
+    Pages: String(row && (row.Pages || row.pages || '') || '')
   };
   return client;
 }
@@ -2954,10 +1075,11 @@ function __injectCurrentUser_(tpl, explicitUser) {
 
 function _normalizeUser(user) {
   const out = Object.assign({}, user || {});
-  const collectedRoleNames = __collectUserRoleNames(out);
-  const adminByRole = collectedRoleNames.some(_roleImpliesAdmin);
-  out.IsAdmin = _truthy(out.IsAdmin) || adminByRole;
+  out.IsAdmin = _truthy(out.IsAdmin) || String((out.roleNames || [])).toLowerCase().includes('system admin');
+  out.CanLogin = _truthy(out.CanLogin !== undefined ? out.CanLogin : true);
   out.EmailConfirmed = _truthy(out.EmailConfirmed !== undefined ? out.EmailConfirmed : true);
+  out.ResetRequired = _truthy(out.ResetRequired);
+  out.LockoutEnd = out.LockoutEnd ? _safeDate(out.LockoutEnd) : null;
   out.ID = _normalizeId(out.ID || out.id);
   out.CampaignID = _normalizeId(out.CampaignID || out.campaignId);
   out.PagesCsv = String(out.Pages || out.pages || '');
@@ -2977,89 +1099,64 @@ function isSystemAdmin(user) {
 function evaluatePageAccess(user, pageKey, campaignId) {
   const trace = [];
   try {
+    const u = _normalizeUser(user);
     const page = _normalizePageKey(pageKey || '');
-    trace.push('page:' + page);
+    const cid = _normalizeId(campaignId || '');
 
-    if (!user || !user.ID) {
-      trace.push('user:missing');
-      return { allow: false, reason: 'Authentication required', trace };
+    // Basic account checks
+    if (!u || !u.ID) return { allow: false, reason: 'No session', trace };
+    if (!_truthy(u.CanLogin)) return { allow: false, reason: 'Account disabled', trace };
+    if (u.LockoutEnd && _isFuture(u.LockoutEnd)) return { allow: false, reason: 'Account locked', trace };
+    if (!ACCESS.PUBLIC_PAGES.has(page)) {
+      if (!_truthy(u.EmailConfirmed)) return { allow: false, reason: 'Email not confirmed', trace };
+      if (_truthy(u.ResetRequired)) return { allow: false, reason: 'Password reset required', trace };
     }
 
+    // Public pages
+    if (ACCESS.PUBLIC_PAGES.has(page)) {
+      trace.push('PUBLIC page');
+      return { allow: true, reason: 'public', trace };
+    }
+
+    // Admin-only pages
     if (ACCESS.ADMIN_ONLY_PAGES.has(page)) {
-      if (!isSystemAdmin(user)) {
-        trace.push('admin-only:denied');
-        return { allow: false, reason: 'Administrator access required', trace };
+      if (isSystemAdmin(u)) {
+        trace.push('admin-only: allowed');
+        return { allow: true, reason: 'admin', trace };
       }
-      trace.push('admin-only:granted');
+      return { allow: false, reason: 'System Admin required', trace };
     }
 
-    if (campaignId) {
-      const allowed = hasCampaignAccess(user, campaignId);
-      trace.push(allowed ? 'campaign:granted' : 'campaign:denied');
-      if (!allowed) {
-        return { allow: false, reason: 'Campaign access denied', trace };
-      }
+    // System admin has access to everything
+    if (isSystemAdmin(u)) {
+      trace.push('System Admin: allow');
+      return { allow: true, reason: 'admin', trace };
     }
 
-    return { allow: true, reason: 'authorized', trace };
+    // For regular users, check if they have campaign access
+    if (cid && !hasCampaignAccess(u, cid)) {
+      return { allow: false, reason: 'No campaign access', trace };
+    }
+
+    // Default allow for authenticated users
+    trace.push('Authenticated user access');
+    return { allow: true, reason: 'authenticated', trace };
+
   } catch (e) {
-    if (typeof writeError === 'function') {
-      writeError('evaluatePageAccess', e);
-    }
-    trace.push('exception:' + (e && e.message ? e.message : String(e)));
-    return { allow: false, reason: 'Access evaluation failed', trace };
+    writeError && writeError('evaluatePageAccess', e);
+    trace.push('exception:' + e.message);
+    return { allow: false, reason: 'Evaluator error', trace };
   }
 }
 
 function hasCampaignAccess(user, campaignId) {
   try {
+    const u = _normalizeUser(user);
     const cid = _normalizeId(campaignId);
-    if (!cid) {
-      return true;
-    }
-
-    if (!user) {
-      return false;
-    }
-
-    if (isSystemAdmin(user)) {
-      return true;
-    }
-
-    const primary = _normalizeId(user.CampaignID || user.campaignId);
-    if (primary && primary === cid) {
-      return true;
-    }
-
-    const assignments = [];
-
-    if (user.CampaignAssignments && Array.isArray(user.CampaignAssignments)) {
-      user.CampaignAssignments.forEach(function (assignment) {
-        if (!assignment) return;
-        const assignmentId = _normalizeId(assignment.campaignId || assignment.CampaignID || assignment.CampaignId);
-        if (assignmentId) assignments.push(assignmentId);
-      });
-    }
-
-    const summary = user.IdentitySummary || user.identitySummary || null;
-    if (summary && Array.isArray(summary.campaignIds)) {
-      summary.campaignIds.forEach(function (value) {
-        const id = _normalizeId(value);
-        if (id) assignments.push(id);
-      });
-    }
-
-    if (user.CampaignIds) {
-      const rawCampaignIds = Array.isArray(user.CampaignIds)
-        ? user.CampaignIds
-        : String(user.CampaignIds).split(/[,\s]+/);
-      rawCampaignIds.forEach(function (value) {
-        const id = _normalizeId(value);
-        if (id) assignments.push(id);
-      });
-    }
-
-    return assignments.indexOf(cid) !== -1;
+    if (!cid) return true;
+    if (isSystemAdmin(u)) return true;
+    if (_normalizeId(u.CampaignID) === cid) return true;
+    return false;
   } catch (e) {
     writeError && writeError('hasCampaignAccess', e);
     return false;
@@ -3077,295 +1174,79 @@ function renderAccessDenied(message) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function buildReturnUrlFromRequest(e) {
-  try {
-    const baseCandidate = getBaseUrl() || SCRIPT_URL || '';
-    const base = baseCandidate ? baseCandidate.replace(/[?#].*$/, '') : '';
-    const params = {};
-    const rawParams = (e && e.parameter) ? e.parameter : {};
-    const excluded = new Set(['token', 'sessiontoken', 'authtoken', 'remember', 'rememberme']);
-
-    Object.keys(rawParams || {}).forEach(function (key) {
-      if (!key && key !== 0) {
-        return;
-      }
-      const normalizedKey = String(key);
-      if (excluded.has(normalizedKey.toLowerCase())) {
-        return;
-      }
-      const value = rawParams[key];
-      if (value === null || typeof value === 'undefined') {
-        return;
-      }
-      const trimmed = String(value).trim();
-      if (!trimmed) {
-        return;
-      }
-      params[normalizedKey] = trimmed;
-    });
-
-    if (!params.page || String(params.page).toLowerCase() === 'login') {
-      params.page = 'dashboard';
-    }
-
-    const query = Object.keys(params).map(function (key) {
-      return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
-    });
-
-    if (!base) {
-      return query.length ? SCRIPT_URL + '?' + query.join('&') : SCRIPT_URL;
-    }
-
-    return query.length ? base + '?' + query.join('&') : base;
-  } catch (err) {
-    console.warn('buildReturnUrlFromRequest: unable to construct return URL', err);
-    return getAuthenticatedUrl('dashboard');
-  }
-}
-
-function sanitizeRedirectUrl_(candidate, fallback) {
-  try {
-    const base = getBaseUrl() || SCRIPT_URL || '';
-    if (!candidate && candidate !== '') {
-      return fallback;
-    }
-
-    const trimmed = String(candidate).trim();
-    if (!trimmed) {
-      return fallback;
-    }
-
-    if (!base) {
-      if (trimmed.startsWith('/') || trimmed.startsWith('?')) {
-        return trimmed;
-      }
-      return fallback;
-    }
-
-    const baseUrl = new URL(base);
-    const target = new URL(trimmed, baseUrl);
-    if (target.origin === baseUrl.origin) {
-      return target.toString();
-    }
-  } catch (err) {
-    console.warn('sanitizeRedirectUrl_: failed to parse candidate', err);
-  }
-
-  if (candidate && (candidate.startsWith('/') || candidate.startsWith('?'))) {
-    const base = getBaseUrl() || SCRIPT_URL || '';
-    return base ? base.replace(/[?#].*$/, '') + candidate : candidate;
-  }
-
-  return fallback;
-}
-
-function attachTokenToUrl_(url, token, queryParam) {
-  if (!url || !token) {
-    return url;
-  }
-
-  const param = (queryParam && String(queryParam).trim()) || 'token';
-
-  try {
-    const parsed = new URL(url, getBaseUrl() || SCRIPT_URL || undefined);
-    parsed.searchParams.set(param, token);
-    return parsed.toString();
-  } catch (err) {
-    const separator = url.indexOf('?') === -1 ? '?' : '&';
-    return url + separator + encodeURIComponent(param) + '=' + encodeURIComponent(token);
-  }
-}
-
-function renderLoginPage(e, options) {
-  return createLoginPageOutput_({
-    baseUrl: getBaseUrl(),
-    scriptUrl: SCRIPT_URL,
-    returnUrl: options && options.returnUrl ? options.returnUrl : '',
-    message: options && options.message ? options.message : '',
-    sessionId: options && options.sessionId ? options.sessionId : '',
-    csrfToken: options && options.csrfToken ? options.csrfToken : ''
-  });
-}
-
-function createLoginPageOutput_(context) {
-  try {
-    const tpl = HtmlService.createTemplateFromFile('Html/LuminaIdentityLogin');
-    tpl.baseUrl = (context && context.baseUrl) || '';
-    tpl.scriptUrl = (context && context.scriptUrl) || '';
-    tpl.returnUrl = (context && context.returnUrl) || '';
-    tpl.message = (context && context.message) || '';
-    tpl.sessionId = (context && context.sessionId) || '';
-    tpl.csrfToken = (context && context.csrfToken) || '';
-
-    return tpl
-      .evaluate()
-      .setTitle('Sign in – Lumina Identity')
-      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } catch (err) {
-    console.error('createLoginPageOutput_: failed to render login page', err);
-    return HtmlService.createHtmlOutput('Authentication is not available.').setTitle('Authentication Unavailable');
-  }
-}
-
-
-
 /**
  * Simplified authentication requirement function
  */
 function requireAuth(e) {
   try {
-    const pageParam = String(e && e.parameter && e.parameter.page ? e.parameter.page : '').toLowerCase();
-    const page = canonicalizePageKey(pageParam);
-    const state = getCurrentAuthContext(e);
-    const user = state && state.user ? state.user : null;
-    const campaignId = String((e && e.parameter && e.parameter.campaign) || (user && user.CampaignID) || '');
+    const user = authenticateUser(e);
 
-    if (!user || !user.ID) {
-      const openState = buildOpenModeAuthState_(e);
-      if (openState && openState.user && openState.user.ID) {
-        return openState.user;
-      }
-      return renderLoginPage(e, {
-        returnUrl: buildReturnUrlFromRequest(e),
-        message: 'Please sign in to continue.'
-      });
+    if (!user) {
+      return renderLoginPage(e);
     }
 
+    const pageParam = String(e?.parameter?.page || '').toLowerCase();
+    const page = canonicalizePageKey(pageParam);
+    const campaignId = String(e?.parameter?.campaign || user.CampaignID || '');
+
     const decision = evaluatePageAccess(user, page, campaignId);
+    _debugAccess && _debugAccess('route', decision, user, page, campaignId);
+
     if (!decision || decision.allow !== true) {
-      return renderAccessDenied((decision && decision.reason) || 'Access denied.');
+      return renderAccessDenied((decision && decision.reason) || 'You do not have permission to view this page.');
+    }
+
+    // Hydrate campaign context
+    if (campaignId) {
+      try {
+        if (typeof getCampaignNavigation === 'function') user.campaignNavigation = getCampaignNavigation(campaignId);
+        if (typeof getUserCampaignPermissions === 'function') user.campaignPermissions = getUserCampaignPermissions(user.ID);
+        if (typeof getCampaignById === 'function') {
+          const c = getCampaignById(campaignId);
+          user.campaignName = c ? (c.Name || c.name || '') : '';
+        }
+      } catch (ctxErr) {
+        console.warn('Campaign context hydrate failed:', ctxErr);
+      }
     }
 
     return user;
+
   } catch (error) {
-    if (typeof writeError === 'function') {
-      writeError('requireAuth', error);
-    }
-    const openState = buildOpenModeAuthState_(e);
-    if (openState && openState.user && openState.user.ID) {
-      return openState.user;
-    }
-    return renderLoginPage(e, {
-      returnUrl: buildReturnUrlFromRequest(e),
-      message: 'Please sign in to continue.'
-    });
+    writeError('requireAuth', error);
+    return renderAccessDenied('Authentication error occurred');
   }
 }
 
-function handleLogoutRequest(e) {
-  try {
-    const resolved = resolveSessionTokenForAuthentication(e);
-    if (resolved && resolved.token) {
-      revokeSessionToken(resolved.token);
+function renderLoginPage(e) {
+  let serverMetadata = null;
+
+  if (typeof AuthenticationService !== 'undefined'
+    && AuthenticationService
+    && typeof AuthenticationService.captureLoginRequestContext === 'function') {
+    try {
+      serverMetadata = AuthenticationService.captureLoginRequestContext(e) || null;
+    } catch (contextError) {
+      console.warn('renderLoginPage: unable to capture server metadata', contextError);
     }
-  } catch (revokeErr) {
-    console.warn('handleLogoutRequest: unable to revoke session', revokeErr);
   }
 
-  try {
-    if (typeof clearPersistedSessionTokenLink === 'function') {
-      clearPersistedSessionTokenLink();
-    }
-  } catch (clearErr) {
-    console.warn('handleLogoutRequest: unable to clear persisted session link', clearErr);
-  }
-
-  clearCurrentAuthState_();
-
-  const target = buildAuthenticatedUrl('dashboard');
-  return HtmlService.createHtmlOutput('<script>window.location.href = ' + JSON.stringify(target) + ';</script>')
-    .setTitle('LuminaHQ');
-}
-
-function clientLogin(payload) {
-  return { success: false, error: 'Authentication services are not available in this deployment.' };
-}
-
-
-
-function clientLogout(token) {
-  try {
-    const resolved = token ? { token: token } : resolveSessionTokenForAuthentication();
-    if (resolved && resolved.token) {
-      revokeSessionToken(resolved.token);
-    }
-  } catch (revokeErr) {
-    console.warn('clientLogout: unable to revoke token', revokeErr);
-  }
-
-  try {
-    if (typeof clearPersistedSessionTokenLink === 'function') {
-      clearPersistedSessionTokenLink();
-    }
-  } catch (clearErr) {
-    console.warn('clientLogout: unable to clear persisted session link', clearErr);
-  }
-
-  clearCurrentAuthState_();
-
-  return { success: true };
+  const tpl = HtmlService.createTemplateFromFile('Login');
+  tpl.baseUrl = getBaseUrl();
+  tpl.scriptUrl = SCRIPT_URL;
+  tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
+  return tpl.evaluate()
+    .setTitle('Login - VLBPO LuminaHQ')
+    .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function canonicalizePageKey(k) {
-  const original = String(k || '').trim();
-  const key = original.toLowerCase()
-    .replace(/%2f/g, '/')
-    .replace(/%5c/g, '\\')
-    .replace(/%3a/g, ':')
-    .replace(/%7c/g, '|')
-    .replace(/%40/g, '@');
+  const key = String(k || '').trim().toLowerCase();
   if (!key) return key;
-
-  if (/^(userprofile|user-profile|profile)(?:[:\/@|\\-]+.+)?$/.test(key)) {
-    return 'userprofile';
-  }
-
-  if (/^(agent-experience|workspace.agent)(?:[:\/@|\\-]+.+)?$/.test(key)) {
-    return 'agent-experience';
-  }
 
   // Map legacy slugs/aliases → canonical keys used by the Access Engine
   switch (key) {
-    // Landing pages
-    case 'landing':
-    case 'landing-page':
-      return 'landing';
-    case 'landing-about':
-    case 'landingabout':
-    case 'about':
-    case 'about-luminahq':
-      return 'landing-about';
-    case 'landing-capabilities':
-    case 'landingcapabilities':
-    case 'capabilities':
-    case 'explore-capabilities':
-      return 'landing-capabilities';
-
-    case 'login':
-    case 'sign-in':
-    case 'signin':
-    case 'sign-on':
-    case 'signon':
-      return 'login';
-
-    // Legal & public resources
-    case 'terms-of-service':
-    case 'terms-and-conditions':
-    case 'termsofservice':
-    case 'terms':
-      return 'terms-of-service';
-    case 'privacy-policy':
-    case 'privacypolicy':
-    case 'privacy':
-    case 'privacy-notice':
-      return 'privacy-policy';
-    case 'lumina-user-guide':
-    case 'lumina-hq-user-guide':
-    case 'luminauserguide':
-    case 'user-guide':
-      return 'lumina-user-guide';
-
     // Admin Pages
     case 'manageuser':
     case 'users':
@@ -3379,12 +1260,8 @@ function canonicalizePageKey(k) {
 
     // Experience hubs
     case 'agent-experience':
-    case 'workspace.agent':
-      return 'agent-experience';
     case 'userprofile':
-    case 'user-profile':
-    case 'profile':
-      return 'userprofile';
+      return 'workspace.agent';
     case 'manager-executive-experience':
       return 'workspace.executive';
     case 'goalsetting':
@@ -3497,109 +1374,6 @@ function canonicalizePageKey(k) {
   }
 }
 
-function __normalizeProfileIdentifierValue(value) {
-  if (value === null || typeof value === 'undefined') {
-    return '';
-  }
-
-  const text = String(value).trim();
-  if (!text) {
-    return '';
-  }
-
-  try {
-    const decoded = decodeURIComponent(text);
-    return decoded && decoded.trim() ? decoded.trim() : text;
-  } catch (_) {
-    return text;
-  }
-}
-
-function __extractProfileIdentifierFromPageKey(rawPage) {
-  if (rawPage === null || typeof rawPage === 'undefined') {
-    return '';
-  }
-
-  const text = String(rawPage).trim();
-  if (!text) {
-    return '';
-  }
-
-  const sanitized = text.replace(/\+/g, ' ');
-  const lowered = sanitized.toLowerCase();
-  const prefixes = ['userprofile', 'user-profile', 'profile', 'agent-experience', 'workspace.agent'];
-
-  for (let idx = 0; idx < prefixes.length; idx++) {
-    const prefix = prefixes[idx];
-    if (!lowered.startsWith(prefix)) {
-      continue;
-    }
-
-    const remainder = sanitized.slice(prefix.length);
-    if (!remainder) {
-      continue;
-    }
-
-    const cleaned = remainder
-      .replace(/^[\s:\/@|\\-]+/, '')
-      .split(/[?#]/)[0];
-
-    const normalized = __normalizeProfileIdentifierValue(cleaned);
-    if (normalized) {
-      return normalized;
-    }
-  }
-
-  return '';
-}
-
-function resolveProfileIdentifierFromRequest(e, rawPage) {
-  try {
-    const params = (e && e.parameter) ? e.parameter : {};
-    const candidateKeys = [
-      'profileId', 'profileID', 'profileid', 'ProfileID', 'ProfileId',
-      'profile', 'Profile',
-      'profileSlug', 'ProfileSlug', 'profileslug',
-      'slug', 'Slug',
-      'handle', 'Handle',
-      'userId', 'userID', 'userid', 'UserID', 'UserId',
-      'ID', 'Id', 'id'
-    ];
-
-    for (let idx = 0; idx < candidateKeys.length; idx++) {
-      const key = candidateKeys[idx];
-      if (Object.prototype.hasOwnProperty.call(params, key)) {
-        const normalized = __normalizeProfileIdentifierValue(params[key]);
-        if (normalized) {
-          return normalized;
-        }
-      }
-    }
-
-    const pathCandidates = [
-      rawPage,
-      params && params.page,
-      params && params.path,
-      params && params.route,
-      params && params.profilePath,
-      params && params.profileSlug,
-      params && params.slug,
-      params && params.handle
-    ];
-
-    for (let i = 0; i < pathCandidates.length; i++) {
-      const extracted = __extractProfileIdentifierFromPageKey(pathCandidates[i]);
-      if (extracted) {
-        return extracted;
-      }
-    }
-  } catch (err) {
-    console.warn('resolveProfileIdentifierFromRequest: failed to resolve identifier', err);
-  }
-
-    return '';
-}
-
 // ───────────────────────────────────────────────────────────────────────────────
 // ENHANCED doGet WITH SIMPLIFIED ROUTING
 // ───────────────────────────────────────────────────────────────────────────────
@@ -3608,10 +1382,10 @@ function doGet(e) {
   try {
     const baseUrl = getBaseUrl();
 
-    if (e && e.parameter && e.parameter.api === 'identity') {
-      return IdentityRouter.handleGet(e);
-    }
+    // Initialize system
+    // initializeSystem();
 
+    // Handle special actions
     if (e.parameter.page === 'proxy') {
       console.log('doGet: Handling proxy request');
       return serveEnhancedProxy(e);
@@ -3622,46 +1396,90 @@ function doGet(e) {
       return handleLogoutRequest(e);
     }
 
-    const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
-    const page = rawPageParam.toLowerCase();
-
-    if (!page) {
-      return handlePublicPage('landing', e, baseUrl);
+    if (e.parameter.action === 'confirmEmail' && e.parameter.token) {
+      const confirmationToken = e.parameter.token;
+      const success = confirmEmail(confirmationToken);
+      if (success) {
+        const redirectUrl = `${baseUrl}?page=setpassword&token=${encodeURIComponent(confirmationToken)}`;
+        return HtmlService
+          .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
+          .setTitle('Redirecting...');
+      } else {
+        const tpl = HtmlService.createTemplateFromFile('EmailConfirmed');
+        tpl.baseUrl = baseUrl;
+        tpl.success = false;
+        tpl.token = confirmationToken;
+        return tpl.evaluate()
+          .setTitle('Email Confirmation')
+          .addMetaTag('viewport', 'width=device-width,initial-scale=1');
+      }
     }
 
-    if (['login', 'sign-in', 'signin', 'signon', 'sign-on'].includes(page)) {
-      return renderLoginPage(e, { returnUrl: buildReturnUrlFromRequest(e) });
+    // Handle public pages
+    const page = (e.parameter.page || "").toLowerCase();
+
+    if (page === 'login' || (!page)) {
+      return renderLoginPage(e);
     }
 
-    const publicPages = [
-      'landing',
-      'landing-about',
-      'about',
-      'landing-capabilities',
-      'capabilities',
-      'terms-of-service',
-      'termsofservice',
-      'terms',
-      'privacy-policy',
-      'privacypolicy',
-      'privacy',
-      'lumina-user-guide',
-      'lumina-hq-user-guide',
-      'user-guide',
-      'login'
-    ];
+    // Handle other public pages
+    const publicPages = ['setpassword', 'resetpassword', 'resend-verification', 'resendverification',
+      'forgotpassword', 'forgot-password', 'emailconfirmed', 'email-confirmed'];
 
     if (publicPages.includes(page)) {
       return handlePublicPage(page, e, baseUrl);
     }
 
-    // Protected pages - evaluate access (primarily for admin specific areas)
+    // Protected pages - require authentication
     const auth = requireAuth(e);
-    if (auth && typeof auth.getContent === 'function') {
-      return auth; // Typically an access denied template
+    if (auth.getContent) {
+      return auth; // Login or access denied page
     }
 
     const user = auth;
+
+    // Handle password reset requirement
+    if (_truthy(user.ResetRequired)) {
+      const tpl = HtmlService.createTemplateFromFile('ChangePassword');
+      tpl.baseUrl = baseUrl;
+      tpl.scriptUrl = SCRIPT_URL;
+      return tpl.evaluate()
+        .setTitle('Change Password')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+
+    // Default route: redirect to persona-specific landing page
+    if (!page) {
+      const userCampaignId = user.CampaignID || '';
+      let landingSlug = '';
+
+      try {
+        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
+            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
+              user: user,
+              userPayload: user,
+              rawUser: user
+            });
+            if (landingInfo && landingInfo.slug) {
+              landingSlug = landingInfo.slug;
+            }
+          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
+            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
+          }
+        }
+      } catch (landingError) {
+        console.warn('doGet: failed to compute landing slug', landingError);
+      }
+
+      const redirectPage = landingSlug || 'dashboard';
+      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
+      return HtmlService
+        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
+        .setTitle('Redirecting...');
+    }
+
     const campaignId = e.parameter.campaign || user.CampaignID || '';
 
     // Handle CSV exports
@@ -3702,31 +1520,16 @@ function doGet(e) {
 function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
   try {
     const raw = String(page || '').trim();
-    const canonicalPage = canonicalizePageKey(raw);
-    const resolvedProfileId = resolveProfileIdentifierFromRequest(e, raw);
-    const hasProfileParameter = resolvedProfileId !== '';
-
-    if (hasProfileParameter && e) {
-      if (!e.parameter) {
-        e.parameter = {};
-      }
-
-      const targetParam = e.parameter;
-      const existingProfileId = targetParam.profileId || targetParam.profileID || targetParam.ProfileID || targetParam.ProfileId;
-      if (!existingProfileId) {
-        targetParam.profileId = resolvedProfileId;
-      }
-    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    if (canonicalPage === 'userprofile' || (canonicalPage === 'agent-experience' && hasProfileParameter)) {
+    if (page === 'userprofile') {
       return serveGlobalPage('UserProfile', e, baseUrl, user);
     }
 
-    if (canonicalPage === 'agent-experience') {
+    if (page === 'agent-experience') {
       return serveGlobalPage('AgentExperience', e, baseUrl, user);
     }
 
@@ -3771,14 +1574,6 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
         allowSupervisors: true,
         accessDeniedMessage: 'Manager or executive access required.'
       });
-    }
-
-    if (
-      page === 'admincenter' ||
-      page === 'lumina-admin' ||
-      page === 'admin-dashboard'
-    ) {
-      return serveAdminPage('AdminCenter', e, baseUrl, user);
     }
 
     if (page === 'users' || page === 'manageuser') {
@@ -4162,104 +1957,53 @@ function handlePublicPage(page, e, baseUrl) {
   const scriptUrl = SCRIPT_URL;
 
   switch (page) {
-    case 'landing':
-      const landingTpl = HtmlService.createTemplateFromFile('Landing');
-      landingTpl.baseUrl = baseUrl;
-      landingTpl.scriptUrl = scriptUrl;
-
-      return landingTpl.evaluate()
-        .setTitle('LuminaHQ – Intelligent Workforce Command Center')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-    case 'landing-about':
-    case 'about':
-    case 'about-luminahq':
-      const aboutTpl = HtmlService.createTemplateFromFile('LandingAbout');
-      aboutTpl.baseUrl = baseUrl;
-      aboutTpl.scriptUrl = scriptUrl;
-
-      return aboutTpl.evaluate()
-        .setTitle('About LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-    case 'landing-capabilities':
-    case 'capabilities':
-    case 'explore-capabilities':
-      const capabilitiesTpl = HtmlService.createTemplateFromFile('LandingCapabilities');
-      capabilitiesTpl.baseUrl = baseUrl;
-      capabilitiesTpl.scriptUrl = scriptUrl;
-
-      return capabilitiesTpl.evaluate()
-        .setTitle('Explore LuminaHQ Capabilities')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-    case 'terms-of-service':
-    case 'termsofservice':
-    case 'terms':
-    case 'terms-and-conditions':
-      const termsTpl = HtmlService.createTemplateFromFile('TermsOfService');
-      termsTpl.baseUrl = baseUrl;
-      termsTpl.scriptUrl = scriptUrl;
-      termsTpl.user = {};
-      termsTpl.currentPage = 'terms-of-service';
-
-      return termsTpl.evaluate()
-        .setTitle('Terms of Service - VLBPO LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-    case 'privacy-policy':
-    case 'privacypolicy':
-    case 'privacy':
-    case 'privacy-notice':
-      const privacyTpl = HtmlService.createTemplateFromFile('PrivacyPolicy');
-      privacyTpl.baseUrl = baseUrl;
-      privacyTpl.scriptUrl = scriptUrl;
-      privacyTpl.user = {};
-      privacyTpl.currentPage = 'privacy-policy';
-
-      return privacyTpl.evaluate()
-        .setTitle('Privacy Policy - VLBPO LuminaHQ')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-    case 'lumina-user-guide':
-    case 'lumina-hq-user-guide':
-    case 'luminauserguide':
-    case 'user-guide':
-      const guideTpl = HtmlService.createTemplateFromFile('LuminaHQUserGuide');
-      guideTpl.baseUrl = baseUrl;
-      guideTpl.scriptUrl = scriptUrl;
-      guideTpl.user = {};
-      guideTpl.currentPage = 'lumina-user-guide';
-
-      return guideTpl.evaluate()
-        .setTitle('LuminaHQ User Guide')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-    case 'login':
-      return createLoginPageOutput_({
-        baseUrl: baseUrl,
-        scriptUrl: scriptUrl,
-        returnUrl: (e && e.parameter && (e.parameter.returnUrl || e.parameter.return || e.parameter.redirect)) || '',
-        message: (e && e.parameter && e.parameter.message) || ''
-      });
-
-    case 'forgotpassword':
-    case 'forgot-password':
     case 'setpassword':
     case 'resetpassword':
-    case 'emailconfirmed':
-    case 'email-confirmed':
-      return createErrorPage('Authentication Unavailable', 'Password management features have been removed from this deployment.');
+      const resetToken = e.parameter.token || '';
+      const tpl = HtmlService.createTemplateFromFile('ChangePassword');
+      tpl.baseUrl = baseUrl;
+      tpl.scriptUrl = scriptUrl;
+      tpl.token = resetToken;
+      tpl.isReset = page === 'resetpassword';
+
+      return tpl.evaluate()
+        .setTitle((page === 'resetpassword' ? 'Reset' : 'Set') + ' Your Password - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
     case 'resend-verification':
     case 'resendverification':
-      return createErrorPage('Verification Unavailable', 'Email verification is not required for this environment.');
+      const verifyTpl = HtmlService.createTemplateFromFile('ResendVerification');
+      verifyTpl.baseUrl = baseUrl;
+      verifyTpl.scriptUrl = scriptUrl;
+
+      return verifyTpl.evaluate()
+        .setTitle('Resend Email Verification - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'forgotpassword':
+    case 'forgot-password':
+      const forgotTpl = HtmlService.createTemplateFromFile('ForgotPassword');
+      forgotTpl.baseUrl = baseUrl;
+      forgotTpl.scriptUrl = scriptUrl;
+
+      return forgotTpl.evaluate()
+        .setTitle('Forgot Password - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'emailconfirmed':
+    case 'email-confirmed':
+      const confirmTpl = HtmlService.createTemplateFromFile('EmailConfirmed');
+      confirmTpl.baseUrl = baseUrl;
+      confirmTpl.success = e.parameter.success === 'true';
+      confirmTpl.token = e.parameter.token || '';
+
+      return confirmTpl.evaluate()
+        .setTitle('Email Confirmation - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
     default:
       return createErrorPage('Page Not Found', `The page "${page}" was not found.`);
@@ -5190,26 +2934,6 @@ function handleSearchData(tpl, e) {
 function computeUserProfileSlug(userRecord, detailRecord) {
   try {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
-    const normalize = (value) => {
-      if (value === null || typeof value === 'undefined') {
-        return '';
-      }
-      const text = String(value).trim();
-      return text ? text : '';
-    };
-
-    const identifierCandidates = [
-      userRecord && (userRecord.ID || userRecord.Id || userRecord.id || userRecord.EmployeeID || userRecord.employeeId || userRecord.ProfileID || userRecord.profileId),
-      record && (record.ID || record.Id || record.id || record.EmployeeID || record.employeeId || record.ProfileID || record.profileId)
-    ];
-
-    for (let idx = 0; idx < identifierCandidates.length; idx++) {
-      const normalizedId = normalize(identifierCandidates[idx]);
-      if (normalizedId) {
-        return normalizedId;
-      }
-    }
-
     const candidates = [];
 
     const pushCandidate = (value) => {
@@ -5262,7 +2986,6 @@ function handleUserProfileData(tpl, e, user) {
   try {
     const bootstrap = {
       user: user || null,
-      viewer: user || null,
       detail: null,
       pages: [],
       equipment: [],
@@ -5272,88 +2995,27 @@ function handleUserProfileData(tpl, e, user) {
       generatedAt: new Date().toISOString()
     };
 
-    const viewerId = user && user.ID ? String(user.ID) : '';
-    const rawPageParam = (e && e.parameter && e.parameter.page) || '';
-    const requestedProfileId = resolveProfileIdentifierFromRequest(e, rawPageParam);
-    const normalizedRequested = requestedProfileId ? String(requestedProfileId).trim() : '';
-    const profileId = normalizedRequested || viewerId;
-    const normalizedProfileId = profileId ? profileId.toString().trim().toLowerCase() : '';
-    const requestingUserId = viewerId || profileId;
+    const userId = user && user.ID ? String(user.ID) : '';
 
-    const extractProfileId = (record) => {
-      if (!record || typeof record !== 'object') {
-        return '';
-      }
-      const keys = ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId', 'UserID', 'userId'];
-      for (let i = 0; i < keys.length; i++) {
-        const value = record[keys[i]];
-        if (value !== undefined && value !== null) {
-          const text = String(value).trim();
-          if (text) {
-            return text;
-          }
-        }
-      }
-      return '';
-    };
-
-    let profileRecord = null;
-
-    if (profileId && typeof getUsers === 'function') {
+    if (userId && typeof clientGetUserDetail === 'function') {
       try {
-        const roster = getUsers();
-        if (Array.isArray(roster) && roster.length) {
-          for (let idx = 0; idx < roster.length; idx++) {
-            const candidate = extractProfileId(roster[idx]);
-            if (candidate && candidate.toLowerCase() === normalizedProfileId) {
-              profileRecord = roster[idx];
-              break;
-            }
-          }
-        }
-      } catch (rosterError) {
-        console.warn('handleUserProfileData: unable to resolve profile user from roster', rosterError);
-      }
-    }
-
-    if (profileId && typeof clientGetUserDetail === 'function') {
-      try {
-        const detailOptions = requestingUserId ? { requestingUserId: requestingUserId } : {};
-        bootstrap.detail = clientGetUserDetail(profileId, detailOptions) || null;
-        if (!profileRecord && bootstrap.detail && bootstrap.detail.record) {
-          profileRecord = bootstrap.detail.record;
-        }
+        bootstrap.detail = clientGetUserDetail(userId, { requestingUserId: userId }) || null;
       } catch (detailError) {
         console.warn('handleUserProfileData: unable to load user detail', detailError);
       }
     }
 
-    if (!profileRecord && viewerId && profileId && viewerId.toLowerCase() === normalizedProfileId) {
-      profileRecord = user || null;
-    }
-
-    if (!profileRecord && profileId && typeof clientGetUserProfile === 'function') {
+    if (userId && typeof clientGetUserPages === 'function') {
       try {
-        const fallbackRecord = clientGetUserProfile(profileId);
-        if (fallbackRecord) {
-          profileRecord = fallbackRecord;
-        }
-      } catch (profileError) {
-        console.warn('handleUserProfileData: fallback profile lookup failed', profileError);
-      }
-    }
-
-    if (profileId && typeof clientGetUserPages === 'function') {
-      try {
-        bootstrap.pages = clientGetUserPages(profileId) || [];
+        bootstrap.pages = clientGetUserPages(userId) || [];
       } catch (pagesError) {
         console.warn('handleUserProfileData: unable to load user pages', pagesError);
       }
     }
 
-    if (profileId && typeof clientGetUserEquipment === 'function') {
+    if (userId && typeof clientGetUserEquipment === 'function') {
       try {
-        const equipmentResponse = clientGetUserEquipment(profileId);
+        const equipmentResponse = clientGetUserEquipment(userId);
         if (equipmentResponse && equipmentResponse.success && Array.isArray(equipmentResponse.items)) {
           bootstrap.equipment = equipmentResponse.items;
         }
@@ -5363,8 +3025,8 @@ function handleUserProfileData(tpl, e, user) {
     }
 
     let campaignId = '';
-    if (profileRecord && (profileRecord.CampaignID || profileRecord.campaignId)) {
-      campaignId = String(profileRecord.CampaignID || profileRecord.campaignId);
+    if (user && user.CampaignID) {
+      campaignId = String(user.CampaignID);
     }
 
     if (!campaignId && bootstrap.detail && bootstrap.detail.record) {
@@ -5374,17 +3036,17 @@ function handleUserProfileData(tpl, e, user) {
 
     bootstrap.campaignId = campaignId;
 
-    if (profileId && campaignId && typeof getCampaignUserPermissions === 'function') {
+    if (userId && campaignId && typeof getCampaignUserPermissions === 'function') {
       try {
-        bootstrap.permissions = getCampaignUserPermissions(campaignId, profileId) || null;
+        bootstrap.permissions = getCampaignUserPermissions(campaignId, userId) || null;
       } catch (permissionsError) {
         console.warn('handleUserProfileData: unable to load campaign permissions', permissionsError);
       }
     }
 
-    if (profileId && typeof clientGetManagerTeamSummary === 'function') {
+    if (userId && typeof clientGetManagerTeamSummary === 'function') {
       try {
-        const summary = clientGetManagerTeamSummary(profileId);
+        const summary = clientGetManagerTeamSummary(userId);
         if (summary && summary.success) {
           bootstrap.managerSummary = summary;
         }
@@ -5393,11 +3055,8 @@ function handleUserProfileData(tpl, e, user) {
       }
     }
 
-    bootstrap.user = profileRecord || user || null;
-    bootstrap.profileId = profileId;
-    bootstrap.requestedProfileId = normalizedRequested;
-    const computedSlug = computeUserProfileSlug(bootstrap.user, bootstrap.detail);
-    bootstrap.profileSlug = computedSlug && computedSlug !== 'user' ? computedSlug : (profileId || computedSlug);
+    bootstrap.profileId = userId;
+    bootstrap.profileSlug = computeUserProfileSlug(user, bootstrap.detail);
 
     tpl.profileBootstrap = _stringifyForTemplate_(bootstrap);
   } catch (error) {
@@ -5479,7 +3138,7 @@ function handleNotificationsData(tpl, e, user) {
 
 function _normStr_(s) { return String(s || '').trim(); }
 function _normEmail_(s) { return _normStr_(s).toLowerCase(); }
-function _toBool_(v) { return _truthy(v); }
+function _toBool_(v) { return v === true || String(v || '').trim().toUpperCase() === 'TRUE'; }
 
 function _tryGetRoleNames_(userId) {
   try {
@@ -5540,7 +3199,9 @@ function _uiUserShape_(u, cmap) {
     campaignName: cmap[primaryCampaignId] || _normStr_(u.CampaignName || ''),
     CampaignIds: campaignIds,
     campaignIds: campaignIds,
+    CanLogin: u.CanLogin,
     IsAdmin: u.IsAdmin,
+    canLoginBool: _toBool_(u.CanLogin),
     isAdminBool: _toBool_(u.IsAdmin),
     Active: typeof u.Active === 'undefined' ? u.active : u.Active,
     active: activeBool,
@@ -6580,7 +4241,63 @@ function writeDebug(message) {
   console.log(`[DEBUG] ${message}`);
 }
 
-// Legacy confirmation helpers removed along with authentication layer.
+function confirmEmail(token) {
+  try {
+    if (!token) {
+      console.warn('confirmEmail called with empty token');
+      return false;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sh = ss.getSheetByName('Users');
+    if (!sh) {
+      console.error('Users sheet not found');
+      return false;
+    }
+
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) {
+      console.warn('No users found in Users sheet');
+      return false;
+    }
+
+    const headers = data.shift();
+    const colTok = headers.indexOf('EmailConfirmation');
+    const colConf = headers.indexOf('EmailConfirmed');
+    const colUpd = headers.indexOf('UpdatedAt');
+    const colEmail = headers.indexOf('Email');
+
+    if (colTok < 0 || colConf < 0) {
+      console.error('Required columns not found in Users sheet');
+      return false;
+    }
+
+    let found = false;
+    let userEmail = null;
+
+    data.forEach((row, i) => {
+      if (String(row[colTok]) === String(token)) {
+        found = true;
+        userEmail = row[colEmail];
+        const rowNum = i + 2;
+
+        sh.getRange(rowNum, colConf + 1).setValue(true);
+
+        if (colUpd >= 0) {
+          sh.getRange(rowNum, colUpd + 1).setValue(new Date());
+        }
+
+        console.log(`Email confirmed for user: ${userEmail}`);
+      }
+    });
+
+    return found;
+  } catch (error) {
+    console.error('Error confirming email:', error);
+    writeError('confirmEmail', error);
+    return false;
+  }
+}
 
 function weekStringFromDate(date) {
   try {
@@ -6654,6 +4371,10 @@ function initializeSystem() {
   try {
     console.log('Initializing system...');
 
+    if (typeof AuthenticationService !== 'undefined' && AuthenticationService.ensureSheets) {
+      AuthenticationService.ensureSheets();
+    }
+
     try {
       ensureSessionCleanupTrigger();
     } catch (triggerError) {
@@ -6717,131 +4438,60 @@ function ensureSessionCleanupTrigger() {
 
 function initializeMainSheets() {
   try {
-    let summary = [];
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const requiredSheets = ['Users', 'Roles', 'Pages', 'CAMPAIGNS'];
 
-    if (typeof ensureIdentitySheetStructures === 'function') {
-      summary = ensureIdentitySheetStructures();
-    } else {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      if (!ss) {
-        throw new Error('Active spreadsheet not available');
-      }
-
-      const definitions = [];
-      const pushDefinition = (name, headers) => {
-        if (!name) return;
-        const headerList = Array.isArray(headers) && headers.length
-          ? headers.slice()
-          : null;
-        definitions.push({ name, headers: headerList });
-      };
-
-      const usersName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
-      const rolesName = (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles';
-      const pagesName = (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages';
-      const campaignsName = (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns';
-
-      pushDefinition(usersName, (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
-      pushDefinition(rolesName, Array.isArray(ROLES_HEADER) ? ROLES_HEADER : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt']);
-      pushDefinition(pagesName, Array.isArray(PAGES_HEADERS) ? PAGES_HEADERS : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt']);
-      pushDefinition(campaignsName, Array.isArray(CAMPAIGNS_HEADERS) ? CAMPAIGNS_HEADERS : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt']);
-
-      definitions.forEach(def => {
-        try {
-          let sheet = ss.getSheetByName(def.name);
-          if (!sheet) {
-            sheet = ss.insertSheet(def.name);
-          }
-
-          if (def.headers && def.headers.length) {
-            sheet.getRange(1, 1, 1, def.headers.length).setValues([def.headers]);
-            sheet.setFrozenRows(1);
-          }
-
-          summary.push({ sheet: def.name, ensured: true, method: 'fallback-manual' });
-        } catch (sheetError) {
-          console.warn(`Could not initialize sheet ${def.name}:`, sheetError);
-          summary.push({ sheet: def.name, ensured: false, error: sheetError && sheetError.message ? sheetError.message : String(sheetError) });
+    requiredSheets.forEach(sheetName => {
+      try {
+        let sheet = ss.getSheetByName(sheetName);
+        if (!sheet) {
+          console.log(`Creating missing sheet: ${sheetName}`);
+          sheet = ss.insertSheet(sheetName);
+          initializeSheetHeaders(sheet, sheetName);
         }
-      });
-    }
+      } catch (sheetError) {
+        console.warn(`Could not initialize sheet ${sheetName}:`, sheetError);
+      }
+    });
 
     console.log('Main sheets initialized');
-    return summary;
 
   } catch (error) {
     console.error('Error initializing main sheets:', error);
     writeError('initializeMainSheets', error);
-    return { success: false, error: error && error.message ? error.message : String(error) };
   }
 }
 
 function initializeSheetHeaders(sheet, sheetName) {
   try {
-    if (!sheet || !sheetName) {
-      console.warn('initializeSheetHeaders called with invalid arguments');
-      return null;
+    let headers = [];
+
+    switch (sheetName) {
+      case 'Users':
+        headers = ['ID', 'Email', 'FullName', 'Password', 'Roles', 'CampaignID', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt'];
+        break;
+      case 'Roles':
+        headers = ['ID', 'Name', 'Description', 'Permissions', 'CreatedAt'];
+        break;
+      case 'Pages':
+        headers = ['PageKey', 'Name', 'Description', 'RequiredRole', 'CampaignSpecific', 'Active'];
+        break;
+      case 'CAMPAIGNS':
+        headers = ['ID', 'Name', 'Description', 'Active', 'Settings', 'CreatedAt'];
+        break;
+      default:
+        console.warn(`No headers defined for sheet: ${sheetName}`);
+        return;
     }
 
-    if (typeof ensureIdentitySheetStructures === 'function') {
-      const results = ensureIdentitySheetStructures({ sheetNames: [sheetName] });
-      const ensured = Array.isArray(results) ? results.find(result => result.sheet === sheetName && result.ensured) : null;
-      if (ensured) {
-        console.log(`Headers ensured for ${sheetName} via ensureIdentitySheetStructures`);
-        return ensured;
-      }
-    }
-
-    let headers = null;
-    if (typeof getCanonicalSheetHeaders === 'function') {
-      headers = getCanonicalSheetHeaders(sheetName);
-    }
-
-    if (!headers || !headers.length) {
-      switch (sheetName) {
-        case (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users':
-        case 'Users':
-          headers = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
-            ? USERS_HEADERS.slice()
-            : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'Roles', 'CreatedAt', 'UpdatedAt'];
-          break;
-        case (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles':
-        case 'Roles':
-          headers = Array.isArray(ROLES_HEADER)
-            ? ROLES_HEADER.slice()
-            : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt'];
-          break;
-        case (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages':
-        case 'Pages':
-          headers = Array.isArray(PAGES_HEADERS)
-            ? PAGES_HEADERS.slice()
-            : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt'];
-          break;
-        case (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns':
-        case 'CAMPAIGNS':
-        case 'Campaigns':
-          headers = Array.isArray(CAMPAIGNS_HEADERS)
-            ? CAMPAIGNS_HEADERS.slice()
-            : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt'];
-          break;
-        default:
-          console.warn(`No headers defined for sheet: ${sheetName}`);
-          return null;
-      }
-    }
-
-    if (headers && headers.length) {
+    if (headers.length > 0) {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.setFrozenRows(1);
       console.log(`Headers set for ${sheetName}:`, headers);
-      return { sheet: sheetName, ensured: true, method: 'manual-headers' };
     }
-
-    return null;
 
   } catch (error) {
     console.error(`Error setting headers for ${sheetName}:`, error);
-    return { sheet: sheetName, ensured: false, error: error && error.message ? error.message : String(error) };
   }
 }
 
@@ -7054,27 +4704,6 @@ function queueBackgroundInitialization(options) {
       });
     }
 
-    if (manager && typeof manager.backfillAllMissingIds === 'function') {
-      tasks.push({
-        label: 'DatabaseManager.backfillAllMissingIds',
-        run: function () {
-          var maintenanceContext = Object.assign({ allowAllTenants: true }, context || {});
-          var summaries = manager.backfillAllMissingIds(maintenanceContext);
-          if (safeConsole && typeof safeConsole.log === 'function') {
-            safeConsole.log('DatabaseManager.backfillAllMissingIds summaries:', summaries);
-          }
-          if (Array.isArray(summaries)) {
-            for (var i = 0; i < summaries.length; i++) {
-              var summary = summaries[i];
-              if (summary && summary.error && safeConsole && typeof safeConsole.error === 'function') {
-                safeConsole.error('ID backfill error for table ' + summary.table + ': ' + summary.error);
-              }
-            }
-          }
-        }
-      });
-    }
-
     if (typeof QualityService !== 'undefined' && QualityService && typeof QualityService.queueBackgroundInitialization === 'function') {
       tasks.push({
         label: 'QualityService.queueBackgroundInitialization',
@@ -7122,39 +4751,6 @@ function scheduledWarmup() {
       }
     }
     return false;
-  }
-}
-
-function runDatabaseIdBackfill() {
-  var safeConsole = (typeof console !== 'undefined' && console) ? console : {
-    error: function () { },
-    warn: function () { },
-    log: function () { }
-  };
-
-  try {
-    if (typeof DatabaseManager === 'undefined' || !DatabaseManager || typeof DatabaseManager.backfillAllMissingIds !== 'function') {
-      throw new Error('DatabaseManager.backfillAllMissingIds is not available');
-    }
-    var summaries = DatabaseManager.backfillAllMissingIds({ allowAllTenants: true });
-    if (safeConsole && typeof safeConsole.log === 'function') {
-      safeConsole.log('runDatabaseIdBackfill summaries:', summaries);
-    }
-    return summaries;
-  } catch (error) {
-    if (safeConsole && typeof safeConsole.error === 'function') {
-      safeConsole.error('runDatabaseIdBackfill failed:', error);
-    }
-    if (typeof writeError === 'function') {
-      try {
-        writeError('runDatabaseIdBackfill', error);
-      } catch (loggingError) {
-        if (safeConsole && typeof safeConsole.error === 'function') {
-          safeConsole.error('Failed to log runDatabaseIdBackfill error:', loggingError);
-        }
-      }
-    }
-    throw error;
   }
 }
 

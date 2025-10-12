@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email Confirmation - VLBPO DataLog</title>
+  <?!= includeOnce('layoutLoader') ?>
+  <?!= includeOnce('layoutAlerts') ?>
+<?!= includeOnce('ResponsiveStyles') ?>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    body, html { 
+      height: 100%; 
+      margin: 0; 
+      background: linear-gradient(135deg, #00AEEF, #003F87);
+      font-family: Arial, sans-serif;
+    }
+    
+    .confirmation-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .confirmation-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      padding: 3rem 2rem;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .confirmation-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(135deg, #00AEEF, #003F87);
+    }
+    
+    .logo-container {
+      margin-bottom: 2rem;
+    }
+    
+    .logo-container img {
+      max-height: 60px;
+      margin-bottom: 1rem;
+    }
+    
+    .status-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      font-size: 2.5rem;
+    }
+    
+    .status-success {
+      background: linear-gradient(135deg, #d4edda, #c3e6cb);
+      color: #155724;
+    }
+    
+    .status-error {
+      background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+      color: #721c24;
+    }
+    
+    .status-warning {
+      background: linear-gradient(135deg, #fff3cd, #ffeeba);
+      color: #856404;
+    }
+    
+    .confirmation-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #2c3e50;
+    }
+    
+    .confirmation-message {
+      font-size: 1rem;
+      color: #6c757d;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    
+    .btn-primary-custom {
+      background: linear-gradient(135deg, #00AEEF, #003F87);
+      border: none;
+      color: white;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      font-size: 1rem;
+    }
+    
+    .btn-primary-custom:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 174, 239, 0.3);
+      color: white;
+      text-decoration: none;
+    }
+    
+    .btn-secondary-custom {
+      background: #6c757d;
+      border: none;
+      color: white;
+      padding: 10px 25px;
+      border-radius: 8px;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      font-size: 0.9rem;
+      margin: 0 0.5rem;
+    }
+    
+    .btn-secondary-custom:hover {
+      background: #545b62;
+      transform: translateY(-1px);
+      color: white;
+      text-decoration: none;
+    }
+    
+    .btn-warning-custom {
+      background: linear-gradient(135deg, #ffc107, #e0a800);
+      border: none;
+      color: #000;
+      padding: 10px 25px;
+      border-radius: 8px;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      font-size: 0.9rem;
+      margin: 0 0.5rem;
+    }
+    
+    .btn-warning-custom:hover {
+      background: linear-gradient(135deg, #e0a800, #d39e00);
+      transform: translateY(-1px);
+      color: #000;
+      text-decoration: none;
+    }
+    
+    .action-buttons {
+      margin-top: 1.5rem;
+    }
+    
+    .help-section {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e9ecef;
+    }
+    
+    .help-links {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    
+    .help-links a {
+      color: #6c757d;
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+    
+    .help-links a:hover {
+      background: #f8f9fa;
+      color: #495057;
+    }
+    
+    .security-note {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .confirmation-card {
+      animation: fadeInUp 0.6s ease-out;
+    }
+    
+    .status-icon {
+      animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+    
+    /* Responsive */
+    @media (max-width: 576px) {
+      .confirmation-card {
+        padding: 2rem 1.5rem;
+        margin: 10px;
+      }
+      
+      .confirmation-title {
+        font-size: 1.5rem;
+      }
+      
+      .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      
+      .btn-secondary-custom,
+      .btn-warning-custom {
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="confirmation-container">
+    <div class="confirmation-card">
+      <!-- Logo -->
+      <div class="logo-container">
+        <img src="https://vlbpo.com/wp-content/uploads/2022/03/Asset-1-8.png.webp" alt="VLBPO Logo" loading="lazy">
+        <br>
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1751630242/vlbpo/as_is_-_Edited_yq58rt.png"
+             alt="Datalog Logo" style="max-height: 20px;" loading="lazy">
+      </div>
+
+      <? if (success) { ?>
+        <!-- Success State -->
+        <div class="status-icon status-success">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        
+        <h1 class="confirmation-title">Email Confirmed!</h1>
+        
+        <p class="confirmation-message">
+          Your email address has been successfully verified. You can now set up your password and access your VLBPO DataLog account.
+        </p>
+        
+        <div class="action-buttons">
+          <a href="<?= baseUrl ?>&page=setpassword&token=<?= encodeURIComponent(token || '') ?>" 
+             class="btn-primary-custom">
+            <i class="fas fa-key"></i>
+            Set Up Password
+          </a>
+        </div>
+        
+        <div class="security-note">
+          <i class="fas fa-shield-alt me-2"></i>
+          <strong>Next Step:</strong> Create a secure password to complete your account setup. 
+          The link above will expire in 24 hours for security purposes.
+        </div>
+        
+      <? } else { ?>
+        <!-- Error/Expired State -->
+        <div class="status-icon status-error">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        
+        <h1 class="confirmation-title">Verification Link Invalid</h1>
+        
+        <p class="confirmation-message">
+          This email confirmation link has expired or is invalid. This can happen if the link is older than 24 hours or has already been used.
+        </p>
+        
+        <div class="action-buttons">
+          <a href="<?= baseUrl ?>&page=resend-verification" class="btn-warning-custom">
+            <i class="fas fa-paper-plane"></i>
+            Resend Verification
+          </a>
+          
+          <a href="<?= baseUrl ?>" class="btn-secondary-custom">
+            <i class="fas fa-sign-in-alt"></i>
+            Back to Login
+          </a>
+        </div>
+        
+        <div class="security-note">
+          <i class="fas fa-info-circle me-2"></i>
+          <strong>Need Help?</strong> If you continue to have issues, please contact our support team. 
+          Make sure to check your spam folder for verification emails.
+        </div>
+      <? } ?>
+
+      <!-- Help Section -->
+      <div class="help-section">
+        <p class="small text-muted mb-2">Need assistance?</p>
+        <div class="help-links">
+          <a href="<?= baseUrl ?>&page=resend-verification">
+            <i class="fas fa-envelope me-1"></i>
+            Resend Email
+          </a>
+          <a href="<?= baseUrl ?>">
+            <i class="fas fa-sign-in-alt me-1"></i>
+            Login Page
+          </a>
+          <a href="mailto:support@vlbpo.com">
+            <i class="fas fa-headset me-1"></i>
+            Contact Support
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

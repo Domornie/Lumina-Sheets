@@ -660,7 +660,7 @@
         <div class="card">
           <div class="card-header">
             <h2 class="card-title"><i class="fas fa-list"></i> Campaigns</h2>
-            <div data-banner-source>
+            <div>
               <button class="btn btn-primary" onclick="refreshData()"><i class="fas fa-sync-alt"></i> Refresh</button>
             </div>
           </div>
@@ -675,7 +675,7 @@
             <h2 class="card-title"><i class="fas fa-cogs"></i> Page Management -
               <span id="selectedCampaignName">Campaign</span>
             </h2>
-            <div data-banner-source>
+            <div>
               <button class="btn btn-success" onclick="autoFixCategories()"><i class="fas fa-magic"></i> Auto-Fix</button>
               <button class="btn btn-primary" onclick="closePageManagement()"><i class="fas fa-times"></i> Close</button>
             </div>
@@ -689,9 +689,7 @@
           <div id="categoriesTab" class="tab-content active">
             <div class="card-header">
               <h5>Navigation Categories</h5>
-              <div data-banner-source>
-                <button class="btn btn-sm btn-primary" onclick="showAddCategoryModal()"><i class="fas fa-plus"></i> Add Category</button>
-              </div>
+              <button class="btn btn-sm btn-primary" onclick="showAddCategoryModal()"><i class="fas fa-plus"></i> Add Category</button>
             </div>
             <div class="categories-grid" id="categoriesList"></div>
           </div>
@@ -699,9 +697,7 @@
           <div id="pagesTab" class="tab-content">
             <div class="card-header">
               <h5>Campaign Pages</h5>
-              <div data-banner-source>
-                <button class="btn btn-sm btn-primary" onclick="showAddPageModal()"><i class="fas fa-plus"></i> Add Page</button>
-              </div>
+              <button class="btn btn-sm btn-primary" onclick="showAddPageModal()"><i class="fas fa-plus"></i> Add Page</button>
             </div>
             <div id="pagesList"></div>
           </div>

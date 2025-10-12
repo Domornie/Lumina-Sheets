@@ -85,20 +85,11 @@
     </a>
 
     <? if (isAdminValue) { ?>
-    <a href="<?= generateLink('admincenter') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Admin Center">
-      <i class="fas fa-solar-panel"></i>
-    </a>
     <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
       title="Employment Report">
       <i class="fas fa-chart-bar"></i>
     </a>
     <? } ?>
-
-    <button class="notification-btn theme-toggle-btn" data-action="toggle-theme" data-bs-toggle="tooltip"
-      title="Switch to dark mode" aria-label="Switch to dark mode">
-      <i class="fas fa-moon" aria-hidden="true"></i>
-      <span class="visually-hidden">Toggle color theme</span>
-    </button>
 
     <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
       <i class="fas fa-sign-out-alt"></i>

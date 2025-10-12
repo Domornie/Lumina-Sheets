@@ -937,26 +937,8 @@
 
                         <div class="col-12">
                             <label class="form-label-modern" for="scheduleFile">Schedule File</label>
-                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt">
-                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents, or use the Google Sheets option below.</div>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label-modern" for="googleSheetUrl">Google Sheets Link</label>
-                            <input type="url" class="form-control form-control-modern" id="googleSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-                            <div class="form-text">Paste a shared Google Sheets link to import directly without downloading a CSV export.</div>
-                            <div id="googleSheetStatus" class="form-text text-primary mt-1"></div>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label-modern" for="googleSheetTab">Sheet Name (optional)</label>
-                            <input type="text" class="form-control form-control-modern" id="googleSheetTab" placeholder="Schedule">
-                            <div class="form-text">Specify the tab to import if it is not the first sheet in the workbook.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label-modern" for="googleSheetRange">Range (optional)</label>
-                            <input type="text" class="form-control form-control-modern" id="googleSheetRange" placeholder="A1:Z200">
-                            <div class="form-text">Limit the import to a specific range. Leave blank to use the entire sheet.</div>
+                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt" required>
+                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents.</div>
                         </div>
 
                         <div class="col-12 d-flex flex-wrap gap-2 mt-2">
@@ -1709,32 +1691,12 @@
                     this.handleScheduleFileSelect(e);
                 });
 
-                document.getElementById('googleSheetUrl')?.addEventListener('input', (e) => {
-                    this.handleGoogleSheetUrlChange(e);
-                });
-
                 document.getElementById('clearImportPreview')?.addEventListener('click', () => {
                     this.clearImportPreview();
                     this.clearImportSummary();
                     const fileInput = document.getElementById('scheduleFile');
                     if (fileInput) {
                         fileInput.value = '';
-                    }
-                    const googleSheetUrl = document.getElementById('googleSheetUrl');
-                    if (googleSheetUrl) {
-                        googleSheetUrl.value = '';
-                    }
-                    const googleSheetTab = document.getElementById('googleSheetTab');
-                    if (googleSheetTab) {
-                        googleSheetTab.value = '';
-                    }
-                    const googleSheetRange = document.getElementById('googleSheetRange');
-                    if (googleSheetRange) {
-                        googleSheetRange.value = '';
-                    }
-                    const googleSheetStatus = document.getElementById('googleSheetStatus');
-                    if (googleSheetStatus) {
-                        googleSheetStatus.textContent = '';
                     }
                     this.updateImportFileName();
                 });
@@ -2350,119 +2312,63 @@
                 try {
                     this.showLoading(true);
 
-                    const getElementValue = (id) => document.getElementById(id)?.value ?? '';
-                    const getNumericValue = (id, fallback, { allowFloat = false, min = null, max = null } = {}) => {
-                        const element = document.getElementById(id);
-                        const rawValue = element ? element.value : '';
-                        const resolvedFallback = (() => {
-                            if (fallback !== undefined) {
-                                return fallback;
-                            }
-                            if (element && element.defaultValue !== undefined && element.defaultValue !== '') {
-                                const parsedDefault = allowFloat
-                                    ? parseFloat(element.defaultValue)
-                                    : parseInt(element.defaultValue, 10);
-                                if (Number.isFinite(parsedDefault)) {
-                                    return parsedDefault;
-                                }
-                            }
-                            return null;
-                        })();
-
-                        if (rawValue === '' || rawValue === null || rawValue === undefined) {
-                            return resolvedFallback;
-                        }
-
-                        const parsed = allowFloat ? parseFloat(rawValue) : parseInt(rawValue, 10);
-                        if (!Number.isFinite(parsed)) {
-                            return resolvedFallback;
-                        }
-
-                        let value = parsed;
-                        if (typeof min === 'number' && value < min) {
-                            value = min;
-                        }
-                        if (typeof max === 'number' && value > max) {
-                            value = max;
-                        }
-
-                        return value;
-                    };
-
                     // Get selected days
                     const selectedDays = [];
                     const dayCheckboxes = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                     dayCheckboxes.forEach(day => {
                         const checkbox = document.getElementById(day);
                         if (checkbox && checkbox.checked) {
-                            const parsedDay = parseInt(checkbox.value, 10);
-                            if (!Number.isNaN(parsedDay)) {
-                                selectedDays.push(parsedDay);
-                            }
+                            selectedDays.push(parseInt(checkbox.value));
                         }
                     });
 
                     // Enhanced slot data with all new fields (skills removed)
                     const slotData = {
                         // Basic Information
-                        name: getElementValue('slotName'),
-                        startTime: getElementValue('slotStartTime'),
-                        endTime: getElementValue('slotEndTime'),
+                        name: document.getElementById('slotName').value,
+                        startTime: document.getElementById('slotStartTime').value,
+                        endTime: document.getElementById('slotEndTime').value,
                         daysOfWeek: selectedDays,
-                        department: getElementValue('slotDepartment'),
-                        location: getElementValue('slotLocation'),
-                        description: getElementValue('slotDescription'),
+                        department: document.getElementById('slotDepartment').value,
+                        location: document.getElementById('slotLocation').value,
+                        description: document.getElementById('slotDescription').value,
 
                         // Capacity & Staffing
-                        maxCapacity: getNumericValue('slotCapacity', 10, { min: 1, max: 100 }),
-                        minCoverage: getNumericValue('slotMinCoverage', 1, { min: 1 }),
-                        priority: getNumericValue('slotPriority', 2, { min: 1, max: 4 }),
+                        maxCapacity: parseInt(document.getElementById('slotCapacity').value),
+                        minCoverage: parseInt(document.getElementById('slotMinCoverage').value),
+                        priority: parseInt(document.getElementById('slotPriority').value),
 
                         // Break & Lunch Configuration
-                        break1Duration: getNumericValue('slotBreak1Duration', 15, { min: 5, max: 30 }),
-                        lunchDuration: getNumericValue('slotLunchDuration', 30, { min: 15, max: 60 }),
-                        break2Duration: getNumericValue('slotBreak2Duration', 0, { min: 0, max: 30 }),
+                        break1Duration: parseInt(document.getElementById('slotBreak1Duration').value),
+                        lunchDuration: parseInt(document.getElementById('slotLunchDuration').value),
+                        break2Duration: parseInt(document.getElementById('slotBreak2Duration').value),
 
                         // Staggered Breaks
                         enableStaggeredBreaks: document.getElementById('enableStaggeredBreaks').checked,
-                        breakGroups: getNumericValue('slotBreakGroups', 3, { min: 2, max: 5 }),
-                        staggerInterval: getNumericValue('slotStaggerInterval', 15, { min: 10, max: 30 }),
-                        minCoveragePct: getNumericValue('slotMinCoveragePct', 70, { min: 50, max: 95 }),
+                        breakGroups: parseInt(document.getElementById('slotBreakGroups').value),
+                        staggerInterval: parseInt(document.getElementById('slotStaggerInterval').value),
+                        minCoveragePct: parseInt(document.getElementById('slotMinCoveragePct').value),
 
                         // Overtime Configuration
                         enableOvertime: document.getElementById('enableOvertime').checked,
-                        maxDailyOT: getNumericValue('slotMaxDailyOT', 0, { allowFloat: true, min: 0 }),
-                        maxWeeklyOT: getNumericValue('slotMaxWeeklyOT', 0, { allowFloat: true, min: 0 }),
-                        otApproval: getElementValue('slotOTApproval'),
-                        otRate: getNumericValue('slotOTRate', 1.5, { allowFloat: true, min: 1 }),
-                        otPolicy: getElementValue('slotOTPolicy'),
+                        maxDailyOT: parseFloat(document.getElementById('slotMaxDailyOT').value),
+                        maxWeeklyOT: parseFloat(document.getElementById('slotMaxWeeklyOT').value),
+                        otApproval: document.getElementById('slotOTApproval').value,
+                        otRate: parseFloat(document.getElementById('slotOTRate').value),
+                        otPolicy: document.getElementById('slotOTPolicy').value,
 
                         // Advanced Settings (skills removed)
                         allowSwaps: document.getElementById('allowSwaps').checked,
                         weekendPremium: document.getElementById('weekendPremium').checked,
                         holidayPremium: document.getElementById('holidayPremium').checked,
                         autoAssignment: document.getElementById('autoAssignment').checked,
-                        restPeriod: getNumericValue('slotRestPeriod', 8, { min: 0 }),
-                        notificationLead: getNumericValue('slotNotificationLead', 24, { min: 0 }),
-                        handoverTime: getNumericValue('slotHandoverTime', 15, { min: 0 }),
+                        restPeriod: parseInt(document.getElementById('slotRestPeriod').value),
+                        notificationLead: parseInt(document.getElementById('slotNotificationLead').value),
+                        handoverTime: parseInt(document.getElementById('slotHandoverTime').value),
 
                         // System fields
                         createdBy: this.getCurrentUserId() || 'System'
                     };
-
-                    if (Number.isFinite(slotData.maxCapacity) && Number.isFinite(slotData.minCoverage)) {
-                        if (slotData.minCoverage > slotData.maxCapacity) {
-                            slotData.minCoverage = slotData.maxCapacity;
-                        }
-                        if (slotData.minCoverage < 1) {
-                            slotData.minCoverage = 1;
-                        }
-                    }
-
-                    if (!slotData.enableOvertime) {
-                        slotData.maxDailyOT = 0;
-                        slotData.maxWeeklyOT = 0;
-                    }
 
                     // Enhanced validation
                     const validation = this.validateEnhancedShiftSlot(slotData);
@@ -2472,36 +2378,14 @@
 
                     console.log('Creating enhanced shift slot with data:', slotData);
 
-                    let result;
-                    let usedLegacyEndpoint = false;
+                    const result = await this.callServerFunction('clientCreateEnhancedShiftSlot', slotData);
 
-                    try {
-                        result = await this.callServerFunction('clientCreateEnhancedShiftSlot', slotData);
-                    } catch (primaryError) {
-                        if (this.shouldFallbackToLegacySlotCreation(primaryError)) {
-                            console.warn('Enhanced endpoint unavailable, retrying legacy shift slot creation.', primaryError);
-                            usedLegacyEndpoint = true;
-                            result = await this.callServerFunction('clientCreateShiftSlot', slotData);
-                        } else {
-                            throw primaryError;
-                        }
-                    }
-
-                    let normalized = this.normalizeShiftSlotCreationResponse(result);
-                    if (!normalized.success && !usedLegacyEndpoint && normalized.needsLegacyFallback) {
-                        console.warn('Enhanced endpoint returned an unexpected response. Falling back to legacy shift slot creation.');
-                        usedLegacyEndpoint = true;
-                        result = await this.callServerFunction('clientCreateShiftSlot', slotData);
-                        normalized = this.normalizeShiftSlotCreationResponse(result);
-                    }
-
-                    if (normalized.success) {
-                        const successMessage = normalized.message || 'Shift slot created successfully!';
-                        this.showToast(successMessage, 'success');
+                    if (result && result.success) {
+                        this.showToast('Enhanced shift slot created successfully!', 'success');
                         this.resetShiftSlotForm();
                         await this.loadShiftSlots();
                     } else {
-                        throw new Error(normalized.error || 'Failed to create shift slot');
+                        throw new Error(result?.error || 'Failed to create shift slot');
                     }
 
                 } catch (error) {
@@ -2510,141 +2394,6 @@
                 } finally {
                     this.showLoading(false);
                 }
-            }
-
-            shouldFallbackToLegacySlotCreation(error) {
-                if (!error) {
-                    return false;
-                }
-
-                const message = typeof error === 'string' ? error : (error.message || '');
-                if (!message) {
-                    return false;
-                }
-
-                const normalized = message.toLowerCase();
-                return normalized.includes('not a function') ||
-                    normalized.includes('is not defined') ||
-                    normalized.includes('unknown function') ||
-                    normalized.includes('cannot call');
-            }
-
-            normalizeShiftSlotCreationResponse(rawResult) {
-                const coerceString = (value) => {
-                    if (value === null || value === undefined) {
-                        return '';
-                    }
-                    return String(value).trim();
-                };
-
-                if (rawResult && typeof rawResult === 'object') {
-                    if (rawResult.success === true) {
-                        return {
-                            success: true,
-                            message: coerceString(rawResult.message) || coerceString(rawResult.status),
-                            data: rawResult,
-                            needsLegacyFallback: false
-                        };
-                    }
-
-                    if (rawResult.success === false) {
-                        const errorMessage = coerceString(rawResult.error) || coerceString(rawResult.message) || 'Server reported failure without details';
-                        return {
-                            success: false,
-                            error: errorMessage,
-                            data: rawResult,
-                            needsLegacyFallback: false
-                        };
-                    }
-
-                    const potentialMessage = coerceString(rawResult.message || rawResult.status || rawResult.result);
-                    if (potentialMessage && potentialMessage.toLowerCase().includes('success')) {
-                        return {
-                            success: true,
-                            message: potentialMessage,
-                            data: Object.assign({ success: true }, rawResult),
-                            needsLegacyFallback: false
-                        };
-                    }
-
-                    if (Object.keys(rawResult).length === 0) {
-                        return {
-                            success: false,
-                            error: 'Empty response object received from server',
-                            data: rawResult,
-                            needsLegacyFallback: true
-                        };
-                    }
-
-                    return {
-                        success: false,
-                        error: 'Unexpected response structure from server',
-                        data: rawResult,
-                        needsLegacyFallback: true
-                    };
-                }
-
-                if (rawResult === true) {
-                    return {
-                        success: true,
-                        message: 'Shift slot created successfully',
-                        data: { success: true },
-                        needsLegacyFallback: false
-                    };
-                }
-
-                if (rawResult === false) {
-                    return {
-                        success: false,
-                        error: 'Server indicated shift slot creation failure',
-                        data: { success: false },
-                        needsLegacyFallback: false
-                    };
-                }
-
-                if (typeof rawResult === 'string') {
-                    const trimmed = rawResult.trim();
-                    if (!trimmed) {
-                        return {
-                            success: false,
-                            error: 'Empty response received from server',
-                            data: rawResult,
-                            needsLegacyFallback: true
-                        };
-                    }
-
-                    if (['success', 'ok', 'created', 'done', 'completed'].some(token => trimmed.toLowerCase().includes(token))) {
-                        return {
-                            success: true,
-                            message: trimmed,
-                            data: { success: true, message: trimmed },
-                            needsLegacyFallback: false
-                        };
-                    }
-
-                    return {
-                        success: false,
-                        error: trimmed,
-                        data: rawResult,
-                        needsLegacyFallback: false
-                    };
-                }
-
-                if (rawResult === null || rawResult === undefined) {
-                    return {
-                        success: false,
-                        error: 'No response received from server',
-                        data: rawResult,
-                        needsLegacyFallback: true
-                    };
-                }
-
-                return {
-                    success: false,
-                    error: 'Unexpected response type received from server',
-                    data: rawResult,
-                    needsLegacyFallback: true
-                };
             }
 
             validateEnhancedShiftSlot(slotData) {
@@ -2673,61 +2422,45 @@
                     }
 
                     const duration = (end - start) / (1000 * 60 * 60); // hours
-                    if (!Number.isFinite(duration)) {
-                        errors.push('Unable to determine shift duration. Please verify the start and end times.');
-                    } else {
-                        if (duration < 2) {
-                            errors.push('Shift must be at least 2 hours long');
-                        }
-                        if (duration > 12) {
-                            errors.push('Shift cannot be longer than 12 hours');
-                        }
+                    if (duration < 2) {
+                        errors.push('Shift must be at least 2 hours long');
+                    }
+                    if (duration > 12) {
+                        errors.push('Shift cannot be longer than 12 hours');
                     }
                 }
 
                 // Capacity validation
-                if (!Number.isFinite(slotData.maxCapacity)) {
-                    errors.push('Max capacity is required');
-                } else if (slotData.maxCapacity < 1 || slotData.maxCapacity > 100) {
+                if (slotData.maxCapacity < 1 || slotData.maxCapacity > 100) {
                     errors.push('Max capacity must be between 1 and 100');
                 }
 
-                if (!Number.isFinite(slotData.minCoverage)) {
-                    errors.push('Minimum coverage is required');
-                } else if (slotData.minCoverage < 1) {
-                    errors.push('Min coverage must be at least 1');
-                } else if (Number.isFinite(slotData.maxCapacity) && slotData.minCoverage > slotData.maxCapacity) {
+                if (slotData.minCoverage < 1 || slotData.minCoverage > slotData.maxCapacity) {
                     errors.push('Min coverage must be between 1 and max capacity');
                 }
 
                 // Break validation
-                if (Number.isFinite(slotData.break1Duration) && (slotData.break1Duration < 5 || slotData.break1Duration > 30)) {
+                if (slotData.break1Duration < 5 || slotData.break1Duration > 30) {
                     errors.push('First break duration must be between 5 and 30 minutes');
                 }
 
-                if (Number.isFinite(slotData.lunchDuration) && (slotData.lunchDuration < 15 || slotData.lunchDuration > 60)) {
+                if (slotData.lunchDuration < 15 || slotData.lunchDuration > 60) {
                     errors.push('Lunch duration must be between 15 and 60 minutes');
-                }
-
-                if (!Number.isFinite(slotData.minCoveragePct)) {
-                    errors.push('Minimum coverage percentage is required');
-                } else if (slotData.minCoveragePct < 50 || slotData.minCoveragePct > 95) {
-                    errors.push('Minimum coverage percentage must be between 50% and 95%');
                 }
 
                 // Overtime validation
                 if (slotData.enableOvertime) {
-                    if (!Number.isFinite(slotData.maxDailyOT)) {
-                        errors.push('Max daily overtime is required when overtime is enabled');
-                    } else if (slotData.maxDailyOT < 0.5 || slotData.maxDailyOT > 4) {
+                    if (slotData.maxDailyOT < 0.5 || slotData.maxDailyOT > 4) {
                         errors.push('Max daily overtime must be between 0.5 and 4 hours');
                     }
-
-                    if (!Number.isFinite(slotData.maxWeeklyOT)) {
-                        errors.push('Max weekly overtime is required when overtime is enabled');
-                    } else if (slotData.maxWeeklyOT < 2 || slotData.maxWeeklyOT > 20) {
+                    if (slotData.maxWeeklyOT < 2 || slotData.maxWeeklyOT > 20) {
                         errors.push('Max weekly overtime must be between 2 and 20 hours');
                     }
+                }
+
+                // Coverage validation
+                if (slotData.minCoveragePct < 50 || slotData.minCoveragePct > 95) {
+                    errors.push('Minimum coverage percentage must be between 50% and 95%');
                 }
 
                 return {
@@ -3243,12 +2976,9 @@
                     const replaceExisting = document.getElementById('importReplace')?.checked === true;
                     const fileInput = document.getElementById('scheduleFile');
                     const file = fileInput?.files?.[0];
-                    const googleSheetUrl = document.getElementById('googleSheetUrl')?.value?.trim();
-                    const googleSheetTab = document.getElementById('googleSheetTab')?.value?.trim();
-                    const googleSheetRange = document.getElementById('googleSheetRange')?.value?.trim();
 
-                    if (!file && !googleSheetUrl) {
-                        throw new Error('Please select a schedule file or provide a Google Sheets link to import.');
+                    if (!file) {
+                        throw new Error('Please select a schedule file to import.');
                     }
                     if (!startDate) {
                         throw new Error('Please select the starting date.');
@@ -3273,43 +3003,14 @@
                         endDate,
                         sourceMonth,
                         sourceYear,
-                        fileName: file?.name || ''
+                        fileName: file.name || ''
                     };
 
-                    let parseResult = { schedules: [], summary: null };
-                    let googleSheetMetadata = null;
-
-                    if (file) {
-                        parseResult = await this.parseScheduleFile(file, options);
-                    } else if (googleSheetUrl) {
-                        googleSheetMetadata = await this.fetchGoogleSheetRows({
-                            url: googleSheetUrl,
-                            sheetName: googleSheetTab || undefined,
-                            range: googleSheetRange || undefined
-                        });
-
-                        if (!googleSheetMetadata || !Array.isArray(googleSheetMetadata.rows)) {
-                            throw new Error('The Google Sheets link did not return any data to import.');
-                        }
-
-                        if (googleSheetMetadata.spreadsheetName) {
-                            options.fileName = googleSheetMetadata.sheetName
-                                ? `${googleSheetMetadata.spreadsheetName} — ${googleSheetMetadata.sheetName}`
-                                : googleSheetMetadata.spreadsheetName;
-                        } else {
-                            options.fileName = 'Google Sheets Import';
-                        }
-
-                        parseResult = this.transformScheduleRows(googleSheetMetadata.rows, options || {});
-                        this.pendingImportSchedules = parseResult.schedules;
-                        this.pendingImportSummary = parseResult.summary;
-                    }
-
-                    const { schedules, summary } = parseResult;
+                    const { schedules, summary } = await this.parseScheduleFile(file, options);
 
                     if (!schedules || schedules.length === 0) {
                         this.renderImportPreview([], options, summary);
-                        this.showToast('No schedules were detected in the provided data.', 'warning');
+                        this.showToast('No schedules were detected in the uploaded file.', 'warning');
                         return;
                     }
 
@@ -3330,26 +3031,13 @@
                             dayCount: summary?.dayCount ?? importDays,
                             sourceMonth,
                             sourceYear,
-                            fileName: options.fileName || file?.name || '',
+                            fileName: file.name || '',
                             importedBy: this.getCurrentUserId(),
                             replaceExisting,
-                            summary,
-                            sourceType: file ? 'FILE_UPLOAD' : 'GOOGLE_SHEET'
+                            summary
                         },
                         schedules
                     };
-
-                    if (!file && googleSheetMetadata) {
-                        payload.metadata.googleSheet = {
-                            url: googleSheetUrl,
-                            sheetName: googleSheetMetadata.sheetName || '',
-                            spreadsheetName: googleSheetMetadata.spreadsheetName || '',
-                            range: googleSheetMetadata.range || '',
-                            sheetId: googleSheetMetadata.sheetId || '',
-                            rowCount: googleSheetMetadata.rowCount || 0,
-                            columnCount: googleSheetMetadata.columnCount || 0
-                        };
-                    }
 
                     const result = await this.callServerFunction('clientImportSchedules', payload);
 
@@ -3361,12 +3049,6 @@
                         const fileControl = document.getElementById('scheduleFile');
                         if (fileControl) {
                             fileControl.value = '';
-                        }
-                        if (!file && googleSheetUrl) {
-                            const googleSheetStatus = document.getElementById('googleSheetStatus');
-                            if (googleSheetStatus) {
-                                googleSheetStatus.textContent = 'Google Sheets import completed successfully.';
-                            }
                         }
                         this.updateImportFileName();
 
@@ -3407,24 +3089,6 @@
                 this.pendingImportSchedules = result.schedules;
                 this.pendingImportSummary = result.summary;
                 return result;
-            }
-
-            async fetchGoogleSheetRows(requestOptions = {}) {
-                try {
-                    const payload = typeof requestOptions === 'string'
-                        ? { url: requestOptions }
-                        : (requestOptions || {});
-
-                    const result = await this.callServerFunction('clientFetchScheduleSheetData', payload);
-                    if (!result || result.success !== true) {
-                        throw new Error(result?.error || 'Unable to retrieve data from Google Sheets.');
-                    }
-
-                    return result;
-                } catch (error) {
-                    console.error('❌ Error fetching Google Sheet data:', error);
-                    throw error;
-                }
             }
 
             readFileAsText(file) {
@@ -3540,7 +3204,7 @@
                 }
 
                 if (agentColumnIndex === -1) {
-                    throw new Error('The importer could not identify an agent column in the uploaded file or sheet.');
+                    throw new Error('The importer could not identify an agent column in the uploaded file.');
                 }
 
                 const slotIndex = headerKeys.findIndex((key, index) => {
@@ -4016,7 +3680,7 @@
                 if (!Array.isArray(schedules) || schedules.length === 0) {
                     container.innerHTML = `
                         <div class="alert alert-warning-modern">
-                            <i class="fas fa-info-circle me-2"></i>No schedules detected in the provided data.
+                            <i class="fas fa-info-circle me-2"></i>No schedules detected in the uploaded file.
                         </div>
                     `;
                     this.pendingImportSchedules = [];
@@ -4102,10 +3766,6 @@
                 const daysCovered = metadata?.summary?.dayCount ?? metadata.dayCount ?? '';
                 const startDateLabel = metadata.startDate ? this.formatDate(metadata.startDate) : '';
                 const endDateLabel = metadata.endDate ? this.formatDate(metadata.endDate) : '';
-                const googleSheetMeta = metadata.googleSheet || null;
-                const sourceLabel = googleSheetMeta
-                    ? `${googleSheetMeta.spreadsheetName || 'Google Sheet'}${googleSheetMeta.sheetName ? ` — ${googleSheetMeta.sheetName}` : ''}`
-                    : (metadata.fileName || '');
 
                 container.innerHTML = `
                     <div class="alert alert-success-modern">
@@ -4114,8 +3774,6 @@
                             <li><strong>Imported:</strong> ${result.importedCount}</li>
                             <li><strong>Replaced:</strong> ${result.replacedCount || 0}</li>
                             <li><strong>Total schedules now:</strong> ${result.totalAfterImport ?? 'N/A'}</li>
-                            ${sourceLabel ? `<li><strong>Source:</strong> ${sourceLabel}${googleSheetMeta?.range ? ` (${googleSheetMeta.range})` : ''}</li>` : ''}
-                            ${metadata.sourceType === 'GOOGLE_SHEET' && googleSheetMeta?.url ? `<li><strong>Sheet link:</strong> <a href="${googleSheetMeta.url}" target="_blank" rel="noopener">Open in Google Sheets</a></li>` : ''}
                             ${range ? `<li><strong>Date range affected:</strong> ${range}</li>` : ''}
                             ${daysCovered ? `<li><strong>Days covered:</strong> ${daysCovered}</li>` : ''}
                             ${startDateLabel && endDateLabel ? `<li><strong>Date span:</strong> ${startDateLabel} - ${endDateLabel}</li>` : ''}
@@ -4145,31 +3803,6 @@
                 this.updateImportFileName(file?.name || '');
                 this.clearImportPreview();
                 this.clearImportSummary();
-                if (file) {
-                    const googleSheetUrl = document.getElementById('googleSheetUrl');
-                    if (googleSheetUrl) {
-                        googleSheetUrl.value = '';
-                    }
-                    const status = document.getElementById('googleSheetStatus');
-                    if (status) {
-                        status.textContent = '';
-                    }
-                }
-            }
-
-            handleGoogleSheetUrlChange(event) {
-                const urlValue = event?.target?.value?.trim();
-                const fileInput = document.getElementById('scheduleFile');
-                if (urlValue && fileInput) {
-                    fileInput.value = '';
-                }
-                const status = document.getElementById('googleSheetStatus');
-                if (status) {
-                    status.textContent = urlValue ? 'Using Google Sheets link for this import.' : '';
-                }
-                this.updateImportFileName();
-                this.clearImportPreview();
-                this.clearImportSummary();
             }
 
             updateImportFileName(fileName) {
@@ -4178,14 +3811,8 @@
 
                 if (fileName) {
                     label.textContent = `Selected file: ${fileName}`;
-                    return;
-                }
-
-                const googleSheetUrl = document.getElementById('googleSheetUrl');
-                if (googleSheetUrl && googleSheetUrl.value.trim()) {
-                    label.textContent = 'Importing from the provided Google Sheets link.';
                 } else {
-                    label.textContent = 'Upload a CSV export of the schedule grid or provide a Google Sheets link.';
+                    label.textContent = 'Upload a CSV export of the schedule grid.';
                 }
             }
 
