@@ -13,49 +13,407 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base target="_top">
   <title>Sign in – Lumina Identity</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <style>
-    body { margin: 0; font-family: 'Inter', sans-serif; display: grid; place-items: center; min-height: 100vh; background: radial-gradient(circle at top,#2a3cff,#070b24); color: #f7f7ff; }
-    .shell { width: min(480px, calc(100% - 2rem)); background: rgba(12,18,52,0.9); border-radius: 18px; padding: 3rem 2.6rem; box-shadow: 0 30px 60px rgba(10,12,38,0.5); backdrop-filter: blur(14px); }
-    h1 { margin-top: 0; font-size: 2rem; }
-    form { display: grid; gap: 1.2rem; margin-top: 1.8rem; }
-    label { display: grid; gap: 0.35rem; font-weight: 600; }
-    input { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(7,10,32,0.9); color: inherit; }
-    button { padding: 0.85rem 1rem; border: 0; border-radius: 12px; background: linear-gradient(135deg,#5f2ded,#a65cff); color: #fff; font-weight: 600; cursor: pointer; box-shadow: 0 12px 30px rgba(95,45,237,0.35); }
-    .alt { text-align: center; margin-top: 1.4rem; font-size: 0.95rem; color: #b8bbf2; }
-    .status { margin-top: 1rem; padding: 0.75rem; border-radius: 10px; background: rgba(25,200,120,0.15); color: #5bf2a5; display: none; }
-    .status.error { background: rgba(255,71,87,0.1); color: #ff7990; }
+    :root {
+      color-scheme: light;
+      font-family: 'Inter', sans-serif;
+      --blue-900: #0f1f44;
+      --blue-800: #1c2f63;
+      --blue-700: #2e4792;
+      --blue-100: #f0f4ff;
+      --blue-50: #f7f9ff;
+      --gray-500: #606580;
+      --gray-600: #3f4660;
+      --border-color: rgba(15, 31, 68, 0.1);
+      --radius-lg: 32px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f9fbff 0%, #edf2ff 45%, #dbe6ff 100%);
+      color: var(--gray-600);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: clamp(1rem, 4vw, 2.5rem);
+    }
+
+    .page {
+      width: min(1120px, 100%);
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 24px 60px rgba(34, 57, 116, 0.12);
+      display: grid;
+      grid-template-columns: minmax(260px, 40%) minmax(0, 60%);
+      overflow: hidden;
+    }
+
+    .hero {
+      background:
+        linear-gradient(180deg, rgba(15, 31, 68, 0.88) 0%, rgba(10, 21, 52, 0.95) 100%),
+        url('https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg') center/cover no-repeat;
+      color: #fff;
+      padding: clamp(2.5rem, 4vw, 3rem);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.75rem;
+      text-align: left;
+    }
+
+    .hero::after {
+      display: none;
+    }
+
+    .hero-header {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.24em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .hero-header::before {
+      content: '';
+      display: inline-block;
+      width: 34px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(126, 161, 255, 0.9), rgba(255, 255, 255, 0));
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 2.6vw, 2.2rem);
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .hero p {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .hero-features {
+      margin: 1.5rem 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .hero-features li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .hero-features svg {
+      width: 18px;
+      height: 18px;
+      margin-top: 0.1rem;
+      flex-shrink: 0;
+      color: #77e0ff;
+    }
+
+    .hero-features strong {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: #fff;
+    }
+
+    .auth {
+      padding: clamp(2.2rem, 5vw, 4rem);
+      display: grid;
+      align-content: center;
+      justify-items: stretch;
+      gap: clamp(1.6rem, 4vw, 2.4rem);
+      background: #ffffff;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    .brand-logo {
+      width: clamp(150px, 20vw, 190px);
+      height: auto;
+    }
+
+    .auth-card {
+      display: grid;
+      gap: 1.6rem;
+    }
+
+    .auth-card h1 {
+      margin: 0;
+      font-size: clamp(1.9rem, 2.4vw, 2.2rem);
+      color: var(--blue-900);
+    }
+
+    .auth-card p {
+      margin: 0;
+      font-size: 1rem;
+      color: var(--gray-500);
+      line-height: 1.6;
+    }
+
+    form {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    label {
+      display: grid;
+      gap: 0.45rem;
+      font-weight: 500;
+      color: var(--gray-600);
+      font-size: 0.95rem;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      padding: 0.9rem 1rem;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      background: #fbfcff;
+      font-size: 1rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      color: var(--blue-900);
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: rgba(58, 102, 238, 0.5);
+      box-shadow: 0 0 0 4px rgba(76, 131, 255, 0.15);
+    }
+
+    .form-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .remember {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: var(--gray-500);
+      font-weight: 500;
+    }
+
+    .remember input {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      accent-color: #425dff;
+    }
+
+    .link {
+      color: #456aff;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    button[type="submit"] {
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #395bff, #5a7bff);
+      color: #fff;
+      font-weight: 600;
+      padding: 0.95rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 15px 35px rgba(60, 94, 255, 0.35);
+    }
+
+    button[type="submit"]:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 40px rgba(60, 94, 255, 0.38);
+    }
+
+    button[type="submit"]:active {
+      transform: translateY(0);
+    }
+
+    .status {
+      margin-top: -0.3rem;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      background: rgba(76, 210, 149, 0.12);
+      color: #1a8f58;
+      border: 1px solid rgba(76, 210, 149, 0.35);
+      display: none;
+    }
+
+    .status.error {
+      background: rgba(255, 115, 115, 0.12);
+      color: #b02f2f;
+      border-color: rgba(255, 115, 115, 0.35);
+    }
+
+    .secondary-actions {
+      text-align: center;
+      font-size: 0.95rem;
+      color: var(--gray-500);
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .secondary-actions .link {
+      font-weight: 600;
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        min-height: 420px;
+      }
+
+      .auth {
+        border-top-left-radius: 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 0;
+        background: #0f1f44;
+      }
+
+      .page {
+        border-radius: 0;
+        min-height: 100vh;
+      }
+
+      .hero {
+        padding: 2.5rem 1.8rem;
+      }
+
+      .auth {
+        padding: 2.2rem 1.6rem 3rem;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <h1>Welcome back</h1>
-    <p>Use your Lumina credentials. OTP and TOTP will be requested automatically when your campaign policy requires it.</p>
-    <div class="status" id="status"></div>
-    <form id="login-form">
-      <label>
-        Email or Username
-        <input id="identity" type="text" autocomplete="username" required>
-      </label>
-      <label>
-        Password
-        <input id="password" type="password" autocomplete="current-password" required>
-      </label>
-      <label id="otp-wrapper" style="display:none;">
-        Verification code
-        <input id="otp" type="text" maxlength="6" inputmode="numeric" pattern="\\d{6}">
-      </label>
-      <label id="totp-wrapper" style="display:none;">
-        Authenticator code
-        <input id="totp" type="text" maxlength="6" inputmode="numeric" pattern="\\d{6}">
-      </label>
-      <input type="hidden" id="sessionId" value="<?= loginSessionId ?>">
-      <input type="hidden" id="csrf" value="<?= loginCsrfToken ?>">
-      <button type="submit">Sign in</button>
-    </form>
-    <div class="alt">
-      Need a one-time code? <a href="#" id="request-otp" style="color:#8da2ff;">Send OTP</a>
-    </div>
+  <div class="page">
+    <section class="hero" aria-label="LuminaHQ platform overview">
+      <div>
+        <span class="hero-header">LuminaHQ Platform</span>
+        <h1>Clarity for every customer conversation</h1>
+        <p>Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
+        <ul class="hero-features">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M7 12.5l2.5 2.5 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div>
+              <strong>Real-time insight into quality, productivity, and coaching impact.</strong>
+              <span>Surface scorecards, dashboards, and trend data instantly.</span>
+            </div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M7 12.5l2.5 2.5 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div>
+              <strong>Streamlined workflows that keep support, QA, and operations aligned.</strong>
+              <span>Automate follow-ups, escalations, and coaching cadences.</span>
+            </div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M7 12.5l2.5 2.5 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div>
+              <strong>Enterprise-grade controls to protect teams and customer data.</strong>
+              <span>Role-based access, audit trails, and secure authentication.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="auth" aria-label="LuminaHQ login">
+      <div class="brand" aria-label="Lumina brand">
+        <img
+          class="brand-logo"
+          src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763485/vlbpo/1_e9kprc.png"
+          alt="Lumina logo"
+          width="190"
+          height="60"
+        >
+      </div>
+      <div class="auth-card">
+        <div>
+          <h1>Welcome back</h1>
+          <p>Log in to access your LuminaHQ operations hub.</p>
+        </div>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+        <form id="login-form">
+          <label for="identity">
+            Email Address
+            <input id="identity" type="text" autocomplete="username" required>
+          </label>
+          <label for="password">
+            Password
+            <input id="password" type="password" autocomplete="current-password" required>
+          </label>
+          <label for="otp" id="otp-wrapper" style="display:none;">
+            Verification code
+            <input id="otp" type="text" maxlength="6" inputmode="numeric" pattern="\d{6}">
+          </label>
+          <label for="totp" id="totp-wrapper" style="display:none;">
+            Authenticator code
+            <input id="totp" type="text" maxlength="6" inputmode="numeric" pattern="\d{6}">
+          </label>
+          <div class="form-footer">
+            <label class="remember">
+              <input type="checkbox" id="remember" name="remember" value="24">
+              Remember me for 24 hours
+            </label>
+            <a class="link" href="#" id="forgot-password">Forgot your password?</a>
+          </div>
+          <input type="hidden" id="sessionId" value="<?= loginSessionId ?>">
+          <input type="hidden" id="csrf" value="<?= loginCsrfToken ?>">
+          <button type="submit">Log in</button>
+        </form>
+        <div class="secondary-actions">
+          <span>Need a one-time code?</span>
+          <a class="link" href="#" id="request-otp">Send an OTP to your inbox</a>
+        </div>
+      </div>
+    </section>
   </div>
   <script>
     const loginContext = {
@@ -163,6 +521,11 @@
       } catch (err) {
         setStatus(err.message || 'Unable to send code', true);
       }
+    });
+
+    document.getElementById('forgot-password').addEventListener('click', (event) => {
+      event.preventDefault();
+      setStatus('Password resets are managed by your Lumina administrator.', false);
     });
 
     revealSecondFactorsFromMessage(loginContext.message);
