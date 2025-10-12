@@ -154,6 +154,36 @@
         padding: 0;
       }
 
+      .nav-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.2rem;
+        border-radius: 999px;
+        color: var(--violet);
+        font-weight: 600;
+        text-decoration: none;
+        background: rgba(99, 102, 241, 0.12);
+        transition: var(--transition);
+      }
+
+      .nav-link i {
+        font-size: 0.95rem;
+      }
+
+      .nav-link:hover,
+      .nav-link:focus {
+        color: var(--white);
+        background: linear-gradient(120deg, rgba(99, 102, 241, 0.9), rgba(37, 99, 235, 0.9));
+        box-shadow: 0 18px 32px rgba(79, 70, 229, 0.28);
+      }
+
       nav a {
         text-decoration: none;
         color: var(--stone);
@@ -847,7 +877,14 @@
           flex-wrap: wrap;
         }
 
-        .nav-cta {
+        .nav-actions {
+          width: 100%;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .nav-actions .nav-link,
+        .nav-actions .nav-cta {
           width: 100%;
           justify-content: center;
         }
@@ -945,10 +982,16 @@
             <li><a href="#insights">Insights</a></li>
           </ul>
         </nav>
-        <a class="nav-cta" href="#cta">
-          <i class="fa-solid fa-paper-plane"></i>
-          Request access
-        </a>
+        <div class="nav-actions">
+          <a class="nav-link" href="?page=login">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            Sign in
+          </a>
+          <a class="nav-cta" href="#cta">
+            <i class="fa-solid fa-paper-plane"></i>
+            Request access
+          </a>
+        </div>
       </div>
     </header>
     <main>
@@ -1283,6 +1326,7 @@
           <a href="?page=landing-about">About</a>
           <a href="?page=landing-capabilities">Capabilities</a>
           <a href="?page=lumina-user-guide">User guide</a>
+          <a href="?page=login">Sign in</a>
           <a href="#cta">Connect with us</a>
         </div>
         <div class="footer-contact">
