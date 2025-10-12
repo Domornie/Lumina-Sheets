@@ -27,8 +27,9 @@ HTML front-ends inside `Html/`.
 
 ### Bootstrap & seed data
 
-- Run `seedLuminaIdentity()` (see `SeedData.js`) to insert the baseline roles,
-  campaigns, and a `System Admin` account with 2FA disabled. Update the default
+- Run `seedDefaultData()` to bootstrap the workspace. The helper now also calls
+  `seedLuminaIdentity()` under the hood so the identity roles, permissions, and
+  `System Admin` account are provisioned automatically. Update the default
   password immediately after the first login.
 - Use the `/auth/request-otp` endpoint (exposed via the router) to verify email
   delivery through Apps Script `MailApp` or your preferred SMTP relay.
