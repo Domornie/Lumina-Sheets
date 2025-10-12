@@ -45,6 +45,7 @@
       Action: event.Action || '',
       BeforeJSON: toJson(event.BeforeJSON || event.Before || ''),
       AfterJSON: toJson(event.AfterJSON || event.After || ''),
+      Mode: event.Mode || '',
       IP: event.IP || '',
       UA: event.UA || ''
     };

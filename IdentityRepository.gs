@@ -26,9 +26,9 @@
 
   var TABLE_HEADERS = {
     Campaigns: ['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON'],
-    Users: ['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt'],
+    Users: ['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt', 'Role', 'CampaignId', 'UpdatedAt', 'FlagsJson', 'Watchlist'],
     UserCampaigns: ['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist'],
-    Roles: ['Role', 'Description', 'IsGlobal'],
+    Roles: ['RoleId', 'Role', 'Name', 'Description', 'PermissionsJson', 'DefaultForCampaignManager', 'IsGlobal'],
     RolePermissions: ['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed'],
     OTP: ['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount'],
     Sessions: ['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA'],
@@ -36,12 +36,19 @@
     Equipment: ['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status'],
     EmploymentStatus: ['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes'],
     EligibilityRules: ['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active'],
-    AuditLog: ['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'IP', 'UA'],
-    FeatureFlags: ['Flag', 'Value', 'Notes', 'UpdatedAt'],
+    AuditLog: ['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'Mode', 'IP', 'UA'],
+    FeatureFlags: ['Key', 'Value', 'Env', 'Description', 'UpdatedAt', 'Flag', 'Notes'],
     Policies: ['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt'],
     QualityScores: ['RecordId', 'UserId', 'CampaignId', 'Score', 'Date'],
-    Attendance: ['RecordId', 'UserId', 'CampaignId', 'Attendance', 'Status', 'Date'],
-    Performance: ['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']
+    Attendance: ['RecordId', 'UserId', 'CampaignId', 'Date', 'State', 'Start', 'End', 'Productive', 'Minutes'],
+    Performance: ['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date'],
+    Shifts: ['ShiftId', 'CampaignId', 'UserId', 'Date', 'StartTime', 'EndTime', 'Status'],
+    QAAudits: ['AuditId', 'UserId', 'CampaignId', 'Score', 'Band', 'AutoFail', 'CreatedAt', 'DetailsUrl'],
+    Coaching: ['CoachId', 'UserId', 'CampaignId', 'Plan', 'DueDate', 'Status'],
+    Benefits: ['UserId', 'Eligible', 'Reason', 'EffectiveDate'],
+    PayrollSync: ['CampaignId', 'RunId', 'Status', 'ErrorsJson', 'StartedAt', 'EndedAt'],
+    SystemMessages: ['MessageId', 'Severity', 'Title', 'Body', 'TargetRole', 'TargetCampaignId', 'Status', 'CreatedAt', 'ResolvedAt', 'CreatedBy', 'MetadataJson'],
+    Jobs: ['JobId', 'Name', 'Schedule', 'LastRunAt', 'LastStatus', 'ConfigJson', 'Enabled', 'RunHash']
   };
 
   var repositoryCache = CacheService ? CacheService.getScriptCache() : null;
