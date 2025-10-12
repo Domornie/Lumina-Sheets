@@ -14,6 +14,7 @@
   <base target="_top">
   <title>Sign in – Lumina Identity</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <?!= includeOnce('layoutAlerts') ?>
   <style>
     :root {
       color-scheme: light;
@@ -38,20 +39,14 @@
       min-height: 100vh;
       background: linear-gradient(135deg, #f9fbff 0%, #edf2ff 45%, #dbe6ff 100%);
       color: var(--gray-600);
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
-      padding: clamp(1rem, 4vw, 2.5rem);
+      font-family: 'Inter', sans-serif;
     }
 
     .page {
-      width: min(1120px, 100%);
-      background: #ffffff;
-      border-radius: var(--radius-lg);
-      box-shadow: 0 24px 60px rgba(34, 57, 116, 0.12);
       display: grid;
-      grid-template-columns: minmax(260px, 40%) minmax(0, 60%);
-      overflow: hidden;
+      grid-template-columns: minmax(320px, 40%) minmax(0, 60%);
+      min-height: 100vh;
+      width: 100%;
     }
 
     .hero {
@@ -260,21 +255,16 @@
       transform: translateY(0);
     }
 
-    .status {
-      margin-top: -0.3rem;
-      padding: 0.85rem 1rem;
-      border-radius: 12px;
-      font-size: 0.92rem;
-      background: rgba(76, 210, 149, 0.12);
-      color: #1a8f58;
-      border: 1px solid rgba(76, 210, 149, 0.35);
-      display: none;
-    }
-
-    .status.error {
-      background: rgba(255, 115, 115, 0.12);
-      color: #b02f2f;
-      border-color: rgba(255, 115, 115, 0.35);
+    .sr-only {
+      border: 0;
+      clip: rect(0, 0, 0, 0);
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      padding: 0;
+      position: absolute;
+      width: 1px;
+      white-space: nowrap;
     }
 
     .secondary-actions {
@@ -379,7 +369,7 @@
           <h1>Welcome back</h1>
           <p>Log in to access your LuminaHQ operations hub.</p>
         </div>
-        <div class="status" id="status" role="status" aria-live="polite"></div>
+        <div id="status" class="sr-only" role="status" aria-live="polite"></div>
         <form id="login-form">
           <label for="identity">
             Email Address
@@ -443,12 +433,72 @@
       }
     }
 
-    function setStatus(message, isError) {
+    function announce(message) {
       statusEl.textContent = message || '';
-      statusEl.classList.toggle('error', !!isError);
-      statusEl.style.display = message ? 'block' : 'none';
-      if (message) {
-        revealSecondFactorsFromMessage(message);
+    }
+
+    function normalizeTone(tone) {
+      if (!tone) return 'info';
+      const normalized = String(tone).trim().toLowerCase();
+      if (normalized === 'error') {
+        return 'danger';
+      }
+      if (['success', 'warning', 'danger', 'info'].includes(normalized)) {
+        return normalized;
+      }
+      return 'info';
+    }
+
+    function inferToneFromMessage(message) {
+      if (!message) {
+        return 'info';
+      }
+      const text = String(message).toLowerCase();
+      if (/(success|redirect|sent|delivered|complete)/.test(text)) {
+        return 'success';
+      }
+      if (/(error|unable|invalid|fail|denied|expired)/.test(text)) {
+        return 'danger';
+      }
+      if (/(remind|warning|caution|enter|missing)/.test(text)) {
+        return 'warning';
+      }
+      return 'info';
+    }
+
+    function notify(message, tone, options) {
+      if (!message) {
+        announce('');
+        return;
+      }
+
+      revealSecondFactorsFromMessage(message);
+      announce(message);
+
+      const type = normalizeTone(tone || inferToneFromMessage(message));
+      const titles = {
+        success: 'Success',
+        danger: 'Attention needed',
+        warning: 'Heads up',
+        info: 'Lumina'
+      };
+
+      const toastOptions = Object.assign({
+        type,
+        title: titles[type]
+      }, options || {});
+
+      if (typeof toastOptions.autohide === 'undefined' && type === 'danger') {
+        toastOptions.autohide = false;
+      }
+
+      if (typeof window.showLuminaToast === 'function') {
+        window.showLuminaToast(message, toastOptions);
+      } else if (typeof window.luminaNotify === 'function') {
+        window.luminaNotify(message, type, toastOptions);
+      } else {
+        const log = type === 'danger' ? 'error' : type === 'warning' ? 'warn' : 'log';
+        console[log](message);
       }
     }
 
@@ -475,12 +525,12 @@
     }
 
     if (loginContext.message) {
-      setStatus(loginContext.message, false);
+      notify(loginContext.message);
     }
 
     document.getElementById('login-form').addEventListener('submit', async (event) => {
       event.preventDefault();
-      setStatus('Signing in...');
+      announce('Signing in...');
       try {
         const payload = {
           emailOrUsername: document.getElementById('identity').value,
@@ -494,13 +544,13 @@
         }
         sessionInput.value = result.result.SessionId || '';
         csrfInput.value = result.result.CSRF || '';
-        setStatus('Success! Redirecting...');
+        notify('Success! Redirecting...', 'success', { delay: 1800 });
         const redirectTarget = (loginContext.returnUrl && loginContext.returnUrl.trim()) || '?page=dashboard';
         setTimeout(() => {
           window.location.href = redirectTarget;
         }, 900);
       } catch (err) {
-        setStatus(err.message || 'Unable to sign in', true);
+        notify(err.message || 'Unable to sign in', 'danger', { autohide: false });
       }
     });
 
@@ -509,23 +559,23 @@
       try {
         const identity = document.getElementById('identity').value;
         if (!identity) {
-          setStatus('Enter your email or username first.', true);
+          notify('Enter your email or username first.', 'warning');
           return;
         }
         const response = await api('auth/request-otp', { emailOrUsername: identity, purpose: 'login' });
         if (!response || response.ok !== true) {
           throw new Error((response && response.error) || 'Unable to send code');
         }
-        setStatus('Check your email for a six digit code.');
+        notify('Check your email for a six digit code.', 'success');
         otpWrapper.style.display = 'block';
       } catch (err) {
-        setStatus(err.message || 'Unable to send code', true);
+        notify(err.message || 'Unable to send code', 'danger');
       }
     });
 
     document.getElementById('forgot-password').addEventListener('click', (event) => {
       event.preventDefault();
-      setStatus('Password resets are managed by your Lumina administrator.', false);
+      notify('Password resets are managed by your Lumina administrator.', 'info');
     });
 
     revealSecondFactorsFromMessage(loginContext.message);
