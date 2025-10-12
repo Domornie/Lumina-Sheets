@@ -3580,6 +3580,10 @@ function doGet(e) {
   try {
     const baseUrl = getBaseUrl();
 
+    if (e && e.parameter && e.parameter.api === 'identity') {
+      return IdentityRouter.handleGet(e);
+    }
+
     if (e.parameter.page === 'proxy') {
       console.log('doGet: Handling proxy request');
       return serveEnhancedProxy(e);
