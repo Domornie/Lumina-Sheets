@@ -14,7 +14,7 @@
  */
 
 const SEED_ROLE_NAMES = [
-  'Super Admin',
+  'System Admin',
   'Administrator',
   'Operations Manager',
   'Agent'
@@ -154,7 +154,7 @@ const SEED_LUMINA_ADMIN_PROFILE = {
   fullName: 'Lumina Admin',
   email: 'lumina@vlbpo.com',
   defaultCampaign: 'Lumina HQ',
-  roleNames: ['Super Admin', 'Administrator'],
+  roleNames: ['System Admin', 'Administrator'],
   claimTypes: ['system.admin', 'lumina.admin', 'manage.users', 'manage.pages'],
   seedLabel: 'Lumina Administrator'
 };
@@ -303,6 +303,269 @@ function resolveIdentityHeadersForTable(tableName) {
   }
 
   return null;
+}
+
+function resolveUsersSheetName() {
+  if (typeof getUsersSheetName === 'function') {
+    try {
+      const resolved = getUsersSheetName();
+      if (resolved) {
+        return resolved;
+      }
+    } catch (err) {
+      console.warn('resolveUsersSheetName: getUsersSheetName failed', err);
+    }
+  }
+
+  if (typeof USERS_SHEET === 'string' && USERS_SHEET) {
+    return USERS_SHEET;
+  }
+
+  return 'Users';
+}
+
+function resolveUsersSheetHeaders() {
+  if (typeof getCanonicalUserHeaders === 'function') {
+    try {
+      const canonical = getCanonicalUserHeaders({ preferIdentityService: false });
+      if (Array.isArray(canonical) && canonical.length) {
+        return canonical.slice();
+      }
+    } catch (err) {
+      console.warn('resolveUsersSheetHeaders: getCanonicalUserHeaders failed', err);
+    }
+  }
+
+  if (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS) && USERS_HEADERS.length) {
+    return USERS_HEADERS.slice();
+  }
+
+  if (typeof DEFAULT_USER_HEADERS_FALLBACK !== 'undefined'
+    && Array.isArray(DEFAULT_USER_HEADERS_FALLBACK)
+    && DEFAULT_USER_HEADERS_FALLBACK.length) {
+    return DEFAULT_USER_HEADERS_FALLBACK.slice();
+  }
+
+  return ['ID', 'UserId', 'UserName', 'Email', 'Status', 'CampaignID', 'CreatedAt', 'UpdatedAt'];
+}
+
+function findExistingUsersSheetRow(sheetName, identifiers) {
+  if (typeof readSheet !== 'function') {
+    return { row: null, index: -1 };
+  }
+
+  try {
+    const rows = readSheet(sheetName) || [];
+    if (!rows.length) {
+      return { row: null, index: -1 };
+    }
+
+    const normalized = Object.keys(identifiers).reduce((acc, key) => {
+      const value = identifiers[key];
+      if (value === null || typeof value === 'undefined') {
+        return acc;
+      }
+      acc[key] = String(value).trim().toLowerCase();
+      return acc;
+    }, {});
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (!row) {
+        continue;
+      }
+
+      const matches = Object.keys(normalized).some(key => {
+        const candidate = row[key];
+        if (candidate === null || typeof candidate === 'undefined') {
+          return false;
+        }
+        return String(candidate).trim().toLowerCase() === normalized[key];
+      });
+
+      if (matches) {
+        return { row, index: i };
+      }
+    }
+  } catch (err) {
+    console.warn('findExistingUsersSheetRow failed', err);
+  }
+
+  return { row: null, index: -1 };
+}
+
+function ensureUsersSheetSeedRecord(context) {
+  const sheetName = resolveUsersSheetName();
+  const headers = resolveUsersSheetHeaders();
+  const headerSet = new Set(headers);
+
+  if (typeof ensureSheetWithHeaders === 'function') {
+    try {
+      ensureSheetWithHeaders(sheetName, headers);
+    } catch (err) {
+      console.warn('ensureUsersSheetSeedRecord: ensureSheetWithHeaders failed', err);
+    }
+  }
+
+  const identifiers = {};
+  if (headerSet.has('ID')) {
+    identifiers.ID = context.userId;
+  }
+  if (headerSet.has('UserId')) {
+    identifiers.UserId = context.userId;
+  }
+  if (headerSet.has('UserID')) {
+    identifiers.UserID = context.userId;
+  }
+  if (headerSet.has('UserName')) {
+    identifiers.UserName = context.username;
+  }
+  if (headerSet.has('Username')) {
+    identifiers.Username = context.username;
+  }
+  if (headerSet.has('Email')) {
+    identifiers.Email = context.email;
+  }
+
+  const existing = findExistingUsersSheetRow(sheetName, identifiers);
+  const hasExisting = !!existing && !!existing.row;
+
+  const updates = {};
+  const sourceRecord = context.sourceRecord || {};
+
+  function setFieldIfPresent(field, value, options) {
+    if (!headerSet.has(field)) {
+      return;
+    }
+
+    const normalized = (value === null || typeof value === 'undefined') ? '' : value;
+    if (hasExisting) {
+      if (normalized !== '' || (options && options.allowEmpty === true)) {
+        updates[field] = normalized;
+      }
+    } else {
+      updates[field] = normalized;
+    }
+  }
+
+  setFieldIfPresent('ID', context.userId, { allowEmpty: true });
+  setFieldIfPresent('UserId', context.userId, { allowEmpty: true });
+  setFieldIfPresent('UserID', context.userId, { allowEmpty: true });
+  setFieldIfPresent('Username', context.username, { allowEmpty: true });
+  setFieldIfPresent('UserName', context.username, { allowEmpty: true });
+  setFieldIfPresent('DisplayName', context.fullName, { allowEmpty: true });
+  setFieldIfPresent('FullName', context.fullName, { allowEmpty: true });
+  setFieldIfPresent('Email', context.email, { allowEmpty: true });
+  setFieldIfPresent('NormalizedEmail', context.normalizedEmail, { allowEmpty: true });
+  setFieldIfPresent('NormalizedUserName', context.normalizedUserName, { allowEmpty: true });
+  setFieldIfPresent('EmailVerified', 'Y', { allowEmpty: true });
+  setFieldIfPresent('EmailConfirmed', 'Y', { allowEmpty: true });
+  setFieldIfPresent('CanLogin', 'Y', { allowEmpty: true });
+  setFieldIfPresent('Watchlist', 'N', { allowEmpty: true });
+  setFieldIfPresent('Status', context.status || 'Active', { allowEmpty: true });
+  setFieldIfPresent('IsAdmin', context.isAdmin || 'Y', { allowEmpty: true });
+
+  const campaignId = context.defaultCampaignId || context.defaultCampaignName || '';
+  setFieldIfPresent('CampaignID', campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('CampaignId', campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('Campaign', context.defaultCampaignName || campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('PrimaryCampaignID', campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('PrimaryCampaignId', campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('PrimaryCampaignName', context.defaultCampaignName || '', { allowEmpty: !hasExisting });
+  setFieldIfPresent('DefaultCampaignID', campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('DefaultCampaignId', campaignId, { allowEmpty: !hasExisting });
+  setFieldIfPresent('DefaultCampaignName', context.defaultCampaignName || '', { allowEmpty: !hasExisting });
+
+  const createdAt = context.createdAt || sourceRecord.CreatedAt || new Date().toISOString();
+  const updatedAt = context.updatedAt || new Date().toISOString();
+  setFieldIfPresent('CreatedAt', createdAt, { allowEmpty: true });
+  setFieldIfPresent('UpdatedAt', updatedAt, { allowEmpty: true });
+  setFieldIfPresent('CreatedBy', context.seedLabel || 'seed', { allowEmpty: true });
+  setFieldIfPresent('UpdatedBy', context.seedLabel || 'seed', { allowEmpty: true });
+  setFieldIfPresent('LastLoginAt', context.lastLoginAt || sourceRecord.LastLoginAt || '', { allowEmpty: !hasExisting });
+  setFieldIfPresent('PreferredLocale', context.locale || sourceRecord.PreferredLocale || 'en-US', { allowEmpty: !hasExisting });
+  setFieldIfPresent('Locale', context.locale || sourceRecord.PreferredLocale || 'en-US', { allowEmpty: !hasExisting });
+  setFieldIfPresent('TimeZone', context.timeZone || sourceRecord.TimeZone || 'America/New_York', { allowEmpty: !hasExisting });
+
+  const roleList = Array.isArray(context.roles) ? Array.from(new Set(context.roles.filter(Boolean))) : [];
+  const rolesJoined = roleList.join(', ');
+  setFieldIfPresent('Roles', rolesJoined, { allowEmpty: !hasExisting });
+
+  const claimList = Array.isArray(context.claims) ? Array.from(new Set(context.claims.filter(Boolean))) : [];
+  const claimsJoined = claimList.join(', ');
+  setFieldIfPresent('Claims', claimsJoined, { allowEmpty: !hasExisting });
+  setFieldIfPresent('ClaimTypes', claimsJoined, { allowEmpty: !hasExisting });
+
+  const pageList = Array.isArray(context.adminPages) ? Array.from(new Set(context.adminPages.filter(Boolean))) : [];
+  const pagesJoined = pageList.join(', ');
+  setFieldIfPresent('Pages', pagesJoined, { allowEmpty: !hasExisting });
+
+  setFieldIfPresent('SeedLabel', context.seedLabel || '', { allowEmpty: !hasExisting });
+
+  const whereClause = {};
+  if (headerSet.has('ID')) {
+    whereClause.ID = context.userId;
+  } else if (headerSet.has('UserId')) {
+    whereClause.UserId = context.userId;
+  } else if (headerSet.has('UserID')) {
+    whereClause.UserID = context.userId;
+  } else if (headerSet.has('UserName')) {
+    whereClause.UserName = context.username;
+  } else if (headerSet.has('Username')) {
+    whereClause.Username = context.username;
+  } else if (headerSet.has('Email')) {
+    whereClause.Email = context.email;
+  } else {
+    whereClause.ID = context.userId;
+  }
+
+  try {
+    if (typeof dbUpsert === 'function') {
+      dbUpsert(sheetName, whereClause, updates);
+      return { success: true, sheet: sheetName, headers, updated: hasExisting, created: !hasExisting, method: 'dbUpsert' };
+    }
+  } catch (dbError) {
+    console.warn('ensureUsersSheetSeedRecord: dbUpsert failed, falling back to direct write', dbError);
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) {
+      throw new Error('Active spreadsheet unavailable for Users sheet seed write.');
+    }
+    const sh = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
+    const lastCol = sh.getLastColumn();
+    const headerRowLength = headers.length;
+    const activeHeaders = lastCol > 0
+      ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(value => String(value || '').trim())
+      : [];
+
+    if (activeHeaders.length !== headerRowLength || activeHeaders.some((value, idx) => value !== headers[idx])) {
+      sh.clear();
+      sh.getRange(1, 1, 1, headerRowLength).setValues([headers]);
+      sh.setFrozenRows(1);
+    }
+
+    const rowPayload = Object.assign({}, hasExisting ? existing.row : {}, updates);
+    const rowValues = headers.map(header => (Object.prototype.hasOwnProperty.call(rowPayload, header)
+      ? rowPayload[header]
+      : ''));
+
+    if (hasExisting && existing.index >= 0) {
+      sh.getRange(existing.index + 2, 1, 1, headerRowLength).setValues([rowValues]);
+      return { success: true, sheet: sheetName, headers, updated: true, created: false, method: 'direct-write' };
+    }
+
+    sh.appendRow(rowValues);
+    return { success: true, sheet: sheetName, headers, updated: false, created: true, method: 'direct-write' };
+  } catch (writeError) {
+    console.error('ensureUsersSheetSeedRecord: failed to write Users seed record', writeError);
+    return {
+      success: false,
+      sheet: sheetName,
+      error: writeError && writeError.message ? writeError.message : String(writeError)
+    };
+  }
 }
 
 function ensureLuminaIdentitySheets() {
@@ -508,6 +771,7 @@ function seedDefaultData() {
     systemPages: { initialized: false, added: 0, updated: 0, total: 0 },
     navigation: {},
     identitySheets: { ensured: [], errors: [] },
+    identitySeed: null,
     luminaAdmin: null
   };
 
@@ -519,6 +783,17 @@ function seedDefaultData() {
     const identityEnsureResult = ensureLuminaIdentitySheets();
     summary.identitySheets.ensured = identityEnsureResult.ensured;
     summary.identitySheets.errors = identityEnsureResult.errors;
+
+    if (typeof seedLuminaIdentity === 'function') {
+      try {
+        summary.identitySeed = seedLuminaIdentity();
+      } catch (identityError) {
+        console.warn('seedDefaultData: seedLuminaIdentity failed:', identityError);
+        summary.identitySeed = {
+          error: identityError && identityError.message ? identityError.message : String(identityError)
+        };
+      }
+    }
 
     ensureSheetWithHeaders(ROLES_SHEET, ROLES_HEADER);
     ensureSheetWithHeaders(USER_ROLES_SHEET, USER_ROLES_HEADER);
@@ -1113,6 +1388,52 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
 
   const assignedCampaigns = summarizeCampaignAssignments(campaignIdsByName, uniqueCampaignIds);
 
+  const rolesForSheet = Array.from(new Set(
+    ([])
+      .concat(roleSummary.assigned || [])
+      .concat(roleSummary.existing || [])
+      .concat(roleSummary.requested || [])
+      .filter(Boolean)
+  ));
+
+  const claimsForSheet = Array.from(new Set(
+    ([])
+      .concat(claimsResult.requested || [])
+      .concat(claimsResult.created || [])
+      .concat(claimsResult.existing || [])
+      .filter(Boolean)
+  ));
+
+  const adminPages = Array.isArray(pageCatalog)
+    ? pageCatalog
+      .filter(page => page && page.requiresAdmin === true)
+      .map(page => page.title || page.name || page.key || '')
+      .filter(Boolean)
+    : [];
+
+  const usersSheetSync = ensureUsersSheetSeedRecord({
+    userId,
+    username,
+    fullName,
+    email: profile.email,
+    normalizedEmail,
+    normalizedUserName: userRecord.NormalizedUserName,
+    status: 'Active',
+    defaultCampaignId: primaryCampaignId,
+    defaultCampaignName: primaryCampaignName,
+    createdAt: userRecord.CreatedAt,
+    updatedAt: nowIso,
+    lastLoginAt: userRecord.LastLoginAt,
+    locale: userRecord.PreferredLocale,
+    timeZone: userRecord.TimeZone,
+    isAdmin: 'Y',
+    roles: rolesForSheet,
+    claims: claimsForSheet,
+    adminPages,
+    seedLabel: profile.seedLabel || 'seed',
+    sourceRecord: userRecord
+  });
+
   return {
     userId,
     email: profile.email,
@@ -1132,7 +1453,8 @@ function ensureSeedAdministrator(profile, roleIdsByName, campaignIdsByName, page
       adminPages: Array.isArray(pageCatalog)
         ? pageCatalog.filter(page => page && page.requiresAdmin === true).length
         : 0
-    }
+    },
+    usersSheet: usersSheetSync
   };
 }
 
