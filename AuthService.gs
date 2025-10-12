@@ -9,17 +9,33 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
-  var SessionService = global.SessionService;
-  var AuditService = global.AuditService;
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.list !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
+  }
+
+  function getSessionService() {
+    var sessionService = global.SessionService;
+    if (!sessionService || typeof sessionService.issueSession !== 'function') {
+      throw new Error('SessionService not initialized');
+    }
+    return sessionService;
+  }
+
+  function getAuditService() {
+    var auditService = global.AuditService;
+    if (!auditService || typeof auditService.log !== 'function') {
+      throw new Error('AuditService not initialized');
+    }
+    return auditService;
+  }
   var Utilities = global.Utilities;
   var MailApp = global.MailApp;
   var PropertiesService = global.PropertiesService;
   var EnterpriseSecurity = global.EnterpriseSecurity;
-
-  if (!IdentityRepository || !SessionService || !AuditService) {
-    throw new Error('AuthService requires repository, session, and audit services');
-  }
 
   var PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
   var OTP_TTL_MS = 5 * 60 * 1000;
@@ -74,7 +90,7 @@
   function findUser(emailOrUsername) {
     if (!emailOrUsername) return null;
     var normalized = String(emailOrUsername).toLowerCase();
-    var users = IdentityRepository.list('Users');
+    var users = getIdentityRepository().list('Users');
     return users.find(function(user) {
       return String(user.Email || '').toLowerCase() === normalized || String(user.Username || '').toLowerCase() === normalized;
     }) || null;
@@ -102,7 +118,7 @@
       LastSentAt: new Date(now).toISOString(),
       ResendCount: 0
     };
-    IdentityRepository.upsert('OTP', 'Key', record);
+    getIdentityRepository().upsert('OTP', 'Key', record);
     return record;
   }
 
@@ -119,7 +135,7 @@
   }
 
   function enforceOtpRateLimit(email, purpose) {
-    var existing = IdentityRepository.find('OTP', function(row) {
+    var existing = getIdentityRepository().find('OTP', function(row) {
       return row.Key === otpCacheKey(email, purpose);
     });
     if (!existing) {
@@ -144,10 +160,10 @@
     enforceOtpRateLimit(user.Email, purpose);
     var otp = createOtp(user.Email, purpose);
     sendOtpEmail(user.Email, otp.Code, purpose);
-    IdentityRepository.upsert('OTP', 'Key', Object.assign({}, otp, {
+    getIdentityRepository().upsert('OTP', 'Key', Object.assign({}, otp, {
       ResendCount: Number(otp.ResendCount || 0) + 1
     }));
-    AuditService.log({
+    getAuditService().log({
       ActorUserId: user.UserId,
       ActorRole: 'SYSTEM',
       CampaignId: '',
@@ -161,7 +177,7 @@
 
   function verifyOtp(email, code, purpose, context) {
     var key = otpCacheKey(email, purpose);
-    var record = IdentityRepository.find('OTP', function(row) {
+    var record = getIdentityRepository().find('OTP', function(row) {
       return row.Key === key;
     });
     if (!record) {
@@ -169,17 +185,17 @@
     }
     var now = Date.now();
     if (new Date(record.ExpiresAt).getTime() < now) {
-      IdentityRepository.remove('OTP', 'Key', key);
+      getIdentityRepository().remove('OTP', 'Key', key);
       throw new Error('OTP expired.');
     }
     if (Number(record.Attempts || 0) >= OTP_MAX_ATTEMPTS) {
       throw new Error('Maximum OTP attempts exceeded.');
     }
     if (!constantTimeEquals(record.Code, code)) {
-      IdentityRepository.upsert('OTP', 'Key', Object.assign({}, record, {
+      getIdentityRepository().upsert('OTP', 'Key', Object.assign({}, record, {
         Attempts: Number(record.Attempts || 0) + 1
       }));
-      AuditService.log({
+      getAuditService().log({
         ActorUserId: '',
         ActorRole: 'SYSTEM',
         CampaignId: '',
@@ -190,12 +206,12 @@
       });
       throw new Error('Invalid OTP code.');
     }
-    IdentityRepository.remove('OTP', 'Key', key);
+    getIdentityRepository().remove('OTP', 'Key', key);
     return true;
   }
 
   function enforceLoginRateLimit(identifier, ip) {
-    var row = IdentityRepository.find('LoginAttempts', function(item) {
+    var row = getIdentityRepository().find('LoginAttempts', function(item) {
       return item.EmailOrUsername === identifier;
     }) || {
       EmailOrUsername: identifier,
@@ -217,8 +233,8 @@
     row.LastAttemptAt = new Date(now).toISOString();
     if (row.Count1m > LOGIN_RATE_LIMIT_1M || row.Count15m > LOGIN_RATE_LIMIT_15M) {
       row.LockedUntil = new Date(now + 5 * 60 * 1000).toISOString();
-      IdentityRepository.upsert('LoginAttempts', 'EmailOrUsername', row);
-      AuditService.log({
+      getIdentityRepository().upsert('LoginAttempts', 'EmailOrUsername', row);
+      getAuditService().log({
         ActorUserId: '',
         ActorRole: 'SYSTEM',
         CampaignId: '',
@@ -228,11 +244,11 @@
       });
       throw new Error('Temporarily locked — try again at ' + new Date(row.LockedUntil).toLocaleTimeString());
     }
-    IdentityRepository.upsert('LoginAttempts', 'EmailOrUsername', row);
+    getIdentityRepository().upsert('LoginAttempts', 'EmailOrUsername', row);
   }
 
   function resetLoginAttempts(identifier) {
-    IdentityRepository.remove('LoginAttempts', 'EmailOrUsername', identifier);
+    getIdentityRepository().remove('LoginAttempts', 'EmailOrUsername', identifier);
   }
 
   function login(payload, context) {
@@ -251,7 +267,7 @@
     }
     var hashed = hashPassword(payload.password);
     if (!constantTimeEquals(user.PasswordHash, hashed)) {
-      AuditService.log({
+      getAuditService().log({
         ActorUserId: user.UserId,
         ActorRole: 'SYSTEM',
         CampaignId: '',
@@ -274,12 +290,12 @@
       }
     }
     resetLoginAttempts(identifier);
-    IdentityRepository.upsert('Users', 'UserId', Object.assign({}, user, {
+    getIdentityRepository().upsert('Users', 'UserId', Object.assign({}, user, {
       LastLoginAt: new Date().toISOString()
     }));
     var primaryCampaign = getPrimaryCampaign(user.UserId);
-    var session = SessionService.issueSession(user, primaryCampaign ? primaryCampaign.CampaignId : '', context.ip, context.ua);
-    AuditService.log({
+    var session = getSessionService().issueSession(user, primaryCampaign ? primaryCampaign.CampaignId : '', context.ip, context.ua);
+    getAuditService().log({
       ActorUserId: user.UserId,
       ActorRole: primaryCampaign ? primaryCampaign.Role : '',
       CampaignId: primaryCampaign ? primaryCampaign.CampaignId : '',
@@ -293,7 +309,7 @@
   }
 
   function getPrimaryCampaign(userId) {
-    var assignments = IdentityRepository.list('UserCampaigns').filter(function(row) {
+    var assignments = getIdentityRepository().list('UserCampaigns').filter(function(row) {
       return row.UserId === userId;
     });
     if (!assignments.length) {
@@ -317,8 +333,8 @@
       TOTPEnabled: 'Y',
       TOTPSecretHash: encryptTotpSecret(user.UserId, secret)
     });
-    IdentityRepository.upsert('Users', 'UserId', record);
-    AuditService.log({
+    getIdentityRepository().upsert('Users', 'UserId', record);
+    getAuditService().log({
       ActorUserId: user.UserId,
       ActorRole: 'SYSTEM',
       CampaignId: '',
@@ -333,8 +349,8 @@
       TOTPEnabled: 'N',
       TOTPSecretHash: ''
     });
-    IdentityRepository.upsert('Users', 'UserId', record);
-    AuditService.log({
+    getIdentityRepository().upsert('Users', 'UserId', record);
+    getAuditService().log({
       ActorUserId: user.UserId,
       ActorRole: 'SYSTEM',
       CampaignId: '',
@@ -418,8 +434,8 @@
   }
 
   function logout(sessionId, context) {
-    SessionService.invalidateSession(sessionId);
-    AuditService.log({
+    getSessionService().invalidateSession(sessionId);
+    getAuditService().log({
       ActorUserId: context && context.userId,
       ActorRole: context && context.role,
       CampaignId: context && context.campaignId,

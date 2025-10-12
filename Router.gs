@@ -5,13 +5,65 @@
  * parameter and JSON body on POST requests. Responses are always JSON.
  */
 var IdentityRouter = (function createIdentityRouter(global) {
-  var SessionService = global.SessionService;
-  var AuthService = global.AuthService;
-  var UserService = global.UserService;
-  var EquipmentService = global.EquipmentService;
-  var PolicyService = global.PolicyService;
-  var AuditService = global.AuditService;
-  var IdentityRepository = global.IdentityRepository;
+  function getSessionService() {
+    var service = global.SessionService;
+    if (!service || typeof service.readSession !== 'function') {
+      throw new Error('SessionService not initialized');
+    }
+    return service;
+  }
+
+  function getAuthService() {
+    var service = global.AuthService;
+    if (!service || typeof service.login !== 'function') {
+      throw new Error('AuthService not initialized');
+    }
+    return service;
+  }
+
+  function getUserService() {
+    var service = global.UserService;
+    if (!service || typeof service.listUsers !== 'function') {
+      throw new Error('UserService not initialized');
+    }
+    return service;
+  }
+
+  function getEquipmentService() {
+    return global.EquipmentService || null;
+  }
+
+  function requireEquipmentService() {
+    var service = getEquipmentService();
+    if (!service || typeof service.listEquipment !== 'function') {
+      throw new Error('EquipmentService not initialized');
+    }
+    return service;
+  }
+
+  function getPolicyService() {
+    var service = global.PolicyService;
+    if (!service || typeof service.listPolicies !== 'function') {
+      throw new Error('PolicyService not initialized');
+    }
+    return service;
+  }
+
+  function getAuditService() {
+    var service = global.AuditService;
+    if (!service || typeof service.list !== 'function') {
+      throw new Error('AuditService not initialized');
+    }
+    return service;
+  }
+
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.list !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
+  }
 
   function parseRequest(e) {
     var body = {};
@@ -70,40 +122,40 @@ var IdentityRouter = (function createIdentityRouter(global) {
     var action = (request.action || '').toLowerCase();
     switch (action) {
       case 'auth/request-otp':
-        return AuthService.requestOtp(request.body.emailOrUsername, request.body.purpose, { ip: request.ip, ua: request.ua });
+        return getAuthService().requestOtp(request.body.emailOrUsername, request.body.purpose, { ip: request.ip, ua: request.ua });
       case 'auth/login':
-        return AuthService.login(request.body, { ip: request.ip, ua: request.ua });
+        return getAuthService().login(request.body, { ip: request.ip, ua: request.ua });
       case 'auth/verify-otp':
-        return AuthService.verifyOtp(request.body.email, request.body.code, request.body.purpose || 'login', { ip: request.ip, ua: request.ua });
+        return getAuthService().verifyOtp(request.body.email, request.body.code, request.body.purpose || 'login', { ip: request.ip, ua: request.ua });
       case 'auth/enable-totp':
-        return AuthService.enableTotp(requireUserContext(request, rawEvent), request.body.secret, request.body.code);
+        return getAuthService().enableTotp(requireUserContext(request, rawEvent), request.body.secret, request.body.code);
       case 'auth/disable-totp':
-        return AuthService.disableTotp(requireUserContext(request, rawEvent));
+        return getAuthService().disableTotp(requireUserContext(request, rawEvent));
       case 'auth/logout':
         var context = requireSession(request);
-        AuthService.logout(request.sessionId, { userId: context.user.UserId, role: '', campaignId: context.session.CampaignId, ip: request.ip, ua: request.ua });
+        getAuthService().logout(request.sessionId, { userId: context.user.UserId, role: '', campaignId: context.session.CampaignId, ip: request.ip, ua: request.ua });
         return true;
       case 'users/list':
         var actor = requireActor(request, rawEvent);
-        return UserService.listUsers(actor, request.body.campaignId || actor.CampaignId);
+        return getUserService().listUsers(actor, request.body.campaignId || actor.CampaignId);
       case 'users/create':
-        return UserService.createUser(requireActor(request, rawEvent), request.body);
+        return getUserService().createUser(requireActor(request, rawEvent), request.body);
       case 'users/update':
-        return UserService.updateUser(requireActor(request, rawEvent), request.body.userId, request.body);
+        return getUserService().updateUser(requireActor(request, rawEvent), request.body.userId, request.body);
       case 'users/transfer':
-        return UserService.transferUser(requireActor(request, rawEvent), request.body.userId, request.body.toCampaignId);
+        return getUserService().transferUser(requireActor(request, rawEvent), request.body.userId, request.body.toCampaignId);
       case 'users/lifecycle':
-        return UserService.updateLifecycle(requireActor(request, rawEvent), request.body.userId, request.body);
+        return getUserService().updateLifecycle(requireActor(request, rawEvent), request.body.userId, request.body);
       case 'equipment/assign':
-        return EquipmentService.assignEquipment(requireActor(request, rawEvent), request.body);
+        return requireEquipmentService().assignEquipment(requireActor(request, rawEvent), request.body);
       case 'equipment/update':
-        return EquipmentService.updateEquipment(requireActor(request, rawEvent), request.body.equipmentId, request.body);
+        return requireEquipmentService().updateEquipment(requireActor(request, rawEvent), request.body.equipmentId, request.body);
       case 'equipment/list':
-        return EquipmentService.listEquipment(requireActor(request, rawEvent), request.body);
+        return requireEquipmentService().listEquipment(requireActor(request, rawEvent), request.body);
       case 'policies/list':
-        return PolicyService.listPolicies(request.body.scope || 'Global');
+        return getPolicyService().listPolicies(request.body.scope || 'Global');
       case 'audit/list':
-        return AuditService.list(request.body);
+        return getAuditService().list(request.body);
       case 'health':
         return { ok: true, version: '1.0.0' };
       default:
@@ -113,7 +165,8 @@ var IdentityRouter = (function createIdentityRouter(global) {
 
   function requireActor(request, rawEvent) {
     var context = requireSession(request);
-    var assignments = IdentityRepository.list('UserCampaigns').filter(function(row) {
+    var repo = getIdentityRepository();
+    var assignments = repo.list('UserCampaigns').filter(function(row) {
       return row.UserId === context.user.UserId;
     });
     var primary = assignments.find(function(row) { return row.IsPrimary === 'Y' || row.IsPrimary === true; });
@@ -135,18 +188,19 @@ var IdentityRouter = (function createIdentityRouter(global) {
     if (!request.sessionId) {
       throw new Error('Session required');
     }
-    if (!SessionService.validateCsrf(request.sessionId, request.csrf)) {
+    var sessionService = getSessionService();
+    if (!sessionService.validateCsrf(request.sessionId, request.csrf)) {
       throw new Error('Invalid CSRF token');
     }
-    var session = SessionService.readSession(request.sessionId);
+    var session = sessionService.readSession(request.sessionId);
     if (!session) {
       throw new Error('Session expired');
     }
-    var user = IdentityRepository.find('Users', function(row) { return row.UserId === session.UserId; });
+    var user = getIdentityRepository().find('Users', function(row) { return row.UserId === session.UserId; });
     if (!user) {
       throw new Error('User not found');
     }
-    var renewed = SessionService.renewSession(session.SessionId);
+    var renewed = sessionService.renewSession(session.SessionId);
     return { session: renewed || session, user: user };
   }
 

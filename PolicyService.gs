@@ -9,16 +9,34 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
-  var RBACService = global.RBACService;
   var Utilities = global.Utilities;
 
-  if (!IdentityRepository || !RBACService) {
-    throw new Error('PolicyService requires IdentityRepository and RBACService');
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.list !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
+  }
+
+  function getRBACService() {
+    var service = global.RBACService;
+    if (!service || typeof service.assertPermission !== 'function') {
+      throw new Error('RBACService not initialized');
+    }
+    return service;
+  }
+
+  function getAuditService() {
+    var service = global.AuditService;
+    if (!service || typeof service.log !== 'function') {
+      throw new Error('AuditService not initialized');
+    }
+    return service;
   }
 
   function listPolicies(scope) {
-    var rows = IdentityRepository.list('Policies');
+    var rows = getIdentityRepository().list('Policies');
     if (!scope) {
       return rows;
     }
@@ -28,7 +46,8 @@
   }
 
   function upsertPolicy(actor, payload) {
-    RBACService.assertPermission(actor.UserId, payload.CampaignId || '', RBACService.CAPABILITIES.MANAGE_POLICIES, actor.Roles);
+    var rbac = getRBACService();
+    rbac.assertPermission(actor.UserId, payload.CampaignId || '', rbac.CAPABILITIES.MANAGE_POLICIES, actor.Roles);
     var record = {
       PolicyId: payload.PolicyId || Utilities.getUuid(),
       Name: payload.Name,
@@ -37,8 +56,8 @@
       Value: payload.Value,
       UpdatedAt: new Date().toISOString()
     };
-    IdentityRepository.upsert('Policies', 'PolicyId', record);
-    AuditService.log({
+    getIdentityRepository().upsert('Policies', 'PolicyId', record);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: payload.CampaignId || '',
@@ -50,19 +69,20 @@
   }
 
   function listFeatureFlags() {
-    return IdentityRepository.list('FeatureFlags');
+    return getIdentityRepository().list('FeatureFlags');
   }
 
   function setFeatureFlag(actor, flag, value) {
-    RBACService.assertPermission(actor.UserId, actor.CampaignId || '', RBACService.CAPABILITIES.MANAGE_POLICIES, actor.Roles);
+    var rbac = getRBACService();
+    rbac.assertPermission(actor.UserId, actor.CampaignId || '', rbac.CAPABILITIES.MANAGE_POLICIES, actor.Roles);
     var record = {
       Flag: flag,
       Value: value,
       Notes: '',
       UpdatedAt: new Date().toISOString()
     };
-    IdentityRepository.upsert('FeatureFlags', 'Flag', record);
-    AuditService.log({
+    getIdentityRepository().upsert('FeatureFlags', 'Flag', record);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: actor.CampaignId || '',
@@ -74,7 +94,7 @@
   }
 
   function listEligibilityRules(campaignId) {
-    var rows = IdentityRepository.list('EligibilityRules');
+    var rows = getIdentityRepository().list('EligibilityRules');
     return rows.filter(function(row) {
       return row.Scope === 'Global' || row.Scope === campaignId;
     });

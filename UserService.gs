@@ -9,28 +9,51 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
-  var RBACService = global.RBACService;
-  var AuthService = global.AuthService;
-  var EquipmentService = global.EquipmentService;
-  var AuditService = global.AuditService;
-  var EligibilityService = global.EligibilityService;
   var Utilities = global.Utilities;
+  var dependencies = null;
 
-  if (!IdentityRepository || !RBACService || !AuthService || !AuditService) {
-    throw new Error('UserService dependencies missing');
+  function ensureDependencies() {
+    if (dependencies) {
+      return dependencies;
+    }
+    var repo = global.IdentityRepository;
+    var rbac = global.RBACService;
+    var auth = global.AuthService;
+    var audit = global.AuditService;
+    if (!repo || !rbac || !auth || !audit) {
+      throw new Error('UserService dependencies not initialized');
+    }
+    dependencies = {
+      repository: repo,
+      rbac: rbac,
+      auth: auth,
+      audit: audit,
+      equipment: global.EquipmentService || null,
+      eligibility: global.EligibilityService || null
+    };
+    return dependencies;
   }
 
+  function getRepository() { return ensureDependencies().repository; }
+  function getRBAC() { return ensureDependencies().rbac; }
+  function getAuthService() { return ensureDependencies().auth; }
+  function getAuditService() { return ensureDependencies().audit; }
+  function getEquipmentService() { return ensureDependencies().equipment; }
+  function getEligibilityService() { return ensureDependencies().eligibility; }
+
   function listUsers(actor, campaignId) {
-    RBACService.assertPermission(actor.UserId, campaignId, RBACService.CAPABILITIES.VIEW_USERS, actor.Roles);
-    return IdentityRepository.list('UserCampaigns')
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, campaignId, rbac.CAPABILITIES.VIEW_USERS, actor.Roles);
+    var repo = getRepository();
+    var eligibilityService = getEligibilityService();
+    return repo.list('UserCampaigns')
       .filter(function(row) { return row.CampaignId === campaignId; })
       .map(function(row) {
-        var user = IdentityRepository.find('Users', function(item) { return item.UserId === row.UserId; });
+        var user = repo.find('Users', function(item) { return item.UserId === row.UserId; });
         if (!user) {
           return null;
         }
-        var eligibility = EligibilityService ? EligibilityService.evaluateEligibility(row.UserId, campaignId) : [];
+        var eligibility = eligibilityService ? eligibilityService.evaluateEligibility(row.UserId, campaignId) : [];
         return {
           AssignmentId: row.AssignmentId,
           UserId: user.UserId,
@@ -46,15 +69,17 @@
   }
 
   function createUser(actor, payload) {
-    RBACService.assertPermission(actor.UserId, payload.CampaignId, RBACService.CAPABILITIES.MANAGE_USERS, actor.Roles);
-    AuthService.validatePassword(payload.password);
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, payload.CampaignId, rbac.CAPABILITIES.MANAGE_USERS, actor.Roles);
+    var auth = getAuthService();
+    auth.validatePassword(payload.password);
     var now = new Date().toISOString();
     var userId = payload.UserId || Utilities.getUuid();
     var record = {
       UserId: userId,
       Email: payload.Email,
       Username: payload.Username || payload.Email,
-      PasswordHash: AuthService.hashPassword(payload.password),
+      PasswordHash: auth.hashPassword(payload.password),
       EmailVerified: payload.EmailVerified ? 'Y' : 'N',
       TOTPEnabled: 'N',
       TOTPSecretHash: '',
@@ -62,9 +87,9 @@
       LastLoginAt: '',
       CreatedAt: now
     };
-    IdentityRepository.upsert('Users', 'UserId', record);
+    getRepository().upsert('Users', 'UserId', record);
     addUserCampaignAssignment(actor, userId, payload.CampaignId, payload.Role, payload.IsPrimary);
-    AuditService.log({
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: payload.CampaignId,
@@ -76,7 +101,8 @@
   }
 
   function addUserCampaignAssignment(actor, userId, campaignId, role, isPrimary) {
-    RBACService.assertPermission(actor.UserId, campaignId, RBACService.CAPABILITIES.ASSIGN_ROLES, actor.Roles);
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, campaignId, rbac.CAPABILITIES.ASSIGN_ROLES, actor.Roles);
     var record = {
       AssignmentId: Utilities.getUuid(),
       UserId: userId,
@@ -87,8 +113,8 @@
       AddedAt: new Date().toISOString(),
       Watchlist: 'N'
     };
-    IdentityRepository.upsert('UserCampaigns', 'AssignmentId', record);
-    AuditService.log({
+    getRepository().upsert('UserCampaigns', 'AssignmentId', record);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: campaignId,
@@ -99,21 +125,24 @@
   }
 
   function updateUser(actor, userId, updates) {
-    var user = IdentityRepository.find('Users', function(row) { return row.UserId === userId; });
+    var repo = getRepository();
+    var user = repo.find('Users', function(row) { return row.UserId === userId; });
     if (!user) {
       throw new Error('User not found');
     }
-    RBACService.assertPermission(actor.UserId, updates.CampaignId, RBACService.CAPABILITIES.MANAGE_USERS, actor.Roles);
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, updates.CampaignId, rbac.CAPABILITIES.MANAGE_USERS, actor.Roles);
     var updated = Object.assign({}, user, updates);
     if (updates.password) {
-      AuthService.validatePassword(updates.password);
-      updated.PasswordHash = AuthService.hashPassword(updates.password);
+      var auth = getAuthService();
+      auth.validatePassword(updates.password);
+      updated.PasswordHash = auth.hashPassword(updates.password);
     }
-    IdentityRepository.upsert('Users', 'UserId', updated);
+    repo.upsert('Users', 'UserId', updated);
     if (typeof updates.Watchlist !== 'undefined') {
       updateWatchlist(userId, updates.CampaignId, updates.Watchlist, actor);
     }
-    AuditService.log({
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: updates.CampaignId,
@@ -126,7 +155,8 @@
   }
 
   function updateWatchlist(userId, campaignId, value, actor) {
-    var assignment = IdentityRepository.find('UserCampaigns', function(row) {
+    var repo = getRepository();
+    var assignment = repo.find('UserCampaigns', function(row) {
       return row.UserId === userId && row.CampaignId === campaignId;
     });
     if (!assignment) {
@@ -135,8 +165,8 @@
     var updated = Object.assign({}, assignment, {
       Watchlist: value ? 'Y' : 'N'
     });
-    IdentityRepository.upsert('UserCampaigns', 'AssignmentId', updated);
-    AuditService.log({
+    repo.upsert('UserCampaigns', 'AssignmentId', updated);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: campaignId,
@@ -146,17 +176,19 @@
   }
 
   function transferUser(actor, userId, toCampaignId) {
-    var existing = IdentityRepository.list('UserCampaigns').filter(function(row) { return row.UserId === userId; });
+    var repo = getRepository();
+    var existing = repo.list('UserCampaigns').filter(function(row) { return row.UserId === userId; });
     if (!existing.length) {
       throw new Error('User has no assignments');
     }
-    RBACService.assertPermission(actor.UserId, toCampaignId, RBACService.CAPABILITIES.TRANSFER_USERS, actor.Roles);
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, toCampaignId, rbac.CAPABILITIES.TRANSFER_USERS, actor.Roles);
     var roleToCarry = existing[0].Role;
     existing.forEach(function(assignment) {
-      IdentityRepository.remove('UserCampaigns', 'AssignmentId', assignment.AssignmentId);
+      repo.remove('UserCampaigns', 'AssignmentId', assignment.AssignmentId);
     });
     addUserCampaignAssignment(actor, userId, toCampaignId, roleToCarry || 'Team Member', true);
-    AuditService.log({
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: toCampaignId,
@@ -169,11 +201,14 @@
 
   function updateLifecycle(actor, userId, payload) {
     var campaignId = payload.CampaignId;
-    RBACService.assertPermission(actor.UserId, campaignId, RBACService.CAPABILITIES.MANAGE_USERS, actor.Roles);
-    if (['Terminated', 'Resigned'].indexOf(payload.State) >= 0 && !payload.Override && EquipmentService.hasOutstandingEquipment(userId, campaignId)) {
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, campaignId, rbac.CAPABILITIES.MANAGE_USERS, actor.Roles);
+    var equipmentService = getEquipmentService();
+    if (['Terminated', 'Resigned'].indexOf(payload.State) >= 0 && !payload.Override && equipmentService && equipmentService.hasOutstandingEquipment(userId, campaignId)) {
       throw new Error('Outstanding equipment must be returned before termination.');
     }
-    var existingUser = IdentityRepository.find('Users', function(row) { return row.UserId === userId; });
+    var repo = getRepository();
+    var existingUser = repo.find('Users', function(row) { return row.UserId === userId; });
     var record = {
       UserId: userId,
       CampaignId: campaignId,
@@ -187,10 +222,10 @@
       if (payload.State === 'Terminated' || payload.State === 'Resigned') {
         nextStatus = 'Locked';
       }
-      IdentityRepository.upsert('Users', 'UserId', Object.assign({}, existingUser, { Status: nextStatus }));
+      repo.upsert('Users', 'UserId', Object.assign({}, existingUser, { Status: nextStatus }));
     }
-    IdentityRepository.append('EmploymentStatus', record);
-    AuditService.log({
+    repo.append('EmploymentStatus', record);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: campaignId,
@@ -202,16 +237,20 @@
   }
 
   function getUserProfile(actor, userId, campaignId) {
-    RBACService.assertPermission(actor.UserId, campaignId, RBACService.CAPABILITIES.VIEW_USERS, actor.Roles);
-    var user = IdentityRepository.find('Users', function(row) { return row.UserId === userId; });
+    var rbac = getRBAC();
+    rbac.assertPermission(actor.UserId, campaignId, rbac.CAPABILITIES.VIEW_USERS, actor.Roles);
+    var repo = getRepository();
+    var user = repo.find('Users', function(row) { return row.UserId === userId; });
     if (!user) {
       throw new Error('User not found');
     }
-    var assignments = IdentityRepository.list('UserCampaigns').filter(function(row) {
+    var assignments = repo.list('UserCampaigns').filter(function(row) {
       return row.UserId === userId;
     });
-    var equipment = EquipmentService.listEquipment(actor, { userId: userId, campaignId: campaignId });
-    var eligibility = EligibilityService ? EligibilityService.evaluateEligibility(userId, campaignId) : [];
+    var equipmentService = getEquipmentService();
+    var equipment = equipmentService ? equipmentService.listEquipment(actor, { userId: userId, campaignId: campaignId }) : [];
+    var eligibilityService = getEligibilityService();
+    var eligibility = eligibilityService ? eligibilityService.evaluateEligibility(userId, campaignId) : [];
     return {
       user: user,
       assignments: assignments,

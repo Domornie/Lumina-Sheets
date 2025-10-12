@@ -15,16 +15,18 @@
   var CacheService = global.CacheService;
   var PropertiesService = global.PropertiesService;
   var Utilities = global.Utilities;
-  var IdentityRepository = global.IdentityRepository;
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.upsert !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
+  }
   var DEFAULT_TTL_SECONDS = 20 * 60; // 20 minutes
   var MIN_TTL_SECONDS = 10 * 60;
   var MAX_TTL_SECONDS = 30 * 60;
   var SESSION_PREFIX = 'session::';
   var CSRF_PREFIX = 'csrf::';
-
-  if (!IdentityRepository) {
-    throw new Error('SessionService requires IdentityRepository bootstrap');
-  }
 
   var cache = CacheService ? CacheService.getUserCache() : null;
   var scriptProperties = PropertiesService ? PropertiesService.getScriptProperties() : null;
@@ -46,7 +48,7 @@
   }
 
   function persistSession(session) {
-    IdentityRepository.upsert('Sessions', 'SessionId', session);
+    getIdentityRepository().upsert('Sessions', 'SessionId', session);
   }
 
   function toCachePayload(session) {
@@ -161,7 +163,7 @@
     var payload = toCachePayload(session);
     putCache(SESSION_PREFIX + sessionId, payload, clampTtl(ttlSeconds));
     writeFallback(SESSION_PREFIX + sessionId, payload);
-    IdentityRepository.upsert('Sessions', 'SessionId', session);
+    getIdentityRepository().upsert('Sessions', 'SessionId', session);
     return session;
   }
 
@@ -175,11 +177,11 @@
     }
     deleteFallback(SESSION_PREFIX + sessionId);
     deleteFallback(CSRF_PREFIX + sessionId);
-    IdentityRepository.remove('Sessions', 'SessionId', sessionId);
+    getIdentityRepository().remove('Sessions', 'SessionId', sessionId);
   }
 
   function invalidateUserSessions(userId) {
-    var sessions = IdentityRepository.list('Sessions').filter(function(row) {
+    var sessions = getIdentityRepository().list('Sessions').filter(function(row) {
       return row.UserId === userId;
     });
     sessions.forEach(function(session) {

@@ -12,10 +12,12 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
-
-  if (!IdentityRepository) {
-    throw new Error('RBACService requires IdentityRepository bootstrap');
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.list !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
   }
 
   var CAPABILITIES = {
@@ -30,7 +32,7 @@
   };
 
   function getRolePermissions(role) {
-    return IdentityRepository.list('RolePermissions').filter(function(row) {
+    return getIdentityRepository().list('RolePermissions').filter(function(row) {
       return row.Role === role;
     });
   }
@@ -87,7 +89,7 @@
   }
 
   function campaignScopeForUser(userId, campaignId) {
-    var assignments = IdentityRepository.list('UserCampaigns').filter(function(row) {
+    var assignments = getIdentityRepository().list('UserCampaigns').filter(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId;
     });
     if (!assignments.length) {

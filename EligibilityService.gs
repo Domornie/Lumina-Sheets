@@ -10,11 +10,20 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
-  var PolicyService = global.PolicyService;
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.list !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
+  }
 
-  if (!IdentityRepository || !PolicyService) {
-    throw new Error('EligibilityService requires IdentityRepository and PolicyService');
+  function getPolicyService() {
+    var service = global.PolicyService;
+    if (!service || typeof service.listEligibilityRules !== 'function') {
+      throw new Error('PolicyService not initialized');
+    }
+    return service;
   }
 
   function parseJson(value) {
@@ -28,10 +37,10 @@
   }
 
   function evaluateEligibility(userId, campaignId) {
-    var rules = PolicyService.listEligibilityRules(campaignId).filter(function(rule) {
+    var rules = getPolicyService().listEligibilityRules(campaignId).filter(function(rule) {
       return rule.Active === 'Y' || rule.Active === true;
     });
-    var employmentHistory = IdentityRepository.list('EmploymentStatus').filter(function(row) {
+    var employmentHistory = getIdentityRepository().list('EmploymentStatus').filter(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId;
     });
     var hints = [];
@@ -97,13 +106,13 @@
 
   function evaluatePromotionRule(userId, campaignId, params) {
     params = params || {};
-    var qaScores = IdentityRepository.list('QualityScores').filter(function(score) {
+    var qaScores = getIdentityRepository().list('QualityScores').filter(function(score) {
       return score.UserId === userId && score.CampaignId === campaignId;
     });
-    var attendance = IdentityRepository.list('Attendance').filter(function(row) {
+    var attendance = getIdentityRepository().list('Attendance').filter(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId;
     });
-    var watchlist = IdentityRepository.list('UserCampaigns').some(function(row) {
+    var watchlist = getIdentityRepository().list('UserCampaigns').some(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId && row.Watchlist === 'Y';
     });
     var qaTarget = params.qaTarget || 90;
@@ -127,7 +136,7 @@
 
   function evaluateTerminationRule(userId, campaignId, params) {
     params = params || {};
-    var attendance = IdentityRepository.list('Attendance').filter(function(row) {
+    var attendance = getIdentityRepository().list('Attendance').filter(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId;
     });
     var threshold = params.absenceThreshold || 3;
@@ -148,7 +157,7 @@
     if (!params.kpiThreshold) {
       return null;
     }
-    var kpi = IdentityRepository.list('Performance').filter(function(row) {
+    var kpi = getIdentityRepository().list('Performance').filter(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId;
     });
     var belowThreshold = kpi.some(function(row) {

@@ -9,17 +9,35 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
-  var RBACService = global.RBACService;
-  var AuditService = global.AuditService;
   var Utilities = global.Utilities;
 
-  if (!IdentityRepository || !RBACService || !AuditService) {
-    throw new Error('EquipmentService dependencies missing');
+  function getIdentityRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.list !== 'function') {
+      throw new Error('IdentityRepository not initialized');
+    }
+    return repo;
+  }
+
+  function getRBACService() {
+    var service = global.RBACService;
+    if (!service || typeof service.assertPermission !== 'function') {
+      throw new Error('RBACService not initialized');
+    }
+    return service;
+  }
+
+  function getAuditService() {
+    var service = global.AuditService;
+    if (!service || typeof service.log !== 'function') {
+      throw new Error('AuditService not initialized');
+    }
+    return service;
   }
 
   function assignEquipment(actor, payload) {
-    RBACService.assertPermission(actor.UserId, payload.CampaignId, RBACService.CAPABILITIES.MANAGE_EQUIPMENT, actor.Roles);
+    var rbac = getRBACService();
+    rbac.assertPermission(actor.UserId, payload.CampaignId, rbac.CAPABILITIES.MANAGE_EQUIPMENT, actor.Roles);
     var record = {
       EquipmentId: payload.EquipmentId || Utilities.getUuid(),
       UserId: payload.UserId,
@@ -32,8 +50,8 @@
       Notes: payload.Notes || '',
       Status: payload.Status || 'Assigned'
     };
-    IdentityRepository.upsert('Equipment', 'EquipmentId', record);
-    AuditService.log({
+    getIdentityRepository().upsert('Equipment', 'EquipmentId', record);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: payload.CampaignId,
@@ -45,17 +63,18 @@
   }
 
   function updateEquipment(actor, equipmentId, updates) {
-    var record = IdentityRepository.find('Equipment', function(row) { return row.EquipmentId === equipmentId; });
+    var record = getIdentityRepository().find('Equipment', function(row) { return row.EquipmentId === equipmentId; });
     if (!record) {
       throw new Error('Equipment not found');
     }
-    RBACService.assertPermission(actor.UserId, record.CampaignId, RBACService.CAPABILITIES.MANAGE_EQUIPMENT, actor.Roles);
+    var rbac = getRBACService();
+    rbac.assertPermission(actor.UserId, record.CampaignId, rbac.CAPABILITIES.MANAGE_EQUIPMENT, actor.Roles);
     var updated = Object.assign({}, record, updates, {
       ReturnedAt: updates.ReturnedAt || record.ReturnedAt,
       Status: updates.Status || record.Status
     });
-    IdentityRepository.upsert('Equipment', 'EquipmentId', updated);
-    AuditService.log({
+    getIdentityRepository().upsert('Equipment', 'EquipmentId', updated);
+    getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,
       CampaignId: record.CampaignId,
@@ -68,7 +87,7 @@
   }
 
   function listEquipment(actor, filters) {
-    var rows = IdentityRepository.list('Equipment');
+    var rows = getIdentityRepository().list('Equipment');
     if (filters && filters.campaignId) {
       rows = rows.filter(function(row) { return row.CampaignId === filters.campaignId; });
     }
@@ -79,7 +98,7 @@
   }
 
   function hasOutstandingEquipment(userId, campaignId) {
-    return IdentityRepository.list('Equipment').some(function(row) {
+    return getIdentityRepository().list('Equipment').some(function(row) {
       return row.UserId === userId && row.CampaignId === campaignId && (!row.ReturnedAt || row.Status === 'Assigned');
     });
   }
