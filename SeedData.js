@@ -159,6 +159,202 @@ const SEED_LUMINA_ADMIN_PROFILE = {
   seedLabel: 'Lumina Administrator'
 };
 
+const IDENTITY_ROLE_SEED = [
+  { role: 'System Admin', description: 'Bootstrap superuser', isGlobal: 'Y', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'MANAGE_USERS', scope: 'Global' },
+    { capability: 'ASSIGN_ROLES', scope: 'Global' },
+    { capability: 'TRANSFER_USERS', scope: 'Global' },
+    { capability: 'TERMINATE_USERS', scope: 'Global' },
+    { capability: 'MANAGE_EQUIPMENT', scope: 'Global' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' },
+    { capability: 'MANAGE_POLICIES', scope: 'Global' }
+  ] },
+  { role: 'CEO', description: 'Executive leadership', isGlobal: 'Y', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' }
+  ] },
+  { role: 'COO', description: 'Operations executive', isGlobal: 'Y', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'MANAGE_USERS', scope: 'Global' },
+    { capability: 'TRANSFER_USERS', scope: 'Global' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' }
+  ] },
+  { role: 'CFO', description: 'Finance leadership', isGlobal: 'Y', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' }
+  ] },
+  { role: 'CTO', description: 'Technology leadership', isGlobal: 'Y', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'MANAGE_POLICIES', scope: 'Global' }
+  ] },
+  { role: 'Call Center Director', description: 'Multi-campaign operations leader', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'MANAGE_USERS', scope: 'Global' },
+    { capability: 'ASSIGN_ROLES', scope: 'Global' },
+    { capability: 'TRANSFER_USERS', scope: 'Global' },
+    { capability: 'TERMINATE_USERS', scope: 'Global' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' }
+  ] },
+  { role: 'Operations Manager', description: 'Multi-campaign operations manager', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'MANAGE_USERS', scope: 'Global' },
+    { capability: 'ASSIGN_ROLES', scope: 'Global' },
+    { capability: 'TRANSFER_USERS', scope: 'Global' },
+    { capability: 'TERMINATE_USERS', scope: 'Global' },
+    { capability: 'MANAGE_EQUIPMENT', scope: 'Global' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' }
+  ] },
+  { role: 'Account Manager', description: 'Client-facing operations lead', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Global' },
+    { capability: 'MANAGE_USERS', scope: 'Campaign' },
+    { capability: 'ASSIGN_ROLES', scope: 'Campaign' },
+    { capability: 'TRANSFER_USERS', scope: 'Campaign' },
+    { capability: 'TERMINATE_USERS', scope: 'Campaign' },
+    { capability: 'VIEW_AUDIT', scope: 'Campaign' }
+  ] },
+  { role: 'Workforce Manager', description: 'Workforce management', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' }
+  ] },
+  { role: 'Quality Assurance Manager', description: 'QA manager', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' }
+  ] },
+  { role: 'Training Manager', description: 'Training oversight', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' }
+  ] },
+  { role: 'Team Supervisor', description: 'Team-level supervisor', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Team' }
+  ] },
+  { role: 'Floor Supervisor', description: 'Floor supervisor', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Team' }
+  ] },
+  { role: 'Escalations Manager', description: 'Escalations oversight', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' },
+    { capability: 'TRANSFER_USERS', scope: 'Campaign' }
+  ] },
+  { role: 'Client Success Manager', description: 'Client delivery partner', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' },
+    { capability: 'VIEW_AUDIT', scope: 'Campaign' }
+  ] },
+  { role: 'Compliance Manager', description: 'Compliance oversight', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' },
+    { capability: 'MANAGE_POLICIES', scope: 'Campaign' },
+    { capability: 'VIEW_AUDIT', scope: 'Global' }
+  ] },
+  { role: 'IT Support Manager', description: 'IT device support', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' },
+    { capability: 'MANAGE_EQUIPMENT', scope: 'Campaign' }
+  ] },
+  { role: 'Reporting Analyst / Metrics Lead', description: 'Reporting & analytics', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' },
+    { capability: 'VIEW_AUDIT', scope: 'Campaign' }
+  ] },
+  { role: 'Campaign Manager', description: 'Primary campaign manager', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' },
+    { capability: 'MANAGE_USERS', scope: 'Campaign' },
+    { capability: 'ASSIGN_ROLES', scope: 'Campaign' },
+    { capability: 'TRANSFER_USERS', scope: 'Campaign' },
+    { capability: 'TERMINATE_USERS', scope: 'Campaign' },
+    { capability: 'MANAGE_EQUIPMENT', scope: 'Campaign' },
+    { capability: 'VIEW_AUDIT', scope: 'Campaign' }
+  ] },
+  { role: 'Guest (Client Owner)', description: 'Read-only client access', isGlobal: 'N', permissions: [
+    { capability: 'VIEW_USERS', scope: 'Campaign' }
+  ] }
+];
+
+const IDENTITY_CAMPAIGN_SEED = [
+  { CampaignId: 'lumina-hq', Name: 'Lumina HQ', Status: 'Active', ClientOwnerEmail: 'executive@lumina.com' },
+  { CampaignId: 'credit-suite', Name: 'Credit Suite', Status: 'Active', ClientOwnerEmail: 'client@creditsuite.com' }
+];
+
+function seedLuminaIdentity() {
+  if (typeof IdentityRepository === 'undefined' || typeof AuthService === 'undefined') {
+    throw new Error('Load IdentityRepository and AuthService before seeding identity data.');
+  }
+  var utilitiesService = (typeof globalThis !== 'undefined' && globalThis.Utilities) ? globalThis.Utilities
+    : (typeof Utilities !== 'undefined' ? Utilities : null);
+  if (!utilitiesService) {
+    throw new Error('Utilities service unavailable');
+  }
+  var now = new Date().toISOString();
+
+  IDENTITY_CAMPAIGN_SEED.forEach(function(campaign) {
+    IdentityRepository.upsert('Campaigns', 'CampaignId', Object.assign({
+      CreatedAt: now,
+      SettingsJSON: '{}'
+    }, campaign));
+  });
+
+  IDENTITY_ROLE_SEED.forEach(function(roleSeed) {
+    IdentityRepository.upsert('Roles', 'Role', {
+      Role: roleSeed.role,
+      Description: roleSeed.description,
+      IsGlobal: roleSeed.isGlobal
+    });
+    roleSeed.permissions.forEach(function(permission) {
+      IdentityRepository.upsert('RolePermissions', 'PermissionId', {
+        PermissionId: roleSeed.role + '::' + permission.capability + '::' + permission.scope,
+        Role: roleSeed.role,
+        Capability: permission.capability,
+        Scope: permission.scope,
+        Allowed: 'Y'
+      });
+    });
+  });
+
+  var adminEmail = 'identity.admin@lumina.com';
+  var existingAdmin = IdentityRepository.find('Users', function(row) {
+    return row.Email === adminEmail;
+  });
+  var tempPassword = 'ChangeMe!1!';
+  var adminId = existingAdmin ? existingAdmin.UserId : utilitiesService.getUuid();
+  var adminRecord = {
+    UserId: adminId,
+    Email: adminEmail,
+    Username: 'lumina.identity',
+    PasswordHash: AuthService.hashPassword(tempPassword),
+    EmailVerified: 'Y',
+    TOTPEnabled: 'N',
+    TOTPSecretHash: '',
+    Status: 'Active',
+    LastLoginAt: '',
+    CreatedAt: now
+  };
+  IdentityRepository.upsert('Users', 'UserId', adminRecord);
+
+  var assignment = {
+    AssignmentId: utilitiesService.getUuid(),
+    UserId: adminId,
+    CampaignId: 'lumina-hq',
+    Role: 'System Admin',
+    IsPrimary: 'Y',
+    AddedBy: 'seed',
+    AddedAt: now,
+    Watchlist: 'N'
+  };
+  IdentityRepository.upsert('UserCampaigns', 'AssignmentId', assignment);
+
+  var employmentExists = IdentityRepository.list('EmploymentStatus').some(function(row) {
+    return row.UserId === adminId && row.CampaignId === 'lumina-hq' && row.State === 'Active';
+  });
+  if (!employmentExists) {
+    IdentityRepository.append('EmploymentStatus', {
+      UserId: adminId,
+      CampaignId: 'lumina-hq',
+      State: 'Active',
+      EffectiveDate: now,
+      Reason: 'Seed data',
+      Notes: 'Seeded system administrator'
+    });
+  }
+
+  return {
+    adminEmail: adminEmail,
+    tempPassword: tempPassword
+  };
+}
+
 
 /**
  * Public entry point. Returns a structured summary of what was ensured.

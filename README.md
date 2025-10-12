@@ -2,6 +2,53 @@
 
 Call center management system built on Google Apps Script + Google Sheets.
 
+## Lumina Identity platform
+
+The repository now bundles **Lumina Identity**, a tenant-aware security layer that
+implements authentication, OTP/TOTP verification, RBAC, campaign isolation, and
+full employment lifecycle tracking. The identity stack lives in the new `*.gs`
+services (`AuthService`, `SessionService`, `RBACService`, etc.) plus a set of
+HTML front-ends inside `Html/`.
+
+### Prerequisites
+
+1. Create a dedicated Google Sheet to store the identity tables. Add tabs with
+   the exact headers defined in `IdentityRepository.TABLE_HEADERS`. The
+   bootstrap helpers will auto-create sheets that are missing.
+2. Set the following script properties in the Apps Script project:
+   - `IDENTITY_SPREADSHEET_ID`: ID of the sheet created in step 1.
+   - `IDENTITY_PASSWORD_SALT`: optional, if omitted a random salt is generated
+     on first login.
+3. Deploy the web app with `Execute as: User accessing the web app` and
+   `Who has access: Anyone`. The router enforces per-request permissions.
+
+### Bootstrap & seed data
+
+- Run `seedLuminaIdentity()` (see `SeedData.js`) to insert the baseline roles,
+  campaigns, and a `System Admin` account with 2FA disabled. Update the default
+  password immediately after the first login.
+- Use the `/auth/request-otp` endpoint (exposed via the router) to verify email
+  delivery through Apps Script `MailApp` or your preferred SMTP relay.
+
+### API overview
+
+`Router.gs` exposes a JSON API over `doPost`/`action` for
+authentication (`auth/login`, `auth/request-otp`, `auth/enable-totp`), user
+administration (`users/list`, `users/create`, `users/transfer`, `users/lifecycle`),
+equipment control, policies, and audit retrieval. All state-changing requests
+require a valid session plus CSRF token (returned with every login response).
+
+For front-end consumption, the repository ships new HtmlService templates:
+
+- `Html/LuminaIdentityLanding.html` – public landing & marketing hero.
+- `Html/LuminaIdentityLogin.html` – password + OTP/TOTP login interface.
+- `Html/LuminaIdentityApp.html` – authenticated workspace with campaign
+  directory, equipment tracker, policy viewer, and audit timeline.
+
+Integrate the views via `HtmlService.createTemplateFromFile` as needed for your
+deployment. The login page expects the API to be served from the same Apps Script
+endpoint so fetch requests can POST directly.
+
 ## Schema change guidelines
 
 - When adding functionality that requires a new column—either in the web app UI
@@ -139,12 +186,12 @@ etc.) provide a more explicit API.
 
 ### Authentication & campaign-scoped sessions
 
-The original Lumina Sheets deployment implemented a robust authentication and
-session management stack backed by `AuthenticationService.gs`.  This repository
-now operates in a fully open mode: the authentication and identity system has
-been removed and all pages render without login.  Tenant and campaign utilities
-remain available for data organization, but access control enforcement is now
-left to the surrounding deployment environment.
+Lumina Identity replaces the legacy authentication layer. Passwords are hashed
+with per-project salts, OTPs expire within five minutes, TOTP secrets are stored
+encrypted, and all sessions are short-lived (10–30 minute sliding window)
+backed by CacheService/PropertiesService. Every login, OTP issuance, lifecycle
+change, transfer, and equipment update writes an immutable entry to the
+`AuditLog` sheet for forensic review.
 
 
 ## End-to-end call center workflows
