@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign in – Lumina Identity</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter', sans-serif; display: grid; place-items: center; min-height: 100vh; background: radial-gradient(circle at top,#2a3cff,#070b24); color: #f7f7ff; }
+    .shell { width: min(480px, calc(100% - 2rem)); background: rgba(12,18,52,0.9); border-radius: 18px; padding: 3rem 2.6rem; box-shadow: 0 30px 60px rgba(10,12,38,0.5); backdrop-filter: blur(14px); }
+    h1 { margin-top: 0; font-size: 2rem; }
+    form { display: grid; gap: 1.2rem; margin-top: 1.8rem; }
+    label { display: grid; gap: 0.35rem; font-weight: 600; }
+    input { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(7,10,32,0.9); color: inherit; }
+    button { padding: 0.85rem 1rem; border: 0; border-radius: 12px; background: linear-gradient(135deg,#5f2ded,#a65cff); color: #fff; font-weight: 600; cursor: pointer; box-shadow: 0 12px 30px rgba(95,45,237,0.35); }
+    .alt { text-align: center; margin-top: 1.4rem; font-size: 0.95rem; color: #b8bbf2; }
+    .status { margin-top: 1rem; padding: 0.75rem; border-radius: 10px; background: rgba(25,200,120,0.15); color: #5bf2a5; display: none; }
+    .status.error { background: rgba(255,71,87,0.1); color: #ff7990; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Welcome back</h1>
+    <p>Use your Lumina credentials. OTP and TOTP will be requested automatically when your campaign policy requires it.</p>
+    <div class="status" id="status"></div>
+    <form id="login-form">
+      <label>
+        Email or Username
+        <input id="identity" type="text" autocomplete="username" required>
+      </label>
+      <label>
+        Password
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <label id="otp-wrapper" style="display:none;">
+        Verification code
+        <input id="otp" type="text" maxlength="6" inputmode="numeric" pattern="\\d{6}">
+      </label>
+      <label id="totp-wrapper" style="display:none;">
+        Authenticator code
+        <input id="totp" type="text" maxlength="6" inputmode="numeric" pattern="\\d{6}">
+      </label>
+      <input type="hidden" id="sessionId">
+      <input type="hidden" id="csrf">
+      <button type="submit">Sign in</button>
+    </form>
+    <div class="alt">
+      Need a one-time code? <a href="#" id="request-otp" style="color:#8da2ff;">Send OTP</a>
+    </div>
+  </div>
+  <script>
+    const statusEl = document.getElementById('status');
+    const otpWrapper = document.getElementById('otp-wrapper');
+    const totpWrapper = document.getElementById('totp-wrapper');
+    const sessionInput = document.getElementById('sessionId');
+    const csrfInput = document.getElementById('csrf');
+
+    function setStatus(message, isError) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle('error', !!isError);
+      statusEl.style.display = message ? 'block' : 'none';
+    }
+
+    async function api(action, payload) {
+      const response = await fetch('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ action }, payload || {}))
+      });
+      return response.json();
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setStatus('Signing in...');
+      try {
+        const payload = {
+          emailOrUsername: document.getElementById('identity').value,
+          password: document.getElementById('password').value,
+          otp: document.getElementById('otp').value || undefined,
+          totp: document.getElementById('totp').value || undefined
+        };
+        const result = await api('auth/login', payload);
+        if (!result.ok) {
+          throw new Error(result.error || 'Unable to sign in');
+        }
+        sessionInput.value = result.result.SessionId;
+        csrfInput.value = result.result.CSRF;
+        setStatus('Success! Redirecting...');
+        setTimeout(() => window.location.href = '?page=dashboard', 900);
+      } catch (err) {
+        setStatus(err.message, true);
+        otpWrapper.style.display = 'block';
+      }
+    });
+
+    document.getElementById('request-otp').addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        const identity = document.getElementById('identity').value;
+        if (!identity) {
+          return setStatus('Enter your email or username first.', true);
+        }
+        const response = await api('auth/request-otp', { emailOrUsername: identity, purpose: 'login' });
+        if (!response.ok) {
+          throw new Error(response.error || 'Unable to send code');
+        }
+        setStatus('Check your email for a six digit code.');
+        otpWrapper.style.display = 'block';
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+  </script>
+</body>
+</html>
