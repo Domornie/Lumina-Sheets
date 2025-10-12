@@ -14,7 +14,7 @@
  */
 
 const SEED_ROLE_NAMES = [
-  'Super Admin',
+  'System Admin',
   'Administrator',
   'Operations Manager',
   'Agent'
@@ -154,7 +154,7 @@ const SEED_LUMINA_ADMIN_PROFILE = {
   fullName: 'Lumina Admin',
   email: 'lumina@vlbpo.com',
   defaultCampaign: 'Lumina HQ',
-  roleNames: ['Super Admin', 'Administrator'],
+  roleNames: ['System Admin', 'Administrator'],
   claimTypes: ['system.admin', 'lumina.admin', 'manage.users', 'manage.pages'],
   seedLabel: 'Lumina Administrator'
 };
@@ -508,6 +508,7 @@ function seedDefaultData() {
     systemPages: { initialized: false, added: 0, updated: 0, total: 0 },
     navigation: {},
     identitySheets: { ensured: [], errors: [] },
+    identitySeed: null,
     luminaAdmin: null
   };
 
@@ -519,6 +520,17 @@ function seedDefaultData() {
     const identityEnsureResult = ensureLuminaIdentitySheets();
     summary.identitySheets.ensured = identityEnsureResult.ensured;
     summary.identitySheets.errors = identityEnsureResult.errors;
+
+    if (typeof seedLuminaIdentity === 'function') {
+      try {
+        summary.identitySeed = seedLuminaIdentity();
+      } catch (identityError) {
+        console.warn('seedDefaultData: seedLuminaIdentity failed:', identityError);
+        summary.identitySeed = {
+          error: identityError && identityError.message ? identityError.message : String(identityError)
+        };
+      }
+    }
 
     ensureSheetWithHeaders(ROLES_SHEET, ROLES_HEADER);
     ensureSheetWithHeaders(USER_ROLES_SHEET, USER_ROLES_HEADER);
