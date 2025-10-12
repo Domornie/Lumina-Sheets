@@ -1109,9 +1109,9 @@
           <li><a href="?page=landing-capabilities">Capabilities</a></li>
         </ul>
       </nav>
-      <a class="nav-cta" data-platform-link href="?page=login">
-        <i class="fa-solid fa-right-to-bracket"></i>
-        Enter platform
+      <a class="nav-cta" href="#contact">
+        <i class="fa-solid fa-paper-plane"></i>
+        Request access
       </a>
     </div>
   </header>
@@ -1318,9 +1318,9 @@
           LuminaHQ is more than software—we are your partner in orchestrating talent, processes, and insights with precision.
         </p>
         <div class="hero-actions" style="justify-content: center;">
-          <a class="primary-btn" data-platform-link href="?page=login">
-            <i class="fa-solid fa-right-to-bracket"></i>
-            Enter platform
+          <a class="primary-btn" href="#contact">
+            <i class="fa-solid fa-comments"></i>
+            Connect with our team
           </a>
           <a class="ghost-btn" href="?page=landing#momentum">
             <i class="fa-solid fa-chart-line"></i>
@@ -1343,7 +1343,7 @@
         <strong>Explore</strong>
         <a href="?page=landing">Home</a>
         <a href="?page=landing-capabilities">Capabilities</a>
-        <a href="?page=login">Sign in</a>
+        <a href="#contact">Connect</a>
         <a href="?page=lumina-user-guide">User guide</a>
       </div>
       <div class="footer-contact">
@@ -1364,14 +1364,6 @@
   <div class="cursor-glow" aria-hidden="true"></div>
   <script>
     (function () {
-      const PLATFORM_URL = '?page=login';
-
-      document.querySelectorAll('[data-platform-link]').forEach((link) => {
-        if (link) {
-          link.setAttribute('href', PLATFORM_URL);
-        }
-      });
-
       const preloader = document.querySelector('.preloader');
       window.addEventListener('load', () => {
         window.setTimeout(() => {

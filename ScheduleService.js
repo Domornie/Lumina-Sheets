@@ -96,7 +96,6 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           campaignName: campaignName,
           EmploymentStatus: user.EmploymentStatus || 'Active',
           HireDate: user.HireDate || '',
-          canLogin: scheduleFlagToBool(user.CanLogin),
           isActive: isUserConsideredActive(user)
         };
       });

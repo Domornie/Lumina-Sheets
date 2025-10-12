@@ -55,12 +55,10 @@
       cacheTTL: 1800,
       security: {
         sensitiveFields: [
-          'PasswordHash', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe',
-          'PasswordHashAlgorithm', 'SecurityStamp', 'RecoveryCodes', 'TwoFactorSecret', 'MfaSecret'
+          'SecurityStamp', 'RecoveryCodes', 'TwoFactorSecret', 'MfaSecret'
         ],
         redactedFields: [
-          'PasswordHash', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe',
-          'PasswordHashAlgorithm', 'SecurityStamp', 'RecoveryCodes', 'TwoFactorSecret', 'MfaSecret'
+          'SecurityStamp', 'RecoveryCodes', 'TwoFactorSecret', 'MfaSecret'
         ],
         signatureColumn: 'SecuritySignature',
         classification: 'identity'

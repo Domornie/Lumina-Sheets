@@ -107,7 +107,6 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
     'SecondaryCampaignIds'
   ],
   authorization: [
-    'CanLogin',
     'IsAdmin',
     'Roles',
     'RoleIds',
@@ -120,27 +119,13 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
     'PermissionScope'
   ],
   security: [
-    'PasswordHash',
-    'PasswordHashFormat',
-    'PasswordHashHex',
-    'PasswordHashBase64',
-    'PasswordHashBase64WebSafe',
-    'PasswordHashAlgorithm',
-    'ResetRequired',
     'EmailConfirmation',
     'EmailConfirmed',
     'LockoutEnd',
     'LockoutEnabled',
     'AccessFailedCount',
     'SecurityStamp',
-    'ConcurrencyStamp',
-    'EmailConfirmationTokenHash',
-    'EmailConfirmationSentAt',
-    'EmailConfirmationExpiresAt',
-    'ResetPasswordToken',
-    'ResetPasswordTokenHash',
-    'ResetPasswordSentAt',
-    'ResetPasswordExpiresAt'
+    'ConcurrencyStamp'
   ],
   multiFactor: [
     'TwoFactorEnabled',
@@ -186,22 +171,10 @@ const DEFAULT_USER_HEADERS_FALLBACK = [
   "FullName",
   "Email",
   "CampaignID",
-  "PasswordHash",
-  "PasswordHashFormat",
-  "PasswordHashHex",
-  "PasswordHashBase64",
-  "PasswordHashBase64WebSafe",
-  "PasswordHashAlgorithm",
-  "ResetRequired",
-  "EmailConfirmation",
-  "EmailConfirmed",
   "PhoneNumber",
   "EmploymentStatus",
   "HireDate",
   "Country",
-  "LockoutEnd",
-  "TwoFactorEnabled",
-  "CanLogin",
   "Roles",
   "Pages",
   "CreatedAt",
@@ -209,44 +182,23 @@ const DEFAULT_USER_HEADERS_FALLBACK = [
   "IsAdmin",
   "NormalizedUserName",
   "NormalizedEmail",
-  "PhoneNumberConfirmed",
-  "LockoutEnabled",
-  "AccessFailedCount",
-  "TwoFactorDelivery",
-  "TwoFactorSecret",
-  "TwoFactorRecoveryCodes",
-  "SecurityStamp",
-  "ConcurrencyStamp",
-  "EmailConfirmationTokenHash",
-  "EmailConfirmationSentAt",
-  "EmailConfirmationExpiresAt",
-  "ResetPasswordToken",
-  "ResetPasswordTokenHash",
-  "ResetPasswordSentAt",
-  "ResetPasswordExpiresAt",
-  "ActiveSessionCount",
-  "SessionIdleTimeout",
-  "SessionExpiry",
-  "LastLogin",
-  "LastLoginAt",
-  "LastLoginIp",
-  "LastLoginUserAgent",
-  "DeletedAt",
-  "TerminationDate",
-  "ProbationMonths",
-  "ProbationEnd",
+  "PreferredLocale",
+  "TimeZone",
+  "Language",
+  "ManagerId",
+  "ManagerEmail",
+  "Department",
+  "Title",
+  "EmployeeId",
+  "EmployeeType",
+  "Location",
+  "EmploymentType",
+  "EmploymentStartDate",
+  "EmploymentEndDate",
   "ProbationEndDate",
-  "InsuranceEligibleDate",
-  "InsuranceQualifiedDate",
-  "InsuranceEligible",
-  "InsuranceQualified",
-  "InsuranceEnrolled",
-  "InsuranceSignedUp",
-  "InsuranceCardReceivedDate",
-  "MFASecret",
-  "MFABackupCodes",
-  "MFADeliveryPreference",
-  "MFAEnabled"
+  "Notes",
+  "Tags",
+  "CustomAttributes"
 ];
 
 function flattenIdentityHeaders_(groups) {
@@ -1543,13 +1495,7 @@ function backfillUsersSheetDerivedColumns_(sheet) {
   const idxConcurrencyStamp = Object.prototype.hasOwnProperty.call(indexByHeader, 'ConcurrencyStamp') ? indexByHeader.ConcurrencyStamp : -1;
   const idxCreatedAt = Object.prototype.hasOwnProperty.call(indexByHeader, 'CreatedAt') ? indexByHeader.CreatedAt : -1;
   const idxUpdatedAt = Object.prototype.hasOwnProperty.call(indexByHeader, 'UpdatedAt') ? indexByHeader.UpdatedAt : -1;
-  const idxResetRequired = Object.prototype.hasOwnProperty.call(indexByHeader, 'ResetRequired') ? indexByHeader.ResetRequired : -1;
   const idxEmailConfirmed = Object.prototype.hasOwnProperty.call(indexByHeader, 'EmailConfirmed') ? indexByHeader.EmailConfirmed : -1;
-  const idxPhoneConfirmed = Object.prototype.hasOwnProperty.call(indexByHeader, 'PhoneNumberConfirmed') ? indexByHeader.PhoneNumberConfirmed : -1;
-  const idxLockoutEnabled = Object.prototype.hasOwnProperty.call(indexByHeader, 'LockoutEnabled') ? indexByHeader.LockoutEnabled : -1;
-  const idxAccessFailedCount = Object.prototype.hasOwnProperty.call(indexByHeader, 'AccessFailedCount') ? indexByHeader.AccessFailedCount : -1;
-  const idxTwoFactorEnabled = Object.prototype.hasOwnProperty.call(indexByHeader, 'TwoFactorEnabled') ? indexByHeader.TwoFactorEnabled : -1;
-  const idxCanLogin = Object.prototype.hasOwnProperty.call(indexByHeader, 'CanLogin') ? indexByHeader.CanLogin : -1;
   const idxIsAdmin = Object.prototype.hasOwnProperty.call(indexByHeader, 'IsAdmin') ? indexByHeader.IsAdmin : -1;
 
   const hasAnyManagedColumn = [
@@ -1558,13 +1504,7 @@ function backfillUsersSheetDerivedColumns_(sheet) {
     idxId,
     idxSecurityStamp,
     idxConcurrencyStamp,
-    idxResetRequired,
     idxEmailConfirmed,
-    idxPhoneConfirmed,
-    idxLockoutEnabled,
-    idxAccessFailedCount,
-    idxTwoFactorEnabled,
-    idxCanLogin,
     idxIsAdmin,
     idxCreatedAt,
     idxUpdatedAt
@@ -1649,18 +1589,8 @@ function backfillUsersSheetDerivedColumns_(sheet) {
       mutated = true;
     };
 
-    ensureBooleanDefault(idxResetRequired, false);
     ensureBooleanDefault(idxEmailConfirmed, false);
-    ensureBooleanDefault(idxPhoneConfirmed, false);
-    ensureBooleanDefault(idxLockoutEnabled, false);
-    ensureBooleanDefault(idxTwoFactorEnabled, false);
-    ensureBooleanDefault(idxCanLogin, true);
     ensureBooleanDefault(idxIsAdmin, false);
-
-    if (idxAccessFailedCount >= 0 && isBlankCell_(row[idxAccessFailedCount])) {
-      row[idxAccessFailedCount] = 0;
-      mutated = true;
-    }
 
     let rowTimestamp = null;
     const ensureTimestamp = idx => {
@@ -2371,14 +2301,8 @@ function getAllPagesFromActualRouting() {
     { key: 'proxy', title: 'Proxy Service', icon: 'fas fa-exchange-alt', description: 'Proxy service for external content access', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
 
     // AUTH
-    { key: 'setpassword', title: 'Set Password', icon: 'fas fa-key', description: 'Set new password for user account', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'resetpassword', title: 'Reset Password', icon: 'fas fa-unlock-alt', description: 'Reset forgotten password', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
     { key: 'resend-verification', title: 'Resend Verification', icon: 'fas fa-envelope-circle-check', description: 'Resend email verification link', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'resendverification', title: 'Resend Verification', icon: 'fas fa-envelope-circle-check', description: 'Alternative route for resending verification', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'forgotpassword', title: 'Forgot Password', icon: 'fas fa-question-circle', description: 'Initiate password reset process', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'forgot-password', title: 'Forgot Password', icon: 'fas fa-question-circle', description: 'Alternative route for password reset', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'emailconfirmed', title: 'Email Confirmed', icon: 'fas fa-check-circle', description: 'Email confirmation success page', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
-    { key: 'email-confirmed', title: 'Email Confirmed', icon: 'fas fa-check-circle', description: 'Alternative route for email confirmation', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true }
+    { key: 'resendverification', title: 'Resend Verification', icon: 'fas fa-envelope-circle-check', description: 'Alternative route for resending verification', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true }
   ];
   return discoveredPages;
 }
@@ -2557,12 +2481,8 @@ function suggestIconForPageKey(key) {
       importattendance: 'fa-file-upload',
       ackform: 'fa-signature',
       proxy: 'fa-exchange-alt',
-      setpassword: 'fa-key',
-      resetpassword: 'fa-unlock-alt',
       'resend-verification': 'fa-envelope-circle-check',
       resendverification: 'fa-envelope-circle-check',
-      forgotpassword: 'fa-question-circle',
-      'forgot-password': 'fa-question-circle',
       emailconfirmed: 'fa-check-circle',
       'email-confirmed': 'fa-check-circle'
     };
@@ -2578,7 +2498,6 @@ function suggestIconForPageKey(key) {
     if (k.includes('user') || k.includes('manage')) return 'fas fa-users-cog';
     if (k.includes('admin')) return 'fas fa-user-shield';
     if (k.includes('import')) return 'fas fa-file-import';
-    if (k.includes('password') || k.includes('auth')) return 'fas fa-key';
     return 'fas fa-file';
   } catch (e) {
     safeWriteError('suggestIconForPageKey', e);

@@ -3209,7 +3209,7 @@
       { label: 'MFA Enabled', keys: ['MFAEnabled', 'mfaEnabled'], transform: (value) => formatBoolean(value) },
       { label: 'Last Login', keys: ['LastLoginAt', 'LastLogin', 'lastLoginAt', 'lastLogin'], transform: (value) => formatDate(value) },
       { label: 'Last Activity', keys: ['LastActivityAt', 'lastActivityAt'], transform: (value) => formatDate(value) },
-      { label: 'Password Reset Required', keys: ['ResetRequired', 'resetRequired'], transform: (value) => formatBoolean(value, { positive: 'Required', negative: 'Not Required' }) }
+      
     ], combinedRecord);
 
     renderEquipment(state.equipment);

@@ -5,7 +5,7 @@
  * Usage:
  *   const usersTable = DatabaseManager.defineTable('Users', {
  *     headers: ['ID', 'UserName', 'Email'],
- *     defaults: { CanLogin: true },
+ *     defaults: {},
  *   });
  *   const user = usersTable.insert({ UserName: 'alice', Email: 'alice@example.com' });
  *
