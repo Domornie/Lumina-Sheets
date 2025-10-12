@@ -268,10 +268,150 @@ const IDENTITY_CAMPAIGN_SEED = [
   { CampaignId: 'credit-suite', Name: 'Credit Suite', Status: 'Active', ClientOwnerEmail: 'client@creditsuite.com' }
 ];
 
+function resolveIdentityHeadersForTable(tableName) {
+  if (!tableName) {
+    return null;
+  }
+
+  if (typeof getLuminaIdentityTableHeaders === 'function') {
+    try {
+      const resolved = getLuminaIdentityTableHeaders(tableName);
+      if (Array.isArray(resolved) && resolved.length) {
+        return resolved;
+      }
+    } catch (err) {
+      console.warn('resolveIdentityHeadersForTable: getLuminaIdentityTableHeaders failed for', tableName, err);
+    }
+  }
+
+  if (typeof getCanonicalSheetHeaders === 'function') {
+    try {
+      const canonical = getCanonicalSheetHeaders(tableName);
+      if (Array.isArray(canonical) && canonical.length) {
+        return canonical;
+      }
+    } catch (canonicalErr) {
+      console.warn('resolveIdentityHeadersForTable: getCanonicalSheetHeaders failed for', tableName, canonicalErr);
+    }
+  }
+
+  if (typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS === 'object'
+    && LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS
+    && Array.isArray(LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName])
+    && LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName].length) {
+    return LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName].slice();
+  }
+
+  return null;
+}
+
+function ensureLuminaIdentitySheets() {
+  const ensured = [];
+  const errors = [];
+  const processed = new Set();
+
+  function applyDefinition(definition) {
+    if (!definition || !definition.name) {
+      return;
+    }
+
+    const name = String(definition.name).trim();
+    if (!name || processed.has(name)) {
+      return;
+    }
+
+    const headers = Array.isArray(definition.headers) ? definition.headers.slice() : [];
+    if (!headers.length) {
+      return;
+    }
+
+    try {
+      if (typeof ensureSheetWithHeaders === 'function') {
+        ensureSheetWithHeaders(name, headers);
+        ensured.push(name);
+        processed.add(name);
+      }
+    } catch (err) {
+      console.error('ensureLuminaIdentitySheets failed for', name, err);
+      errors.push({
+        name,
+        message: err && err.message ? err.message : String(err)
+      });
+    }
+  }
+
+  if (typeof listCanonicalIdentitySheets === 'function') {
+    try {
+      const canonicalDefinitions = listCanonicalIdentitySheets();
+      if (Array.isArray(canonicalDefinitions) && canonicalDefinitions.length) {
+        canonicalDefinitions.forEach(applyDefinition);
+      }
+    } catch (err) {
+      console.warn('ensureLuminaIdentitySheets: listCanonicalIdentitySheets failed', err);
+    }
+  }
+
+  const fallbackDefinitions = [
+    {
+      name: (typeof LUMINA_IDENTITY_SHEET === 'string' && LUMINA_IDENTITY_SHEET)
+        ? LUMINA_IDENTITY_SHEET
+        : (typeof USERS_SHEET === 'string' && USERS_SHEET ? USERS_SHEET : 'Users'),
+      headers: (typeof LUMINA_IDENTITY_HEADERS !== 'undefined' && Array.isArray(LUMINA_IDENTITY_HEADERS))
+        ? LUMINA_IDENTITY_HEADERS
+        : resolveIdentityHeadersForTable('Users')
+    },
+    {
+      name: (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns',
+      headers: resolveIdentityHeadersForTable('Campaigns')
+    },
+    {
+      name: (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles',
+      headers: resolveIdentityHeadersForTable('Roles')
+    },
+    {
+      name: (typeof IDENTITY_ROLE_PERMISSIONS_SHEET === 'string' && IDENTITY_ROLE_PERMISSIONS_SHEET)
+        ? IDENTITY_ROLE_PERMISSIONS_SHEET
+        : 'RolePermissions',
+      headers: resolveIdentityHeadersForTable('RolePermissions')
+    },
+    {
+      name: (typeof USER_CAMPAIGNS_SHEET === 'string' && USER_CAMPAIGNS_SHEET)
+        ? USER_CAMPAIGNS_SHEET
+        : 'UserCampaigns',
+      headers: resolveIdentityHeadersForTable('UserCampaigns')
+    },
+    {
+      name: (typeof IDENTITY_EMPLOYMENT_STATUS_SHEET === 'string' && IDENTITY_EMPLOYMENT_STATUS_SHEET)
+        ? IDENTITY_EMPLOYMENT_STATUS_SHEET
+        : 'EmploymentStatus',
+      headers: resolveIdentityHeadersForTable('EmploymentStatus')
+    },
+    {
+      name: (typeof IDENTITY_OTP_SHEET === 'string' && IDENTITY_OTP_SHEET) ? IDENTITY_OTP_SHEET : 'OTP',
+      headers: resolveIdentityHeadersForTable('OTP')
+    },
+    {
+      name: (typeof IDENTITY_LOGIN_ATTEMPTS_SHEET === 'string' && IDENTITY_LOGIN_ATTEMPTS_SHEET)
+        ? IDENTITY_LOGIN_ATTEMPTS_SHEET
+        : 'LoginAttempts',
+      headers: resolveIdentityHeadersForTable('LoginAttempts')
+    },
+    {
+      name: (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions',
+      headers: resolveIdentityHeadersForTable('Sessions')
+    }
+  ];
+
+  fallbackDefinitions.forEach(applyDefinition);
+
+  return { ensured, errors };
+}
+
 function seedLuminaIdentity() {
   if (typeof IdentityRepository === 'undefined' || typeof AuthService === 'undefined') {
     throw new Error('Load IdentityRepository and AuthService before seeding identity data.');
   }
+  const identitySheetSummary = ensureLuminaIdentitySheets();
   var utilitiesService = (typeof globalThis !== 'undefined' && globalThis.Utilities) ? globalThis.Utilities
     : (typeof Utilities !== 'undefined' ? Utilities : null);
   if (!utilitiesService) {
@@ -351,7 +491,9 @@ function seedLuminaIdentity() {
 
   return {
     adminEmail: adminEmail,
-    tempPassword: tempPassword
+    tempPassword: tempPassword,
+    identitySheetsEnsured: identitySheetSummary.ensured,
+    identitySheetErrors: identitySheetSummary.errors
   };
 }
 
@@ -365,6 +507,7 @@ function seedDefaultData() {
     campaigns: { created: [], updated: [], existing: [], errors: [] },
     systemPages: { initialized: false, added: 0, updated: 0, total: 0 },
     navigation: {},
+    identitySheets: { ensured: [], errors: [] },
     luminaAdmin: null
   };
 
@@ -373,6 +516,9 @@ function seedDefaultData() {
     if (typeof AuthenticationService !== 'undefined' && AuthenticationService.ensureSheets) {
       AuthenticationService.ensureSheets();
     }
+    const identityEnsureResult = ensureLuminaIdentitySheets();
+    summary.identitySheets.ensured = identityEnsureResult.ensured;
+    summary.identitySheets.errors = identityEnsureResult.errors;
 
     ensureSheetWithHeaders(ROLES_SHEET, ROLES_HEADER);
     ensureSheetWithHeaders(USER_ROLES_SHEET, USER_ROLES_HEADER);
