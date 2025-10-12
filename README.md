@@ -50,7 +50,7 @@ schema defaults once and re-use the same interface across every client campaign.
 ```javascript
 const users = DatabaseManager.defineTable('Users', {
   headers: ['ID', 'UserName', 'Email', 'CampaignID'],
-  defaults: { CanLogin: true },
+  defaults: {},
 });
 
 // Create
@@ -64,7 +64,7 @@ const user = users.insert({
 const perCampaign = users.find({ where: { CampaignID: 'credit-suite' } });
 
 // Update
-users.update(user.ID, { CanLogin: false });
+users.update(user.ID, { IsActive: false });
 
 // Delete
 users.delete(user.ID);
@@ -83,7 +83,7 @@ database abstraction without rewriting business logic:
 ```javascript
 // Read data with optional filters/sorting/pagination
 const activeUsers = dbSelect(USERS_SHEET, {
-  where: { CampaignID: campaignId, CanLogin: true },
+  where: { CampaignID: campaignId },
   sortBy: 'FullName'
 });
 
@@ -268,8 +268,8 @@ schemas registered with `DatabaseManager`.
 - **EnterpriseSecurityService.** Sensitive data written through `DatabaseManager`
   is now protected by `EnterpriseSecurityService.js`. The module derives a
   tenant-scoped encryption key from a master secret stored in Apps Script
-  properties, encrypts flagged columns (such as user password hashes and
-  session tokens), and attaches tamper-evident signatures to each record.
+  properties, encrypts flagged columns (such as session tokens), and attaches
+  tamper-evident signatures to each record.
 - **Automated audit trail.** Every insert, update, and delete routed through
   `DatabaseManager` emits a redacted audit event to the `SecurityAuditTrail`
   sheet so investigators can trace the actor, tenant, and change history

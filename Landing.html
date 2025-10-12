@@ -945,9 +945,9 @@
             <li><a href="#insights">Insights</a></li>
           </ul>
         </nav>
-        <a class="nav-cta" data-platform-link href="?page=login">
-          <i class="fa-solid fa-arrow-right-to-bracket"></i>
-          Enter platform
+        <a class="nav-cta" href="#cta">
+          <i class="fa-solid fa-paper-plane"></i>
+          Request access
         </a>
       </div>
     </header>
@@ -963,9 +963,9 @@
                 data foundations, and automation that scales across every program.
               </p>
               <div class="hero-actions">
-                <a class="btn btn-primary" data-platform-link href="?page=login">
-                  <i class="fa-solid fa-right-to-bracket"></i>
-                  Launch LuminaHQ
+                <a class="btn btn-primary" href="#cta">
+                  <i class="fa-solid fa-message"></i>
+                  Talk to our team
                 </a>
                 <a class="btn btn-ghost" href="?page=landing-about">
                   <i class="fa-solid fa-circle-info"></i>
@@ -1263,8 +1263,8 @@
             co-design the roadmap and stay until value lands in the hands of your teams.
           </p>
           <div class="hero-actions" style="justify-content: center;">
-            <a class="btn btn-primary" data-platform-link href="?page=login"><i class="fa-solid fa-rocket"></i>Start your launch</a>
-            <a class="btn btn-ghost" href="?page=login"><i class="fa-solid fa-user"></i>Client sign-in</a>
+            <a class="btn btn-primary" href="#cta"><i class="fa-solid fa-rocket"></i>Start your launch</a>
+            <a class="btn btn-ghost" href="#cta"><i class="fa-solid fa-comments"></i>Chat with us</a>
           </div>
         </div>
       </section>
@@ -1283,7 +1283,7 @@
           <a href="?page=landing-about">About</a>
           <a href="?page=landing-capabilities">Capabilities</a>
           <a href="?page=lumina-user-guide">User guide</a>
-          <a href="?page=login">Sign in</a>
+          <a href="#cta">Connect with us</a>
         </div>
         <div class="footer-contact">
           <strong>Connect</strong>
@@ -1302,10 +1302,7 @@
     </footer>
     <script>
       (function () {
-        const PLATFORM_URL = '?page=login';
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-        document.querySelectorAll('[data-platform-link]').forEach((link) => link.setAttribute('href', PLATFORM_URL));
 
         const yearNode = document.getElementById('year');
         if (yearNode) {

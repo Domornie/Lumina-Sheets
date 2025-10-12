@@ -457,15 +457,6 @@
 
     BASE_URL = __BASE_URL || __SCRIPT_URL || BASE_URL;
     SCRIPT_URL = __SCRIPT_URL || __BASE_URL || SCRIPT_URL;
-
-    const LOGIN_URL = (function computeLoginUrl() {
-      const target = __BASE_URL || __SCRIPT_URL || '/';
-      const separator = target.indexOf('?') === -1 ? '?' : '&';
-      return `${target}${separator}page=dashboard`;
-    })();
-
-    window.__LUMINA_LOGIN_URL = LOGIN_URL;
-
     function createSlug(value, fallback) {
       const queue = [];
 
@@ -619,7 +610,7 @@
         console.warn('deriveAllowedTokenOrigins: unable to read window origin', originError);
       }
 
-      [BASE_URL, SCRIPT_URL, LOGIN_URL, NAVIGATION_BASE_URL].forEach(record);
+      [BASE_URL, SCRIPT_URL, NAVIGATION_BASE_URL].forEach(record);
 
       if (typeof window !== 'undefined'
         && Array.isArray(window.__LUMINA_ALLOWED_TOKEN_ORIGINS)
@@ -1323,17 +1314,6 @@
         }
       });
     }
-
-    function buildLoginUrl(_options = {}) {
-      const baseTarget = BASE_URL || SCRIPT_URL || window.__LUMINA_LOGIN_URL || '/';
-      if (!baseTarget) {
-        return '#';
-      }
-      const separator = baseTarget.indexOf('?') === -1 ? '?' : '&';
-      return `${baseTarget}${separator}page=dashboard`;
-    }
-
-    window.buildLoginUrl = buildLoginUrl;
     window.setLogoutReason = setLogoutReason;
     window.getLogoutReason = getLogoutReason;
     window.clearLogoutReason = clearLogoutReason;
@@ -3963,8 +3943,8 @@
             showLogoutMessage();
 
             setTimeout(function() {
-                const target = buildLoginUrl({ includeReturn: false, reason: 'manual' });
-                window.location.href = target || BASE_URL;
+                const target = BASE_URL || SCRIPT_URL || '/?page=landing';
+                window.location.href = target;
             }, 2000);
         }
 
@@ -4070,7 +4050,7 @@
         }
 
         function redirectToLogin(_options) {
-            const target = buildLoginUrl();
+            const target = BASE_URL || SCRIPT_URL || '/?page=landing';
             try {
                 if (window.location && typeof window.location.replace === 'function') {
                     window.location.replace(target);

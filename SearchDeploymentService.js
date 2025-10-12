@@ -160,7 +160,7 @@ const DeploymentService = {
      */
     initializeAllSheets: function() {
         const sheets = [
-            { name: 'Users', headers: ['ID', 'Email', 'FullName', 'Password', 'Roles', 'CampaignID', 'EmailConfirmed', 'CreatedAt'] },
+            { name: 'Users', headers: ['ID', 'Email', 'FullName', 'Roles', 'CampaignID', 'EmailConfirmed', 'CreatedAt'] },
             { name: 'UserBookmarks', headers: ['ID', 'UserID', 'UserEmail', 'Title', 'URL', 'Description', 'Tags', 'Folder', 'Created', 'LastAccessed', 'AccessCount'] },
             { name: 'BrowsingAnalytics', headers: ['Timestamp', 'UserID', 'UserEmail', 'URL', 'Domain', 'Action', 'UserAgent', 'Duration', 'Success', 'ErrorReason'] },
             { name: 'SecurityIncidents', headers: ['Timestamp', 'UserID', 'UserEmail', 'URL', 'IncidentType', 'Details', 'Severity', 'Resolved'] },

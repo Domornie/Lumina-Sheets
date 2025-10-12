@@ -40,14 +40,6 @@ const ACCESS = {
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
 
-var PASSWORD_RESET_TOKEN_TTL_MINUTES = (typeof PASSWORD_RESET_TOKEN_TTL_MINUTES === 'number')
-  ? PASSWORD_RESET_TOKEN_TTL_MINUTES
-  : 60; // 1 hour default
-
-var PASSWORD_SETUP_TOKEN_TTL_MINUTES = (typeof PASSWORD_SETUP_TOKEN_TTL_MINUTES === 'number')
-  ? PASSWORD_SETUP_TOKEN_TTL_MINUTES
-  : (60 * 24 * 7); // 7 days default
-
 function toArray(value) {
   if (value === null || typeof value === 'undefined') {
     return [];
@@ -654,7 +646,6 @@ function normalizeBooleanFlag_(value) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// PASSWORD TOKEN HELPERS
 // ───────────────────────────────────────────────────────────────────────────────
 
 function hashTokenForStorage_(token) {
@@ -871,224 +862,6 @@ function loadUsersSheetDataForAuth_() {
     try { writeError && writeError('loadUsersSheetDataForAuth_', err); } catch (_) { /* no-op */ }
     return { sheet: null, headers: [], values: [], headerIndex: {} };
   }
-}
-
-function findUserRowByToken_(token, dataset) {
-  const normalized = (token || token === 0) ? String(token).trim() : '';
-  if (!normalized || !dataset || !dataset.sheet) {
-    return null;
-  }
-
-  const hashed = hashTokenForStorage_(normalized);
-  const headerIndex = dataset.headerIndex || buildHeaderIndex_(dataset.headers);
-  const values = Array.isArray(dataset.values) ? dataset.values : [];
-  const now = Date.now();
-
-  for (let i = 1; i < values.length; i += 1) {
-    const row = values[i];
-    if (!row) {
-      continue;
-    }
-
-    const storedHash = String(getRowValue_(row, headerIndex, 'ResetPasswordTokenHash') || '').trim();
-    const storedToken = String(getRowValue_(row, headerIndex, 'EmailConfirmation') || '').trim();
-
-    const matchesHash = storedHash && hashed && storedHash === hashed;
-    const matchesEmailToken = storedToken && storedToken === normalized;
-    if (!matchesHash && !matchesEmailToken) {
-      continue;
-    }
-
-    const expiresRaw = getRowValue_(row, headerIndex, 'ResetPasswordExpiresAt');
-    const expiresAt = parseDateValue_(expiresRaw);
-    const sentAt = parseDateValue_(getRowValue_(row, headerIndex, 'ResetPasswordSentAt'));
-
-    const email = String(getRowValue_(row, headerIndex, 'Email') || '').trim();
-    const fullName = String(getRowValue_(row, headerIndex, 'FullName') || '').trim();
-    const userName = String(getRowValue_(row, headerIndex, 'UserName') || '').trim();
-    const userId = String(getRowValue_(row, headerIndex, 'ID') || '').trim();
-    const hasPassword = String(getRowValue_(row, headerIndex, 'PasswordHash') || '').trim() !== '';
-    const resetRequired = normalizeBooleanFlag_(getRowValue_(row, headerIndex, 'ResetRequired'));
-
-    const reason = matchesEmailToken || !hasPassword ? 'setup' : 'reset';
-
-    if (expiresAt && expiresAt.getTime() <= now) {
-      return {
-        expired: true,
-        rowIndex: i,
-        rowValues: row.slice(),
-        email: email,
-        fullName: fullName,
-        userName: userName,
-        userId: userId,
-        reason: reason,
-        expiresAt: expiresAt,
-        sentAt: sentAt,
-        resetRequired: resetRequired
-      };
-    }
-
-    return {
-      rowIndex: i,
-      rowValues: row.slice(),
-      email: email,
-      fullName: fullName,
-      userName: userName,
-      userId: userId,
-      reason: reason,
-      expiresAt: expiresAt,
-      sentAt: sentAt,
-      resetRequired: resetRequired
-    };
-  }
-
-  return null;
-}
-
-function recordPasswordResetRequest_(userRecord, token, options) {
-  const dataset = loadUsersSheetDataForAuth_();
-  if (!dataset.sheet) {
-    return { success: false, message: 'USERS_SHEET_UNAVAILABLE' };
-  }
-
-  const headerIndex = dataset.headerIndex || buildHeaderIndex_(dataset.headers);
-  const values = Array.isArray(dataset.values) ? dataset.values : [];
-
-  const normalizedEmail = String((userRecord && (userRecord.Email || userRecord.email)) || '').trim().toLowerCase();
-  const normalizedId = String((userRecord && (userRecord.ID || userRecord.Id || userRecord.UserId || userRecord.UserID)) || '').trim();
-
-  let rowIndex = -1;
-  for (let i = 1; i < values.length; i += 1) {
-    const row = values[i];
-    if (!row) {
-      continue;
-    }
-
-    const rowId = String(getRowValue_(row, headerIndex, 'ID') || '').trim();
-    const rowEmail = String(getRowValue_(row, headerIndex, 'Email') || '').trim().toLowerCase();
-
-    if ((normalizedId && rowId === normalizedId) || (normalizedEmail && rowEmail === normalizedEmail)) {
-      rowIndex = i;
-      break;
-    }
-  }
-
-  if (rowIndex === -1) {
-    return { success: false, message: 'USER_NOT_FOUND' };
-  }
-
-  const now = new Date();
-  const ttlMinutes = Number((options && options.ttlMinutes) || PASSWORD_RESET_TOKEN_TTL_MINUTES);
-  const expiresAt = (isFinite(ttlMinutes) && ttlMinutes > 0)
-    ? new Date(now.getTime() + ttlMinutes * 60000)
-    : '';
-
-  const updates = {
-    ResetPasswordToken: maskTokenForSheet_(token),
-    ResetPasswordTokenHash: hashTokenForStorage_(token),
-    ResetPasswordSentAt: now,
-    ResetPasswordExpiresAt: expiresAt || '',
-    ResetRequired: 'TRUE',
-    UpdatedAt: now
-  };
-
-  if (!options || options.clearEmailConfirmation !== false) {
-    updates.EmailConfirmation = '';
-  }
-
-  const updatedRow = applyRowUpdates_(values[rowIndex], headerIndex, updates);
-  values[rowIndex] = updatedRow;
-  dataset.sheet.getRange(rowIndex + 1, 1, 1, dataset.headers.length).setValues([updatedRow]);
-
-  if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
-    SpreadsheetApp.flush();
-  }
-
-  try {
-    if (typeof invalidateCache === 'function') {
-      invalidateCache(resolveUsersSheetName_());
-    }
-  } catch (cacheErr) {
-    console.warn('recordPasswordResetRequest_: cache invalidation failed', cacheErr);
-  }
-
-  return {
-    success: true,
-    email: String(getRowValue_(updatedRow, headerIndex, 'Email') || '').trim(),
-    fullName: String(getRowValue_(updatedRow, headerIndex, 'FullName') || '').trim(),
-    userName: String(getRowValue_(updatedRow, headerIndex, 'UserName') || '').trim(),
-    userId: String(getRowValue_(updatedRow, headerIndex, 'ID') || '').trim()
-  };
-}
-
-function applyPasswordChangeForToken_(token, password, options) {
-  const dataset = loadUsersSheetDataForAuth_();
-  if (!dataset.sheet) {
-    return { success: false, message: 'USERS_SHEET_UNAVAILABLE' };
-  }
-
-  const match = findUserRowByToken_(token, dataset);
-  if (!match) {
-    return { success: false, message: 'TOKEN_INVALID' };
-  }
-
-  if (match.expired) {
-    return Object.assign({ success: false, message: 'TOKEN_EXPIRED', expired: true }, match);
-  }
-
-  const utils = (typeof ensurePasswordUtilities === 'function') ? ensurePasswordUtilities() : null;
-  if (!utils || typeof utils.createPasswordUpdate !== 'function') {
-    return { success: false, message: 'PASSWORD_UTILS_UNAVAILABLE' };
-  }
-
-  const passwordRecord = utils.createPasswordUpdate(password, {});
-  const updates = Object.assign({}, passwordRecord.columns || {});
-  updates.PasswordHashAlgorithm = passwordRecord.algorithm || 'SHA-256';
-  updates.ResetRequired = 'FALSE';
-  updates.ResetPasswordToken = '';
-  updates.ResetPasswordTokenHash = '';
-  updates.ResetPasswordSentAt = '';
-  updates.ResetPasswordExpiresAt = '';
-  updates.EmailConfirmation = '';
-  updates.UpdatedAt = new Date();
-
-  if (match.reason === 'setup') {
-    updates.EmailConfirmed = 'TRUE';
-  }
-
-  const headerIndex = dataset.headerIndex || buildHeaderIndex_(dataset.headers);
-  const updatedRow = applyRowUpdates_(match.rowValues, headerIndex, updates);
-  dataset.values[match.rowIndex] = updatedRow;
-  dataset.sheet.getRange(match.rowIndex + 1, 1, 1, dataset.headers.length).setValues([updatedRow]);
-
-  if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp && typeof SpreadsheetApp.flush === 'function') {
-    SpreadsheetApp.flush();
-  }
-
-  try {
-    if (typeof invalidateCache === 'function') {
-      invalidateCache(resolveUsersSheetName_());
-    }
-  } catch (cacheErr) {
-    console.warn('applyPasswordChangeForToken_: cache invalidation failed', cacheErr);
-  }
-
-  if (typeof sendPasswordChangeConfirmation === 'function' && match.email) {
-    try {
-      sendPasswordChangeConfirmation(match.email, { timestamp: updates.UpdatedAt });
-    } catch (mailErr) {
-      try { writeError && writeError('applyPasswordChangeForToken_:confirmation', mailErr); } catch (_) { /* ignore */ }
-    }
-  }
-
-  return {
-    success: true,
-    reason: match.reason,
-    email: match.email,
-    fullName: match.fullName,
-    userName: match.userName,
-    userId: match.userId
-  };
 }
 
 function computeSessionExpiration_(record, nowMillis) {
@@ -1506,7 +1279,6 @@ function buildIdentityAugmentation(record, options) {
     augmentation.identityEvaluation = {
       allow: true,
       status: {
-        canLogin: fields.CanLogin !== undefined ? !!fields.CanLogin : true,
         emailConfirmed: fields.EmailConfirmed !== undefined ? !!fields.EmailConfirmed : true
       },
       warnings: augmentation.identityWarnings.slice()
@@ -2652,12 +2424,7 @@ function buildAuthenticatedUserFromIdentity_(identityResult) {
     IdentityFields: fields,
     Pages: fields.Pages || fields.pages || '',
     IsAdmin: evaluation ? !!evaluation.isAdmin : !!fields.IsAdmin,
-    CanLogin: evaluation ? !!evaluation.canLogin : !!fields.CanLogin,
     EmailConfirmed: (fields.EmailConfirmed || fields.emailConfirmed || (summary && summary.emailConfirmed)) ? true : false,
-    ResetRequired: !!(fields.ResetRequired || fields.resetRequired),
-    LastLoginAt: fields.LastLoginAt || fields.LastLogin || '',
-    LastLoginIp: fields.LastLoginIp || '',
-    LastLoginUserAgent: fields.LastLoginUserAgent || '',
     PrimaryCampaignName: summary && summary.primaryCampaignName ? summary.primaryCampaignName : (fields.PrimaryCampaignName || fields.CampaignName || ''),
     ActiveSessionCount: evaluation && typeof evaluation.activeSessionCount !== 'undefined'
       ? evaluation.activeSessionCount
@@ -2779,7 +2546,6 @@ function createOpenModeStubRecord_() {
     Roles: 'System Admin, Administrator',
     RoleNames: ['System Admin', 'Administrator'],
     RoleIds: [],
-    CanLogin: true,
     IsAdmin: true,
     Pages: ''
   };
@@ -2802,9 +2568,7 @@ function selectOpenModeUserRecord_() {
 
   const prioritized = rows.filter(function (row) {
     return normalizeBooleanFlag_(row.IsAdmin)
-      || normalizeBooleanFlag_(row.isAdmin)
-      || normalizeBooleanFlag_(row.CanLogin)
-      || normalizeBooleanFlag_(row.canLogin);
+      || normalizeBooleanFlag_(row.isAdmin);
   });
 
   const candidate = prioritized.length ? prioritized[0] : rows[0];
@@ -2898,7 +2662,6 @@ function buildOpenModeAuthState_(e) {
   user.IdentityFields = user.IdentityFields || identityContext.identityFields || null;
   user.IdentityHeaders = user.IdentityHeaders || identityContext.identityHeaders || [];
   user.IsAdmin = user.IsAdmin !== undefined ? user.IsAdmin : true;
-  user.CanLogin = user.CanLogin !== undefined ? user.CanLogin : true;
   user.OpenMode = true;
 
   const state = {
@@ -2988,70 +2751,6 @@ function resolveAuthenticatedUser_(e) {
   return state;
 }
 
-function lookupUserRecordForLogin_(identifier) {
-  const raw = (identifier || identifier === 0) ? String(identifier).trim() : '';
-  if (!raw) {
-    return null;
-  }
-
-  const normalized = raw.toLowerCase();
-
-  try {
-    const users = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET || 'Users') || []) : [];
-    for (let i = 0; i < users.length; i++) {
-      const row = users[i];
-      const id = String(row.ID || row.Id || row.UserId || row.UserID || '').trim();
-      const email = String(row.Email || row.email || '').trim().toLowerCase();
-      const normalizedEmail = String(row.NormalizedEmail || row.normalizedEmail || '').trim().toLowerCase();
-      const userName = String(row.UserName || row.username || '').trim().toLowerCase();
-      const normalizedUserName = String(row.NormalizedUserName || row.normalizedUserName || '').trim().toLowerCase();
-
-      if ((id && id.toLowerCase() === normalized)
-        || (email && email === normalized)
-        || (normalizedEmail && normalizedEmail === normalized)
-        || (userName && userName === normalized)
-        || (normalizedUserName && normalizedUserName === normalized)) {
-        return row;
-      }
-    }
-  } catch (err) {
-    console.warn('lookupUserRecordForLogin_: unable to read users', err);
-  }
-
-  return null;
-}
-
-function extractStoredPasswordHash_(userRecord) {
-  if (!userRecord) {
-    return '';
-  }
-  if (userRecord.PasswordHash) return String(userRecord.PasswordHash);
-  if (userRecord.PasswordHashHex) return String(userRecord.PasswordHashHex);
-  if (userRecord.PasswordHashBase64) return String(userRecord.PasswordHashBase64);
-  if (userRecord.PasswordHashBase64WebSafe) return String(userRecord.PasswordHashBase64WebSafe);
-  return '';
-}
-
-function verifyUserPassword_(userRecord, rawPassword) {
-  const hash = extractStoredPasswordHash_(userRecord);
-  if (!hash) {
-    return false;
-  }
-  try {
-    const utils = (typeof ensurePasswordUtilities === 'function')
-      ? ensurePasswordUtilities()
-      : (typeof PasswordUtilities !== 'undefined' ? PasswordUtilities : null);
-    if (!utils || typeof utils.verifyPassword !== 'function') {
-      console.warn('verifyUserPassword_: password utilities unavailable');
-      return false;
-    }
-    return !!utils.verifyPassword(rawPassword, hash);
-  } catch (err) {
-    console.warn('verifyUserPassword_: verification failed', err);
-    return false;
-  }
-}
-
 function determineSessionIdleTimeoutMinutes_(identityContext) {
   if (!identityContext) {
     return 0;
@@ -3079,12 +2778,10 @@ function determineSessionIdleTimeoutMinutes_(identityContext) {
 }
 
 function determinePostLoginRedirect_(requestedUrl, user, identityContext) {
-  const defaultUrl = getAuthenticatedUrl('dashboard', user && user.CampaignID ? user.CampaignID : '');
-  if (!requestedUrl) {
-    return defaultUrl;
-  }
-  return sanitizeRedirectUrl_(requestedUrl, defaultUrl);
+  return buildAuthenticatedUrl('dashboard');
 }
+
+
 
 function getCurrentAuthContext(e) {
   return resolveAuthenticatedUser_(e);
@@ -3220,9 +2917,7 @@ function _toClientUser_(row, fallbackEmail, identityContext) {
     CampaignID: String(fields && (fields.CampaignID || fields.CampaignId || '') || row && (row.CampaignID || row.CampaignId || '') || ''),
     roleNames: roleNames,
     IsAdmin: !!isAdminFlag,
-    CanLogin: (fields && fields.CanLogin !== undefined) ? _truthy(fields.CanLogin) : true,
     EmailConfirmed: (fields && fields.EmailConfirmed !== undefined) ? _truthy(fields.EmailConfirmed) : true,
-    ResetRequired: !!(fields && _truthy(fields.ResetRequired)),
     Pages: String(fields && (fields.Pages || fields.pages || '') || ''),
     Identity: context ? context.identity : null,
     IdentitySummary: context ? context.identitySummary : null,
@@ -3262,10 +2957,7 @@ function _normalizeUser(user) {
   const collectedRoleNames = __collectUserRoleNames(out);
   const adminByRole = collectedRoleNames.some(_roleImpliesAdmin);
   out.IsAdmin = _truthy(out.IsAdmin) || adminByRole;
-  out.CanLogin = _truthy(out.CanLogin !== undefined ? out.CanLogin : true);
   out.EmailConfirmed = _truthy(out.EmailConfirmed !== undefined ? out.EmailConfirmed : true);
-  out.ResetRequired = _truthy(out.ResetRequired);
-  out.LockoutEnd = out.LockoutEnd ? _safeDate(out.LockoutEnd) : null;
   out.ID = _normalizeId(out.ID || out.id);
   out.CampaignID = _normalizeId(out.CampaignID || out.campaignId);
   out.PagesCsv = String(out.Pages || out.pages || '');
@@ -3485,36 +3177,10 @@ function attachTokenToUrl_(url, token, queryParam) {
 }
 
 function renderLoginPage(e, options) {
-  try {
-    const tpl = HtmlService.createTemplateFromFile('Login');
-    tpl.baseUrl = getBaseUrl();
-    tpl.scriptUrl = SCRIPT_URL;
-    tpl.returnUrl = (options && options.returnUrl) ? options.returnUrl : buildReturnUrlFromRequest(e);
-    tpl.message = options && options.message ? options.message : '';
-    tpl.error = options && options.error ? options.error : '';
-    tpl.prefillIdentifier = options && options.identifier ? options.identifier : '';
-    tpl.sessionTokenParam = (typeof SESSION_TOKEN_QUERY_PARAM === 'string'
-      && SESSION_TOKEN_QUERY_PARAM.trim())
-      ? SESSION_TOKEN_QUERY_PARAM.trim()
-      : 'token';
-    tpl.sessionTokenStorageKeys = (typeof SESSION_TOKEN_STORAGE_KEYS !== 'undefined'
-      && Array.isArray(SESSION_TOKEN_STORAGE_KEYS)
-      && SESSION_TOKEN_STORAGE_KEYS.length)
-      ? SESSION_TOKEN_STORAGE_KEYS.slice()
-      : ['lumina.session.token', 'lumina.auth.sessionToken', 'lumina.auth.fallbackToken'];
-    tpl.openModeEnabled = isOpenModeEnabled_();
-
-    return tpl.evaluate()
-      .setTitle('Sign in to LuminaHQ')
-      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } catch (err) {
-    if (typeof writeError === 'function') {
-      writeError('renderLoginPage', err);
-    }
-    return createErrorPage('Login Unavailable', 'Unable to render the login page. Please try again later.');
-  }
+  return HtmlService.createHtmlOutput('Authentication is not available.').setTitle('Authentication Unavailable');
 }
+
+
 
 /**
  * Simplified authentication requirement function
@@ -3579,166 +3245,16 @@ function handleLogoutRequest(e) {
 
   clearCurrentAuthState_();
 
-  if (isOpenModeEnabled_()) {
-    const target = buildAuthenticatedUrl('dashboard');
-    return HtmlService.createHtmlOutput('<script>window.location.href = ' + JSON.stringify(target) + ';</script>')
-      .setTitle('Redirecting to LuminaHQ…');
-  }
-
-  return renderLoginPage(e, {
-    returnUrl: buildAuthenticatedUrl('dashboard'),
-    message: 'You have been signed out.'
-  });
+  const target = buildAuthenticatedUrl('dashboard');
+  return HtmlService.createHtmlOutput('<script>window.location.href = ' + JSON.stringify(target) + ';</script>')
+    .setTitle('LuminaHQ');
 }
 
 function clientLogin(payload) {
-  try {
-    const data = payload || {};
-    const identifier = String(data.identifier || data.email || data.userName || data.username || '').trim();
-    const password = data.password ? String(data.password) : '';
-    const rememberMe = !!data.rememberMe;
-    const returnUrl = data.returnUrl ? String(data.returnUrl) : '';
-    const userAgent = data.userAgent ? String(data.userAgent) : '';
-    const ipAddress = data.ipAddress ? String(data.ipAddress) : '';
-
-    if (isOpenModeEnabled_()) {
-      const openState = buildOpenModeAuthState_();
-      if (openState && openState.user) {
-        const sanitizedRedirect = determinePostLoginRedirect_(returnUrl, openState.user, openState.identity);
-        return {
-          success: true,
-          token: '',
-          ttlSeconds: null,
-          expiresAt: '',
-          rememberMe: false,
-          redirectUrl: sanitizedRedirect,
-          redirectUrlWithToken: sanitizedRedirect,
-          user: openState.user,
-          identity: openState.identity ? openState.identity.identity : null,
-          identitySummary: openState.identity ? openState.identity.identitySummary : null,
-          identityEvaluation: openState.identity ? openState.identity.identityEvaluation : null,
-          warnings: openState.identity && Array.isArray(openState.identity.identityWarnings)
-            ? openState.identity.identityWarnings.slice()
-            : [],
-          message: 'Authentication is disabled for this open deployment. Redirecting to the workspace.'
-        };
-      }
-    }
-
-    if (!identifier || !password) {
-      return { success: false, error: 'Please provide your username or email and password.' };
-    }
-
-    const userRecord = lookupUserRecordForLogin_(identifier);
-    if (!userRecord) {
-      return { success: false, error: 'Invalid username or password.' };
-    }
-
-    if (normalizeBooleanFlag_(userRecord.ResetRequired)) {
-      return {
-        success: false,
-        error: 'You need to finish setting your password before signing in. Use the email link we sent or request a new reset.',
-        resetRequired: true
-      };
-    }
-
-    if (typeof userRecord.CanLogin !== 'undefined' && !normalizeBooleanFlag_(userRecord.CanLogin)) {
-      return { success: false, error: 'This account is not permitted to sign in.' };
-    }
-
-    if (!verifyUserPassword_(userRecord, password)) {
-      return { success: false, error: 'Invalid username or password.' };
-    }
-
-    const userId = userRecord.ID || userRecord.Id || userRecord.UserId || userRecord.UserID;
-    const identityContext = loadIdentityContextForUser_(userId);
-    if (!identityContext) {
-      return { success: false, error: 'Unable to load your identity profile.' };
-    }
-
-    const evaluation = identityContext.identityEvaluation || identityContext.evaluation || null;
-    if (evaluation && evaluation.canLogin === false) {
-      return {
-        success: false,
-        error: 'This account is not permitted to sign in.',
-        warnings: Array.isArray(evaluation.warnings) ? evaluation.warnings.slice() : []
-      };
-    }
-
-    if (evaluation && evaluation.status && String(evaluation.status).toLowerCase() === 'restricted' && evaluation.canLogin !== true) {
-      return {
-        success: false,
-        error: 'This account is temporarily restricted from signing in.',
-        warnings: Array.isArray(evaluation.warnings) ? evaluation.warnings.slice() : []
-      };
-    }
-
-    const idleTimeoutMinutes = determineSessionIdleTimeoutMinutes_(identityContext);
-    const sessionResult = createSessionForUser(userId, {
-      rememberMe: rememberMe,
-      idleTimeoutMinutes: idleTimeoutMinutes,
-      userAgent: userAgent,
-      ipAddress: ipAddress,
-      campaignScope: data.campaignId || data.campaign || ''
-    });
-
-    if (!sessionResult || !sessionResult.success) {
-      return { success: false, error: 'Unable to create a session. Please try again.' };
-    }
-
-    try {
-      persistSessionTokenLinkForCurrentUser(sessionResult.token, {
-        rememberMe: rememberMe,
-        ttlSeconds: sessionResult.ttlSeconds,
-        expiresAt: sessionResult.expiresAt
-      });
-    } catch (persistErr) {
-      console.warn('clientLogin: unable to persist session token link', persistErr);
-    }
-
-    const user = buildAuthenticatedUserFromIdentity_(identityContext);
-    const sanitizedRedirect = determinePostLoginRedirect_(returnUrl, user, identityContext);
-    const redirectWithToken = attachTokenToUrl_(sanitizedRedirect, sessionResult.token, (typeof SESSION_TOKEN_QUERY_PARAM === 'string' && SESSION_TOKEN_QUERY_PARAM.trim()) || 'token');
-
-    setCurrentAuthState_({
-      user: user,
-      identity: identityContext,
-      session: {
-        record: sessionResult.session,
-        rowIndex: sessionResult.session && sessionResult.session.__rowIndex ? sessionResult.session.__rowIndex : null,
-        rememberMe: rememberMe,
-        idleTimeoutMinutes: idleTimeoutMinutes,
-        expiresAt: sessionResult.expiresAt ? new Date(sessionResult.expiresAt) : null
-      },
-      token: sessionResult.token,
-      rememberMe: rememberMe,
-      idleTimeoutMinutes: idleTimeoutMinutes,
-      expiresAt: sessionResult.expiresAt,
-      resolvedAt: new Date().toISOString()
-    });
-
-    return {
-      success: true,
-      token: sessionResult.token,
-      ttlSeconds: sessionResult.ttlSeconds,
-      expiresAt: sessionResult.expiresAt,
-      rememberMe: rememberMe,
-      redirectUrl: sanitizedRedirect,
-      redirectUrlWithToken: redirectWithToken,
-      user: user,
-      identity: identityContext.identity || null,
-      identitySummary: identityContext.identitySummary || null,
-      identityEvaluation: identityContext.identityEvaluation || null,
-      warnings: Array.isArray(identityContext.warnings) ? identityContext.warnings.slice() : [],
-      message: 'Signed in successfully.'
-    };
-  } catch (error) {
-    if (typeof writeError === 'function') {
-      writeError('clientLogin', error);
-    }
-    return { success: false, error: error && error.message ? error.message : 'Unable to sign in.' };
-  }
+  return { success: false, error: 'Authentication services are not available in this deployment.' };
 }
+
+
 
 function clientLogout(token) {
   try {
@@ -3761,163 +3277,6 @@ function clientLogout(token) {
   clearCurrentAuthState_();
 
   return { success: true };
-}
-
-function clientRequestPasswordReset(payload) {
-  try {
-    const data = payload || {};
-    const identifier = String(data.identifier || data.email || data.userName || data.username || '').trim();
-
-    if (!identifier) {
-      return { success: false, error: 'Enter the email address associated with your account.' };
-    }
-
-    const userRecord = lookupUserRecordForLogin_(identifier);
-    if (!userRecord || !userRecord.Email) {
-      return {
-        success: true,
-        delivered: false,
-        message: 'If an account exists for that email, you will receive password reset instructions shortly.'
-      };
-    }
-
-    let token = '';
-    try {
-      if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
-        token = Utilities.getUuid();
-      }
-    } catch (_) { /* ignore */ }
-    if (!token) {
-      token = (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).toUpperCase();
-    }
-
-    const recorded = recordPasswordResetRequest_(userRecord, token, { clearEmailConfirmation: true, ttlMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES });
-    if (!recorded || !recorded.success) {
-      return { success: false, error: 'We were unable to generate a reset link. Contact your administrator for help.' };
-    }
-
-    let emailSent = false;
-    if (typeof sendPasswordResetEmail === 'function') {
-      try {
-        emailSent = !!sendPasswordResetEmail(recorded.email || userRecord.Email, token);
-      } catch (mailErr) {
-        try { writeError && writeError('clientRequestPasswordReset.email', mailErr); } catch (_) { /* ignore */ }
-      }
-    }
-
-    return {
-      success: true,
-      delivered: emailSent,
-      message: 'If an account exists for that email, you will receive password reset instructions shortly.',
-      emailHint: maskEmailForDisplay_(recorded.email || userRecord.Email || '')
-    };
-  } catch (err) {
-    try { writeError && writeError('clientRequestPasswordReset', err); } catch (_) { /* ignore */ }
-    return { success: false, error: 'We were unable to process your request. Please try again later.' };
-  }
-}
-
-function clientValidatePasswordToken(token) {
-  try {
-    const normalized = (token || token === 0) ? String(token).trim() : '';
-    if (!normalized) {
-      return { success: false, error: 'Missing password reset token.' };
-    }
-
-    const dataset = loadUsersSheetDataForAuth_();
-    if (!dataset.sheet) {
-      return { success: false, error: 'Password reset service is currently unavailable.' };
-    }
-
-    const match = findUserRowByToken_(normalized, dataset);
-    if (!match) {
-      return { success: false, error: 'This link is not valid. Request a new password reset.' };
-    }
-
-    if (match.expired) {
-      return {
-        success: false,
-        expired: true,
-        error: 'This link has expired. Request a new password reset.',
-        emailHint: maskEmailForDisplay_(match.email || '')
-      };
-    }
-
-    return {
-      success: true,
-      reason: match.reason,
-      emailHint: maskEmailForDisplay_(match.email || ''),
-      sentAt: match.sentAt instanceof Date ? match.sentAt.toISOString() : '',
-      expiresAt: match.expiresAt instanceof Date ? match.expiresAt.toISOString() : ''
-    };
-  } catch (err) {
-    try { writeError && writeError('clientValidatePasswordToken', err); } catch (_) { /* ignore */ }
-    return { success: false, error: 'Unable to validate this link. Please request a new password reset.' };
-  }
-}
-
-function clientCompletePasswordReset(payload) {
-  try {
-    const data = payload || {};
-    const token = String(data.token || data.resetToken || data.passwordToken || '').trim();
-    const password = data.password ? String(data.password) : '';
-    const confirm = data.confirmPassword ? String(data.confirmPassword) : String(data.passwordConfirm || '');
-
-    if (!token) {
-      return { success: false, error: 'Missing password reset token.' };
-    }
-
-    if (!password || password.length < 8) {
-      return { success: false, error: 'Password must be at least 8 characters long.' };
-    }
-
-    if (confirm && password !== confirm) {
-      return { success: false, error: 'Passwords do not match.' };
-    }
-
-    const result = applyPasswordChangeForToken_(token, password, {});
-    if (!result || !result.success) {
-      if (result && result.expired) {
-        return { success: false, error: 'This link has expired. Request a new password reset.', expired: true };
-      }
-
-      const friendlyError = (function mapError(message) {
-        switch (message) {
-          case 'TOKEN_INVALID':
-            return 'This link is not valid. Request a new password reset.';
-          case 'USERS_SHEET_UNAVAILABLE':
-            return 'Password reset service is currently unavailable.';
-          default:
-            return '';
-        }
-      })(result && result.message);
-
-      return { success: false, error: friendlyError || (result && result.message) || 'Unable to update password.' };
-    }
-
-    const successMessage = result.reason === 'setup'
-      ? 'Your LuminaHQ password has been created. You can sign in now.'
-      : 'Your password was updated successfully.';
-
-    return {
-      success: true,
-      message: successMessage,
-      reason: result.reason
-    };
-  } catch (err) {
-    try { writeError && writeError('clientCompletePasswordReset', err); } catch (_) { /* ignore */ }
-    return { success: false, error: 'Unable to update your password. Please try again.' };
-  }
-}
-
-function setPasswordWithToken(token, password) {
-  if (!token) {
-    return { success: false, message: 'TOKEN_REQUIRED' };
-  }
-  if (!password) {
-    return { success: false, message: 'PASSWORD_REQUIRED' };
-  }
-  return applyPasswordChangeForToken_(token, password, {});
 }
 
 function canonicalizePageKey(k) {
@@ -4851,43 +4210,12 @@ function handlePublicPage(page, e, baseUrl) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
     case 'forgotpassword':
-    case 'forgot-password': {
-      const tpl = HtmlService.createTemplateFromFile('ForgotPassword');
-      tpl.baseUrl = baseUrl;
-      tpl.scriptUrl = scriptUrl;
-      tpl.supportEmail = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.supportEmail)
-        ? EMAIL_CONFIG.supportEmail
-        : 'support@vlbpo.com';
-      tpl.brandName = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.brandName)
-        ? EMAIL_CONFIG.brandName
-        : 'Lumina Identity';
-
-      return tpl.evaluate()
-        .setTitle('Reset your password • ' + tpl.brandName)
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
+    case 'forgot-password':
     case 'setpassword':
     case 'resetpassword':
     case 'emailconfirmed':
-    case 'email-confirmed': {
-      const tpl = HtmlService.createTemplateFromFile('SetPassword');
-      tpl.baseUrl = baseUrl;
-      tpl.scriptUrl = scriptUrl;
-      tpl.token = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
-      tpl.brandName = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.brandName)
-        ? EMAIL_CONFIG.brandName
-        : 'Lumina Identity';
-      tpl.supportEmail = (typeof EMAIL_CONFIG !== 'undefined' && EMAIL_CONFIG && EMAIL_CONFIG.supportEmail)
-        ? EMAIL_CONFIG.supportEmail
-        : 'support@vlbpo.com';
-
-      return tpl.evaluate()
-        .setTitle('Create your password • ' + tpl.brandName)
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
+    case 'email-confirmed':
+      return createErrorPage('Authentication Unavailable', 'Password management features have been removed from this deployment.');
 
     case 'resend-verification':
     case 'resendverification':
@@ -6172,9 +5500,7 @@ function _uiUserShape_(u, cmap) {
     campaignName: cmap[primaryCampaignId] || _normStr_(u.CampaignName || ''),
     CampaignIds: campaignIds,
     campaignIds: campaignIds,
-    CanLogin: u.CanLogin,
     IsAdmin: u.IsAdmin,
-    canLoginBool: _toBool_(u.CanLogin),
     isAdminBool: _toBool_(u.IsAdmin),
     Active: typeof u.Active === 'undefined' ? u.active : u.Active,
     active: activeBool,
@@ -7375,7 +6701,7 @@ function initializeMainSheets() {
       const pagesName = (typeof PAGES_SHEET === 'string' && PAGES_SHEET) ? PAGES_SHEET : 'Pages';
       const campaignsName = (typeof CAMPAIGNS_SHEET === 'string' && CAMPAIGNS_SHEET) ? CAMPAIGNS_SHEET : 'Campaigns';
 
-      pushDefinition(usersName, (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'PasswordHashFormat', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe', 'PasswordHashAlgorithm', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
+      pushDefinition(usersName, (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS)) ? USERS_HEADERS : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'Roles', 'EmailConfirmed', 'EmailConfirmation', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(rolesName, Array.isArray(ROLES_HEADER) ? ROLES_HEADER : ['ID', 'Name', 'NormalizedName', 'Scope', 'Description', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(pagesName, Array.isArray(PAGES_HEADERS) ? PAGES_HEADERS : ['PageKey', 'PageTitle', 'PageIcon', 'Description', 'IsSystemPage', 'RequiresAdmin', 'CreatedAt', 'UpdatedAt']);
       pushDefinition(campaignsName, Array.isArray(CAMPAIGNS_HEADERS) ? CAMPAIGNS_HEADERS : ['ID', 'Name', 'Description', 'Status', 'Channel', 'Timezone', 'CreatedAt', 'UpdatedAt']);
@@ -7437,7 +6763,7 @@ function initializeSheetHeaders(sheet, sheetName) {
         case 'Users':
           headers = (typeof USERS_HEADERS !== 'undefined' && Array.isArray(USERS_HEADERS))
             ? USERS_HEADERS.slice()
-            : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'PasswordHashFormat', 'PasswordHashHex', 'PasswordHashBase64', 'PasswordHashBase64WebSafe', 'PasswordHashAlgorithm', 'ResetRequired', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'CreatedAt', 'UpdatedAt'];
+            : ['ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country', 'Roles', 'CreatedAt', 'UpdatedAt'];
           break;
         case (typeof ROLES_SHEET === 'string' && ROLES_SHEET) ? ROLES_SHEET : 'Roles':
         case 'Roles':

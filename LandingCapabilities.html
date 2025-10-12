@@ -1117,9 +1117,9 @@
           <li><a href="?page=landing-about">About</a></li>
         </ul>
       </nav>
-      <a class="nav-cta" data-platform-link href="?page=login">
-        <i class="fa-solid fa-right-to-bracket"></i>
-        Enter platform
+      <a class="nav-cta" href="#cta">
+        <i class="fa-solid fa-paper-plane"></i>
+        Request access
       </a>
     </div>
   </header>
@@ -1144,9 +1144,9 @@
             the suite powering modern workforce intelligence.
           </p>
           <div class="hero-actions">
-            <a class="primary-btn" data-platform-link href="?page=login">
-              <i class="fa-solid fa-rocket"></i>
-              Enter platform
+            <a class="primary-btn" href="#cta">
+              <i class="fa-solid fa-comments"></i>
+              Connect with our team
             </a>
             <a class="ghost-btn" href="?page=landing#cta">
               <i class="fa-solid fa-lightbulb"></i>
@@ -1273,9 +1273,9 @@
           Activate LuminaHQ and give every leader the tools to plan, coach, analyze, and automate with confidence.
         </p>
         <div class="hero-actions" style="justify-content: center;">
-          <a class="primary-btn" data-platform-link href="?page=login">
-            <i class="fa-solid fa-right-to-bracket"></i>
-            Enter platform
+          <a class="primary-btn" href="#cta">
+            <i class="fa-solid fa-comments"></i>
+            Connect with our team
           </a>
           <a class="ghost-btn" href="?page=landing-about#culture">
             <i class="fa-solid fa-people-group"></i>
@@ -1298,7 +1298,7 @@
         <strong>Explore</strong>
         <a href="?page=landing">Home</a>
         <a href="?page=landing-about">About</a>
-        <a href="?page=login">Sign in</a>
+        <a href="#cta">Connect</a>
         <a href="?page=lumina-user-guide">User guide</a>
       </div>
       <div class="footer-contact">
@@ -1319,14 +1319,6 @@
   <div class="cursor-glow" aria-hidden="true"></div>
   <script>
     (function () {
-      const PLATFORM_URL = '?page=login';
-
-      document.querySelectorAll('[data-platform-link]').forEach((link) => {
-        if (link) {
-          link.setAttribute('href', PLATFORM_URL);
-        }
-      });
-
       const preloader = document.querySelector('.preloader');
       window.addEventListener('load', () => {
         window.setTimeout(() => {
