@@ -1,7 +1,17 @@
 <!DOCTYPE html>
+<?
+  var loginBaseUrl = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '';
+  var loginScriptUrl = (typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : '';
+  var loginReturnUrl = (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '';
+  var loginMessage = (typeof message !== 'undefined' && message) ? message : '';
+  var loginSessionId = (typeof sessionId !== 'undefined' && sessionId) ? sessionId : '';
+  var loginCsrfToken = (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '';
+?>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base target="_top">
   <title>Sign in – Lumina Identity</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
   <style>
@@ -39,8 +49,8 @@
         Authenticator code
         <input id="totp" type="text" maxlength="6" inputmode="numeric" pattern="\\d{6}">
       </label>
-      <input type="hidden" id="sessionId">
-      <input type="hidden" id="csrf">
+      <input type="hidden" id="sessionId" value="<?= loginSessionId ?>">
+      <input type="hidden" id="csrf" value="<?= loginCsrfToken ?>">
       <button type="submit">Sign in</button>
     </form>
     <div class="alt">
@@ -48,25 +58,66 @@
     </div>
   </div>
   <script>
+    const loginContext = {
+      baseUrl: <?= JSON.stringify(loginBaseUrl) ?>,
+      scriptUrl: <?= JSON.stringify(loginScriptUrl) ?>,
+      returnUrl: <?= JSON.stringify(loginReturnUrl) ?>,
+      message: <?= JSON.stringify(loginMessage) ?>,
+      sessionId: <?= JSON.stringify(loginSessionId) ?>,
+      csrfToken: <?= JSON.stringify(loginCsrfToken) ?>
+    };
+
     const statusEl = document.getElementById('status');
     const otpWrapper = document.getElementById('otp-wrapper');
     const totpWrapper = document.getElementById('totp-wrapper');
     const sessionInput = document.getElementById('sessionId');
     const csrfInput = document.getElementById('csrf');
 
-    function setStatus(message, isError) {
-      statusEl.textContent = message;
-      statusEl.classList.toggle('error', !!isError);
-      statusEl.style.display = message ? 'block' : 'none';
+    function revealSecondFactorsFromMessage(message) {
+      if (!message) {
+        return;
+      }
+      if (/otp|code/i.test(message)) {
+        otpWrapper.style.display = 'block';
+      }
+      if (/totp|authenticator/i.test(message)) {
+        totpWrapper.style.display = 'block';
+      }
     }
 
+    function setStatus(message, isError) {
+      statusEl.textContent = message || '';
+      statusEl.classList.toggle('error', !!isError);
+      statusEl.style.display = message ? 'block' : 'none';
+      if (message) {
+        revealSecondFactorsFromMessage(message);
+      }
+    }
+
+    const endpoint =
+      (loginContext.scriptUrl && loginContext.scriptUrl.trim()) ||
+      (loginContext.baseUrl && loginContext.baseUrl.trim()) ||
+      window.location.href.split('#')[0];
+
     async function api(action, payload) {
-      const response = await fetch('', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.assign({ action }, payload || {}))
       });
-      return response.json();
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (err) {
+        throw new Error('Unexpected response from server');
+      }
+
+      return data;
+    }
+
+    if (loginContext.message) {
+      setStatus(loginContext.message, false);
     }
 
     document.getElementById('login-form').addEventListener('submit', async (event) => {
@@ -80,16 +131,18 @@
           totp: document.getElementById('totp').value || undefined
         };
         const result = await api('auth/login', payload);
-        if (!result.ok) {
-          throw new Error(result.error || 'Unable to sign in');
+        if (!result || result.ok !== true || !result.result) {
+          throw new Error((result && result.error) || 'Unable to sign in');
         }
-        sessionInput.value = result.result.SessionId;
-        csrfInput.value = result.result.CSRF;
+        sessionInput.value = result.result.SessionId || '';
+        csrfInput.value = result.result.CSRF || '';
         setStatus('Success! Redirecting...');
-        setTimeout(() => window.location.href = '?page=dashboard', 900);
+        const redirectTarget = (loginContext.returnUrl && loginContext.returnUrl.trim()) || '?page=dashboard';
+        setTimeout(() => {
+          window.location.href = redirectTarget;
+        }, 900);
       } catch (err) {
-        setStatus(err.message, true);
-        otpWrapper.style.display = 'block';
+        setStatus(err.message || 'Unable to sign in', true);
       }
     });
 
@@ -98,18 +151,21 @@
       try {
         const identity = document.getElementById('identity').value;
         if (!identity) {
-          return setStatus('Enter your email or username first.', true);
+          setStatus('Enter your email or username first.', true);
+          return;
         }
         const response = await api('auth/request-otp', { emailOrUsername: identity, purpose: 'login' });
-        if (!response.ok) {
-          throw new Error(response.error || 'Unable to send code');
+        if (!response || response.ok !== true) {
+          throw new Error((response && response.error) || 'Unable to send code');
         }
         setStatus('Check your email for a six digit code.');
         otpWrapper.style.display = 'block';
       } catch (err) {
-        setStatus(err.message, true);
+        setStatus(err.message || 'Unable to send code', true);
       }
     });
+
+    revealSecondFactorsFromMessage(loginContext.message);
   </script>
 </body>
 </html>
