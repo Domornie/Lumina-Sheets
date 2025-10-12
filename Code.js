@@ -3177,7 +3177,35 @@ function attachTokenToUrl_(url, token, queryParam) {
 }
 
 function renderLoginPage(e, options) {
-  return HtmlService.createHtmlOutput('Authentication is not available.').setTitle('Authentication Unavailable');
+  return createLoginPageOutput_({
+    baseUrl: getBaseUrl(),
+    scriptUrl: SCRIPT_URL,
+    returnUrl: options && options.returnUrl ? options.returnUrl : '',
+    message: options && options.message ? options.message : '',
+    sessionId: options && options.sessionId ? options.sessionId : '',
+    csrfToken: options && options.csrfToken ? options.csrfToken : ''
+  });
+}
+
+function createLoginPageOutput_(context) {
+  try {
+    const tpl = HtmlService.createTemplateFromFile('Html/LuminaIdentityLogin');
+    tpl.baseUrl = (context && context.baseUrl) || '';
+    tpl.scriptUrl = (context && context.scriptUrl) || '';
+    tpl.returnUrl = (context && context.returnUrl) || '';
+    tpl.message = (context && context.message) || '';
+    tpl.sessionId = (context && context.sessionId) || '';
+    tpl.csrfToken = (context && context.csrfToken) || '';
+
+    return tpl
+      .evaluate()
+      .setTitle('Sign in – Lumina Identity')
+      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (err) {
+    console.error('createLoginPageOutput_: failed to render login page', err);
+    return HtmlService.createHtmlOutput('Authentication is not available.').setTitle('Authentication Unavailable');
+  }
 }
 
 
@@ -4212,6 +4240,14 @@ function handlePublicPage(page, e, baseUrl) {
         .setTitle('LuminaHQ User Guide')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'login':
+      return createLoginPageOutput_({
+        baseUrl: baseUrl,
+        scriptUrl: scriptUrl,
+        returnUrl: (e && e.parameter && (e.parameter.returnUrl || e.parameter.return || e.parameter.redirect)) || '',
+        message: (e && e.parameter && e.parameter.message) || ''
+      });
 
     case 'forgotpassword':
     case 'forgot-password':
