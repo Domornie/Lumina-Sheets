@@ -15,8 +15,11 @@ HTML front-ends inside `Html/`.
 1. Create a dedicated Google Sheet to store the identity tables. Add tabs with
    the exact headers defined in `IdentityRepository.TABLE_HEADERS`. The
    bootstrap helpers will auto-create sheets that are missing.
-2. Set the following script properties in the Apps Script project:
-   - `IDENTITY_SPREADSHEET_ID`: ID of the sheet created in step 1.
+2. (Optional for seeding) Set the following script properties in the Apps Script
+   project:
+   - `IDENTITY_SPREADSHEET_ID`: ID of the sheet created in step 1. When omitted
+     the seeding helpers fall back to the active spreadsheet, but production
+     deployments should still configure this value explicitly.
    - `IDENTITY_PASSWORD_SALT`: optional, if omitted a random salt is generated
      on first login.
 3. Deploy the web app with `Execute as: User accessing the web app` and

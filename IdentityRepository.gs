@@ -117,18 +117,6 @@
   var repositoryCache = CacheService ? CacheService.getScriptCache() : null;
   var spreadsheetCache = null;
 
-  function getSpreadsheetId() {
-    var scriptProperties = PropertiesService && PropertiesService.getScriptProperties();
-    if (!scriptProperties) {
-      throw new Error('Script properties unavailable – configure IDENTITY_SPREADSHEET_ID.');
-    }
-    var id = scriptProperties.getProperty(SPREADSHEET_ID_PROPERTY);
-    if (!id) {
-      throw new Error('Missing script property: IDENTITY_SPREADSHEET_ID');
-    }
-    return id;
-  }
-
   function getSpreadsheet() {
     if (spreadsheetCache) {
       return spreadsheetCache;
@@ -136,8 +124,48 @@
     if (!SpreadsheetApp) {
       throw new Error('SpreadsheetApp unavailable');
     }
-    spreadsheetCache = SpreadsheetApp.openById(getSpreadsheetId());
-    return spreadsheetCache;
+
+    var configuredId = null;
+    var propertyError = null;
+
+    try {
+      var scriptProperties = PropertiesService && PropertiesService.getScriptProperties();
+      if (!scriptProperties) {
+        throw new Error('Script properties unavailable – configure IDENTITY_SPREADSHEET_ID.');
+      }
+      configuredId = scriptProperties.getProperty(SPREADSHEET_ID_PROPERTY);
+      if (!configuredId) {
+        throw new Error('Missing script property: IDENTITY_SPREADSHEET_ID');
+      }
+    } catch (err) {
+      propertyError = err;
+      configuredId = null;
+    }
+
+    if (configuredId) {
+      spreadsheetCache = SpreadsheetApp.openById(configuredId);
+      return spreadsheetCache;
+    }
+
+    if (typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
+      try {
+        var active = SpreadsheetApp.getActiveSpreadsheet();
+        if (active) {
+          spreadsheetCache = active;
+          return spreadsheetCache;
+        }
+      } catch (activeErr) {
+        if (!propertyError) {
+          propertyError = activeErr;
+        }
+      }
+    }
+
+    if (propertyError) {
+      throw propertyError;
+    }
+
+    throw new Error('Unable to resolve identity spreadsheet. Configure IDENTITY_SPREADSHEET_ID or run within the identity spreadsheet.');
   }
 
   function normalizeHeaders(values) {
