@@ -520,6 +520,14 @@
       const rememberEl = document.getElementById('rememberMe');
       const returnUrlEl = document.getElementById('returnUrl');
       const togglePasswordEl = document.getElementById('togglePassword');
+      const openModeEnabled = <?!= JSON.stringify(typeof openModeEnabled !== 'undefined' ? openModeEnabled : false) ?>;
+      let openModeRedirectScheduled = false;
+
+      function isGoogleScriptAvailable() {
+        return typeof google !== 'undefined'
+          && !!google.script
+          && !!google.script.run;
+      }
 
       function isGoogleScriptAvailable() {
         return typeof google !== 'undefined'
@@ -842,6 +850,11 @@
       }
 
       function handleOpenModeAccess() {
+        if (openModeRedirectScheduled) {
+          return;
+        }
+        openModeRedirectScheduled = true;
+
         const identifier = identifierEl && identifierEl.value ? identifierEl.value.trim() : '';
         if (identifier) {
           persistLastIdentifier(identifier);
@@ -976,9 +989,15 @@
 
       if (!isGoogleScriptAvailable()) {
         const existing = messageEl && messageEl.textContent ? messageEl.textContent.trim() : '';
-        const notice = 'Lumina Identity is disabled in this open-source build. Select “Log in” to continue directly to the workspace.';
+        const notice = openModeEnabled
+          ? 'Lumina Identity is disabled in this open-source build. Redirecting to the workspace…'
+          : 'Lumina Identity is disabled in this open-source build. Select “Log in” to continue directly to the workspace.';
         const combined = existing ? existing + ' ' + notice : notice;
         showAlert(messageEl, combined.trim(), 'info');
+      }
+
+      if (openModeEnabled && !isGoogleScriptAvailable()) {
+        setTimeout(function () { handleOpenModeAccess(); }, 120);
       }
     })();
   </script>
