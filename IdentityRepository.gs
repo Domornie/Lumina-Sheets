@@ -24,7 +24,7 @@
   var CACHE_TTL_SECONDS = 60;
   var HEADER_ROW = 1;
 
-  var TABLE_HEADERS = {
+  var LEGACY_FALLBACK_TABLE_HEADERS = {
     Campaigns: ['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON'],
     Users: ['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt', 'Role', 'CampaignId', 'UpdatedAt', 'FlagsJson', 'Watchlist'],
     UserCampaigns: ['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist'],
@@ -50,6 +50,69 @@
     SystemMessages: ['MessageId', 'Severity', 'Title', 'Body', 'TargetRole', 'TargetCampaignId', 'Status', 'CreatedAt', 'ResolvedAt', 'CreatedBy', 'MetadataJson'],
     Jobs: ['JobId', 'Name', 'Schedule', 'LastRunAt', 'LastStatus', 'ConfigJson', 'Enabled', 'RunHash']
   };
+
+  function cloneHeaderMap(map) {
+    var clone = {};
+    Object.keys(map).forEach(function(name) {
+      clone[name] = Array.isArray(map[name]) ? map[name].slice() : [];
+    });
+    return clone;
+  }
+
+  function coerceHeaderMap(source, fallback) {
+    var resolved = {};
+    if (source && typeof source === 'object') {
+      Object.keys(source).forEach(function(name) {
+        if (Array.isArray(source[name]) && source[name].length) {
+          resolved[name] = source[name].slice();
+        }
+      });
+    }
+    if (fallback && typeof fallback === 'object') {
+      Object.keys(fallback).forEach(function(name) {
+        if (!Array.isArray(resolved[name]) || !resolved[name].length) {
+          var headers = fallback[name];
+          if (Array.isArray(headers) && headers.length) {
+            resolved[name] = headers.slice();
+          }
+        }
+      });
+    }
+    return resolved;
+  }
+
+  var defaultsFromMain = coerceHeaderMap(
+    global && global.LUMINA_IDENTITY_TABLE_HEADER_DEFAULTS,
+    LEGACY_FALLBACK_TABLE_HEADERS
+  );
+
+  if (global && !global.LUMINA_IDENTITY_TABLE_HEADER_DEFAULTS) {
+    global.LUMINA_IDENTITY_TABLE_HEADER_DEFAULTS = cloneHeaderMap(defaultsFromMain);
+  }
+
+  var canonicalHeaderSource = coerceHeaderMap(
+    global && global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS,
+    defaultsFromMain
+  );
+
+  if (!global || !global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS) {
+    if (global) {
+      global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = cloneHeaderMap(canonicalHeaderSource);
+    }
+  } else {
+    Object.keys(canonicalHeaderSource).forEach(function(name) {
+      if (!Array.isArray(global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[name])
+        || !global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[name].length) {
+        global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[name] = canonicalHeaderSource[name].slice();
+      }
+    });
+  }
+
+  var TABLE_HEADERS = cloneHeaderMap(
+    (global && global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS)
+      ? global.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS
+      : canonicalHeaderSource
+  );
 
   var repositoryCache = CacheService ? CacheService.getScriptCache() : null;
   var spreadsheetCache = null;
