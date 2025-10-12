@@ -17,10 +17,17 @@
   </style>
 </head>
 <body>
+  <? var loginHref = (function() {
+    var base = scriptUrl || baseUrl || '';
+    if (base) {
+      return String(base).replace(/[?#].*$/, '') + '?page=login';
+    }
+    return '?page=login';
+  })(); ?>
   <header>
     <h1>Lumina Identity</h1>
     <p class="lead">Tenant-aware authentication, authorization, and lifecycle control for every Lumina campaign.</p>
-    <a class="cta" href="?page=login">Sign in to continue</a>
+    <a class="cta" href="<?= loginHref ?>">Sign in to continue</a>
   </header>
   <main>
     <section>

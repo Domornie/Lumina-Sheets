@@ -956,6 +956,13 @@
     </style>
   </head>
   <body>
+    <? var loginHref = (function() {
+      var base = scriptUrl || baseUrl || '';
+      if (base) {
+        return String(base).replace(/[?#].*$/, '') + '?page=login';
+      }
+      return '?page=login';
+    })(); ?>
     <div class="scroll-progress" aria-hidden="true"></div>
     <div class="preloader" role="status" aria-live="polite" aria-label="Loading">
       <div class="loader"></div>
@@ -983,7 +990,7 @@
           </ul>
         </nav>
         <div class="nav-actions">
-          <a class="nav-link" href="?page=login">
+          <a class="nav-link" href="<?= loginHref ?>">
             <i class="fa-solid fa-right-to-bracket"></i>
             Sign in
           </a>
@@ -1326,7 +1333,7 @@
           <a href="?page=landing-about">About</a>
           <a href="?page=landing-capabilities">Capabilities</a>
           <a href="?page=lumina-user-guide">User guide</a>
-          <a href="?page=login">Sign in</a>
+          <a href="<?= loginHref ?>">Sign in</a>
           <a href="#cta">Connect with us</a>
         </div>
         <div class="footer-contact">

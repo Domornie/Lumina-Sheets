@@ -27,6 +27,13 @@
   </style>
 </head>
 <body>
+  <? var loginHref = (function() {
+    var base = scriptUrl || baseUrl || '';
+    if (base) {
+      return String(base).replace(/[?#].*$/, '') + '?page=login';
+    }
+    return '?page=login';
+  })(); ?>
   <header>
     <div>
       <strong>Lumina Identity</strong>
@@ -153,9 +160,11 @@
       });
     }
 
+    const LOGIN_URL = '<?= loginHref ?>';
+
     document.getElementById('logout').addEventListener('click', async () => {
       await api('auth/logout', {});
-      window.location.href = '?page=login';
+      window.location.href = LOGIN_URL;
     });
 
     bootstrap();
