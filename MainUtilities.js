@@ -336,25 +336,52 @@ const IDENTITY_REPOSITORY_TABLE_HEADERS = (typeof IdentityRepository !== 'undefi
   ? IdentityRepository.TABLE_HEADERS
   : null;
 
-const IDENTITY_TABLE_FALLBACK_HEADERS = {
-  Campaigns: ['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON'],
-  Users: ['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt'],
-  UserCampaigns: ['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist'],
-  Roles: ['Role', 'Description', 'IsGlobal'],
-  RolePermissions: ['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed'],
-  OTP: ['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount'],
-  Sessions: ['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA'],
-  LoginAttempts: ['EmailOrUsername', 'Count1m', 'Count15m', 'LastAttemptAt', 'LockedUntil'],
-  Equipment: ['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status'],
-  EmploymentStatus: ['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes'],
-  EligibilityRules: ['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active'],
-  AuditLog: ['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'IP', 'UA'],
-  FeatureFlags: ['Flag', 'Value', 'Notes', 'UpdatedAt'],
-  Policies: ['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt'],
-  QualityScores: ['RecordId', 'UserId', 'CampaignId', 'Score', 'Date'],
-  Attendance: ['RecordId', 'UserId', 'CampaignId', 'Attendance', 'Status', 'Date'],
-  Performance: ['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']
-};
+const IDENTITY_TABLE_HEADER_DEFAULTS = Object.freeze({
+  Campaigns: Object.freeze(['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON']),
+  Users: Object.freeze(['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt', 'Role', 'CampaignId', 'UpdatedAt', 'FlagsJson', 'Watchlist']),
+  UserCampaigns: Object.freeze(['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist']),
+  Roles: Object.freeze(['RoleId', 'Role', 'Name', 'Description', 'PermissionsJson', 'DefaultForCampaignManager', 'IsGlobal']),
+  RolePermissions: Object.freeze(['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed']),
+  OTP: Object.freeze(['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount']),
+  Sessions: Object.freeze(['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA']),
+  LoginAttempts: Object.freeze(['EmailOrUsername', 'Count1m', 'Count15m', 'LastAttemptAt', 'LockedUntil']),
+  Equipment: Object.freeze(['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status']),
+  EmploymentStatus: Object.freeze(['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes']),
+  EligibilityRules: Object.freeze(['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active']),
+  AuditLog: Object.freeze(['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'Mode', 'IP', 'UA']),
+  FeatureFlags: Object.freeze(['Key', 'Value', 'Env', 'Description', 'UpdatedAt', 'Flag', 'Notes']),
+  Policies: Object.freeze(['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt']),
+  QualityScores: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Score', 'Date']),
+  Attendance: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Date', 'State', 'Start', 'End', 'Productive', 'Minutes']),
+  Performance: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']),
+  Shifts: Object.freeze(['ShiftId', 'CampaignId', 'UserId', 'Date', 'StartTime', 'EndTime', 'Status']),
+  QAAudits: Object.freeze(['AuditId', 'UserId', 'CampaignId', 'Score', 'Band', 'AutoFail', 'CreatedAt', 'DetailsUrl']),
+  Coaching: Object.freeze(['CoachId', 'UserId', 'CampaignId', 'Plan', 'DueDate', 'Status']),
+  Benefits: Object.freeze(['UserId', 'Eligible', 'Reason', 'EffectiveDate']),
+  PayrollSync: Object.freeze(['CampaignId', 'RunId', 'Status', 'ErrorsJson', 'StartedAt', 'EndedAt']),
+  SystemMessages: Object.freeze(['MessageId', 'Severity', 'Title', 'Body', 'TargetRole', 'TargetCampaignId', 'Status', 'CreatedAt', 'ResolvedAt', 'CreatedBy', 'MetadataJson']),
+  Jobs: Object.freeze(['JobId', 'Name', 'Schedule', 'LastRunAt', 'LastStatus', 'ConfigJson', 'Enabled', 'RunHash'])
+});
+
+namespace.IDENTITY_TABLE_HEADER_DEFAULTS = IDENTITY_TABLE_HEADER_DEFAULTS;
+root.LUMINA_IDENTITY_TABLE_HEADER_DEFAULTS = IDENTITY_TABLE_HEADER_DEFAULTS;
+
+if (typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS === 'undefined'
+  || !LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS
+  || typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS !== 'object') {
+  var LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = {};
+}
+
+Object.keys(IDENTITY_TABLE_HEADER_DEFAULTS).forEach(function (tableName) {
+  const defaults = IDENTITY_TABLE_HEADER_DEFAULTS[tableName];
+  if (!Array.isArray(LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName])
+    || !LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName].length) {
+    LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName] = defaults.slice();
+  }
+});
+
+namespace.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS;
+root.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS;
 
 function getIdentityTableHeaders_(tableName) {
   const fromRepository = IDENTITY_REPOSITORY_TABLE_HEADERS
@@ -366,8 +393,14 @@ function getIdentityTableHeaders_(tableName) {
     return fromRepository.slice();
   }
 
-  const fallback = IDENTITY_TABLE_FALLBACK_HEADERS[tableName];
+  const fallback = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName];
   return Array.isArray(fallback) ? fallback.slice() : [];
+}
+
+if (typeof getLuminaIdentityTableHeaders === 'undefined') {
+  var getLuminaIdentityTableHeaders = function (tableName) {
+    return getIdentityTableHeaders_(tableName);
+  };
 }
 
 const LUMINA_IDENTITY_CANONICAL_USER_HEADERS = getIdentityTableHeaders_('Users');
@@ -929,10 +962,10 @@ function buildCanonicalIdentitySheetMap_() {
 }
 
 if (typeof listCanonicalIdentitySheets !== 'function') {
-  function listCanonicalIdentitySheets() {
+  var listCanonicalIdentitySheets = function () {
     const map = buildCanonicalIdentitySheetMap_();
     return Object.keys(map).map(name => ({ name, headers: map[name].slice() }));
-  }
+  };
 }
 
 if (typeof synchronizeLuminaIdentityHeaders === 'undefined') {
