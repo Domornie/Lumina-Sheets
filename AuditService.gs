@@ -11,11 +11,14 @@
     return;
   }
 
-  var IdentityRepository = global.IdentityRepository;
   var Utilities = global.Utilities;
 
-  if (!IdentityRepository) {
-    throw new Error('AuditService requires IdentityRepository bootstrap');
+  function getRepository() {
+    var repo = global.IdentityRepository;
+    if (!repo || typeof repo.append !== 'function') {
+      throw new Error('AuditService requires IdentityRepository bootstrap');
+    }
+    return repo;
   }
 
   function toJson(value) {
@@ -45,12 +48,12 @@
       IP: event.IP || '',
       UA: event.UA || ''
     };
-    IdentityRepository.append('AuditLog', payload);
+    getRepository().append('AuditLog', payload);
     return payload;
   }
 
   function list(filters) {
-    var rows = IdentityRepository.list('AuditLog');
+    var rows = getRepository().list('AuditLog');
     if (!filters) {
       return rows;
     }
