@@ -13,7 +13,279 @@
 if (typeof CACHE_TTL_SEC === 'undefined') var CACHE_TTL_SEC = 600;
 if (typeof PAGE_SIZE === 'undefined') var PAGE_SIZE = 10;
 if (typeof MAX_BATCH_SIZE === 'undefined') var MAX_BATCH_SIZE = 200;
-if (typeof scriptCache === 'undefined') var scriptCache = CacheService.getScriptCache();
+if (typeof scriptCache === 'undefined') {
+  var scriptCache;
+  try {
+    scriptCache = CacheService.getScriptCache();
+  } catch (cacheErr) {
+    scriptCache = {
+      get: function () { return null; },
+      put: function () {},
+      remove: function () {}
+    };
+  }
+}
+
+(function (global) {
+  const root = global || this;
+  const namespace = (root.G && typeof root.G === 'object') ? root.G : (root.G = {});
+
+  function mirrorConstant(name) {
+    const hasGlobalValue = typeof root[name] !== 'undefined';
+    const hasNamespaceValue = typeof namespace[name] !== 'undefined';
+
+    if (hasGlobalValue && !hasNamespaceValue) {
+      namespace[name] = root[name];
+    } else if (!hasGlobalValue && hasNamespaceValue) {
+      root[name] = namespace[name];
+    }
+  }
+
+  [
+    'CACHE_TTL_SEC',
+    'PAGE_SIZE',
+    'MAX_BATCH_SIZE',
+    'USERS_SHEET',
+    'ROLES_SHEET',
+    'USER_ROLES_SHEET',
+    'USER_CLAIMS_SHEET',
+    'SESSIONS_SHEET',
+    'CAMPAIGNS_SHEET',
+    'PAGES_SHEET',
+    'CAMPAIGN_PAGES_SHEET',
+    'PAGE_CATEGORIES_SHEET',
+    'CAMPAIGN_USER_PERMISSIONS_SHEET',
+    'USER_MANAGERS_SHEET',
+    'USER_CAMPAIGNS_SHEET',
+    'DEBUG_LOGS_SHEET',
+    'ERROR_LOGS_SHEET',
+    'NOTIFICATIONS_SHEET',
+    'MULTI_CAMPAIGN_NAME',
+    'MULTI_CAMPAIGN_ICON',
+    'CHAT_GROUPS_SHEET',
+    'CHAT_CHANNELS_SHEET',
+    'CHAT_MESSAGES_SHEET',
+    'CHAT_GROUP_MEMBERS_SHEET',
+    'CHAT_MESSAGE_REACTIONS_SHEET',
+    'CHAT_USER_PREFERENCES_SHEET',
+    'CHAT_ANALYTICS_SHEET',
+    'CHAT_CHANNEL_MEMBERS_SHEET',
+    'LUMINA_IDENTITY_SHEET',
+    'USER_INSURANCE_SHEET',
+    'LUMINA_IDENTITY_LOGS_SHEET',
+    'IDENTITY_ROLE_PERMISSIONS_SHEET',
+    'IDENTITY_OTP_SHEET',
+    'IDENTITY_LOGIN_ATTEMPTS_SHEET',
+    'IDENTITY_EQUIPMENT_SHEET',
+    'IDENTITY_EMPLOYMENT_STATUS_SHEET',
+    'IDENTITY_ELIGIBILITY_RULES_SHEET',
+    'IDENTITY_AUDIT_LOG_SHEET',
+    'IDENTITY_FEATURE_FLAGS_SHEET',
+    'IDENTITY_POLICIES_SHEET',
+    'IDENTITY_QUALITY_SCORES_SHEET',
+    'IDENTITY_ATTENDANCE_SHEET',
+    'IDENTITY_PERFORMANCE_SHEET',
+    'DEFAULT_CAMPAIGN_ID',
+    'MANAGER_USERS_SHEET',
+    'SCHEDULE_SPREADSHEET_ID',
+    'FALLBACK_TO_MAIN_SPREADSHEET',
+    'SCHEDULE_GENERATION_SHEET',
+    'SHIFT_SLOTS_SHEET',
+    'SHIFT_SWAPS_SHEET',
+    'SCHEDULE_TEMPLATES_SHEET',
+    'SCHEDULE_NOTIFICATIONS_SHEET',
+    'SCHEDULE_ADHERENCE_SHEET',
+    'SCHEDULE_CONFLICTS_SHEET',
+    'RECURRING_SCHEDULES_SHEET',
+    'ATTENDANCE_STATUS_SHEET',
+    'USER_HOLIDAY_PAY_STATUS_SHEET',
+    'HOLIDAYS_SHEET'
+  ].forEach(mirrorConstant);
+
+  function cloneValue_(value) {
+    if (value === null || typeof value === 'undefined') return value;
+    if (Array.isArray(value)) return value.slice();
+    if (typeof value === 'object') {
+      const copy = {};
+      Object.keys(value).forEach(function (key) {
+        copy[key] = cloneValue_(value[key]);
+      });
+      return copy;
+    }
+    return value;
+  }
+
+  function applyDefaults_(target, defaults) {
+    const dest = (target && typeof target === 'object') ? target : {};
+    if (defaults && typeof defaults === 'object') {
+      Object.keys(defaults).forEach(function (key) {
+        const defVal = defaults[key];
+        if (defVal && typeof defVal === 'object' && !Array.isArray(defVal)) {
+          dest[key] = applyDefaults_(dest[key], defVal);
+        } else if (typeof dest[key] === 'undefined') {
+          dest[key] = cloneValue_(defVal);
+        }
+      });
+    }
+    return dest;
+  }
+
+  function logPropertyWarning_(label, error) {
+    if (!error) return;
+    const message = (error && error.message) ? String(error.message) : '';
+    if (message && message.toLowerCase().indexOf('is not defined') !== -1) {
+      return;
+    }
+    try {
+      console.warn(label, error);
+    } catch (_) {}
+  }
+
+  function resolveOkrCacheDuration_(fallbackSeconds) {
+    let resolved = null;
+    try {
+      const props = PropertiesService.getScriptProperties();
+      if (props && typeof props.getProperty === 'function') {
+        const stored = props.getProperty('OKR_CACHE_DURATION');
+        if (stored) {
+          const parsed = parseInt(String(stored).trim(), 10);
+          if (isFinite(parsed) && parsed > 0) {
+            resolved = parsed;
+          }
+        }
+      }
+    } catch (cachePropErr) {
+      logPropertyWarning_('MainUtilities: unable to read OKR cache duration', cachePropErr);
+    }
+    if (!isFinite(resolved) || resolved <= 0) {
+      return fallbackSeconds;
+    }
+    return resolved;
+  }
+
+  const okrConfigDefaults = {
+    SHEETS: {
+      CALLS: 'Call_Reports',
+      ATTENDANCE: 'Attendance',
+      QA: 'QA_Records',
+      TASKS: 'Tasks',
+      COACHING: 'Coaching',
+      GOALS: 'Goals',
+      CAMPAIGNS: 'Campaigns',
+      OKR_DATA: 'OKR_Data'
+    },
+    DEFAULT_TARGETS: {
+      productivity: { callsPerHour: 12, tasksCompleted: 20 },
+      quality: { csat: 90, qaScore: 85 },
+      efficiency: { responseTimeMin: 6, resolutionRate: 0.85 },
+      engagement: { participationRate: 0.75, feedbackScore: 4.5 },
+      growth: { conversionRate: 0.3, revenue: 10000 }
+    },
+    STATUS_THRESHOLDS: { EXCELLENT: 80, GOOD: 60, NEEDS_IMPROVEMENT: 0 },
+    GRADE_THRESHOLDS: { A: 90, B: 80, C: 70, D: 60 },
+    CACHE_DURATION: 300
+  };
+
+  const existingConfig = (typeof root.CONFIG === 'object' && root.CONFIG) ? root.CONFIG : {};
+  const mergedConfig = applyDefaults_(existingConfig, okrConfigDefaults);
+  mergedConfig.CACHE_DURATION = resolveOkrCacheDuration_(mergedConfig.CACHE_DURATION || okrConfigDefaults.CACHE_DURATION);
+
+  root.CONFIG = mergedConfig;
+  namespace.CONFIG = mergedConfig;
+
+  function ensureNamespaceConfigValue_(key, value) {
+    if (typeof namespace[key] === 'undefined') {
+      namespace[key] = cloneValue_(value);
+    }
+  }
+
+  ensureNamespaceConfigValue_('SHEETS', mergedConfig.SHEETS);
+  ensureNamespaceConfigValue_('DEFAULT_TARGETS', mergedConfig.DEFAULT_TARGETS);
+  ensureNamespaceConfigValue_('STATUS_THRESHOLDS', mergedConfig.STATUS_THRESHOLDS);
+  ensureNamespaceConfigValue_('GRADE_THRESHOLDS', mergedConfig.GRADE_THRESHOLDS);
+  if (typeof namespace.CACHE_DURATION === 'undefined') {
+    namespace.CACHE_DURATION = mergedConfig.CACHE_DURATION;
+  }
+
+  function resolveDefaultCampaignId_() {
+    try {
+      const props = PropertiesService.getScriptProperties();
+      if (props && typeof props.getProperty === 'function') {
+        const stored = props.getProperty('DEFAULT_CAMPAIGN_ID');
+        if (stored && String(stored).trim()) {
+          return String(stored).trim();
+        }
+      }
+    } catch (defaultCampaignErr) {
+      logPropertyWarning_('MainUtilities: unable to read DEFAULT_CAMPAIGN_ID', defaultCampaignErr);
+    }
+    if (typeof root.MULTI_CAMPAIGN_NAME === 'string' && root.MULTI_CAMPAIGN_NAME) {
+      return root.MULTI_CAMPAIGN_NAME;
+    }
+    return 'SYSTEM_ADMIN';
+  }
+
+  if (typeof namespace.DEFAULT_CAMPAIGN_ID === 'undefined') {
+    namespace.DEFAULT_CAMPAIGN_ID = resolveDefaultCampaignId_();
+  }
+  if (typeof root.DEFAULT_CAMPAIGN_ID === 'undefined') {
+    root.DEFAULT_CAMPAIGN_ID = namespace.DEFAULT_CAMPAIGN_ID;
+  }
+
+  if (typeof namespace.MANAGER_USERS_SHEET === 'undefined') {
+    const managerSheet = (typeof root.USER_MANAGERS_SHEET === 'string' && root.USER_MANAGERS_SHEET)
+      || (typeof namespace.USER_MANAGERS_SHEET === 'string' && namespace.USER_MANAGERS_SHEET)
+      || 'UserManagers';
+    namespace.MANAGER_USERS_SHEET = managerSheet;
+  }
+  if (typeof root.MANAGER_USERS_SHEET === 'undefined') {
+    root.MANAGER_USERS_SHEET = namespace.MANAGER_USERS_SHEET;
+  }
+
+  if (typeof namespace.scriptCache === 'undefined') {
+    namespace.scriptCache = root.scriptCache;
+  }
+
+  if (typeof namespace.scriptCache === 'undefined' || namespace.scriptCache === null) {
+    try {
+      namespace.scriptCache = CacheService.getScriptCache();
+    } catch (err) {
+      namespace.scriptCache = {
+        get: function () { return null; },
+        put: function () {},
+        remove: function () {}
+      };
+    }
+  }
+
+  if (typeof root.scriptCache === 'undefined') {
+    root.scriptCache = namespace.scriptCache;
+  }
+
+  if (typeof namespace.MAIN_SPREADSHEET_ID === 'undefined') {
+    let resolvedId = '';
+    try {
+      const props = PropertiesService.getScriptProperties();
+      resolvedId = props.getProperty('MAIN_SPREADSHEET_ID') || '';
+    } catch (propErr) {
+      resolvedId = '';
+    }
+
+    if (!resolvedId) {
+      try {
+        resolvedId = SpreadsheetApp.getActiveSpreadsheet().getId();
+      } catch (ssErr) {
+        resolvedId = '';
+      }
+    }
+
+    namespace.MAIN_SPREADSHEET_ID = resolvedId;
+  }
+
+  if (typeof root.MAIN_SPREADSHEET_ID === 'undefined') {
+    root.MAIN_SPREADSHEET_ID = namespace.MAIN_SPREADSHEET_ID;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
 
 // ────────────────────────────────────────────────────────────────────────────
 // Identity & Core System Sheet names (guarded)
@@ -57,8 +329,51 @@ if (typeof LUMINA_IDENTITY_SHEET === 'undefined') var LUMINA_IDENTITY_SHEET = US
 if (typeof USER_INSURANCE_SHEET === 'undefined') var USER_INSURANCE_SHEET = 'UserInsurance';
 if (typeof LUMINA_IDENTITY_LOGS_SHEET === 'undefined') var LUMINA_IDENTITY_LOGS_SHEET = 'LuminaIdentityLogs';
 
+const IDENTITY_REPOSITORY_TABLE_HEADERS = (typeof IdentityRepository !== 'undefined'
+  && IdentityRepository
+  && IdentityRepository.TABLE_HEADERS
+  && typeof IdentityRepository.TABLE_HEADERS === 'object')
+  ? IdentityRepository.TABLE_HEADERS
+  : null;
+
+const IDENTITY_TABLE_FALLBACK_HEADERS = {
+  Campaigns: ['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON'],
+  Users: ['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt'],
+  UserCampaigns: ['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist'],
+  Roles: ['Role', 'Description', 'IsGlobal'],
+  RolePermissions: ['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed'],
+  OTP: ['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount'],
+  Sessions: ['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA'],
+  LoginAttempts: ['EmailOrUsername', 'Count1m', 'Count15m', 'LastAttemptAt', 'LockedUntil'],
+  Equipment: ['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status'],
+  EmploymentStatus: ['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes'],
+  EligibilityRules: ['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active'],
+  AuditLog: ['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'IP', 'UA'],
+  FeatureFlags: ['Flag', 'Value', 'Notes', 'UpdatedAt'],
+  Policies: ['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt'],
+  QualityScores: ['RecordId', 'UserId', 'CampaignId', 'Score', 'Date'],
+  Attendance: ['RecordId', 'UserId', 'CampaignId', 'Attendance', 'Status', 'Date'],
+  Performance: ['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']
+};
+
+function getIdentityTableHeaders_(tableName) {
+  const fromRepository = IDENTITY_REPOSITORY_TABLE_HEADERS
+    && Object.prototype.hasOwnProperty.call(IDENTITY_REPOSITORY_TABLE_HEADERS, tableName)
+    ? IDENTITY_REPOSITORY_TABLE_HEADERS[tableName]
+    : null;
+
+  if (Array.isArray(fromRepository) && fromRepository.length) {
+    return fromRepository.slice();
+  }
+
+  const fallback = IDENTITY_TABLE_FALLBACK_HEADERS[tableName];
+  return Array.isArray(fallback) ? fallback.slice() : [];
+}
+
+const LUMINA_IDENTITY_CANONICAL_USER_HEADERS = getIdentityTableHeaders_('Users');
+
 const LUMINA_IDENTITY_HEADER_GROUPS = {
-  core: [
+  core: LUMINA_IDENTITY_CANONICAL_USER_HEADERS.concat([
     'ID',
     'UserName',
     'NormalizedUserName',
@@ -76,7 +391,7 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
     'PrimaryCampaignId',
     'CampaignContext',
     'IdentityVersion'
-  ],
+  ]),
   contact: [
     'PhoneNumber',
     'PhoneNumberConfirmed',
@@ -119,13 +434,20 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
     'PermissionScope'
   ],
   security: [
+    'PasswordHash',
+    'EmailVerificationStatus',
+    'EmailVerificationCode',
     'EmailConfirmation',
     'EmailConfirmed',
+    'EmailVerified',
     'LockoutEnd',
     'LockoutEnabled',
     'AccessFailedCount',
     'SecurityStamp',
-    'ConcurrencyStamp'
+    'ConcurrencyStamp',
+    'TOTPEnabled',
+    'TOTPSecretHash',
+    'Status'
   ],
   multiFactor: [
     'TwoFactorEnabled',
@@ -166,22 +488,27 @@ const LUMINA_IDENTITY_HEADER_GROUPS = {
 };
 
 const DEFAULT_USER_HEADERS_FALLBACK = [
+  "UserId",
   "ID",
+  "Username",
   "UserName",
   "FullName",
   "Email",
+  "NormalizedEmail",
+  "EmailVerified",
+  "Status",
   "CampaignID",
+  "LastLoginAt",
+  "CreatedAt",
+  "UpdatedAt",
+  "IsAdmin",
   "PhoneNumber",
   "EmploymentStatus",
   "HireDate",
   "Country",
   "Roles",
   "Pages",
-  "CreatedAt",
-  "UpdatedAt",
-  "IsAdmin",
   "NormalizedUserName",
-  "NormalizedEmail",
   "PreferredLocale",
   "TimeZone",
   "Language",
@@ -397,16 +724,22 @@ if (typeof projectRecordToCanonicalUser !== 'function') {
   }
 }
 
-if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = [
-  "ID",
-  "Name",
-  "NormalizedName",
-  "Scope",
-  "Description",
-  "CreatedAt",
-  "UpdatedAt",
-  "DeletedAt"
-];
+const LUMINA_ROLES_CANONICAL_HEADERS = getIdentityTableHeaders_('Roles');
+if (typeof ROLES_HEADER === 'undefined') {
+  var ROLES_HEADER = flattenIdentityHeaders_({
+    canonical: LUMINA_ROLES_CANONICAL_HEADERS,
+    legacy: [
+      "ID",
+      "Name",
+      "NormalizedName",
+      "Scope",
+      "Description",
+      "CreatedAt",
+      "UpdatedAt",
+      "DeletedAt"
+    ]
+  });
+}
 if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = [
   "ID",
   "UserId",
@@ -418,21 +751,27 @@ if (typeof USER_ROLES_HEADER === 'undefined') var USER_ROLES_HEADER = [
   "DeletedAt"
 ];
 if (typeof CLAIMS_HEADERS === 'undefined') var CLAIMS_HEADERS = ["ID", "UserId", "ClaimType", "CreatedAt", "UpdatedAt"];
-if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
-  "Token",
-  "TokenHash",
-  "TokenSalt",
-  "UserId",
-  "CreatedAt",
-  "LastActivityAt",
-  "ExpiresAt",
-  "IdleTimeoutMinutes",
-  "RememberMe",
-  "CampaignScope",
-  "UserAgent",
-  "IpAddress",
-  "ServerIp"
-];
+const LUMINA_SESSIONS_CANONICAL_HEADERS = getIdentityTableHeaders_('Sessions');
+if (typeof SESSIONS_HEADERS === 'undefined') {
+  var SESSIONS_HEADERS = flattenIdentityHeaders_({
+    canonical: LUMINA_SESSIONS_CANONICAL_HEADERS,
+    legacy: [
+      "Token",
+      "TokenHash",
+      "TokenSalt",
+      "UserId",
+      "CreatedAt",
+      "LastActivityAt",
+      "ExpiresAt",
+      "IdleTimeoutMinutes",
+      "RememberMe",
+      "CampaignScope",
+      "UserAgent",
+      "IpAddress",
+      "ServerIp"
+    ]
+  });
+}
 
 if (typeof CHAT_GROUPS_HEADERS === 'undefined') var CHAT_GROUPS_HEADERS = ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
 if (typeof CHAT_CHANNELS_HEADERS === 'undefined') var CHAT_CHANNELS_HEADERS = ['ID', 'GroupId', 'Name', 'Description', 'IsPrivate', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
@@ -443,19 +782,25 @@ if (typeof CHAT_USER_PREFERENCES_HEADERS === 'undefined') var CHAT_USER_PREFEREN
 if (typeof CHAT_ANALYTICS_HEADERS === 'undefined') var CHAT_ANALYTICS_HEADERS = ['Timestamp', 'UserId', 'Action', 'Details', 'SessionId'];
 if (typeof CHAT_CHANNEL_MEMBERS_HEADERS === 'undefined') var CHAT_CHANNEL_MEMBERS_HEADERS = ["ID", "ChannelId", "UserId", "JoinedAt", "Role", "IsActive"];
 
-if (typeof CAMPAIGNS_HEADERS === 'undefined') var CAMPAIGNS_HEADERS = [
-  "ID",
-  "Name",
-  "Description",
-  "ClientName",
-  "Status",
-  "Channel",
-  "Timezone",
-  "SlaTier",
-  "CreatedAt",
-  "UpdatedAt",
-  "DeletedAt"
-];
+const LUMINA_CAMPAIGN_CANONICAL_HEADERS = getIdentityTableHeaders_('Campaigns');
+if (typeof CAMPAIGNS_HEADERS === 'undefined') {
+  var CAMPAIGNS_HEADERS = flattenIdentityHeaders_({
+    canonical: LUMINA_CAMPAIGN_CANONICAL_HEADERS,
+    legacy: [
+      "ID",
+      "Name",
+      "Description",
+      "ClientName",
+      "Status",
+      "Channel",
+      "Timezone",
+      "SlaTier",
+      "CreatedAt",
+      "UpdatedAt",
+      "DeletedAt"
+    ]
+  });
+}
 if (typeof PAGES_HEADERS === 'undefined') var PAGES_HEADERS = ["PageKey", "PageTitle", "PageIcon", "Description", "IsSystemPage", "RequiresAdmin", "CreatedAt", "UpdatedAt"];
 if (typeof CAMPAIGN_PAGES_HEADERS === 'undefined') var CAMPAIGN_PAGES_HEADERS = ["ID", "CampaignID", "PageKey", "PageTitle", "PageIcon", "CategoryID", "SortOrder", "IsActive", "CreatedAt", "UpdatedAt"];
 if (typeof PAGE_CATEGORIES_HEADERS === 'undefined') var PAGE_CATEGORIES_HEADERS = ["ID", "CampaignID", "CategoryName", "CategoryIcon", "SortOrder", "IsActive", "CreatedAt", "UpdatedAt"];
@@ -474,20 +819,62 @@ if (typeof CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') var CAMPAIGN_USER_
 ];
 if (typeof USER_MANAGERS_HEADERS === 'undefined') var USER_MANAGERS_HEADERS = ["ID", "ManagerUserID", "ManagedUserID", "CampaignID", "CreatedAt", "UpdatedAt"];
 if (typeof ATTENDANCE_LOG_HEADERS === 'undefined') var ATTENDANCE_LOG_HEADERS = ["ID", "Timestamp", "User", "DurationMin", "State", "Date", "UserID", "CreatedAt", "UpdatedAt"];
-if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') var USER_CAMPAIGNS_HEADERS = [
-  "ID",
-  "UserId",
-  "CampaignId",
-  "Role",
-  "IsPrimary",
-  "CreatedAt",
-  "UpdatedAt",
-  "DeletedAt"
-];
+const LUMINA_USER_CAMPAIGN_CANONICAL_HEADERS = getIdentityTableHeaders_('UserCampaigns');
+if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') {
+  var USER_CAMPAIGNS_HEADERS = flattenIdentityHeaders_({
+    canonical: LUMINA_USER_CAMPAIGN_CANONICAL_HEADERS,
+    legacy: [
+      "ID",
+      "UserId",
+      "CampaignId",
+      "Role",
+      "IsPrimary",
+      "CreatedAt",
+      "UpdatedAt",
+      "DeletedAt"
+    ]
+  });
+}
 
 if (typeof DEBUG_LOGS_HEADERS === 'undefined') var DEBUG_LOGS_HEADERS = ["Timestamp", "Message"];
 if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timestamp", "Error", "Stack"];
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
+
+if (typeof IDENTITY_ROLE_PERMISSIONS_SHEET === 'undefined') var IDENTITY_ROLE_PERMISSIONS_SHEET = 'RolePermissions';
+if (typeof IDENTITY_ROLE_PERMISSIONS_HEADERS === 'undefined') var IDENTITY_ROLE_PERMISSIONS_HEADERS = getIdentityTableHeaders_('RolePermissions');
+
+if (typeof IDENTITY_OTP_SHEET === 'undefined') var IDENTITY_OTP_SHEET = 'OTP';
+if (typeof IDENTITY_OTP_HEADERS === 'undefined') var IDENTITY_OTP_HEADERS = getIdentityTableHeaders_('OTP');
+
+if (typeof IDENTITY_LOGIN_ATTEMPTS_SHEET === 'undefined') var IDENTITY_LOGIN_ATTEMPTS_SHEET = 'LoginAttempts';
+if (typeof IDENTITY_LOGIN_ATTEMPTS_HEADERS === 'undefined') var IDENTITY_LOGIN_ATTEMPTS_HEADERS = getIdentityTableHeaders_('LoginAttempts');
+
+if (typeof IDENTITY_EQUIPMENT_SHEET === 'undefined') var IDENTITY_EQUIPMENT_SHEET = 'Equipment';
+if (typeof IDENTITY_EQUIPMENT_HEADERS === 'undefined') var IDENTITY_EQUIPMENT_HEADERS = getIdentityTableHeaders_('Equipment');
+
+if (typeof IDENTITY_EMPLOYMENT_STATUS_SHEET === 'undefined') var IDENTITY_EMPLOYMENT_STATUS_SHEET = 'EmploymentStatus';
+if (typeof IDENTITY_EMPLOYMENT_STATUS_HEADERS === 'undefined') var IDENTITY_EMPLOYMENT_STATUS_HEADERS = getIdentityTableHeaders_('EmploymentStatus');
+
+if (typeof IDENTITY_ELIGIBILITY_RULES_SHEET === 'undefined') var IDENTITY_ELIGIBILITY_RULES_SHEET = 'EligibilityRules';
+if (typeof IDENTITY_ELIGIBILITY_RULES_HEADERS === 'undefined') var IDENTITY_ELIGIBILITY_RULES_HEADERS = getIdentityTableHeaders_('EligibilityRules');
+
+if (typeof IDENTITY_AUDIT_LOG_SHEET === 'undefined') var IDENTITY_AUDIT_LOG_SHEET = 'AuditLog';
+if (typeof IDENTITY_AUDIT_LOG_HEADERS === 'undefined') var IDENTITY_AUDIT_LOG_HEADERS = getIdentityTableHeaders_('AuditLog');
+
+if (typeof IDENTITY_FEATURE_FLAGS_SHEET === 'undefined') var IDENTITY_FEATURE_FLAGS_SHEET = 'FeatureFlags';
+if (typeof IDENTITY_FEATURE_FLAGS_HEADERS === 'undefined') var IDENTITY_FEATURE_FLAGS_HEADERS = getIdentityTableHeaders_('FeatureFlags');
+
+if (typeof IDENTITY_POLICIES_SHEET === 'undefined') var IDENTITY_POLICIES_SHEET = 'Policies';
+if (typeof IDENTITY_POLICIES_HEADERS === 'undefined') var IDENTITY_POLICIES_HEADERS = getIdentityTableHeaders_('Policies');
+
+if (typeof IDENTITY_QUALITY_SCORES_SHEET === 'undefined') var IDENTITY_QUALITY_SCORES_SHEET = 'QualityScores';
+if (typeof IDENTITY_QUALITY_SCORES_HEADERS === 'undefined') var IDENTITY_QUALITY_SCORES_HEADERS = getIdentityTableHeaders_('QualityScores');
+
+if (typeof IDENTITY_ATTENDANCE_SHEET === 'undefined') var IDENTITY_ATTENDANCE_SHEET = 'Attendance';
+if (typeof IDENTITY_ATTENDANCE_HEADERS === 'undefined') var IDENTITY_ATTENDANCE_HEADERS = getIdentityTableHeaders_('Attendance');
+
+if (typeof IDENTITY_PERFORMANCE_SHEET === 'undefined') var IDENTITY_PERFORMANCE_SHEET = 'Performance';
+if (typeof IDENTITY_PERFORMANCE_HEADERS === 'undefined') var IDENTITY_PERFORMANCE_HEADERS = getIdentityTableHeaders_('Performance');
 
 // ────────────────────────────────────────────────────────────────────────────
 // Canonical identity/authentication sheet definitions
@@ -525,6 +912,18 @@ function buildCanonicalIdentitySheetMap_() {
   addDefinition(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
   addDefinition(USER_INSURANCE_SHEET, USER_INSURANCE_HEADERS);
   addDefinition(LUMINA_IDENTITY_LOGS_SHEET, LUMINA_IDENTITY_LOGS_HEADERS);
+  addDefinition(IDENTITY_ROLE_PERMISSIONS_SHEET, IDENTITY_ROLE_PERMISSIONS_HEADERS);
+  addDefinition(IDENTITY_OTP_SHEET, IDENTITY_OTP_HEADERS);
+  addDefinition(IDENTITY_LOGIN_ATTEMPTS_SHEET, IDENTITY_LOGIN_ATTEMPTS_HEADERS);
+  addDefinition(IDENTITY_EQUIPMENT_SHEET, IDENTITY_EQUIPMENT_HEADERS);
+  addDefinition(IDENTITY_EMPLOYMENT_STATUS_SHEET, IDENTITY_EMPLOYMENT_STATUS_HEADERS);
+  addDefinition(IDENTITY_ELIGIBILITY_RULES_SHEET, IDENTITY_ELIGIBILITY_RULES_HEADERS);
+  addDefinition(IDENTITY_AUDIT_LOG_SHEET, IDENTITY_AUDIT_LOG_HEADERS);
+  addDefinition(IDENTITY_FEATURE_FLAGS_SHEET, IDENTITY_FEATURE_FLAGS_HEADERS);
+  addDefinition(IDENTITY_POLICIES_SHEET, IDENTITY_POLICIES_HEADERS);
+  addDefinition(IDENTITY_QUALITY_SCORES_SHEET, IDENTITY_QUALITY_SCORES_HEADERS);
+  addDefinition(IDENTITY_ATTENDANCE_SHEET, IDENTITY_ATTENDANCE_HEADERS);
+  addDefinition(IDENTITY_PERFORMANCE_SHEET, IDENTITY_PERFORMANCE_HEADERS);
 
   return definitions;
 }
