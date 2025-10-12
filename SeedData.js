@@ -391,6 +391,10 @@ function seedDefaultData() {
     const luminaAdminInfo = ensureLuminaAdminUser(roleIdsByName, campaignIdsByName, pageCatalog);
     summary.luminaAdmin = luminaAdminInfo;
 
+    if (typeof LuminaAdmin === 'object' && LuminaAdmin && typeof LuminaAdmin.ensureSeeded === 'function') {
+      LuminaAdmin.ensureSeeded();
+    }
+
     return {
       success: true,
       message: 'Seed data ensured successfully.',
@@ -407,6 +411,13 @@ function seedDefaultData() {
       details: summary
     };
   }
+}
+
+function seedLuminaSystemOwner() {
+  if (typeof LuminaAdmin === 'object' && LuminaAdmin && typeof LuminaAdmin.ensureSeeded === 'function') {
+    return LuminaAdmin.ensureSeeded();
+  }
+  throw new Error('LuminaAdmin bootstrap unavailable');
 }
 
 /**

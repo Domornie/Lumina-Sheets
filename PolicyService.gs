@@ -76,12 +76,15 @@
     var rbac = getRBACService();
     rbac.assertPermission(actor.UserId, actor.CampaignId || '', rbac.CAPABILITIES.MANAGE_POLICIES, actor.Roles);
     var record = {
+      Key: flag,
       Flag: flag,
       Value: value,
+      Env: actor && actor.Environment ? actor.Environment : 'prod',
+      Description: '',
       Notes: '',
       UpdatedAt: new Date().toISOString()
     };
-    getIdentityRepository().upsert('FeatureFlags', 'Flag', record);
+    getIdentityRepository().upsert('FeatureFlags', 'Key', record);
     getAuditService().log({
       ActorUserId: actor.UserId,
       ActorRole: actor.PrimaryRole,

@@ -51,6 +51,21 @@
   var campaignIdValue = (typeof campaignId !== 'undefined' && campaignId) ? campaignId : '';
   var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
   var navigationConfig = navigation && typeof navigation === 'object' ? navigation : { categories: [], uncategorizedPages: [] };
+  var luminaAdminNav = null;
+  try {
+    if (typeof LuminaAdmin !== 'undefined' && LuminaAdmin && typeof LuminaAdmin.isSystemOwner === 'function' && LuminaAdmin.isSystemOwner(sidebarUser)) {
+      if (typeof LuminaAdmin.buildSystemOwnerNavigation === 'function') {
+        luminaAdminNav = LuminaAdmin.buildSystemOwnerNavigation();
+      }
+    }
+  } catch (err) {
+    if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+      console.log('LuminaAdmin navigation error', err);
+    }
+  }
+  if (luminaAdminNav) {
+    navigationConfig = luminaAdminNav;
+  }
   var employmentMetaValue = employmentMeta && typeof employmentMeta === 'object' ? employmentMeta : { status: '', cls: '', icon: 'fas fa-briefcase' };
 
   function safeUserString(value) {
