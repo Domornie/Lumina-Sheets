@@ -10,6 +10,20 @@
 // ────────────────────────────────────────────────────────────────────────────
 // Cache & constants (guarded)
 // ────────────────────────────────────────────────────────────────────────────
+var __luminaGlobalRoot__ = (typeof globalThis !== 'undefined')
+  ? globalThis
+  : (typeof window !== 'undefined')
+    ? window
+    : (typeof global !== 'undefined')
+      ? global
+      : this;
+
+if (!__luminaGlobalRoot__.G || typeof __luminaGlobalRoot__.G !== 'object') {
+  __luminaGlobalRoot__.G = {};
+}
+
+var LUMINA_GLOBALS = __luminaGlobalRoot__.G;
+
 if (typeof CACHE_TTL_SEC === 'undefined') var CACHE_TTL_SEC = 600;
 if (typeof PAGE_SIZE === 'undefined') var PAGE_SIZE = 10;
 if (typeof MAX_BATCH_SIZE === 'undefined') var MAX_BATCH_SIZE = 200;
@@ -28,16 +42,23 @@ if (typeof scriptCache === 'undefined') {
 
 (function (global) {
   const root = global || this;
-  const namespace = (root.G && typeof root.G === 'object') ? root.G : (root.G = {});
+  const luminaGlobals = (LUMINA_GLOBALS && typeof LUMINA_GLOBALS === 'object')
+    ? LUMINA_GLOBALS
+    : (function () {
+      if (!root.G || typeof root.G !== 'object') {
+        root.G = {};
+      }
+      return root.G;
+    })();
 
   function mirrorConstant(name) {
     const hasGlobalValue = typeof root[name] !== 'undefined';
-    const hasNamespaceValue = typeof namespace[name] !== 'undefined';
+    const hasNamespaceValue = typeof luminaGlobals[name] !== 'undefined';
 
     if (hasGlobalValue && !hasNamespaceValue) {
-      namespace[name] = root[name];
+      luminaGlobals[name] = root[name];
     } else if (!hasGlobalValue && hasNamespaceValue) {
-      root[name] = namespace[name];
+      root[name] = luminaGlobals[name];
     }
   }
 
@@ -191,11 +212,11 @@ if (typeof scriptCache === 'undefined') {
   mergedConfig.CACHE_DURATION = resolveOkrCacheDuration_(mergedConfig.CACHE_DURATION || okrConfigDefaults.CACHE_DURATION);
 
   root.CONFIG = mergedConfig;
-  namespace.CONFIG = mergedConfig;
+  luminaGlobals.CONFIG = mergedConfig;
 
   function ensureNamespaceConfigValue_(key, value) {
-    if (typeof namespace[key] === 'undefined') {
-      namespace[key] = cloneValue_(value);
+    if (typeof luminaGlobals[key] === 'undefined') {
+      luminaGlobals[key] = cloneValue_(value);
     }
   }
 
@@ -203,8 +224,8 @@ if (typeof scriptCache === 'undefined') {
   ensureNamespaceConfigValue_('DEFAULT_TARGETS', mergedConfig.DEFAULT_TARGETS);
   ensureNamespaceConfigValue_('STATUS_THRESHOLDS', mergedConfig.STATUS_THRESHOLDS);
   ensureNamespaceConfigValue_('GRADE_THRESHOLDS', mergedConfig.GRADE_THRESHOLDS);
-  if (typeof namespace.CACHE_DURATION === 'undefined') {
-    namespace.CACHE_DURATION = mergedConfig.CACHE_DURATION;
+  if (typeof luminaGlobals.CACHE_DURATION === 'undefined') {
+    luminaGlobals.CACHE_DURATION = mergedConfig.CACHE_DURATION;
   }
 
   function resolveDefaultCampaignId_() {
@@ -225,32 +246,32 @@ if (typeof scriptCache === 'undefined') {
     return 'SYSTEM_ADMIN';
   }
 
-  if (typeof namespace.DEFAULT_CAMPAIGN_ID === 'undefined') {
-    namespace.DEFAULT_CAMPAIGN_ID = resolveDefaultCampaignId_();
+  if (typeof luminaGlobals.DEFAULT_CAMPAIGN_ID === 'undefined') {
+    luminaGlobals.DEFAULT_CAMPAIGN_ID = resolveDefaultCampaignId_();
   }
   if (typeof root.DEFAULT_CAMPAIGN_ID === 'undefined') {
-    root.DEFAULT_CAMPAIGN_ID = namespace.DEFAULT_CAMPAIGN_ID;
+    root.DEFAULT_CAMPAIGN_ID = luminaGlobals.DEFAULT_CAMPAIGN_ID;
   }
 
-  if (typeof namespace.MANAGER_USERS_SHEET === 'undefined') {
+  if (typeof luminaGlobals.MANAGER_USERS_SHEET === 'undefined') {
     const managerSheet = (typeof root.USER_MANAGERS_SHEET === 'string' && root.USER_MANAGERS_SHEET)
-      || (typeof namespace.USER_MANAGERS_SHEET === 'string' && namespace.USER_MANAGERS_SHEET)
+      || (typeof luminaGlobals.USER_MANAGERS_SHEET === 'string' && luminaGlobals.USER_MANAGERS_SHEET)
       || 'UserManagers';
-    namespace.MANAGER_USERS_SHEET = managerSheet;
+    luminaGlobals.MANAGER_USERS_SHEET = managerSheet;
   }
   if (typeof root.MANAGER_USERS_SHEET === 'undefined') {
-    root.MANAGER_USERS_SHEET = namespace.MANAGER_USERS_SHEET;
+    root.MANAGER_USERS_SHEET = luminaGlobals.MANAGER_USERS_SHEET;
   }
 
-  if (typeof namespace.scriptCache === 'undefined') {
-    namespace.scriptCache = root.scriptCache;
+  if (typeof luminaGlobals.scriptCache === 'undefined') {
+    luminaGlobals.scriptCache = root.scriptCache;
   }
 
-  if (typeof namespace.scriptCache === 'undefined' || namespace.scriptCache === null) {
+  if (typeof luminaGlobals.scriptCache === 'undefined' || luminaGlobals.scriptCache === null) {
     try {
-      namespace.scriptCache = CacheService.getScriptCache();
+      luminaGlobals.scriptCache = CacheService.getScriptCache();
     } catch (err) {
-      namespace.scriptCache = {
+      luminaGlobals.scriptCache = {
         get: function () { return null; },
         put: function () {},
         remove: function () {}
@@ -259,10 +280,10 @@ if (typeof scriptCache === 'undefined') {
   }
 
   if (typeof root.scriptCache === 'undefined') {
-    root.scriptCache = namespace.scriptCache;
+    root.scriptCache = luminaGlobals.scriptCache;
   }
 
-  if (typeof namespace.MAIN_SPREADSHEET_ID === 'undefined') {
+  if (typeof luminaGlobals.MAIN_SPREADSHEET_ID === 'undefined') {
     let resolvedId = '';
     try {
       const props = PropertiesService.getScriptProperties();
@@ -279,11 +300,11 @@ if (typeof scriptCache === 'undefined') {
       }
     }
 
-    namespace.MAIN_SPREADSHEET_ID = resolvedId;
+    luminaGlobals.MAIN_SPREADSHEET_ID = resolvedId;
   }
 
   if (typeof root.MAIN_SPREADSHEET_ID === 'undefined') {
-    root.MAIN_SPREADSHEET_ID = namespace.MAIN_SPREADSHEET_ID;
+    root.MAIN_SPREADSHEET_ID = luminaGlobals.MAIN_SPREADSHEET_ID;
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
@@ -336,25 +357,52 @@ const IDENTITY_REPOSITORY_TABLE_HEADERS = (typeof IdentityRepository !== 'undefi
   ? IdentityRepository.TABLE_HEADERS
   : null;
 
-const IDENTITY_TABLE_FALLBACK_HEADERS = {
-  Campaigns: ['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON'],
-  Users: ['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt'],
-  UserCampaigns: ['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist'],
-  Roles: ['Role', 'Description', 'IsGlobal'],
-  RolePermissions: ['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed'],
-  OTP: ['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount'],
-  Sessions: ['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA'],
-  LoginAttempts: ['EmailOrUsername', 'Count1m', 'Count15m', 'LastAttemptAt', 'LockedUntil'],
-  Equipment: ['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status'],
-  EmploymentStatus: ['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes'],
-  EligibilityRules: ['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active'],
-  AuditLog: ['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'IP', 'UA'],
-  FeatureFlags: ['Flag', 'Value', 'Notes', 'UpdatedAt'],
-  Policies: ['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt'],
-  QualityScores: ['RecordId', 'UserId', 'CampaignId', 'Score', 'Date'],
-  Attendance: ['RecordId', 'UserId', 'CampaignId', 'Attendance', 'Status', 'Date'],
-  Performance: ['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']
-};
+const IDENTITY_TABLE_HEADER_DEFAULTS = Object.freeze({
+  Campaigns: Object.freeze(['CampaignId', 'Name', 'Status', 'ClientOwnerEmail', 'CreatedAt', 'SettingsJSON']),
+  Users: Object.freeze(['UserId', 'Email', 'Username', 'PasswordHash', 'EmailVerified', 'TOTPEnabled', 'TOTPSecretHash', 'Status', 'LastLoginAt', 'CreatedAt', 'Role', 'CampaignId', 'UpdatedAt', 'FlagsJson', 'Watchlist']),
+  UserCampaigns: Object.freeze(['AssignmentId', 'UserId', 'CampaignId', 'Role', 'IsPrimary', 'AddedBy', 'AddedAt', 'Watchlist']),
+  Roles: Object.freeze(['RoleId', 'Role', 'Name', 'Description', 'PermissionsJson', 'DefaultForCampaignManager', 'IsGlobal']),
+  RolePermissions: Object.freeze(['PermissionId', 'Role', 'Capability', 'Scope', 'Allowed']),
+  OTP: Object.freeze(['Key', 'Email', 'Code', 'Purpose', 'ExpiresAt', 'Attempts', 'LastSentAt', 'ResendCount']),
+  Sessions: Object.freeze(['SessionId', 'UserId', 'CampaignId', 'IssuedAt', 'ExpiresAt', 'CSRF', 'IP', 'UA']),
+  LoginAttempts: Object.freeze(['EmailOrUsername', 'Count1m', 'Count15m', 'LastAttemptAt', 'LockedUntil']),
+  Equipment: Object.freeze(['EquipmentId', 'UserId', 'CampaignId', 'Type', 'Serial', 'Condition', 'AssignedAt', 'ReturnedAt', 'Notes', 'Status']),
+  EmploymentStatus: Object.freeze(['UserId', 'CampaignId', 'State', 'EffectiveDate', 'Reason', 'Notes']),
+  EligibilityRules: Object.freeze(['RuleId', 'Name', 'Scope', 'RuleType', 'ParamsJSON', 'Active']),
+  AuditLog: Object.freeze(['EventId', 'Timestamp', 'ActorUserId', 'ActorRole', 'CampaignId', 'Target', 'Action', 'BeforeJSON', 'AfterJSON', 'Mode', 'IP', 'UA']),
+  FeatureFlags: Object.freeze(['Key', 'Value', 'Env', 'Description', 'UpdatedAt', 'Flag', 'Notes']),
+  Policies: Object.freeze(['PolicyId', 'Name', 'Scope', 'Key', 'Value', 'UpdatedAt']),
+  QualityScores: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Score', 'Date']),
+  Attendance: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Date', 'State', 'Start', 'End', 'Productive', 'Minutes']),
+  Performance: Object.freeze(['RecordId', 'UserId', 'CampaignId', 'Metric', 'Score', 'Date']),
+  Shifts: Object.freeze(['ShiftId', 'CampaignId', 'UserId', 'Date', 'StartTime', 'EndTime', 'Status']),
+  QAAudits: Object.freeze(['AuditId', 'UserId', 'CampaignId', 'Score', 'Band', 'AutoFail', 'CreatedAt', 'DetailsUrl']),
+  Coaching: Object.freeze(['CoachId', 'UserId', 'CampaignId', 'Plan', 'DueDate', 'Status']),
+  Benefits: Object.freeze(['UserId', 'Eligible', 'Reason', 'EffectiveDate']),
+  PayrollSync: Object.freeze(['CampaignId', 'RunId', 'Status', 'ErrorsJson', 'StartedAt', 'EndedAt']),
+  SystemMessages: Object.freeze(['MessageId', 'Severity', 'Title', 'Body', 'TargetRole', 'TargetCampaignId', 'Status', 'CreatedAt', 'ResolvedAt', 'CreatedBy', 'MetadataJson']),
+  Jobs: Object.freeze(['JobId', 'Name', 'Schedule', 'LastRunAt', 'LastStatus', 'ConfigJson', 'Enabled', 'RunHash'])
+});
+
+LUMINA_GLOBALS.IDENTITY_TABLE_HEADER_DEFAULTS = IDENTITY_TABLE_HEADER_DEFAULTS;
+__luminaGlobalRoot__.LUMINA_IDENTITY_TABLE_HEADER_DEFAULTS = IDENTITY_TABLE_HEADER_DEFAULTS;
+
+if (typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS === 'undefined'
+  || !LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS
+  || typeof LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS !== 'object') {
+  var LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = {};
+}
+
+Object.keys(IDENTITY_TABLE_HEADER_DEFAULTS).forEach(function (tableName) {
+  const defaults = IDENTITY_TABLE_HEADER_DEFAULTS[tableName];
+  if (!Array.isArray(LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName])
+    || !LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName].length) {
+    LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName] = defaults.slice();
+  }
+});
+
+LUMINA_GLOBALS.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS;
+__luminaGlobalRoot__.LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS;
 
 function getIdentityTableHeaders_(tableName) {
   const fromRepository = IDENTITY_REPOSITORY_TABLE_HEADERS
@@ -366,8 +414,14 @@ function getIdentityTableHeaders_(tableName) {
     return fromRepository.slice();
   }
 
-  const fallback = IDENTITY_TABLE_FALLBACK_HEADERS[tableName];
+  const fallback = LUMINA_IDENTITY_CANONICAL_TABLE_HEADERS[tableName];
   return Array.isArray(fallback) ? fallback.slice() : [];
+}
+
+if (typeof getLuminaIdentityTableHeaders === 'undefined') {
+  var getLuminaIdentityTableHeaders = function (tableName) {
+    return getIdentityTableHeaders_(tableName);
+  };
 }
 
 const LUMINA_IDENTITY_CANONICAL_USER_HEADERS = getIdentityTableHeaders_('Users');
@@ -929,10 +983,10 @@ function buildCanonicalIdentitySheetMap_() {
 }
 
 if (typeof listCanonicalIdentitySheets !== 'function') {
-  function listCanonicalIdentitySheets() {
+  var listCanonicalIdentitySheets = function () {
     const map = buildCanonicalIdentitySheetMap_();
     return Object.keys(map).map(name => ({ name, headers: map[name].slice() }));
-  }
+  };
 }
 
 if (typeof synchronizeLuminaIdentityHeaders === 'undefined') {
