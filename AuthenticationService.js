@@ -2849,6 +2849,64 @@ var AuthenticationService = (function () {
       EmailConfirmed: toBool(user.EmailConfirmed)
     };
 
+    const campaignIdCandidates = [];
+    function pushCampaignCandidate(value) {
+      const normalized = normalizeCampaignId(value);
+      if (!normalized) return;
+      if (campaignIdCandidates.indexOf(normalized) === -1) {
+        campaignIdCandidates.push(normalized);
+      }
+    }
+
+    const campaignNameCandidates = [];
+    function pushCampaignName(value) {
+      const normalized = normalizeString(value);
+      if (!normalized) return;
+      if (campaignNameCandidates.indexOf(normalized) === -1) {
+        campaignNameCandidates.push(normalized);
+      }
+    }
+
+    pushCampaignCandidate(payload.CampaignID);
+    pushCampaignCandidate(user && (user.CampaignId || user.campaignId));
+    pushCampaignCandidate(user && (user.ActiveCampaignId || user.activeCampaignId));
+    pushCampaignCandidate(user && (user.DefaultCampaignId || user.defaultCampaignId));
+    pushCampaignName(user && (user.CampaignName || user.campaignName));
+    pushCampaignName(user && (user.AccountName || user.accountName));
+    if (user && user.CampaignScope && typeof user.CampaignScope === 'object') {
+      pushCampaignCandidate(user.CampaignScope.activeCampaignId);
+      pushCampaignCandidate(user.CampaignScope.defaultCampaignId);
+      if (Array.isArray(user.CampaignScope.allowedCampaignIds)) {
+        user.CampaignScope.allowedCampaignIds.forEach(pushCampaignCandidate);
+      }
+      if (Array.isArray(user.CampaignScope.assignments)) {
+        user.CampaignScope.assignments.forEach(function (assignment) {
+          if (!assignment || typeof assignment !== 'object') return;
+          pushCampaignCandidate(
+            assignment.campaignId || assignment.CampaignId || assignment.campaignID || assignment.CampaignID ||
+            assignment.tenantId || assignment.TenantId || assignment.TenantID
+          );
+          pushCampaignName(
+            assignment.campaignName || assignment.CampaignName || assignment.name || assignment.Name ||
+            assignment.label || assignment.Label || assignment.displayName || assignment.DisplayName
+          );
+        });
+      }
+      if (Array.isArray(user.CampaignScope.permissions)) {
+        user.CampaignScope.permissions.forEach(function (permission) {
+          if (!permission || typeof permission !== 'object') return;
+          pushCampaignCandidate(
+            permission.campaignId || permission.CampaignId || permission.campaignID || permission.CampaignID ||
+            permission.tenantId || permission.TenantId || permission.TenantID
+          );
+          pushCampaignName(
+            permission.campaignName || permission.CampaignName || permission.name || permission.Name ||
+            permission.label || permission.Label || permission.displayName || permission.DisplayName
+          );
+        });
+      }
+    }
+
     if (tenantPayload && typeof tenantPayload === 'object') {
       payload.CampaignScope = {
         isGlobalAdmin: !!tenantPayload.isGlobalAdmin,
@@ -2869,6 +2927,42 @@ var AuthenticationService = (function () {
       payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin;
       payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
+
+      if (Array.isArray(tenantPayload.allowedCampaignIds)) {
+        tenantPayload.allowedCampaignIds.forEach(pushCampaignCandidate);
+      }
+      if (Array.isArray(tenantPayload.managedCampaignIds)) {
+        tenantPayload.managedCampaignIds.forEach(pushCampaignCandidate);
+      }
+      if (Array.isArray(tenantPayload.adminCampaignIds)) {
+        tenantPayload.adminCampaignIds.forEach(pushCampaignCandidate);
+      }
+      if (tenantPayload.assignments && tenantPayload.assignments.forEach) {
+        tenantPayload.assignments.forEach(function (assignment) {
+          if (!assignment || typeof assignment !== 'object') return;
+          pushCampaignCandidate(
+            assignment.campaignId || assignment.CampaignId || assignment.campaignID || assignment.CampaignID ||
+            assignment.tenantId || assignment.TenantId || assignment.TenantID
+          );
+          pushCampaignName(
+            assignment.campaignName || assignment.CampaignName || assignment.name || assignment.Name ||
+            assignment.label || assignment.Label || assignment.displayName || assignment.DisplayName
+          );
+        });
+      }
+      if (tenantPayload.permissions && tenantPayload.permissions.forEach) {
+        tenantPayload.permissions.forEach(function (permission) {
+          if (!permission || typeof permission !== 'object') return;
+          pushCampaignCandidate(
+            permission.campaignId || permission.CampaignId || permission.campaignID || permission.CampaignID ||
+            permission.tenantId || permission.TenantId || permission.TenantID
+          );
+          pushCampaignName(
+            permission.campaignName || permission.CampaignName || permission.name || permission.Name ||
+            permission.label || permission.Label || permission.displayName || permission.DisplayName
+          );
+        });
+      }
     } else {
       payload.CampaignScope = buildTenantScopePayload(null);
       payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
@@ -2879,6 +2973,142 @@ var AuthenticationService = (function () {
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
       payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
 
+      if (Array.isArray(payload.AllowedCampaignIds)) {
+        payload.AllowedCampaignIds.forEach(pushCampaignCandidate);
+      }
+    }
+
+    if (Array.isArray(payload.ManagedCampaignIds)) {
+      payload.ManagedCampaignIds.forEach(pushCampaignCandidate);
+    }
+    if (Array.isArray(payload.AdminCampaignIds)) {
+      payload.AdminCampaignIds.forEach(pushCampaignCandidate);
+    }
+
+    const resolvedCampaignId = (function resolveCampaignId() {
+      if (campaignIdCandidates.length) {
+        return campaignIdCandidates[0];
+      }
+      if (payload.ActiveCampaignId) {
+        return normalizeCampaignId(payload.ActiveCampaignId);
+      }
+      if (payload.DefaultCampaignId) {
+        return normalizeCampaignId(payload.DefaultCampaignId);
+      }
+      if (payload.AllowedCampaignIds && payload.AllowedCampaignIds.length) {
+        return normalizeCampaignId(payload.AllowedCampaignIds[0]);
+      }
+      return '';
+    })();
+
+    if (resolvedCampaignId) {
+      payload.CampaignID = resolvedCampaignId;
+      payload.campaignId = resolvedCampaignId;
+      if (!payload.ActiveCampaignId) {
+        payload.ActiveCampaignId = resolvedCampaignId;
+      }
+      if (payload.CampaignScope) {
+        if (!payload.CampaignScope.activeCampaignId) {
+          payload.CampaignScope.activeCampaignId = resolvedCampaignId;
+        }
+        if (!payload.CampaignScope.defaultCampaignId) {
+          payload.CampaignScope.defaultCampaignId = resolvedCampaignId;
+          payload.DefaultCampaignId = resolvedCampaignId;
+        }
+        if (Array.isArray(payload.CampaignScope.allowedCampaignIds)
+          && payload.CampaignScope.allowedCampaignIds.indexOf(resolvedCampaignId) === -1) {
+          payload.CampaignScope.allowedCampaignIds.push(resolvedCampaignId);
+          payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
+        }
+      }
+    }
+
+    const resolvedCampaignName = (function resolveCampaignName() {
+      if (campaignNameCandidates.length) {
+        return campaignNameCandidates[0];
+      }
+      if (!resolvedCampaignId) {
+        return '';
+      }
+      try {
+        if (typeof getCampaignNameSafe === 'function') {
+          const safeName = normalizeString(getCampaignNameSafe(resolvedCampaignId));
+          if (safeName) return safeName;
+        }
+      } catch (safeErr) {
+        console.warn('buildUserPayload: failed to resolve campaign name via getCampaignNameSafe', safeErr);
+      }
+      try {
+        if (typeof getCampaignName === 'function') {
+          const fallbackName = normalizeString(getCampaignName(resolvedCampaignId));
+          if (fallbackName) return fallbackName;
+        }
+      } catch (fallbackErr) {
+        console.warn('buildUserPayload: failed to resolve campaign name', fallbackErr);
+      }
+      return '';
+    })();
+
+    if (resolvedCampaignName) {
+      payload.CampaignName = resolvedCampaignName;
+      payload.campaignName = resolvedCampaignName;
+    }
+
+    if (resolvedCampaignId && !payload.campaignNavigation && typeof getCampaignNavigation === 'function') {
+      try {
+        payload.campaignNavigation = getCampaignNavigation(resolvedCampaignId) || null;
+      } catch (navErr) {
+        console.warn('buildUserPayload: failed to resolve campaign navigation', navErr);
+      }
+    }
+
+    if (resolvedCampaignId && !payload.campaignPermissions && payload.ID && typeof getUserCampaignPermissions === 'function') {
+      try {
+        payload.campaignPermissions = getUserCampaignPermissions(payload.ID) || [];
+      } catch (permErr) {
+        console.warn('buildUserPayload: failed to resolve campaign permissions', permErr);
+      }
+    }
+
+    const roleNames = [];
+    function pushRoleName(value) {
+      const normalized = normalizeString(value);
+      if (!normalized) return;
+      const lower = normalized.toLowerCase();
+      if (roleNames.some(function (existing) { return existing.toLowerCase() === lower; })) {
+        return;
+      }
+      roleNames.push(normalized);
+    }
+
+    if (user && Array.isArray(user.roleNames)) {
+      user.roleNames.forEach(pushRoleName);
+    }
+    pushRoleName(user && (user.RoleName || user.roleName || user.PrimaryRole || user.primaryRole));
+
+    if (!roleNames.length && user && user.Roles) {
+      const csvRoles = String(user.Roles)
+        .split(',')
+        .map(function (part) { return normalizeString(part); })
+        .filter(Boolean);
+      if (csvRoles.length) {
+        csvRoles.forEach(function (roleId) {
+          let resolved = '';
+          if (typeof getRoleNameSafe === 'function') {
+            try {
+              resolved = normalizeString(getRoleNameSafe(roleId));
+            } catch (roleErr) {
+              console.warn('buildUserPayload: failed to resolve role label', roleErr);
+            }
+          }
+          pushRoleName(resolved || roleId);
+        });
+      }
+    }
+
+    payload.roleNames = roleNames.slice();
+    if (!payload.RoleName && roleNames.length) {
+      payload.RoleName = roleNames[0];
     }
 
     return payload;
