@@ -2907,8 +2907,12 @@
   <script>
     (function (global) {
       try {
-        var identity = <?!= identityJson || '{}' ?>;
-        var identityMeta = <?!= identityMetaJson || '{}' ?>;
+        <?
+          var __identityJsonPayload = (typeof identityJson !== 'undefined' && identityJson) ? identityJson : '{}';
+          var __identityMetaJsonPayload = (typeof identityMetaJson !== 'undefined' && identityMetaJson) ? identityMetaJson : '{}';
+        ?>
+        var identity = <?!= __identityJsonPayload ?>;
+        var identityMeta = <?!= __identityMetaJsonPayload ?>;
         global.luminaIdentity = global.luminaIdentity || {};
         global.luminaIdentity.identity = identity || {};
         global.luminaIdentity.meta = identityMeta || {};
