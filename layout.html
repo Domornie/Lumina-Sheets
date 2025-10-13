@@ -1914,8 +1914,131 @@
       )
     );
 
+    function __layoutNormalizeText(value) {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+
+      var text = String(value).trim();
+      if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+        return '';
+      }
+
+      return text;
+    }
+
+    function __layoutResolveCampaignId(user) {
+      if (!user || typeof user !== 'object') {
+        return '';
+      }
+
+      var campaignCandidates = [];
+
+      campaignCandidates.push(user.CampaignID, user.campaignId, user.CampaignId);
+
+      if (user.ActiveCampaignId || user.activeCampaignId) {
+        campaignCandidates.push(user.ActiveCampaignId || user.activeCampaignId);
+      }
+
+      if (user.DefaultCampaignId || user.defaultCampaignId) {
+        campaignCandidates.push(user.DefaultCampaignId || user.defaultCampaignId);
+      }
+
+      if (user.CampaignScope && typeof user.CampaignScope === 'object') {
+        campaignCandidates.push(
+          user.CampaignScope.activeCampaignId,
+          user.CampaignScope.defaultCampaignId
+        );
+
+        if (Array.isArray(user.CampaignScope.allowedCampaignIds)) {
+          campaignCandidates = campaignCandidates.concat(user.CampaignScope.allowedCampaignIds);
+        }
+      }
+
+      for (var idx = 0; idx < campaignCandidates.length; idx++) {
+        var candidate = __layoutNormalizeText(campaignCandidates[idx]);
+        if (candidate) {
+          return candidate;
+        }
+      }
+
+      return '';
+    }
+
+    function __layoutResolveCampaignName(user, campaignId) {
+      var candidates = [];
+
+      if (user && typeof user === 'object') {
+        candidates.push(
+          user.campaignName,
+          user.CampaignName,
+          user.campaign,
+          user.Campaign,
+          user.AccountName,
+          user.accountName,
+          user.ClientName,
+          user.clientName
+        );
+
+        if (user.CampaignScope && typeof user.CampaignScope === 'object') {
+          candidates.push(user.CampaignScope.activeCampaignName, user.CampaignScope.defaultCampaignName);
+        }
+      }
+
+      for (var idx = 0; idx < candidates.length; idx++) {
+        var candidate = __layoutNormalizeText(candidates[idx]);
+        if (candidate) {
+          return candidate;
+        }
+      }
+
+      if (!campaignId) {
+        return '';
+      }
+
+      try {
+        if (typeof getCampaignNameSafe === 'function') {
+          var resolved = __layoutNormalizeText(getCampaignNameSafe(campaignId));
+          if (resolved) {
+            return resolved;
+          }
+        }
+      } catch (campaignSafeErr) {
+        console.error('layout: failed to resolve campaign name via getCampaignNameSafe', campaignSafeErr);
+      }
+
+      try {
+        if (typeof getCampaignName === 'function') {
+          var fallbackResolved = __layoutNormalizeText(getCampaignName(campaignId));
+          if (fallbackResolved) {
+            return fallbackResolved;
+          }
+        }
+      } catch (campaignErr) {
+        console.error('layout: failed to resolve campaign name via getCampaignName', campaignErr);
+      }
+
+      return '';
+    }
+
     var __layoutCampaignId = __layoutResolveCampaignId(__layoutUser);
     var __layoutCampaignName = __layoutResolveCampaignName(__layoutUser, __layoutCampaignId);
+
+    if (__layoutCampaignId && !__layoutNormalizeText(__layoutUser.CampaignID)) {
+      __layoutUser.CampaignID = __layoutCampaignId;
+    }
+
+    if (__layoutCampaignId && !__layoutNormalizeText(__layoutUser.campaignId)) {
+      __layoutUser.campaignId = __layoutCampaignId;
+    }
+
+    if (__layoutCampaignName && !__layoutNormalizeText(__layoutUser.campaignName)) {
+      __layoutUser.campaignName = __layoutCampaignName;
+    }
+
+    if (__layoutCampaignName && !__layoutNormalizeText(__layoutUser.CampaignName)) {
+      __layoutUser.CampaignName = __layoutCampaignName;
+    }
 
     function __layoutResolveClientName(user) {
       if (!user) {
@@ -2021,13 +2144,24 @@
     if (__layoutCampaignId) {
       try {
         if (typeof clientGetCampaignNavigation === 'function') {
-          __layoutNavigation = clientGetCampaignNavigation(__layoutCampaignId) || __layoutNavigation;
+          var __layoutResolvedNavigation = clientGetCampaignNavigation(__layoutCampaignId);
+          if (__layoutResolvedNavigation && typeof __layoutResolvedNavigation === 'object') {
+            __layoutNavigation = __layoutResolvedNavigation;
+          }
         } else if (__layoutUser && __layoutUser.campaignNavigation) {
           __layoutNavigation = __layoutUser.campaignNavigation;
         }
       } catch (navErr) {
         console.error('Error getting campaign navigation:', navErr);
       }
+    }
+
+    if (
+      (!Array.isArray(__layoutNavigation.categories) || !__layoutNavigation.categories.length) &&
+      (!Array.isArray(__layoutNavigation.uncategorizedPages) || !__layoutNavigation.uncategorizedPages.length) &&
+      __layoutUser && __layoutUser.campaignNavigation
+    ) {
+      __layoutNavigation = __layoutUser.campaignNavigation;
     }
   ?>
 
