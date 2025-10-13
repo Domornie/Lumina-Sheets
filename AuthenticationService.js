@@ -1895,15 +1895,29 @@ var AuthenticationService = (function () {
   }
 
   function constantTimeEquals(a, b) {
-    if (typeof a !== 'string' || typeof b !== 'string') {
+    try {
+      const utils = getPasswordUtils();
+      if (utils && typeof utils.constantTimeEquals === 'function') {
+        return utils.constantTimeEquals(
+          utils.normalizePasswordInput(a),
+          utils.normalizePasswordInput(b)
+        );
+      }
+    } catch (utilsError) {
+      console.warn('constantTimeEquals: password utilities unavailable, falling back', utilsError);
+    }
+
+    if (a == null || b == null) {
       return false;
     }
-    if (a.length !== b.length) {
+    const strA = String(a);
+    const strB = String(b);
+    if (strA.length !== strB.length) {
       return false;
     }
     let result = 0;
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    for (let i = 0; i < strA.length; i++) {
+      result |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
     }
     return result === 0;
   }
