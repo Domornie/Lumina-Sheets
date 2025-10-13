@@ -1,10 +1,11 @@
-var luminaIdentity = (function () {
+var LuminaIdentity = (function () {
   var AUTH_COOKIE_NAME = 'authToken';
-  var CACHE_PREFIX = 'ILLUMINA_IDENTITY:';
+  var CACHE_PREFIX = 'LUMINA_IDENTITY:';
   var SESSION_CACHE_PREFIX = CACHE_PREFIX + 'SESSION:';
   var USER_CACHE_PREFIX = CACHE_PREFIX + 'USER:';
-  var EMAIL_CACHE_PREFIX = CACHE_PREFIX + 'EMAIL:';
-  var CACHE_SECONDS = 300;
+  var USER_ROW_CACHE_PREFIX = CACHE_PREFIX + 'USER_ROW:';
+  var CLAIM_CACHE_PREFIX = CACHE_PREFIX + 'CLAIMS:';
+  var CACHE_TTL_SECONDS = 300;
 
   function logWarning(label, error) {
     try {
@@ -30,11 +31,9 @@ var luminaIdentity = (function () {
     return text;
   }
 
-  function pickFirst(value) {
-    if (Array.isArray(value)) {
-      return value.length ? value[0] : '';
-    }
-    return value;
+  function safeLower(value) {
+    var str = safeString(value);
+    return str ? str.toLowerCase() : '';
   }
 
   function parseCookies(e) {
@@ -44,7 +43,7 @@ var luminaIdentity = (function () {
         header = e.headers.Cookie || e.headers.cookie || '';
       }
     } catch (err) {
-      logWarning('luminaIdentity.parseCookies', err);
+      logWarning('LuminaIdentity.parseCookies', err);
     }
 
     var cookies = {};
@@ -88,7 +87,7 @@ var luminaIdentity = (function () {
       }
       var idx = part.indexOf('=');
       var rawKey = idx === -1 ? part : part.slice(0, idx);
-      if (safeString(rawKey).toLowerCase() !== safeString(key).toLowerCase()) {
+      if (safeLower(rawKey) !== safeLower(key)) {
         continue;
       }
       var rawValue = idx === -1 ? '' : part.slice(idx + 1);
@@ -109,7 +108,11 @@ var luminaIdentity = (function () {
       return safeString(e.parameter[key]);
     }
     if (e.parameters && e.parameters[key]) {
-      return safeString(pickFirst(e.parameters[key]));
+      var picked = e.parameters[key];
+      if (Array.isArray(picked)) {
+        return picked.length ? safeString(picked[0]) : '';
+      }
+      return safeString(picked);
     }
     return '';
   }
@@ -148,13 +151,13 @@ var luminaIdentity = (function () {
     return '';
   }
 
-  function scriptCache() {
+  function getCache() {
     try {
       if (typeof CacheService !== 'undefined' && CacheService) {
         return CacheService.getScriptCache();
       }
     } catch (err) {
-      logWarning('luminaIdentity.scriptCache', err);
+      logWarning('LuminaIdentity.getCache', err);
     }
     return null;
   }
@@ -164,7 +167,7 @@ var luminaIdentity = (function () {
       return null;
     }
     try {
-      var cache = scriptCache();
+      var cache = getCache();
       if (cache) {
         var value = cache.get(key);
         if (value) {
@@ -172,7 +175,7 @@ var luminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('luminaIdentity.readCache', err);
+      logWarning('LuminaIdentity.readCache', err);
     }
     return null;
   }
@@ -182,27 +185,49 @@ var luminaIdentity = (function () {
       return;
     }
     try {
-      var cache = scriptCache();
+      var cache = getCache();
       if (cache) {
-        cache.put(key, JSON.stringify(value), Math.min(21600, Math.max(5, ttl || CACHE_SECONDS)));
+        cache.put(key, JSON.stringify(value), Math.min(21600, Math.max(5, ttl || CACHE_TTL_SECONDS)));
       }
     } catch (err) {
-      logWarning('luminaIdentity.writeCache', err);
+      logWarning('LuminaIdentity.writeCache', err);
     }
   }
 
-  function normalizeUserId(user) {
-    if (!user) {
-      return '';
+  function removeCache(key) {
+    if (!key) {
+      return;
     }
-    return safeString(user.ID || user.Id || user.id || user.UserId || user.userId);
+    try {
+      var cache = getCache();
+      if (cache) {
+        cache.remove(key);
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.removeCache', err);
+    }
   }
 
-  function normalizeEmail(user) {
-    if (!user) {
-      return '';
+  function clone(value) {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+      return value;
     }
-    return safeString(user.Email || user.email || user.EmailAddress || user.emailAddress);
+  }
+
+  function ensurePasswordToolkit() {
+    try {
+      if (typeof ensurePasswordUtilities === 'function') {
+        return ensurePasswordUtilities();
+      }
+      if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+        return PasswordUtilities;
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.ensurePasswordToolkit', err);
+    }
+    throw new Error('Password utilities unavailable');
   }
 
   function readUsersDataset() {
@@ -214,7 +239,7 @@ var luminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('luminaIdentity.readUsersDataset(getAllUsersRaw)', err);
+      logWarning('LuminaIdentity.readUsersDataset(getAllUsersRaw)', err);
     }
 
     try {
@@ -225,7 +250,7 @@ var luminaIdentity = (function () {
         }
       }
     } catch (err2) {
-      logWarning('luminaIdentity.readUsersDataset(readSheet)', err2);
+      logWarning('LuminaIdentity.readUsersDataset(readSheet)', err2);
     }
 
     return [];
@@ -236,7 +261,7 @@ var luminaIdentity = (function () {
     if (!normalized) {
       return null;
     }
-    var cacheKey = USER_CACHE_PREFIX + normalized;
+    var cacheKey = USER_ROW_CACHE_PREFIX + normalized;
     var cached = readCache(cacheKey);
     if (cached) {
       return cached;
@@ -249,7 +274,7 @@ var luminaIdentity = (function () {
         continue;
       }
       if (safeString(row.ID) === normalized) {
-        writeCache(cacheKey, row, CACHE_SECONDS);
+        writeCache(cacheKey, row, CACHE_TTL_SECONDS);
         return row;
       }
     }
@@ -257,11 +282,11 @@ var luminaIdentity = (function () {
   }
 
   function lookupUserRowByEmail(email) {
-    var normalized = safeString(email).toLowerCase();
+    var normalized = safeLower(email);
     if (!normalized) {
       return null;
     }
-    var cacheKey = EMAIL_CACHE_PREFIX + normalized;
+    var cacheKey = USER_ROW_CACHE_PREFIX + 'EMAIL:' + normalized;
     var cached = readCache(cacheKey);
     if (cached) {
       return cached;
@@ -273,317 +298,523 @@ var luminaIdentity = (function () {
       if (!row) {
         continue;
       }
-      if (safeString(row.Email || row.email).toLowerCase() === normalized) {
-        writeCache(cacheKey, row, CACHE_SECONDS);
+      if (safeLower(row.Email || row.email) === normalized) {
+        writeCache(cacheKey, row, CACHE_TTL_SECONDS);
         return row;
       }
     }
     return null;
   }
 
-  function mergeUserRecords(primary, fallback) {
+  function mergeRecords(primary, fallback) {
     var output = {};
-    [fallback || {}, primary || {}].forEach(function (source) {
+    [fallback || {}, primary || {}].forEach(function (source, index) {
       Object.keys(source).forEach(function (key) {
-        if (!Object.prototype.hasOwnProperty.call(output, key) || safeString(output[key]) === '') {
-          output[key] = source[key];
+        var value = source[key];
+        if (index === 0) {
+          if (!Object.prototype.hasOwnProperty.call(output, key)) {
+            output[key] = value;
+          }
+        } else {
+          var hasKey = Object.prototype.hasOwnProperty.call(output, key);
+          if (!hasKey || (value !== null && typeof value !== 'undefined' && value !== '')) {
+            output[key] = value;
+          }
         }
       });
     });
     return output;
   }
 
-  function resolveCampaignNavigation(user) {
-    try {
-      var campaignId = safeString(user && (user.CampaignID || user.campaignId || user.CampaignId));
-      if (!campaignId) {
-        return;
-      }
-      if (user.campaignNavigation && typeof user.campaignNavigation === 'object') {
-        return;
-      }
-      if (typeof getCampaignNavigation === 'function') {
-        var navigation = getCampaignNavigation(campaignId);
-        if (navigation && typeof navigation === 'object') {
-          user.campaignNavigation = navigation;
-        }
-      }
-    } catch (err) {
-      logWarning('luminaIdentity.resolveCampaignNavigation', err);
-    }
-  }
-
-  function resolveCampaignName(user) {
-    try {
-      var campaignName = safeString(user && (user.CampaignName || user.campaignName));
-      if (campaignName) {
-        return;
-      }
-      var campaignId = safeString(user && (user.CampaignID || user.campaignId));
-      if (!campaignId) {
-        return;
-      }
-      if (typeof getCampaignById === 'function') {
-        var campaign = getCampaignById(campaignId);
-        if (campaign) {
-          var resolved = safeString(campaign.Name || campaign.name || campaign.DisplayName || campaign.displayName);
-          if (resolved) {
-            user.CampaignName = resolved;
-            user.campaignName = resolved;
-          }
-        }
-      }
-    } catch (err) {
-      logWarning('luminaIdentity.resolveCampaignName', err);
-    }
-  }
-
-  function ensureRoleInformation(user) {
-    if (!user) {
-      return;
-    }
-    var rolesPresent = Array.isArray(user.roleNames) && user.roleNames.length;
-    if (!rolesPresent) {
-      var userId = normalizeUserId(user);
-      if (userId && typeof getUserRolesSafe === 'function') {
-        try {
-          var userRoles = getUserRolesSafe(userId) || [];
-          var roleNames = userRoles
-            .map(function (role) {
-              return safeString(role && (role.name || role.Name || role.displayName || role.DisplayName));
-            })
-            .filter(Boolean);
-          if (roleNames.length) {
-            user.roleNames = roleNames;
-          }
-        } catch (err) {
-          logWarning('luminaIdentity.ensureRoleInformation', err);
-        }
-      }
-    }
-
-    if ((!Array.isArray(user.roleNames) || !user.roleNames.length) && safeString(user.Roles)) {
-      user.roleNames = safeString(user.Roles).split(',').map(function (part) {
-        return safeString(part);
-      }).filter(Boolean);
-    }
-
-    if (!user.RoleName && Array.isArray(user.roleNames) && user.roleNames.length) {
-      user.RoleName = user.roleNames[0];
-    }
-  }
-
-  function ensureSafeWrapper(user, meta) {
-    var hydrated = mergeUserRecords(user, {});
-    try {
-      if (typeof createSafeUserObject === 'function') {
-        hydrated = createSafeUserObject(hydrated);
-      }
-    } catch (err) {
-      logWarning('luminaIdentity.ensureSafeWrapper', err);
-    }
-
-    ensureRoleInformation(hydrated);
-    resolveCampaignName(hydrated);
-    resolveCampaignNavigation(hydrated);
-
-    try {
-      var metaTarget = hydrated.identityMeta && typeof hydrated.identityMeta === 'object'
-        ? hydrated.identityMeta
-        : {};
-      metaTarget = Object.assign({}, metaTarget, meta || {});
-      hydrated.identityMeta = metaTarget;
-    } catch (errMeta) {
-      logWarning('luminaIdentity.ensureSafeWrapper.meta', errMeta);
-      hydrated.identityMeta = meta || {};
-    }
-
-    return hydrated;
-  }
-
-  function cloneForCache(value) {
-    try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (_) {
-      return value;
-    }
-  }
-
   function fetchSessionUser(sessionToken) {
     if (!sessionToken) {
       return null;
     }
+
+    var cached = readCache(SESSION_CACHE_PREFIX + 'RAW:' + sessionToken);
+    if (cached && cached.sessionToken === sessionToken) {
+      return cached;
+    }
+
+    var sessionUser = null;
     try {
       if (typeof AuthenticationService !== 'undefined'
         && AuthenticationService
         && typeof AuthenticationService.getSessionUser === 'function') {
-        var sessionUser = AuthenticationService.getSessionUser(sessionToken);
-        if (sessionUser) {
-          sessionUser.sessionToken = sessionUser.sessionToken || sessionToken;
-          return sessionUser;
-        }
+        sessionUser = AuthenticationService.getSessionUser(sessionToken);
       }
     } catch (err) {
-      logWarning('luminaIdentity.fetchSessionUser', err);
+      logWarning('LuminaIdentity.fetchSessionUser', err);
     }
-    return null;
+
+    if (sessionUser) {
+      sessionUser.sessionToken = sessionUser.sessionToken || sessionToken;
+      writeCache(SESSION_CACHE_PREFIX + 'RAW:' + sessionToken, clone(sessionUser), CACHE_TTL_SECONDS);
+    }
+
+    return sessionUser;
   }
 
-  function resolveBaseUser(e, options) {
-    var opts = options || {};
-    var meta = { source: 'unknown', cacheHit: false };
-    var sessionToken = resolveSessionToken(e, opts);
+  function hydrateUserRecord(sessionUser, explicitUser) {
+    var base = mergeRecords(explicitUser || {}, sessionUser || {});
 
-    var user = null;
-    if (opts.explicitUser && typeof opts.explicitUser === 'object') {
-      user = opts.explicitUser;
-      meta.source = 'explicit';
-    }
-
-    if ((!user || !normalizeUserId(user)) && sessionToken) {
-      var sessionCacheKey = SESSION_CACHE_PREFIX + sessionToken;
-      if (opts.useCache !== false) {
-        var cachedIdentity = readCache(sessionCacheKey);
-        if (cachedIdentity) {
-          cachedIdentity.sessionToken = cachedIdentity.sessionToken || sessionToken;
-          meta.source = (cachedIdentity.identityMeta && cachedIdentity.identityMeta.source) || 'cache';
-          meta.cacheHit = true;
-          user = cachedIdentity;
-        }
-      }
-
-      if (!user) {
-        user = fetchSessionUser(sessionToken);
-        if (user) {
-          meta.source = meta.source === 'explicit' ? 'explicit+session' : 'session';
-        }
-      }
-    }
-
-    if ((!user || !normalizeUserId(user)) && opts.allowCurrentUser !== false) {
-      try {
-        if (typeof getCurrentUser === 'function') {
-          var current = getCurrentUser();
-          if (current && normalizeUserId(current)) {
-            if (user) {
-              user = mergeUserRecords(user, current);
-              meta.source = meta.source + '+current';
-            } else {
-              user = current;
-              meta.source = 'current';
-            }
-          }
-        }
-      } catch (err) {
-        logWarning('luminaIdentity.resolveBaseUser.current', err);
-      }
-    }
-
-    if (!user) {
-      user = {};
-    }
-
-    if (!user.sessionToken && sessionToken) {
-      user.sessionToken = sessionToken;
-    }
-
-    meta.sessionToken = user.sessionToken || sessionToken || '';
-    return { user: user, meta: meta };
-  }
-
-  function hydrateUserRecord(baseUser) {
-    var user = baseUser || {};
-    var normalizedId = normalizeUserId(user);
-    var normalizedEmail = normalizeEmail(user);
+    var normalizedId = safeString(base.ID || base.Id || base.id || base.UserId || base.userId);
+    var normalizedEmail = safeLower(base.Email || base.email || base.EmailAddress || base.emailAddress);
 
     if (normalizedId) {
-      var row = lookupUserRowById(normalizedId);
-      if (row) {
-        user = mergeUserRecords(user, row);
+      var byId = lookupUserRowById(normalizedId);
+      if (byId) {
+        base = mergeRecords(base, byId);
       }
     } else if (normalizedEmail) {
       var byEmail = lookupUserRowByEmail(normalizedEmail);
       if (byEmail) {
-        user = mergeUserRecords(user, byEmail);
+        base = mergeRecords(base, byEmail);
       }
     }
 
-    return user;
+    return base;
+  }
+
+  function readRoleAssignments(userId) {
+    var roles = [];
+    if (!userId) {
+      return { ids: [], names: [], records: [] };
+    }
+
+    try {
+      if (typeof getUserRolesSafe === 'function') {
+        roles = getUserRolesSafe(userId) || [];
+      } else if (typeof getUserRoles === 'function') {
+        roles = getUserRoles(userId) || [];
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.readRoleAssignments', err);
+      roles = [];
+    }
+
+    var ids = [];
+    var names = [];
+    var seenNames = {};
+    roles.forEach(function (role) {
+      if (!role) {
+        return;
+      }
+      var id = safeString(role.id || role.ID);
+      var name = safeString(role.name || role.Name || role.displayName || role.DisplayName);
+      if (id) {
+        ids.push(id);
+      }
+      if (name) {
+        var lower = name.toLowerCase();
+        if (!seenNames[lower]) {
+          seenNames[lower] = true;
+          names.push(name);
+        }
+      }
+    });
+
+    return { ids: ids, names: names, records: roles };
+  }
+
+  function readCampaignAssignments(userId) {
+    if (!userId) {
+      return [];
+    }
+    try {
+      if (typeof csGetUserCampaigns === 'function') {
+        return csGetUserCampaigns(userId) || [];
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.readCampaignAssignments', err);
+    }
+    return [];
+  }
+
+  function readCampaignPermissions(userId) {
+    if (!userId) {
+      return [];
+    }
+    try {
+      if (typeof getUserCampaignPermissionsSafe === 'function') {
+        return getUserCampaignPermissionsSafe(userId) || [];
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.readCampaignPermissions', err);
+    }
+    return [];
+  }
+
+  function readPageAssignments(userId) {
+    if (!userId) {
+      return [];
+    }
+    try {
+      if (typeof getUserPagesSafe === 'function') {
+        return getUserPagesSafe(userId) || [];
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.readPageAssignments', err);
+    }
+    return [];
+  }
+
+  function buildClaims(user) {
+    var userId = safeString(user && (user.ID || user.Id || user.id || user.UserId || user.userId));
+    var baseClaims = {
+      userId: userId,
+      roles: [],
+      roleIds: [],
+      roleRecords: [],
+      campaigns: [],
+      permissions: [],
+      pages: [],
+      permissionFlags: {},
+      isAdmin: false,
+      isSupervisor: false,
+      isTrainer: false,
+      isAgent: false,
+      isQa: false,
+      claimsVersion: '2024.11.0',
+      generatedAt: new Date().toISOString()
+    };
+
+    if (!userId) {
+      return baseClaims;
+    }
+
+    var cacheKey = CLAIM_CACHE_PREFIX + userId;
+    var cached = readCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    var roles = readRoleAssignments(userId);
+    var campaigns = readCampaignAssignments(userId);
+    var permissions = readCampaignPermissions(userId);
+    var pages = readPageAssignments(userId);
+
+    var permissionFlags = {};
+    permissions.forEach(function (perm) {
+      if (!perm) {
+        return;
+      }
+      var level = safeString(perm.PermissionLevel || perm.permissionLevel);
+      if (level) {
+        permissionFlags[level.toLowerCase()] = true;
+      }
+      if (perm.CanManageUsers || perm.canManageUsers) {
+        permissionFlags.manageusers = true;
+      }
+      if (perm.CanManagePages || perm.canManagePages) {
+        permissionFlags.managepages = true;
+      }
+    });
+
+    var lowerRoles = {};
+    roles.names.forEach(function (name) {
+      lowerRoles[name.toLowerCase()] = true;
+    });
+
+    var claims = {
+      userId: userId,
+      roles: roles.names.slice(),
+      roleIds: roles.ids.slice(),
+      roleRecords: clone(roles.records || []),
+      campaigns: clone(campaigns || []),
+      permissions: clone(permissions || []),
+      pages: clone(pages || []),
+      permissionFlags: permissionFlags,
+      isAdmin: !!lowerRoles.admin,
+      isSupervisor: !!(lowerRoles.supervisor || lowerRoles.lead),
+      isTrainer: !!lowerRoles.trainer,
+      isAgent: !!(lowerRoles.agent || lowerRoles.specialist),
+      isQa: !!(lowerRoles.qa || lowerRoles.quality),
+      claimsVersion: '2024.11.0',
+      generatedAt: new Date().toISOString()
+    };
+
+    writeCache(cacheKey, clone(claims), CACHE_TTL_SECONDS);
+    return claims;
+  }
+
+  function buildIdentity(sessionUser, explicitUser, metaOptions) {
+    var hydrated = hydrateUserRecord(sessionUser, explicitUser);
+    var claims = buildClaims(hydrated);
+
+    var sessionToken = safeString((sessionUser && sessionUser.sessionToken) || (hydrated && hydrated.sessionToken));
+    var sessionExpiresAt = sessionUser && sessionUser.sessionExpiresAt ? sessionUser.sessionExpiresAt : (hydrated && hydrated.sessionExpiresAt);
+    var sessionIdleTimeout = sessionUser && sessionUser.sessionIdleTimeoutMinutes ? sessionUser.sessionIdleTimeoutMinutes : (hydrated && hydrated.sessionIdleTimeoutMinutes);
+
+    var identityMeta = mergeRecords((hydrated && hydrated.identityMeta) || {}, {
+      source: metaOptions && metaOptions.source ? metaOptions.source : (sessionUser ? 'session' : 'anonymous'),
+      resolvedAt: new Date().toISOString(),
+      sessionToken: sessionToken || '',
+      cacheHit: metaOptions && metaOptions.cacheHit ? true : false
+    });
+
+    var identity = mergeRecords(hydrated, {
+      id: safeString(hydrated && (hydrated.ID || hydrated.Id || hydrated.UserId || hydrated.userId || hydrated.id)),
+      email: safeString(hydrated && (hydrated.Email || hydrated.email || hydrated.EmailAddress || hydrated.emailAddress)),
+      displayName: safeString(hydrated && (hydrated.FullName || hydrated.fullName || hydrated.Name || hydrated.name || hydrated.UserName || hydrated.username)),
+      sessionToken: sessionToken,
+      sessionExpiresAt: sessionExpiresAt || '',
+      sessionIdleTimeoutMinutes: sessionIdleTimeout || '',
+      claims: claims,
+      roles: claims.roles.slice(),
+      roleNames: claims.roles.slice(),
+      roleRecords: claims.roleRecords.slice ? claims.roleRecords.slice() : clone(claims.roleRecords),
+      campaigns: claims.campaigns.slice(),
+      permissions: claims.permissions.slice(),
+      permissionFlags: clone(claims.permissionFlags),
+      pages: claims.pages.slice(),
+      identityMeta: identityMeta
+    });
+
+    identity.session = {
+      token: sessionToken,
+      expiresAt: sessionExpiresAt || '',
+      idleTimeoutMinutes: sessionIdleTimeout || '',
+      rememberMe: !!(sessionUser && sessionUser.sessionRememberMe)
+    };
+
+    identity.campaignRoles = identity.campaigns.map(function (campaign) {
+      return {
+        id: safeString(campaign && (campaign.id || campaign.ID || campaign.CampaignId || campaign.CampaignID)),
+        role: safeString(campaign && (campaign.role || campaign.Role))
+      };
+    });
+
+    return identity;
   }
 
   function resolveIdentity(e, options) {
-    var context = resolveBaseUser(e, options);
-    var user = hydrateUserRecord(context.user);
-    var meta = Object.assign({}, context.meta, { resolvedAt: new Date().toISOString() });
+    var opts = options || {};
 
-    var identity = ensureSafeWrapper(user, meta);
-
-    if (identity && identity.sessionToken && options && options.useCache !== false) {
-      writeCache(SESSION_CACHE_PREFIX + identity.sessionToken, cloneForCache(identity), CACHE_SECONDS);
+    if (opts.identity || opts.explicitIdentity) {
+      var explicit = opts.identity || opts.explicitIdentity;
+      return buildIdentity(explicit, explicit, { source: 'explicit', cacheHit: false });
     }
 
-    var cacheId = normalizeUserId(identity);
-    if (cacheId && options && options.useCache !== false) {
-      writeCache(USER_CACHE_PREFIX + cacheId, cloneForCache(identity), CACHE_SECONDS);
+    var sessionToken = resolveSessionToken(e, opts);
+    if (!sessionToken && opts.sessionToken) {
+      sessionToken = safeString(opts.sessionToken);
+    }
+
+    var explicitUser = opts.explicitUser || null;
+    var useCache = opts.useCache !== false;
+
+    if (!sessionToken) {
+      return buildIdentity({}, explicitUser, { source: 'anonymous', cacheHit: false });
+    }
+
+    var cachedIdentity = useCache ? readCache(SESSION_CACHE_PREFIX + sessionToken) : null;
+    if (cachedIdentity && cachedIdentity.sessionToken === sessionToken) {
+      return buildIdentity(cachedIdentity, explicitUser, { source: 'cache', cacheHit: true });
+    }
+
+    var sessionUser = fetchSessionUser(sessionToken);
+    if (!sessionUser) {
+      if (useCache) {
+        removeCache(SESSION_CACHE_PREFIX + sessionToken);
+      }
+      return buildIdentity({ sessionToken: sessionToken }, explicitUser, { source: 'anonymous', cacheHit: false });
+    }
+
+    var identity = buildIdentity(sessionUser, explicitUser, { source: 'session', cacheHit: false });
+
+    if (useCache) {
+      writeCache(SESSION_CACHE_PREFIX + sessionToken, clone(identity), CACHE_TTL_SECONDS);
+      var userId = safeString(identity.id);
+      if (userId) {
+        writeCache(USER_CACHE_PREFIX + userId, clone(identity), CACHE_TTL_SECONDS);
+      }
     }
 
     return identity;
   }
 
-  function stringifyForTemplate(value) {
-    if (typeof _stringifyForTemplate_ === 'function') {
-      return _stringifyForTemplate_(value);
+  function ensureAuthenticated(e, options) {
+    var identity = resolveIdentity(e, options);
+    if (!identity || !identity.sessionToken) {
+      var error = new Error('Authentication required');
+      error.code = 'AUTH_REQUIRED';
+      error.identity = identity;
+      throw error;
     }
-    try {
-      return JSON.stringify(value || {}).replace(/<\/script>/gi, '<\\/script>');
-    } catch (err) {
-      logWarning('luminaIdentity.stringifyForTemplate', err);
-      return '{}';
-    }
+    return identity;
   }
 
-  function injectIntoTemplate(tpl, identity) {
-    if (!tpl) {
-      return identity || {};
+  function login(email, password, rememberMe, clientMetadata) {
+    var normalizedEmail = safeLower(email);
+    var passwordValue = safeString(password);
+    if (!normalizedEmail || !passwordValue) {
+      return {
+        success: false,
+        error: 'Email and password are required.'
+      };
     }
 
-    var user = identity || {};
+    var result = null;
     try {
-      tpl.user = user;
-      tpl.safeUser = user;
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.login === 'function') {
+        result = AuthenticationService.login(normalizedEmail, passwordValue, !!rememberMe, clientMetadata);
+      } else {
+        throw new Error('AuthenticationService.login unavailable');
+      }
     } catch (err) {
-      logWarning('luminaIdentity.injectIntoTemplate.assign', err);
+      logWarning('LuminaIdentity.login', err);
+      return { success: false, error: 'Authentication service unavailable' };
     }
 
-    var json = stringifyForTemplate(user);
+    if (!result || !result.success || !result.sessionToken) {
+      return result || { success: false, error: 'Unable to authenticate' };
+    }
+
+    var identity = resolveIdentity(null, { sessionToken: result.sessionToken, useCache: false });
+    result.identity = identity;
+    result.user = identity;
+    result.roles = identity.roleNames;
+    result.claims = identity.claims;
+    result.campaigns = identity.campaigns;
+    return result;
+  }
+
+  function logout(sessionToken) {
+    var token = safeString(sessionToken);
+    if (!token) {
+      return { success: false, error: 'Session token required' };
+    }
+
     try {
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.logout === 'function') {
+        var response = AuthenticationService.logout(token);
+        removeCache(SESSION_CACHE_PREFIX + token);
+        removeCache(SESSION_CACHE_PREFIX + 'RAW:' + token);
+        try {
+          if (typeof clearActiveUserSessionToken === 'function') {
+            clearActiveUserSessionToken();
+          }
+        } catch (clearErr) {
+          logWarning('LuminaIdentity.logout.clearActive', clearErr);
+        }
+        return response;
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.logout', err);
+    }
+
+    removeCache(SESSION_CACHE_PREFIX + token);
+    removeCache(SESSION_CACHE_PREFIX + 'RAW:' + token);
+    try {
+      if (typeof clearActiveUserSessionToken === 'function') {
+        clearActiveUserSessionToken();
+      }
+    } catch (clearError) {
+      logWarning('LuminaIdentity.logout.clearActiveFallback', clearError);
+    }
+    return { success: false, error: 'Authentication service unavailable' };
+  }
+
+  function keepAlive(sessionToken) {
+    var token = safeString(sessionToken);
+    if (!token) {
+      return { success: false, error: 'Session token required' };
+    }
+
+    try {
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.keepAlive === 'function') {
+        return AuthenticationService.keepAlive(token);
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.keepAlive', err);
+    }
+
+    return { success: false, error: 'Authentication service unavailable' };
+  }
+
+  function refreshIdentity(sessionToken) {
+    var token = safeString(sessionToken);
+    if (!token) {
+      return null;
+    }
+    removeCache(SESSION_CACHE_PREFIX + token);
+    removeCache(SESSION_CACHE_PREFIX + 'RAW:' + token);
+    return resolveIdentity(null, { sessionToken: token, useCache: false });
+  }
+
+  function clearUserCache(userId) {
+    var id = safeString(userId);
+    if (!id) {
+      return;
+    }
+    removeCache(USER_CACHE_PREFIX + id);
+    removeCache(USER_ROW_CACHE_PREFIX + id);
+    removeCache(CLAIM_CACHE_PREFIX + id);
+  }
+
+  function injectIntoTemplate(template, identity) {
+    var tpl = template || {};
+    var resolvedIdentity = identity || resolveIdentity(null, {});
+
+    try {
+      tpl.user = resolvedIdentity;
+      tpl.identity = resolvedIdentity;
+      tpl.safeUser = resolvedIdentity;
+    } catch (err) {
+      logWarning('LuminaIdentity.injectTemplate.assign', err);
+    }
+
+    try {
+      var json = JSON.stringify(resolvedIdentity || {}).replace(/<\/script>/gi, '<\\/script>');
+      tpl.identityJson = json;
+      tpl.safeUserJson = json;
       tpl.currentUserJson = json;
     } catch (errJson) {
-      logWarning('luminaIdentity.injectIntoTemplate.currentUserJson', errJson);
-    }
-    try {
-      tpl.identityJson = json;
-    } catch (errIdentityJson) {
-      logWarning('luminaIdentity.injectIntoTemplate.identityJson', errIdentityJson);
-    }
-    try {
-      tpl.safeUserJson = json;
-    } catch (errSafeJson) {
-      logWarning('luminaIdentity.injectIntoTemplate.safeUserJson', errSafeJson);
+      logWarning('LuminaIdentity.injectTemplate.json', errJson);
     }
 
     try {
-      tpl.identityMetaJson = stringifyForTemplate(user && user.identityMeta ? user.identityMeta : {});
+      tpl.identityMetaJson = JSON.stringify((resolvedIdentity && resolvedIdentity.identityMeta) || {});
     } catch (errMeta) {
-      logWarning('luminaIdentity.injectIntoTemplate.identityMetaJson', errMeta);
+      logWarning('LuminaIdentity.injectTemplate.meta', errMeta);
     }
 
-    return user;
+    return resolvedIdentity;
+  }
+
+  function passwordApi() {
+    var toolkit = ensurePasswordToolkit();
+    return {
+      hash: function (plain) { return toolkit.hashPassword(plain); },
+      verify: function (plain, hash) { return toolkit.verifyPassword(plain, hash); },
+      create: function (plain) { return toolkit.createPasswordHash(plain); },
+      normalize: function (value) { return toolkit.normalizePasswordInput(value); },
+      constantTimeEquals: function (a, b) { return toolkit.constantTimeEquals(a, b); }
+    };
   }
 
   return {
     resolve: resolveIdentity,
+    getIdentity: resolveIdentity,
+    ensureAuthenticated: ensureAuthenticated,
+    login: login,
+    logout: logout,
+    keepAlive: keepAlive,
+    refreshIdentity: refreshIdentity,
+    clearUserCache: clearUserCache,
+    resolveSessionToken: resolveSessionToken,
     injectTemplate: injectIntoTemplate,
-    resolveSessionToken: resolveSessionToken
+    buildClaims: buildClaims,
+    password: passwordApi,
+    getPasswordToolkit: ensurePasswordToolkit
   };
 })();
+
+var luminaIdentity = LuminaIdentity;

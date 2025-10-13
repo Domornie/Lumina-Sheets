@@ -2,13 +2,119 @@
 // Role & UserRole CRUD
 // ────────────────────────────────────────────────────────────────────────────
 
-/** Returns [{ id, name, normalizedName, scope, description, createdAt, updatedAt, deletedAt }] */
-function getAllRoles() {
+function resolveRolesIdentity(context, options) {
   try {
-    const rows = _readRolesSheet_();
-    return rows
-      .map(normalizeRoleRecord_)
-      .filter(Boolean);
+    return resolveServiceIdentity(context, options);
+  } catch (error) {
+    safeWriteError && safeWriteError('RolesService.resolveIdentity', error);
+    return { identity: null, context: context || {}, error };
+  }
+}
+
+function _readAllRoles_() {
+  const rows = _readRolesSheet_();
+  return rows
+    .map(normalizeRoleRecord_)
+    .filter(Boolean);
+}
+
+function _rolesIdentityUserId_(identity) {
+  if (!identity) return '';
+  const value = identity.id || identity.userId || identity.ID || identity.UserId;
+  return value ? String(value).trim() : '';
+}
+
+function hasRoleManagementPrivileges(identity) {
+  if (!identity) {
+    return false;
+  }
+  try {
+    const flags = identity.permissionFlags || {};
+    if (identity.isAdmin || flags.manageusers || flags.admin) {
+      return true;
+    }
+    const roles = Array.isArray(identity.roleNames) ? identity.roleNames : (identity.roles || []);
+    return roles.some(function (role) {
+      const value = String(role || '').toLowerCase();
+      return value === 'admin' || value === 'system_admin' || value === 'manager' || value === 'supervisor';
+    });
+  } catch (err) {
+    safeWriteError && safeWriteError('RolesService.checkPrivileges', err);
+    return false;
+  }
+}
+
+function ensureRoleManager(context, options) {
+  const resolution = assertServiceIdentity(context, options);
+  if (!hasRoleManagementPrivileges(resolution.identity)) {
+    const error = new Error('You do not have permission to manage roles.');
+    error.code = 'FORBIDDEN';
+    throw error;
+  }
+  return resolution;
+}
+
+/** Returns [{ id, name, normalizedName, scope, description, createdAt, updatedAt, deletedAt }] */
+function getAllRoles(context, options) {
+  try {
+    let invocationContext = null;
+    let resolvedOptions = options || {};
+
+    if (context && typeof context === 'object' && !Array.isArray(context)) {
+      if (context.identity || context.sessionToken || context.session) {
+        invocationContext = context;
+      } else if (!('name' in context) && !('normalizedName' in context)) {
+        invocationContext = context;
+      } else {
+        resolvedOptions = context;
+        invocationContext = resolvedOptions && resolvedOptions.context ? resolvedOptions.context : null;
+      }
+    }
+
+    const resolution = resolveRolesIdentity(invocationContext, resolvedOptions);
+    const identity = resolution && resolution.identity ? resolution.identity : null;
+
+    const allRoles = _readAllRoles_();
+
+    if (!identity) {
+      if (resolvedOptions && resolvedOptions.allowAnonymous) {
+        return allRoles;
+      }
+      return [];
+    }
+
+    if (!hasRoleManagementPrivileges(identity)) {
+      const allowedIds = new Set();
+      if (Array.isArray(identity.roleIds)) {
+        identity.roleIds.forEach(function (rid) {
+          if (rid || rid === 0) allowedIds.add(String(rid));
+        });
+      }
+      if (Array.isArray(identity.roles)) {
+        identity.roles.forEach(function (role) {
+          if (!role && role !== 0) return;
+          if (typeof role === 'string') {
+            allowedIds.add(String(role));
+            return;
+          }
+          const key = role && (role.id || role.ID);
+          if (key || key === 0) {
+            allowedIds.add(String(key));
+          }
+        });
+      }
+
+      if (!allowedIds.size) {
+        return [];
+      }
+
+      return allRoles.filter(function (role) {
+        const key = role && (role.id || role.ID);
+        return key || key === 0 ? allowedIds.has(String(key)) : false;
+      });
+    }
+
+    return allRoles;
   } catch (error) {
     console.error('Error getting all roles:', error);
     return [];
@@ -18,6 +124,7 @@ function getAllRoles() {
 /** Adds a new role */
 function addRole(nameOrPayload, scopeOrPayload, description) {
   try {
+    ensureRoleManager();
     const payload = normalizeRoleInput_(nameOrPayload, scopeOrPayload, description);
     if (!payload.name) throw new Error('Role name is required');
 
@@ -50,6 +157,7 @@ function addRole(nameOrPayload, scopeOrPayload, description) {
 /** Updates an existing role */
 function updateRole(idOrPayload, name, scope, description) {
   try {
+    ensureRoleManager();
     const payload = normalizeRoleUpdate_(idOrPayload, name, scope, description);
     if (!payload.id) throw new Error('Role ID is required');
 
@@ -89,6 +197,7 @@ function updateRole(idOrPayload, name, scope, description) {
 /** Deletes a role (and any user-role links) */
 function deleteRole(id) {
   try {
+    ensureRoleManager();
     const ss = SpreadsheetApp.getActive();
     const rolesSheet = ss.getSheetByName(ROLES_SHEET);
     if (rolesSheet) {
@@ -131,6 +240,7 @@ function deleteRole(id) {
 /** Assigns a role to a user */
 function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
   try {
+    ensureRoleManager();
     if (!userId || !roleId) throw new Error('User ID and Role ID are required');
 
     const sheet = SpreadsheetApp.getActive().getSheetByName(USER_ROLES_SHEET);
@@ -163,6 +273,7 @@ function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
 
     sheet.appendRow(_mapRowFromHeaders_(headers, rowMap));
     if (typeof invalidateCache === 'function') invalidateCache(USER_ROLES_SHEET);
+    clearLuminaIdentityUserCache(userId);
     return id;
   } catch (error) {
     console.error('Error assigning user role:', error);
@@ -173,6 +284,7 @@ function addUserRole(userId, roleId, scopeOrOptions, assignedBy) {
 /** Removes roles for a user (optionally target a specific role) */
 function deleteUserRoles(userId, roleId) {
   try {
+    ensureRoleManager();
     const sheet = SpreadsheetApp.getActive().getSheetByName(USER_ROLES_SHEET);
     if (!sheet) return;
     const data = sheet.getDataRange().getValues();
@@ -183,15 +295,20 @@ function deleteUserRoles(userId, roleId) {
     const roleIdx = headers.indexOf('RoleId');
     if (userIdx < 0) return;
 
+    let removed = false;
     for (let i = data.length - 1; i >= 1; i--) {
       const matchesUser = String(data[i][userIdx]) === String(userId);
       const matchesRole = roleId ? String(data[i][roleIdx]) === String(roleId) : true;
       if (matchesUser && matchesRole) {
         sheet.deleteRow(i + 1);
+        removed = true;
       }
     }
 
     if (typeof invalidateCache === 'function') invalidateCache(USER_ROLES_SHEET);
+    if (removed) {
+      clearLuminaIdentityUserCache(userId);
+    }
   } catch (error) {
     console.error('Error deleting user roles:', error);
     throw error;
@@ -224,9 +341,23 @@ function getUserRoleIds(userId) {
 }
 
 /** Returns full role objects for a user */
-function getUserRoles(userId) {
+function getUserRoles(userId, context) {
   try {
-    const allRoles = getAllRoles();
+    const resolution = resolveRolesIdentity(context);
+    const identity = resolution && resolution.identity ? resolution.identity : null;
+    const identityUserId = _rolesIdentityUserId_(identity);
+
+    const normalizedTarget = userId ? String(userId).trim() : '';
+    const isSelf = normalizedTarget && normalizedTarget === identityUserId;
+
+    if (!isSelf && !hasRoleManagementPrivileges(identity)) {
+      return [];
+    }
+
+    const allRoles = hasRoleManagementPrivileges(identity)
+      ? _readAllRoles_()
+      : getAllRoles(resolution && resolution.context ? resolution.context : null, { allowAnonymous: false });
+
     const assigned = new Set(getUserRoleIds(userId).map(String));
     return allRoles.filter(r => assigned.has(String(r.id || r.ID)));
   } catch (error) {

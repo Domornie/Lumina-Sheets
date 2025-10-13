@@ -119,9 +119,46 @@ function _userLog_(label, payload, level) {
   }
 }
 
+function _ensureUserServiceIdentity_(context, options) {
+  try {
+    return assertServiceIdentity(context, options);
+  } catch (error) {
+    _userLog_('UserService.ensureIdentityFailed', { message: error && error.message, code: error && error.code }, 'warn');
+    throw error;
+  }
+}
+
+function _resolveUserServiceIdentity_(context, options) {
+  try {
+    return resolveServiceIdentity(context, options);
+  } catch (error) {
+    _userLog_('UserService.resolveIdentityFailed', { message: error && error.message }, 'warn');
+    return { identity: null, context: context || {}, error };
+  }
+}
+
+function _hasUserAdminPrivileges_(identity) {
+  if (!identity) return false;
+  try {
+    const flags = identity.permissionFlags || {};
+    if (identity.isAdmin || flags.manageusers || flags.managepages) {
+      return true;
+    }
+    const roles = Array.isArray(identity.roleNames) ? identity.roleNames : (identity.roles || []);
+    return roles.some(role => {
+      const value = String(role || '').toLowerCase();
+      return value === 'admin' || value === 'system_admin' || value === 'manager' || value === 'supervisor';
+    });
+  } catch (err) {
+    _userLog_('UserService.checkPrivilegesFailed', err, 'warn');
+    return false;
+  }
+}
+
 function clientGetUserSummaries(context) {
   try {
-    return getEntitySummaries('users', context);
+    const resolution = _ensureUserServiceIdentity_(context);
+    return getEntitySummaries('users', resolution.context);
   } catch (error) {
     console.error('clientGetUserSummaries failed:', error);
     throw error;
@@ -130,7 +167,8 @@ function clientGetUserSummaries(context) {
 
 function clientGetUserDetail(id, context) {
   try {
-    return getEntityDetail('users', id, context);
+    const resolution = _ensureUserServiceIdentity_(context);
+    return getEntityDetail('users', id, resolution.context);
   } catch (error) {
     console.error('clientGetUserDetail failed:', error);
     throw error;
@@ -766,6 +804,12 @@ function getOrCreateCampaignPermsSheet_() {
 }
 function setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages) {
   try {
+    const auth = _ensureUserServiceIdentity_();
+    const identity = auth && auth.identity ? auth.identity : null;
+    if (!_hasUserAdminPrivileges_(identity)) {
+      return { success: false, error: 'You do not have permission to modify campaign permissions.', errorCode: 'FORBIDDEN' };
+    }
+
     if (!campaignId || !userId) return { success: false, error: 'campaignId and userId are required' };
     const lvl = String(permissionLevel || 'VIEWER').toUpperCase();
     const cmu = (canManageUsers === true || String(canManageUsers).toLowerCase() === 'true');
@@ -799,6 +843,7 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
       for (let c = 0; c < headers.length; c++) if (typeof row[c] === 'undefined') row[c] = '';
       sh.appendRow(row);
       if (typeof invalidateCache === 'function') invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+      clearLuminaIdentityUserCache(userId);
       return { success: true, created: true, message: 'Permissions saved', campaignId, userId, permissionLevel: lvl, canManageUsers: cmu, canManagePages: cmp };
     } else {
       const r = rowIndex + 1;
@@ -807,6 +852,7 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
       if (idx.CanManagePages >= 0) sh.getRange(r, idx.CanManagePages + 1).setValue(cmp ? 'TRUE' : 'FALSE');
       if (idx.UpdatedAt >= 0) sh.getRange(r, idx.UpdatedAt + 1).setValue(nowIso);
       if (typeof invalidateCache === 'function') invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
+      clearLuminaIdentityUserCache(userId);
       return { success: true, updated: true, message: 'Permissions saved', campaignId, userId, permissionLevel: lvl, canManageUsers: cmu, canManagePages: cmp };
     }
   } catch (e) { writeError && writeError('setCampaignUserPermissions', e); return { success: false, error: e.message }; }
@@ -815,8 +861,27 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
 // ───────────────────────────────────────────────────────────────────────────────
 // Users: get all (campaign-aware) + safe mappers
 // ───────────────────────────────────────────────────────────────────────────────
-function clientGetAllUsers(requestingUserId) {
+function clientGetAllUsers(requestingUserId, context) {
   try {
+    let explicitUserId = requestingUserId;
+    let invocationContext = context;
+    if (explicitUserId && typeof explicitUserId === 'object' && !Array.isArray(explicitUserId)) {
+      invocationContext = explicitUserId;
+      explicitUserId = null;
+    }
+
+    let identityResolution = null;
+    if (explicitUserId) {
+      identityResolution = _resolveUserServiceIdentity_(invocationContext);
+    } else {
+      identityResolution = _ensureUserServiceIdentity_(invocationContext);
+    }
+
+    const identity = identityResolution ? identityResolution.identity : null;
+    const actingUserId = explicitUserId
+      || (identity && (identity.id || identity.userId || identity.ID || identity.UserId))
+      || '';
+
     let users = [];
     try {
       if (typeof getAllUsersRaw === 'function') {
@@ -824,7 +889,10 @@ function clientGetAllUsers(requestingUserId) {
       } else {
         users = readSheet(G.USERS_SHEET);
       }
-    } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
+    } catch (e) {
+      writeError('clientGetAllUsers - readSheet', e);
+      return [];
+    }
     if (!Array.isArray(users) || users.length === 0) return [];
 
     const enhancedUsers = [];
@@ -839,26 +907,51 @@ function clientGetAllUsers(requestingUserId) {
     }
 
     let filteredUsers = enhancedUsers;
-    if (requestingUserId) {
+
+    if (identity) {
+      if (_hasUserAdminPrivileges_(identity)) {
+        filteredUsers = enhancedUsers;
+      } else if (actingUserId) {
+        try {
+          const managedCampaigns = getUserManagedCampaigns(actingUserId) || [];
+          const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
+          if (managedSet.size > 0) {
+            const managedIds = new Set(Array.from(managedSet).map(String));
+            filteredUsers = enhancedUsers.filter(u => {
+              if (String(u.ID) === String(actingUserId)) return true;
+              const uCamps = (typeof getUserCampaignsSafe === 'function')
+                ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
+                : (u.CampaignID ? [String(u.CampaignID)] : []);
+              return uCamps.some(cid => managedIds.has(cid));
+            });
+          } else {
+            filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(actingUserId));
+          }
+        } catch (permissionError) {
+          _userLog_('UserService.clientGetAllUsers.permissionFallback', permissionError, 'warn');
+          filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(actingUserId));
+        }
+      }
+    } else if (actingUserId) {
       try {
-        const requestingUser = users.find(u => String(u.ID) === String(requestingUserId));
+        const requestingUser = users.find(u => String(u.ID) === String(actingUserId));
         if (requestingUser) {
           if (isUserAdmin(requestingUser)) {
             filteredUsers = enhancedUsers;
           } else {
-            const managedCampaigns = getUserManagedCampaigns(requestingUserId) || [];
+            const managedCampaigns = getUserManagedCampaigns(actingUserId) || [];
             const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
             if (managedSet.size > 0) {
               const managedIds = new Set(Array.from(managedSet).map(String));
               filteredUsers = enhancedUsers.filter(u => {
-                if (String(u.ID) === String(requestingUserId)) return true;
+                if (String(u.ID) === String(actingUserId)) return true;
                 const uCamps = (typeof getUserCampaignsSafe === 'function')
                   ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
                   : (u.CampaignID ? [String(u.CampaignID)] : []);
                 return uCamps.some(cid => managedIds.has(cid));
               });
             } else {
-              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(requestingUserId));
+              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(actingUserId));
             }
           }
         } else {
@@ -868,8 +961,12 @@ function clientGetAllUsers(requestingUserId) {
         filteredUsers = enhancedUsers;
       }
     }
+
     return filteredUsers;
-  } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
+  } catch (globalError) {
+    writeError('clientGetAllUsers', globalError);
+    return [];
+  }
 }
 
 function createSafeUserObject(user) {

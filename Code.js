@@ -38,6 +38,260 @@ const ACCESS = {
 };
 
 // ───────────────────────────────────────────────────────────────────────────────
+// LUMINA IDENTITY INTEGRATION HELPERS
+// ───────────────────────────────────────────────────────────────────────────────
+
+const ACTIVE_SESSION_CACHE_TTL_SECONDS = 60 * 60; // 1 hour
+const ACTIVE_SESSION_PROPERTY_PREFIX = 'LUMINA_ACTIVE_SESSION:';
+
+function getLuminaIdentityModule() {
+  if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
+    return LuminaIdentity;
+  }
+  if (typeof luminaIdentity !== 'undefined' && luminaIdentity) {
+    return luminaIdentity;
+  }
+  return null;
+}
+
+function getActiveUserKey() {
+  try {
+    if (typeof Session !== 'undefined' && Session && typeof Session.getTemporaryActiveUserKey === 'function') {
+      const key = Session.getTemporaryActiveUserKey();
+      if (key) {
+        return String(key);
+      }
+    }
+  } catch (err) {
+    console.warn('getActiveUserKey: unable to resolve Apps Script session key', err);
+  }
+  return null;
+}
+
+function buildActiveSessionStorageKey(userKey) {
+  return ACTIVE_SESSION_PROPERTY_PREFIX + String(userKey || '');
+}
+
+function rememberActiveUserSessionToken(sessionToken, metadata) {
+  const token = (sessionToken || '').trim();
+  if (!token) {
+    return false;
+  }
+
+  const activeKey = getActiveUserKey();
+  if (!activeKey) {
+    return false;
+  }
+
+  const payload = {
+    sessionToken: token,
+    storedAt: new Date().toISOString(),
+    metadata: metadata || null
+  };
+
+  let serialized = null;
+  try {
+    serialized = JSON.stringify(payload);
+  } catch (err) {
+    console.warn('rememberActiveUserSessionToken: failed to serialize payload', err);
+    return false;
+  }
+
+  const storageKey = buildActiveSessionStorageKey(activeKey);
+
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      CacheService.getUserCache().put(storageKey, serialized, ACTIVE_SESSION_CACHE_TTL_SECONDS);
+    }
+  } catch (cacheErr) {
+    console.warn('rememberActiveUserSessionToken: cache persistence failed', cacheErr);
+  }
+
+  try {
+    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+      PropertiesService.getUserProperties().setProperty(storageKey, serialized);
+    }
+  } catch (propErr) {
+    console.warn('rememberActiveUserSessionToken: property persistence failed', propErr);
+  }
+
+  return true;
+}
+
+function clearActiveUserSessionToken() {
+  const activeKey = getActiveUserKey();
+  if (!activeKey) {
+    return false;
+  }
+
+  const storageKey = buildActiveSessionStorageKey(activeKey);
+
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      CacheService.getUserCache().remove(storageKey);
+    }
+  } catch (cacheErr) {
+    console.warn('clearActiveUserSessionToken: cache removal failed', cacheErr);
+  }
+
+  try {
+    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+      PropertiesService.getUserProperties().deleteProperty(storageKey);
+    }
+  } catch (propErr) {
+    console.warn('clearActiveUserSessionToken: property removal failed', propErr);
+  }
+
+  return true;
+}
+
+function readActiveUserSessionToken() {
+  const activeKey = getActiveUserKey();
+  if (!activeKey) {
+    return null;
+  }
+
+  const storageKey = buildActiveSessionStorageKey(activeKey);
+  let raw = null;
+
+  try {
+    if (typeof CacheService !== 'undefined' && CacheService) {
+      raw = CacheService.getUserCache().get(storageKey);
+    }
+  } catch (cacheErr) {
+    console.warn('readActiveUserSessionToken: cache read failed', cacheErr);
+  }
+
+  if (!raw) {
+    try {
+      if (typeof PropertiesService !== 'undefined' && PropertiesService) {
+        raw = PropertiesService.getUserProperties().getProperty(storageKey);
+      }
+    } catch (propErr) {
+      console.warn('readActiveUserSessionToken: property read failed', propErr);
+    }
+  }
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.sessionToken) {
+      return parsed;
+    }
+  } catch (parseErr) {
+    console.warn('readActiveUserSessionToken: failed to parse payload', parseErr);
+    return { sessionToken: String(raw) };
+  }
+
+  return null;
+}
+
+function clearLuminaIdentityUserCache(userId) {
+  try {
+    const module = getLuminaIdentityModule();
+    if (!module || typeof module.clearUserCache !== 'function') {
+      return;
+    }
+    if (Array.isArray(userId)) {
+      userId.forEach(function (id) {
+        try { module.clearUserCache(id); } catch (err) { console.warn('clearLuminaIdentityUserCache: failed for id', id, err); }
+      });
+      return;
+    }
+    module.clearUserCache(userId);
+  } catch (err) {
+    console.warn('clearLuminaIdentityUserCache: unable to clear cache', err);
+  }
+}
+
+function resolveServiceIdentity(context, options) {
+  const incomingContext = (context && typeof context === 'object' && !Array.isArray(context))
+    ? Object.assign({}, context)
+    : {};
+  const identityModule = getLuminaIdentityModule();
+  const identityOptions = Object.assign({}, options || {});
+  const requireIdentity = !!identityOptions.require;
+  delete identityOptions.require;
+
+  if (incomingContext.identity && incomingContext.identity.sessionToken) {
+    return {
+      identity: incomingContext.identity,
+      context: incomingContext
+    };
+  }
+
+  if (!identityOptions.sessionToken && incomingContext.sessionToken) {
+    identityOptions.sessionToken = incomingContext.sessionToken;
+  }
+  if (!identityOptions.sessionToken && incomingContext.token) {
+    identityOptions.sessionToken = incomingContext.token;
+  }
+  if (!identityOptions.sessionToken && incomingContext.authToken) {
+    identityOptions.sessionToken = incomingContext.authToken;
+  }
+  if (!identityOptions.sessionToken && incomingContext.identity && incomingContext.identity.session && incomingContext.identity.session.token) {
+    identityOptions.sessionToken = incomingContext.identity.session.token;
+  }
+
+  let rememberedSession = null;
+  if (!identityOptions.sessionToken) {
+    rememberedSession = readActiveUserSessionToken();
+    if (rememberedSession && rememberedSession.sessionToken) {
+      identityOptions.sessionToken = rememberedSession.sessionToken;
+      incomingContext.sessionToken = incomingContext.sessionToken || rememberedSession.sessionToken;
+      incomingContext.rememberedSession = rememberedSession;
+    }
+  }
+
+  if (!identityModule || typeof identityModule.ensureAuthenticated !== 'function') {
+    return { identity: null, context: incomingContext };
+  }
+
+  const event = incomingContext.event || incomingContext.e || incomingContext.request || null;
+
+  try {
+    const identity = identityModule.ensureAuthenticated(event, identityOptions);
+    const enriched = Object.assign({}, incomingContext, {
+      identity: identity,
+      user: identity,
+      userId: identity && (identity.id || identity.userId || identity.ID || identity.UserId) || incomingContext.userId || null,
+      sessionToken: identity && identity.sessionToken
+        ? identity.sessionToken
+        : (identity && identity.session && identity.session.token) || incomingContext.sessionToken || null,
+      roles: identity && identity.roleNames ? identity.roleNames.slice() : (incomingContext.roles || []),
+      claims: identity && identity.claims ? identity.claims : (incomingContext.claims || []),
+      campaignScope: identity && identity.campaigns
+        ? identity.campaigns
+        : (identity && identity.CampaignScope ? identity.CampaignScope : incomingContext.campaignScope || null)
+    });
+    return { identity: identity, context: enriched };
+  } catch (error) {
+    if (rememberedSession) {
+      clearActiveUserSessionToken();
+    }
+    if (requireIdentity) {
+      throw error;
+    }
+    return { identity: null, context: incomingContext, error: error };
+  }
+}
+
+function assertServiceIdentity(context, options) {
+  const resolution = resolveServiceIdentity(context, Object.assign({}, options || {}, { require: true }));
+  if (!resolution.identity) {
+    const error = resolution.error || new Error('Authentication required');
+    if (!error.code) {
+      error.code = 'AUTH_REQUIRED';
+    }
+    throw error;
+  }
+  return resolution;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 // LUMINA ENTITY REGISTRY
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -145,6 +399,9 @@ function ensureEntitySchema(definition) {
 }
 
 function projectEntityRows(definition, context, options, columns) {
+  var identityResolution = assertServiceIdentity(context);
+  var resolvedContext = identityResolution.context || {};
+
   var manager = (typeof DatabaseManager !== 'undefined') ? DatabaseManager : null;
   if (!manager || typeof manager.table !== 'function') {
     throw new Error('DatabaseManager.table is not available.');
@@ -152,7 +409,7 @@ function projectEntityRows(definition, context, options, columns) {
 
   ensureEntitySchema(definition);
 
-  var table = manager.table(definition.tableName, context);
+  var table = manager.table(definition.tableName, resolvedContext);
   var cols = Array.isArray(columns) ? columns.slice() : null;
   if (cols && definition.idColumn && cols.indexOf(definition.idColumn) === -1) {
     cols.push(definition.idColumn);
@@ -171,9 +428,10 @@ function projectEntityRows(definition, context, options, columns) {
 
 function getEntitySummaries(entityName, context) {
   try {
+    var resolution = assertServiceIdentity(context);
     var def = resolveLuminaEntityDefinition(entityName);
     var options = def.summaryOptions ? Object.assign({}, def.summaryOptions) : {};
-    var rows = projectEntityRows(def, context, options, def.summaryColumns);
+    var rows = projectEntityRows(def, resolution.context, options, def.summaryColumns);
     if (typeof def.normalizeSummary === 'function') {
       return rows.map(function (row) { return def.normalizeSummary(row); });
     }
@@ -190,6 +448,7 @@ function getEntityDetail(entityName, id, context) {
       throw new Error('Record id is required.');
     }
 
+    var resolution = assertServiceIdentity(context);
     var def = resolveLuminaEntityDefinition(entityName);
     var manager = (typeof DatabaseManager !== 'undefined') ? DatabaseManager : null;
     if (!manager || typeof manager.table !== 'function') {
@@ -197,7 +456,7 @@ function getEntityDetail(entityName, id, context) {
     }
 
     ensureEntitySchema(def);
-    var table = manager.table(def.tableName, context);
+    var table = manager.table(def.tableName, resolution.context);
     var record = (typeof table.findById === 'function') ? table.findById(id) : null;
     if (!record && typeof table.findOne === 'function' && def.idColumn) {
       var where = {};
