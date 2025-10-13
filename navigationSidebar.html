@@ -118,6 +118,13 @@
     'JobTitle', 'jobTitle'
   ]);
 
+  var userCampaignNameValue = getUserFieldValue(sidebarUser, [
+    'CampaignName', 'campaignName', 'Campaign', 'campaign',
+    'CampaignTitle', 'campaignTitle', 'TeamName', 'teamName'
+  ]);
+
+  var displayCampaignNameValue = safeUserString(userCampaignNameValue) || safeUserString(campaignNameValue);
+
   if (!primaryRoleNameValue && userRoleNames && userRoleNames.length) {
     primaryRoleNameValue = userRoleNames[0];
   }
@@ -380,6 +387,20 @@
     align-items: center;
     gap: 0.25rem;
   }
+
+  #sidebar .user-info .campaign {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.8);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  #sidebar .user-info .campaign i {
+    font-size: 0.75rem;
+    opacity: 0.85;
+  }
 </style>
 
 <nav id="sidebar" data-current-page='<?= currentPageAttrValue ?>'>
@@ -557,7 +578,9 @@
     data-status="<?= sidebarUser.EmploymentStatus || '' ?>" data-country="<?= sidebarUser.Country || '' ?>"
     data-profile-id="<?= profileSlugValue ?>"
     data-profile-slug="<?= profileSlugValue ?>"
-    data-profile-identifier="<?= profileIdentifierValue ?>">
+    data-profile-identifier="<?= profileIdentifierValue ?>"
+    data-campaign-name="<?= displayCampaignNameValue ?>"
+    data-campaign-id="<?= campaignIdValue ?>">
     <div class="user-avatar-side" id="userAvatar">
       <?= userInitialValue ?>
     </div>
@@ -582,6 +605,17 @@
           <? } ?>
         </div>
       </div>
+      <? if (displayCampaignNameValue) { ?>
+      <div class="campaign" id="userCampaign" title="<?= displayCampaignNameValue ?>">
+        <i class="fas fa-bullseye" aria-hidden="true"></i>
+        <span><?= displayCampaignNameValue ?></span>
+      </div>
+      <? } else if (campaignNameValue) { ?>
+      <div class="campaign" id="userCampaign" title="<?= campaignNameValue ?>">
+        <i class="fas fa-bullseye" aria-hidden="true"></i>
+        <span><?= campaignNameValue ?></span>
+      </div>
+      <? } ?>
       <div class="employment-status" id="userEmp">
         <? if (employmentMetaValue.status) { ?>
         <i class="<?= employmentMetaValue.icon ?> <?= employmentMetaValue.cls ?>"></i>

@@ -2185,7 +2185,10 @@
         scriptUrl: (typeof scriptUrl !== 'undefined') ? scriptUrl : ((typeof baseUrl !== 'undefined') ? baseUrl : ''),
         currentPage: typeof currentPage !== 'undefined' ? currentPage : '',
         campaignName: __layoutCampaignName,
-        isAdmin: __layoutIsAdmin
+        campaignId: __layoutCampaignId,
+        isAdmin: __layoutIsAdmin,
+        user: __layoutUser || {},
+        roleNames: __layoutRoleNames
       }) ?>
 
   
