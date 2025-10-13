@@ -2443,16 +2443,46 @@
 
       try {
         if (window.localStorage) {
-          localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
-          localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
-        }
-      } catch (err) {
-        console.warn('Unable to persist identity in localStorage', err);
+      localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
+      localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+    }
+  } catch (err) {
+    console.warn('Unable to persist identity in localStorage', err);
+  }
+
+  try {
+    if (window.CookieHandler && typeof CookieHandler.persistIdentityCookie === 'function') {
+      const cookieOptions = {};
+
+      if (typeof state.sessionTtlSeconds === 'number' && state.sessionTtlSeconds > 0) {
+        cookieOptions.ttlSeconds = Math.floor(state.sessionTtlSeconds);
+        cookieOptions.maxAgeSeconds = Math.max(300, Math.floor(state.sessionTtlSeconds));
+      } else if (typeof state.sessionIdleTimeoutMinutes === 'number' && state.sessionIdleTimeoutMinutes > 0) {
+        cookieOptions.maxAgeSeconds = Math.max(300, Math.floor(state.sessionIdleTimeoutMinutes * 60));
+      } else if (state.lastRememberMe) {
+        cookieOptions.maxAgeSeconds = REMEMBER_COOKIE_MAX_AGE;
+        cookieOptions.rememberMe = true;
+      } else {
+        cookieOptions.maxAgeSeconds = SESSION_COOKIE_MAX_AGE;
       }
 
-      setGlobalIdentity(payload);
-      return payload;
+      if (typeof state.lastRememberMe === 'boolean') {
+        cookieOptions.rememberMe = state.lastRememberMe;
+      }
+
+      if (state.sessionExpiresAt) {
+        cookieOptions.expiresAt = state.sessionExpiresAt;
+      }
+
+      CookieHandler.persistIdentityCookie(payload, cookieOptions);
     }
+  } catch (cookieError) {
+    console.warn('Unable to persist identity cookie', cookieError);
+  }
+
+  setGlobalIdentity(payload);
+  return payload;
+}
 
     function clearPersistedIdentity(reason) {
       try {
@@ -2470,14 +2500,22 @@
           localStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
         }
       } catch (err) {
-        console.warn('Unable to clear identity from localStorage', err);
-      }
+    console.warn('Unable to clear identity from localStorage', err);
+  }
 
-      setGlobalIdentity(null);
+  try {
+    if (window.CookieHandler && typeof CookieHandler.clearIdentityCookie === 'function') {
+      CookieHandler.clearIdentityCookie();
+    }
+  } catch (cookieErr) {
+    console.warn('Unable to clear identity cookie', cookieErr);
+  }
 
-      if (reason) {
-        console.log('Cleared persisted identity:', reason);
-      }
+  setGlobalIdentity(null);
+
+  if (reason) {
+    console.log('Cleared persisted identity:', reason);
+  }
     }
 
     function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
