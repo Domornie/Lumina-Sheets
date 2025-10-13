@@ -2567,8 +2567,10 @@
       return baseUrl.toString();
     }
 
+    const DEFAULT_REDIRECT_PAGE = 'dashboard';
+
     function normalizeRedirectUrl(serverUrl) {
-      let page = 'dashboard';
+      let page = DEFAULT_REDIRECT_PAGE;
       const params = {};
 
       if (serverUrl) {
@@ -2583,6 +2585,11 @@
         } catch (err) {
           console.warn('Unable to parse server redirect URL. Falling back to local page builder.', err);
         }
+      }
+
+      const normalizedPage = (page || '').trim().toLowerCase();
+      if (!normalizedPage || normalizedPage === 'login' || normalizedPage === 'logout') {
+        page = DEFAULT_REDIRECT_PAGE;
       }
 
       return stripTokenFromUrl(buildPageUrl(page, params));
