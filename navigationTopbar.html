@@ -48,6 +48,151 @@
   var currentPageValue = (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'Home';
   var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
   var isAdminValue = Boolean(isAdmin);
+  var topbarUser = (typeof user !== 'undefined' && user) ? user : {};
+  var rawRoleNames = (typeof roleNames !== 'undefined' && roleNames !== null) ? roleNames : '';
+
+  function safeUserString(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var text = String(value).trim();
+    if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+      return '';
+    }
+
+    return text;
+  }
+
+  function escapeHtml(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getUserFieldValue(target, keys) {
+    if (!target || !keys || !keys.length) {
+      return '';
+    }
+
+    for (var idx = 0; idx < keys.length; idx++) {
+      var key = keys[idx];
+      if (!key || !(key in target)) {
+        continue;
+      }
+
+      var value = safeUserString(target[key]);
+      if (value) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  function normalizeRoleInput(input) {
+    if (!input) {
+      return [];
+    }
+
+    if (Array.isArray(input)) {
+      return input
+        .map(function (role) {
+          if (!role) {
+            return '';
+          }
+          if (typeof role === 'string') {
+            return role;
+          }
+          if (typeof role === 'object') {
+            var labelKeys = ['Name', 'name', 'RoleName', 'roleName', 'Title', 'title', 'DisplayName', 'displayName', 'Label', 'label'];
+            for (var idx = 0; idx < labelKeys.length; idx++) {
+              var labelKey = labelKeys[idx];
+              if (labelKey in role) {
+                var labelValue = safeUserString(role[labelKey]);
+                if (labelValue) {
+                  return labelValue;
+                }
+              }
+            }
+            return '';
+          }
+          return String(role);
+        })
+        .map(function (role) { return String(role || '').trim(); })
+        .filter(function (role) { return role.length > 0; });
+    }
+
+    if (typeof input === 'string') {
+      return input
+        .split(',')
+        .map(function (role) { return role.trim(); })
+        .filter(function (role) { return role.length > 0; });
+    }
+
+    return [String(input || '').trim()].filter(function (role) { return role.length > 0; });
+  }
+
+  function dedupeRoles(list) {
+    var seen = {};
+    return list.filter(function (role) {
+      var key = role.toLowerCase();
+      if (seen[key]) {
+        return false;
+      }
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  var firstNameValue = getUserFieldValue(topbarUser, ['FirstName', 'firstName', 'GivenName', 'givenName']);
+  var lastNameValue = getUserFieldValue(topbarUser, ['LastName', 'lastName', 'Surname', 'surname', 'FamilyName', 'familyName']);
+  var userFullNameValue = getUserFieldValue(topbarUser, ['FullName', 'fullName', 'DisplayName', 'displayName']);
+  var userNameValue = getUserFieldValue(topbarUser, ['UserName', 'userName', 'username', 'Email', 'email']);
+
+  var firstLastDisplayName = [firstNameValue, lastNameValue]
+    .filter(function (value) { return safeUserString(value); })
+    .join(' ');
+
+  var displayFullNameValue = userFullNameValue || firstLastDisplayName || userNameValue;
+  var displayPrimaryNameValue = firstLastDisplayName || displayFullNameValue || userNameValue || 'Unknown User';
+  if (!displayFullNameValue) {
+    displayFullNameValue = displayPrimaryNameValue;
+  }
+
+  var roleCandidates = [];
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(rawRoleNames));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(topbarUser && topbarUser.roleNames));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(topbarUser && topbarUser.roles));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(topbarUser && topbarUser.Roles));
+  roleCandidates = roleCandidates.concat(normalizeRoleInput(topbarUser && topbarUser.csvRoles));
+
+  if (!roleCandidates.length) {
+    var fallbackRole = topbarUser && (topbarUser.RoleName || topbarUser.PrimaryRole || topbarUser.Role || topbarUser.role);
+    roleCandidates = roleCandidates.concat(normalizeRoleInput(fallbackRole));
+  }
+
+  var userRoleNames = dedupeRoles(roleCandidates);
+  if (!userRoleNames.length && isAdminValue) {
+    userRoleNames = ['System Administrator'];
+  }
+
+  var userInitialValue = (displayPrimaryNameValue || 'U').charAt(0).toUpperCase();
+
+  var userCampaignNameValue = getUserFieldValue(topbarUser, [
+    'CampaignName', 'campaignName', 'Campaign', 'campaign', 'CampaignTitle', 'campaignTitle'
+  ]);
+
+  var displayCampaignNameValue = safeUserString(userCampaignNameValue) || safeUserString(campaignNameValue);
+  var userRoleSummaryValue = (userRoleNames && userRoleNames.length) ? userRoleNames.join(', ') : '';
+  var hasRoleSummaryValue = safeUserString(userRoleSummaryValue);
 
   function generateLink(page) {
     var target = __topbarLinkBase;
@@ -60,6 +205,132 @@
     return target + separator + 'page=' + encodeURIComponent(page);
   }
 ?>
+
+<style>
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  #topbar .breadcrumb-nav {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #topbar .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  #topbar .topbar-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+  }
+
+  #topbar .topbar-user__avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    background: var(--sidebar-accent, #ffc107);
+    color: #1f1f1f;
+  }
+
+  #topbar .topbar-user__details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  #topbar .topbar-user__name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--topbar-text, #ffffff);
+    white-space: nowrap;
+  }
+
+  #topbar .topbar-user__meta {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  #topbar .topbar-user__role {
+    font-weight: 500;
+  }
+
+  #topbar .topbar-user__campaign {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  #topbar .topbar-user__campaign i {
+    font-size: 0.7rem;
+  }
+
+  #topbar .topbar-user__separator {
+    opacity: 0.6;
+  }
+
+  @media (max-width: 991.98px) {
+    #topbar .topbar-right {
+      gap: 1rem;
+    }
+
+    #topbar .topbar-user {
+      padding: 0.25rem 0.6rem;
+    }
+
+    #topbar .topbar-user__name {
+      font-size: 0.85rem;
+    }
+  }
+
+  @media (max-width: 767.98px) {
+    #topbar {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    #topbar .breadcrumb-nav {
+      order: 3;
+      width: 100%;
+    }
+
+    #topbar .topbar-right {
+      width: calc(100% - 2.75rem);
+      justify-content: flex-end;
+    }
+
+    #topbar .topbar-user {
+      background: transparent;
+      padding: 0;
+    }
+
+    #topbar .topbar-user__name {
+      font-size: 0.8rem;
+    }
+
+    #topbar .topbar-user__meta {
+      font-size: 0.7rem;
+    }
+  }
+</style>
 
 <div id="topbar">
   <button class="topbar-toggle d-md-none" id="mobileToggle">
@@ -74,25 +345,53 @@
     <span class="current-page"><?= currentPageValue ?></span>
   </div>
 
-  <div class="top-actions">
-    <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
-      <i class="fas fa-bell"></i>
-      <div class="notification-badge"></div>
-    </button>
+  <div class="topbar-right">
+    <div class="topbar-user" aria-label="Signed in user summary">
+      <div class="topbar-user__avatar" aria-hidden="true"><?= escapeHtml(userInitialValue) ?></div>
+      <div class="topbar-user__details">
+        <div class="topbar-user__name" id="topbarUserName"><?= escapeHtml(displayFullNameValue) ?></div>
+        <? if (hasRoleSummaryValue || displayCampaignNameValue) { ?>
+        <div class="topbar-user__meta" id="topbarUserMeta">
+          <? if (hasRoleSummaryValue) { ?>
+          <span class="topbar-user__role" id="topbarUserRole"><?= escapeHtml(userRoleSummaryValue) ?></span>
+          <? } ?>
+          <? if (hasRoleSummaryValue && displayCampaignNameValue) { ?>
+          <span class="topbar-user__separator" aria-hidden="true">•</span>
+          <? } ?>
+          <? if (displayCampaignNameValue) { ?>
+          <span class="topbar-user__campaign" id="topbarUserCampaign">
+            <i class="fas fa-bullseye" aria-hidden="true"></i>
+            <?= escapeHtml(displayCampaignNameValue) ?>
+          </span>
+          <? } ?>
+        </div>
+        <? } ?>
+        <span class="visually-hidden" id="topbarUserSummary">
+          Signed in as <?= escapeHtml(displayFullNameValue) ?><? if (hasRoleSummaryValue) { ?>, role <?= escapeHtml(userRoleSummaryValue) ?><? } ?><? if (displayCampaignNameValue) { ?>, campaign <?= escapeHtml(displayCampaignNameValue) ?><? } ?>.
+        </span>
+      </div>
+    </div>
 
-    <a href="<?= generateLink('search') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
-      <i class="fas fa-search"></i>
-    </a>
+    <div class="top-actions">
+      <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
+        <i class="fas fa-bell"></i>
+        <div class="notification-badge"></div>
+      </button>
 
-    <? if (isAdminValue) { ?>
-    <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
-      title="Employment Report">
-      <i class="fas fa-chart-bar"></i>
-    </a>
-    <? } ?>
+      <a href="<?= generateLink('search') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
+        <i class="fas fa-search"></i>
+      </a>
 
-    <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
-      <i class="fas fa-sign-out-alt"></i>
-    </button>
+      <? if (isAdminValue) { ?>
+      <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
+        title="Employment Report">
+        <i class="fas fa-chart-bar"></i>
+      </a>
+      <? } ?>
+
+      <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </div>
   </div>
 </div>
