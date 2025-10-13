@@ -4520,6 +4520,17 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
 
     const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
     console.log('=== loginUser wrapper END ===');
+    if (result && result.success && result.sessionToken) {
+      try {
+        rememberActiveUserSessionToken(result.sessionToken, {
+          userId: result.user && (result.user.ID || result.user.id || result.user.UserId || result.user.userId),
+          rememberMe: !!result.rememberMe,
+          loginAt: new Date().toISOString()
+        });
+      } catch (rememberError) {
+        console.warn('loginUser: failed to remember active session token', rememberError);
+      }
+    }
     return result;
   } catch (error) {
     console.error('loginUser wrapper error:', error);
@@ -4585,7 +4596,11 @@ function verifyMfaCode(challengeId, code, clientMetadata) {
 
 function logoutUser(sessionToken) {
   try {
-    return AuthenticationService.logout(sessionToken);
+    const response = AuthenticationService.logout(sessionToken);
+    if (response && response.success) {
+      try { clearActiveUserSessionToken(); } catch (clearError) { console.warn('logoutUser: failed to clear active session', clearError); }
+    }
+    return response;
   } catch (error) {
     console.error('logoutUser wrapper error:', error);
     return {
@@ -4597,7 +4612,19 @@ function logoutUser(sessionToken) {
 
 function keepAliveSession(sessionToken) {
   try {
-    return AuthenticationService.keepAlive(sessionToken);
+    const response = AuthenticationService.keepAlive(sessionToken);
+    if (response && response.success) {
+      const token = response.sessionToken || sessionToken;
+      try {
+        rememberActiveUserSessionToken(token, {
+          userId: response.user && (response.user.ID || response.user.id || response.user.UserId || response.user.userId),
+          keepAliveAt: new Date().toISOString()
+        });
+      } catch (rememberError) {
+        console.warn('keepAliveSession: failed to refresh active session token', rememberError);
+      }
+    }
+    return response;
   } catch (error) {
     console.error('keepAliveSession wrapper error:', error);
     return {
