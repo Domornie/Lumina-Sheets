@@ -590,13 +590,295 @@
       if (reason) {
         console.log('Lumina identity cleared:', reason);
       }
+  }
+
+  const SESSION_COOKIE_DEFAULT_SECONDS = 60 * 60; // 1 hour
+  const REMEMBER_COOKIE_DEFAULT_SECONDS = 24 * 60 * 60; // 24 hours
+  const SESSION_COOKIE_MIN_SECONDS = 300; // 5 minutes
+  let sessionHydrationInFlight = false;
+
+  function computeSessionCookieMaxAgeSeconds(details = {}, rememberFlag) {
+    const remember = (typeof rememberFlag === 'boolean')
+      ? rememberFlag
+      : (typeof details.rememberMe === 'boolean' ? details.rememberMe : false);
+
+    let resolvedSeconds = null;
+
+    if (typeof details.sessionTtlSeconds === 'number' && details.sessionTtlSeconds > 0) {
+      resolvedSeconds = Math.floor(details.sessionTtlSeconds);
+    } else if (details.sessionExpiresAt) {
+      const expiry = Date.parse(details.sessionExpiresAt);
+      if (!Number.isNaN(expiry) && expiry > Date.now()) {
+        resolvedSeconds = Math.floor((expiry - Date.now()) / 1000);
+      }
+    } else if (typeof details.idleTimeoutMinutes === 'number' && details.idleTimeoutMinutes > 0) {
+      resolvedSeconds = Math.floor(details.idleTimeoutMinutes * 60);
+    } else if (typeof details.sessionIdleTimeoutMinutes === 'number' && details.sessionIdleTimeoutMinutes > 0) {
+      resolvedSeconds = Math.floor(details.sessionIdleTimeoutMinutes * 60);
     }
 
-    function hydrateIdentityFromStorage(options = {}) {
-      const stored = readPersistedIdentity();
-      if (!stored) {
-        if (options.ensureGlobals !== false) {
-          setGlobalIdentity(null);
+    const fallbackSeconds = remember ? REMEMBER_COOKIE_DEFAULT_SECONDS : SESSION_COOKIE_DEFAULT_SECONDS;
+    const safeSeconds = Math.max(SESSION_COOKIE_MIN_SECONDS, resolvedSeconds || fallbackSeconds);
+    return safeSeconds;
+  }
+
+  function persistSessionTokenFromResult(result, options = {}) {
+    const info = {
+      token: '',
+      rememberMe: false,
+      maxAgeSeconds: SESSION_COOKIE_DEFAULT_SECONDS,
+      ttlSeconds: null,
+      expiresAt: null,
+      persisted: false,
+      source: options.source || 'session'
+    };
+
+    const rememberOverride = options.rememberMeOverride;
+    if (typeof rememberOverride === 'boolean') {
+      info.rememberMe = rememberOverride;
+    } else if (typeof result?.rememberMe === 'boolean') {
+      info.rememberMe = result.rememberMe;
+    } else if (typeof options.rememberFallback === 'boolean') {
+      info.rememberMe = options.rememberFallback;
+    }
+
+    const tokenCandidate = options.tokenOverride || (result && (result.sessionToken || result.token || result.authToken));
+    const token = tokenCandidate ? String(tokenCandidate) : '';
+
+    if (!token) {
+      if (options.clearOnEmpty !== false) {
+        try {
+          if (window.CookieHandler && typeof window.CookieHandler.clearAuthToken === 'function') {
+            window.CookieHandler.clearAuthToken();
+          }
+        } catch (clearError) {
+          console.warn('persistSessionTokenFromResult: unable to clear auth cookie', clearError);
+        }
+      }
+      return info;
+    }
+
+    info.token = token;
+    info.expiresAt = result && result.sessionExpiresAt ? result.sessionExpiresAt : (options.expiresAtOverride || null);
+    info.ttlSeconds = (typeof result?.sessionTtlSeconds === 'number' && result.sessionTtlSeconds > 0)
+      ? Math.floor(result.sessionTtlSeconds)
+      : null;
+    info.maxAgeSeconds = computeSessionCookieMaxAgeSeconds(result || {}, info.rememberMe);
+
+    try {
+      if (window.CookieHandler && typeof window.CookieHandler.persistAuthToken === 'function') {
+        window.CookieHandler.persistAuthToken(token, {
+          maxAgeSeconds: info.maxAgeSeconds,
+          rememberMe: info.rememberMe,
+          ttlSeconds: info.ttlSeconds,
+          expiresAt: info.expiresAt
+        });
+      }
+    } catch (cookieError) {
+      console.warn('persistSessionTokenFromResult: unable to persist auth cookie', cookieError);
+    }
+
+    const storageKeys = ['lumina.session.token', 'lumina.auth.sessionToken', 'lumina.auth.fallbackToken'];
+
+    try {
+      if (window.localStorage) {
+        storageKeys.forEach(key => {
+          window.localStorage.setItem(key, token);
+        });
+      }
+    } catch (storageError) {
+      console.warn('persistSessionTokenFromResult: unable to persist token in localStorage', storageError);
+    }
+
+    try {
+      if (window.sessionStorage) {
+        storageKeys.forEach(key => {
+          window.sessionStorage.setItem(key, token);
+        });
+      }
+    } catch (sessionError) {
+      console.warn('persistSessionTokenFromResult: unable to persist token in sessionStorage', sessionError);
+    }
+
+    info.persisted = true;
+
+    try {
+      window.__LUMINA_SESSION_TOKEN = token;
+      window.__LUMINA_SESSION_REMEMBER = info.rememberMe;
+      window.__LUMINA_SESSION_MAX_AGE = info.maxAgeSeconds;
+    } catch (_) {
+      // Ignore assignment errors in restricted environments
+    }
+
+    return info;
+  }
+
+  function applySessionResultPayload(result, options = {}) {
+    if (!result) {
+      if (options.clearOnMissing !== false) {
+        clearPersistedIdentity('session-result-empty');
+      }
+      return {
+        identity: null,
+        token: '',
+        rememberMe: false,
+        tokenInfo: {
+          token: '',
+          rememberMe: false,
+          maxAgeSeconds: SESSION_COOKIE_DEFAULT_SECONDS,
+          ttlSeconds: null,
+          expiresAt: null,
+          persisted: false,
+          source: options.source || 'session-result'
+        }
+      };
+    }
+
+    const tokenInfo = persistSessionTokenFromResult(result, {
+      rememberMeOverride: typeof options.rememberMeOverride === 'boolean' ? options.rememberMeOverride : undefined,
+      rememberFallback: options.rememberFallback,
+      tokenOverride: options.tokenOverride,
+      expiresAtOverride: options.expiresAtOverride,
+      source: options.source || 'session-result',
+      clearOnEmpty: options.clearTokenOnEmpty
+    });
+
+    let identity = null;
+    if (result.user) {
+      identity = persistIdentityToStorage(result.user, { source: options.source || 'session-result' });
+      if (identity && options.applyToUi !== false && typeof updateUserDisplaySafely === 'function') {
+        try {
+          updateUserDisplaySafely(identity);
+        } catch (displayError) {
+          console.warn('applySessionResultPayload: unable to update user display', displayError);
+        }
+      }
+    } else if (options.clearOnMissingUser === true) {
+      clearPersistedIdentity('session-result-missing-user');
+    }
+
+    if (identity && identity.identityMeta) {
+      try {
+        identity.identityMeta.sessionHydratedAt = new Date().toISOString();
+      } catch (_) {
+        // Ignore if metadata is immutable
+      }
+    }
+
+    if (tokenInfo.token) {
+      try {
+        window.__LUMINA_SESSION_ACTIVE = true;
+        window.__LUMINA_SESSION_LAST_APPLY = Date.now();
+      } catch (_) {
+        // Ignore assignment errors
+      }
+    }
+
+    return {
+      identity: identity,
+      token: tokenInfo.token,
+      rememberMe: tokenInfo.rememberMe,
+      tokenInfo: tokenInfo
+    };
+  }
+
+  function attemptHydrateIdentityFromSession(reason, attempt = 0) {
+    if (sessionHydrationInFlight) {
+      return false;
+    }
+
+    let token = '';
+    try {
+      token = typeof readAuthTokenForGuard === 'function'
+        ? readAuthTokenForGuard()
+        : '';
+    } catch (_) {
+      token = '';
+    }
+
+    if (!token && window.CookieHandler && typeof window.CookieHandler.readAuthToken === 'function') {
+      try {
+        token = window.CookieHandler.readAuthToken();
+      } catch (cookieReadError) {
+        console.warn('attemptHydrateIdentityFromSession: unable to read auth cookie', cookieReadError);
+      }
+    }
+
+    if (!token) {
+      return false;
+    }
+
+    if (!window.google || !google.script || !google.script.run) {
+      if (attempt < 5) {
+        window.setTimeout(function () {
+          attemptHydrateIdentityFromSession(reason, attempt + 1);
+        }, Math.min(2000, 200 * (attempt + 1)));
+      }
+      return false;
+    }
+
+    sessionHydrationInFlight = true;
+
+    const finalize = function () {
+      sessionHydrationInFlight = false;
+    };
+
+    try {
+      google.script.run
+        .withSuccessHandler(function (result) {
+          finalize();
+          if (result && result.success) {
+            applySessionResultPayload(result, {
+              source: reason ? `session-hydrate:${reason}` : 'session-hydrate',
+              applyToUi: true
+            });
+          } else if (result && result.expired) {
+            clearPersistedIdentity('session-hydrate-expired');
+            try {
+              if (window.CookieHandler && typeof window.CookieHandler.clearAuthToken === 'function') {
+                window.CookieHandler.clearAuthToken();
+              }
+            } catch (clearError) {
+              console.warn('attemptHydrateIdentityFromSession: unable to clear expired auth cookie', clearError);
+            }
+          } else {
+            console.warn('attemptHydrateIdentityFromSession: unexpected response', result);
+          }
+        })
+        .withFailureHandler(function (error) {
+          finalize();
+          console.warn('attemptHydrateIdentityFromSession: keepAlive failed', error);
+        })
+        .keepAlive(token);
+    } catch (err) {
+      finalize();
+      console.warn('attemptHydrateIdentityFromSession: unable to invoke keepAlive', err);
+    }
+
+    return true;
+  }
+
+  function ensureIdentityFromSessionIfNeeded(reason) {
+    const identity = hydrateIdentityFromStorage({
+      applyToUi: false,
+      ensureGlobals: true,
+      source: reason ? `${reason}-hydrate-check` : 'session-hydrate-check',
+      clearOnInvalid: false,
+      refreshStorage: false
+    });
+
+    if (!identity || isPlaceholderUser(identity)) {
+      attemptHydrateIdentityFromSession(reason || 'auto');
+    }
+
+    return identity;
+  }
+
+  function hydrateIdentityFromStorage(options = {}) {
+    const stored = readPersistedIdentity();
+    if (!stored) {
+      if (options.ensureGlobals !== false) {
+        setGlobalIdentity(null);
         }
         return null;
       }
@@ -628,26 +910,41 @@
       return identity;
     }
 
-    window.LuminaIdentityManager = {
-      read: readPersistedIdentity,
-      write: (identity, options) => persistIdentityToStorage(identity, options || {}),
-      clear: reason => clearPersistedIdentity(reason || 'manual-clear'),
-      hydrate: options => hydrateIdentityFromStorage(options || {}),
-      setGlobals: setGlobalIdentity
-    };
+  window.LuminaIdentityManager = {
+    read: readPersistedIdentity,
+    write: (identity, options) => persistIdentityToStorage(identity, options || {}),
+    clear: reason => clearPersistedIdentity(reason || 'manual-clear'),
+    hydrate: options => hydrateIdentityFromStorage(options || {}),
+    setGlobals: setGlobalIdentity,
+    resumeFromSession: reason => attemptHydrateIdentityFromSession(reason || 'manual'),
+    ensureFromSession: reason => ensureIdentityFromSessionIfNeeded(reason || 'manual')
+  };
 
-    hydrateIdentityFromStorage({ applyToUi: false, ensureGlobals: true, source: 'initial-load' });
+  try {
+    window.ensureLuminaIdentityFromSession = ensureIdentityFromSessionIfNeeded;
+    window.resumeLuminaIdentityFromSession = attemptHydrateIdentityFromSession;
+  } catch (_) {
+    // Ignore assignment failures in restricted environments
+  }
 
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('storage', function(event) {
-        if (!event) {
-          return;
+  const initialIdentity = hydrateIdentityFromStorage({ applyToUi: false, ensureGlobals: true, source: 'initial-load' });
+  if (!initialIdentity || isPlaceholderUser(initialIdentity)) {
+    attemptHydrateIdentityFromSession('initial-load');
+  }
+
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('storage', function(event) {
+      if (!event) {
+        return;
+      }
+      if (event.key === IDENTITY_STORAGE_KEYS.primary || event.key === IDENTITY_STORAGE_KEYS.fallback) {
+        const refreshed = hydrateIdentityFromStorage({ applyToUi: true, source: 'storage-event', refreshStorage: false });
+        if (!refreshed || isPlaceholderUser(refreshed)) {
+          attemptHydrateIdentityFromSession('storage-event');
         }
-        if (event.key === IDENTITY_STORAGE_KEYS.primary || event.key === IDENTITY_STORAGE_KEYS.fallback) {
-          hydrateIdentityFromStorage({ applyToUi: true, source: 'storage-event', refreshStorage: false });
-        }
-      });
-    }
+      }
+    });
+  }
 
     function buildReturnUrl(extraParams = {}, rawUrl = RETURN_URL) {
       const base = deriveReturnUrl(rawUrl, PAGE_SLUG);
@@ -3665,6 +3962,12 @@
                 console.warn('LuminaIdentity: unable to hydrate identity on DOM ready', identityError);
             }
 
+            try {
+                ensureIdentityFromSessionIfNeeded('dom-ready');
+            } catch (sessionHydrateError) {
+                console.warn('LuminaIdentity: unable to ensure identity from session on DOM ready', sessionHydrateError);
+            }
+
             const absorbed = absorbLocalBanners();
 
             const defaultTitle = <?!= JSON.stringify(__layoutPageTitleText || __layoutCurrentPageName || '') ?>;
@@ -4236,13 +4539,27 @@
                     state.expiresAt = result.sessionExpiresAt;
                 }
 
-                const token = result.sessionToken || state.token || readTokenFromStorage();
-                if (token) {
-                    persistToken(token, {
-                        rememberMe: state.remember,
-                        ttlSeconds: state.ttlSeconds,
-                        expiresAt: state.expiresAt
-                    });
+                const applied = applySessionResultPayload(result, {
+                    source: 'heartbeat',
+                    applyToUi: true,
+                    rememberMeOverride: state.remember
+                });
+
+                if (applied && applied.token) {
+                    state.token = applied.token;
+                }
+
+                if (applied && typeof applied.rememberMe === 'boolean') {
+                    state.remember = applied.rememberMe;
+                }
+
+                if (applied && applied.tokenInfo) {
+                    if (typeof applied.tokenInfo.ttlSeconds === 'number' && applied.tokenInfo.ttlSeconds > 0) {
+                        state.ttlSeconds = applied.tokenInfo.ttlSeconds;
+                    }
+                    if (applied.tokenInfo.expiresAt) {
+                        state.expiresAt = applied.tokenInfo.expiresAt;
+                    }
                 }
 
                 const nextDelay = computeNextInterval();
@@ -4372,12 +4689,27 @@
                     state.expiresAt = result.sessionExpiresAt;
                 }
 
-                if (result.sessionToken) {
-                    persistToken(result.sessionToken, {
-                        rememberMe: state.remember,
-                        ttlSeconds: state.ttlSeconds,
-                        expiresAt: state.expiresAt
-                    });
+                const applied = applySessionResultPayload(result, {
+                    source: 'session-refresh',
+                    applyToUi: true,
+                    rememberMeOverride: typeof result.rememberMe === 'boolean' ? result.rememberMe : state.remember
+                });
+
+                if (applied && applied.token) {
+                    state.token = applied.token;
+                }
+
+                if (applied && typeof applied.rememberMe === 'boolean') {
+                    state.remember = applied.rememberMe;
+                }
+
+                if (applied && applied.tokenInfo) {
+                    if (typeof applied.tokenInfo.ttlSeconds === 'number' && applied.tokenInfo.ttlSeconds > 0) {
+                        state.ttlSeconds = applied.tokenInfo.ttlSeconds;
+                    }
+                    if (applied.tokenInfo.expiresAt) {
+                        state.expiresAt = applied.tokenInfo.expiresAt;
+                    }
                 }
 
                 if (!state.started) {
