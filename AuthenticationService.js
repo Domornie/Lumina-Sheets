@@ -121,6 +121,39 @@ var AuthenticationService = (function () {
     return normalizeString(value);
   }
 
+  function resolveUsersSheetName() {
+    if (typeof USERS_SHEET === 'string' && USERS_SHEET.trim()) {
+      return USERS_SHEET.trim();
+    }
+    if (typeof G !== 'undefined' && G && typeof G.USERS_SHEET === 'string' && G.USERS_SHEET.trim()) {
+      return G.USERS_SHEET.trim();
+    }
+    return 'Users';
+  }
+
+  function validatePasswordStrength(password) {
+    const value = normalizeString(password);
+    if (!value) {
+      return 'Password is required.';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters long.';
+    }
+    if (!/[A-Z]/.test(value)) {
+      return 'Password must include at least one uppercase letter.';
+    }
+    if (!/[a-z]/.test(value)) {
+      return 'Password must include at least one lowercase letter.';
+    }
+    if (!/\d/.test(value)) {
+      return 'Password must include at least one number.';
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+      return 'Password must include at least one special character.';
+    }
+    return null;
+  }
+
   function cleanCampaignList(list) {
     if (!Array.isArray(list)) return [];
     var seen = {};
@@ -4009,6 +4042,185 @@ var AuthenticationService = (function () {
     }
   }
 
+  function setPasswordWithToken(token, newPassword) {
+    console.log('setPasswordWithToken: invoked');
+
+    const tokenValue = normalizeString(token);
+    if (!tokenValue) {
+      return {
+        success: false,
+        error: 'The password setup link is invalid or has expired.',
+        errorCode: 'INVALID_TOKEN'
+      };
+    }
+
+    const strengthError = validatePasswordStrength(newPassword);
+    if (strengthError) {
+      return {
+        success: false,
+        error: strengthError,
+        errorCode: 'WEAK_PASSWORD'
+      };
+    }
+
+    let lock = null;
+    if (typeof LockService !== 'undefined' && LockService && typeof LockService.getScriptLock === 'function') {
+      try {
+        lock = LockService.getScriptLock();
+        if (!lock.tryLock(20000)) {
+          return {
+            success: false,
+            error: 'The system is busy. Please try again in a moment.',
+            errorCode: 'LOCK_TIMEOUT'
+          };
+        }
+      } catch (lockError) {
+        console.warn('setPasswordWithToken: failed to acquire lock', lockError);
+        lock = null;
+      }
+    }
+
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss) {
+        throw new Error('Active spreadsheet is unavailable.');
+      }
+
+      const usersSheetName = resolveUsersSheetName();
+      const sheet = ss.getSheetByName(usersSheetName);
+      if (!sheet) {
+        throw new Error('Users sheet not found: ' + usersSheetName);
+      }
+
+      const dataRange = sheet.getDataRange();
+      const values = dataRange.getValues();
+      if (!values || values.length <= 1) {
+        return {
+          success: false,
+          error: 'The password setup link is invalid or has expired.',
+          errorCode: 'TOKEN_NOT_FOUND'
+        };
+      }
+
+      const headers = values[0];
+      const headerMap = {};
+      headers.forEach(function (header, index) {
+        const key = String(header || '').trim().toLowerCase();
+        if (key) {
+          headerMap[key] = index;
+        }
+      });
+
+      const tokenIndex = headerMap['emailconfirmation'];
+      if (typeof tokenIndex === 'undefined') {
+        throw new Error('Users sheet is missing EmailConfirmation column.');
+      }
+
+      let targetRow = -1;
+      for (let r = 1; r < values.length; r++) {
+        const cellToken = String(values[r][tokenIndex] || '').trim();
+        if (cellToken && cellToken === tokenValue) {
+          targetRow = r;
+          break;
+        }
+      }
+
+      if (targetRow === -1) {
+        return {
+          success: false,
+          error: 'The password setup link is invalid or has expired.',
+          errorCode: 'TOKEN_NOT_FOUND'
+        };
+      }
+
+      const passwordUtils = getPasswordUtils();
+      const normalizedPassword = normalizeString(newPassword);
+      const hashedPassword = passwordUtils.hashPassword(normalizedPassword);
+      const now = new Date();
+
+      const row = values[targetRow].slice();
+      const setIfDefined = function (columnKey, value) {
+        const idx = headerMap[columnKey];
+        if (typeof idx !== 'undefined') {
+          row[idx] = value;
+        }
+      };
+
+      setIfDefined('passwordhash', hashedPassword);
+      setIfDefined('password', hashedPassword);
+      setIfDefined('emailconfirmation', '');
+      setIfDefined('emailconfirmed', 'TRUE');
+      setIfDefined('resetrequired', 'FALSE');
+      setIfDefined('canlogin', 'TRUE');
+      setIfDefined('lockoutend', '');
+      setIfDefined('failedloginattempts', 0);
+      setIfDefined('passwordsetat', now);
+      setIfDefined('passwordupdatedat', now);
+      setIfDefined('passwordchangedat', now);
+      setIfDefined('updatedat', now);
+
+      const sheetRow = targetRow + 1;
+      sheet.getRange(sheetRow, 1, 1, headers.length).setValues([row]);
+      SpreadsheetApp.flush();
+
+      if (typeof invalidateCache === 'function') {
+        try {
+          invalidateCache(usersSheetName);
+        } catch (cacheError) {
+          console.warn('setPasswordWithToken: cache invalidation failed', cacheError);
+        }
+      }
+
+      const emailIndex = headerMap['email'];
+      const userIdIndex = headerMap['id'];
+      const result = {
+        success: true,
+        message: 'Password updated successfully.',
+        email: (typeof emailIndex !== 'undefined') ? row[emailIndex] : null,
+        userId: (typeof userIdIndex !== 'undefined') ? row[userIdIndex] : null,
+        resetRequired: false,
+        emailConfirmed: true
+      };
+
+      if (typeof onPasswordChanged === 'function' && result.email) {
+        try {
+          onPasswordChanged(result.email, {
+            timestamp: now,
+            userId: result.userId || null,
+            via: 'token'
+          });
+        } catch (notifyError) {
+          console.warn('setPasswordWithToken: onPasswordChanged callback failed', notifyError);
+        }
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('setPasswordWithToken: error', error);
+      if (typeof writeError === 'function') {
+        try {
+          writeError('setPasswordWithToken', error);
+        } catch (logError) {
+          console.warn('setPasswordWithToken: writeError failed', logError);
+        }
+      }
+      return {
+        success: false,
+        error: 'Unable to update password. Please try again later.',
+        errorCode: 'SERVER_ERROR'
+      };
+    } finally {
+      if (lock) {
+        try {
+          lock.releaseLock();
+        } catch (releaseError) {
+          console.warn('setPasswordWithToken: failed to release lock', releaseError);
+        }
+      }
+    }
+  }
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   return {
@@ -4031,7 +4243,8 @@ var AuthenticationService = (function () {
     consumeLoginRequestContext: consumeLoginContext,
     confirmDeviceVerification: confirmDeviceVerification,
     denyDeviceVerification: denyDeviceVerification,
-    cleanupExpiredSessions: cleanupExpiredSessions
+    cleanupExpiredSessions: cleanupExpiredSessions,
+    setPasswordWithToken: setPasswordWithToken
   };
 
 })();
@@ -4160,6 +4373,19 @@ function keepAliveSession(sessionToken) {
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+function setPasswordWithToken(token, newPassword) {
+  try {
+    return AuthenticationService.setPasswordWithToken(token, newPassword);
+  } catch (error) {
+    console.error('setPasswordWithToken wrapper error:', error);
+    return {
+      success: false,
+      error: 'Unable to update password. Please try again later.',
+      errorCode: 'WRAPPER_ERROR'
     };
   }
 }
