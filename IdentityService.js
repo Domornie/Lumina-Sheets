@@ -33,14 +33,32 @@ var IdentityService = (function () {
   }
 
   function hashToken(token) {
-    const digest = Utilities.computeDigest(
-      Utilities.DigestAlgorithm.SHA_256,
-      String(token || ''),
-      Utilities.Charset.UTF_8
-    );
-    return digest
-      .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
-      .join('');
+    try {
+      const digest = Utilities.computeDigest(
+        Utilities.DigestAlgorithm.SHA_256,
+        String(token || ''),
+        Utilities.Charset.UTF_8
+      );
+
+      try {
+        const utils = getPasswordUtils();
+        if (utils && typeof utils.digestToHex === 'function') {
+          return utils.digestToHex(digest);
+        }
+      } catch (utilsError) {
+        console.warn('hashToken: falling back to manual hex conversion', utilsError);
+      }
+
+      if (digest && typeof digest.map === 'function') {
+        return digest
+          .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
+          .join('');
+      }
+    } catch (digestError) {
+      console.warn('hashToken: Failed to compute digest', digestError);
+    }
+
+    return '';
   }
 
   function generateToken() {

@@ -126,6 +126,51 @@ function _userLog_(label, payload, level) {
   }
 }
 
+function _userGetPasswordUtilities_() {
+  try {
+    if (typeof ensurePasswordUtilities === 'function') {
+      return ensurePasswordUtilities();
+    }
+  } catch (ensureError) {
+    _userLog_('UserService.passwordUtilities.ensure', ensureError, 'warn');
+  }
+
+  try {
+    if (typeof PasswordUtilities !== 'undefined' && PasswordUtilities) {
+      return PasswordUtilities;
+    }
+  } catch (globalError) {
+    _userLog_('UserService.passwordUtilities.global', globalError, 'warn');
+  }
+
+  return null;
+}
+
+function _userDigestToHex_(digest) {
+  if (!digest) {
+    return '';
+  }
+
+  const utils = _userGetPasswordUtilities_();
+  if (utils && typeof utils.digestToHex === 'function') {
+    try {
+      return utils.digestToHex(digest);
+    } catch (utilsError) {
+      _userLog_('UserService.digestToHex', utilsError, 'warn');
+    }
+  }
+
+  if (typeof digest.map === 'function') {
+    try {
+      return digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+    } catch (mapError) {
+      _userLog_('UserService.digestToHexFallback', mapError, 'warn');
+    }
+  }
+
+  return '';
+}
+
 function clientGetUserSummaries(context) {
   try {
     return getEntitySummaries('users', context);
@@ -3147,7 +3192,7 @@ function clientAdminResetPassword(userId, requestingUserId) {
       const sentAtIso = sentAt.toISOString();
       const expiresAtIso = expiresAtDate.toISOString();
       const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
-      const tokenHash = digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+      const tokenHash = _userDigestToHex_(digest);
 
       if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
       if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
