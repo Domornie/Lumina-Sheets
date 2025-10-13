@@ -1290,6 +1290,10 @@
       rememberExpiry: 'lumina.auth.rememberExpiry',
       lastEmail: 'lumina.auth.lastEmail'
     };
+    const IDENTITY_STORAGE_KEYS = {
+      primary: 'lumina.session.identity',
+      fallback: 'lumina.auth.identity'
+    };
 
     // ───────────────────────────────────────────────────────────────────────────────
     // DOM ELEMENTS AND STATE MANAGEMENT
@@ -2278,10 +2282,202 @@
         console.warn('Unable to clear auth token from sessionStorage', err);
       }
 
+      clearPersistedIdentity('auth-cookie-cleared');
+
       state.authToken = '';
       state.sessionIdleTimeoutMinutes = null;
       state.sessionTtlSeconds = null;
       state.sessionExpiresAt = null;
+    }
+
+    function safeJsonClone(value) {
+      if (!value || typeof value !== 'object') {
+        return value || null;
+      }
+      try {
+        return JSON.parse(JSON.stringify(value));
+      } catch (err) {
+        console.warn('Unable to clone identity payload', err);
+        return null;
+      }
+    }
+
+    function normalizeRoleList(source) {
+      if (!source) {
+        return [];
+      }
+
+      const normalized = [];
+      const pushRole = role => {
+        const value = role == null ? '' : String(role).trim();
+        if (value) {
+          normalized.push(value);
+        }
+      };
+
+      if (Array.isArray(source)) {
+        source.forEach(pushRole);
+      } else if (typeof source === 'string') {
+        source.split(/[,;|]/).forEach(pushRole);
+      } else if (typeof source === 'object') {
+        Object.keys(source).forEach(key => {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
+            pushRole(source[key]);
+          }
+        });
+      }
+
+      return normalized;
+    }
+
+    function setGlobalIdentity(identity) {
+      try {
+        if (identity) {
+          window.LuminaIdentity = identity;
+          window.__LUMINA_CURRENT_USER = identity;
+        } else {
+          try {
+            delete window.LuminaIdentity;
+          } catch (_) {
+            window.LuminaIdentity = undefined;
+          }
+          try {
+            delete window.__LUMINA_CURRENT_USER;
+          } catch (_) {
+            window.__LUMINA_CURRENT_USER = undefined;
+          }
+        }
+      } catch (err) {
+        console.warn('Unable to update global identity reference', err);
+      }
+    }
+
+    function buildIdentityPayload(user) {
+      if (!user || typeof user !== 'object') {
+        return null;
+      }
+
+      const clone = safeJsonClone(user) || {};
+      const email = ((clone.Email || clone.email || '') + '').trim();
+      const normalizedEmail = email.toLowerCase();
+      const roles = normalizeRoleList(
+        Array.isArray(clone.roleNames) && clone.roleNames.length ? clone.roleNames :
+          (clone.roles || clone.Roles || clone.RoleNames)
+      );
+
+      const campaignScope = safeJsonClone(clone.CampaignScope || clone.campaignScope || null);
+      const resolveCampaignId = () => {
+        if (clone.CampaignID) return clone.CampaignID;
+        if (clone.CampaignId) return clone.CampaignId;
+        if (clone.campaignId) return clone.campaignId;
+        if (campaignScope) {
+          return campaignScope.CampaignID || campaignScope.CampaignId || campaignScope.campaignId || campaignScope.id || '';
+        }
+        return '';
+      };
+      const campaignId = String(resolveCampaignId() || '').trim();
+      const resolveCampaignName = () => {
+        if (clone.CampaignName) return clone.CampaignName;
+        if (clone.campaignName) return clone.campaignName;
+        if (campaignScope) {
+          return campaignScope.campaignName || campaignScope.CampaignName || campaignScope.name || '';
+        }
+        return '';
+      };
+      const campaignName = String(resolveCampaignName() || '').trim();
+
+      const isAdmin = clone.IsAdmin === true || clone.isAdminBool === true ||
+        (typeof clone.IsAdmin === 'string' && clone.IsAdmin.toLowerCase() === 'true');
+
+      const payload = Object.assign({}, clone, {
+        ID: clone.ID || clone.Id || clone.id || null,
+        Id: clone.ID || clone.Id || clone.id || null,
+        id: clone.ID || clone.Id || clone.id || null,
+        Email: email,
+        email: email,
+        normalizedEmail: normalizedEmail,
+        roleNames: roles,
+        Roles: roles.join(', '),
+        CampaignScope: campaignScope || null,
+        campaignScope: campaignScope || null,
+        CampaignID: campaignId,
+        CampaignId: campaignId,
+        campaignId: campaignId,
+        CampaignName: campaignName,
+        campaignName: campaignName,
+        IsAdmin: isAdmin,
+        isAdminBool: isAdmin,
+        FullName: clone.FullName || clone.UserName || clone.fullName || '',
+        UserName: clone.UserName || clone.FullName || clone.userName || clone.displayName || '',
+        identityMeta: Object.assign({}, clone.identityMeta, {
+          persistedAt: new Date().toISOString(),
+          source: clone.identityMeta && clone.identityMeta.source ? clone.identityMeta.source : 'login-page'
+        })
+      });
+
+      const sessionToken = state.authToken || readAuthCookie() || clone.sessionToken || '';
+      payload.sessionToken = sessionToken;
+      payload.sessionExpiresAt = state.sessionExpiresAt || clone.sessionExpiresAt || clone.sessionExpiry || null;
+      payload.sessionIdleTimeoutMinutes = state.sessionIdleTimeoutMinutes || clone.sessionIdleTimeoutMinutes || null;
+
+      return payload;
+    }
+
+    function persistUserIdentity(user) {
+      const payload = buildIdentityPayload(user);
+      if (!payload) {
+        clearPersistedIdentity('persist-empty');
+        return null;
+      }
+
+      const serialized = JSON.stringify(payload);
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
+          sessionStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+        }
+      } catch (err) {
+        console.warn('Unable to persist identity in sessionStorage', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
+          localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+        }
+      } catch (err) {
+        console.warn('Unable to persist identity in localStorage', err);
+      }
+
+      setGlobalIdentity(payload);
+      return payload;
+    }
+
+    function clearPersistedIdentity(reason) {
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.removeItem(IDENTITY_STORAGE_KEYS.primary);
+          sessionStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
+        }
+      } catch (err) {
+        console.warn('Unable to clear identity from sessionStorage', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.removeItem(IDENTITY_STORAGE_KEYS.primary);
+          localStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
+        }
+      } catch (err) {
+        console.warn('Unable to clear identity from localStorage', err);
+      }
+
+      setGlobalIdentity(null);
+
+      if (reason) {
+        console.log('Cleared persisted identity:', reason);
+      }
     }
 
     function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
@@ -2430,6 +2626,10 @@
         result.sessionTtlSeconds,
         result.idleTimeoutMinutes
       );
+
+      if (result && result.user) {
+        persistUserIdentity(result.user);
+      }
     }
 
     function handleKeepAliveFailure(error) {
@@ -2441,6 +2641,7 @@
     function handleSessionExpired(reason) {
       console.log('Session expired:', reason);
       clearAuthCookie();
+      clearPersistedIdentity('session-expired');
       try {
         showAlert('info', 'Your session has expired. Please sign in again.');
       } catch (err) {
@@ -2474,6 +2675,7 @@
           if (!result || !result.success) {
             if (result && result.expired) {
               clearAuthCookie();
+              clearPersistedIdentity('resume-expired');
               showAlert('info', 'Your previous session has expired. Please sign in again.');
             }
             return;
@@ -2496,6 +2698,7 @@
           hideAllAlerts();
           const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
           const resumeUrl = normalizeRedirectUrl(resumeInput);
+          persistUserIdentity(resumedUser);
           setupRedirect(resumeUrl, resumedUser);
         })
         .withFailureHandler(error => {
@@ -3247,6 +3450,8 @@
     }
 
     function handleLoginFailure(response, email) {
+      clearAuthCookie();
+      clearPersistedIdentity('login-failed');
       const normalizedEmail = (email || '').trim();
       const displayEmail = normalizedEmail || 'your email address';
 
@@ -3507,6 +3712,10 @@
       const safeUrl = stripTokenFromUrl(url);
       console.log('Setting up redirect to:', safeUrl);
 
+      if (userInfo && typeof userInfo === 'object') {
+        persistUserIdentity(userInfo);
+      }
+
       state.redirectUrl = safeUrl;
       state.isRedirecting = true;
       state.countdownValue = 3;
@@ -3692,6 +3901,8 @@
         response.sessionTtlSeconds,
         response.sessionIdleTimeoutMinutes
       );
+
+      persistUserIdentity(response.user);
 
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
       const destinationUrl = normalizeRedirectUrl(redirectInput);

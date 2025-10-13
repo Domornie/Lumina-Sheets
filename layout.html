@@ -315,6 +315,340 @@
 
     const RETURN_URL = deriveReturnUrl(__RAW_RETURN_URL, PAGE_SLUG);
 
+    const IDENTITY_STORAGE_KEYS = {
+      primary: 'lumina.session.identity',
+      fallback: 'lumina.auth.identity'
+    };
+
+    function safeParseJson(value) {
+      if (!value) {
+        return null;
+      }
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to parse stored identity', err);
+        return null;
+      }
+    }
+
+    function safeJsonClone(value) {
+      if (!value || typeof value !== 'object') {
+        return value || null;
+      }
+      try {
+        return JSON.parse(JSON.stringify(value));
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to clone identity payload', err);
+        return null;
+      }
+    }
+
+    function normalizeIdentityRoles(source) {
+      if (!source) {
+        return [];
+      }
+
+      const roles = [];
+      const push = role => {
+        const value = role == null ? '' : String(role).trim();
+        if (value) {
+          roles.push(value);
+        }
+      };
+
+      if (Array.isArray(source)) {
+        source.forEach(push);
+      } else if (typeof source === 'string') {
+        source.split(/[,;|]/).forEach(push);
+      } else if (typeof source === 'object') {
+        Object.keys(source).forEach(key => {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
+            push(source[key]);
+          }
+        });
+      }
+
+      return roles;
+    }
+
+    function isPlaceholderUser(candidate) {
+      if (!candidate || typeof candidate !== 'object') {
+        return true;
+      }
+      const email = (candidate.Email || candidate.email || '').trim().toLowerCase();
+      const name = (candidate.FullName || candidate.UserName || candidate.displayName || '').trim().toLowerCase();
+      if (!email && !name) {
+        return true;
+      }
+      if (email === 'lumina@vlbpo.com' || name === 'lumina') {
+        return true;
+      }
+      return false;
+    }
+
+    function setGlobalIdentity(identity) {
+      let previousIdentity = null;
+      try {
+        previousIdentity = window.LuminaIdentity || null;
+      } catch (_) {
+        previousIdentity = null;
+      }
+
+      try {
+        if (identity && typeof identity === 'object') {
+          window.LuminaIdentity = identity;
+          window.__LUMINA_CURRENT_USER = identity;
+
+          if (typeof window.user === 'undefined' || isPlaceholderUser(window.user) || window.user === previousIdentity) {
+            window.user = identity;
+          }
+          if (typeof window.currentUser === 'undefined' || isPlaceholderUser(window.currentUser) || window.currentUser === previousIdentity) {
+            window.currentUser = identity;
+          }
+          if (typeof window.CURRENT_USER === 'undefined' || isPlaceholderUser(window.CURRENT_USER) || window.CURRENT_USER === previousIdentity) {
+            window.CURRENT_USER = identity;
+          }
+        } else {
+          try {
+            delete window.LuminaIdentity;
+          } catch (_) {
+            window.LuminaIdentity = undefined;
+          }
+          try {
+            delete window.__LUMINA_CURRENT_USER;
+          } catch (_) {
+            window.__LUMINA_CURRENT_USER = undefined;
+          }
+
+          const shouldClearUser = isPlaceholderUser(window.user) || window.user === previousIdentity;
+          const shouldClearCurrent = isPlaceholderUser(window.currentUser) || window.currentUser === previousIdentity;
+          const shouldClearUpper = isPlaceholderUser(window.CURRENT_USER) || window.CURRENT_USER === previousIdentity;
+
+          if (shouldClearUser) {
+            window.user = undefined;
+          }
+          if (shouldClearCurrent) {
+            window.currentUser = undefined;
+          }
+          if (shouldClearUpper) {
+            window.CURRENT_USER = undefined;
+          }
+        }
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to update global identity', err);
+      }
+    }
+
+    function sanitizeIdentityPayload(user, sourceLabel) {
+      if (!user || typeof user !== 'object') {
+        return null;
+      }
+
+      const clone = safeJsonClone(user) || {};
+      const email = ((clone.Email || clone.email || '') + '').trim();
+      const normalizedEmail = email.toLowerCase();
+      const roles = normalizeIdentityRoles(
+        Array.isArray(clone.roleNames) && clone.roleNames.length ? clone.roleNames :
+          (clone.roles || clone.Roles || clone.RoleNames)
+      );
+
+      const campaignScope = safeJsonClone(clone.CampaignScope || clone.campaignScope || null);
+      const campaignId = String(
+        clone.CampaignID || clone.CampaignId || clone.campaignId ||
+        (campaignScope && (campaignScope.CampaignID || campaignScope.CampaignId || campaignScope.campaignId || campaignScope.id))
+        || ''
+      ).trim();
+      const campaignName = String(
+        clone.CampaignName || clone.campaignName ||
+        (campaignScope && (campaignScope.campaignName || campaignScope.CampaignName || campaignScope.name)) || ''
+      ).trim();
+
+      const isAdmin = clone.IsAdmin === true || clone.isAdminBool === true ||
+        (typeof clone.IsAdmin === 'string' && clone.IsAdmin.toLowerCase() === 'true');
+
+      clone.ID = clone.ID || clone.Id || clone.id || null;
+      clone.Id = clone.ID;
+      clone.id = clone.ID;
+      clone.Email = email;
+      clone.email = email;
+      clone.normalizedEmail = normalizedEmail;
+      clone.roleNames = roles;
+      clone.Roles = roles.join(', ');
+      clone.CampaignScope = campaignScope || null;
+      clone.campaignScope = campaignScope || null;
+      clone.CampaignID = campaignId;
+      clone.CampaignId = campaignId;
+      clone.campaignId = campaignId;
+      clone.CampaignName = campaignName;
+      clone.campaignName = campaignName;
+      clone.IsAdmin = isAdmin;
+      clone.isAdminBool = isAdmin;
+      clone.FullName = clone.FullName || clone.UserName || clone.fullName || '';
+      clone.UserName = clone.UserName || clone.FullName || clone.userName || clone.displayName || '';
+      clone.identityMeta = Object.assign({}, clone.identityMeta, {
+        persistedAt: new Date().toISOString(),
+        source: sourceLabel || (clone.identityMeta && clone.identityMeta.source) || 'layout'
+      });
+
+      return clone;
+    }
+
+    function persistIdentityToStorage(user, options = {}) {
+      const payload = sanitizeIdentityPayload(user, options.source || 'layout');
+      if (!payload) {
+        if (options.clearOnEmpty !== false) {
+          clearPersistedIdentity(options.reason || 'identity-empty');
+        }
+        return null;
+      }
+
+      const serialized = JSON.stringify(payload);
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
+          sessionStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+        }
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to persist identity in sessionStorage', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
+          localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+        }
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to persist identity in localStorage', err);
+      }
+
+      if (!options.skipGlobals) {
+        setGlobalIdentity(payload);
+      }
+
+      return payload;
+    }
+
+    function readPersistedIdentity() {
+      const keys = [IDENTITY_STORAGE_KEYS.primary, IDENTITY_STORAGE_KEYS.fallback];
+      let raw = null;
+
+      try {
+        if (window.sessionStorage) {
+          for (let i = 0; i < keys.length; i += 1) {
+            raw = sessionStorage.getItem(keys[i]);
+            if (raw) {
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to read sessionStorage identity', err);
+      }
+
+      if (!raw) {
+        try {
+          if (window.localStorage) {
+            for (let i = 0; i < keys.length; i += 1) {
+              raw = localStorage.getItem(keys[i]);
+              if (raw) {
+                break;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('LuminaIdentity: unable to read localStorage identity', err);
+        }
+      }
+
+      const parsed = safeParseJson(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    }
+
+    function clearPersistedIdentity(reason) {
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.removeItem(IDENTITY_STORAGE_KEYS.primary);
+          sessionStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
+        }
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to clear sessionStorage identity', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.removeItem(IDENTITY_STORAGE_KEYS.primary);
+          localStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
+        }
+      } catch (err) {
+        console.warn('LuminaIdentity: unable to clear localStorage identity', err);
+      }
+
+      setGlobalIdentity(null);
+
+      if (reason) {
+        console.log('Lumina identity cleared:', reason);
+      }
+    }
+
+    function hydrateIdentityFromStorage(options = {}) {
+      const stored = readPersistedIdentity();
+      if (!stored) {
+        if (options.ensureGlobals !== false) {
+          setGlobalIdentity(null);
+        }
+        return null;
+      }
+
+      const identity = sanitizeIdentityPayload(stored, options.source || 'storage-hydrate');
+      if (!identity) {
+        if (options.clearOnInvalid !== false) {
+          clearPersistedIdentity('hydrate-invalid');
+        }
+        return null;
+      }
+
+      if (options.refreshStorage) {
+        persistIdentityToStorage(identity, { skipGlobals: true, source: 'hydrate-refresh' });
+      }
+
+      if (options.skipGlobals !== true) {
+        setGlobalIdentity(identity);
+      }
+
+      if (options.applyToUi) {
+        try {
+          updateUserDisplaySafely(identity);
+        } catch (err) {
+          console.warn('LuminaIdentity: unable to apply identity to layout', err);
+        }
+      }
+
+      return identity;
+    }
+
+    window.LuminaIdentityManager = {
+      read: readPersistedIdentity,
+      write: (identity, options) => persistIdentityToStorage(identity, options || {}),
+      clear: reason => clearPersistedIdentity(reason || 'manual-clear'),
+      hydrate: options => hydrateIdentityFromStorage(options || {}),
+      setGlobals: setGlobalIdentity
+    };
+
+    hydrateIdentityFromStorage({ applyToUi: false, ensureGlobals: true, source: 'initial-load' });
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('storage', function(event) {
+        if (!event) {
+          return;
+        }
+        if (event.key === IDENTITY_STORAGE_KEYS.primary || event.key === IDENTITY_STORAGE_KEYS.fallback) {
+          hydrateIdentityFromStorage({ applyToUi: true, source: 'storage-event', refreshStorage: false });
+        }
+      });
+    }
+
     function buildReturnUrl(extraParams = {}, rawUrl = RETURN_URL) {
       const base = deriveReturnUrl(rawUrl, PAGE_SLUG);
       if (!extraParams || typeof extraParams !== 'object' || Array.isArray(extraParams)) {
@@ -3027,6 +3361,12 @@
                 }
             }
 
+            try {
+                persistIdentityToStorage(user, { source: 'display-update' });
+            } catch (persistError) {
+                console.warn('LuminaIdentity: unable to persist identity from display update', persistError);
+            }
+
             window.__userHydrated = true;
             console.log('User display updated successfully');
         }
@@ -3053,6 +3393,12 @@
                 }
             } catch (storageError) {
                 console.warn('stopSessionHeartbeat: unable to clear fallback storage', storageError);
+            }
+
+            try {
+                clearPersistedIdentity(reason || 'logout');
+            } catch (identityError) {
+                console.warn('stopSessionHeartbeat: unable to clear persisted identity', identityError);
             }
         }
 
@@ -3238,6 +3584,12 @@
             } catch (sessionStorageError) {
                 console.warn('AuthGuard: unable to clear sessionStorage tokens', sessionStorageError);
             }
+
+            try {
+                clearPersistedIdentity(reason || 'auth-guard');
+            } catch (identityError) {
+                console.warn('AuthGuard: unable to clear persisted identity', identityError);
+            }
         }
 
         function redirectToLogin() {
@@ -3306,6 +3658,12 @@
         // ──────────────────────────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 VLBPO Dashboard initializing...');
+
+            try {
+                hydrateIdentityFromStorage({ applyToUi: true, source: 'dom-ready', refreshStorage: false });
+            } catch (identityError) {
+                console.warn('LuminaIdentity: unable to hydrate identity on DOM ready', identityError);
+            }
 
             const absorbed = absorbLocalBanners();
 
