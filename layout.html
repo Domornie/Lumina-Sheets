@@ -3789,9 +3789,72 @@
             }
         }
 
+        function readCurrentAuthToken() {
+            let token = '';
+
+            try {
+                if (typeof readAuthTokenForGuard === 'function') {
+                    token = readAuthTokenForGuard();
+                }
+            } catch (guardError) {
+                console.warn('handleLogout: unable to read auth token from guard', guardError);
+            }
+
+            if (token) {
+                return token;
+            }
+
+            try {
+                if (window.CookieHandler && typeof window.CookieHandler.readAuthToken === 'function') {
+                    token = window.CookieHandler.readAuthToken();
+                }
+            } catch (cookieError) {
+                console.warn('handleLogout: unable to read auth token from cookie', cookieError);
+            }
+
+            if (token) {
+                return token;
+            }
+
+            try {
+                if (window.localStorage) {
+                    for (let i = 0; i < AUTH_FALLBACK_STORAGE_KEYS.length; i++) {
+                        const value = window.localStorage.getItem(AUTH_FALLBACK_STORAGE_KEYS[i]);
+                        if (value) {
+                            token = value;
+                            break;
+                        }
+                    }
+                }
+            } catch (localError) {
+                console.warn('handleLogout: unable to read auth token from localStorage', localError);
+            }
+
+            if (token) {
+                return token;
+            }
+
+            try {
+                if (window.sessionStorage) {
+                    for (let i = 0; i < AUTH_FALLBACK_STORAGE_KEYS.length; i++) {
+                        const value = window.sessionStorage.getItem(AUTH_FALLBACK_STORAGE_KEYS[i]);
+                        if (value) {
+                            token = value;
+                            break;
+                        }
+                    }
+                }
+            } catch (sessionError) {
+                console.warn('handleLogout: unable to read auth token from sessionStorage', sessionError);
+            }
+
+            return token || '';
+        }
+
         function handleLogout() {
             if (!confirm('Are you sure you want to logout?')) return;
 
+            const authToken = readCurrentAuthToken();
             const btn = document.querySelector('.logout-btn-topbar');
             if (btn) {
                 btn.disabled = true;
@@ -3822,7 +3885,7 @@
                     console.warn('⚠️ Server logout failed, but proceeding with client logout:', err);
                     performLogout();
                 })
-                .logout('');
+                .logout(authToken || '');
         }
 
         function performLogout() {
