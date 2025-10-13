@@ -310,7 +310,11 @@ function _mapRowFromHeaders_(headers, valueMap) {
 function _readRolesSheet_() {
   if (typeof readSheet === 'function') {
     const rows = readSheet(ROLES_SHEET) || [];
-    if (Array.isArray(rows)) return rows;
+    if (Array.isArray(rows)) {
+      return (typeof ensureCanonicalSheetRows === 'function')
+        ? ensureCanonicalSheetRows(ROLES_SHEET, rows)
+        : rows;
+    }
   }
 
   const sheet = SpreadsheetApp.getActive().getSheetByName(ROLES_SHEET);
@@ -320,7 +324,7 @@ function _readRolesSheet_() {
   const values = range.getValues();
   if (!values.length) return [];
   const headers = values.shift().map(h => String(h || '').trim());
-  return values
+  const objects = values
     .map(row => {
       const obj = {};
       let hasData = false;
@@ -333,6 +337,9 @@ function _readRolesSheet_() {
       return hasData ? obj : null;
     })
     .filter(Boolean);
+  return (typeof ensureCanonicalSheetRows === 'function')
+    ? ensureCanonicalSheetRows(ROLES_SHEET, objects)
+    : objects;
 }
 
 function normalizeRoleRecord_(record) {

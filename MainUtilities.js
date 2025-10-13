@@ -152,6 +152,161 @@ if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timest
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
 
 // ────────────────────────────────────────────────────────────────────────────
+// Canonical header alignment helpers
+// ────────────────────────────────────────────────────────────────────────────
+if (typeof __SHEET_CANONICAL_ALIASES__ === 'undefined') var __SHEET_CANONICAL_ALIASES__ = {};
+
+function _registerCanonicalAliases_(sheetName, aliasMap) {
+  if (!sheetName || !aliasMap) return;
+  const existing = __SHEET_CANONICAL_ALIASES__[sheetName] || {};
+  __SHEET_CANONICAL_ALIASES__[sheetName] = Object.assign({}, existing, aliasMap);
+}
+
+function _ensureArray_(value) { return Array.isArray(value) ? value : (value ? [value] : []); }
+
+_registerCanonicalAliases_(USERS_SHEET, {
+  ID: ['Id', 'id', 'UserID', 'UserId', 'userid', 'USERID'],
+  UserName: ['Username', 'username', 'userName', 'USER_NAME'],
+  FullName: ['fullName', 'DisplayName', 'Name'],
+  Email: ['email', 'EmailAddress', 'emailAddress'],
+  CampaignID: ['CampaignId', 'campaignId', 'campaignID', 'CAMPAIGNID', 'TenantId', 'tenantId'],
+  EmailConfirmed: ['emailConfirmed', 'EmailConfirmation', 'email_confirmation'],
+  EmailConfirmation: ['emailConfirmation', 'email_confirmation'],
+  CanLogin: ['canLogin', 'Active', 'active', 'IsActive'],
+  Roles: ['roles', 'RoleNames', 'roleNames'],
+  Pages: ['pages', 'PageKeys', 'pageKeys'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated'],
+  IsAdmin: ['isAdmin', 'Admin', 'admin']
+});
+
+_registerCanonicalAliases_(USER_CAMPAIGNS_SHEET, {
+  ID: ['Id', 'id'],
+  UserId: ['UserID', 'userId', 'userid', 'USERID'],
+  CampaignId: ['CampaignID', 'campaignId', 'campaignID', 'CAMPAIGNID', 'TenantId', 'tenantId'],
+  Role: ['role', 'RoleName', 'roleName'],
+  IsPrimary: ['isPrimary', 'Primary', 'primary'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated'],
+  DeletedAt: ['deletedAt', 'Deleted']
+});
+
+_registerCanonicalAliases_(CAMPAIGNS_SHEET, {
+  ID: ['Id', 'id', 'CampaignId', 'CampaignID', 'campaignId', 'campaignID'],
+  Name: ['name', 'CampaignName'],
+  Description: ['description', 'Details'],
+  ClientName: ['client', 'clientName', 'Client'],
+  Status: ['status', 'State'],
+  Channel: ['channel'],
+  Timezone: ['timezone', 'timeZone', 'TimeZone'],
+  SlaTier: ['slaTier', 'SLATier', 'Sla'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated'],
+  DeletedAt: ['deletedAt', 'Deleted']
+});
+
+_registerCanonicalAliases_(ROLES_SHEET, {
+  ID: ['Id', 'id'],
+  Name: ['name'],
+  NormalizedName: ['normalizedName', 'Normalized'],
+  Scope: ['scope'],
+  Description: ['description'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated'],
+  DeletedAt: ['deletedAt', 'Deleted']
+});
+
+_registerCanonicalAliases_(USER_ROLES_SHEET, {
+  ID: ['Id', 'id'],
+  UserId: ['UserID', 'userId', 'userid', 'USERID'],
+  RoleId: ['RoleID', 'roleId', 'roleID'],
+  Scope: ['scope'],
+  AssignedBy: ['assignedBy', 'Assigned_By'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated'],
+  DeletedAt: ['deletedAt', 'Deleted']
+});
+
+_registerCanonicalAliases_(CAMPAIGN_USER_PERMISSIONS_SHEET, {
+  ID: ['Id', 'id'],
+  CampaignID: ['CampaignId', 'campaignId', 'campaignID', 'TenantId', 'tenantId'],
+  UserID: ['UserId', 'userId', 'userid', 'USERID'],
+  PermissionLevel: ['permissionLevel', 'Permission'],
+  Role: ['role', 'RoleName', 'roleName'],
+  CanManageUsers: ['canManageUsers', 'ManageUsers', 'manageUsers'],
+  CanManagePages: ['canManagePages', 'ManagePages', 'managePages'],
+  Notes: ['notes'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated'],
+  DeletedAt: ['deletedAt', 'Deleted']
+});
+
+_registerCanonicalAliases_(USER_MANAGERS_SHEET, {
+  ID: ['Id', 'id'],
+  ManagerUserID: ['ManagerId', 'managerUserId', 'managerId'],
+  ManagedUserID: ['UserID', 'UserId', 'userId', 'ManagedUserId', 'managedUserId'],
+  CampaignID: ['CampaignId', 'campaignId', 'campaignID', 'TenantId', 'tenantId'],
+  CreatedAt: ['createdAt', 'Created'],
+  UpdatedAt: ['updatedAt', 'Updated']
+});
+
+function _normalizeSheetRows_(sheetName, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return Array.isArray(rows) ? rows : [];
+  const aliasMap = __SHEET_CANONICAL_ALIASES__[sheetName];
+  if (!aliasMap) return rows;
+
+  return rows.map(function (row) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+    const normalized = row;
+    Object.keys(aliasMap).forEach(function (canonical) {
+      const aliases = _ensureArray_(aliasMap[canonical]);
+      const keys = [canonical].concat(aliases);
+      let value;
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (!Object.prototype.hasOwnProperty.call(normalized, key)) continue;
+        const candidate = normalized[key];
+        if (typeof value === 'undefined') {
+          value = candidate;
+        } else if (candidate !== '' && candidate != null && (value === '' || value == null)) {
+          value = candidate;
+        }
+        if (key === canonical) break;
+      }
+
+      if (typeof value === 'undefined') {
+        if (!Object.prototype.hasOwnProperty.call(normalized, canonical)) normalized[canonical] = '';
+        value = normalized[canonical];
+      } else {
+        normalized[canonical] = value;
+      }
+
+      aliases.forEach(function (alias) {
+        if (!Object.prototype.hasOwnProperty.call(normalized, alias)) normalized[alias] = value;
+      });
+    });
+    return normalized;
+  });
+}
+
+function _normalizeSheetRow_(sheetName, row) {
+  const normalized = _normalizeSheetRows_(sheetName, row ? [row] : []);
+  return normalized.length ? normalized[0] : row;
+}
+
+if (typeof ensureCanonicalSheetRows !== 'function') {
+  function ensureCanonicalSheetRows(sheetName, rows) {
+    return _normalizeSheetRows_(sheetName, Array.isArray(rows) ? rows : []);
+  }
+}
+
+if (typeof ensureCanonicalSheetRow !== 'function') {
+  function ensureCanonicalSheetRow(sheetName, row) {
+    return _normalizeSheetRow_(sheetName, row);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // HR / Benefits – Users sheet upgrade + calculators
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -694,7 +849,10 @@ const __readSheet = (function () {
     if (allowScriptCache && cacheKey) {
       try {
         const cached = scriptCache.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          return Array.isArray(parsed) ? _normalizeSheetRows_(sheetName, parsed) : [];
+        }
       } catch (cacheErr) {
         console.warn(`Failed to read cache for ${sheetName}: ${cacheErr.message}`);
       }
@@ -759,6 +917,8 @@ const __readSheet = (function () {
     if (!Array.isArray(data)) {
       data = _legacyReadSheet_(sheetName);
     }
+
+    data = Array.isArray(data) ? _normalizeSheetRows_(sheetName, data) : [];
 
     if (allowScriptCache && cacheKey && Array.isArray(data)) {
       try {
@@ -1633,6 +1793,35 @@ function createCampaignPagesFromSystem(campaignId) {
 // ────────────────────────────────────────────────────────────────────────────
 // Identity / permissions helpers (guarded where likely to collide)
 // ────────────────────────────────────────────────────────────────────────────
+function _normalizeIdValue_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).trim();
+}
+
+function _extractUserCampaignUserId_(record) {
+  if (!record) return '';
+  const canonical = (typeof ensureCanonicalSheetRow === 'function')
+    ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, record)
+    : record;
+  return _normalizeIdValue_(
+    canonical && typeof canonical === 'object'
+      ? (canonical.UserId || canonical.UserID || canonical.userId || canonical.userid || canonical.USERID || canonical.USERId)
+      : ''
+  );
+}
+
+function _extractUserCampaignCampaignId_(record) {
+  if (!record) return '';
+  const canonical = (typeof ensureCanonicalSheetRow === 'function')
+    ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, record)
+    : record;
+  return _normalizeIdValue_(
+    canonical && typeof canonical === 'object'
+      ? (canonical.CampaignId || canonical.CampaignID || canonical.campaignId || canonical.campaignID || canonical.CAMPAIGNID || canonical.CAMPAIGNId)
+      : ''
+  );
+}
+
 if (typeof getUserManagedCampaigns !== 'function') {
   function getUserManagedCampaigns(userId) {
     try {
@@ -1651,11 +1840,17 @@ if (typeof getUserManagedCampaigns !== 'function') {
 }
 function getUsersByCampaign(campaignId) {
   try {
-    if (!campaignId) return [];
-    const ucs = readSheet(USER_CAMPAIGNS_SHEET);
-    const ids = ucs.filter(uc => uc.CampaignId === campaignId).map(uc => uc.UserId);
+    const normalizedCampaignId = _normalizeIdValue_(campaignId);
+    if (!normalizedCampaignId) return [];
+    const ucs = readSheet(USER_CAMPAIGNS_SHEET) || [];
+    const ids = ucs
+      .filter(uc => _extractUserCampaignCampaignId_(uc) === normalizedCampaignId)
+      .map(_extractUserCampaignUserId_)
+      .filter(Boolean);
     const all = readSheet(USERS_SHEET);
-    if (ids.length === 0) return all.filter(u => u.CampaignID === campaignId); // legacy
+    if (ids.length === 0) {
+      return all.filter(u => _normalizeIdValue_(u.CampaignID) === normalizedCampaignId); // legacy
+    }
     return all.filter(u => ids.includes(u.ID));
   } catch (e) { writeError('getUsersByCampaign', e); return []; }
 }
@@ -1673,38 +1868,72 @@ function userCanManageCampaign(userId, campaignId) {
 }
 function getCampaignsWithUserCounts() {
   try {
-    const campaigns = readSheet(CAMPAIGNS_SHEET);
-    const ucs = readSheet(USER_CAMPAIGNS_SHEET);
-    const users = readSheet(USERS_SHEET);
+    const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
+    const ucs = readSheet(USER_CAMPAIGNS_SHEET) || [];
+    const users = readSheet(USERS_SHEET) || [];
     return campaigns.map(c => {
-      const joined = ucs.filter(uc => uc.CampaignId === c.ID).length;
-      const legacy = users.filter(u => u.CampaignID === c.ID).length;
+      const normalizedCampaignId = _normalizeIdValue_(c.ID);
+      const joined = ucs.filter(uc => _extractUserCampaignCampaignId_(uc) === normalizedCampaignId).length;
+      const legacy = users.filter(u => _normalizeIdValue_(u.CampaignID) === normalizedCampaignId).length;
       return { ...c, userCount: joined + legacy, newUserCount: joined, legacyUserCount: legacy };
     });
   } catch (e) { writeError('getCampaignsWithUserCounts', e); return []; }
 }
 function addUserToCampaign(userId, campaignId) {
   try {
-    if (!userId || !campaignId) return false;
+    const normalizedUserId = _normalizeIdValue_(userId);
+    const normalizedCampaignId = _normalizeIdValue_(campaignId);
+    if (!normalizedUserId || !normalizedCampaignId) return false;
     const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
     const rows = readSheet(USER_CAMPAIGNS_SHEET);
-    const exists = rows.some(r => r.UserId === userId && r.CampaignId === campaignId);
+    const exists = rows.some(r => {
+      return _extractUserCampaignUserId_(r) === normalizedUserId
+        && _extractUserCampaignCampaignId_(r) === normalizedCampaignId;
+    });
     if (exists) return true;
     const now = new Date().toISOString();
-    sh.appendRow([Utilities.getUuid(), userId, campaignId, now, now]);
+    sh.appendRow([
+      Utilities.getUuid(),
+      normalizedUserId,
+      normalizedCampaignId,
+      "agent",
+      false,
+      now,
+      now,
+      ''
+    ]);
     invalidateCache(USER_CAMPAIGNS_SHEET);
     return true;
   } catch (e) { safeWriteError('addUserToCampaign', e); return false; }
 }
 function getUserCampaignsSafe(userId) {
   try {
+    const normalizedUserId = _normalizeIdValue_(userId);
+    if (!normalizedUserId) return [];
     const ucs = readSheet(USER_CAMPAIGNS_SHEET) || [];
-    const joined = ucs.filter(r => r.UserId === userId).map(r => ({ campaignId: r.CampaignId, source: 'multi' }));
+    const joined = ucs
+      .filter(r => _extractUserCampaignUserId_(r) === normalizedUserId)
+      .map(r => {
+        const cid = _extractUserCampaignCampaignId_(r);
+        if (!cid) return null;
+        return {
+          campaignId: cid,
+          CampaignID: cid,
+          CampaignId: cid,
+          source: 'multi'
+        };
+      })
+      .filter(Boolean);
     if (joined.length) return joined;
 
     const users = readSheet(USERS_SHEET) || [];
-    const u = users.find(x => x.ID === userId);
-    if (u && u.CampaignID) return [{ campaignId: u.CampaignID, source: 'legacy' }];
+    const u = users.find(x => x.ID === normalizedUserId);
+    if (u && u.CampaignID) {
+      const cid = _normalizeIdValue_(u.CampaignID);
+      if (cid) {
+        return [{ campaignId: cid, CampaignID: cid, CampaignId: cid, source: 'legacy' }];
+      }
+    }
     return [];
   } catch (e) { safeWriteError('getUserCampaignsSafe', e); return []; }
 }
