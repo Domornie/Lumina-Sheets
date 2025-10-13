@@ -1010,12 +1010,19 @@ function getBaseUrl() {
 function _findUserByEmail_(email) {
   if (!email) return null;
   try {
-    const CK = 'USR_BY_EMAIL_' + email.toLowerCase();
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    const CK = 'USR_BY_EMAIL_' + normalizedEmail;
     const cached = _cacheGet(CK);
     if (cached) return cached;
 
     const rows = (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
-    const hit = rows.find(r => String(r.Email || '').trim().toLowerCase() === email.toLowerCase()) || null;
+    const hit = rows.find(function (r) {
+      if (!r) return false;
+      const candidate = String(r.Email || r.email || '').trim().toLowerCase();
+      return candidate === normalizedEmail;
+    }) || null;
     if (hit) _cachePut(CK, hit, 120);
     return hit;
   } catch (e) {
