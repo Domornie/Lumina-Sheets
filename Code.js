@@ -1061,17 +1061,68 @@ function clientGetCurrentUser() {
   return getCurrentUser();
 }
 
-function __injectCurrentUser_(tpl, explicitUser) {
+function __injectCurrentUser_(tpl, explicitUser, options) {
+  if (!tpl) {
+    return;
+  }
+
+  var identityInjected = false;
+
+  if (explicitUser && explicitUser.identityMeta
+    && typeof IlluminaIdentity !== 'undefined'
+    && IlluminaIdentity
+    && typeof IlluminaIdentity.injectTemplate === 'function') {
+    try {
+      IlluminaIdentity.injectTemplate(tpl, explicitUser);
+      identityInjected = true;
+    } catch (identityAssignError) {
+      console.warn('__injectCurrentUser_: failed to inject provided identity', identityAssignError);
+      identityInjected = false;
+    }
+  }
+
+  if (!identityInjected
+    && typeof IlluminaIdentity !== 'undefined'
+    && IlluminaIdentity
+    && typeof IlluminaIdentity.resolve === 'function'
+    && typeof IlluminaIdentity.injectTemplate === 'function') {
+    try {
+      var resolved = IlluminaIdentity.resolve(options && options.request ? options.request : null, {
+        explicitUser: explicitUser,
+        sessionToken: options && options.sessionToken,
+        token: options && options.token,
+        allowCurrentUser: true,
+        useCache: true
+      });
+      IlluminaIdentity.injectTemplate(tpl, resolved);
+      identityInjected = true;
+    } catch (identityResolveError) {
+      console.warn('__injectCurrentUser_: IlluminaIdentity resolve failed', identityResolveError);
+      identityInjected = false;
+    }
+  }
+
+  if (identityInjected) {
+    return;
+  }
+
   try {
     const u = explicitUser && (explicitUser.Email || explicitUser.email || explicitUser.ID)
       ? explicitUser
       : getCurrentUser();
     tpl.user = u;
-    tpl.currentUserJson = _stringifyForTemplate_(u);
+    tpl.safeUser = (typeof createSafeUserObject === 'function' && u) ? createSafeUserObject(u) : u;
+    const serialized = _stringifyForTemplate_(tpl.safeUser || u || {});
+    tpl.currentUserJson = serialized;
+    tpl.identityJson = serialized;
+    tpl.identityMetaJson = _stringifyForTemplate_({});
   } catch (e) {
     writeError && writeError('__injectCurrentUser_', e);
     tpl.user = null;
+    tpl.safeUser = null;
     tpl.currentUserJson = '{}';
+    tpl.identityJson = '{}';
+    tpl.identityMetaJson = '{}';
   }
 }
 
@@ -1203,21 +1254,49 @@ function requireAuth(e) {
       return renderAccessDenied((decision && decision.reason) || 'You do not have permission to view this page.');
     }
 
-    // Hydrate campaign context
-    if (campaignId) {
+    let resolvedUser = user;
+
+    if (typeof IlluminaIdentity !== 'undefined'
+      && IlluminaIdentity
+      && typeof IlluminaIdentity.resolve === 'function') {
       try {
-        if (typeof getCampaignNavigation === 'function') user.campaignNavigation = getCampaignNavigation(campaignId);
-        if (typeof getUserCampaignPermissions === 'function') user.campaignPermissions = getUserCampaignPermissions(user.ID);
-        if (typeof getCampaignById === 'function') {
-          const c = getCampaignById(campaignId);
-          user.campaignName = c ? (c.Name || c.name || '') : '';
-        }
-      } catch (ctxErr) {
-        console.warn('Campaign context hydrate failed:', ctxErr);
+        resolvedUser = IlluminaIdentity.resolve(e, {
+          explicitUser: user,
+          sessionToken: user && user.sessionToken,
+          token: e && e.parameter ? e.parameter.token : '',
+          allowCurrentUser: false,
+          useCache: true
+        });
+      } catch (identityError) {
+        console.warn('requireAuth: IlluminaIdentity resolve failed', identityError);
+        resolvedUser = user;
       }
     }
 
-    return user;
+    if (resolvedUser && campaignId) {
+      const hasNavigation = resolvedUser.campaignNavigation && typeof resolvedUser.campaignNavigation === 'object';
+      const hasPermissions = resolvedUser.campaignPermissions && typeof resolvedUser.campaignPermissions === 'object';
+      const hasCampaignName = resolvedUser.campaignName || resolvedUser.CampaignName;
+
+      if (!hasNavigation || !hasPermissions || !hasCampaignName) {
+        try {
+          if (!hasNavigation && typeof getCampaignNavigation === 'function') {
+            resolvedUser.campaignNavigation = getCampaignNavigation(campaignId);
+          }
+          if (!hasPermissions && typeof getUserCampaignPermissions === 'function') {
+            resolvedUser.campaignPermissions = getUserCampaignPermissions(resolvedUser.ID || resolvedUser.Id);
+          }
+          if (!hasCampaignName && typeof getCampaignById === 'function') {
+            const c = getCampaignById(campaignId);
+            resolvedUser.campaignName = c ? (c.Name || c.name || '') : '';
+          }
+        } catch (ctxErr) {
+          console.warn('Campaign context hydrate failed:', ctxErr);
+        }
+      }
+    }
+
+    return resolvedUser;
 
   } catch (error) {
     writeError('requireAuth', error);
