@@ -2088,6 +2088,124 @@ function clientRepairUsernames() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
+// Password / email utilities (public entry point)
+// ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Public password reset request invoked by login/forgot password pages.
+ * Responds with a generic message when the email is not found so callers
+ * cannot enumerate valid accounts.
+ *
+ * @param {string} rawEmail
+ * @return {{success: boolean, message: string}}
+ */
+function requestPasswordReset(rawEmail) {
+  const genericMessage = 'If an account with this email exists, a password reset link has been sent.';
+  const email = (rawEmail || '').toString().trim().toLowerCase();
+
+  if (!email) {
+    return { success: false, message: 'Please enter the email associated with your account.' };
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    if (!lock.tryLock(5000)) {
+      return { success: false, message: 'The system is busy. Please try again in a moment.' };
+    }
+  } catch (lockError) {
+    writeError && writeError('requestPasswordReset:lock', lockError);
+    return { success: false, message: 'The system is busy. Please try again in a moment.' };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss && ss.getSheetByName(G.USERS_SHEET);
+    if (!sheet) {
+      throw new Error('Users sheet not found');
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (!data || data.length <= 1) {
+      return { success: true, message: genericMessage };
+    }
+
+    const headers = data[0];
+    const idx = {};
+    headers.forEach((header, i) => { idx[String(header)] = i; });
+
+    if (typeof idx['Email'] === 'undefined') {
+      throw new Error('Users sheet missing Email column');
+    }
+
+    const emailIndex = idx['Email'];
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      const rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
+      if (rowEmail === email) {
+        rowIndex = i;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      return { success: true, message: genericMessage };
+    }
+
+    const row = data[rowIndex];
+    const canLoginIndex = idx['CanLogin'];
+    if (typeof canLoginIndex !== 'undefined' && canLoginIndex >= 0) {
+      if (!_strToBool_(row[canLoginIndex])) {
+        return { success: true, message: genericMessage };
+      }
+    }
+
+    const token = Utilities.getUuid();
+
+    if (typeof idx['EmailConfirmation'] !== 'undefined' && idx['EmailConfirmation'] >= 0) {
+      sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
+    }
+
+    if (typeof idx['ResetRequired'] !== 'undefined' && idx['ResetRequired'] >= 0) {
+      sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
+    }
+
+    if (typeof idx['UpdatedAt'] !== 'undefined' && idx['UpdatedAt'] >= 0) {
+      sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
+    }
+
+    try {
+      invalidateCache && invalidateCache(G.USERS_SHEET);
+    } catch (cacheError) {
+      writeError && writeError('requestPasswordReset:cache', cacheError);
+    }
+
+    try {
+      if (typeof sendPasswordResetEmail === 'function') {
+        sendPasswordResetEmail(row[emailIndex], token);
+      } else if (typeof sendAdminPasswordResetEmail === 'function') {
+        sendAdminPasswordResetEmail(row[emailIndex], { resetToken: token });
+      } else {
+        throw new Error('No password reset email template available');
+      }
+    } catch (mailError) {
+      writeError && writeError('requestPasswordReset:send', mailError);
+      return {
+        success: false,
+        message: 'We were unable to send the reset email. Please try again later or contact support.'
+      };
+    }
+
+    return { success: true, message: genericMessage };
+  } catch (error) {
+    writeError && writeError('requestPasswordReset', error);
+    return { success: false, message: 'An unexpected error occurred. Please try again later.' };
+  } finally {
+    try { lock.releaseLock(); } catch (_) { }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 // Password / email utilities (admin paths)
 // ───────────────────────────────────────────────────────────────────────────────
 function clientAdminResetPassword(userId, requestingUserId) {
