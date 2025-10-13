@@ -699,8 +699,7 @@ function csGetAllCampaigns() {
         description: c.Description || '',
         createdAt: c.CreatedAt ? new Date(c.CreatedAt).toISOString() : null,
         updatedAt: c.UpdatedAt ? new Date(c.UpdatedAt).toISOString() : null
-      }))
-      });
+      }));
 
     const visible = hasCampaignManagementPrivileges(identity)
       ? mapped
