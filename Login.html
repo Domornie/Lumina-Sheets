@@ -69,6 +69,8 @@
 
     .page-wrapper {
       min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
     }
 
     /* Modern Background with subtle pattern */
@@ -200,6 +202,8 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
     }
 
     .form-column::before {
@@ -220,6 +224,22 @@
       padding: clamp(2.5rem, 5vw, 3.5rem) clamp(2rem, 4.5vw, 3.25rem);
       position: relative;
       z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
+    }
+
+    .login-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      grid-area: 1 / 1;
+      overflow: hidden;
+      z-index: 1;
+      min-height: 0;
     }
 
     .consent-text {
@@ -402,14 +422,23 @@
     /* Enhanced Redirect Section */
     .redirect-section {
       display: none;
-      background: rgba(240, 253, 244, 0.9);
+      background: rgba(240, 253, 244, 0.92);
       border: 1px solid rgba(31, 146, 84, 0.35);
       border-radius: var(--border-radius-lg);
-      padding: 2.5rem;
-      margin-top: 2rem;
+      padding: clamp(2rem, 4vw, 2.75rem);
       text-align: center;
       box-shadow: var(--shadow-lg);
       animation: slideInUp 0.6s ease-out;
+      grid-area: 1 / 1;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      flex-direction: column;
+      width: 100%;
+      max-height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 2;
     }
 
     .next-steps-card {
@@ -606,7 +635,8 @@
     }
 
     .redirect-section.show {
-      display: block !important;
+      display: flex !important;
+      pointer-events: auto;
     }
 
     .redirect-button {
@@ -635,6 +665,16 @@
 
     .redirect-button:active {
       transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .redirect-cancel {
+      border-radius: var(--border-radius-sm);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .redirect-cancel:hover {
       box-shadow: var(--shadow-md);
     }
 
@@ -763,12 +803,78 @@
     }
 
     @media (max-width: 991.98px) {
-      body {
-        overflow: auto;
+      .form-column {
+        padding: clamp(1.5rem, 6vw, 3rem);
       }
 
-      .form-column {
-        min-height: auto;
+      .login-container {
+        max-height: 100vh;
+      }
+
+      .login-content {
+        gap: 1.25rem;
+      }
+    }
+
+    @media (max-height: 780px) {
+      .login-container {
+        padding: clamp(2rem, 4vw, 3rem) clamp(1.5rem, 4vw, 2.75rem);
+      }
+
+      .login-content {
+        gap: 1.25rem;
+      }
+
+      .logo-container {
+        margin-bottom: 2rem;
+      }
+    }
+
+    @media (max-height: 640px) {
+      .login-container {
+        padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1.25rem, 3.5vw, 2rem);
+      }
+
+      .login-content {
+        gap: 1.1rem;
+      }
+
+      .welcome-text p {
+        margin-bottom: 1.5rem;
+      }
+
+      .redirect-button {
+        padding: 1rem 2rem;
+      }
+
+      .redirect-cancel {
+        padding-inline: 1.25rem;
+      }
+    }
+
+    @media (max-height: 560px) {
+      .login-container {
+        padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1rem, 3vw, 1.5rem);
+      }
+
+      .login-content {
+        gap: 1rem;
+      }
+
+      .logo-container {
+        margin-bottom: 1.5rem;
+      }
+
+      .welcome-text h1 {
+        font-size: 1.9rem;
+      }
+
+      .welcome-text p {
+        font-size: 0.95rem;
+      }
+
+      .countdown-display {
+        margin: 1rem 0;
       }
     }
 
@@ -896,6 +1002,10 @@
         padding: 1.5rem;
       }
 
+      .login-content {
+        gap: 1rem;
+      }
+
       .form-control {
         padding: 0.875rem 1rem;
       }
@@ -939,8 +1049,9 @@
       <!-- RIGHT: Login Form -->
       <div class="col-lg-7 col-xl-6 ms-auto d-flex align-items-center justify-content-center bg-light form-column">
         <div class="login-container">
+          <div class="login-content">
 
-          <!-- Logo Section -->
+            <!-- Logo Section -->
           <div class="logo-container">
             <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png"
                  alt="LuminaHQ" class="img-fluid" loading="lazy">
@@ -977,27 +1088,6 @@
             </div>
             <p id="nextStepsBody" class="next-steps-body mb-3"></p>
             <div id="nextStepsActions" class="d-flex flex-column flex-md-row gap-2"></div>
-          </div>
-
-          <!-- Success Redirect Section -->
-          <div id="redirectSection" class="redirect-section">
-            <i class="fas fa-check-circle fa-4x mb-4 text-success success-icon"></i>
-            <h4 class="text-success fw-bold mb-3">Login Successful!</h4>
-            <div class="countdown-display">
-              <div id="countdown">Preparing your dashboard...</div>
-              <div class="mt-2">
-                <span class="countdown-number" id="countdownNumber">3</span>
-                <small class="text-muted">seconds remaining</small>
-              </div>
-            </div>
-            <a id="continueButton" class="redirect-button" target="_top" href="#">
-              <i class="fas fa-arrow-right"></i>Continue to Dashboard
-            </a>
-            <div class="mt-3">
-              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelRedirect()">
-                <i class="fas fa-times me-1"></i>Cancel Auto-Redirect
-              </button>
-            </div>
           </div>
 
           <div id="deviceVerificationModal" class="device-modal" aria-hidden="true">
@@ -1095,6 +1185,25 @@
             <span class="small mx-2 text-muted">•</span>
             <a href="<?= baseUrl ?>?page=terms-of-service" class="small" target="_blank" rel="noopener">Terms of Service</a>
           </div>
+        </div>
+
+        <!-- Success Redirect Section -->
+        <div id="redirectSection" class="redirect-section">
+          <i class="fas fa-check-circle fa-4x text-success success-icon"></i>
+          <h4 class="text-success fw-bold mb-2">Login Successful!</h4>
+          <div class="countdown-display">
+            <div id="countdown">Preparing your dashboard...</div>
+            <div class="mt-2">
+              <span class="countdown-number" id="countdownNumber">3</span>
+              <small class="text-muted">seconds remaining</small>
+            </div>
+          </div>
+          <a id="continueButton" class="redirect-button" target="_top" href="#">
+            <i class="fas fa-arrow-right"></i>Continue to Dashboard
+          </a>
+          <button type="button" class="btn btn-outline-secondary btn-sm redirect-cancel" onclick="cancelRedirect()">
+            <i class="fas fa-times me-1"></i>Cancel Auto-Redirect
+          </button>
         </div>
       </div>
 
