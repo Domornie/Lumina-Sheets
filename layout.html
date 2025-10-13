@@ -2904,7 +2904,27 @@
         roleNames: __layoutRoleNames
       }) ?>
 
-  
+  <script>
+    (function (global) {
+      try {
+        var identity = <?!= identityJson || '{}' ?>;
+        var identityMeta = <?!= identityMetaJson || '{}' ?>;
+        global.luminaIdentity = global.luminaIdentity || {};
+        global.luminaIdentity.identity = identity || {};
+        global.luminaIdentity.meta = identityMeta || {};
+        if (!global.luminaIdentity.sessionToken && identity && identity.sessionToken) {
+          global.luminaIdentity.sessionToken = identity.sessionToken;
+        }
+        if (!global.luminaIdentity.user && identity) {
+          global.luminaIdentity.user = identity;
+        }
+      } catch (identityBootstrapError) {
+        console.warn('layout: failed to bootstrap luminaIdentity', identityBootstrapError);
+      }
+    })(typeof window !== 'undefined' ? window : this);
+  </script>
+
+
   <div id="maincontent" class="animate-in main-content">
 
     <section class="lumina-banner" id="luminaBanner" aria-label="Page overview">
