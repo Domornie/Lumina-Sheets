@@ -514,20 +514,66 @@
         console.warn('LuminaIdentity: unable to persist identity in sessionStorage', err);
       }
 
+    try {
+      if (window.localStorage) {
+        localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
+        localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+      }
+    } catch (err) {
+      console.warn('LuminaIdentity: unable to persist identity in localStorage', err);
+    }
+
+    if (options.skipCookie !== true) {
       try {
-        if (window.localStorage) {
-          localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
-          localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
+        if (window.CookieHandler && typeof window.CookieHandler.persistIdentityCookie === 'function') {
+          const cookieOptions = {};
+
+          if (typeof options.cookieMaxAgeSeconds === 'number' && options.cookieMaxAgeSeconds > 0) {
+            cookieOptions.maxAgeSeconds = Math.max(SESSION_COOKIE_MIN_SECONDS, Math.floor(options.cookieMaxAgeSeconds));
+          } else if (typeof options.cookieTtlSeconds === 'number' && options.cookieTtlSeconds > 0) {
+            cookieOptions.ttlSeconds = Math.floor(options.cookieTtlSeconds);
+            cookieOptions.maxAgeSeconds = Math.max(SESSION_COOKIE_MIN_SECONDS, cookieOptions.ttlSeconds);
+          } else if (typeof window.__LUMINA_SESSION_MAX_AGE === 'number' && window.__LUMINA_SESSION_MAX_AGE > 0) {
+            cookieOptions.maxAgeSeconds = Math.max(
+              SESSION_COOKIE_MIN_SECONDS,
+              Math.floor(window.__LUMINA_SESSION_MAX_AGE)
+            );
+          } else if (typeof payload.sessionIdleTimeoutMinutes === 'number' && payload.sessionIdleTimeoutMinutes > 0) {
+            cookieOptions.maxAgeSeconds = Math.max(
+              SESSION_COOKIE_MIN_SECONDS,
+              Math.floor(payload.sessionIdleTimeoutMinutes * 60)
+            );
+          }
+
+          if (typeof options.cookieTtlSeconds === 'number' && options.cookieTtlSeconds > 0) {
+            cookieOptions.ttlSeconds = Math.floor(options.cookieTtlSeconds);
+          } else if (typeof payload.sessionTtlSeconds === 'number' && payload.sessionTtlSeconds > 0) {
+            cookieOptions.ttlSeconds = Math.floor(payload.sessionTtlSeconds);
+          }
+
+          const expiresAtCandidate = options.cookieExpiresAt || payload.sessionExpiresAt || payload.sessionExpiry || null;
+          if (expiresAtCandidate) {
+            cookieOptions.expiresAt = expiresAtCandidate;
+          }
+
+          if (typeof options.rememberMe === 'boolean') {
+            cookieOptions.rememberMe = options.rememberMe;
+          } else if (typeof window.__LUMINA_SESSION_REMEMBER === 'boolean') {
+            cookieOptions.rememberMe = window.__LUMINA_SESSION_REMEMBER;
+          }
+
+          window.CookieHandler.persistIdentityCookie(payload, cookieOptions);
         }
-      } catch (err) {
-        console.warn('LuminaIdentity: unable to persist identity in localStorage', err);
+      } catch (cookieError) {
+        console.warn('LuminaIdentity: unable to persist identity cookie', cookieError);
       }
+    }
 
-      if (!options.skipGlobals) {
-        setGlobalIdentity(payload);
-      }
+    if (!options.skipGlobals) {
+      setGlobalIdentity(payload);
+    }
 
-      return payload;
+    return payload;
     }
 
     function readPersistedIdentity() {
@@ -559,12 +605,25 @@
           }
         } catch (err) {
           console.warn('LuminaIdentity: unable to read localStorage identity', err);
-        }
       }
-
-      const parsed = safeParseJson(raw);
-      return parsed && typeof parsed === 'object' ? parsed : null;
     }
+
+    if (!raw) {
+      try {
+        if (window.CookieHandler && typeof window.CookieHandler.readIdentityCookie === 'function') {
+          const cookieIdentity = window.CookieHandler.readIdentityCookie();
+          if (cookieIdentity && typeof cookieIdentity === 'object') {
+            return cookieIdentity;
+          }
+        }
+      } catch (cookieReadError) {
+        console.warn('LuminaIdentity: unable to read identity cookie', cookieReadError);
+      }
+    }
+
+    const parsed = safeParseJson(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  }
 
     function clearPersistedIdentity(reason) {
       try {
@@ -582,14 +641,22 @@
           localStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
         }
       } catch (err) {
-        console.warn('LuminaIdentity: unable to clear localStorage identity', err);
-      }
+      console.warn('LuminaIdentity: unable to clear localStorage identity', err);
+    }
 
-      setGlobalIdentity(null);
-
-      if (reason) {
-        console.log('Lumina identity cleared:', reason);
+    try {
+      if (window.CookieHandler && typeof window.CookieHandler.clearIdentityCookie === 'function') {
+        window.CookieHandler.clearIdentityCookie();
       }
+    } catch (cookieErr) {
+      console.warn('LuminaIdentity: unable to clear identity cookie', cookieErr);
+    }
+
+    setGlobalIdentity(null);
+
+    if (reason) {
+      console.log('Lumina identity cleared:', reason);
+    }
   }
 
   const SESSION_COOKIE_DEFAULT_SECONDS = 60 * 60; // 1 hour
@@ -745,7 +812,13 @@
 
     let identity = null;
     if (result.user) {
-      identity = persistIdentityToStorage(result.user, { source: options.source || 'session-result' });
+      identity = persistIdentityToStorage(result.user, {
+        source: options.source || 'session-result',
+        rememberMe: tokenInfo.rememberMe,
+        cookieMaxAgeSeconds: tokenInfo.maxAgeSeconds,
+        cookieTtlSeconds: tokenInfo.ttlSeconds,
+        cookieExpiresAt: tokenInfo.expiresAt
+      });
       if (identity && options.applyToUi !== false && typeof updateUserDisplaySafely === 'function') {
         try {
           updateUserDisplaySafely(identity);
@@ -892,7 +965,16 @@
       }
 
       if (options.refreshStorage) {
-        persistIdentityToStorage(identity, { skipGlobals: true, source: 'hydrate-refresh' });
+        persistIdentityToStorage(identity, {
+          skipGlobals: true,
+          source: 'hydrate-refresh',
+          cookieMaxAgeSeconds: (typeof window.__LUMINA_SESSION_MAX_AGE === 'number'
+            ? window.__LUMINA_SESSION_MAX_AGE
+            : undefined),
+          rememberMe: (typeof window.__LUMINA_SESSION_REMEMBER === 'boolean'
+            ? window.__LUMINA_SESSION_REMEMBER
+            : undefined)
+        });
       }
 
       if (options.skipGlobals !== true) {
@@ -3659,7 +3741,15 @@
             }
 
             try {
-                persistIdentityToStorage(user, { source: 'display-update' });
+                persistIdentityToStorage(user, {
+                    source: 'display-update',
+                    cookieMaxAgeSeconds: (typeof window.__LUMINA_SESSION_MAX_AGE === 'number'
+                        ? window.__LUMINA_SESSION_MAX_AGE
+                        : undefined),
+                    rememberMe: (typeof window.__LUMINA_SESSION_REMEMBER === 'boolean'
+                        ? window.__LUMINA_SESSION_REMEMBER
+                        : undefined)
+                });
             } catch (persistError) {
                 console.warn('LuminaIdentity: unable to persist identity from display update', persistError);
             }
