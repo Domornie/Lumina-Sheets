@@ -23,6 +23,13 @@ if (typeof G.CAMPAIGNS_SHEET === 'undefined') G.CAMPAIGNS_SHEET = 'Campaigns';
 if (typeof G.USER_ROLES_SHEET === 'undefined') G.USER_ROLES_SHEET = 'UserRoles';
 if (typeof G.CAMPAIGN_USER_PERMISSIONS_SHEET === 'undefined') G.CAMPAIGN_USER_PERMISSIONS_SHEET = 'CampaignUserPermissions';
 if (typeof G.MANAGER_USERS_SHEET === 'undefined') G.MANAGER_USERS_SHEET = 'MANAGER_USERS';
+if (typeof G.USER_CAMPAIGNS_SHEET === 'undefined') {
+  if (typeof USER_CAMPAIGNS_SHEET !== 'undefined') {
+    G.USER_CAMPAIGNS_SHEET = USER_CAMPAIGNS_SHEET;
+  } else {
+    G.USER_CAMPAIGNS_SHEET = 'UserCampaigns';
+  }
+}
 if (typeof G.MANAGER_USERS_HEADER === 'undefined') G.MANAGER_USERS_HEADER = ['ID', 'ManagerUserID', 'UserID', 'CreatedAt', 'UpdatedAt'];
 if (typeof G.USER_EQUIPMENT_SHEET === 'undefined') G.USER_EQUIPMENT_SHEET = 'UserEquipment';
 if (typeof G.USER_EQUIPMENT_HEADERS === 'undefined') {
@@ -119,46 +126,9 @@ function _userLog_(label, payload, level) {
   }
 }
 
-function _ensureUserServiceIdentity_(context, options) {
-  try {
-    return assertServiceIdentity(context, options);
-  } catch (error) {
-    _userLog_('UserService.ensureIdentityFailed', { message: error && error.message, code: error && error.code }, 'warn');
-    throw error;
-  }
-}
-
-function _resolveUserServiceIdentity_(context, options) {
-  try {
-    return resolveServiceIdentity(context, options);
-  } catch (error) {
-    _userLog_('UserService.resolveIdentityFailed', { message: error && error.message }, 'warn');
-    return { identity: null, context: context || {}, error };
-  }
-}
-
-function _hasUserAdminPrivileges_(identity) {
-  if (!identity) return false;
-  try {
-    const flags = identity.permissionFlags || {};
-    if (identity.isAdmin || flags.manageusers || flags.managepages) {
-      return true;
-    }
-    const roles = Array.isArray(identity.roleNames) ? identity.roleNames : (identity.roles || []);
-    return roles.some(role => {
-      const value = String(role || '').toLowerCase();
-      return value === 'admin' || value === 'system_admin' || value === 'manager' || value === 'supervisor';
-    });
-  } catch (err) {
-    _userLog_('UserService.checkPrivilegesFailed', err, 'warn');
-    return false;
-  }
-}
-
 function clientGetUserSummaries(context) {
   try {
-    const resolution = _ensureUserServiceIdentity_(context);
-    return getEntitySummaries('users', resolution.context);
+    return getEntitySummaries('users', context);
   } catch (error) {
     console.error('clientGetUserSummaries failed:', error);
     throw error;
@@ -167,12 +137,39 @@ function clientGetUserSummaries(context) {
 
 function clientGetUserDetail(id, context) {
   try {
-    const resolution = _ensureUserServiceIdentity_(context);
-    return getEntityDetail('users', id, resolution.context);
+    const detail = getEntityDetail('users', id, context);
+    try {
+      if (detail && (detail.record || detail.id)) {
+        const identifier = detail.record && detail.record.ID ? detail.record.ID : id;
+        detail.hasActiveSession = userHasActiveSession(identifier);
+      }
+    } catch (sessionError) {
+      console.warn('clientGetUserDetail: unable to resolve active session status', sessionError);
+    }
+    return detail;
   } catch (error) {
     console.error('clientGetUserDetail failed:', error);
     throw error;
   }
+}
+
+function userHasActiveSession(userIdentifier) {
+  try {
+    if (typeof AuthenticationService !== 'undefined'
+      && AuthenticationService
+      && typeof AuthenticationService.userHasActiveSession === 'function') {
+      return AuthenticationService.userHasActiveSession(userIdentifier);
+    }
+
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.hasActiveSession === 'function') {
+      return IdentityService.hasActiveSession(userIdentifier);
+    }
+  } catch (error) {
+    console.warn('userHasActiveSession helper failed', error);
+  }
+  return false;
 }
 
 function _normalizeFieldKey_(key) {
@@ -584,6 +581,932 @@ function _scanSheet_(sheet) {
   const idx = {}; headers.forEach((h, i) => idx[h] = i);
   return { headers, values, idx };
 }
+
+function _normalizeUserIdHeaderKey_(header) {
+  return String(header || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function _isLikelyUserIdHeader_(normalizedKey, extraKeys) {
+  if (!normalizedKey) return false;
+  if (normalizedKey === 'id' || normalizedKey === 'userid') return true;
+  if (normalizedKey === 'useridentifier' || normalizedKey === 'useruniqueid') return true;
+  if (normalizedKey === 'useruuid' || normalizedKey === 'userguid' || normalizedKey === 'useridlegacy') return true;
+  if (normalizedKey.indexOf('user') !== -1 && /id$/.test(normalizedKey)) return true;
+  if (extraKeys && extraKeys[normalizedKey]) return true;
+  return false;
+}
+
+function _normalizePotentialIdValue_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') return '';
+    return trimmed;
+  }
+  if (typeof value === 'number') {
+    if (!isFinite(value)) return '';
+    return String(value);
+  }
+  if (value instanceof Date) {
+    return String(value.getTime());
+  }
+  try {
+    return String(value);
+  } catch (_) {
+    return '';
+  }
+}
+
+function _generateUniqueUserId_(usedIds) {
+  let attempts = 0;
+  while (attempts < 20) {
+    let candidate = '';
+    if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
+      candidate = Utilities.getUuid();
+    } else {
+      const rand = Math.random().toString(36).slice(2, 10);
+      candidate = 'USR-' + Date.now().toString(36) + '-' + rand;
+    }
+    candidate = _normalizePotentialIdValue_(candidate);
+    if (candidate && !usedIds[candidate]) {
+      return candidate;
+    }
+    attempts += 1;
+  }
+  const fallback = 'USR-' + (new Date().getTime()) + '-' + Math.floor(Math.random() * 1000000);
+  return _normalizePotentialIdValue_(fallback) || fallback;
+}
+
+function _collectUserIdCandidatesFromStructure_(value, addCandidate, seenObjects, extraKeys) {
+  if (value === null || typeof value === 'undefined') return;
+  const valueType = typeof value;
+  if (valueType === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (trimmed[0] === '{' || trimmed[0] === '[') {
+      try {
+        const parsed = JSON.parse(trimmed);
+        _collectUserIdCandidatesFromStructure_(parsed, addCandidate, seenObjects, extraKeys);
+      } catch (_) { /* ignore malformed JSON */ }
+    }
+    return;
+  }
+  if (valueType === 'number' || valueType === 'boolean') return;
+  if (valueType !== 'object') return;
+
+  if (typeof WeakSet !== 'undefined') {
+    if (!seenObjects) {
+      seenObjects = new WeakSet();
+    } else if (seenObjects.has(value)) {
+      return;
+    }
+    seenObjects.add(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      _collectUserIdCandidatesFromStructure_(value[i], addCandidate, seenObjects, extraKeys);
+    }
+    return;
+  }
+
+  for (const key in value) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+    const normalizedKey = _normalizeUserIdHeaderKey_(key);
+    if (_isLikelyUserIdHeader_(normalizedKey, extraKeys)) {
+      const candidate = _normalizePotentialIdValue_(value[key]);
+      if (candidate) addCandidate(candidate);
+    }
+    _collectUserIdCandidatesFromStructure_(value[key], addCandidate, seenObjects, extraKeys);
+  }
+}
+
+function _collectRowUserIdCandidates_(row, headerMeta, options) {
+  const candidates = [];
+  const seen = {};
+  const addCandidate = function (candidate) {
+    if (!candidate || seen[candidate]) return;
+    seen[candidate] = true;
+    candidates.push(candidate);
+  };
+
+  const candidateIndexes = headerMeta && headerMeta.candidateIndexes ? headerMeta.candidateIndexes : [];
+  for (let i = 0; i < candidateIndexes.length; i++) {
+    const idx = candidateIndexes[i];
+    if (idx < 0 || idx >= row.length) continue;
+    const candidate = _normalizePotentialIdValue_(row[idx]);
+    if (candidate) addCandidate(candidate);
+  }
+
+  const allowNestedScan = !options || options.scanNested !== false;
+  if (allowNestedScan) {
+    for (let i = 0; i < row.length; i++) {
+      const cell = row[i];
+      if (cell === null || typeof cell === 'undefined') continue;
+      if (typeof cell === 'string') {
+        const trimmed = cell.trim();
+        if (!trimmed) continue;
+        if (trimmed[0] !== '{' && trimmed[0] !== '[') continue;
+      } else if (typeof cell !== 'object') {
+        continue;
+      }
+      try {
+        _collectUserIdCandidatesFromStructure_(cell, addCandidate, null, headerMeta.extraCandidateKeys);
+      } catch (_) { /* ignore traversal issues */ }
+    }
+  }
+
+  return candidates;
+}
+
+function _canonicalUserId_(user) {
+  if (!user || typeof user !== 'object') return '';
+  const candidates = [user.ID, user.Id, user.id, user.UserID, user.userId];
+  for (let i = 0; i < candidates.length; i++) {
+    const normalized = _normalizePotentialIdValue_(candidates[i]);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function _buildUserIdentifierLookup_() {
+  const users = _readUsersAsObjects_();
+  const lookup = {
+    users,
+    byId: {},
+    byUser: {},
+    byEmail: {}
+  };
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+    if (!user || typeof user !== 'object') continue;
+
+    const canonicalId = _canonicalUserId_(user);
+    if (canonicalId && !lookup.byId[canonicalId]) {
+      lookup.byId[canonicalId] = user;
+    }
+
+    const userKey = _normUser_(_getUserName_(user));
+    if (userKey && !lookup.byUser[userKey]) {
+      lookup.byUser[userKey] = user;
+    }
+
+    const emailKey = _normEmail_(user.Email || user.email);
+    if (emailKey && !lookup.byEmail[emailKey]) {
+      lookup.byEmail[emailKey] = user;
+    }
+  }
+
+  return lookup;
+}
+
+function ensureUsersHaveIds(options) {
+  const summary = {
+    success: true,
+    total: 0,
+    updated: 0,
+    generated: 0,
+    reused: 0,
+    duplicatesResolved: 0,
+    details: []
+  };
+
+  if (typeof SpreadsheetApp === 'undefined') {
+    summary.success = false;
+    summary.error = 'SpreadsheetApp is not available in this context.';
+    return summary;
+  }
+
+  let sheet;
+  try {
+    sheet = _getSheet_(G.USERS_SHEET);
+  } catch (sheetError) {
+    summary.success = false;
+    summary.error = sheetError && sheetError.message ? sheetError.message : String(sheetError);
+    return summary;
+  }
+
+  let scan;
+  try {
+    scan = _scanSheet_(sheet);
+  } catch (scanError) {
+    summary.success = false;
+    summary.error = scanError && scanError.message ? scanError.message : String(scanError);
+    return summary;
+  }
+
+  const headers = scan.headers || [];
+  const values = scan.values || [];
+  if (values.length <= 1) {
+    return summary;
+  }
+
+  const normalizedHeaderKeys = headers.map(_normalizeUserIdHeaderKey_);
+  const headerMeta = {
+    normalizedHeaderKeys,
+    candidateIndexes: [],
+    extraCandidateKeys: {}
+  };
+
+  if (options && Array.isArray(options.extraCandidateHeaders)) {
+    options.extraCandidateHeaders.forEach(header => {
+      const key = _normalizeUserIdHeaderKey_(header);
+      if (key) headerMeta.extraCandidateKeys[key] = true;
+    });
+  }
+
+  let idColumnIndex = -1;
+  for (let i = 0; i < normalizedHeaderKeys.length; i++) {
+    const key = normalizedHeaderKeys[i];
+    if (key === 'id') {
+      idColumnIndex = i;
+      break;
+    }
+  }
+  if (idColumnIndex === -1 && typeof scan.idx.ID === 'number') {
+    idColumnIndex = scan.idx.ID;
+  }
+  if (idColumnIndex === -1) {
+    summary.success = false;
+    summary.error = 'Users sheet is missing an ID column.';
+    return summary;
+  }
+
+  for (let i = 0; i < normalizedHeaderKeys.length; i++) {
+    if (i === idColumnIndex) continue;
+    const key = normalizedHeaderKeys[i];
+    if (_isLikelyUserIdHeader_(key, headerMeta.extraCandidateKeys)) {
+      headerMeta.candidateIndexes.push(i);
+    }
+  }
+
+  const rows = values.slice(1);
+  summary.total = rows.length;
+
+  const idUsageCounts = {};
+  const originalIds = new Array(rows.length);
+  for (let r = 0; r < rows.length; r++) {
+    const original = _normalizePotentialIdValue_(rows[r][idColumnIndex]);
+    originalIds[r] = original;
+    if (!original) continue;
+    idUsageCounts[original] = (idUsageCounts[original] || 0) + 1;
+  }
+
+  const duplicateSeenCounts = {};
+  const usedIds = {};
+  const idColumnValues = new Array(rows.length);
+  const columnUpdates = {};
+  const columnDirtyFlags = {};
+  headerMeta.candidateIndexes.forEach(index => {
+    columnUpdates[index] = rows.map(row => row[index]);
+    columnDirtyFlags[index] = false;
+  });
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    const originalId = originalIds[r];
+    let finalId = originalId;
+    let action = 'kept';
+
+    if (finalId) {
+      if (idUsageCounts[finalId] > 1) {
+        duplicateSeenCounts[finalId] = (duplicateSeenCounts[finalId] || 0) + 1;
+        if (duplicateSeenCounts[finalId] === 1 && !usedIds[finalId]) {
+          usedIds[finalId] = true;
+          action = 'kept';
+        } else {
+          finalId = '';
+        }
+      } else if (usedIds[finalId]) {
+        finalId = '';
+      } else {
+        usedIds[finalId] = true;
+      }
+    }
+
+    if (!finalId) {
+      const candidates = _collectRowUserIdCandidates_(row, headerMeta, options || {});
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        if (!usedIds[candidate]) {
+          finalId = candidate;
+          usedIds[finalId] = true;
+          summary.reused += 1;
+          action = 'reused';
+          break;
+        }
+      }
+    }
+
+    if (!finalId) {
+      finalId = _generateUniqueUserId_(usedIds);
+      usedIds[finalId] = true;
+      summary.generated += 1;
+      action = 'generated';
+    }
+
+    if (originalId !== finalId) {
+      summary.updated += 1;
+      if (originalId && idUsageCounts[originalId] > 1) {
+        summary.duplicatesResolved += 1;
+      }
+      row[idColumnIndex] = finalId;
+    }
+
+    idColumnValues[r] = [finalId];
+    summary.details.push({
+      rowNumber: r + 2,
+      originalId: originalId,
+      finalId: finalId,
+      action: action
+    });
+
+    for (let c = 0; c < headerMeta.candidateIndexes.length; c++) {
+      const idx = headerMeta.candidateIndexes[c];
+      const current = _normalizePotentialIdValue_(row[idx]);
+      if (!current || current === originalId || current === finalId) {
+        if (_normalizePotentialIdValue_(columnUpdates[idx][r]) !== finalId) {
+          columnUpdates[idx][r] = finalId;
+          row[idx] = finalId;
+          columnDirtyFlags[idx] = true;
+        }
+      }
+    }
+  }
+
+  try {
+    if (summary.updated > 0) {
+      sheet.getRange(2, idColumnIndex + 1, rows.length, 1).setValues(idColumnValues);
+    }
+    Object.keys(columnUpdates).forEach(indexKey => {
+      if (!columnDirtyFlags[indexKey]) return;
+      const columnIndex = Number(indexKey);
+      const columnValues = columnUpdates[columnIndex].map(value => [value]);
+      sheet.getRange(2, columnIndex + 1, rows.length, 1).setValues(columnValues);
+    });
+  } catch (writeError) {
+    summary.success = false;
+    summary.error = writeError && writeError.message ? writeError.message : String(writeError);
+  }
+
+  return summary;
+}
+
+function reconcileUserIdReferencesAcrossSheets(options) {
+  const summary = {
+    success: true,
+    metrics: {
+      totalSheets: 0,
+      processedSheets: 0,
+      sheetsWithUpdates: 0,
+      totalRows: 0,
+      totalBlankUserIdRows: 0,
+      totalUpdatedRows: 0,
+      totalResolved: 0,
+      totalUnresolved: 0
+    },
+    sheets: [],
+    warnings: [],
+    errors: []
+  };
+
+  const sheetExistenceCache = Object.create(null);
+  function sheetExists(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return false;
+    const cacheKey = trimmed.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(sheetExistenceCache, cacheKey)) {
+      return sheetExistenceCache[cacheKey];
+    }
+
+    if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
+      sheetExistenceCache[cacheKey] = true;
+      return true;
+    }
+
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (!ss || typeof ss.getSheetByName !== 'function') {
+        sheetExistenceCache[cacheKey] = true;
+        return true;
+      }
+      const exists = !!ss.getSheetByName(trimmed);
+      sheetExistenceCache[cacheKey] = exists;
+      return exists;
+    } catch (existsError) {
+      const message = existsError && existsError.message ? existsError.message : String(existsError);
+      summary.warnings.push({ sheet: trimmed, stage: 'existsCheck', error: message });
+      _userLog_('UserService.reconcileUserIdReferences.sheetExistsCheckFailed', { sheet: trimmed, error: message }, 'warn');
+      sheetExistenceCache[cacheKey] = true;
+      return true;
+    }
+  }
+
+  let lookup;
+  try {
+    lookup = _buildUserIdentifierLookup_();
+  } catch (lookupError) {
+    summary.success = false;
+    summary.error = lookupError && lookupError.message ? lookupError.message : String(lookupError);
+    _userLog_('UserService.reconcileUserIdReferences.lookupFailed', { error: summary.error }, 'error');
+    return summary;
+  }
+
+  const requestedSheets = Array.isArray(options && options.sheets)
+    ? options.sheets.map(name => String(name || '').trim().toLowerCase()).filter(Boolean)
+    : null;
+
+  const baseAltIdHeaders = [
+    'UserID', 'UserId', 'User UUID', 'User GUID', 'EmployeeID', 'EmployeeId',
+    'AgentID', 'AgentId', 'AgentUserID', 'AgentUserId', 'ProfileID', 'ProfileId',
+    'UserProfileID', 'UserProfileId', 'RequestorUserID', 'RequestorUserId',
+    'TargetUserID', 'TargetUserId', 'AssigneeID', 'AssigneeId',
+    'ManagedUserID', 'ManagedUserId'
+  ];
+  const baseUsernameHeaders = [
+    'UserName', 'User', 'FullName', 'DisplayName', 'UserFullName',
+    'AgentName', 'AgentUserName', 'ManagedUserName', 'RequestorUserName',
+    'TargetUserName', 'AssignedUser', 'AssignedTo', 'EmployeeName',
+    'OwnerName', 'ContactName'
+  ];
+  const baseEmailHeaders = [
+    'Email', 'UserEmail', 'LoginEmail', 'AgentEmail', 'EmployeeEmail',
+    'ContactEmail', 'OwnerEmail', 'ManagedUserEmail'
+  ];
+
+  function toNormalizedSet(base, extras) {
+    const set = Object.create(null);
+    (base || []).forEach(value => {
+      const key = _normalizeUserIdHeaderKey_(value);
+      if (key) set[key] = true;
+    });
+    (extras || []).forEach(value => {
+      const key = _normalizeUserIdHeaderKey_(value);
+      if (key) set[key] = true;
+    });
+    return set;
+  }
+
+  function resolveSheetConfigs() {
+    const attendanceSheetName = (typeof G.ATTENDANCE_LOG_SHEET === 'string' && G.ATTENDANCE_LOG_SHEET) ||
+      (typeof G.ATTENDANCE_SHEET === 'string' && G.ATTENDANCE_SHEET) ||
+      'AttendanceLog';
+    const seen = Object.create(null);
+    const out = [];
+    function pushConfig(sheetName, cfg) {
+      const normalizedName = String(sheetName || '').trim();
+      if (!normalizedName) return;
+      const key = normalizedName.toLowerCase();
+      if (!key || seen[key]) return;
+      if (requestedSheets && requestedSheets.length && requestedSheets.indexOf(key) === -1) return;
+      if (!sheetExists(normalizedName)) return;
+      seen[key] = true;
+      out.push({
+        name: normalizedName,
+        label: cfg.label || normalizedName,
+        idColumnKeys: cfg.idColumnKeys || ['UserID', 'UserId'],
+        altIdKeys: cfg.altIdKeys || [],
+        usernameKeys: cfg.usernameKeys || [],
+        emailKeys: cfg.emailKeys || []
+      });
+    }
+
+    function addSheetCandidates(candidates, cfg) {
+      const list = Array.isArray(candidates) ? candidates : [candidates];
+      list.forEach(candidate => {
+        let value = candidate;
+        if (typeof value === 'function') {
+          try {
+            value = value();
+          } catch (candidateError) {
+            value = null;
+          }
+        }
+        if (value === null || typeof value === 'undefined') return;
+        pushConfig(value, cfg);
+      });
+    }
+
+    addSheetCandidates([G.USER_ROLES_SHEET, (typeof USER_ROLES_SHEET !== 'undefined') ? USER_ROLES_SHEET : null, 'UserRoles'], {
+      label: 'User roles',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      G.CAMPAIGN_USER_PERMISSIONS_SHEET,
+      (typeof CAMPAIGN_USER_PERMISSIONS_SHEET !== 'undefined') ? CAMPAIGN_USER_PERMISSIONS_SHEET : null,
+      'CampaignUserPermissions'
+    ], {
+      label: 'Campaign user permissions',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'User'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      G.USER_EQUIPMENT_SHEET,
+      (typeof USER_EQUIPMENT_SHEET !== 'undefined') ? USER_EQUIPMENT_SHEET : null,
+      'UserEquipment'
+    ], {
+      label: 'User equipment',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AssignedTo', 'AssignedUser', 'EmployeeName', 'OwnerName'],
+      emailKeys: ['UserEmail', 'Email', 'OwnerEmail', 'EmployeeEmail']
+    });
+
+    addSheetCandidates([
+      G.MANAGER_USERS_SHEET,
+      (typeof USER_MANAGERS_SHEET !== 'undefined') ? USER_MANAGERS_SHEET : null,
+      'MANAGER_USERS',
+      'ManagerUsers',
+      'UserManagers'
+    ], {
+      label: 'Manager user mappings',
+      idColumnKeys: ['UserID', 'UserId'],
+      altIdKeys: ['ManagedUserID', 'ManagedUserId'],
+      usernameKeys: ['ManagedUserName', 'UserName', 'User'],
+      emailKeys: ['ManagedUserEmail', 'UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      attendanceSheetName,
+      (typeof ATTENDANCE_LOG_SHEET !== 'undefined') ? ATTENDANCE_LOG_SHEET : null,
+      (typeof ATTENDANCE_SHEET !== 'undefined') ? ATTENDANCE_SHEET : null
+    ], {
+      label: 'Attendance log',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['User', 'UserName', 'Agent', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email', 'AgentEmail']
+    });
+
+    addSheetCandidates([
+      G.USER_CAMPAIGNS_SHEET,
+      (typeof USER_CAMPAIGNS_SHEET !== 'undefined') ? USER_CAMPAIGNS_SHEET : null,
+      'UserCampaigns'
+    ], {
+      label: 'User campaign assignments',
+      idColumnKeys: ['UserID', 'UserId'],
+      altIdKeys: [],
+      usernameKeys: ['UserName', 'AgentName', 'FullName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof SCHEDULE_GENERATION_SHEET !== 'undefined') ? SCHEDULE_GENERATION_SHEET : null,
+      'GeneratedSchedules'
+    ], {
+      label: 'Generated schedules',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName', 'AssignedUser'],
+      emailKeys: ['UserEmail', 'Email', 'AgentEmail']
+    });
+
+    addSheetCandidates([
+      (typeof SCHEDULE_NOTIFICATIONS_SHEET !== 'undefined') ? SCHEDULE_NOTIFICATIONS_SHEET : null,
+      'ScheduleNotifications'
+    ], {
+      label: 'Schedule notifications',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AssignedUser', 'RecipientName'],
+      emailKeys: ['UserEmail', 'Email', 'RecipientEmail']
+    });
+
+    addSheetCandidates([
+      (typeof SCHEDULE_ADHERENCE_SHEET !== 'undefined') ? SCHEDULE_ADHERENCE_SHEET : null,
+      'ScheduleAdherence'
+    ], {
+      label: 'Schedule adherence',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof RECURRING_SCHEDULES_SHEET !== 'undefined') ? RECURRING_SCHEDULES_SHEET : null,
+      'RecurringSchedules'
+    ], {
+      label: 'Recurring schedules',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof ATTENDANCE_STATUS_SHEET !== 'undefined') ? ATTENDANCE_STATUS_SHEET : null,
+      'AttendanceStatus'
+    ], {
+      label: 'Attendance status',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'AgentName'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates([
+      (typeof USER_HOLIDAY_PAY_STATUS_SHEET !== 'undefined') ? USER_HOLIDAY_PAY_STATUS_SHEET : null,
+      'UserHolidayPayStatus'
+    ], {
+      label: 'Holiday pay status',
+      idColumnKeys: ['UserID', 'UserId'],
+      usernameKeys: ['UserName', 'EmployeeName'],
+      emailKeys: ['UserEmail', 'Email', 'EmployeeEmail']
+    });
+
+    addSheetCandidates('UserBookmarks', {
+      label: 'User bookmarks',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates('BrowsingAnalytics', {
+      label: 'Browsing analytics',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates('SecurityIncidents', {
+      label: 'Security incidents',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    addSheetCandidates('ComplianceAuditTrail', {
+      label: 'Compliance audit trail',
+      idColumnKeys: ['UserID', 'UserId'],
+      emailKeys: ['UserEmail', 'Email']
+    });
+
+    return out;
+  }
+
+  const configs = resolveSheetConfigs();
+  summary.metrics.totalSheets = configs.length;
+
+  if (!configs.length) {
+    summary.warnings.push({ message: 'No sheets resolved for reconciliation', requestedSheets: requestedSheets || [] });
+    _userLog_('UserService.reconcileUserIdReferences.noSheets', { requestedSheets: requestedSheets || [] }, 'warn');
+    return summary;
+  }
+
+  configs.forEach(config => {
+    const sheetName = config.name;
+    summary.metrics.processedSheets += 1;
+
+    let sheet;
+    try {
+      sheet = _getSheet_(sheetName);
+    } catch (sheetError) {
+      const message = sheetError && sheetError.message ? sheetError.message : String(sheetError);
+      summary.success = false;
+      summary.errors.push({ sheet: sheetName, stage: 'getSheet', error: message });
+      _userLog_('UserService.reconcileUserIdReferences.sheetMissing', { sheet: sheetName, error: message }, 'warn');
+      return;
+    }
+
+    let scan;
+    try {
+      scan = _scanSheet_(sheet);
+    } catch (scanError) {
+      const message = scanError && scanError.message ? scanError.message : String(scanError);
+      summary.success = false;
+      summary.errors.push({ sheet: sheetName, stage: 'scanSheet', error: message });
+      _userLog_('UserService.reconcileUserIdReferences.scanFailed', { sheet: sheetName, error: message }, 'warn');
+      return;
+    }
+
+    const headers = scan.headers || [];
+    const values = scan.values || [];
+    if (values.length <= 1) {
+      const sheetSummary = {
+        sheetName,
+        label: config.label,
+        totalRows: 0,
+        blankUserIdRows: 0,
+        resolvedRows: 0,
+        unresolvedRows: 0,
+        identifierUsage: { id: 0, username: 0, email: 0 },
+        skipped: 'noDataRows'
+      };
+      summary.sheets.push(sheetSummary);
+      _userLog_('UserService.reconcileUserIdReferences.sheetSummary', sheetSummary);
+      return;
+    }
+
+    const normalizedHeaders = headers.map(_normalizeUserIdHeaderKey_);
+    const idColumnKeySet = toNormalizedSet(config.idColumnKeys || ['UserID', 'UserId']);
+    const idColumnIndexes = [];
+    const idColumnIndexSet = Object.create(null);
+    for (let i = 0; i < normalizedHeaders.length; i++) {
+      if (idColumnKeySet[normalizedHeaders[i]]) {
+        idColumnIndexes.push(i);
+        idColumnIndexSet[i] = true;
+      }
+    }
+
+    if (!idColumnIndexes.length) {
+      const sheetSummary = {
+        sheetName,
+        label: config.label,
+        totalRows: values.length - 1,
+        blankUserIdRows: 0,
+        resolvedRows: 0,
+        unresolvedRows: 0,
+        identifierUsage: { id: 0, username: 0, email: 0 },
+        skipped: 'missingUserIdColumn'
+      };
+      summary.warnings.push({ sheet: sheetName, message: 'UserID column not found' });
+      summary.sheets.push(sheetSummary);
+      _userLog_('UserService.reconcileUserIdReferences.sheetSummary', sheetSummary, 'warn');
+      return;
+    }
+
+    const altIdKeys = toNormalizedSet(baseAltIdHeaders, config.altIdKeys);
+    const usernameKeys = toNormalizedSet(baseUsernameHeaders, config.usernameKeys);
+    const emailKeys = toNormalizedSet(baseEmailHeaders, config.emailKeys);
+
+    const altIndexes = { id: [], username: [], email: [] };
+    const seenIndexes = Object.create(null);
+    for (let i = 0; i < normalizedHeaders.length; i++) {
+      if (idColumnIndexSet[i]) continue;
+      const key = normalizedHeaders[i];
+      if (!key) continue;
+      if (altIdKeys[key]) {
+        if (!seenIndexes['id:' + i]) {
+          altIndexes.id.push(i);
+          seenIndexes['id:' + i] = true;
+        }
+      }
+      if (usernameKeys[key]) {
+        if (!seenIndexes['username:' + i]) {
+          altIndexes.username.push(i);
+          seenIndexes['username:' + i] = true;
+        }
+      }
+      if (emailKeys[key]) {
+        if (!seenIndexes['email:' + i]) {
+          altIndexes.email.push(i);
+          seenIndexes['email:' + i] = true;
+        }
+      }
+    }
+
+    const rows = values.slice(1);
+    const sheetSummary = {
+      sheetName,
+      label: config.label,
+      totalRows: rows.length,
+      blankUserIdRows: 0,
+      resolvedRows: 0,
+      unresolvedRows: 0,
+      identifierUsage: { id: 0, username: 0, email: 0 },
+      sampleResolved: [],
+      columnSummaries: []
+    };
+    const columnWriteQueue = [];
+
+    for (let c = 0; c < idColumnIndexes.length; c++) {
+      const columnIndex = idColumnIndexes[c];
+      const columnHeader = headers[columnIndex] || '';
+      const columnValues = new Array(rows.length);
+      const columnSummary = {
+        columnIndex,
+        header: columnHeader,
+        blankUserIdRows: 0,
+        resolvedRows: 0,
+        unresolvedRows: 0,
+        identifierUsage: { id: 0, username: 0, email: 0 }
+      };
+      let columnHadChanges = false;
+
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r] || [];
+        const currentValue = row[columnIndex];
+        const normalizedCurrent = _normalizePotentialIdValue_(currentValue);
+        let finalValue = (currentValue === null || typeof currentValue === 'undefined') ? '' : currentValue;
+        let resolvedThisCell = false;
+
+        if (!normalizedCurrent) {
+          columnSummary.blankUserIdRows += 1;
+
+          let matchedUser = null;
+          let matchedVia = '';
+
+          for (let i = 0; i < altIndexes.id.length && !matchedUser; i++) {
+            const candidate = _normalizePotentialIdValue_(row[altIndexes.id[i]]);
+            if (!candidate) continue;
+            matchedUser = lookup.byId[candidate];
+            if (matchedUser) {
+              matchedVia = 'id';
+              break;
+            }
+          }
+
+          if (!matchedUser) {
+            for (let i = 0; i < altIndexes.username.length && !matchedUser; i++) {
+              const candidate = _normUser_(row[altIndexes.username[i]]);
+              if (!candidate) continue;
+              matchedUser = lookup.byUser[candidate];
+              if (matchedUser) {
+                matchedVia = 'username';
+                break;
+              }
+            }
+          }
+
+          if (!matchedUser) {
+            for (let i = 0; i < altIndexes.email.length && !matchedUser; i++) {
+              const candidate = _normEmail_(row[altIndexes.email[i]]);
+              if (!candidate) continue;
+              matchedUser = lookup.byEmail[candidate];
+              if (matchedUser) {
+                matchedVia = 'email';
+                break;
+              }
+            }
+          }
+
+          if (matchedUser) {
+            const canonicalId = _canonicalUserId_(matchedUser);
+            if (canonicalId) {
+              finalValue = canonicalId;
+              resolvedThisCell = true;
+              columnSummary.resolvedRows += 1;
+              const usageKey = matchedVia || 'id';
+              if (columnSummary.identifierUsage[usageKey] !== undefined) {
+                columnSummary.identifierUsage[usageKey] += 1;
+              }
+              if (sheetSummary.sampleResolved.length < 5) {
+                sheetSummary.sampleResolved.push({
+                  row: r + 2,
+                  column: columnHeader,
+                  userId: canonicalId,
+                  via: usageKey
+                });
+              }
+            } else {
+              columnSummary.unresolvedRows += 1;
+            }
+          } else {
+            columnSummary.unresolvedRows += 1;
+          }
+        }
+
+        if (resolvedThisCell && normalizedCurrent !== finalValue) {
+          columnHadChanges = true;
+        }
+
+        row[columnIndex] = finalValue;
+        columnValues[r] = [finalValue];
+      }
+
+      sheetSummary.blankUserIdRows += columnSummary.blankUserIdRows;
+      sheetSummary.resolvedRows += columnSummary.resolvedRows;
+      sheetSummary.unresolvedRows += columnSummary.unresolvedRows;
+      ['id', 'username', 'email'].forEach(key => {
+        sheetSummary.identifierUsage[key] += columnSummary.identifierUsage[key];
+      });
+
+      if (columnHadChanges) {
+        columnWriteQueue.push({ index: columnIndex, values: columnValues });
+      }
+
+      sheetSummary.columnSummaries.push(Object.assign({ hadChanges: columnHadChanges }, columnSummary));
+    }
+
+    summary.metrics.totalRows += sheetSummary.totalRows;
+    summary.metrics.totalBlankUserIdRows += sheetSummary.blankUserIdRows;
+    summary.metrics.totalResolved += sheetSummary.resolvedRows;
+    summary.metrics.totalUnresolved += sheetSummary.unresolvedRows;
+
+    if (columnWriteQueue.length && rows.length > 0) {
+      try {
+        columnWriteQueue.forEach(column => {
+          sheet.getRange(2, column.index + 1, rows.length, 1).setValues(column.values);
+        });
+        summary.metrics.sheetsWithUpdates += 1;
+        summary.metrics.totalUpdatedRows += sheetSummary.resolvedRows;
+        try { invalidateCache && invalidateCache(sheetName); } catch (_) { }
+      } catch (writeError) {
+        const message = writeError && writeError.message ? writeError.message : String(writeError);
+        summary.success = false;
+        summary.errors.push({ sheet: sheetName, stage: 'write', error: message });
+        sheetSummary.writeError = message;
+        _userLog_('UserService.reconcileUserIdReferences.writeFailed', { sheet: sheetName, error: message }, 'error');
+      }
+    }
+
+    summary.sheets.push(sheetSummary);
+    _userLog_('UserService.reconcileUserIdReferences.sheetSummary', sheetSummary);
+  });
+
+  _userLog_('UserService.reconcileUserIdReferences.summary', summary);
+  return summary;
+}
 function ensureOptionalUserColumns_(sh, headers, idx) {
   let changed = false;
   const hdrs = headers.slice();
@@ -804,12 +1727,6 @@ function getOrCreateCampaignPermsSheet_() {
 }
 function setCampaignUserPermissions(campaignId, userId, permissionLevel, canManageUsers, canManagePages) {
   try {
-    const auth = _ensureUserServiceIdentity_();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!_hasUserAdminPrivileges_(identity)) {
-      return { success: false, error: 'You do not have permission to modify campaign permissions.', errorCode: 'FORBIDDEN' };
-    }
-
     if (!campaignId || !userId) return { success: false, error: 'campaignId and userId are required' };
     const lvl = String(permissionLevel || 'VIEWER').toUpperCase();
     const cmu = (canManageUsers === true || String(canManageUsers).toLowerCase() === 'true');
@@ -843,7 +1760,6 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
       for (let c = 0; c < headers.length; c++) if (typeof row[c] === 'undefined') row[c] = '';
       sh.appendRow(row);
       if (typeof invalidateCache === 'function') invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
-      clearLuminaIdentityUserCache(userId);
       return { success: true, created: true, message: 'Permissions saved', campaignId, userId, permissionLevel: lvl, canManageUsers: cmu, canManagePages: cmp };
     } else {
       const r = rowIndex + 1;
@@ -852,7 +1768,6 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
       if (idx.CanManagePages >= 0) sh.getRange(r, idx.CanManagePages + 1).setValue(cmp ? 'TRUE' : 'FALSE');
       if (idx.UpdatedAt >= 0) sh.getRange(r, idx.UpdatedAt + 1).setValue(nowIso);
       if (typeof invalidateCache === 'function') invalidateCache(G.CAMPAIGN_USER_PERMISSIONS_SHEET);
-      clearLuminaIdentityUserCache(userId);
       return { success: true, updated: true, message: 'Permissions saved', campaignId, userId, permissionLevel: lvl, canManageUsers: cmu, canManagePages: cmp };
     }
   } catch (e) { writeError && writeError('setCampaignUserPermissions', e); return { success: false, error: e.message }; }
@@ -861,26 +1776,15 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
 // ───────────────────────────────────────────────────────────────────────────────
 // Users: get all (campaign-aware) + safe mappers
 // ───────────────────────────────────────────────────────────────────────────────
-function clientGetAllUsers(requestingUserId, context) {
+function clientGetAllUsers(requestingUserId) {
   try {
-    let explicitUserId = requestingUserId;
-    let invocationContext = context;
-    if (explicitUserId && typeof explicitUserId === 'object' && !Array.isArray(explicitUserId)) {
-      invocationContext = explicitUserId;
-      explicitUserId = null;
+    try {
+      ensureUsersHaveIds();
+    } catch (ensureError) {
+      try {
+        writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError);
+      } catch (_) { }
     }
-
-    let identityResolution = null;
-    if (explicitUserId) {
-      identityResolution = _resolveUserServiceIdentity_(invocationContext);
-    } else {
-      identityResolution = _ensureUserServiceIdentity_(invocationContext);
-    }
-
-    const identity = identityResolution ? identityResolution.identity : null;
-    const actingUserId = explicitUserId
-      || (identity && (identity.id || identity.userId || identity.ID || identity.UserId))
-      || '';
 
     let users = [];
     try {
@@ -889,69 +1793,81 @@ function clientGetAllUsers(requestingUserId, context) {
       } else {
         users = readSheet(G.USERS_SHEET);
       }
-    } catch (e) {
-      writeError('clientGetAllUsers - readSheet', e);
-      return [];
-    }
+    } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
     if (!Array.isArray(users) || users.length === 0) return [];
 
     const enhancedUsers = [];
     for (let i = 0; i < users.length; i++) {
       try {
         const u = users[i];
-        if (!u || !u.ID) continue;
+        if (!u || typeof u !== 'object') {
+          _userLog_('clientGetAllUsers.invalidRow', { index: i, row: _userSanitizeForLog_(u) }, 'warn');
+          enhancedUsers.push(createMinimalUserObject(u || {}));
+          continue;
+        }
+
+        if (!u.ID) {
+          const coercedId = u.Id || u.id;
+          if (coercedId) {
+            u.ID = coercedId;
+            users[i] = u;
+          }
+        }
+
+        if (!u.ID) {
+          try {
+            ensureUsersHaveIds();
+          } catch (ensureLoopError) {
+            try {
+              writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError);
+            } catch (_) { }
+          }
+
+          if (!u.ID) {
+            const refreshedId = u.Id || u.id;
+            if (refreshedId) {
+              u.ID = refreshedId;
+              users[i] = u;
+            }
+          }
+        }
+
+        if (!u.ID) {
+          _userLog_('clientGetAllUsers.rowMissingId', {
+            index: i,
+            row: _userSanitizeForLog_(u)
+          }, 'warn');
+          enhancedUsers.push(createMinimalUserObject(u));
+          continue;
+        }
+
         enhancedUsers.push(createSafeUserObject(u));
       } catch (userErr) {
-        enhancedUsers.push(createMinimalUserObject(users[i]));
+        enhancedUsers.push(createMinimalUserObject(users[i] || {}));
       }
     }
 
     let filteredUsers = enhancedUsers;
-
-    if (identity) {
-      if (_hasUserAdminPrivileges_(identity)) {
-        filteredUsers = enhancedUsers;
-      } else if (actingUserId) {
-        try {
-          const managedCampaigns = getUserManagedCampaigns(actingUserId) || [];
-          const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
-          if (managedSet.size > 0) {
-            const managedIds = new Set(Array.from(managedSet).map(String));
-            filteredUsers = enhancedUsers.filter(u => {
-              if (String(u.ID) === String(actingUserId)) return true;
-              const uCamps = (typeof getUserCampaignsSafe === 'function')
-                ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
-                : (u.CampaignID ? [String(u.CampaignID)] : []);
-              return uCamps.some(cid => managedIds.has(cid));
-            });
-          } else {
-            filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(actingUserId));
-          }
-        } catch (permissionError) {
-          _userLog_('UserService.clientGetAllUsers.permissionFallback', permissionError, 'warn');
-          filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(actingUserId));
-        }
-      }
-    } else if (actingUserId) {
+    if (requestingUserId) {
       try {
-        const requestingUser = users.find(u => String(u.ID) === String(actingUserId));
+        const requestingUser = users.find(u => String(u.ID) === String(requestingUserId));
         if (requestingUser) {
           if (isUserAdmin(requestingUser)) {
             filteredUsers = enhancedUsers;
           } else {
-            const managedCampaigns = getUserManagedCampaigns(actingUserId) || [];
+            const managedCampaigns = getUserManagedCampaigns(requestingUserId) || [];
             const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
             if (managedSet.size > 0) {
               const managedIds = new Set(Array.from(managedSet).map(String));
               filteredUsers = enhancedUsers.filter(u => {
-                if (String(u.ID) === String(actingUserId)) return true;
+                if (String(u.ID) === String(requestingUserId)) return true;
                 const uCamps = (typeof getUserCampaignsSafe === 'function')
                   ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
                   : (u.CampaignID ? [String(u.CampaignID)] : []);
                 return uCamps.some(cid => managedIds.has(cid));
               });
             } else {
-              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(actingUserId));
+              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(requestingUserId));
             }
           }
         } else {
@@ -961,12 +1877,8 @@ function clientGetAllUsers(requestingUserId, context) {
         filteredUsers = enhancedUsers;
       }
     }
-
     return filteredUsers;
-  } catch (globalError) {
-    writeError('clientGetAllUsers', globalError);
-    return [];
-  }
+  } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
 }
 
 function createSafeUserObject(user) {
@@ -2185,124 +3097,6 @@ function clientRepairUsernames() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// Password / email utilities (public entry point)
-// ───────────────────────────────────────────────────────────────────────────────
-
-/**
- * Public password reset request invoked by login/forgot password pages.
- * Responds with a generic message when the email is not found so callers
- * cannot enumerate valid accounts.
- *
- * @param {string} rawEmail
- * @return {{success: boolean, message: string}}
- */
-function requestPasswordReset(rawEmail) {
-  const genericMessage = 'If an account with this email exists, a password reset link has been sent.';
-  const email = (rawEmail || '').toString().trim().toLowerCase();
-
-  if (!email) {
-    return { success: false, message: 'Please enter the email associated with your account.' };
-  }
-
-  const lock = LockService.getScriptLock();
-  try {
-    if (!lock.tryLock(5000)) {
-      return { success: false, message: 'The system is busy. Please try again in a moment.' };
-    }
-  } catch (lockError) {
-    writeError && writeError('requestPasswordReset:lock', lockError);
-    return { success: false, message: 'The system is busy. Please try again in a moment.' };
-  }
-
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss && ss.getSheetByName(G.USERS_SHEET);
-    if (!sheet) {
-      throw new Error('Users sheet not found');
-    }
-
-    const data = sheet.getDataRange().getValues();
-    if (!data || data.length <= 1) {
-      return { success: true, message: genericMessage };
-    }
-
-    const headers = data[0];
-    const idx = {};
-    headers.forEach((header, i) => { idx[String(header)] = i; });
-
-    if (typeof idx['Email'] === 'undefined') {
-      throw new Error('Users sheet missing Email column');
-    }
-
-    const emailIndex = idx['Email'];
-    let rowIndex = -1;
-
-    for (let i = 1; i < data.length; i++) {
-      const rowEmail = String(data[i][emailIndex] || '').trim().toLowerCase();
-      if (rowEmail === email) {
-        rowIndex = i;
-        break;
-      }
-    }
-
-    if (rowIndex === -1) {
-      return { success: true, message: genericMessage };
-    }
-
-    const row = data[rowIndex];
-    const canLoginIndex = idx['CanLogin'];
-    if (typeof canLoginIndex !== 'undefined' && canLoginIndex >= 0) {
-      if (!_strToBool_(row[canLoginIndex])) {
-        return { success: true, message: genericMessage };
-      }
-    }
-
-    const token = Utilities.getUuid();
-
-    if (typeof idx['EmailConfirmation'] !== 'undefined' && idx['EmailConfirmation'] >= 0) {
-      sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-    }
-
-    if (typeof idx['ResetRequired'] !== 'undefined' && idx['ResetRequired'] >= 0) {
-      sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
-    }
-
-    if (typeof idx['UpdatedAt'] !== 'undefined' && idx['UpdatedAt'] >= 0) {
-      sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
-    }
-
-    try {
-      invalidateCache && invalidateCache(G.USERS_SHEET);
-    } catch (cacheError) {
-      writeError && writeError('requestPasswordReset:cache', cacheError);
-    }
-
-    try {
-      if (typeof sendPasswordResetEmail === 'function') {
-        sendPasswordResetEmail(row[emailIndex], token);
-      } else if (typeof sendAdminPasswordResetEmail === 'function') {
-        sendAdminPasswordResetEmail(row[emailIndex], { resetToken: token });
-      } else {
-        throw new Error('No password reset email template available');
-      }
-    } catch (mailError) {
-      writeError && writeError('requestPasswordReset:send', mailError);
-      return {
-        success: false,
-        message: 'We were unable to send the reset email. Please try again later or contact support.'
-      };
-    }
-
-    return { success: true, message: genericMessage };
-  } catch (error) {
-    writeError && writeError('requestPasswordReset', error);
-    return { success: false, message: 'An unexpected error occurred. Please try again later.' };
-  } finally {
-    try { lock.releaseLock(); } catch (_) { }
-  }
-}
-
-// ───────────────────────────────────────────────────────────────────────────────
 // Password / email utilities (admin paths)
 // ───────────────────────────────────────────────────────────────────────────────
 function clientAdminResetPassword(userId, requestingUserId) {
@@ -2330,10 +3124,39 @@ function clientAdminResetPassword(userId, requestingUserId) {
     const canLogin = _strToBool_(row[idx['CanLogin']]);
     if (!canLogin) return { success: false, error: 'User cannot login (CanLogin is FALSE)' };
 
-    const token = Utilities.getUuid();
-    if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
-    if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
-    if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(new Date());
+    let token = null;
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.beginPasswordReset === 'function') {
+      try {
+        const resetResult = IdentityService.beginPasswordReset(email, { sendEmail: false, returnTokens: true });
+        if (resetResult && resetResult.success !== false && resetResult.resetToken) {
+          token = resetResult.resetToken;
+        } else {
+          console.warn('clientAdminResetPassword: IdentityService returned unexpected result', resetResult);
+        }
+      } catch (identityErr) {
+        writeError && writeError('clientAdminResetPassword:IdentityService', identityErr);
+      }
+    }
+
+    if (!token) {
+      token = Utilities.getUuid();
+      const sentAt = new Date();
+      const expiresAtDate = new Date(sentAt.getTime() + 60 * 60000);
+      const sentAtIso = sentAt.toISOString();
+      const expiresAtIso = expiresAtDate.toISOString();
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
+      const tokenHash = digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+
+      if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
+      if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
+      if (idx['ResetPasswordTokenHash'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordTokenHash'] + 1).setValue(tokenHash);
+      if (idx['ResetPasswordSentAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordSentAt'] + 1).setValue(sentAtIso);
+      if (idx['ResetPasswordExpiresAt'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordExpiresAt'] + 1).setValue(expiresAtIso);
+      if (idx['ResetRequired'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetRequired'] + 1).setValue('TRUE');
+      if (idx['UpdatedAt'] >= 0) sheet.getRange(rowIndex + 1, idx['UpdatedAt'] + 1).setValue(sentAtIso);
+    }
 
     invalidateCache && invalidateCache(G.USERS_SHEET);
 
@@ -3315,6 +4138,11 @@ function _csvUnion_(a1, a2) { const set = new Set([...(a1 || []), ...(a2 || [])]
 function _now_() { return new Date(); }
 
 function _readUsersAsObjects_() {
+  try {
+    ensureUsersHaveIds();
+  } catch (ensureError) {
+    try { writeError && writeError('_readUsersAsObjects_.ensureUsersHaveIds', ensureError); } catch (_) { }
+  }
   try { if (typeof readSheet === 'function') return readSheet(G.USERS_SHEET) || []; } catch (e) { writeError && writeError('_readUsersAsObjects_', e); }
   const sh = _getSheet_(G.USERS_SHEET);
   const { headers, values } = _scanSheet_(sh);
@@ -3941,6 +4769,11 @@ function debugNotifyResolution_(userIdOrNewUser) {
     return { success: true, directMgr: directMgr && directMgr.Email, directEmail, campMgr: campMgr && campMgr.Email, campEmail };
   } catch (e) { return { success: false, error: String(e) }; }
 }
+
+var UserService = typeof UserService !== 'undefined' ? UserService : {};
+UserService.ensureUsersHaveIds = ensureUsersHaveIds;
+UserService.reconcileUserIdReferencesAcrossSheets = reconcileUserIdReferencesAcrossSheets;
+UserService.buildUserIdentifierLookup = _buildUserIdentifierLookup_;
 
 console.log('✅ UserService.gs loaded');
 console.log('📦 Features: User CRUD, Roles, Pages, Campaign perms, Manager mapping, HR/Benefits (probation + insurance)');

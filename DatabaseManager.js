@@ -426,6 +426,209 @@
     return record;
   };
 
+  Table.prototype.backfillMissingIds = function (context) {
+    if (!this.idColumn) {
+      return {
+        table: this.name,
+        totalRows: 0,
+        missingIds: 0,
+        updated: 0,
+        skipped: 0,
+        attempted: 0,
+        pending: 0,
+        writeFailed: false
+      };
+    }
+
+    var headers = this.headers || [];
+    var idIndex = headers.indexOf(this.idColumn);
+    if (idIndex === -1) {
+      logger.warn('backfillMissingIds: ID column ' + this.idColumn + ' not found for table ' + this.name);
+      return {
+        table: this.name,
+        totalRows: 0,
+        missingIds: 0,
+        updated: 0,
+        skipped: 0,
+        attempted: 0,
+        pending: 0,
+        writeFailed: false,
+        error: 'ID column not found'
+      };
+    }
+
+    var tenantAccess;
+    try {
+      tenantAccess = this.getTenantAccess(context, false);
+    } catch (err) {
+      logger.error('backfillMissingIds: tenant access denied for table ' + this.name + ': ' + err);
+      return {
+        table: this.name,
+        totalRows: 0,
+        missingIds: 0,
+        updated: 0,
+        skipped: 0,
+        attempted: 0,
+        pending: 0,
+        writeFailed: false,
+        error: err && err.message ? err.message : String(err)
+      };
+    }
+
+    var sheet = this.sheetHandle.getSheet();
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return {
+        table: this.name,
+        totalRows: 0,
+        missingIds: 0,
+        updated: 0,
+        skipped: 0,
+        attempted: 0,
+        pending: 0,
+        writeFailed: false
+      };
+    }
+
+    var tenantIndex = this.tenantColumn ? headers.indexOf(this.tenantColumn) : -1;
+    if (tenantAccess.enforce && this.tenantColumn && tenantIndex === -1) {
+      var missingTenantColumnMessage = 'Tenant column ' + this.tenantColumn + ' not found for table ' + this.name + ' while enforcing access';
+      logger.error('backfillMissingIds: ' + missingTenantColumnMessage);
+      return {
+        table: this.name,
+        totalRows: 0,
+        missingIds: 0,
+        updated: 0,
+        skipped: 0,
+        attempted: 0,
+        pending: 0,
+        writeFailed: false,
+        error: missingTenantColumnMessage
+      };
+    }
+    var allowedSet = null;
+    if (tenantAccess.enforce) {
+      allowedSet = {};
+      for (var i = 0; i < tenantAccess.allowed.length; i++) {
+        allowedSet[toStringValue(tenantAccess.allowed[i])] = true;
+      }
+    }
+
+    var values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    var result = {
+      table: this.name,
+      totalRows: values.length,
+      missingIds: 0,
+      updated: 0,
+      skipped: 0,
+      attempted: 0,
+      pending: 0,
+      writeFailed: false
+    };
+    var updates = [];
+    var attemptedUpdates = 0;
+
+    for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
+      var row = values[rowIndex];
+      var existingId = toStringValue(row[idIndex]);
+
+      if (!existingId) {
+        result.missingIds += 1;
+
+        if (tenantAccess.enforce) {
+          var tenantValue = toStringValue(tenantIndex !== -1 ? row[tenantIndex] : '');
+          if (!tenantValue || !allowedSet[tenantValue]) {
+            result.skipped += 1;
+            continue;
+          }
+        }
+
+        var newId = Utilities.getUuid();
+        updates.push({
+          rowNumber: rowIndex + 2,
+          value: newId
+        });
+        attemptedUpdates += 1;
+      }
+    }
+
+    if (updates.length > 0) {
+      updates.sort(function (a, b) { return a.rowNumber - b.rowNumber; });
+
+      var column = idIndex + 1;
+      var startRow = updates[0].rowNumber;
+      var buffer = [];
+      var expectedRow = startRow;
+      var writeFailed = false;
+      var self = this;
+      var appliedUpdates = 0;
+
+      function flushBuffer() {
+        if (writeFailed || !buffer.length) {
+          return true;
+        }
+        var valuesMatrix = [];
+        for (var i = 0; i < buffer.length; i++) {
+          valuesMatrix.push([buffer[i]]);
+        }
+        try {
+          sheet.getRange(startRow, column, buffer.length, 1).setValues(valuesMatrix);
+          appliedUpdates += buffer.length;
+          return true;
+        } catch (writeError) {
+          writeFailed = true;
+          var message = writeError && writeError.message ? writeError.message : String(writeError);
+          result.error = message;
+          result.writeError = message;
+          logger.error('backfillMissingIds: failed to write IDs for table ' + self.name + ': ' + message);
+          return false;
+        }
+      }
+
+      for (var updateIndex = 0; updateIndex < updates.length; updateIndex++) {
+        if (writeFailed) {
+          break;
+        }
+        var update = updates[updateIndex];
+        if (update.rowNumber !== expectedRow) {
+          if (!flushBuffer()) {
+            break;
+          }
+          startRow = update.rowNumber;
+          buffer = [];
+          expectedRow = update.rowNumber;
+        }
+        buffer.push(update.value);
+        expectedRow += 1;
+      }
+
+      if (!writeFailed) {
+        flushBuffer();
+      }
+      if (appliedUpdates > 0) {
+        self.invalidateCache();
+      }
+
+      result.updated = appliedUpdates;
+      result.attempted = attemptedUpdates;
+      result.writeFailed = writeFailed;
+      if (attemptedUpdates > appliedUpdates) {
+        result.pending = attemptedUpdates - appliedUpdates;
+      }
+    }
+
+    if (!updates.length) {
+      result.updated = 0;
+      result.attempted = attemptedUpdates;
+      result.writeFailed = false;
+      if (attemptedUpdates > 0) {
+        result.pending = attemptedUpdates;
+      }
+    }
+
+    return result;
+  };
+
   Table.prototype.touchTimestamps = function (record, isInsert) {
     if (!this.timestamps) return record;
     var now = new Date();
@@ -895,7 +1098,7 @@
     return new ScopedTable(this.table, merged);
   };
 
-  var PROXIED_METHODS = ['read', 'project', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count'];
+  var PROXIED_METHODS = ['read', 'project', 'find', 'findOne', 'findById', 'insert', 'batchInsert', 'update', 'upsert', 'delete', 'count', 'backfillMissingIds'];
   PROXIED_METHODS.forEach(function (method) {
     if (typeof Table.prototype[method] !== 'function') return;
     ScopedTable.prototype[method] = function () {
@@ -937,6 +1140,104 @@
       if (tables[name]) {
         tables[name].invalidateCache();
       }
+    },
+    backfillMissingIds: function (name, context) {
+      if (!name) {
+        throw new Error('Table name is required');
+      }
+      var table = ensureTable(name);
+      if (!table || !table.idColumn) {
+        return {
+          table: name,
+          totalRows: 0,
+          missingIds: 0,
+          updated: 0,
+          skipped: 0,
+          skippedReason: 'No idColumn',
+          attempted: 0,
+          pending: 0,
+          writeFailed: false
+        };
+      }
+      var result = table.backfillMissingIds(context);
+      if (!result || typeof result !== 'object') {
+        result = {
+          table: table.name,
+          totalRows: 0,
+          missingIds: 0,
+          updated: 0,
+          skipped: 0,
+          attempted: 0,
+          pending: 0,
+          writeFailed: false
+        };
+      }
+      if (!Object.prototype.hasOwnProperty.call(result, 'table')) {
+        result.table = table.name;
+      }
+      if (!Object.prototype.hasOwnProperty.call(result, 'attempted')) {
+        result.attempted = 0;
+      }
+      if (!Object.prototype.hasOwnProperty.call(result, 'pending')) {
+        result.pending = 0;
+      }
+      if (!Object.prototype.hasOwnProperty.call(result, 'writeFailed')) {
+        result.writeFailed = false;
+      }
+      return result;
+    },
+    backfillAllMissingIds: function (context) {
+      var summaries = [];
+      var names = this.listTables();
+      for (var i = 0; i < names.length; i++) {
+        var tableName = names[i];
+        var table = ensureTable(tableName);
+        if (!table || !table.idColumn) {
+          continue;
+        }
+        try {
+          var summary = table.backfillMissingIds(context);
+          if (!summary || typeof summary !== 'object') {
+            summary = {
+              table: tableName,
+              totalRows: 0,
+              missingIds: 0,
+              updated: 0,
+              skipped: 0,
+              attempted: 0,
+              pending: 0,
+              writeFailed: false
+            };
+          }
+          if (!Object.prototype.hasOwnProperty.call(summary, 'table')) {
+            summary.table = tableName;
+          }
+          if (!Object.prototype.hasOwnProperty.call(summary, 'attempted')) {
+            summary.attempted = 0;
+          }
+          if (!Object.prototype.hasOwnProperty.call(summary, 'pending')) {
+            summary.pending = 0;
+          }
+          if (!Object.prototype.hasOwnProperty.call(summary, 'writeFailed')) {
+            summary.writeFailed = false;
+          }
+          summaries.push(summary);
+        } catch (err) {
+          logger.error('backfillAllMissingIds failed for table ' + tableName + ': ' + err);
+          summaries.push({
+            table: tableName,
+            totalRows: 0,
+            missingIds: 0,
+            updated: 0,
+            skipped: 0,
+            attempted: 0,
+            pending: 0,
+            writeFailed: true,
+            error: err && err.message ? err.message : String(err)
+          });
+        }
+      }
+      return summaries;
     },
     tenant: function (context) {
       var normalized = normalizeTenantContext(context) || context || null;

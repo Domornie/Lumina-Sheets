@@ -44,108 +44,6 @@ function toCampaignRole(role) {
   return normalized;
 }
 
-function resolveCampaignIdentity(context, options) {
-  try {
-    return resolveServiceIdentity(context, options);
-  } catch (error) {
-    safeWriteError && safeWriteError('CampaignService.resolveIdentity', error);
-    return { identity: null, context: context || {}, error: error };
-  }
-}
-
-function requireCampaignIdentity(context, options) {
-  try {
-    return assertServiceIdentity(context, options);
-  } catch (error) {
-    safeWriteError && safeWriteError('CampaignService.requireIdentity', error);
-    throw error;
-  }
-}
-
-function hasCampaignManagementPrivileges(identity) {
-  if (!identity) {
-    return false;
-  }
-
-  try {
-    var flags = identity.permissionFlags || {};
-    if (identity.isAdmin || flags.managepages || flags.manageusers || flags.admin || flags.campaign_admin || flags.manager) {
-      return true;
-    }
-
-    var roles = Array.isArray(identity.roleNames) ? identity.roleNames : (identity.roles || []);
-    for (var i = 0; i < roles.length; i++) {
-      var value = String(roles[i] || '').toLowerCase();
-      if (value === 'admin' || value === 'system_admin' || value === 'manager' || value === 'supervisor' || value === 'trainer') {
-        return true;
-      }
-    }
-  } catch (err) {
-    safeWriteError && safeWriteError('CampaignService.checkPrivileges', err);
-  }
-
-  return false;
-}
-
-function identityHasCampaignAccess(identity, campaignId) {
-  var normalizedCampaignId = normalizeIdValue(campaignId);
-  if (!normalizedCampaignId) {
-    return false;
-  }
-
-  if (!identity) {
-    return false;
-  }
-
-  if (hasCampaignManagementPrivileges(identity)) {
-    return true;
-  }
-
-  try {
-    var campaigns = Array.isArray(identity.campaigns) ? identity.campaigns : [];
-    for (var i = 0; i < campaigns.length; i++) {
-      var campaign = campaigns[i];
-      var cid = normalizeIdValue(campaign && (campaign.id || campaign.ID || campaign.CampaignId || campaign.CampaignID));
-      if (cid && cid === normalizedCampaignId) {
-        return true;
-      }
-    }
-
-    var permissions = Array.isArray(identity.permissions) ? identity.permissions : [];
-    for (var j = 0; j < permissions.length; j++) {
-      var permission = permissions[j];
-      var pid = normalizeIdValue(permission && (permission.CampaignID || permission.CampaignId || permission.campaignId));
-      if (pid && pid === normalizedCampaignId) {
-        return true;
-      }
-    }
-  } catch (err) {
-    safeWriteError && safeWriteError('CampaignService.identityHasCampaignAccess', err);
-  }
-
-  return false;
-}
-
-function requireCampaignReadAccess(campaignId, context, options) {
-  var normalizedCampaignId = normalizeIdValue(campaignId);
-  if (!normalizedCampaignId) {
-    var invalidError = new Error('Campaign ID is required');
-    invalidError.code = 'BAD_REQUEST';
-    throw invalidError;
-  }
-
-  var auth = requireCampaignIdentity(context, options);
-  var identity = auth && auth.identity ? auth.identity : null;
-
-  if (!identityHasCampaignAccess(identity, normalizedCampaignId)) {
-    var error = new Error('You do not have access to this campaign.');
-    error.code = 'FORBIDDEN';
-    throw error;
-  }
-
-  return { campaignId: normalizedCampaignId, identity: identity, context: auth && auth.context ? auth.context : context };
-}
-
 function isSoftDeletedValue(value) {
   if (!value && value !== 0) return false;
   var str = String(value).trim();
@@ -192,17 +90,13 @@ function legacyAddUserToCampaign(userId, campaignId, options) {
     ? toBooleanFlag(options.isPrimary)
     : false;
 
-  const normalizedUserId = normalizeIdValue(userId);
-  const normalizedCampaignId = normalizeIdValue(campaignId);
-  if (!normalizedUserId || !normalizedCampaignId) return false;
-
   const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
   const data = sh.getDataRange().getValues();
   const headers = data[0] || [];
   const idx = {
     ID: headers.indexOf('ID'),
-    UserId: headers.indexOf('UserId'),
-    CampaignId: headers.indexOf('CampaignId'),
+    UserID: headers.indexOf('UserId') !== -1 ? headers.indexOf('UserId') : headers.indexOf('UserID'),
+    CampaignID: headers.indexOf('CampaignId') !== -1 ? headers.indexOf('CampaignId') : headers.indexOf('CampaignID'),
     Role: headers.indexOf('Role'),
     IsPrimary: headers.indexOf('IsPrimary'),
     CreatedAt: headers.indexOf('CreatedAt'),
@@ -210,76 +104,53 @@ function legacyAddUserToCampaign(userId, campaignId, options) {
     DeletedAt: headers.indexOf('DeletedAt')
   };
 
-  if (idx.UserId < 0 || idx.CampaignId < 0) {
-    safeWriteError && safeWriteError('legacyAddUserToCampaign.headers', new Error('Missing UserId/CampaignId headers'));
-    return false;
-  }
-
   let exists = false;
   for (let r = 1; r < data.length; r++) {
-    const rowUser = normalizeIdValue(data[r][idx.UserId]);
-    const rowCampaign = normalizeIdValue(data[r][idx.CampaignId]);
-    if (rowUser === normalizedUserId && rowCampaign === normalizedCampaignId) {
+    const rowUser = idx.UserID >= 0 ? normalizeIdValue(data[r][idx.UserID]) : '';
+    const rowCampaign = idx.CampaignID >= 0 ? normalizeIdValue(data[r][idx.CampaignID]) : '';
+    if (rowUser === normalizeIdValue(userId) && rowCampaign === normalizeIdValue(campaignId)) {
       exists = true;
       if (idx.Role >= 0) sh.getRange(r + 1, idx.Role + 1).setValue(roleValue);
       if (idx.IsPrimary >= 0) sh.getRange(r + 1, idx.IsPrimary + 1).setValue(isPrimary);
       if (idx.DeletedAt >= 0) sh.getRange(r + 1, idx.DeletedAt + 1).setValue('');
       if (idx.UpdatedAt >= 0) sh.getRange(r + 1, idx.UpdatedAt + 1).setValue(new Date());
       commitChanges();
-      clearLuminaIdentityUserCache(normalizedUserId);
       return true;
     }
   }
 
   const now = new Date();
-  const rowMap = {
-    ID: Utilities.getUuid(),
-    UserId: normalizedUserId,
-    CampaignId: normalizedCampaignId,
-    Role: roleValue,
-    IsPrimary: isPrimary,
-    CreatedAt: now,
-    UpdatedAt: now,
-    DeletedAt: ''
-  };
+  const row = [];
+  if (idx.ID >= 0) row[idx.ID] = Utilities.getUuid();
+  if (idx.UserID >= 0) row[idx.UserID] = userId;
+  if (idx.CampaignID >= 0) row[idx.CampaignID] = campaignId;
+  if (idx.Role >= 0) row[idx.Role] = roleValue;
+  if (idx.IsPrimary >= 0) row[idx.IsPrimary] = isPrimary;
+  if (idx.CreatedAt >= 0) row[idx.CreatedAt] = now;
+  if (idx.UpdatedAt >= 0) row[idx.UpdatedAt] = now;
+  if (idx.DeletedAt >= 0) row[idx.DeletedAt] = '';
 
-  const mapRow = (typeof _mapRowFromHeaders_ === 'function')
-    ? _mapRowFromHeaders_
-    : function mapRowFromHeaders(headers, values) {
-        return headers.map(function (header) {
-          return Object.prototype.hasOwnProperty.call(values, header) ? values[header] : '';
-        });
-      };
-
-  sh.appendRow(mapRow(headers, rowMap));
+  for (let c = 0; c < headers.length; c++) if (typeof row[c] === 'undefined') row[c] = '';
+  sh.appendRow(row);
 
   commitChanges();
   invalidateSheetCache(USER_CAMPAIGNS_SHEET);
-  clearLuminaIdentityUserCache(normalizedUserId);
   return true;
 }
 
 function legacyRemoveUserFromCampaign(userId, campaignId) {
-  const normalizedUserId = normalizeIdValue(userId);
-  const normalizedCampaignId = normalizeIdValue(campaignId);
-  if (!normalizedUserId || !normalizedCampaignId) return 0;
-
   const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
   const data = sh.getDataRange().getValues();
   const headers = data[0] || [];
   const idx = {
-    UserId: headers.indexOf('UserId'),
-    CampaignId: headers.indexOf('CampaignId')
+    UserID: headers.indexOf('UserId') !== -1 ? headers.indexOf('UserId') : headers.indexOf('UserID'),
+    CampaignID: headers.indexOf('CampaignId') !== -1 ? headers.indexOf('CampaignId') : headers.indexOf('CampaignID')
   };
-  if (idx.UserId < 0 || idx.CampaignId < 0) {
-    safeWriteError && safeWriteError('legacyRemoveUserFromCampaign.headers', new Error('Missing UserId/CampaignId headers'));
-    return 0;
-  }
   let removed = 0;
   for (let r = data.length - 1; r >= 1; r--) {
-    const rowUser = normalizeIdValue(data[r][idx.UserId]);
-    const rowCampaign = normalizeIdValue(data[r][idx.CampaignId]);
-    if (rowUser === normalizedUserId && rowCampaign === normalizedCampaignId) {
+    const rowUser = idx.UserID >= 0 ? normalizeIdValue(data[r][idx.UserID]) : '';
+    const rowCampaign = idx.CampaignID >= 0 ? normalizeIdValue(data[r][idx.CampaignID]) : '';
+    if (rowUser === normalizeIdValue(userId) && rowCampaign === normalizeIdValue(campaignId)) {
       sh.deleteRow(r + 1);
       removed++;
     }
@@ -287,7 +158,6 @@ function legacyRemoveUserFromCampaign(userId, campaignId) {
   if (removed) {
     commitChanges();
     invalidateSheetCache(USER_CAMPAIGNS_SHEET);
-    clearLuminaIdentityUserCache(normalizedUserId);
   }
   return removed;
 }
@@ -322,22 +192,15 @@ function addUserToCampaignDb(userId, campaignId, options) {
   if (!normalizedUserId || !normalizedCampaignId) return false;
 
   const table = getUserCampaignsTable();
-  let existing = table.find({
+  const existing = table.find({
     filter: function (row) {
       if (isSoftDeletedValue(row.DeletedAt)) return false;
-      const canonical = (typeof ensureCanonicalSheetRow === 'function')
-        ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, row)
-        : row;
-      const rowUser = normalizeIdValue(canonical && canonical.UserId);
-      const rowCampaign = normalizeIdValue(canonical && canonical.CampaignId);
+      const rowUser = normalizeIdValue(row.UserId || row.UserID);
+      const rowCampaign = normalizeIdValue(row.CampaignId || row.CampaignID);
       return rowUser === normalizedUserId && rowCampaign === normalizedCampaignId;
     },
     limit: 1
   }) || [];
-
-  if (typeof ensureCanonicalSheetRows === 'function') {
-    existing = ensureCanonicalSheetRows(USER_CAMPAIGNS_SHEET, existing);
-  }
 
   const assignmentRole = toCampaignRole(options && options.role);
   const isPrimary = options && Object.prototype.hasOwnProperty.call(options, 'isPrimary')
@@ -352,7 +215,6 @@ function addUserToCampaignDb(userId, campaignId, options) {
         IsPrimary: isPrimary,
         DeletedAt: ''
       });
-      clearLuminaIdentityUserCache(normalizedUserId);
       return true;
     }
     return legacyAddUserToCampaign(userId, campaignId, options || {});
@@ -360,12 +222,13 @@ function addUserToCampaignDb(userId, campaignId, options) {
 
   table.insert({
     UserId: normalizedUserId,
+    UserID: normalizedUserId,
     CampaignId: normalizedCampaignId,
+    CampaignID: normalizedCampaignId,
     Role: assignmentRole,
     IsPrimary: isPrimary,
     DeletedAt: ''
   });
-  clearLuminaIdentityUserCache(normalizedUserId);
   return true;
 }
 
@@ -399,20 +262,13 @@ function removeUserFromCampaignDb(userId, campaignId) {
   }
 
   const table = getUserCampaignsTable();
-  let matches = table.find({
+  const matches = table.find({
     filter: function (row) {
-      const canonical = (typeof ensureCanonicalSheetRow === 'function')
-        ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, row)
-        : row;
-      const rowUser = normalizeIdValue(canonical && canonical.UserId);
-      const rowCampaign = normalizeIdValue(canonical && canonical.CampaignId);
+      const rowUser = normalizeIdValue(row.UserId || row.UserID);
+      const rowCampaign = normalizeIdValue(row.CampaignId || row.CampaignID);
       return rowUser === normalizedUserId && rowCampaign === normalizedCampaignId;
     }
   }) || [];
-
-  if (typeof ensureCanonicalSheetRows === 'function') {
-    matches = ensureCanonicalSheetRows(USER_CAMPAIGNS_SHEET, matches);
-  }
 
   if (!matches.length) {
     return { success: true, removed: 0 };
@@ -431,46 +287,26 @@ function removeUserFromCampaignDb(userId, campaignId) {
       removed++;
     }
   });
-  if (removed) {
-    clearLuminaIdentityUserCache(normalizedUserId);
-  }
   return { success: true, removed };
 }
 
 function csGetUserCampaignIds(userId) {
   try {
-    const auth = userId ? resolveCampaignIdentity() : requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    let targetUserId = userId || (identity && (identity.id || identity.userId || identity.ID || identity.UserId));
-    const normalizedUserId = normalizeIdValue(targetUserId);
-    if (!normalizedUserId) return [];
-
-    const identityUserId = identity ? normalizeIdValue(identity.id || identity.userId || identity.ID || identity.UserId) : '';
-    const isSelf = identityUserId && normalizedUserId && identityUserId === normalizedUserId;
-    if (!isSelf && !hasCampaignManagementPrivileges(identity)) {
-      return [];
-    }
+    if (!userId) return [];
 
     if (canUseDatabaseManager()) {
       try {
+        const normalizedUserId = normalizeIdValue(userId);
         const table = getUserCampaignsTable();
-        let assignments = table.find({
+        const assignments = table.find({
           filter: function (row) {
             if (isSoftDeletedValue(row.DeletedAt)) return false;
-            const canonical = (typeof ensureCanonicalSheetRow === 'function')
-              ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, row)
-              : row;
-            return normalizeIdValue(canonical && canonical.UserId) === normalizedUserId;
+            return normalizeIdValue(row.UserId || row.UserID) === normalizedUserId;
           }
         }) || [];
-
-        if (typeof ensureCanonicalSheetRows === 'function') {
-          assignments = ensureCanonicalSheetRows(USER_CAMPAIGNS_SHEET, assignments);
-        }
-
         const set = new Set();
         assignments.forEach(function (record) {
-          const id = normalizeIdValue(record.CampaignId);
+          const id = normalizeIdValue(record.CampaignId || record.CampaignID);
           if (id) set.add(id);
         });
         return Array.from(set);
@@ -482,17 +318,11 @@ function csGetUserCampaignIds(userId) {
     const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
     const data = sh.getDataRange().getValues();
     const headers = data[0] || [];
-    const uIdx = headers.indexOf('UserId');
-    const cIdx = headers.indexOf('CampaignId');
-    if (uIdx < 0 || cIdx < 0) {
-      safeWriteError && safeWriteError('csGetUserCampaignIds.headers', new Error('Missing UserId/CampaignId headers'));
-      return [];
-    }
+    const uIdx = headers.indexOf('UserID') !== -1 ? headers.indexOf('UserID') : headers.indexOf('UserId');
+    const cIdx = headers.indexOf('CampaignID') !== -1 ? headers.indexOf('CampaignID') : headers.indexOf('CampaignId');
     const out = new Set();
     for (let r = 1; r < data.length; r++) {
-      const rowUser = normalizeIdValue(data[r][uIdx]);
-      const rowCampaign = normalizeIdValue(data[r][cIdx]);
-      if (rowUser === normalizedUserId && rowCampaign) out.add(rowCampaign);
+      if (String(data[r][uIdx]) === String(userId)) out.add(String(data[r][cIdx]));
     }
     return Array.from(out);
   } catch (e) {
@@ -503,41 +333,25 @@ function csGetUserCampaignIds(userId) {
 
 function csGetUserCampaigns(userId) {
   try {
-    const auth = userId ? resolveCampaignIdentity() : requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    let targetUserId = userId || (identity && (identity.id || identity.userId || identity.ID || identity.UserId));
-    const normalizedUserId = normalizeIdValue(targetUserId);
-    if (!normalizedUserId) return [];
-
-    const identityUserId = identity ? normalizeIdValue(identity.id || identity.userId || identity.ID || identity.UserId) : '';
-    const isSelf = identityUserId && normalizedUserId && identityUserId === normalizedUserId;
-    if (!isSelf && !hasCampaignManagementPrivileges(identity)) {
-      return [];
-    }
+    if (!userId) return [];
 
     if (canUseDatabaseManager()) {
       try {
+        const normalizedUserId = normalizeIdValue(userId);
         const table = getUserCampaignsTable();
-        let assignments = table.find({
+        const assignments = table.find({
           filter: function (row) {
             if (isSoftDeletedValue(row.DeletedAt)) return false;
-            const canonical = (typeof ensureCanonicalSheetRow === 'function')
-              ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, row)
-              : row;
-            return normalizeIdValue(canonical && canonical.UserId) === normalizedUserId;
+            return normalizeIdValue(row.UserId || row.UserID) === normalizedUserId;
           }
         }) || [];
-
-        if (typeof ensureCanonicalSheetRows === 'function') {
-          assignments = ensureCanonicalSheetRows(USER_CAMPAIGNS_SHEET, assignments);
-        }
 
         if (!assignments.length) {
           return [];
         }
 
         const ids = assignments
-          .map(function (record) { return normalizeIdValue(record.CampaignId); })
+          .map(function (record) { return normalizeIdValue(record.CampaignId || record.CampaignID); })
           .filter(function (id) { return !!id; });
 
         if (!ids.length) {
@@ -545,16 +359,12 @@ function csGetUserCampaigns(userId) {
         }
 
         const campaignsTable = getCampaignsTable();
-        let campaigns = campaignsTable.find({
+        const campaigns = campaignsTable.find({
           filter: function (row) {
             const id = normalizeIdValue(row.ID || row.Id);
             return ids.indexOf(id) !== -1;
           }
         }) || [];
-
-        if (typeof ensureCanonicalSheetRows === 'function') {
-          campaigns = ensureCanonicalSheetRows(CAMPAIGNS_SHEET, campaigns);
-        }
 
         const campaignIndex = {};
         campaigns.forEach(function (campaign) {
@@ -565,7 +375,7 @@ function csGetUserCampaigns(userId) {
         });
 
         return assignments.map(function (assignment) {
-          const campaignId = normalizeIdValue(assignment.CampaignId);
+          const campaignId = normalizeIdValue(assignment.CampaignId || assignment.CampaignID);
           const campaign = campaignIndex[campaignId] || {};
           return {
             id: campaignId,
@@ -581,19 +391,12 @@ function csGetUserCampaigns(userId) {
       }
     }
 
-    const ids = csGetUserCampaignIds(normalizedUserId);
+    const ids = csGetUserCampaignIds(userId);
     if (!ids.length) return [];
     const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
     const want = new Set(ids.map(String));
     return campaigns.filter(c => want.has(String(c.ID)))
-      .map(c => ({
-        id: c.ID,
-        name: c.Name,
-        description: c.Description || '',
-        status: c.Status || '',
-        role: USER_CAMPAIGN_DEFAULT_ROLE,
-        isPrimary: false
-      }));
+      .map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
   } catch (e) {
     safeWriteError('csGetUserCampaigns', e);
     return [];
@@ -684,14 +487,11 @@ function csGetAllCampaigns() {
   try {
     console.log('csGetAllCampaigns: Starting...');
 
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-
     const campaigns = safeSheetOperation(() => {
       return readSheet(CAMPAIGNS_SHEET) || [];
     });
 
-    const mapped = campaigns
+    const result = campaigns
       .filter(c => c && c.ID && c.Name && String(c.Name).trim() !== '')
       .map(c => ({
         id: c.ID,
@@ -699,22 +499,15 @@ function csGetAllCampaigns() {
         description: c.Description || '',
         createdAt: c.CreatedAt ? new Date(c.CreatedAt).toISOString() : null,
         updatedAt: c.UpdatedAt ? new Date(c.UpdatedAt).toISOString() : null
-      }));
+      }))
+      .sort((a, b) => {
+        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return db - da;
+      });
 
-    const visible = hasCampaignManagementPrivileges(identity)
-      ? mapped
-      : mapped.filter(function (campaign) {
-          return identityHasCampaignAccess(identity, campaign.id);
-        });
-
-    const sorted = visible.sort((a, b) => {
-      const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return db - da;
-    });
-
-    console.log(`csGetAllCampaigns: Returning ${sorted.length} campaigns`);
-    return sorted;
+    console.log(`csGetAllCampaigns: Returning ${result.length} campaigns`);
+    return result;
 
   } catch (error) {
     console.error('csGetAllCampaigns error:', error);
@@ -728,26 +521,15 @@ function csGetAllCampaigns() {
  */
 function csGetCampaignStats() {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-
     const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
     const users = readSheet(USERS_SHEET) || [];
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET) || [];
 
-    const stats = campaigns.map(c => ({
+    return campaigns.map(c => ({
       id: c.ID,
       userCount: users.filter(u => u.CampaignID === c.ID).length,
       pageCount: campaignPages.filter(p => p.CampaignID === c.ID && isActive(p.IsActive)).length
     }));
-
-    if (hasCampaignManagementPrivileges(identity)) {
-      return stats;
-    }
-
-    return stats.filter(function (stat) {
-      return identityHasCampaignAccess(identity, stat.id);
-    });
 
   } catch (error) {
     console.error('csGetCampaignStats error:', error);
@@ -761,12 +543,6 @@ function csGetCampaignStats() {
  */
 function csCreateCampaign(name, description = '') {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to create campaigns.', errorCode: 'FORBIDDEN' };
-    }
-
     if (!name || !name.trim()) {
       return { success: false, error: 'Campaign name is required' };
     }
@@ -821,12 +597,6 @@ function csCreateCampaign(name, description = '') {
  */
 function csUpdateCampaign(campaignId, name, description = '') {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to update campaigns.', errorCode: 'FORBIDDEN' };
-    }
-
     if (!name || !name.trim()) {
       return { success: false, error: 'Campaign name is required' };
     }
@@ -882,12 +652,6 @@ function csUpdateCampaign(campaignId, name, description = '') {
  */
 function csDeleteCampaign(campaignId) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to delete campaigns.', errorCode: 'FORBIDDEN' };
-    }
-
     return safeSheetOperation(() => {
       // Check for assigned users
       const users = readSheet(USERS_SHEET) || [];
@@ -902,30 +666,26 @@ function csDeleteCampaign(campaignId) {
       }
 
       // PATCH: drop this block into csDeleteCampaign() right after you compute `assignedUsers`
-      const ucSheet = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
+      const ucSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USER_CAMPAIGNS_SHEET);
       if (ucSheet) {
         const data = ucSheet.getDataRange().getValues();
-        if (data.length > 1) {
-          const headers = data[0] || [];
-          const cIdx = headers.indexOf('CampaignId');
-          const uIdx = headers.indexOf('UserId');
-          if (cIdx >= 0) {
-            let linkCount = 0;
-            const linkedUserIds = new Set();
-            for (let r = 1; r < data.length; r++) {
-              if (String(data[r][cIdx]) === String(campaignId)) {
-                linkCount++;
-                if (uIdx >= 0 && data[r][uIdx]) linkedUserIds.add(String(data[r][uIdx]));
-              }
-            }
-            if (linkCount > 0) {
-              return {
-                success: false,
-                error: `Cannot delete campaign. ${linkCount} user-campaign link${linkCount !== 1 ? 's' : ''} exist` +
-                  (linkedUserIds.size ? ` (users: ${Array.from(linkedUserIds).join(', ')})` : '')
-              };
-            }
+        const headers = data[0] || [];
+        const cIdx = headers.indexOf('CampaignID');
+        const uIdx = headers.indexOf('UserID');
+        let linkCount = 0;
+        const linkedUserIds = new Set();
+        for (let r = 1; r < data.length; r++) {
+          if (String(data[r][cIdx]) === String(campaignId)) {
+            linkCount++;
+            if (uIdx >= 0 && data[r][uIdx]) linkedUserIds.add(String(data[r][uIdx]));
           }
+        }
+        if (linkCount > 0) {
+          return {
+            success: false,
+            error: `Cannot delete campaign. ${linkCount} user-campaign link${linkCount !== 1 ? 's' : ''} exist` +
+              (linkedUserIds.size ? ` (users: ${Array.from(linkedUserIds).join(', ')})` : '')
+          };
         }
       }
 
@@ -974,14 +734,16 @@ function csGetCampaignStatsV2() {
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET) || [];
     let uc = [];
     try {
-      uc = readSheet(USER_CAMPAIGNS_SHEET) || [];
-    } catch (_) { uc = []; }
+      const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USER_CAMPAIGNS_SHEET);
+      uc = sh ? sh.getDataRange().getValues().slice(1) : [];
+    } catch (_) {}
 
     // Build a quick multimap of campaignId -> linked user count
+    const ucHeaders = (uc.length ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USER_CAMPAIGNS_SHEET).getDataRange().getValues()[0] : []) || [];
+    const ucCIdx = ucHeaders.indexOf('CampaignID');
     const ucUCount = {};
     uc.forEach(r => {
-      const cid = String(r.CampaignId || '');
-      if (!cid) return;
+      const cid = String(r[ucCIdx]);
       ucUCount[cid] = (ucUCount[cid] || 0) + 1;
     });
 
@@ -1003,9 +765,8 @@ function csGetCampaignStatsV2() {
 
 function csGetCampaignById(campaignId) {
   try {
-    const access = requireCampaignReadAccess(campaignId);
     const rows = readSheet(CAMPAIGNS_SHEET) || [];
-    const c = rows.find(r => String(r.ID) === String(access.campaignId));
+    const c = rows.find(r => String(r.ID) === String(campaignId));
     if (!c) return null;
     return { id: c.ID, name: c.Name, description: c.Description || '', createdAt: c.CreatedAt, updatedAt: c.UpdatedAt };
   } catch (e) {
@@ -1016,12 +777,6 @@ function csGetCampaignById(campaignId) {
 
 function csDeactivateCategory(categoryId, active) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to modify categories.', errorCode: 'FORBIDDEN' };
-    }
-
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PAGE_CATEGORIES_SHEET);
     if (!sh) return { success: false, error: 'Categories sheet not found' };
     const data = sh.getDataRange().getValues();
@@ -1053,12 +808,6 @@ function csDeactivateCategory(categoryId, active) {
 
 function csDeactivateCampaignPage(pageId, active) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to modify campaign pages.', errorCode: 'FORBIDDEN' };
-    }
-
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CAMPAIGN_PAGES_SHEET);
     if (!sh) return { success: false, error: 'Campaign pages sheet not found' };
     const data = sh.getDataRange().getValues();
@@ -1089,12 +838,6 @@ function csDeactivateCampaignPage(pageId, active) {
 
 function csRebuildAllNavigations() {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to rebuild navigation.', errorCode: 'FORBIDDEN' };
-    }
-
     const all = csGetAllCampaigns();
     const results = [];
     all.forEach(c => {
@@ -1127,9 +870,7 @@ function csGetCampaignCategories(campaignId) {
       return [];
     }
 
-    const access = requireCampaignReadAccess(campaignId);
-
-    console.log(`Getting categories for campaign: ${access.campaignId}`);
+    console.log(`Getting categories for campaign: ${campaignId}`);
 
     const allCategories = safeSheetOperation(() => {
       return readSheet(PAGE_CATEGORIES_SHEET) || [];
@@ -1138,7 +879,7 @@ function csGetCampaignCategories(campaignId) {
     const categories = allCategories
       .filter(c => {
         if (!c || !c.CampaignID) return false;
-        const campaignMatch = String(c.CampaignID) === String(access.campaignId);
+        const campaignMatch = String(c.CampaignID) === String(campaignId);
         const active = isActive(c.IsActive);
         return campaignMatch && active;
       })
@@ -1169,12 +910,6 @@ function csGetCampaignCategories(campaignId) {
  */
 function csCreateCategory(campaignId, categoryName, categoryIcon, sortOrder = 999) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to manage categories.', errorCode: 'FORBIDDEN' };
-    }
-
     console.log('Creating category:', { campaignId, categoryName, categoryIcon, sortOrder });
 
     if (!campaignId || !categoryName || !categoryIcon) {
@@ -1255,12 +990,6 @@ function csCreateCategory(campaignId, categoryName, categoryIcon, sortOrder = 99
  */
 function csDeleteCategory(categoryId) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to delete categories.', errorCode: 'FORBIDDEN' };
-    }
-
     console.log('Deleting category:', categoryId);
 
     return safeSheetOperation(() => {
@@ -1332,10 +1061,9 @@ function csDeleteCategory(categoryId) {
  */
 function csGetCampaignPages(campaignId) {
   try {
-    const access = requireCampaignReadAccess(campaignId);
     const campaignPages = readSheet(CAMPAIGN_PAGES_SHEET) || [];
     return campaignPages
-      .filter(p => p && String(p.CampaignID) === String(access.campaignId) && isActive(p.IsActive))
+      .filter(p => p && p.CampaignID === campaignId && isActive(p.IsActive))
       .map(p => ({
         id: p.ID,
         campaignId: p.CampaignID,
@@ -1360,12 +1088,6 @@ function csGetCampaignPages(campaignId) {
  */
 function csAddPageToCampaign(campaignId, pageKey, pageTitle, pageIcon, categoryId = null, sortOrder = 999) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to assign pages.', errorCode: 'FORBIDDEN' };
-    }
-
     console.log('Adding page to campaign:', { campaignId, pageKey, pageTitle, pageIcon, categoryId, sortOrder });
 
     if (!campaignId || !pageKey || !pageTitle || !pageIcon) {
@@ -1461,12 +1183,6 @@ function csAddPageToCampaign(campaignId, pageKey, pageTitle, pageIcon, categoryI
  */
 function csUpdateCampaignPage(pageId, updates) {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-    if (!hasCampaignManagementPrivileges(identity)) {
-      return { success: false, error: 'You do not have permission to update campaign pages.', errorCode: 'FORBIDDEN' };
-    }
-
     console.log('Updating campaign page:', pageId, 'with updates:', updates);
 
     return safeSheetOperation(() => {
@@ -1563,12 +1279,10 @@ function csGetCampaignNavigation(campaignId) {
       return { categories: [], uncategorizedPages: [] };
     }
 
-    const access = requireCampaignReadAccess(campaignId);
+    console.log(`Building navigation for campaign ${campaignId}`);
 
-    console.log(`Building navigation for campaign ${access.campaignId}`);
-
-    const pages = csGetCampaignPages(access.campaignId);
-    const categories = csGetCampaignCategories(access.campaignId);
+    const pages = csGetCampaignPages(campaignId);
+    const categories = csGetCampaignCategories(campaignId);
     const navigation = { categories: [], uncategorizedPages: [] };
 
     console.log(`Found ${pages.length} pages and ${categories.length} categories`);
@@ -1662,40 +1376,16 @@ function isActive(value) {
  */
 function csGetAllPages() {
   try {
-    const auth = requireCampaignIdentity();
-    const identity = auth && auth.identity ? auth.identity : null;
-
     const pages = readSheet(PAGES_SHEET) || [];
-    const mapped = pages
+    return pages
       .filter(p => p && p.PageKey && p.PageTitle)
       .map(p => ({
         pageKey: p.PageKey,
         pageTitle: p.PageTitle,
         pageIcon: p.PageIcon || 'fas fa-file',
         requiresAdmin: p.RequiresAdmin || false
-      }));
-
-    if (hasCampaignManagementPrivileges(identity)) {
-      return mapped.sort((a, b) => (a.pageTitle || '').localeCompare(b.pageTitle || ''));
-    }
-
-    const allowedKeys = new Set();
-    try {
-      if (identity && Array.isArray(identity.pages)) {
-        identity.pages.forEach(function (key) {
-          if (!key && key !== 0) return;
-          allowedKeys.add(String(key));
-        });
-      }
-    } catch (err) {
-      safeWriteError && safeWriteError('csGetAllPages.allowedKeys', err);
-    }
-
-    const filtered = allowedKeys.size
-      ? mapped.filter(page => allowedKeys.has(String(page.pageKey)))
-      : [];
-
-    return filtered.sort((a, b) => (a.pageTitle || '').localeCompare(b.pageTitle || ''));
+      }))
+      .sort((a, b) => (a.pageTitle || '').localeCompare(b.pageTitle || ''));
 
   } catch (error) {
     console.error('csGetAllPages error:', error);

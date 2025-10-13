@@ -30,266 +30,25 @@ const ACCESS_DEBUG = true;
 const ACCESS = {
   ADMIN_ONLY_PAGES: new Set(['admin.users', 'admin.roles', 'admin.campaigns']),
   PUBLIC_PAGES: new Set([
-    'login', 'setpassword', 'resetpassword', 'forgotpassword', 'forgot-password',
-    'resendverification', 'resend-verification', 'emailconfirmed', 'email-confirmed'
+    'login',
+    'landing',
+    'landing-about',
+    'landing-capabilities',
+    'setpassword',
+    'resetpassword',
+    'forgotpassword',
+    'forgot-password',
+    'resendverification',
+    'resend-verification',
+    'emailconfirmed',
+    'email-confirmed',
+    'terms-of-service',
+    'privacy-policy',
+    'lumina-user-guide'
   ]),
   DEFAULT_PAGE: 'dashboard',
   PRIVS: { SYSTEM_ADMIN: 'SYSTEM_ADMIN', MANAGE_USERS: 'MANAGE_USERS', MANAGE_PAGES: 'MANAGE_PAGES' }
 };
-
-// ───────────────────────────────────────────────────────────────────────────────
-// LUMINA IDENTITY INTEGRATION HELPERS
-// ───────────────────────────────────────────────────────────────────────────────
-
-const ACTIVE_SESSION_CACHE_TTL_SECONDS = 60 * 60; // 1 hour
-const ACTIVE_SESSION_PROPERTY_PREFIX = 'LUMINA_ACTIVE_SESSION:';
-
-function getLuminaIdentityModule() {
-  if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
-    return LuminaIdentity;
-  }
-  if (typeof luminaIdentity !== 'undefined' && luminaIdentity) {
-    return luminaIdentity;
-  }
-  return null;
-}
-
-function getActiveUserKey() {
-  try {
-    if (typeof Session !== 'undefined' && Session && typeof Session.getTemporaryActiveUserKey === 'function') {
-      const key = Session.getTemporaryActiveUserKey();
-      if (key) {
-        return String(key);
-      }
-    }
-  } catch (err) {
-    console.warn('getActiveUserKey: unable to resolve Apps Script session key', err);
-  }
-  return null;
-}
-
-function buildActiveSessionStorageKey(userKey) {
-  return ACTIVE_SESSION_PROPERTY_PREFIX + String(userKey || '');
-}
-
-function rememberActiveUserSessionToken(sessionToken, metadata) {
-  const token = (sessionToken || '').trim();
-  if (!token) {
-    return false;
-  }
-
-  const activeKey = getActiveUserKey();
-  if (!activeKey) {
-    return false;
-  }
-
-  const payload = {
-    sessionToken: token,
-    storedAt: new Date().toISOString(),
-    metadata: metadata || null
-  };
-
-  let serialized = null;
-  try {
-    serialized = JSON.stringify(payload);
-  } catch (err) {
-    console.warn('rememberActiveUserSessionToken: failed to serialize payload', err);
-    return false;
-  }
-
-  const storageKey = buildActiveSessionStorageKey(activeKey);
-
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService) {
-      CacheService.getUserCache().put(storageKey, serialized, ACTIVE_SESSION_CACHE_TTL_SECONDS);
-    }
-  } catch (cacheErr) {
-    console.warn('rememberActiveUserSessionToken: cache persistence failed', cacheErr);
-  }
-
-  try {
-    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
-      PropertiesService.getUserProperties().setProperty(storageKey, serialized);
-    }
-  } catch (propErr) {
-    console.warn('rememberActiveUserSessionToken: property persistence failed', propErr);
-  }
-
-  return true;
-}
-
-function clearActiveUserSessionToken() {
-  const activeKey = getActiveUserKey();
-  if (!activeKey) {
-    return false;
-  }
-
-  const storageKey = buildActiveSessionStorageKey(activeKey);
-
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService) {
-      CacheService.getUserCache().remove(storageKey);
-    }
-  } catch (cacheErr) {
-    console.warn('clearActiveUserSessionToken: cache removal failed', cacheErr);
-  }
-
-  try {
-    if (typeof PropertiesService !== 'undefined' && PropertiesService) {
-      PropertiesService.getUserProperties().deleteProperty(storageKey);
-    }
-  } catch (propErr) {
-    console.warn('clearActiveUserSessionToken: property removal failed', propErr);
-  }
-
-  return true;
-}
-
-function readActiveUserSessionToken() {
-  const activeKey = getActiveUserKey();
-  if (!activeKey) {
-    return null;
-  }
-
-  const storageKey = buildActiveSessionStorageKey(activeKey);
-  let raw = null;
-
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService) {
-      raw = CacheService.getUserCache().get(storageKey);
-    }
-  } catch (cacheErr) {
-    console.warn('readActiveUserSessionToken: cache read failed', cacheErr);
-  }
-
-  if (!raw) {
-    try {
-      if (typeof PropertiesService !== 'undefined' && PropertiesService) {
-        raw = PropertiesService.getUserProperties().getProperty(storageKey);
-      }
-    } catch (propErr) {
-      console.warn('readActiveUserSessionToken: property read failed', propErr);
-    }
-  }
-
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && parsed.sessionToken) {
-      return parsed;
-    }
-  } catch (parseErr) {
-    console.warn('readActiveUserSessionToken: failed to parse payload', parseErr);
-    return { sessionToken: String(raw) };
-  }
-
-  return null;
-}
-
-function clearLuminaIdentityUserCache(userId) {
-  try {
-    const module = getLuminaIdentityModule();
-    if (!module || typeof module.clearUserCache !== 'function') {
-      return;
-    }
-    if (Array.isArray(userId)) {
-      userId.forEach(function (id) {
-        try { module.clearUserCache(id); } catch (err) { console.warn('clearLuminaIdentityUserCache: failed for id', id, err); }
-      });
-      return;
-    }
-    module.clearUserCache(userId);
-  } catch (err) {
-    console.warn('clearLuminaIdentityUserCache: unable to clear cache', err);
-  }
-}
-
-function resolveServiceIdentity(context, options) {
-  const incomingContext = (context && typeof context === 'object' && !Array.isArray(context))
-    ? Object.assign({}, context)
-    : {};
-  const identityModule = getLuminaIdentityModule();
-  const identityOptions = Object.assign({}, options || {});
-  const requireIdentity = !!identityOptions.require;
-  delete identityOptions.require;
-
-  if (incomingContext.identity && incomingContext.identity.sessionToken) {
-    return {
-      identity: incomingContext.identity,
-      context: incomingContext
-    };
-  }
-
-  if (!identityOptions.sessionToken && incomingContext.sessionToken) {
-    identityOptions.sessionToken = incomingContext.sessionToken;
-  }
-  if (!identityOptions.sessionToken && incomingContext.token) {
-    identityOptions.sessionToken = incomingContext.token;
-  }
-  if (!identityOptions.sessionToken && incomingContext.authToken) {
-    identityOptions.sessionToken = incomingContext.authToken;
-  }
-  if (!identityOptions.sessionToken && incomingContext.identity && incomingContext.identity.session && incomingContext.identity.session.token) {
-    identityOptions.sessionToken = incomingContext.identity.session.token;
-  }
-
-  let rememberedSession = null;
-  if (!identityOptions.sessionToken) {
-    rememberedSession = readActiveUserSessionToken();
-    if (rememberedSession && rememberedSession.sessionToken) {
-      identityOptions.sessionToken = rememberedSession.sessionToken;
-      incomingContext.sessionToken = incomingContext.sessionToken || rememberedSession.sessionToken;
-      incomingContext.rememberedSession = rememberedSession;
-    }
-  }
-
-  if (!identityModule || typeof identityModule.ensureAuthenticated !== 'function') {
-    return { identity: null, context: incomingContext };
-  }
-
-  const event = incomingContext.event || incomingContext.e || incomingContext.request || null;
-
-  try {
-    const identity = identityModule.ensureAuthenticated(event, identityOptions);
-    const enriched = Object.assign({}, incomingContext, {
-      identity: identity,
-      user: identity,
-      userId: identity && (identity.id || identity.userId || identity.ID || identity.UserId) || incomingContext.userId || null,
-      sessionToken: identity && identity.sessionToken
-        ? identity.sessionToken
-        : (identity && identity.session && identity.session.token) || incomingContext.sessionToken || null,
-      roles: identity && identity.roleNames ? identity.roleNames.slice() : (incomingContext.roles || []),
-      claims: identity && identity.claims ? identity.claims : (incomingContext.claims || []),
-      campaignScope: identity && identity.campaigns
-        ? identity.campaigns
-        : (identity && identity.CampaignScope ? identity.CampaignScope : incomingContext.campaignScope || null)
-    });
-    return { identity: identity, context: enriched };
-  } catch (error) {
-    if (rememberedSession) {
-      clearActiveUserSessionToken();
-    }
-    if (requireIdentity) {
-      throw error;
-    }
-    return { identity: null, context: incomingContext, error: error };
-  }
-}
-
-function assertServiceIdentity(context, options) {
-  const resolution = resolveServiceIdentity(context, Object.assign({}, options || {}, { require: true }));
-  if (!resolution.identity) {
-    const error = resolution.error || new Error('Authentication required');
-    if (!error.code) {
-      error.code = 'AUTH_REQUIRED';
-    }
-    throw error;
-  }
-  return resolution;
-}
 
 // ───────────────────────────────────────────────────────────────────────────────
 // LUMINA ENTITY REGISTRY
@@ -399,9 +158,6 @@ function ensureEntitySchema(definition) {
 }
 
 function projectEntityRows(definition, context, options, columns) {
-  var identityResolution = assertServiceIdentity(context);
-  var resolvedContext = identityResolution.context || {};
-
   var manager = (typeof DatabaseManager !== 'undefined') ? DatabaseManager : null;
   if (!manager || typeof manager.table !== 'function') {
     throw new Error('DatabaseManager.table is not available.');
@@ -409,7 +165,7 @@ function projectEntityRows(definition, context, options, columns) {
 
   ensureEntitySchema(definition);
 
-  var table = manager.table(definition.tableName, resolvedContext);
+  var table = manager.table(definition.tableName, context);
   var cols = Array.isArray(columns) ? columns.slice() : null;
   if (cols && definition.idColumn && cols.indexOf(definition.idColumn) === -1) {
     cols.push(definition.idColumn);
@@ -428,10 +184,9 @@ function projectEntityRows(definition, context, options, columns) {
 
 function getEntitySummaries(entityName, context) {
   try {
-    var resolution = assertServiceIdentity(context);
     var def = resolveLuminaEntityDefinition(entityName);
     var options = def.summaryOptions ? Object.assign({}, def.summaryOptions) : {};
-    var rows = projectEntityRows(def, resolution.context, options, def.summaryColumns);
+    var rows = projectEntityRows(def, context, options, def.summaryColumns);
     if (typeof def.normalizeSummary === 'function') {
       return rows.map(function (row) { return def.normalizeSummary(row); });
     }
@@ -448,7 +203,6 @@ function getEntityDetail(entityName, id, context) {
       throw new Error('Record id is required.');
     }
 
-    var resolution = assertServiceIdentity(context);
     var def = resolveLuminaEntityDefinition(entityName);
     var manager = (typeof DatabaseManager !== 'undefined') ? DatabaseManager : null;
     if (!manager || typeof manager.table !== 'function') {
@@ -456,7 +210,7 @@ function getEntityDetail(entityName, id, context) {
     }
 
     ensureEntitySchema(def);
-    var table = manager.table(def.tableName, resolution.context);
+    var table = manager.table(def.tableName, context);
     var record = (typeof table.findById === 'function') ? table.findById(id) : null;
     if (!record && typeof table.findOne === 'function' && def.idColumn) {
       var where = {};
@@ -1199,6 +953,20 @@ function authenticateUser(e) {
       return null;
     }
 
+    if (typeof AuthenticationService !== 'undefined'
+      && AuthenticationService
+      && typeof AuthenticationService.userHasActiveSession === 'function') {
+      try {
+        const hasActiveSession = AuthenticationService.userHasActiveSession(user);
+        if (!hasActiveSession) {
+          return null;
+        }
+      } catch (sessionCheckError) {
+        console.warn('authenticateUser: active session verification failed', sessionCheckError);
+        return null;
+      }
+    }
+
     // Check if user can login
     if (!_truthy(user.CanLogin)) {
       return null;
@@ -1269,19 +1037,12 @@ function getBaseUrl() {
 function _findUserByEmail_(email) {
   if (!email) return null;
   try {
-    const normalizedEmail = String(email).trim().toLowerCase();
-    if (!normalizedEmail) return null;
-
-    const CK = 'USR_BY_EMAIL_' + normalizedEmail;
+    const CK = 'USR_BY_EMAIL_' + email.toLowerCase();
     const cached = _cacheGet(CK);
     if (cached) return cached;
 
     const rows = (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
-    const hit = rows.find(function (r) {
-      if (!r) return false;
-      const candidate = String(r.Email || r.email || '').trim().toLowerCase();
-      return candidate === normalizedEmail;
-    }) || null;
+    const hit = rows.find(r => String(r.Email || '').trim().toLowerCase() === email.toLowerCase()) || null;
     if (hit) _cachePut(CK, hit, 120);
     return hit;
   } catch (e) {
@@ -1320,68 +1081,17 @@ function clientGetCurrentUser() {
   return getCurrentUser();
 }
 
-function __injectCurrentUser_(tpl, explicitUser, options) {
-  if (!tpl) {
-    return;
-  }
-
-  var identityInjected = false;
-
-  if (explicitUser && explicitUser.identityMeta
-    && typeof luminaIdentity !== 'undefined'
-    && luminaIdentity
-    && typeof luminaIdentity.injectTemplate === 'function') {
-    try {
-      luminaIdentity.injectTemplate(tpl, explicitUser);
-      identityInjected = true;
-    } catch (identityAssignError) {
-      console.warn('__injectCurrentUser_: failed to inject provided identity', identityAssignError);
-      identityInjected = false;
-    }
-  }
-
-  if (!identityInjected
-    && typeof luminaIdentity !== 'undefined'
-    && luminaIdentity
-    && typeof luminaIdentity.resolve === 'function'
-    && typeof luminaIdentity.injectTemplate === 'function') {
-    try {
-      var resolved = luminaIdentity.resolve(options && options.request ? options.request : null, {
-        explicitUser: explicitUser,
-        sessionToken: options && options.sessionToken,
-        token: options && options.token,
-        allowCurrentUser: true,
-        useCache: true
-      });
-      luminaIdentity.injectTemplate(tpl, resolved);
-      identityInjected = true;
-    } catch (identityResolveError) {
-      console.warn('__injectCurrentUser_: luminaIdentity resolve failed', identityResolveError);
-      identityInjected = false;
-    }
-  }
-
-  if (identityInjected) {
-    return;
-  }
-
+function __injectCurrentUser_(tpl, explicitUser) {
   try {
     const u = explicitUser && (explicitUser.Email || explicitUser.email || explicitUser.ID)
       ? explicitUser
       : getCurrentUser();
     tpl.user = u;
-    tpl.safeUser = (typeof createSafeUserObject === 'function' && u) ? createSafeUserObject(u) : u;
-    const serialized = _stringifyForTemplate_(tpl.safeUser || u || {});
-    tpl.currentUserJson = serialized;
-    tpl.identityJson = serialized;
-    tpl.identityMetaJson = _stringifyForTemplate_({});
+    tpl.currentUserJson = _stringifyForTemplate_(u);
   } catch (e) {
     writeError && writeError('__injectCurrentUser_', e);
     tpl.user = null;
-    tpl.safeUser = null;
     tpl.currentUserJson = '{}';
-    tpl.identityJson = '{}';
-    tpl.identityMetaJson = '{}';
   }
 }
 
@@ -1513,49 +1223,21 @@ function requireAuth(e) {
       return renderAccessDenied((decision && decision.reason) || 'You do not have permission to view this page.');
     }
 
-    let resolvedUser = user;
-
-    if (typeof luminaIdentity !== 'undefined'
-      && luminaIdentity
-      && typeof luminaIdentity.resolve === 'function') {
+    // Hydrate campaign context
+    if (campaignId) {
       try {
-        resolvedUser = luminaIdentity.resolve(e, {
-          explicitUser: user,
-          sessionToken: user && user.sessionToken,
-          token: e && e.parameter ? e.parameter.token : '',
-          allowCurrentUser: false,
-          useCache: true
-        });
-      } catch (identityError) {
-        console.warn('requireAuth: luminaIdentity resolve failed', identityError);
-        resolvedUser = user;
-      }
-    }
-
-    if (resolvedUser && campaignId) {
-      const hasNavigation = resolvedUser.campaignNavigation && typeof resolvedUser.campaignNavigation === 'object';
-      const hasPermissions = resolvedUser.campaignPermissions && typeof resolvedUser.campaignPermissions === 'object';
-      const hasCampaignName = resolvedUser.campaignName || resolvedUser.CampaignName;
-
-      if (!hasNavigation || !hasPermissions || !hasCampaignName) {
-        try {
-          if (!hasNavigation && typeof getCampaignNavigation === 'function') {
-            resolvedUser.campaignNavigation = getCampaignNavigation(campaignId);
-          }
-          if (!hasPermissions && typeof getUserCampaignPermissions === 'function') {
-            resolvedUser.campaignPermissions = getUserCampaignPermissions(resolvedUser.ID || resolvedUser.Id);
-          }
-          if (!hasCampaignName && typeof getCampaignById === 'function') {
-            const c = getCampaignById(campaignId);
-            resolvedUser.campaignName = c ? (c.Name || c.name || '') : '';
-          }
-        } catch (ctxErr) {
-          console.warn('Campaign context hydrate failed:', ctxErr);
+        if (typeof getCampaignNavigation === 'function') user.campaignNavigation = getCampaignNavigation(campaignId);
+        if (typeof getUserCampaignPermissions === 'function') user.campaignPermissions = getUserCampaignPermissions(user.ID);
+        if (typeof getCampaignById === 'function') {
+          const c = getCampaignById(campaignId);
+          user.campaignName = c ? (c.Name || c.name || '') : '';
         }
+      } catch (ctxErr) {
+        console.warn('Campaign context hydrate failed:', ctxErr);
       }
     }
 
-    return resolvedUser;
+    return user;
 
   } catch (error) {
     writeError('requireAuth', error);
@@ -1565,6 +1247,7 @@ function requireAuth(e) {
 
 function renderLoginPage(e) {
   let serverMetadata = null;
+  let initialReturnUrl = '';
 
   if (typeof AuthenticationService !== 'undefined'
     && AuthenticationService
@@ -1576,22 +1259,240 @@ function renderLoginPage(e) {
     }
   }
 
+  if (typeof AuthenticationService !== 'undefined'
+    && AuthenticationService
+    && typeof AuthenticationService.deriveLoginReturnUrlFromEvent === 'function') {
+    try {
+      initialReturnUrl = AuthenticationService.deriveLoginReturnUrlFromEvent(e) || '';
+    } catch (returnError) {
+      console.warn('renderLoginPage: deriveLoginReturnUrlFromEvent failed', returnError);
+    }
+  }
+
+  if (!initialReturnUrl && e && e.parameter) {
+    try {
+      const directReturn = sanitizeLoginReturnUrl(e.parameter.returnUrl || e.parameter.ReturnUrl || '');
+      if (directReturn) {
+        initialReturnUrl = directReturn;
+      }
+    } catch (directError) {
+      console.warn('renderLoginPage: unable to sanitize direct returnUrl', directError);
+    }
+  }
+
+  if (!initialReturnUrl && e && e.parameter) {
+    const requestedPage = String(e.parameter.page || e.parameter.Page || '').trim();
+    if (requestedPage && requestedPage.toLowerCase() !== 'login') {
+      const additionalParams = {};
+      let campaignId = '';
+
+      Object.keys(e.parameter).forEach(function (key) {
+        if (!key) return;
+        if (/^page$/i.test(key)) return;
+        if (/^token$/i.test(key)) return;
+        if (/^returnurl$/i.test(key)) return;
+
+        const value = e.parameter[key];
+        if (value === null || typeof value === 'undefined' || value === '') {
+          return;
+        }
+
+        if (!campaignId && /^campaign$/i.test(key)) {
+          campaignId = value;
+          return;
+        }
+
+        additionalParams[key] = value;
+      });
+
+      try {
+        const builtUrl = getAuthenticatedUrl(requestedPage, campaignId, additionalParams);
+        const sanitizedBuilt = sanitizeLoginReturnUrl(builtUrl);
+        if (sanitizedBuilt) {
+          initialReturnUrl = sanitizedBuilt;
+        }
+      } catch (buildReturnError) {
+        console.warn('renderLoginPage: unable to build fallback return URL', buildReturnError);
+      }
+    }
+  }
+
   const tpl = HtmlService.createTemplateFromFile('Login');
   tpl.baseUrl = getBaseUrl();
   tpl.scriptUrl = SCRIPT_URL;
   tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
+  tpl.initialReturnUrl = initialReturnUrl || '';
   return tpl.evaluate()
     .setTitle('Login - VLBPO LuminaHQ')
     .addMetaTag('viewport', 'width=device-width,initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+function sanitizeLoginReturnUrl(raw) {
+  try {
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+      return IdentityService.sanitizeLoginReturnUrl(raw);
+    }
+  } catch (identityError) {
+    console.warn('sanitizeLoginReturnUrl: IdentityService helper failed', identityError);
+  }
+
+  if (!raw && raw !== 0) {
+    return '';
+  }
+
+  try {
+    var value = String(raw).trim();
+    if (!value) {
+      return '';
+    }
+
+    if (/^javascript:/i.test(value)) {
+      return '';
+    }
+
+    if (/^https?:/i.test(value)) {
+      try {
+        var base = getBaseUrl() || '';
+        if (!base && typeof SCRIPT_URL === 'string') {
+          base = SCRIPT_URL;
+        }
+
+        if (base) {
+          var baseMatch = /^https?:\/\/[^/]+/i.exec(base);
+          var targetMatch = /^https?:\/\/[^/]+/i.exec(value);
+          if (baseMatch && targetMatch && baseMatch[0].toLowerCase() !== targetMatch[0].toLowerCase()) {
+            return '';
+          }
+        }
+      } catch (originError) {
+        console.warn('sanitizeLoginReturnUrl fallback origin check failed', originError);
+      }
+    }
+
+    if (value.length > 500) {
+      value = value.slice(0, 500);
+    }
+
+    return value;
+  } catch (error) {
+    console.warn('sanitizeLoginReturnUrl fallback failed', error);
+    return '';
+  }
+}
+
+function buildLoginPageUrl(options) {
+  var base = getBaseUrl() || SCRIPT_URL || '';
+  var parts = ['page=login'];
+
+  if (options && options.returnUrl) {
+    var sanitized = sanitizeLoginReturnUrl(options.returnUrl);
+    if (sanitized) {
+      parts.push('returnUrl=' + encodeURIComponent(sanitized));
+    }
+  }
+
+  if (options && options.message) {
+    parts.push('message=' + encodeURIComponent(String(options.message)));
+  }
+
+  if (options && options.error) {
+    parts.push('error=' + encodeURIComponent(String(options.error)));
+  }
+
+  var query = parts.join('&');
+  if (!base) {
+    return '?' + query;
+  }
+
+  return base + (base.indexOf('?') === -1 ? '?' : '&') + query;
+}
+
+function handleLogoutRequest(e) {
+  try {
+    var token = (e && e.parameter && e.parameter.token) ? String(e.parameter.token) : '';
+
+    try {
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.logout === 'function') {
+        AuthenticationService.logout(token || '');
+      } else if (typeof identitySignOut === 'function') {
+        identitySignOut(token || '');
+      }
+    } catch (logoutError) {
+      console.warn('handleLogoutRequest: server logout failed', logoutError);
+    }
+
+    var returnCandidate = (e && e.parameter && e.parameter.returnUrl) ? e.parameter.returnUrl : '';
+    var loginUrl = buildLoginPageUrl({ returnUrl: returnCandidate });
+
+    return HtmlService
+      .createHtmlOutput('<script>window.top.location.href = ' + JSON.stringify(loginUrl) + ';</script>')
+      .setTitle('Logging out…')
+      .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (error) {
+    console.error('handleLogoutRequest: unexpected failure', error);
+    writeError('handleLogoutRequest', error);
+    return renderLoginPage({ parameter: { page: 'login' } });
+  }
+}
+
 function canonicalizePageKey(k) {
-  const key = String(k || '').trim().toLowerCase();
+  const original = String(k || '').trim();
+  const key = original.toLowerCase()
+    .replace(/%2f/g, '/')
+    .replace(/%5c/g, '\\')
+    .replace(/%3a/g, ':')
+    .replace(/%7c/g, '|')
+    .replace(/%40/g, '@');
   if (!key) return key;
+
+  if (/^(userprofile|user-profile|profile)(?:[:\/@|\\-]+.+)?$/.test(key)) {
+    return 'userprofile';
+  }
+
+  if (/^(agent-experience|workspace.agent)(?:[:\/@|\\-]+.+)?$/.test(key)) {
+    return 'agent-experience';
+  }
 
   // Map legacy slugs/aliases → canonical keys used by the Access Engine
   switch (key) {
+    // Landing pages
+    case 'landing':
+    case 'landing-page':
+      return 'landing';
+    case 'landing-about':
+    case 'landingabout':
+    case 'about':
+    case 'about-luminahq':
+      return 'landing-about';
+    case 'landing-capabilities':
+    case 'landingcapabilities':
+    case 'capabilities':
+    case 'explore-capabilities':
+      return 'landing-capabilities';
+
+    // Legal & public resources
+    case 'terms-of-service':
+    case 'terms-and-conditions':
+    case 'termsofservice':
+    case 'terms':
+      return 'terms-of-service';
+    case 'privacy-policy':
+    case 'privacypolicy':
+    case 'privacy':
+    case 'privacy-notice':
+      return 'privacy-policy';
+    case 'lumina-user-guide':
+    case 'lumina-hq-user-guide':
+    case 'luminauserguide':
+    case 'user-guide':
+      return 'lumina-user-guide';
+
     // Admin Pages
     case 'manageuser':
     case 'users':
@@ -1605,8 +1506,12 @@ function canonicalizePageKey(k) {
 
     // Experience hubs
     case 'agent-experience':
+    case 'workspace.agent':
+      return 'agent-experience';
     case 'userprofile':
-      return 'workspace.agent';
+    case 'user-profile':
+    case 'profile':
+      return 'userprofile';
     case 'manager-executive-experience':
       return 'workspace.executive';
     case 'goalsetting':
@@ -1719,6 +1624,109 @@ function canonicalizePageKey(k) {
   }
 }
 
+function __normalizeProfileIdentifierValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+
+  try {
+    const decoded = decodeURIComponent(text);
+    return decoded && decoded.trim() ? decoded.trim() : text;
+  } catch (_) {
+    return text;
+  }
+}
+
+function __extractProfileIdentifierFromPageKey(rawPage) {
+  if (rawPage === null || typeof rawPage === 'undefined') {
+    return '';
+  }
+
+  const text = String(rawPage).trim();
+  if (!text) {
+    return '';
+  }
+
+  const sanitized = text.replace(/\+/g, ' ');
+  const lowered = sanitized.toLowerCase();
+  const prefixes = ['userprofile', 'user-profile', 'profile', 'agent-experience', 'workspace.agent'];
+
+  for (let idx = 0; idx < prefixes.length; idx++) {
+    const prefix = prefixes[idx];
+    if (!lowered.startsWith(prefix)) {
+      continue;
+    }
+
+    const remainder = sanitized.slice(prefix.length);
+    if (!remainder) {
+      continue;
+    }
+
+    const cleaned = remainder
+      .replace(/^[\s:\/@|\\-]+/, '')
+      .split(/[?#]/)[0];
+
+    const normalized = __normalizeProfileIdentifierValue(cleaned);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function resolveProfileIdentifierFromRequest(e, rawPage) {
+  try {
+    const params = (e && e.parameter) ? e.parameter : {};
+    const candidateKeys = [
+      'profileId', 'profileID', 'profileid', 'ProfileID', 'ProfileId',
+      'profile', 'Profile',
+      'profileSlug', 'ProfileSlug', 'profileslug',
+      'slug', 'Slug',
+      'handle', 'Handle',
+      'userId', 'userID', 'userid', 'UserID', 'UserId',
+      'ID', 'Id', 'id'
+    ];
+
+    for (let idx = 0; idx < candidateKeys.length; idx++) {
+      const key = candidateKeys[idx];
+      if (Object.prototype.hasOwnProperty.call(params, key)) {
+        const normalized = __normalizeProfileIdentifierValue(params[key]);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+
+    const pathCandidates = [
+      rawPage,
+      params && params.page,
+      params && params.path,
+      params && params.route,
+      params && params.profilePath,
+      params && params.profileSlug,
+      params && params.slug,
+      params && params.handle
+    ];
+
+    for (let i = 0; i < pathCandidates.length; i++) {
+      const extracted = __extractProfileIdentifierFromPageKey(pathCandidates[i]);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  } catch (err) {
+    console.warn('resolveProfileIdentifierFromRequest: failed to resolve identifier', err);
+  }
+
+    return '';
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // ENHANCED doGet WITH SIMPLIFIED ROUTING
 // ───────────────────────────────────────────────────────────────────────────────
@@ -1726,6 +1734,36 @@ function canonicalizePageKey(k) {
 function doGet(e) {
   try {
     const baseUrl = getBaseUrl();
+
+    function redirectToLanding(user) {
+      const userCampaignId = user.CampaignID || '';
+      let landingSlug = '';
+
+      try {
+        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
+            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
+              user: user,
+              userPayload: user,
+              rawUser: user
+            });
+            if (landingInfo && landingInfo.slug) {
+              landingSlug = landingInfo.slug;
+            }
+          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
+            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
+          }
+        }
+      } catch (landingError) {
+        console.warn('doGet: failed to compute landing slug', landingError);
+      }
+
+      const redirectPage = landingSlug || 'dashboard';
+      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
+      return HtmlService
+        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
+        .setTitle('Redirecting...');
+    }
 
     // Initialize system
     // initializeSystem();
@@ -1761,15 +1799,51 @@ function doGet(e) {
     }
 
     // Handle public pages
-    const page = (e.parameter.page || "").toLowerCase();
+    const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
+    const page = rawPageParam.toLowerCase();
 
-    if (page === 'login' || (!page)) {
+    if (!page) {
+      return handlePublicPage('landing', e, baseUrl);
+    }
+
+    if (page === 'login') {
+      try {
+        const existingSession = authenticateUser(e);
+        if (existingSession && existingSession.ID) {
+          return redirectToLanding(existingSession);
+        }
+      } catch (sessionError) {
+        console.warn('doGet: session probe failed for login/default route', sessionError);
+      }
+
       return renderLoginPage(e);
     }
 
     // Handle other public pages
-    const publicPages = ['setpassword', 'resetpassword', 'resend-verification', 'resendverification',
-      'forgotpassword', 'forgot-password', 'emailconfirmed', 'email-confirmed'];
+    const publicPages = [
+      'landing',
+      'landing-about',
+      'about',
+      'landing-capabilities',
+      'capabilities',
+      'setpassword',
+      'resetpassword',
+      'resend-verification',
+      'resendverification',
+      'forgotpassword',
+      'forgot-password',
+      'emailconfirmed',
+      'email-confirmed',
+      'terms-of-service',
+      'termsofservice',
+      'terms',
+      'privacy-policy',
+      'privacypolicy',
+      'privacy',
+      'lumina-user-guide',
+      'lumina-hq-user-guide',
+      'user-guide'
+    ];
 
     if (publicPages.includes(page)) {
       return handlePublicPage(page, e, baseUrl);
@@ -1792,37 +1866,6 @@ function doGet(e) {
         .setTitle('Change Password')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
-    // Default route: redirect to persona-specific landing page
-    if (!page) {
-      const userCampaignId = user.CampaignID || '';
-      let landingSlug = '';
-
-      try {
-        if (typeof AuthenticationService !== 'undefined' && AuthenticationService) {
-          if (typeof AuthenticationService.resolveLandingDestination === 'function') {
-            const landingInfo = AuthenticationService.resolveLandingDestination(user, {
-              user: user,
-              userPayload: user,
-              rawUser: user
-            });
-            if (landingInfo && landingInfo.slug) {
-              landingSlug = landingInfo.slug;
-            }
-          } else if (typeof AuthenticationService.getLandingSlug === 'function') {
-            landingSlug = AuthenticationService.getLandingSlug(user, { user: user, userPayload: user });
-          }
-        }
-      } catch (landingError) {
-        console.warn('doGet: failed to compute landing slug', landingError);
-      }
-
-      const redirectPage = landingSlug || 'dashboard';
-      const redirectUrl = getAuthenticatedUrl(redirectPage, userCampaignId);
-      return HtmlService
-        .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-        .setTitle('Redirecting...');
     }
 
     const campaignId = e.parameter.campaign || user.CampaignID || '';
@@ -1865,16 +1908,31 @@ function doGet(e) {
 function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
   try {
     const raw = String(page || '').trim();
+    const canonicalPage = canonicalizePageKey(raw);
+    const resolvedProfileId = resolveProfileIdentifierFromRequest(e, raw);
+    const hasProfileParameter = resolvedProfileId !== '';
+
+    if (hasProfileParameter && e) {
+      if (!e.parameter) {
+        e.parameter = {};
+      }
+
+      const targetParam = e.parameter;
+      const existingProfileId = targetParam.profileId || targetParam.profileID || targetParam.ProfileID || targetParam.ProfileId;
+      if (!existingProfileId) {
+        targetParam.profileId = resolvedProfileId;
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DEFAULT/GLOBAL PAGES (Always available, campaign-independent)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    if (page === 'userprofile') {
+    if (canonicalPage === 'userprofile' || (canonicalPage === 'agent-experience' && hasProfileParameter)) {
       return serveGlobalPage('UserProfile', e, baseUrl, user);
     }
 
-    if (page === 'agent-experience') {
+    if (canonicalPage === 'agent-experience') {
       return serveGlobalPage('AgentExperience', e, baseUrl, user);
     }
 
@@ -2302,6 +2360,85 @@ function handlePublicPage(page, e, baseUrl) {
   const scriptUrl = SCRIPT_URL;
 
   switch (page) {
+    case 'landing':
+      const landingTpl = HtmlService.createTemplateFromFile('Landing');
+      landingTpl.baseUrl = baseUrl;
+      landingTpl.scriptUrl = scriptUrl;
+
+      return landingTpl.evaluate()
+        .setTitle('LuminaHQ – Intelligent Workforce Command Center')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-about':
+    case 'about':
+    case 'about-luminahq':
+      const aboutTpl = HtmlService.createTemplateFromFile('LandingAbout');
+      aboutTpl.baseUrl = baseUrl;
+      aboutTpl.scriptUrl = scriptUrl;
+
+      return aboutTpl.evaluate()
+        .setTitle('About LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-capabilities':
+    case 'capabilities':
+    case 'explore-capabilities':
+      const capabilitiesTpl = HtmlService.createTemplateFromFile('LandingCapabilities');
+      capabilitiesTpl.baseUrl = baseUrl;
+      capabilitiesTpl.scriptUrl = scriptUrl;
+
+      return capabilitiesTpl.evaluate()
+        .setTitle('Explore LuminaHQ Capabilities')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'terms-of-service':
+    case 'termsofservice':
+    case 'terms':
+    case 'terms-and-conditions':
+      const termsTpl = HtmlService.createTemplateFromFile('TermsOfService');
+      termsTpl.baseUrl = baseUrl;
+      termsTpl.scriptUrl = scriptUrl;
+      termsTpl.user = {};
+      termsTpl.currentPage = 'terms-of-service';
+
+      return termsTpl.evaluate()
+        .setTitle('Terms of Service - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'privacy-policy':
+    case 'privacypolicy':
+    case 'privacy':
+    case 'privacy-notice':
+      const privacyTpl = HtmlService.createTemplateFromFile('PrivacyPolicy');
+      privacyTpl.baseUrl = baseUrl;
+      privacyTpl.scriptUrl = scriptUrl;
+      privacyTpl.user = {};
+      privacyTpl.currentPage = 'privacy-policy';
+
+      return privacyTpl.evaluate()
+        .setTitle('Privacy Policy - VLBPO LuminaHQ')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'lumina-user-guide':
+    case 'lumina-hq-user-guide':
+    case 'luminauserguide':
+    case 'user-guide':
+      const guideTpl = HtmlService.createTemplateFromFile('LuminaHQUserGuide');
+      guideTpl.baseUrl = baseUrl;
+      guideTpl.scriptUrl = scriptUrl;
+      guideTpl.user = {};
+      guideTpl.currentPage = 'lumina-user-guide';
+
+      return guideTpl.evaluate()
+        .setTitle('LuminaHQ User Guide')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
     case 'setpassword':
     case 'resetpassword':
       const resetToken = e.parameter.token || '';
@@ -3279,6 +3416,26 @@ function handleSearchData(tpl, e) {
 function computeUserProfileSlug(userRecord, detailRecord) {
   try {
     const record = detailRecord && detailRecord.record ? detailRecord.record : detailRecord || {};
+    const normalize = (value) => {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+      const text = String(value).trim();
+      return text ? text : '';
+    };
+
+    const identifierCandidates = [
+      userRecord && (userRecord.ID || userRecord.Id || userRecord.id || userRecord.EmployeeID || userRecord.employeeId || userRecord.ProfileID || userRecord.profileId),
+      record && (record.ID || record.Id || record.id || record.EmployeeID || record.employeeId || record.ProfileID || record.profileId)
+    ];
+
+    for (let idx = 0; idx < identifierCandidates.length; idx++) {
+      const normalizedId = normalize(identifierCandidates[idx]);
+      if (normalizedId) {
+        return normalizedId;
+      }
+    }
+
     const candidates = [];
 
     const pushCandidate = (value) => {
@@ -3331,6 +3488,7 @@ function handleUserProfileData(tpl, e, user) {
   try {
     const bootstrap = {
       user: user || null,
+      viewer: user || null,
       detail: null,
       pages: [],
       equipment: [],
@@ -3340,27 +3498,88 @@ function handleUserProfileData(tpl, e, user) {
       generatedAt: new Date().toISOString()
     };
 
-    const userId = user && user.ID ? String(user.ID) : '';
+    const viewerId = user && user.ID ? String(user.ID) : '';
+    const rawPageParam = (e && e.parameter && e.parameter.page) || '';
+    const requestedProfileId = resolveProfileIdentifierFromRequest(e, rawPageParam);
+    const normalizedRequested = requestedProfileId ? String(requestedProfileId).trim() : '';
+    const profileId = normalizedRequested || viewerId;
+    const normalizedProfileId = profileId ? profileId.toString().trim().toLowerCase() : '';
+    const requestingUserId = viewerId || profileId;
 
-    if (userId && typeof clientGetUserDetail === 'function') {
+    const extractProfileId = (record) => {
+      if (!record || typeof record !== 'object') {
+        return '';
+      }
+      const keys = ['ID', 'Id', 'id', 'EmployeeID', 'employeeId', 'ProfileID', 'profileId', 'UserID', 'userId'];
+      for (let i = 0; i < keys.length; i++) {
+        const value = record[keys[i]];
+        if (value !== undefined && value !== null) {
+          const text = String(value).trim();
+          if (text) {
+            return text;
+          }
+        }
+      }
+      return '';
+    };
+
+    let profileRecord = null;
+
+    if (profileId && typeof getUsers === 'function') {
       try {
-        bootstrap.detail = clientGetUserDetail(userId, { requestingUserId: userId }) || null;
+        const roster = getUsers();
+        if (Array.isArray(roster) && roster.length) {
+          for (let idx = 0; idx < roster.length; idx++) {
+            const candidate = extractProfileId(roster[idx]);
+            if (candidate && candidate.toLowerCase() === normalizedProfileId) {
+              profileRecord = roster[idx];
+              break;
+            }
+          }
+        }
+      } catch (rosterError) {
+        console.warn('handleUserProfileData: unable to resolve profile user from roster', rosterError);
+      }
+    }
+
+    if (profileId && typeof clientGetUserDetail === 'function') {
+      try {
+        const detailOptions = requestingUserId ? { requestingUserId: requestingUserId } : {};
+        bootstrap.detail = clientGetUserDetail(profileId, detailOptions) || null;
+        if (!profileRecord && bootstrap.detail && bootstrap.detail.record) {
+          profileRecord = bootstrap.detail.record;
+        }
       } catch (detailError) {
         console.warn('handleUserProfileData: unable to load user detail', detailError);
       }
     }
 
-    if (userId && typeof clientGetUserPages === 'function') {
+    if (!profileRecord && viewerId && profileId && viewerId.toLowerCase() === normalizedProfileId) {
+      profileRecord = user || null;
+    }
+
+    if (!profileRecord && profileId && typeof clientGetUserProfile === 'function') {
       try {
-        bootstrap.pages = clientGetUserPages(userId) || [];
+        const fallbackRecord = clientGetUserProfile(profileId);
+        if (fallbackRecord) {
+          profileRecord = fallbackRecord;
+        }
+      } catch (profileError) {
+        console.warn('handleUserProfileData: fallback profile lookup failed', profileError);
+      }
+    }
+
+    if (profileId && typeof clientGetUserPages === 'function') {
+      try {
+        bootstrap.pages = clientGetUserPages(profileId) || [];
       } catch (pagesError) {
         console.warn('handleUserProfileData: unable to load user pages', pagesError);
       }
     }
 
-    if (userId && typeof clientGetUserEquipment === 'function') {
+    if (profileId && typeof clientGetUserEquipment === 'function') {
       try {
-        const equipmentResponse = clientGetUserEquipment(userId);
+        const equipmentResponse = clientGetUserEquipment(profileId);
         if (equipmentResponse && equipmentResponse.success && Array.isArray(equipmentResponse.items)) {
           bootstrap.equipment = equipmentResponse.items;
         }
@@ -3370,8 +3589,8 @@ function handleUserProfileData(tpl, e, user) {
     }
 
     let campaignId = '';
-    if (user && user.CampaignID) {
-      campaignId = String(user.CampaignID);
+    if (profileRecord && (profileRecord.CampaignID || profileRecord.campaignId)) {
+      campaignId = String(profileRecord.CampaignID || profileRecord.campaignId);
     }
 
     if (!campaignId && bootstrap.detail && bootstrap.detail.record) {
@@ -3381,17 +3600,17 @@ function handleUserProfileData(tpl, e, user) {
 
     bootstrap.campaignId = campaignId;
 
-    if (userId && campaignId && typeof getCampaignUserPermissions === 'function') {
+    if (profileId && campaignId && typeof getCampaignUserPermissions === 'function') {
       try {
-        bootstrap.permissions = getCampaignUserPermissions(campaignId, userId) || null;
+        bootstrap.permissions = getCampaignUserPermissions(campaignId, profileId) || null;
       } catch (permissionsError) {
         console.warn('handleUserProfileData: unable to load campaign permissions', permissionsError);
       }
     }
 
-    if (userId && typeof clientGetManagerTeamSummary === 'function') {
+    if (profileId && typeof clientGetManagerTeamSummary === 'function') {
       try {
-        const summary = clientGetManagerTeamSummary(userId);
+        const summary = clientGetManagerTeamSummary(profileId);
         if (summary && summary.success) {
           bootstrap.managerSummary = summary;
         }
@@ -3400,8 +3619,11 @@ function handleUserProfileData(tpl, e, user) {
       }
     }
 
-    bootstrap.profileId = userId;
-    bootstrap.profileSlug = computeUserProfileSlug(user, bootstrap.detail);
+    bootstrap.user = profileRecord || user || null;
+    bootstrap.profileId = profileId;
+    bootstrap.requestedProfileId = normalizedRequested;
+    const computedSlug = computeUserProfileSlug(bootstrap.user, bootstrap.detail);
+    bootstrap.profileSlug = computedSlug && computedSlug !== 'user' ? computedSlug : (profileId || computedSlug);
 
     tpl.profileBootstrap = _stringifyForTemplate_(bootstrap);
   } catch (error) {
@@ -4593,50 +4815,19 @@ function confirmEmail(token) {
       return false;
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sh = ss.getSheetByName('Users');
-    if (!sh) {
-      console.error('Users sheet not found');
-      return false;
-    }
-
-    const data = sh.getDataRange().getValues();
-    if (data.length < 2) {
-      console.warn('No users found in Users sheet');
-      return false;
-    }
-
-    const headers = data.shift();
-    const colTok = headers.indexOf('EmailConfirmation');
-    const colConf = headers.indexOf('EmailConfirmed');
-    const colUpd = headers.indexOf('UpdatedAt');
-    const colEmail = headers.indexOf('Email');
-
-    if (colTok < 0 || colConf < 0) {
-      console.error('Required columns not found in Users sheet');
-      return false;
-    }
-
-    let found = false;
-    let userEmail = null;
-
-    data.forEach((row, i) => {
-      if (String(row[colTok]) === String(token)) {
-        found = true;
-        userEmail = row[colEmail];
-        const rowNum = i + 2;
-
-        sh.getRange(rowNum, colConf + 1).setValue(true);
-
-        if (colUpd >= 0) {
-          sh.getRange(rowNum, colUpd + 1).setValue(new Date());
-        }
-
-        console.log(`Email confirmed for user: ${userEmail}`);
+    if (typeof IdentityService !== 'undefined'
+      && IdentityService
+      && typeof IdentityService.confirmEmail === 'function') {
+      const result = IdentityService.confirmEmail(token);
+      if (result && result.success) {
+        return true;
       }
-    });
+      console.warn('confirmEmail: IdentityService returned failure', result);
+      return false;
+    }
 
-    return found;
+    console.warn('confirmEmail: IdentityService unavailable; skipping confirmation');
+    return false;
   } catch (error) {
     console.error('Error confirming email:', error);
     writeError('confirmEmail', error);
@@ -5049,6 +5240,27 @@ function queueBackgroundInitialization(options) {
       });
     }
 
+    if (manager && typeof manager.backfillAllMissingIds === 'function') {
+      tasks.push({
+        label: 'DatabaseManager.backfillAllMissingIds',
+        run: function () {
+          var maintenanceContext = Object.assign({ allowAllTenants: true }, context || {});
+          var summaries = manager.backfillAllMissingIds(maintenanceContext);
+          if (safeConsole && typeof safeConsole.log === 'function') {
+            safeConsole.log('DatabaseManager.backfillAllMissingIds summaries:', summaries);
+          }
+          if (Array.isArray(summaries)) {
+            for (var i = 0; i < summaries.length; i++) {
+              var summary = summaries[i];
+              if (summary && summary.error && safeConsole && typeof safeConsole.error === 'function') {
+                safeConsole.error('ID backfill error for table ' + summary.table + ': ' + summary.error);
+              }
+            }
+          }
+        }
+      });
+    }
+
     if (typeof QualityService !== 'undefined' && QualityService && typeof QualityService.queueBackgroundInitialization === 'function') {
       tasks.push({
         label: 'QualityService.queueBackgroundInitialization',
@@ -5096,6 +5308,39 @@ function scheduledWarmup() {
       }
     }
     return false;
+  }
+}
+
+function runDatabaseIdBackfill() {
+  var safeConsole = (typeof console !== 'undefined' && console) ? console : {
+    error: function () { },
+    warn: function () { },
+    log: function () { }
+  };
+
+  try {
+    if (typeof DatabaseManager === 'undefined' || !DatabaseManager || typeof DatabaseManager.backfillAllMissingIds !== 'function') {
+      throw new Error('DatabaseManager.backfillAllMissingIds is not available');
+    }
+    var summaries = DatabaseManager.backfillAllMissingIds({ allowAllTenants: true });
+    if (safeConsole && typeof safeConsole.log === 'function') {
+      safeConsole.log('runDatabaseIdBackfill summaries:', summaries);
+    }
+    return summaries;
+  } catch (error) {
+    if (safeConsole && typeof safeConsole.error === 'function') {
+      safeConsole.error('runDatabaseIdBackfill failed:', error);
+    }
+    if (typeof writeError === 'function') {
+      try {
+        writeError('runDatabaseIdBackfill', error);
+      } catch (loggingError) {
+        if (safeConsole && typeof safeConsole.error === 'function') {
+          safeConsole.error('Failed to log runDatabaseIdBackfill error:', loggingError);
+        }
+      }
+    }
+    throw error;
   }
 }
 

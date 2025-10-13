@@ -69,8 +69,6 @@
 
     .page-wrapper {
       min-height: 100vh;
-      height: 100vh;
-      overflow: hidden;
     }
 
     /* Modern Background with subtle pattern */
@@ -202,8 +200,6 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      height: 100vh;
-      overflow: hidden;
     }
 
     .form-column::before {
@@ -224,22 +220,6 @@
       padding: clamp(2.5rem, 5vw, 3.5rem) clamp(2rem, 4.5vw, 3.25rem);
       position: relative;
       z-index: 1;
-      display: grid;
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr;
-      height: 100%;
-      max-height: 100%;
-      overflow: hidden;
-    }
-
-    .login-content {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-      grid-area: 1 / 1;
-      overflow: hidden;
-      z-index: 1;
-      min-height: 0;
     }
 
     .consent-text {
@@ -417,28 +397,6 @@
       margin-top: 1rem;
       font-weight: 600;
       color: var(--text-secondary);
-    }
-
-    /* Enhanced Redirect Section */
-    .redirect-section {
-      display: none;
-      background: rgba(240, 253, 244, 0.92);
-      border: 1px solid rgba(31, 146, 84, 0.35);
-      border-radius: var(--border-radius-lg);
-      padding: clamp(2rem, 4vw, 2.75rem);
-      text-align: center;
-      box-shadow: var(--shadow-lg);
-      animation: slideInUp 0.6s ease-out;
-      grid-area: 1 / 1;
-      align-items: center;
-      justify-content: center;
-      gap: 1.25rem;
-      flex-direction: column;
-      width: 100%;
-      max-height: 100%;
-      overflow: hidden;
-      pointer-events: none;
-      z-index: 2;
     }
 
     .next-steps-card {
@@ -622,78 +580,6 @@
       }
     }
 
-    @keyframes slideInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    .redirect-section.show {
-      display: flex !important;
-      pointer-events: auto;
-    }
-
-    .redirect-button {
-      background: var(--success-green);
-      color: #fff;
-      padding: 1.25rem 2.5rem;
-      border: none;
-      border-radius: var(--border-radius);
-      font-weight: 600;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      transition: var(--transition);
-      box-shadow: var(--shadow-md);
-      font-size: 1.1rem;
-      letter-spacing: 0.025em;
-    }
-
-    .redirect-button:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-xl);
-      color: #fff;
-      background: #177644;
-    }
-
-    .redirect-button:active {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .redirect-cancel {
-      border-radius: var(--border-radius-sm);
-      font-weight: 600;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .redirect-cancel:hover {
-      box-shadow: var(--shadow-md);
-    }
-
-    /* Enhanced Countdown */
-    .countdown-display {
-      background: rgba(4, 120, 211, 0.08);
-      border-radius: var(--border-radius);
-      padding: 1.5rem;
-      margin: 1.5rem 0;
-      font-weight: 600;
-      border: 1px solid rgba(4, 120, 211, 0.15);
-    }
-
-    .countdown-number {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--success-green);
-    }
-
     /* Logo Enhancement */
     .logo-container {
       margin-bottom: 2.5rem;
@@ -803,78 +689,12 @@
     }
 
     @media (max-width: 991.98px) {
+      body {
+        overflow: auto;
+      }
+
       .form-column {
-        padding: clamp(1.5rem, 6vw, 3rem);
-      }
-
-      .login-container {
-        max-height: 100vh;
-      }
-
-      .login-content {
-        gap: 1.25rem;
-      }
-    }
-
-    @media (max-height: 780px) {
-      .login-container {
-        padding: clamp(2rem, 4vw, 3rem) clamp(1.5rem, 4vw, 2.75rem);
-      }
-
-      .login-content {
-        gap: 1.25rem;
-      }
-
-      .logo-container {
-        margin-bottom: 2rem;
-      }
-    }
-
-    @media (max-height: 640px) {
-      .login-container {
-        padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1.25rem, 3.5vw, 2rem);
-      }
-
-      .login-content {
-        gap: 1.1rem;
-      }
-
-      .welcome-text p {
-        margin-bottom: 1.5rem;
-      }
-
-      .redirect-button {
-        padding: 1rem 2rem;
-      }
-
-      .redirect-cancel {
-        padding-inline: 1.25rem;
-      }
-    }
-
-    @media (max-height: 560px) {
-      .login-container {
-        padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1rem, 3vw, 1.5rem);
-      }
-
-      .login-content {
-        gap: 1rem;
-      }
-
-      .logo-container {
-        margin-bottom: 1.5rem;
-      }
-
-      .welcome-text h1 {
-        font-size: 1.9rem;
-      }
-
-      .welcome-text p {
-        font-size: 0.95rem;
-      }
-
-      .countdown-display {
-        margin: 1rem 0;
+        min-height: auto;
       }
     }
 
@@ -1002,10 +822,6 @@
         padding: 1.5rem;
       }
 
-      .login-content {
-        gap: 1rem;
-      }
-
       .form-control {
         padding: 0.875rem 1rem;
       }
@@ -1030,9 +846,9 @@
       <div class="col-lg-5 d-none d-lg-flex align-items-center justify-content-center feature-panel">
         <div class="feature-content text-center text-lg-start">
           <span class="feature-badge">
-            <i class="fas fa-sparkles"></i> LuminaHQ Platform
+            <i class="fas fa-sparkles"></i> Lumina HQ Platform
           </span>
-          <h2 class="feature-heading">Centralized clarity to lead every client partnership</h2>
+          <h2 class="feature-heading">Centralized clarity & collaboration</h2>
           <p class="feature-text">Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
           <ul class="feature-list">
             <li><i class="fas fa-chart-line"></i><span>Real-time insight into quality, productivity, and coaching impact.</span></li>
@@ -1049,9 +865,8 @@
       <!-- RIGHT: Login Form -->
       <div class="col-lg-7 col-xl-6 ms-auto d-flex align-items-center justify-content-center bg-light form-column">
         <div class="login-container">
-          <div class="login-content">
 
-            <!-- Logo Section -->
+          <!-- Logo Section -->
           <div class="logo-container">
             <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png"
                  alt="LuminaHQ" class="img-fluid" loading="lazy">
@@ -1186,25 +1001,6 @@
             <a href="<?= baseUrl ?>?page=terms-of-service" class="small" target="_blank" rel="noopener">Terms of Service</a>
           </div>
         </div>
-
-        <!-- Success Redirect Section -->
-        <div id="redirectSection" class="redirect-section">
-          <i class="fas fa-check-circle fa-4x text-success success-icon"></i>
-          <h4 class="text-success fw-bold mb-2">Login Successful!</h4>
-          <div class="countdown-display">
-            <div id="countdown">Preparing your dashboard...</div>
-            <div class="mt-2">
-              <span class="countdown-number" id="countdownNumber">3</span>
-              <small class="text-muted">seconds remaining</small>
-            </div>
-          </div>
-          <a id="continueButton" class="redirect-button" target="_top" href="#">
-            <i class="fas fa-arrow-right"></i>Continue to Dashboard
-          </a>
-          <button type="button" class="btn btn-outline-secondary btn-sm redirect-cancel" onclick="cancelRedirect()">
-            <i class="fas fa-times me-1"></i>Cancel Auto-Redirect
-          </button>
-        </div>
       </div>
 
     </div>
@@ -1212,6 +1008,7 @@
 
   <script>
     const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
+    const INITIAL_RETURN_URL = <?!= JSON.stringify(initialReturnUrl || '') ?>;
     // ───────────────────────────────────────────────────────────────────────────────
     // SIMPLIFIED AUTHENTICATION CONFIGURATION
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1223,6 +1020,29 @@
 
     const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
     const SESSION_RESUME_LOADER_DELAY_MS = 500;
+
+    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
+
+    function getStoredLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
+        }
+      } catch (err) {
+        console.warn('getStoredLogoutReason: unable to read logout reason', err);
+      }
+      return '';
+    }
+
+    function clearStoredLogoutReason() {
+      try {
+        if (window.sessionStorage) {
+          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+        }
+      } catch (err) {
+        console.warn('clearStoredLogoutReason: unable to clear logout reason', err);
+      }
+    }
 
     function sanitizeBaseUrl(candidate, fallback) {
       const invalidPattern = /usercodeapppanel/i;
@@ -1283,16 +1103,12 @@
 
     const SUPPORT_EMAIL = 'support@vlbpo.com';
     const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
-    const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
+    const SESSION_COOKIE_MAX_AGE = 30 * 60; // 30 minutes
     const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
     const STORAGE_KEYS = {
       rememberedEmail: 'lumina.auth.rememberedEmail',
       rememberExpiry: 'lumina.auth.rememberExpiry',
       lastEmail: 'lumina.auth.lastEmail'
-    };
-    const IDENTITY_STORAGE_KEYS = {
-      primary: 'lumina.session.identity',
-      fallback: 'lumina.auth.identity'
     };
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1304,11 +1120,7 @@
       emailInput: document.getElementById('email'),
       passwordInput: document.getElementById('password'),
       rememberMeCheckbox: document.getElementById('rememberMe'),
-      redirectSection: document.getElementById('redirectSection'),
-      continueButton: document.getElementById('continueButton'),
       loginForm: document.getElementById('loginForm'),
-      countdown: document.getElementById('countdown'),
-      countdownNumber: document.getElementById('countdownNumber'),
       nextStepsCard: document.getElementById('nextStepsCard'),
       nextStepsTitle: document.getElementById('nextStepsTitle'),
       nextStepsSubtitle: document.getElementById('nextStepsSubtitle'),
@@ -1334,10 +1146,6 @@
     // State management
     let state = {
       lastEmail: '',
-      redirectTimer: null,
-      isRedirecting: false,
-      redirectUrl: '',
-      countdownValue: 3,
       authToken: '',
       hasAttemptedResume: false,
       loginRequestTimer: null,
@@ -1360,8 +1168,21 @@
       sessionIdleTimeoutMinutes: null,
       sessionTtlSeconds: null,
       sessionExpiresAt: null,
-      lastRememberMe: false
+      lastRememberMe: false,
+      lastLogoutReason: getStoredLogoutReason(),
+      preferredReturnUrl: ''
     };
+
+    if (INITIAL_RETURN_URL && (!state.lastLogoutReason || state.lastLogoutReason === 'auto')) {
+      try {
+        const sanitizedInitial = sanitizePreferredRedirect(INITIAL_RETURN_URL);
+        if (sanitizedInitial) {
+          state.preferredReturnUrl = sanitizedInitial;
+        }
+      } catch (initialError) {
+        console.warn('Unable to apply initial return URL from server metadata', initialError);
+      }
+    }
 
     // ───────────────────────────────────────────────────────────────────────────────
     // ENHANCED ALERT SYSTEM
@@ -2282,7 +2103,7 @@
         console.warn('Unable to clear auth token from sessionStorage', err);
       }
 
-      clearPersistedIdentity('auth-cookie-cleared');
+      broadcastSessionTokenChange('');
 
       state.authToken = '';
       state.sessionIdleTimeoutMinutes = null;
@@ -2290,232 +2111,34 @@
       state.sessionExpiresAt = null;
     }
 
-    function safeJsonClone(value) {
-      if (!value || typeof value !== 'object') {
-        return value || null;
-      }
+    function broadcastSessionTokenChange(token) {
       try {
-        return JSON.parse(JSON.stringify(value));
-      } catch (err) {
-        console.warn('Unable to clone identity payload', err);
-        return null;
-      }
-    }
-
-    function normalizeRoleList(source) {
-      if (!source) {
-        return [];
-      }
-
-      const normalized = [];
-      const pushRole = role => {
-        const value = role == null ? '' : String(role).trim();
-        if (value) {
-          normalized.push(value);
+        if (typeof window === 'undefined') {
+          return;
         }
-      };
 
-      if (Array.isArray(source)) {
-        source.forEach(pushRole);
-      } else if (typeof source === 'string') {
-        source.split(/[,;|]/).forEach(pushRole);
-      } else if (typeof source === 'object') {
-        Object.keys(source).forEach(key => {
-          if (Object.prototype.hasOwnProperty.call(source, key)) {
-            pushRole(source[key]);
-          }
-        });
-      }
+        window.__LUMINA_SESSION_TOKEN__ = token || '';
 
-      return normalized;
-    }
+        if (typeof window.dispatchEvent !== 'function') {
+          return;
+        }
 
-    function setGlobalIdentity(identity) {
-      try {
-        if (identity) {
-          window.LuminaIdentity = identity;
-          window.__LUMINA_CURRENT_USER = identity;
-        } else {
-          try {
-            delete window.LuminaIdentity;
-          } catch (_) {
-            window.LuminaIdentity = undefined;
-          }
-          try {
-            delete window.__LUMINA_CURRENT_USER;
-          } catch (_) {
-            window.__LUMINA_CURRENT_USER = undefined;
-          }
+        const detail = { token: token || '' };
+        let event = null;
+
+        if (typeof CustomEvent === 'function') {
+          event = new CustomEvent('lumina:session-token', { detail });
+        } else if (window.document && typeof window.document.createEvent === 'function') {
+          event = window.document.createEvent('CustomEvent');
+          event.initCustomEvent('lumina:session-token', false, false, detail);
+        }
+
+        if (event) {
+          window.dispatchEvent(event);
         }
       } catch (err) {
-        console.warn('Unable to update global identity reference', err);
+        console.warn('broadcastSessionTokenChange: Unable to notify listeners', err);
       }
-    }
-
-    function buildIdentityPayload(user) {
-      if (!user || typeof user !== 'object') {
-        return null;
-      }
-
-      const clone = safeJsonClone(user) || {};
-      const email = ((clone.Email || clone.email || '') + '').trim();
-      const normalizedEmail = email.toLowerCase();
-      const roles = normalizeRoleList(
-        Array.isArray(clone.roleNames) && clone.roleNames.length ? clone.roleNames :
-          (clone.roles || clone.Roles || clone.RoleNames)
-      );
-
-      const campaignScope = safeJsonClone(clone.CampaignScope || clone.campaignScope || null);
-      const resolveCampaignId = () => {
-        if (clone.CampaignID) return clone.CampaignID;
-        if (clone.CampaignId) return clone.CampaignId;
-        if (clone.campaignId) return clone.campaignId;
-        if (campaignScope) {
-          return campaignScope.CampaignID || campaignScope.CampaignId || campaignScope.campaignId || campaignScope.id || '';
-        }
-        return '';
-      };
-      const campaignId = String(resolveCampaignId() || '').trim();
-      const resolveCampaignName = () => {
-        if (clone.CampaignName) return clone.CampaignName;
-        if (clone.campaignName) return clone.campaignName;
-        if (campaignScope) {
-          return campaignScope.campaignName || campaignScope.CampaignName || campaignScope.name || '';
-        }
-        return '';
-      };
-      const campaignName = String(resolveCampaignName() || '').trim();
-
-      const isAdmin = clone.IsAdmin === true || clone.isAdminBool === true ||
-        (typeof clone.IsAdmin === 'string' && clone.IsAdmin.toLowerCase() === 'true');
-
-      const payload = Object.assign({}, clone, {
-        ID: clone.ID || clone.Id || clone.id || null,
-        Id: clone.ID || clone.Id || clone.id || null,
-        id: clone.ID || clone.Id || clone.id || null,
-        Email: email,
-        email: email,
-        normalizedEmail: normalizedEmail,
-        roleNames: roles,
-        Roles: roles.join(', '),
-        CampaignScope: campaignScope || null,
-        campaignScope: campaignScope || null,
-        CampaignID: campaignId,
-        CampaignId: campaignId,
-        campaignId: campaignId,
-        CampaignName: campaignName,
-        campaignName: campaignName,
-        IsAdmin: isAdmin,
-        isAdminBool: isAdmin,
-        FullName: clone.FullName || clone.UserName || clone.fullName || '',
-        UserName: clone.UserName || clone.FullName || clone.userName || clone.displayName || '',
-        identityMeta: Object.assign({}, clone.identityMeta, {
-          persistedAt: new Date().toISOString(),
-          source: clone.identityMeta && clone.identityMeta.source ? clone.identityMeta.source : 'login-page'
-        })
-      });
-
-      const sessionToken = state.authToken || readAuthCookie() || clone.sessionToken || '';
-      payload.sessionToken = sessionToken;
-      payload.sessionExpiresAt = state.sessionExpiresAt || clone.sessionExpiresAt || clone.sessionExpiry || null;
-      payload.sessionIdleTimeoutMinutes = state.sessionIdleTimeoutMinutes || clone.sessionIdleTimeoutMinutes || null;
-
-      return payload;
-    }
-
-    function persistUserIdentity(user) {
-      const payload = buildIdentityPayload(user);
-      if (!payload) {
-        clearPersistedIdentity('persist-empty');
-        return null;
-      }
-
-      const serialized = JSON.stringify(payload);
-
-      try {
-        if (window.sessionStorage) {
-          sessionStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
-          sessionStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
-        }
-      } catch (err) {
-        console.warn('Unable to persist identity in sessionStorage', err);
-      }
-
-      try {
-        if (window.localStorage) {
-      localStorage.setItem(IDENTITY_STORAGE_KEYS.primary, serialized);
-      localStorage.setItem(IDENTITY_STORAGE_KEYS.fallback, serialized);
-    }
-  } catch (err) {
-    console.warn('Unable to persist identity in localStorage', err);
-  }
-
-  try {
-    if (window.CookieHandler && typeof CookieHandler.persistIdentityCookie === 'function') {
-      const cookieOptions = {};
-
-      if (typeof state.sessionTtlSeconds === 'number' && state.sessionTtlSeconds > 0) {
-        cookieOptions.ttlSeconds = Math.floor(state.sessionTtlSeconds);
-        cookieOptions.maxAgeSeconds = Math.max(300, Math.floor(state.sessionTtlSeconds));
-      } else if (typeof state.sessionIdleTimeoutMinutes === 'number' && state.sessionIdleTimeoutMinutes > 0) {
-        cookieOptions.maxAgeSeconds = Math.max(300, Math.floor(state.sessionIdleTimeoutMinutes * 60));
-      } else if (state.lastRememberMe) {
-        cookieOptions.maxAgeSeconds = REMEMBER_COOKIE_MAX_AGE;
-        cookieOptions.rememberMe = true;
-      } else {
-        cookieOptions.maxAgeSeconds = SESSION_COOKIE_MAX_AGE;
-      }
-
-      if (typeof state.lastRememberMe === 'boolean') {
-        cookieOptions.rememberMe = state.lastRememberMe;
-      }
-
-      if (state.sessionExpiresAt) {
-        cookieOptions.expiresAt = state.sessionExpiresAt;
-      }
-
-      CookieHandler.persistIdentityCookie(payload, cookieOptions);
-    }
-  } catch (cookieError) {
-    console.warn('Unable to persist identity cookie', cookieError);
-  }
-
-  setGlobalIdentity(payload);
-  return payload;
-}
-
-    function clearPersistedIdentity(reason) {
-      try {
-        if (window.sessionStorage) {
-          sessionStorage.removeItem(IDENTITY_STORAGE_KEYS.primary);
-          sessionStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
-        }
-      } catch (err) {
-        console.warn('Unable to clear identity from sessionStorage', err);
-      }
-
-      try {
-        if (window.localStorage) {
-          localStorage.removeItem(IDENTITY_STORAGE_KEYS.primary);
-          localStorage.removeItem(IDENTITY_STORAGE_KEYS.fallback);
-        }
-      } catch (err) {
-    console.warn('Unable to clear identity from localStorage', err);
-  }
-
-  try {
-    if (window.CookieHandler && typeof CookieHandler.clearIdentityCookie === 'function') {
-      CookieHandler.clearIdentityCookie();
-    }
-  } catch (cookieErr) {
-    console.warn('Unable to clear identity cookie', cookieErr);
-  }
-
-  setGlobalIdentity(null);
-
-  if (reason) {
-    console.log('Cleared persisted identity:', reason);
-  }
     }
 
     function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
@@ -2577,6 +2200,7 @@
         console.warn('Unable to persist auth token in sessionStorage', err);
       }
 
+      broadcastSessionTokenChange(token);
       restartSessionHeartbeat();
     }
 
@@ -2664,10 +2288,6 @@
         result.sessionTtlSeconds,
         result.idleTimeoutMinutes
       );
-
-      if (result && result.user) {
-        persistUserIdentity(result.user);
-      }
     }
 
     function handleKeepAliveFailure(error) {
@@ -2679,9 +2299,8 @@
     function handleSessionExpired(reason) {
       console.log('Session expired:', reason);
       clearAuthCookie();
-      clearPersistedIdentity('session-expired');
       try {
-        showAlert('info', 'Your session has expired. Please sign in again.');
+        showAlert('info', 'Your session has expired after 30 minutes of inactivity. Please sign in again to continue.');
       } catch (err) {
         console.warn('handleSessionExpired: unable to show alert', err);
       }
@@ -2713,7 +2332,6 @@
           if (!result || !result.success) {
             if (result && result.expired) {
               clearAuthCookie();
-              clearPersistedIdentity('resume-expired');
               showAlert('info', 'Your previous session has expired. Please sign in again.');
             }
             return;
@@ -2735,9 +2353,22 @@
 
           hideAllAlerts();
           const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
-          const resumeUrl = normalizeRedirectUrl(resumeInput);
-          persistUserIdentity(resumedUser);
-          setupRedirect(resumeUrl, resumedUser);
+          let resumeUrl = normalizeRedirectUrl(resumeInput);
+
+          const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
+          const preferredFromResponse = sanitizePreferredRedirect(result.requestedReturnUrl);
+
+          if (preferredFromState) {
+            resumeUrl = preferredFromState;
+          } else if (preferredFromResponse) {
+            resumeUrl = preferredFromResponse;
+          }
+
+          clearStoredLogoutReason();
+          state.lastLogoutReason = '';
+          state.preferredReturnUrl = '';
+
+          setupRedirect(resumeUrl);
         })
         .withFailureHandler(error => {
           finalizeResumeAttempt();
@@ -2842,6 +2473,51 @@
       return url;
     }
 
+    function appendSessionTokenToUrl(url, providedToken) {
+      if (!url) {
+        return url;
+      }
+
+      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
+      const tokenCandidate = normalizedProvided || state.authToken || readAuthCookie();
+      const token = tokenCandidate ? String(tokenCandidate).trim() : '';
+
+      if (!token) {
+        return url;
+      }
+
+      const raw = String(url).trim();
+      if (!raw || raw.startsWith('#')) {
+        return url;
+      }
+
+      if (/^(mailto:|tel:|javascript:)/i.test(raw)) {
+        return url;
+      }
+
+      try {
+        const base = window.location && window.location.href ? window.location.href : undefined;
+        const parsed = new URL(raw, base);
+
+        if (parsed.searchParams.get('token') !== token) {
+          parsed.searchParams.set('token', token);
+        }
+
+        if (raw.startsWith('?')) {
+          return (parsed.search || '') + (parsed.hash || '');
+        }
+
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
+          return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
+        }
+
+        return parsed.toString();
+      } catch (error) {
+        console.warn('appendSessionTokenToUrl: Unable to append token to redirect URL', error);
+        return url;
+      }
+    }
+
     function buildPageUrl(page, params = {}) {
       const current = new URL(window.location.href);
       let baseUrl = null;
@@ -2910,6 +2586,31 @@
       }
 
       return stripTokenFromUrl(buildPageUrl(page, params));
+    }
+
+    function sanitizePreferredRedirect(candidate) {
+      if (!candidate) {
+        return '';
+      }
+
+      let normalized = '';
+
+      try {
+        normalized = normalizeRedirectUrl(candidate);
+      } catch (err) {
+        console.warn('Unable to normalize preferred redirect URL.', err);
+        return '';
+      }
+
+      if (!normalized) {
+        return '';
+      }
+
+      if (/page=login/i.test(normalized)) {
+        return '';
+      }
+
+      return normalized;
     }
 
     function openPage(page, params = {}) {
@@ -3488,8 +3189,6 @@
     }
 
     function handleLoginFailure(response, email) {
-      clearAuthCookie();
-      clearPersistedIdentity('login-failed');
       const normalizedEmail = (email || '').trim();
       const displayEmail = normalizedEmail || 'your email address';
 
@@ -3746,109 +3445,42 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // REDIRECT MANAGEMENT
     // ───────────────────────────────────────────────────────────────────────────────
-    function setupRedirect(url, userInfo = {}) {
+    function setupRedirect(url) {
       const safeUrl = stripTokenFromUrl(url);
-      console.log('Setting up redirect to:', safeUrl);
 
-      if (userInfo && typeof userInfo === 'object') {
-        persistUserIdentity(userInfo);
+      if (!safeUrl) {
+        console.warn('No redirect URL provided.');
+        setLoading(false);
+        return;
       }
 
-      state.redirectUrl = safeUrl;
-      state.isRedirecting = true;
-      state.countdownValue = 3;
+      const redirectUrl = appendSessionTokenToUrl(safeUrl);
 
-      // Update UI
-      if (elements.continueButton) {
-        elements.continueButton.href = safeUrl;
-      }
+      console.log('Redirecting immediately to:', redirectUrl);
 
       if (elements.loginForm) {
         elements.loginForm.classList.add('form-slide-out');
+      }
 
-        setTimeout(() => {
-          if (elements.loginForm) {
-            elements.loginForm.style.display = 'none';
-          }
-          if (elements.redirectSection) {
-            elements.redirectSection.classList.add('show');
-          }
-          startCountdown();
-        }, 500);
-      } else {
-        if (elements.redirectSection) {
-          elements.redirectSection.classList.add('show');
+      try {
+        if (
+          typeof google !== 'undefined' &&
+          google.script &&
+          google.script.host &&
+          typeof google.script.host.setLocation === 'function'
+        ) {
+          google.script.host.setLocation(redirectUrl);
+        } else {
+          window.location.href = redirectUrl;
+
+          setTimeout(() => {
+            window.location.assign(redirectUrl);
+          }, 100);
         }
-        startCountdown();
-      }
-    }
-
-    function startCountdown() {
-      if (elements.countdown) {
-        elements.countdown.textContent = 'Redirecting to your dashboard...';
-      }
-      if (elements.countdownNumber) {
-        elements.countdownNumber.textContent = state.countdownValue;
-      }
-
-      if (state.redirectTimer) {
-        clearInterval(state.redirectTimer);
-      }
-
-      state.redirectTimer = setInterval(() => {
-        state.countdownValue--;
-        if (elements.countdownNumber) {
-          elements.countdownNumber.textContent = state.countdownValue;
-        }
-
-        if (state.countdownValue <= 0) {
-          clearInterval(state.redirectTimer);
-          state.redirectTimer = null;
-          executeRedirect();
-        }
-      }, 1000);
-    }
-
-    function executeRedirect() {
-      if (state.redirectUrl && state.isRedirecting) {
-        console.log('Executing redirect to:', state.redirectUrl);
-        if (elements.countdown) {
-          elements.countdown.textContent = 'Redirecting now...';
-        }
-
-        try {
-          if (
-            typeof google !== 'undefined' &&
-            google.script &&
-            google.script.host &&
-            typeof google.script.host.setLocation === 'function'
-          ) {
-            google.script.host.setLocation(state.redirectUrl);
-          } else {
-            window.location.href = state.redirectUrl;
-
-            setTimeout(() => {
-              window.location.assign(state.redirectUrl);
-            }, 100);
-          }
-        } catch (error) {
-          console.error('Redirect failed:', error);
-          showAlert('error', 'Redirect failed. Please click the button below to continue.');
-        }
-      }
-    }
-
-    function cancelRedirect() {
-      if (state.redirectTimer) {
-        clearInterval(state.redirectTimer);
-        state.redirectTimer = null;
-      }
-      state.isRedirecting = false;
-      if (elements.countdown) {
-        elements.countdown.textContent = 'Auto-redirect cancelled. Click the button when ready.';
-      }
-      if (elements.countdownNumber) {
-        elements.countdownNumber.textContent = '∞';
+      } catch (error) {
+        console.error('Redirect failed:', error);
+        showAlert('error', 'Redirect failed. Please try again.');
+        setLoading(false);
       }
     }
 
@@ -3940,11 +3572,23 @@
         response.sessionIdleTimeoutMinutes
       );
 
-      persistUserIdentity(response.user);
-
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
-      const destinationUrl = normalizeRedirectUrl(redirectInput);
-      setupRedirect(destinationUrl, response.user);
+      let destinationUrl = normalizeRedirectUrl(redirectInput);
+
+      const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
+      const preferredFromResponse = sanitizePreferredRedirect(response && response.requestedReturnUrl);
+
+      if (preferredFromState) {
+        destinationUrl = preferredFromState;
+      } else if (preferredFromResponse) {
+        destinationUrl = preferredFromResponse;
+      }
+
+      clearStoredLogoutReason();
+      state.lastLogoutReason = '';
+      state.preferredReturnUrl = '';
+
+      setupRedirect(destinationUrl);
       hideNextSteps();
     }
 
@@ -3955,6 +3599,15 @@
       console.log('Attempting login for:', email);
 
       monitorLoginRequest(email, rememberMe);
+
+      const clientMetadata = collectClientMetadata() || {};
+      if (state.lastLogoutReason) {
+        clientMetadata.logoutReason = state.lastLogoutReason;
+      }
+      const preferredReturnUrl = sanitizePreferredRedirect(state.preferredReturnUrl);
+      if (preferredReturnUrl) {
+        clientMetadata.requestedReturnUrl = preferredReturnUrl;
+      }
 
       google.script.run
         .withSuccessHandler(response => {
@@ -4024,7 +3677,7 @@
             ]
           });
         })
-        .loginUser(email, password, rememberMe, collectClientMetadata());
+        .loginUser(email, password, rememberMe, clientMetadata);
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -4108,26 +3761,53 @@
 
       restoreEmailFromStorage();
 
+      // Handle URL parameters for messages/errors
+      const urlParams = new URLSearchParams(window.location.search);
+      const message = urlParams.get('message');
+      const error = urlParams.get('error');
+      const logoutReason = (state.lastLogoutReason || '').toLowerCase();
+      const shouldShowAutoTimeout = !error && !message && logoutReason === 'auto';
+
+      let shouldReplaceUrl = false;
+
+      if (urlParams.has('token')) {
+        urlParams.delete('token');
+        shouldReplaceUrl = true;
+      }
+
+      if (urlParams.has('returnUrl')) {
+        const rawReturnUrl = urlParams.get('returnUrl');
+        const resolvedReturnUrl = sanitizePreferredRedirect(rawReturnUrl);
+
+        if (resolvedReturnUrl && state.lastLogoutReason === 'auto') {
+          state.preferredReturnUrl = resolvedReturnUrl;
+        } else if (resolvedReturnUrl && !state.preferredReturnUrl) {
+          state.preferredReturnUrl = resolvedReturnUrl;
+        }
+
+        if (state.lastLogoutReason !== 'auto') {
+          urlParams.delete('returnUrl');
+          shouldReplaceUrl = true;
+        }
+      }
+
+      if (shouldReplaceUrl) {
+        const cleanedQuery = urlParams.toString();
+        const cleanUrl = `${window.location.pathname}${cleanedQuery ? `?${cleanedQuery}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+
       const resumed = attemptSessionResume();
+
+      if (!resumed && shouldShowAutoTimeout) {
+        showAlert('info', 'Your session timed out after 30 minutes of inactivity. Please sign in again to continue.');
+      }
 
       // Auto-focus email field when not redirecting
       if (!resumed && elements.emailInput) {
         elements.emailInput.focus();
       }
-      
-      // Handle URL parameters for messages/errors
-      const urlParams = new URLSearchParams(window.location.search);
-      const message = urlParams.get('message');
-      const error = urlParams.get('error');
 
-      if (urlParams.has('token')) {
-        const sanitizedParams = new URLSearchParams(urlParams);
-        sanitizedParams.delete('token');
-        const newQuery = sanitizedParams.toString();
-        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash || ''}`;
-        window.history.replaceState({}, document.title, newUrl);
-      }
-      
       if (error) {
         showAlert('error', decodeURIComponent(error));
       } else if (message) {
@@ -4140,11 +3820,6 @@
         if (e.key === 'Enter' && e.target === elements.emailInput) {
           e.preventDefault();
           elements.passwordInput.focus();
-        }
-        
-        // Escape key cancels redirect
-        if (e.key === 'Escape' && state.isRedirecting) {
-          cancelRedirect();
         }
       });
 
@@ -4162,17 +3837,6 @@
 
       console.log('Login page initialized successfully');
     });
-
-
-    // ───────────────────────────────────────────────────────────────────────────────
-    // CLEANUP ON PAGE UNLOAD
-    // ───────────────────────────────────────────────────────────────────────────────
-    window.addEventListener('beforeunload', function() {
-      if (state.redirectTimer) {
-        clearInterval(state.redirectTimer);
-      }
-    });
-
     // ───────────────────────────────────────────────────────────────────────────────
     // ERROR HANDLING
     // ───────────────────────────────────────────────────────────────────────────────
@@ -4186,7 +3850,6 @@
 
     // Make functions globally available
     window.togglePassword = togglePassword;
-    window.cancelRedirect = cancelRedirect;
 
     console.log('Simplified login system loaded successfully');
   </script>

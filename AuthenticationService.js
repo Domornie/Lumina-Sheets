@@ -14,8 +14,9 @@
 // AUTHENTICATION CONFIGURATION
 // ───────────────────────────────────────────────────────────────────────────────
 
-const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_EXPIRATION_ENABLED = false; // Disable automatic session expiration
 const DEFAULT_SESSION_COLUMNS = [
   'Token',
   'TokenHash',
@@ -121,39 +122,6 @@ var AuthenticationService = (function () {
     return normalizeString(value);
   }
 
-  function resolveUsersSheetName() {
-    if (typeof USERS_SHEET === 'string' && USERS_SHEET.trim()) {
-      return USERS_SHEET.trim();
-    }
-    if (typeof G !== 'undefined' && G && typeof G.USERS_SHEET === 'string' && G.USERS_SHEET.trim()) {
-      return G.USERS_SHEET.trim();
-    }
-    return 'Users';
-  }
-
-  function validatePasswordStrength(password) {
-    const value = normalizeString(password);
-    if (!value) {
-      return 'Password is required.';
-    }
-    if (value.length < 8) {
-      return 'Password must be at least 8 characters long.';
-    }
-    if (!/[A-Z]/.test(value)) {
-      return 'Password must include at least one uppercase letter.';
-    }
-    if (!/[a-z]/.test(value)) {
-      return 'Password must include at least one lowercase letter.';
-    }
-    if (!/\d/.test(value)) {
-      return 'Password must include at least one number.';
-    }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
-      return 'Password must include at least one special character.';
-    }
-    return null;
-  }
-
   function cleanCampaignList(list) {
     if (!Array.isArray(list)) return [];
     var seen = {};
@@ -251,7 +219,134 @@ var AuthenticationService = (function () {
       sanitized.observedAt = String(metadata.observedAt);
     }
 
+    if (metadata.logoutReason) {
+      sanitized.logoutReason = String(metadata.logoutReason).slice(0, 20);
+    }
+
+    if (metadata.requestedReturnUrl) {
+      try {
+        if (typeof IdentityService !== 'undefined'
+          && IdentityService
+          && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+          const sanitizedReturn = IdentityService.sanitizeLoginReturnUrl(metadata.requestedReturnUrl);
+          if (sanitizedReturn) {
+            sanitized.requestedReturnUrl = sanitizedReturn;
+          }
+        }
+      } catch (returnError) {
+        console.warn('sanitizeClientMetadata: unable to sanitize requestedReturnUrl', returnError);
+      }
+    }
+
     return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  function resolveScriptBaseUrl() {
+    try {
+      if (typeof SCRIPT_URL === 'string' && SCRIPT_URL) {
+        return SCRIPT_URL;
+      }
+    } catch (err) {
+      console.warn('resolveScriptBaseUrl: SCRIPT_URL lookup failed', err);
+    }
+
+    try {
+      if (typeof getBaseUrl === 'function') {
+        const base = getBaseUrl();
+        if (base) {
+          return base;
+        }
+      }
+    } catch (err) {
+      console.warn('resolveScriptBaseUrl: getBaseUrl helper failed', err);
+    }
+
+    try {
+      if (typeof ScriptApp !== 'undefined' && ScriptApp && ScriptApp.getService) {
+        const serviceUrl = ScriptApp.getService().getUrl();
+        if (serviceUrl) {
+          return serviceUrl;
+        }
+      }
+    } catch (err) {
+      console.warn('resolveScriptBaseUrl: ScriptApp URL lookup failed', err);
+    }
+
+    return '';
+  }
+
+  function sanitizeReturnUrlCandidate(candidate) {
+    if (!candidate && candidate !== 0) {
+      return '';
+    }
+
+    try {
+      const raw = String(candidate).trim();
+      if (!raw) {
+        return '';
+      }
+
+      if (/^javascript:/i.test(raw)) {
+        return '';
+      }
+
+      let baseUrl = '';
+      const resolvedBase = resolveScriptBaseUrl();
+      if (resolvedBase) {
+        baseUrl = resolvedBase;
+      }
+
+      let parsed;
+      try {
+        parsed = baseUrl ? new URL(raw, baseUrl) : new URL(raw);
+      } catch (parseError) {
+        if (baseUrl) {
+          try {
+            parsed = new URL(raw, baseUrl);
+          } catch (fallbackError) {
+            console.warn('sanitizeReturnUrlCandidate: unable to resolve URL', fallbackError);
+            return '';
+          }
+        } else {
+          console.warn('sanitizeReturnUrlCandidate: unable to parse URL', parseError);
+          return '';
+        }
+      }
+
+      if (!/^https?:$/i.test(parsed.protocol)) {
+        return '';
+      }
+
+      if (baseUrl) {
+        try {
+          const base = new URL(baseUrl);
+          if (parsed.host && base.host && parsed.host.toLowerCase() !== base.host.toLowerCase()) {
+            return '';
+          }
+        } catch (hostError) {
+          console.warn('sanitizeReturnUrlCandidate: host comparison failed', hostError);
+        }
+      }
+
+      let sanitized = parsed.toString();
+      if (sanitized.length > 500) {
+        sanitized = sanitized.slice(0, 500);
+      }
+
+      return sanitized;
+    } catch (error) {
+      console.warn('sanitizeReturnUrlCandidate: fallback sanitation failed', error);
+      try {
+        if (typeof IdentityService !== 'undefined'
+          && IdentityService
+          && typeof IdentityService.sanitizeLoginReturnUrl === 'function') {
+          return IdentityService.sanitizeLoginReturnUrl(candidate);
+        }
+      } catch (identityError) {
+        console.warn('sanitizeReturnUrlCandidate: IdentityService fallback failed', identityError);
+      }
+      return '';
+    }
   }
 
   // ─── Session storage helpers ────────────────────────────────────────────────
@@ -551,14 +646,7 @@ var AuthenticationService = (function () {
     }
   }
 
-  function resolveSessionRecord(sessionToken, options) {
-    if (!sessionToken) {
-      return { status: 'not_found', reason: 'NOT_FOUND' };
-    }
-
-    const touch = options && options.touch;
-    const entry = findSessionEntry(sessionToken);
-
+  function evaluateSessionEntry(entry, options) {
     if (!entry) {
       return { status: 'not_found', reason: 'NOT_FOUND' };
     }
@@ -571,29 +659,34 @@ var AuthenticationService = (function () {
     const lastActivityTime = parseDateValue(getRecordValue(record, 'LastActivityAt'))
       || parseDateValue(getRecordValue(record, 'CreatedAt'));
 
-    if (!expiryTime || expiryTime < nowMs) {
-      removeSessionEntry(entry);
-      return {
-        status: 'expired',
-        reason: 'EXPIRED',
-        idleTimeoutMinutes: idleTimeoutMinutes,
-        lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
-      };
-    }
+    if (SESSION_EXPIRATION_ENABLED) {
+      if (!expiryTime || expiryTime < nowMs) {
+        removeSessionEntry(entry);
+        return {
+          status: 'expired',
+          reason: 'EXPIRED',
+          idleTimeoutMinutes: idleTimeoutMinutes,
+          lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
+        };
+      }
 
-    if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
-      removeSessionEntry(entry);
-      return {
-        status: 'expired',
-        reason: 'IDLE_TIMEOUT',
-        idleTimeoutMinutes: idleTimeoutMinutes,
-        lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
-      };
+      if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
+        removeSessionEntry(entry);
+        return {
+          status: 'expired',
+          reason: 'IDLE_TIMEOUT',
+          idleTimeoutMinutes: idleTimeoutMinutes,
+          lastActivityAt: lastActivityTime ? new Date(lastActivityTime).toISOString() : null
+        };
+      }
     }
 
     let expiresAtIso = getRecordValue(record, 'ExpiresAt');
     let lastActivityIso = getRecordValue(record, 'LastActivityAt')
       || (lastActivityTime ? new Date(lastActivityTime).toISOString() : null);
+
+    const touch = options && options.touch;
+    const sessionToken = options && options.sessionToken;
 
     if (touch) {
       const nowIso = new Date(nowMs).toISOString();
@@ -604,7 +697,7 @@ var AuthenticationService = (function () {
       setRecordValue(record, 'ExpiresAt', nextExpiryIso);
       setRecordValue(record, 'IdleTimeoutMinutes', String(idleTimeoutMinutes));
 
-      if (entry.matchMethod === 'legacy' || !getRecordValue(record, 'TokenHash') || !getRecordValue(record, 'TokenSalt')) {
+      if (sessionToken && (entry.matchMethod === 'legacy' || !getRecordValue(record, 'TokenHash') || !getRecordValue(record, 'TokenSalt'))) {
         const salt = generateTokenSalt();
         const hash = computeSessionTokenHash(sessionToken, salt);
         if (hash) {
@@ -623,11 +716,11 @@ var AuthenticationService = (function () {
           try {
             invalidateCache(entry.tableName);
           } catch (cacheError) {
-            console.warn('resolveSessionRecord: Cache invalidation failed', cacheError);
+            console.warn('evaluateSessionEntry: Cache invalidation failed', cacheError);
           }
         }
       } catch (updateError) {
-        console.warn('resolveSessionRecord: Failed to persist session updates', updateError);
+        console.warn('evaluateSessionEntry: Failed to persist session updates', updateError);
       }
 
       expiresAtIso = nextExpiryIso;
@@ -643,6 +736,207 @@ var AuthenticationService = (function () {
       expiresAt: expiresAtIso,
       rememberMe: rememberFlag
     };
+  }
+
+  function resolveSessionRecord(sessionToken, options) {
+    if (!sessionToken) {
+      return { status: 'not_found', reason: 'NOT_FOUND' };
+    }
+
+    const entry = findSessionEntry(sessionToken);
+    const evaluation = evaluateSessionEntry(entry, Object.assign({}, options || {}, { sessionToken: sessionToken }));
+    return evaluation;
+  }
+
+  function deriveLoginReturnUrlFromEvent(event) {
+    try {
+      if (!event || typeof event !== 'object') {
+        return '';
+      }
+
+      const parameters = event.parameter || event.parameters || {};
+      if (!parameters || typeof parameters !== 'object') {
+        return '';
+      }
+
+      const directKeys = ['returnUrl', 'returnURL', 'ReturnUrl', 'ReturnURL'];
+      for (let i = 0; i < directKeys.length; i++) {
+        const key = directKeys[i];
+        if (Object.prototype.hasOwnProperty.call(parameters, key) && parameters[key]) {
+          const sanitizedDirect = sanitizeReturnUrlCandidate(parameters[key]);
+          if (sanitizedDirect) {
+            return sanitizedDirect;
+          }
+        }
+      }
+
+      const rawPage = parameters.page || parameters.Page || parameters.PAGE || '';
+      const page = String(rawPage || '').trim();
+      if (!page || page.toLowerCase() === 'login') {
+        return '';
+      }
+
+      const additionalParams = {};
+      let campaignId = '';
+      Object.keys(parameters).forEach(function (key) {
+        if (!key) return;
+        if (/^page$/i.test(key)) return;
+        if (/^token$/i.test(key)) return;
+        if (/^returnurl$/i.test(key)) return;
+
+        const value = parameters[key];
+        if (value === null || typeof value === 'undefined' || value === '') {
+          return;
+        }
+
+        if (!campaignId && /^campaign$/i.test(key)) {
+          campaignId = value;
+          return;
+        }
+
+        additionalParams[key] = value;
+      });
+
+      let builtUrl = '';
+      try {
+        if (typeof getAuthenticatedUrl === 'function') {
+          builtUrl = getAuthenticatedUrl(page, campaignId, additionalParams);
+        }
+      } catch (buildError) {
+        console.warn('deriveLoginReturnUrlFromEvent: getAuthenticatedUrl failed', buildError);
+        builtUrl = '';
+      }
+
+      if (!builtUrl) {
+        const base = resolveScriptBaseUrl();
+        const parts = ['page=' + encodeURIComponent(page)];
+        if (campaignId) {
+          parts.push('campaign=' + encodeURIComponent(campaignId));
+        }
+        Object.keys(additionalParams).forEach(function (key) {
+          parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(additionalParams[key]));
+        });
+
+        if (base) {
+          const separator = base.indexOf('?') === -1 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+          builtUrl = base + (parts.length ? separator + parts.join('&') : '');
+        } else if (parts.length) {
+          builtUrl = '?' + parts.join('&');
+        }
+      }
+
+      return sanitizeReturnUrlCandidate(builtUrl);
+    } catch (error) {
+      console.warn('deriveLoginReturnUrlFromEvent: unable to determine return URL', error);
+      return '';
+    }
+  }
+
+  function buildSessionEntryFromRow(context, rowIndex, rowValues, headerMap) {
+    if (!context || !context.sheet || !Array.isArray(context.headers)) {
+      return null;
+    }
+
+    const record = readSessionRecord(context.headers, rowValues);
+    return {
+      tableName: context.tableName,
+      sheet: context.sheet,
+      headers: context.headers,
+      headerMap: headerMap || buildHeaderMap(context.headers),
+      rowIndex: rowIndex,
+      record: record,
+      rowValues: Array.isArray(rowValues) ? rowValues.slice() : [],
+      matchMethod: 'user'
+    };
+  }
+
+  function findActiveSessionForUser(userId, options) {
+    const normalizedUserId = normalizeString(userId);
+    if (!normalizedUserId) {
+      return null;
+    }
+
+    try {
+      const context = ensureSessionSheetContext();
+      const sheet = context.sheet;
+      const headers = context.headers;
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2 || !Array.isArray(headers) || !headers.length) {
+        return null;
+      }
+
+      const headerMap = buildHeaderMap(headers);
+      const columnCount = headers.length;
+      const range = sheet.getRange(2, 1, lastRow - 1, columnCount);
+      const values = range.getValues();
+
+      let latest = null;
+      let latestTimestamp = -Infinity;
+
+      for (let i = 0; i < values.length; i++) {
+        const rowValues = values[i];
+        const entry = buildSessionEntryFromRow(context, i + 2, rowValues, headerMap);
+        if (!entry) {
+          continue;
+        }
+
+        const recordUserId = normalizeString(getRecordValue(entry.record, 'UserId'));
+        if (recordUserId !== normalizedUserId) {
+          continue;
+        }
+
+        const evaluation = evaluateSessionEntry(entry, options || {});
+        if (!evaluation || evaluation.status !== 'active') {
+          continue;
+        }
+
+        const activityTimestamp = Date.parse(evaluation.lastActivityAt || evaluation.expiresAt || '') || 0;
+        if (activityTimestamp >= latestTimestamp) {
+          latest = evaluation;
+          latestTimestamp = activityTimestamp;
+        }
+      }
+
+      return latest;
+    } catch (error) {
+      console.warn('findActiveSessionForUser: failed to locate active session', error);
+      return null;
+    }
+  }
+
+  function userHasActiveSession(userIdentifier) {
+    try {
+      if (!userIdentifier && userIdentifier !== 0) {
+        return false;
+      }
+
+      let userId = '';
+      if (typeof userIdentifier === 'object' && userIdentifier !== null) {
+        userId = normalizeString(userIdentifier.ID || userIdentifier.Id || userIdentifier.userId || userIdentifier.UserId);
+      } else {
+        userId = normalizeString(userIdentifier);
+      }
+
+      if (!userId && typeof userIdentifier === 'object' && userIdentifier !== null) {
+        const email = normalizeEmail(userIdentifier.Email || userIdentifier.email);
+        if (email) {
+          const user = findUserByEmail(email);
+          if (user && user.ID) {
+            userId = normalizeString(user.ID);
+          }
+        }
+      }
+
+      if (!userId) {
+        return false;
+      }
+
+      const active = findActiveSessionForUser(userId, { touch: false });
+      return !!(active && active.status === 'active');
+    } catch (error) {
+      console.warn('userHasActiveSession: unable to determine session state', error);
+      return false;
+    }
   }
 
   function buildSessionUserContext(entry, sessionToken, resolution) {
@@ -921,11 +1215,22 @@ var AuthenticationService = (function () {
         host: event.context.host,
         userAgent: event.context.userAgent
       } : null;
-      const sanitized = sanitizeServerMetadata(serverContext);
-      if (sanitized) {
-        persistLoginContext(sanitized);
+      const sanitizedServer = sanitizeServerMetadata(serverContext);
+      const requestedReturnUrl = deriveLoginReturnUrlFromEvent(event);
+
+      let payload = null;
+      if (sanitizedServer) {
+        payload = Object.assign({}, sanitizedServer);
       }
-      return sanitized;
+      if (requestedReturnUrl) {
+        payload = payload || {};
+        payload.requestedReturnUrl = requestedReturnUrl;
+      }
+
+      if (payload) {
+        persistLoginContext(payload);
+      }
+      return payload;
     } catch (error) {
       console.warn('captureLoginRequestContext: failed to capture context', error);
       return null;
@@ -2849,64 +3154,6 @@ var AuthenticationService = (function () {
       EmailConfirmed: toBool(user.EmailConfirmed)
     };
 
-    const campaignIdCandidates = [];
-    function pushCampaignCandidate(value) {
-      const normalized = normalizeCampaignId(value);
-      if (!normalized) return;
-      if (campaignIdCandidates.indexOf(normalized) === -1) {
-        campaignIdCandidates.push(normalized);
-      }
-    }
-
-    const campaignNameCandidates = [];
-    function pushCampaignName(value) {
-      const normalized = normalizeString(value);
-      if (!normalized) return;
-      if (campaignNameCandidates.indexOf(normalized) === -1) {
-        campaignNameCandidates.push(normalized);
-      }
-    }
-
-    pushCampaignCandidate(payload.CampaignID);
-    pushCampaignCandidate(user && (user.CampaignId || user.campaignId));
-    pushCampaignCandidate(user && (user.ActiveCampaignId || user.activeCampaignId));
-    pushCampaignCandidate(user && (user.DefaultCampaignId || user.defaultCampaignId));
-    pushCampaignName(user && (user.CampaignName || user.campaignName));
-    pushCampaignName(user && (user.AccountName || user.accountName));
-    if (user && user.CampaignScope && typeof user.CampaignScope === 'object') {
-      pushCampaignCandidate(user.CampaignScope.activeCampaignId);
-      pushCampaignCandidate(user.CampaignScope.defaultCampaignId);
-      if (Array.isArray(user.CampaignScope.allowedCampaignIds)) {
-        user.CampaignScope.allowedCampaignIds.forEach(pushCampaignCandidate);
-      }
-      if (Array.isArray(user.CampaignScope.assignments)) {
-        user.CampaignScope.assignments.forEach(function (assignment) {
-          if (!assignment || typeof assignment !== 'object') return;
-          pushCampaignCandidate(
-            assignment.campaignId || assignment.CampaignId || assignment.campaignID || assignment.CampaignID ||
-            assignment.tenantId || assignment.TenantId || assignment.TenantID
-          );
-          pushCampaignName(
-            assignment.campaignName || assignment.CampaignName || assignment.name || assignment.Name ||
-            assignment.label || assignment.Label || assignment.displayName || assignment.DisplayName
-          );
-        });
-      }
-      if (Array.isArray(user.CampaignScope.permissions)) {
-        user.CampaignScope.permissions.forEach(function (permission) {
-          if (!permission || typeof permission !== 'object') return;
-          pushCampaignCandidate(
-            permission.campaignId || permission.CampaignId || permission.campaignID || permission.CampaignID ||
-            permission.tenantId || permission.TenantId || permission.TenantID
-          );
-          pushCampaignName(
-            permission.campaignName || permission.CampaignName || permission.name || permission.Name ||
-            permission.label || permission.Label || permission.displayName || permission.DisplayName
-          );
-        });
-      }
-    }
-
     if (tenantPayload && typeof tenantPayload === 'object') {
       payload.CampaignScope = {
         isGlobalAdmin: !!tenantPayload.isGlobalAdmin,
@@ -2927,42 +3174,6 @@ var AuthenticationService = (function () {
       payload.AdminCampaignIds = payload.CampaignScope.adminCampaignIds.slice();
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin;
       payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
-
-      if (Array.isArray(tenantPayload.allowedCampaignIds)) {
-        tenantPayload.allowedCampaignIds.forEach(pushCampaignCandidate);
-      }
-      if (Array.isArray(tenantPayload.managedCampaignIds)) {
-        tenantPayload.managedCampaignIds.forEach(pushCampaignCandidate);
-      }
-      if (Array.isArray(tenantPayload.adminCampaignIds)) {
-        tenantPayload.adminCampaignIds.forEach(pushCampaignCandidate);
-      }
-      if (tenantPayload.assignments && tenantPayload.assignments.forEach) {
-        tenantPayload.assignments.forEach(function (assignment) {
-          if (!assignment || typeof assignment !== 'object') return;
-          pushCampaignCandidate(
-            assignment.campaignId || assignment.CampaignId || assignment.campaignID || assignment.CampaignID ||
-            assignment.tenantId || assignment.TenantId || assignment.TenantID
-          );
-          pushCampaignName(
-            assignment.campaignName || assignment.CampaignName || assignment.name || assignment.Name ||
-            assignment.label || assignment.Label || assignment.displayName || assignment.DisplayName
-          );
-        });
-      }
-      if (tenantPayload.permissions && tenantPayload.permissions.forEach) {
-        tenantPayload.permissions.forEach(function (permission) {
-          if (!permission || typeof permission !== 'object') return;
-          pushCampaignCandidate(
-            permission.campaignId || permission.CampaignId || permission.campaignID || permission.CampaignID ||
-            permission.tenantId || permission.TenantId || permission.TenantID
-          );
-          pushCampaignName(
-            permission.campaignName || permission.CampaignName || permission.name || permission.Name ||
-            permission.label || permission.Label || permission.displayName || permission.DisplayName
-          );
-        });
-      }
     } else {
       payload.CampaignScope = buildTenantScopePayload(null);
       payload.DefaultCampaignId = payload.CampaignScope.defaultCampaignId;
@@ -2973,142 +3184,6 @@ var AuthenticationService = (function () {
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
       payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
 
-      if (Array.isArray(payload.AllowedCampaignIds)) {
-        payload.AllowedCampaignIds.forEach(pushCampaignCandidate);
-      }
-    }
-
-    if (Array.isArray(payload.ManagedCampaignIds)) {
-      payload.ManagedCampaignIds.forEach(pushCampaignCandidate);
-    }
-    if (Array.isArray(payload.AdminCampaignIds)) {
-      payload.AdminCampaignIds.forEach(pushCampaignCandidate);
-    }
-
-    const resolvedCampaignId = (function resolveCampaignId() {
-      if (campaignIdCandidates.length) {
-        return campaignIdCandidates[0];
-      }
-      if (payload.ActiveCampaignId) {
-        return normalizeCampaignId(payload.ActiveCampaignId);
-      }
-      if (payload.DefaultCampaignId) {
-        return normalizeCampaignId(payload.DefaultCampaignId);
-      }
-      if (payload.AllowedCampaignIds && payload.AllowedCampaignIds.length) {
-        return normalizeCampaignId(payload.AllowedCampaignIds[0]);
-      }
-      return '';
-    })();
-
-    if (resolvedCampaignId) {
-      payload.CampaignID = resolvedCampaignId;
-      payload.campaignId = resolvedCampaignId;
-      if (!payload.ActiveCampaignId) {
-        payload.ActiveCampaignId = resolvedCampaignId;
-      }
-      if (payload.CampaignScope) {
-        if (!payload.CampaignScope.activeCampaignId) {
-          payload.CampaignScope.activeCampaignId = resolvedCampaignId;
-        }
-        if (!payload.CampaignScope.defaultCampaignId) {
-          payload.CampaignScope.defaultCampaignId = resolvedCampaignId;
-          payload.DefaultCampaignId = resolvedCampaignId;
-        }
-        if (Array.isArray(payload.CampaignScope.allowedCampaignIds)
-          && payload.CampaignScope.allowedCampaignIds.indexOf(resolvedCampaignId) === -1) {
-          payload.CampaignScope.allowedCampaignIds.push(resolvedCampaignId);
-          payload.AllowedCampaignIds = payload.CampaignScope.allowedCampaignIds.slice();
-        }
-      }
-    }
-
-    const resolvedCampaignName = (function resolveCampaignName() {
-      if (campaignNameCandidates.length) {
-        return campaignNameCandidates[0];
-      }
-      if (!resolvedCampaignId) {
-        return '';
-      }
-      try {
-        if (typeof getCampaignNameSafe === 'function') {
-          const safeName = normalizeString(getCampaignNameSafe(resolvedCampaignId));
-          if (safeName) return safeName;
-        }
-      } catch (safeErr) {
-        console.warn('buildUserPayload: failed to resolve campaign name via getCampaignNameSafe', safeErr);
-      }
-      try {
-        if (typeof getCampaignName === 'function') {
-          const fallbackName = normalizeString(getCampaignName(resolvedCampaignId));
-          if (fallbackName) return fallbackName;
-        }
-      } catch (fallbackErr) {
-        console.warn('buildUserPayload: failed to resolve campaign name', fallbackErr);
-      }
-      return '';
-    })();
-
-    if (resolvedCampaignName) {
-      payload.CampaignName = resolvedCampaignName;
-      payload.campaignName = resolvedCampaignName;
-    }
-
-    if (resolvedCampaignId && !payload.campaignNavigation && typeof getCampaignNavigation === 'function') {
-      try {
-        payload.campaignNavigation = getCampaignNavigation(resolvedCampaignId) || null;
-      } catch (navErr) {
-        console.warn('buildUserPayload: failed to resolve campaign navigation', navErr);
-      }
-    }
-
-    if (resolvedCampaignId && !payload.campaignPermissions && payload.ID && typeof getUserCampaignPermissions === 'function') {
-      try {
-        payload.campaignPermissions = getUserCampaignPermissions(payload.ID) || [];
-      } catch (permErr) {
-        console.warn('buildUserPayload: failed to resolve campaign permissions', permErr);
-      }
-    }
-
-    const roleNames = [];
-    function pushRoleName(value) {
-      const normalized = normalizeString(value);
-      if (!normalized) return;
-      const lower = normalized.toLowerCase();
-      if (roleNames.some(function (existing) { return existing.toLowerCase() === lower; })) {
-        return;
-      }
-      roleNames.push(normalized);
-    }
-
-    if (user && Array.isArray(user.roleNames)) {
-      user.roleNames.forEach(pushRoleName);
-    }
-    pushRoleName(user && (user.RoleName || user.roleName || user.PrimaryRole || user.primaryRole));
-
-    if (!roleNames.length && user && user.Roles) {
-      const csvRoles = String(user.Roles)
-        .split(',')
-        .map(function (part) { return normalizeString(part); })
-        .filter(Boolean);
-      if (csvRoles.length) {
-        csvRoles.forEach(function (roleId) {
-          let resolved = '';
-          if (typeof getRoleNameSafe === 'function') {
-            try {
-              resolved = normalizeString(getRoleNameSafe(roleId));
-            } catch (roleErr) {
-              console.warn('buildUserPayload: failed to resolve role label', roleErr);
-            }
-          }
-          pushRoleName(resolved || roleId);
-        });
-      }
-    }
-
-    payload.roleNames = roleNames.slice();
-    if (!payload.RoleName && roleNames.length) {
-      payload.RoleName = roleNames[0];
     }
 
     return payload;
@@ -3424,7 +3499,6 @@ var AuthenticationService = (function () {
       }
 
       const sources = gatherLandingSources(primary, context);
-
       const explicitSourceCandidate = extractFirstLandingValue(sources, [
         'LandingSlug', 'landingSlug', 'PreferredLanding', 'preferredLanding',
         'PreferredLandingPage', 'preferredLandingPage', 'PreferredHome', 'preferredHome',
@@ -3436,34 +3510,25 @@ var AuthenticationService = (function () {
         return explicitSourceSlug;
       }
 
-      const roleNames = collectLandingRoleNames(primary, context);
-      const pageTokens = collectLandingPageTokens(primary, context);
+      const roleNames = collectLandingRoleNames(primary, context) || [];
+      const pageTokens = collectLandingPageTokens(primary, context) || new Set();
 
-      const jobTitleText = collectCombinedLandingText(sources, ['JobTitle', 'jobTitle', 'Title', 'title', 'Role', 'role', 'Position', 'position', 'PrimaryRole', 'primaryRole']);
-      const departmentText = collectCombinedLandingText(sources, ['Department', 'department', 'Dept', 'dept', 'Division', 'division', 'Team', 'team', 'Group', 'group', 'Organization', 'organization', 'Organisation']);
-      const personaText = collectCombinedLandingText(sources, ['Persona', 'persona', 'PrimaryPersona', 'primaryPersona', 'PersonaKey', 'personaKey', 'PersonaName', 'personaName', 'PersonaLabel', 'personaLabel', 'PersonaType', 'personaType', 'AccessPersona', 'accessPersona', 'WorkspacePersona', 'workspacePersona']);
-      const classificationText = collectCombinedLandingText(sources, ['Classification', 'classification', 'EmploymentStatus', 'employmentStatus', 'EmploymentType', 'employmentType', 'EmployeeType', 'employeeType', 'StaffType', 'staffType', 'UserType', 'userType', 'AccountType', 'accountType', 'AccessLevel', 'accessLevel']);
+      const jobTitleText = landingLowerText(
+        collectCombinedLandingText(sources, ['JobTitle', 'jobTitle', 'Title', 'title', 'Role', 'role', 'Position', 'position', 'PrimaryRole', 'primaryRole'])
+      );
+      const departmentText = landingLowerText(
+        collectCombinedLandingText(sources, ['Department', 'department', 'Dept', 'dept', 'Division', 'division', 'Team', 'team', 'Group', 'group', 'Organization', 'organization', 'Organisation'])
+      );
+      const personaText = landingLowerText(
+        collectCombinedLandingText(sources, ['Persona', 'persona', 'PrimaryPersona', 'primaryPersona', 'PersonaKey', 'personaKey', 'PersonaName', 'personaName', 'PersonaLabel', 'personaLabel', 'PersonaType', 'personaType', 'AccessPersona', 'accessPersona', 'WorkspacePersona', 'workspacePersona'])
+      );
+      const classificationText = landingLowerText(
+        collectCombinedLandingText(sources, ['Classification', 'classification', 'EmploymentStatus', 'employmentStatus', 'EmploymentType', 'employmentType', 'EmployeeType', 'employeeType', 'StaffType', 'staffType', 'UserType', 'userType', 'AccountType', 'accountType', 'AccessLevel', 'accessLevel'])
+      );
 
       const combinedPersonaText = [personaText, classificationText].filter(Boolean).join(' ');
 
-      const isGlobalAdmin = !!(
-        (context && context.tenantAccess && context.tenantAccess.sessionScope && context.tenantAccess.sessionScope.isGlobalAdmin)
-        || (context && context.tenant && context.tenant.sessionScope && context.tenant.sessionScope.isGlobalAdmin)
-        || (context && context.sessionScope && context.sessionScope.isGlobalAdmin)
-      );
-
-      const sourcesForAdminCheck = gatherLandingSources(primary, context);
-      const isAdminUser = isGlobalAdmin || sourcesForAdminCheck.some(function (source) {
-        if (!source || typeof source !== 'object') return false;
-        return toBool(source.IsAdmin)
-          || toBool(source.isAdmin)
-          || toBool(source.Admin)
-          || toBool(source.isAdministrator)
-          || toBool(source.administrator);
-      });
-
       function hasRoleMatch(patterns) {
-        if (!roleNames || !roleNames.length) return false;
         return roleNames.some(function (role) {
           return patterns.some(function (pattern) {
             return role.indexOf(pattern) !== -1;
@@ -3473,44 +3538,42 @@ var AuthenticationService = (function () {
 
       function hasPage(slug) {
         const token = landingMatchToken(slug);
-        if (!token) return false;
-        return pageTokens.has(token);
+        return token ? pageTokens.has(token) : false;
       }
 
-      function textHas(text, patterns) {
-        if (!text) return false;
+      function textHas(normalizedText, patterns) {
+        if (!normalizedText) return false;
         return patterns.some(function (pattern) {
-          return text.indexOf(pattern) !== -1;
+          return normalizedText.indexOf(pattern) !== -1;
         });
       }
 
-      const collabIndicators = hasPage('collaborationreporting')
-        || hasRoleMatch(['client', 'guest', 'partner', 'collab'])
-        || textHas(jobTitleText, ['client', 'guest', 'partner', 'collab'])
-        || textHas(departmentText, ['client', 'partner'])
-        || textHas(combinedPersonaText, ['client', 'guest', 'partner', 'collab']);
+      const agentPatterns = ['agent'];
+      const guestPatterns = ['guest', 'client', 'partner', 'collab'];
 
-      if (collabIndicators && !isAdminUser) {
-        return 'collaborationreporting';
-      }
+      const isAgent = hasRoleMatch(agentPatterns)
+        || hasPage('agentexperience')
+        || hasPage('workspaceagent')
+        || hasPage('userprofile')
+        || textHas(jobTitleText, agentPatterns)
+        || textHas(departmentText, agentPatterns)
+        || textHas(combinedPersonaText, agentPatterns);
 
-      const execIndicators = isAdminUser
-        || hasRoleMatch(['executive', 'chief', 'csuite', 'c-suite', 'director', 'vp', 'vicepresident', 'president', 'principal', 'leader', 'leadership', 'manager', 'supervisor', 'administrator', 'admin'])
-        || hasPage('dashboard')
-        || hasPage('managerexecutiveexperience')
-        || hasPage('executivedashboard')
-        || textHas(jobTitleText, ['executive', 'chief', 'director', 'vp', 'president', 'principal', 'leader'])
-        || textHas(combinedPersonaText, ['executive', 'leadership', 'management']);
-
-      if (execIndicators) {
-        return 'dashboard';
-      }
-
-      if (hasPage('agentexperience') || hasPage('workspaceagent') || hasPage('userprofile')) {
+      if (isAgent) {
         return 'userprofile';
       }
 
-      return 'userprofile';
+      const isGuest = hasPage('collaborationreporting')
+        || hasRoleMatch(guestPatterns)
+        || textHas(jobTitleText, guestPatterns)
+        || textHas(departmentText, guestPatterns)
+        || textHas(combinedPersonaText, guestPatterns);
+
+      if (isGuest) {
+        return 'collaborationreporting';
+      }
+
+      return 'dashboard';
     } catch (error) {
       console.warn('determineLandingSlug: failed to compute landing slug', error);
       return 'dashboard';
@@ -3990,7 +4053,7 @@ var AuthenticationService = (function () {
       console.log('login: Login successful for user:', userPayload.FullName);
       console.log('=== AuthenticationService.login SUCCESS ===');
 
-      return {
+      const result = {
         success: true,
         sessionToken: sessionToken,
         user: userPayload,
@@ -4006,6 +4069,12 @@ var AuthenticationService = (function () {
         redirectSlug: redirectSlug,
         redirectUrl: redirectUrl
       };
+
+      if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
+        result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
+      }
+
+      return result;
 
     } catch (error) {
       console.error('login: Unexpected error:', error);
@@ -4202,7 +4271,7 @@ var AuthenticationService = (function () {
       if (!resolution || resolution.status !== 'active' || !resolution.entry) {
         const reason = resolution ? resolution.reason : 'NOT_FOUND';
         const message = reason === 'IDLE_TIMEOUT'
-          ? 'Session expired due to inactivity'
+          ? 'Session expired after 30 minutes of inactivity'
           : 'Session expired or invalid';
         return {
           success: false,
@@ -4272,185 +4341,6 @@ var AuthenticationService = (function () {
     }
   }
 
-  function setPasswordWithToken(token, newPassword) {
-    console.log('setPasswordWithToken: invoked');
-
-    const tokenValue = normalizeString(token);
-    if (!tokenValue) {
-      return {
-        success: false,
-        error: 'The password setup link is invalid or has expired.',
-        errorCode: 'INVALID_TOKEN'
-      };
-    }
-
-    const strengthError = validatePasswordStrength(newPassword);
-    if (strengthError) {
-      return {
-        success: false,
-        error: strengthError,
-        errorCode: 'WEAK_PASSWORD'
-      };
-    }
-
-    let lock = null;
-    if (typeof LockService !== 'undefined' && LockService && typeof LockService.getScriptLock === 'function') {
-      try {
-        lock = LockService.getScriptLock();
-        if (!lock.tryLock(20000)) {
-          return {
-            success: false,
-            error: 'The system is busy. Please try again in a moment.',
-            errorCode: 'LOCK_TIMEOUT'
-          };
-        }
-      } catch (lockError) {
-        console.warn('setPasswordWithToken: failed to acquire lock', lockError);
-        lock = null;
-      }
-    }
-
-    try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      if (!ss) {
-        throw new Error('Active spreadsheet is unavailable.');
-      }
-
-      const usersSheetName = resolveUsersSheetName();
-      const sheet = ss.getSheetByName(usersSheetName);
-      if (!sheet) {
-        throw new Error('Users sheet not found: ' + usersSheetName);
-      }
-
-      const dataRange = sheet.getDataRange();
-      const values = dataRange.getValues();
-      if (!values || values.length <= 1) {
-        return {
-          success: false,
-          error: 'The password setup link is invalid or has expired.',
-          errorCode: 'TOKEN_NOT_FOUND'
-        };
-      }
-
-      const headers = values[0];
-      const headerMap = {};
-      headers.forEach(function (header, index) {
-        const key = String(header || '').trim().toLowerCase();
-        if (key) {
-          headerMap[key] = index;
-        }
-      });
-
-      const tokenIndex = headerMap['emailconfirmation'];
-      if (typeof tokenIndex === 'undefined') {
-        throw new Error('Users sheet is missing EmailConfirmation column.');
-      }
-
-      let targetRow = -1;
-      for (let r = 1; r < values.length; r++) {
-        const cellToken = String(values[r][tokenIndex] || '').trim();
-        if (cellToken && cellToken === tokenValue) {
-          targetRow = r;
-          break;
-        }
-      }
-
-      if (targetRow === -1) {
-        return {
-          success: false,
-          error: 'The password setup link is invalid or has expired.',
-          errorCode: 'TOKEN_NOT_FOUND'
-        };
-      }
-
-      const passwordUtils = getPasswordUtils();
-      const normalizedPassword = normalizeString(newPassword);
-      const hashedPassword = passwordUtils.hashPassword(normalizedPassword);
-      const now = new Date();
-
-      const row = values[targetRow].slice();
-      const setIfDefined = function (columnKey, value) {
-        const idx = headerMap[columnKey];
-        if (typeof idx !== 'undefined') {
-          row[idx] = value;
-        }
-      };
-
-      setIfDefined('passwordhash', hashedPassword);
-      setIfDefined('password', hashedPassword);
-      setIfDefined('emailconfirmation', '');
-      setIfDefined('emailconfirmed', 'TRUE');
-      setIfDefined('resetrequired', 'FALSE');
-      setIfDefined('canlogin', 'TRUE');
-      setIfDefined('lockoutend', '');
-      setIfDefined('failedloginattempts', 0);
-      setIfDefined('passwordsetat', now);
-      setIfDefined('passwordupdatedat', now);
-      setIfDefined('passwordchangedat', now);
-      setIfDefined('updatedat', now);
-
-      const sheetRow = targetRow + 1;
-      sheet.getRange(sheetRow, 1, 1, headers.length).setValues([row]);
-      SpreadsheetApp.flush();
-
-      if (typeof invalidateCache === 'function') {
-        try {
-          invalidateCache(usersSheetName);
-        } catch (cacheError) {
-          console.warn('setPasswordWithToken: cache invalidation failed', cacheError);
-        }
-      }
-
-      const emailIndex = headerMap['email'];
-      const userIdIndex = headerMap['id'];
-      const result = {
-        success: true,
-        message: 'Password updated successfully.',
-        email: (typeof emailIndex !== 'undefined') ? row[emailIndex] : null,
-        userId: (typeof userIdIndex !== 'undefined') ? row[userIdIndex] : null,
-        resetRequired: false,
-        emailConfirmed: true
-      };
-
-      if (typeof onPasswordChanged === 'function' && result.email) {
-        try {
-          onPasswordChanged(result.email, {
-            timestamp: now,
-            userId: result.userId || null,
-            via: 'token'
-          });
-        } catch (notifyError) {
-          console.warn('setPasswordWithToken: onPasswordChanged callback failed', notifyError);
-        }
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error('setPasswordWithToken: error', error);
-      if (typeof writeError === 'function') {
-        try {
-          writeError('setPasswordWithToken', error);
-        } catch (logError) {
-          console.warn('setPasswordWithToken: writeError failed', logError);
-        }
-      }
-      return {
-        success: false,
-        error: 'Unable to update password. Please try again later.',
-        errorCode: 'SERVER_ERROR'
-      };
-    } finally {
-      if (lock) {
-        try {
-          lock.releaseLock();
-        } catch (releaseError) {
-          console.warn('setPasswordWithToken: failed to release lock', releaseError);
-        }
-      }
-    }
-  }
-
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   return {
@@ -4471,10 +4361,12 @@ var AuthenticationService = (function () {
     buildLandingRedirectUrl: buildLandingRedirectUrlFromSlug,
     captureLoginRequestContext: captureLoginRequestContext,
     consumeLoginRequestContext: consumeLoginContext,
+    deriveLoginReturnUrlFromEvent: deriveLoginReturnUrlFromEvent,
+    findActiveSessionForUser: findActiveSessionForUser,
+    userHasActiveSession: userHasActiveSession,
     confirmDeviceVerification: confirmDeviceVerification,
     denyDeviceVerification: denyDeviceVerification,
-    cleanupExpiredSessions: cleanupExpiredSessions,
-    setPasswordWithToken: setPasswordWithToken
+    cleanupExpiredSessions: cleanupExpiredSessions
   };
 
 })();
@@ -4520,17 +4412,6 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
 
     const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
     console.log('=== loginUser wrapper END ===');
-    if (result && result.success && result.sessionToken) {
-      try {
-        rememberActiveUserSessionToken(result.sessionToken, {
-          userId: result.user && (result.user.ID || result.user.id || result.user.UserId || result.user.userId),
-          rememberMe: !!result.rememberMe,
-          loginAt: new Date().toISOString()
-        });
-      } catch (rememberError) {
-        console.warn('loginUser: failed to remember active session token', rememberError);
-      }
-    }
     return result;
   } catch (error) {
     console.error('loginUser wrapper error:', error);
@@ -4596,11 +4477,7 @@ function verifyMfaCode(challengeId, code, clientMetadata) {
 
 function logoutUser(sessionToken) {
   try {
-    const response = AuthenticationService.logout(sessionToken);
-    if (response && response.success) {
-      try { clearActiveUserSessionToken(); } catch (clearError) { console.warn('logoutUser: failed to clear active session', clearError); }
-    }
-    return response;
+    return AuthenticationService.logout(sessionToken);
   } catch (error) {
     console.error('logoutUser wrapper error:', error);
     return {
@@ -4612,37 +4489,12 @@ function logoutUser(sessionToken) {
 
 function keepAliveSession(sessionToken) {
   try {
-    const response = AuthenticationService.keepAlive(sessionToken);
-    if (response && response.success) {
-      const token = response.sessionToken || sessionToken;
-      try {
-        rememberActiveUserSessionToken(token, {
-          userId: response.user && (response.user.ID || response.user.id || response.user.UserId || response.user.userId),
-          keepAliveAt: new Date().toISOString()
-        });
-      } catch (rememberError) {
-        console.warn('keepAliveSession: failed to refresh active session token', rememberError);
-      }
-    }
-    return response;
+    return AuthenticationService.keepAlive(sessionToken);
   } catch (error) {
     console.error('keepAliveSession wrapper error:', error);
     return {
       success: false,
       error: error.message
-    };
-  }
-}
-
-function setPasswordWithToken(token, newPassword) {
-  try {
-    return AuthenticationService.setPasswordWithToken(token, newPassword);
-  } catch (error) {
-    console.error('setPasswordWithToken wrapper error:', error);
-    return {
-      success: false,
-      error: 'Unable to update password. Please try again later.',
-      errorCode: 'WRAPPER_ERROR'
     };
   }
 }

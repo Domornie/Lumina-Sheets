@@ -54,9 +54,47 @@ if (typeof CHAT_CHANNEL_MEMBERS_SHEET === 'undefined') var CHAT_CHANNEL_MEMBERS_
 // Headers (guarded)
 // ────────────────────────────────────────────────────────────────────────────
 if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
-  "ID", "UserName", "FullName", "Email", "CampaignID", "PasswordHash", "ResetRequired",
-  "EmailConfirmation", "EmailConfirmed", "PhoneNumber", "EmploymentStatus", "HireDate", "Country",
-  "LockoutEnd", "TwoFactorEnabled", "CanLogin", "Roles", "Pages", "CreatedAt", "UpdatedAt", "IsAdmin"
+  "ID",
+  "UserName",
+  "NormalizedUserName",
+  "FullName",
+  "Email",
+  "NormalizedEmail",
+  "CampaignID",
+  "PasswordHash",
+  "ResetRequired",
+  "EmailConfirmation",
+  "EmailConfirmed",
+  "PhoneNumber",
+  "PhoneNumberConfirmed",
+  "EmploymentStatus",
+  "HireDate",
+  "Country",
+  "LockoutEnabled",
+  "LockoutEnd",
+  "AccessFailedCount",
+  "TwoFactorEnabled",
+  "TwoFactorDelivery",
+  "TwoFactorSecret",
+  "TwoFactorRecoveryCodes",
+  "CanLogin",
+  "Roles",
+  "Pages",
+  "SecurityStamp",
+  "ConcurrencyStamp",
+  "EmailConfirmationTokenHash",
+  "EmailConfirmationSentAt",
+  "EmailConfirmationExpiresAt",
+  "ResetPasswordToken",
+  "ResetPasswordTokenHash",
+  "ResetPasswordSentAt",
+  "ResetPasswordExpiresAt",
+  "LastLoginAt",
+  "LastLoginIp",
+  "LastLoginUserAgent",
+  "CreatedAt",
+  "UpdatedAt",
+  "IsAdmin"
 ];
 
 if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = [
@@ -150,161 +188,6 @@ if (typeof USER_CAMPAIGNS_HEADERS === 'undefined') var USER_CAMPAIGNS_HEADERS = 
 if (typeof DEBUG_LOGS_HEADERS === 'undefined') var DEBUG_LOGS_HEADERS = ["Timestamp", "Message"];
 if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timestamp", "Error", "Stack"];
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
-
-// ────────────────────────────────────────────────────────────────────────────
-// Canonical header alignment helpers
-// ────────────────────────────────────────────────────────────────────────────
-if (typeof __SHEET_CANONICAL_ALIASES__ === 'undefined') var __SHEET_CANONICAL_ALIASES__ = {};
-
-function _registerCanonicalAliases_(sheetName, aliasMap) {
-  if (!sheetName || !aliasMap) return;
-  const existing = __SHEET_CANONICAL_ALIASES__[sheetName] || {};
-  __SHEET_CANONICAL_ALIASES__[sheetName] = Object.assign({}, existing, aliasMap);
-}
-
-function _ensureArray_(value) { return Array.isArray(value) ? value : (value ? [value] : []); }
-
-_registerCanonicalAliases_(USERS_SHEET, {
-  ID: ['Id', 'id', 'UserID', 'UserId', 'userid', 'USERID'],
-  UserName: ['Username', 'username', 'userName', 'USER_NAME'],
-  FullName: ['fullName', 'DisplayName', 'Name'],
-  Email: ['email', 'EmailAddress', 'emailAddress'],
-  CampaignID: ['CampaignId', 'campaignId', 'campaignID', 'CAMPAIGNID', 'TenantId', 'tenantId'],
-  EmailConfirmed: ['emailConfirmed', 'EmailConfirmation', 'email_confirmation'],
-  EmailConfirmation: ['emailConfirmation', 'email_confirmation'],
-  CanLogin: ['canLogin', 'Active', 'active', 'IsActive'],
-  Roles: ['roles', 'RoleNames', 'roleNames'],
-  Pages: ['pages', 'PageKeys', 'pageKeys'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated'],
-  IsAdmin: ['isAdmin', 'Admin', 'admin']
-});
-
-_registerCanonicalAliases_(USER_CAMPAIGNS_SHEET, {
-  ID: ['Id', 'id'],
-  UserId: ['UserID', 'userId', 'userid', 'USERID'],
-  CampaignId: ['CampaignID', 'campaignId', 'campaignID', 'CAMPAIGNID', 'TenantId', 'tenantId'],
-  Role: ['role', 'RoleName', 'roleName'],
-  IsPrimary: ['isPrimary', 'Primary', 'primary'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated'],
-  DeletedAt: ['deletedAt', 'Deleted']
-});
-
-_registerCanonicalAliases_(CAMPAIGNS_SHEET, {
-  ID: ['Id', 'id', 'CampaignId', 'CampaignID', 'campaignId', 'campaignID'],
-  Name: ['name', 'CampaignName'],
-  Description: ['description', 'Details'],
-  ClientName: ['client', 'clientName', 'Client'],
-  Status: ['status', 'State'],
-  Channel: ['channel'],
-  Timezone: ['timezone', 'timeZone', 'TimeZone'],
-  SlaTier: ['slaTier', 'SLATier', 'Sla'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated'],
-  DeletedAt: ['deletedAt', 'Deleted']
-});
-
-_registerCanonicalAliases_(ROLES_SHEET, {
-  ID: ['Id', 'id'],
-  Name: ['name'],
-  NormalizedName: ['normalizedName', 'Normalized'],
-  Scope: ['scope'],
-  Description: ['description'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated'],
-  DeletedAt: ['deletedAt', 'Deleted']
-});
-
-_registerCanonicalAliases_(USER_ROLES_SHEET, {
-  ID: ['Id', 'id'],
-  UserId: ['UserID', 'userId', 'userid', 'USERID'],
-  RoleId: ['RoleID', 'roleId', 'roleID'],
-  Scope: ['scope'],
-  AssignedBy: ['assignedBy', 'Assigned_By'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated'],
-  DeletedAt: ['deletedAt', 'Deleted']
-});
-
-_registerCanonicalAliases_(CAMPAIGN_USER_PERMISSIONS_SHEET, {
-  ID: ['Id', 'id'],
-  CampaignID: ['CampaignId', 'campaignId', 'campaignID', 'TenantId', 'tenantId'],
-  UserID: ['UserId', 'userId', 'userid', 'USERID'],
-  PermissionLevel: ['permissionLevel', 'Permission'],
-  Role: ['role', 'RoleName', 'roleName'],
-  CanManageUsers: ['canManageUsers', 'ManageUsers', 'manageUsers'],
-  CanManagePages: ['canManagePages', 'ManagePages', 'managePages'],
-  Notes: ['notes'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated'],
-  DeletedAt: ['deletedAt', 'Deleted']
-});
-
-_registerCanonicalAliases_(USER_MANAGERS_SHEET, {
-  ID: ['Id', 'id'],
-  ManagerUserID: ['ManagerId', 'managerUserId', 'managerId'],
-  ManagedUserID: ['UserID', 'UserId', 'userId', 'ManagedUserId', 'managedUserId'],
-  CampaignID: ['CampaignId', 'campaignId', 'campaignID', 'TenantId', 'tenantId'],
-  CreatedAt: ['createdAt', 'Created'],
-  UpdatedAt: ['updatedAt', 'Updated']
-});
-
-function _normalizeSheetRows_(sheetName, rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return Array.isArray(rows) ? rows : [];
-  const aliasMap = __SHEET_CANONICAL_ALIASES__[sheetName];
-  if (!aliasMap) return rows;
-
-  return rows.map(function (row) {
-    if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
-    const normalized = row;
-    Object.keys(aliasMap).forEach(function (canonical) {
-      const aliases = _ensureArray_(aliasMap[canonical]);
-      const keys = [canonical].concat(aliases);
-      let value;
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (!Object.prototype.hasOwnProperty.call(normalized, key)) continue;
-        const candidate = normalized[key];
-        if (typeof value === 'undefined') {
-          value = candidate;
-        } else if (candidate !== '' && candidate != null && (value === '' || value == null)) {
-          value = candidate;
-        }
-        if (key === canonical) break;
-      }
-
-      if (typeof value === 'undefined') {
-        if (!Object.prototype.hasOwnProperty.call(normalized, canonical)) normalized[canonical] = '';
-        value = normalized[canonical];
-      } else {
-        normalized[canonical] = value;
-      }
-
-      aliases.forEach(function (alias) {
-        if (!Object.prototype.hasOwnProperty.call(normalized, alias)) normalized[alias] = value;
-      });
-    });
-    return normalized;
-  });
-}
-
-function _normalizeSheetRow_(sheetName, row) {
-  const normalized = _normalizeSheetRows_(sheetName, row ? [row] : []);
-  return normalized.length ? normalized[0] : row;
-}
-
-if (typeof ensureCanonicalSheetRows !== 'function') {
-  function ensureCanonicalSheetRows(sheetName, rows) {
-    return _normalizeSheetRows_(sheetName, Array.isArray(rows) ? rows : []);
-  }
-}
-
-if (typeof ensureCanonicalSheetRow !== 'function') {
-  function ensureCanonicalSheetRow(sheetName, row) {
-    return _normalizeSheetRow_(sheetName, row);
-  }
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // HR / Benefits – Users sheet upgrade + calculators
@@ -849,10 +732,7 @@ const __readSheet = (function () {
     if (allowScriptCache && cacheKey) {
       try {
         const cached = scriptCache.get(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          return Array.isArray(parsed) ? _normalizeSheetRows_(sheetName, parsed) : [];
-        }
+        if (cached) return JSON.parse(cached);
       } catch (cacheErr) {
         console.warn(`Failed to read cache for ${sheetName}: ${cacheErr.message}`);
       }
@@ -917,8 +797,6 @@ const __readSheet = (function () {
     if (!Array.isArray(data)) {
       data = _legacyReadSheet_(sheetName);
     }
-
-    data = Array.isArray(data) ? _normalizeSheetRows_(sheetName, data) : [];
 
     if (allowScriptCache && cacheKey && Array.isArray(data)) {
       try {
@@ -1793,176 +1671,29 @@ function createCampaignPagesFromSystem(campaignId) {
 // ────────────────────────────────────────────────────────────────────────────
 // Identity / permissions helpers (guarded where likely to collide)
 // ────────────────────────────────────────────────────────────────────────────
-function _normalizeIdValue_(value) {
-  if (value === null || typeof value === 'undefined') return '';
-  return String(value).trim();
-}
-
-function _extractUserCampaignUserId_(record) {
-  if (!record) return '';
-  const canonical = (typeof ensureCanonicalSheetRow === 'function')
-    ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, record)
-    : record;
-  return _normalizeIdValue_(
-    canonical && typeof canonical === 'object'
-      ? (canonical.UserId || canonical.UserID || canonical.userId || canonical.userid || canonical.USERID || canonical.USERId)
-      : ''
-  );
-}
-
-function _extractUserCampaignCampaignId_(record) {
-  if (!record) return '';
-  const canonical = (typeof ensureCanonicalSheetRow === 'function')
-    ? ensureCanonicalSheetRow(USER_CAMPAIGNS_SHEET, record)
-    : record;
-  return _normalizeIdValue_(
-    canonical && typeof canonical === 'object'
-      ? (canonical.CampaignId || canonical.CampaignID || canonical.campaignId || canonical.campaignID || canonical.CAMPAIGNID || canonical.CAMPAIGNId)
-      : ''
-  );
-}
-
-function _resolveMainIdentity_(context, options) {
-  try {
-    return resolveServiceIdentity(context, options);
-  } catch (err) {
-    safeWriteError && safeWriteError('MainUtilities.resolveIdentity', err);
-    return { identity: null, context: context || {}, error: err };
-  }
-}
-
-function _ensureMainIdentity_(context, options) {
-  try {
-    return assertServiceIdentity(context, options);
-  } catch (err) {
-    safeWriteError && safeWriteError('MainUtilities.ensureIdentity', err);
-    throw err;
-  }
-}
-
-function _mainIdentityUserId_(identity) {
-  if (!identity) return '';
-  return _normalizeIdValue_(
-    identity.id || identity.userId || identity.ID || identity.UserId || identity.userid || identity.USERID || identity.userID
-  );
-}
-
-function _mainHasCampaignPrivileges_(identity) {
-  if (!identity) return false;
-  if (typeof hasCampaignManagementPrivileges === 'function') {
-    return hasCampaignManagementPrivileges(identity);
-  }
-
-  try {
-    const flags = identity.permissionFlags || {};
-    if (identity.isAdmin || flags.manageusers || flags.managepages || flags.admin || flags.campaign_admin || flags.manager) {
-      return true;
-    }
-    const roles = Array.isArray(identity.roleNames) ? identity.roleNames : (identity.roles || []);
-    for (let i = 0; i < roles.length; i++) {
-      const value = String(roles[i] || '').toLowerCase();
-      if (value === 'admin' || value === 'system_admin' || value === 'manager' || value === 'supervisor' || value === 'trainer') {
-        return true;
-      }
-    }
-  } catch (err) {
-    safeWriteError && safeWriteError('MainUtilities.hasCampaignPrivileges', err);
-  }
-
-  return false;
-}
-
-function _mainIdentityHasCampaignAccess_(identity, campaignId) {
-  if (!identity) return false;
-  if (typeof identityHasCampaignAccess === 'function') {
-    return identityHasCampaignAccess(identity, campaignId);
-  }
-
-  const normalizedCampaignId = _normalizeIdValue_(campaignId);
-  if (!normalizedCampaignId) return false;
-
-  if (_mainHasCampaignPrivileges_(identity)) {
-    return true;
-  }
-
-  try {
-    const campaigns = Array.isArray(identity.campaigns) ? identity.campaigns : [];
-    for (let i = 0; i < campaigns.length; i++) {
-      const record = campaigns[i];
-      const cid = _normalizeIdValue_(record && (record.id || record.ID || record.CampaignId || record.CampaignID));
-      if (cid && cid === normalizedCampaignId) {
-        return true;
-      }
-    }
-
-    const permissions = Array.isArray(identity.permissions) ? identity.permissions : [];
-    for (let j = 0; j < permissions.length; j++) {
-      const perm = permissions[j];
-      const pid = _normalizeIdValue_(perm && (perm.CampaignID || perm.CampaignId || perm.campaignId));
-      if (pid && pid === normalizedCampaignId) {
-        return true;
-      }
-    }
-  } catch (err) {
-    safeWriteError && safeWriteError('MainUtilities.identityHasCampaignAccess', err);
-  }
-
-  return false;
-}
-
 if (typeof getUserManagedCampaigns !== 'function') {
   function getUserManagedCampaigns(userId) {
     try {
-      const normalizedUserId = _normalizeIdValue_(userId);
-      if (!normalizedUserId) return [];
-
-      const resolution = _resolveMainIdentity_();
-      const identity = resolution && resolution.identity ? resolution.identity : null;
-      const identityUserId = _mainIdentityUserId_(identity);
-      const isSelf = identityUserId && normalizedUserId && identityUserId === normalizedUserId;
-
-      if (!isSelf && !_mainHasCampaignPrivileges_(identity)) {
-        return [];
-      }
-
+      if (!userId) return [];
       const users = readSheet(USERS_SHEET);
-      const u = users.find(x => _normalizeIdValue_(x.ID) === normalizedUserId);
-      if (u && (String(u.IsAdmin).toUpperCase() === 'TRUE')) {
-        return readSheet(CAMPAIGNS_SHEET);
-      }
+      const u = users.find(x => x.ID === userId);
+      if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return readSheet(CAMPAIGNS_SHEET);
 
       const perms = readSheet(CAMPAIGN_USER_PERMISSIONS_SHEET);
-      const managedIds = perms
-        .filter(p => _normalizeIdValue_(p.UserID) === normalizedUserId && (String(p.PermissionLevel).toUpperCase() === 'MANAGER' || String(p.PermissionLevel).toUpperCase() === 'ADMIN'))
-        .map(p => _normalizeIdValue_(p.CampaignID))
-        .filter(Boolean);
-
+      const managedIds = perms.filter(p => p.UserID === userId && (p.PermissionLevel === 'MANAGER' || p.PermissionLevel === 'ADMIN')).map(p => p.CampaignID);
       if (managedIds.length === 0) return [];
       const all = readSheet(CAMPAIGNS_SHEET);
-      return all.filter(c => managedIds.includes(_normalizeIdValue_(c.ID)));
+      return all.filter(c => managedIds.includes(c.ID));
     } catch (e) { writeError('getUserManagedCampaigns', e); return []; }
   }
 }
 function getUsersByCampaign(campaignId) {
   try {
-    const normalizedCampaignId = _normalizeIdValue_(campaignId);
-    if (!normalizedCampaignId) return [];
-
-    const resolution = _resolveMainIdentity_();
-    const identity = resolution && resolution.identity ? resolution.identity : null;
-    if (!_mainIdentityHasCampaignAccess_(identity, normalizedCampaignId)) {
-      return [];
-    }
-
-    const ucs = readSheet(USER_CAMPAIGNS_SHEET) || [];
-    const ids = ucs
-      .filter(uc => _extractUserCampaignCampaignId_(uc) === normalizedCampaignId)
-      .map(_extractUserCampaignUserId_)
-      .filter(Boolean);
+    if (!campaignId) return [];
+    const ucs = readSheet(USER_CAMPAIGNS_SHEET);
+    const ids = ucs.filter(uc => uc.CampaignId === campaignId).map(uc => uc.UserId);
     const all = readSheet(USERS_SHEET);
-    if (ids.length === 0) {
-      return all.filter(u => _normalizeIdValue_(u.CampaignID) === normalizedCampaignId); // legacy
-    }
+    if (ids.length === 0) return all.filter(u => u.CampaignID === campaignId); // legacy
     return all.filter(u => ids.includes(u.ID));
   } catch (e) { writeError('getUsersByCampaign', e); return []; }
 }
@@ -1980,171 +1711,52 @@ function userCanManageCampaign(userId, campaignId) {
 }
 function getCampaignsWithUserCounts() {
   try {
-    const campaigns = readSheet(CAMPAIGNS_SHEET) || [];
-    const ucs = readSheet(USER_CAMPAIGNS_SHEET) || [];
-    const users = readSheet(USERS_SHEET) || [];
+    const campaigns = readSheet(CAMPAIGNS_SHEET);
+    const ucs = readSheet(USER_CAMPAIGNS_SHEET);
+    const users = readSheet(USERS_SHEET);
     return campaigns.map(c => {
-      const normalizedCampaignId = _normalizeIdValue_(c.ID);
-      const joined = ucs.filter(uc => _extractUserCampaignCampaignId_(uc) === normalizedCampaignId).length;
-      const legacy = users.filter(u => _normalizeIdValue_(u.CampaignID) === normalizedCampaignId).length;
+      const joined = ucs.filter(uc => uc.CampaignId === c.ID).length;
+      const legacy = users.filter(u => u.CampaignID === c.ID).length;
       return { ...c, userCount: joined + legacy, newUserCount: joined, legacyUserCount: legacy };
     });
   } catch (e) { writeError('getCampaignsWithUserCounts', e); return []; }
 }
 function addUserToCampaign(userId, campaignId) {
   try {
-    const normalizedUserId = _normalizeIdValue_(userId);
-    const normalizedCampaignId = _normalizeIdValue_(campaignId);
-    if (!normalizedUserId || !normalizedCampaignId) return false;
+    if (!userId || !campaignId) return false;
     const sh = ensureSheetWithHeaders(USER_CAMPAIGNS_SHEET, USER_CAMPAIGNS_HEADERS);
     const rows = readSheet(USER_CAMPAIGNS_SHEET);
-    const exists = rows.some(r => {
-      return _extractUserCampaignUserId_(r) === normalizedUserId
-        && _extractUserCampaignCampaignId_(r) === normalizedCampaignId;
-    });
+    const exists = rows.some(r => r.UserId === userId && r.CampaignId === campaignId);
     if (exists) return true;
     const now = new Date().toISOString();
-    sh.appendRow([
-      Utilities.getUuid(),
-      normalizedUserId,
-      normalizedCampaignId,
-      "agent",
-      false,
-      now,
-      now,
-      ''
-    ]);
+    sh.appendRow([Utilities.getUuid(), userId, campaignId, now, now]);
     invalidateCache(USER_CAMPAIGNS_SHEET);
     return true;
   } catch (e) { safeWriteError('addUserToCampaign', e); return false; }
 }
 function getUserCampaignsSafe(userId) {
   try {
-    const normalizedUserId = _normalizeIdValue_(userId);
-    if (!normalizedUserId) return [];
-    if (typeof csGetUserCampaigns === 'function') {
-      try {
-        const assignments = csGetUserCampaigns(normalizedUserId) || [];
-        const mapped = Array.isArray(assignments)
-          ? assignments.map(function (assignment) {
-              const cid = _normalizeIdValue_(assignment && (assignment.id || assignment.ID || assignment.campaignId || assignment.CampaignId || assignment.CampaignID));
-              if (!cid) return null;
-              return {
-                campaignId: cid,
-                CampaignID: cid,
-                CampaignId: cid,
-                name: assignment && (assignment.name || assignment.Name || ''),
-                role: assignment && (assignment.role || assignment.Role || ''),
-                isPrimary: !!(assignment && assignment.isPrimary),
-                source: 'campaign-service'
-              };
-            }).filter(Boolean)
-          : [];
-        if (mapped.length) {
-          return mapped;
-        }
-      } catch (svcErr) {
-        safeWriteError && safeWriteError('getUserCampaignsSafe.csGetUserCampaigns', svcErr);
-      }
-    }
-
-    const resolution = _resolveMainIdentity_();
-    const identity = resolution && resolution.identity ? resolution.identity : null;
-    const identityUserId = _mainIdentityUserId_(identity);
-    const isSelf = identityUserId && identityUserId === normalizedUserId;
-    if (!isSelf && !_mainHasCampaignPrivileges_(identity)) {
-      return [];
-    }
-
     const ucs = readSheet(USER_CAMPAIGNS_SHEET) || [];
-    const joined = ucs
-      .filter(r => _extractUserCampaignUserId_(r) === normalizedUserId)
-      .map(r => {
-        const cid = _extractUserCampaignCampaignId_(r);
-        if (!cid) return null;
-        return {
-          campaignId: cid,
-          CampaignID: cid,
-          CampaignId: cid,
-          source: 'multi'
-        };
-      })
-      .filter(Boolean);
+    const joined = ucs.filter(r => r.UserId === userId).map(r => ({ campaignId: r.CampaignId, source: 'multi' }));
     if (joined.length) return joined;
 
     const users = readSheet(USERS_SHEET) || [];
-    const u = users.find(x => _normalizeIdValue_(x.ID) === normalizedUserId);
-    if (u && u.CampaignID) {
-      const cid = _normalizeIdValue_(u.CampaignID);
-      if (cid) {
-        return [{ campaignId: cid, CampaignID: cid, CampaignId: cid, source: 'legacy' }];
-      }
-    }
+    const u = users.find(x => x.ID === userId);
+    if (u && u.CampaignID) return [{ campaignId: u.CampaignID, source: 'legacy' }];
     return [];
   } catch (e) { safeWriteError('getUserCampaignsSafe', e); return []; }
 }
-function clientGetAvailableCampaigns(requestingUserId = null, context) {
+function clientGetAvailableCampaigns(requestingUserId = null) {
   try {
-    const resolution = _ensureMainIdentity_(context);
-    const identity = resolution && resolution.identity ? resolution.identity : null;
-    const identityUserId = _mainIdentityUserId_(identity);
+    const all = getAllCampaigns();
+    if (!requestingUserId) return all.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
 
-    const normalizedRequesting = _normalizeIdValue_(requestingUserId);
-    const effectiveUserId = normalizedRequesting || identityUserId;
-    if (!effectiveUserId) {
-      return [];
-    }
+    const users = readSheet(USERS_SHEET);
+    const u = users.find(x => x.ID === requestingUserId);
+    if (u && (u.IsAdmin === 'TRUE' || u.IsAdmin === true)) return all.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
 
-    const isSelf = effectiveUserId === identityUserId;
-    if (!isSelf && !_mainHasCampaignPrivileges_(identity)) {
-      return [];
-    }
-
-    const campaigns = getAllCampaigns() || [];
-    const campaignIndex = {};
-    campaigns.forEach(function (campaign) {
-      const key = _normalizeIdValue_(campaign && (campaign.ID || campaign.id));
-      if (key) {
-        campaignIndex[key] = campaign;
-      }
-    });
-
-    const managed = getUserManagedCampaigns(effectiveUserId) || [];
-    if (managed.length) {
-      return managed.map(function (campaign) {
-        const key = _normalizeIdValue_(campaign && (campaign.ID || campaign.id));
-        return {
-          id: key || (campaign && campaign.ID) || (campaign && campaign.id) || '',
-          name: campaign && (campaign.Name || campaign.name || ''),
-          description: campaign && (campaign.Description || campaign.description || '')
-        };
-      });
-    }
-
-    const assignments = getUserCampaignsSafe(effectiveUserId) || [];
-    if (assignments.length) {
-      return assignments.map(function (assignment) {
-        const key = _normalizeIdValue_(assignment && assignment.campaignId);
-        const meta = key ? campaignIndex[key] : null;
-        return {
-          id: key || (assignment && assignment.campaignId) || '',
-          name: meta ? (meta.Name || meta.name || '') : '',
-          description: meta ? (meta.Description || meta.description || '') : ''
-        };
-      }).filter(function (entry) { return !!entry.id; });
-    }
-
-    if (_mainHasCampaignPrivileges_(identity)) {
-      return campaigns.map(function (campaign) {
-        return {
-          id: _normalizeIdValue_(campaign && (campaign.ID || campaign.id)) || '',
-          name: campaign && (campaign.Name || campaign.name || ''),
-          description: campaign && (campaign.Description || campaign.description || '')
-        };
-      }).filter(function (entry) { return !!entry.id; });
-    }
-
-    return [];
+    const managed = getUserManagedCampaigns(requestingUserId);
+    return managed.map(c => ({ id: c.ID, name: c.Name, description: c.Description || '' }));
   } catch (e) { writeError('clientGetAvailableCampaigns', e); return []; }
 }
 if (typeof getAllCampaigns !== 'function') {
@@ -2152,109 +1764,42 @@ if (typeof getAllCampaigns !== 'function') {
     try { return readSheet(CAMPAIGNS_SHEET); } catch (e) { writeError('getAllCampaigns', e); return []; }
   }
 }
-function clientGetCampaignStats(requestingUserId = null, context) {
+function clientGetCampaignStats(requestingUserId = null) {
   try {
-    const resolution = _ensureMainIdentity_(context);
-    const identity = resolution && resolution.identity ? resolution.identity : null;
-    const identityUserId = _mainIdentityUserId_(identity);
-
-    const stats = (typeof csGetCampaignStats === 'function')
-      ? csGetCampaignStats()
-      : getCampaignsWithUserCounts();
-
-    const normalizedRequesting = _normalizeIdValue_(requestingUserId);
-    const effectiveUserId = normalizedRequesting || identityUserId;
-
-    if (!effectiveUserId) {
-      return stats;
-    }
-
-    const isSelf = effectiveUserId === identityUserId;
-    if (!isSelf && !_mainHasCampaignPrivileges_(identity)) {
-      return [];
-    }
-
-    const managedIds = (getUserManagedCampaigns(effectiveUserId) || [])
-      .map(function (campaign) { return _normalizeIdValue_(campaign && (campaign.ID || campaign.id)); })
-      .filter(Boolean);
-
-    if (!managedIds.length) {
-      if (_mainHasCampaignPrivileges_(identity)) {
-        return stats;
-      }
-      return [];
-    }
-
-    return stats.filter(function (stat) {
-      const key = _normalizeIdValue_(stat && (stat.ID || stat.id || stat.campaignId));
-      return key ? managedIds.includes(key) : false;
-    });
+    const stats = getCampaignsWithUserCounts();
+    if (!requestingUserId) return stats;
+    const managedIds = getUserManagedCampaigns(requestingUserId).map(c => c.ID);
+    return stats.filter(c => managedIds.includes(c.ID));
   } catch (e) { writeError('clientGetCampaignStats', e); return []; }
 }
-function clientCanAccessUser(requestingUserId, targetUserId, context) {
+function clientCanAccessUser(requestingUserId, targetUserId) {
   try {
-    const resolution = _ensureMainIdentity_(context);
-    const identity = resolution && resolution.identity ? resolution.identity : null;
-    const identityUserId = _mainIdentityUserId_(identity);
+    if (!requestingUserId || !targetUserId) return false;
+    if (requestingUserId === targetUserId) return true;
 
-    const normalizedRequester = _normalizeIdValue_(requestingUserId) || identityUserId;
-    const normalizedTarget = _normalizeIdValue_(targetUserId);
+    const users = readSheet(USERS_SHEET);
+    const r = users.find(u => u.ID === requestingUserId);
+    if (r && (r.IsAdmin === 'TRUE' || r.IsAdmin === true)) return true;
 
-    if (!normalizedRequester || !normalizedTarget) return false;
-    if (normalizedRequester === normalizedTarget) return true;
-
-    const isIdentityRequester = normalizedRequester === identityUserId;
-    if (!isIdentityRequester && !_mainHasCampaignPrivileges_(identity)) {
-      return false;
-    }
-
-    if (_mainHasCampaignPrivileges_(identity) && isIdentityRequester) {
-      // fall through to campaign comparison
-    }
-
-    const managedCampaignIds = (getUserManagedCampaigns(normalizedRequester) || [])
-      .map(function (campaign) { return _normalizeIdValue_(campaign && (campaign.ID || campaign.id)); })
-      .filter(Boolean);
-
-    if (!managedCampaignIds.length) {
-      return false;
-    }
-
-    const targetCampaigns = (getUserCampaignsSafe(normalizedTarget) || [])
-      .map(function (assignment) { return _normalizeIdValue_(assignment && assignment.campaignId); })
-      .filter(Boolean);
-
-    return targetCampaigns.some(function (campaignId) {
-      return managedCampaignIds.includes(campaignId);
-    });
+    const managedCampaignIds = getUserManagedCampaigns(requestingUserId).map(c => c.ID);
+    const targetCampaigns = getUserCampaignsSafe(targetUserId).map(uc => uc.campaignId);
+    return targetCampaigns.some(cId => managedCampaignIds.includes(cId));
   } catch (e) { writeError('clientCanAccessUser', e); return false; }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // Navigation for a user (multi-campaign aware)
 // ────────────────────────────────────────────────────────────────────────────
-function clientGetNavigationForUser(userId, context) {
+function clientGetNavigationForUser(userId) {
   try {
-    const resolution = _ensureMainIdentity_(context);
-    const identity = resolution && resolution.identity ? resolution.identity : null;
-    const identityUserId = _mainIdentityUserId_(identity);
-
-    const normalizedTarget = _normalizeIdValue_(userId) || identityUserId;
-    if (!normalizedTarget) return { categories: [], uncategorizedPages: [] };
-
-    userId = normalizedTarget;
-
-    const isSelf = normalizedTarget === identityUserId;
-    if (!isSelf && !_mainHasCampaignPrivileges_(identity)) {
-      return { categories: [], uncategorizedPages: [] };
-    }
+    if (!userId) return { categories: [], uncategorizedPages: [] };
 
     const users = readSheet(USERS_SHEET) || [];
-    const user = users.find(u => _normalizeIdValue_(u.ID) === normalizedTarget);
+    const user = users.find(u => u.ID === userId);
     if (!user) return { categories: [], uncategorizedPages: [] };
 
     // Clear nav cache for all campaigns this user belongs to
-    const userCampaigns = getUserCampaignsSafe(normalizedTarget);
+    const userCampaigns = getUserCampaignsSafe(userId);
     userCampaigns.forEach(uc => invalidateNavigationCache(uc.campaignId));
 
     // Single-campaign user → primary campaign nav
