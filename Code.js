@@ -1069,11 +1069,11 @@ function __injectCurrentUser_(tpl, explicitUser, options) {
   var identityInjected = false;
 
   if (explicitUser && explicitUser.identityMeta
-    && typeof IlluminaIdentity !== 'undefined'
-    && IlluminaIdentity
-    && typeof IlluminaIdentity.injectTemplate === 'function') {
+    && typeof luminaIdentity !== 'undefined'
+    && luminaIdentity
+    && typeof luminaIdentity.injectTemplate === 'function') {
     try {
-      IlluminaIdentity.injectTemplate(tpl, explicitUser);
+      luminaIdentity.injectTemplate(tpl, explicitUser);
       identityInjected = true;
     } catch (identityAssignError) {
       console.warn('__injectCurrentUser_: failed to inject provided identity', identityAssignError);
@@ -1082,22 +1082,22 @@ function __injectCurrentUser_(tpl, explicitUser, options) {
   }
 
   if (!identityInjected
-    && typeof IlluminaIdentity !== 'undefined'
-    && IlluminaIdentity
-    && typeof IlluminaIdentity.resolve === 'function'
-    && typeof IlluminaIdentity.injectTemplate === 'function') {
+    && typeof luminaIdentity !== 'undefined'
+    && luminaIdentity
+    && typeof luminaIdentity.resolve === 'function'
+    && typeof luminaIdentity.injectTemplate === 'function') {
     try {
-      var resolved = IlluminaIdentity.resolve(options && options.request ? options.request : null, {
+      var resolved = luminaIdentity.resolve(options && options.request ? options.request : null, {
         explicitUser: explicitUser,
         sessionToken: options && options.sessionToken,
         token: options && options.token,
         allowCurrentUser: true,
         useCache: true
       });
-      IlluminaIdentity.injectTemplate(tpl, resolved);
+      luminaIdentity.injectTemplate(tpl, resolved);
       identityInjected = true;
     } catch (identityResolveError) {
-      console.warn('__injectCurrentUser_: IlluminaIdentity resolve failed', identityResolveError);
+      console.warn('__injectCurrentUser_: luminaIdentity resolve failed', identityResolveError);
       identityInjected = false;
     }
   }
@@ -1256,11 +1256,11 @@ function requireAuth(e) {
 
     let resolvedUser = user;
 
-    if (typeof IlluminaIdentity !== 'undefined'
-      && IlluminaIdentity
-      && typeof IlluminaIdentity.resolve === 'function') {
+    if (typeof luminaIdentity !== 'undefined'
+      && luminaIdentity
+      && typeof luminaIdentity.resolve === 'function') {
       try {
-        resolvedUser = IlluminaIdentity.resolve(e, {
+        resolvedUser = luminaIdentity.resolve(e, {
           explicitUser: user,
           sessionToken: user && user.sessionToken,
           token: e && e.parameter ? e.parameter.token : '',
@@ -1268,7 +1268,7 @@ function requireAuth(e) {
           useCache: true
         });
       } catch (identityError) {
-        console.warn('requireAuth: IlluminaIdentity resolve failed', identityError);
+        console.warn('requireAuth: luminaIdentity resolve failed', identityError);
         resolvedUser = user;
       }
     }

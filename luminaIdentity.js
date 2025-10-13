@@ -1,4 +1,4 @@
-var IlluminaIdentity = (function () {
+var luminaIdentity = (function () {
   var AUTH_COOKIE_NAME = 'authToken';
   var CACHE_PREFIX = 'ILLUMINA_IDENTITY:';
   var SESSION_CACHE_PREFIX = CACHE_PREFIX + 'SESSION:';
@@ -44,7 +44,7 @@ var IlluminaIdentity = (function () {
         header = e.headers.Cookie || e.headers.cookie || '';
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.parseCookies', err);
+      logWarning('luminaIdentity.parseCookies', err);
     }
 
     var cookies = {};
@@ -154,7 +154,7 @@ var IlluminaIdentity = (function () {
         return CacheService.getScriptCache();
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.scriptCache', err);
+      logWarning('luminaIdentity.scriptCache', err);
     }
     return null;
   }
@@ -172,7 +172,7 @@ var IlluminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.readCache', err);
+      logWarning('luminaIdentity.readCache', err);
     }
     return null;
   }
@@ -187,7 +187,7 @@ var IlluminaIdentity = (function () {
         cache.put(key, JSON.stringify(value), Math.min(21600, Math.max(5, ttl || CACHE_SECONDS)));
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.writeCache', err);
+      logWarning('luminaIdentity.writeCache', err);
     }
   }
 
@@ -214,7 +214,7 @@ var IlluminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.readUsersDataset(getAllUsersRaw)', err);
+      logWarning('luminaIdentity.readUsersDataset(getAllUsersRaw)', err);
     }
 
     try {
@@ -225,7 +225,7 @@ var IlluminaIdentity = (function () {
         }
       }
     } catch (err2) {
-      logWarning('IlluminaIdentity.readUsersDataset(readSheet)', err2);
+      logWarning('luminaIdentity.readUsersDataset(readSheet)', err2);
     }
 
     return [];
@@ -309,7 +309,7 @@ var IlluminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.resolveCampaignNavigation', err);
+      logWarning('luminaIdentity.resolveCampaignNavigation', err);
     }
   }
 
@@ -334,7 +334,7 @@ var IlluminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.resolveCampaignName', err);
+      logWarning('luminaIdentity.resolveCampaignName', err);
     }
   }
 
@@ -357,7 +357,7 @@ var IlluminaIdentity = (function () {
             user.roleNames = roleNames;
           }
         } catch (err) {
-          logWarning('IlluminaIdentity.ensureRoleInformation', err);
+          logWarning('luminaIdentity.ensureRoleInformation', err);
         }
       }
     }
@@ -380,7 +380,7 @@ var IlluminaIdentity = (function () {
         hydrated = createSafeUserObject(hydrated);
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.ensureSafeWrapper', err);
+      logWarning('luminaIdentity.ensureSafeWrapper', err);
     }
 
     ensureRoleInformation(hydrated);
@@ -394,7 +394,7 @@ var IlluminaIdentity = (function () {
       metaTarget = Object.assign({}, metaTarget, meta || {});
       hydrated.identityMeta = metaTarget;
     } catch (errMeta) {
-      logWarning('IlluminaIdentity.ensureSafeWrapper.meta', errMeta);
+      logWarning('luminaIdentity.ensureSafeWrapper.meta', errMeta);
       hydrated.identityMeta = meta || {};
     }
 
@@ -424,7 +424,7 @@ var IlluminaIdentity = (function () {
         }
       }
     } catch (err) {
-      logWarning('IlluminaIdentity.fetchSessionUser', err);
+      logWarning('luminaIdentity.fetchSessionUser', err);
     }
     return null;
   }
@@ -475,7 +475,7 @@ var IlluminaIdentity = (function () {
           }
         }
       } catch (err) {
-        logWarning('IlluminaIdentity.resolveBaseUser.current', err);
+        logWarning('luminaIdentity.resolveBaseUser.current', err);
       }
     }
 
@@ -537,7 +537,7 @@ var IlluminaIdentity = (function () {
     try {
       return JSON.stringify(value || {}).replace(/<\/script>/gi, '<\\/script>');
     } catch (err) {
-      logWarning('IlluminaIdentity.stringifyForTemplate', err);
+      logWarning('luminaIdentity.stringifyForTemplate', err);
       return '{}';
     }
   }
@@ -552,30 +552,30 @@ var IlluminaIdentity = (function () {
       tpl.user = user;
       tpl.safeUser = user;
     } catch (err) {
-      logWarning('IlluminaIdentity.injectIntoTemplate.assign', err);
+      logWarning('luminaIdentity.injectIntoTemplate.assign', err);
     }
 
     var json = stringifyForTemplate(user);
     try {
       tpl.currentUserJson = json;
     } catch (errJson) {
-      logWarning('IlluminaIdentity.injectIntoTemplate.currentUserJson', errJson);
+      logWarning('luminaIdentity.injectIntoTemplate.currentUserJson', errJson);
     }
     try {
       tpl.identityJson = json;
     } catch (errIdentityJson) {
-      logWarning('IlluminaIdentity.injectIntoTemplate.identityJson', errIdentityJson);
+      logWarning('luminaIdentity.injectIntoTemplate.identityJson', errIdentityJson);
     }
     try {
       tpl.safeUserJson = json;
     } catch (errSafeJson) {
-      logWarning('IlluminaIdentity.injectIntoTemplate.safeUserJson', errSafeJson);
+      logWarning('luminaIdentity.injectIntoTemplate.safeUserJson', errSafeJson);
     }
 
     try {
       tpl.identityMetaJson = stringifyForTemplate(user && user.identityMeta ? user.identityMeta : {});
     } catch (errMeta) {
-      logWarning('IlluminaIdentity.injectIntoTemplate.identityMetaJson', errMeta);
+      logWarning('luminaIdentity.injectIntoTemplate.identityMetaJson', errMeta);
     }
 
     return user;
