@@ -1200,15 +1200,20 @@
                                         <i class="fas fa-coffee me-2"></i>Break & Lunch Configuration
                                     </h6>
                                     <div class="row g-3">
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
+                                            <label class="form-label-modern">Total Break Duration (min)</label>
+                                            <input type="number" class="form-control form-control-modern" id="slotBreakDuration" value="30" min="0" max="120">
+                                            <small class="text-muted">BreakDuration column</small>
+                                        </div>
+                                        <div class="col-md-3">
                                             <label class="form-label-modern">First Break (min)</label>
                                             <input type="number" class="form-control form-control-modern" id="slotBreak1Duration" value="15" min="5" max="30">
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <label class="form-label-modern">Lunch Duration (min)</label>
                                             <input type="number" class="form-control form-control-modern" id="slotLunchDuration" value="30" min="15" max="60">
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <label class="form-label-modern">Second Break (min)</label>
                                             <input type="number" class="form-control form-control-modern" id="slotBreak2Duration" value="15" min="5" max="30">
                                         </div>
@@ -1297,6 +1302,19 @@
                                                 </select>
                                             </div>
                                         </div>
+
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label-modern">Overtime Policy Template</label>
+                                                <select class="form-select form-control-modern" id="slotOvertimePolicy">
+                                                    <option value="LIMITED_15">Limited (15 min)</option>
+                                                    <option value="LIMITED_30" selected>Limited (30 min)</option>
+                                                    <option value="LIMITED_60">Limited (60 min)</option>
+                                                    <option value="UNLIMITED">Unlimited</option>
+                                                </select>
+                                                <small class="text-muted">Maps to the OvertimePolicy sheet column</small>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1330,6 +1348,10 @@
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" id="autoAssignment">
                                                 <label class="form-check-label" for="autoAssignment">Auto-Assignment Eligible</label>
+                                            </div>
+                                            <div class="form-check mt-3">
+                                                <input class="form-check-input" type="checkbox" id="slotIsActive" checked>
+                                                <label class="form-check-label" for="slotIsActive">Shift Slot Active</label>
                                             </div>
                                         </div>
 
@@ -1741,6 +1763,19 @@
                     }
                 });
 
+                // Keep total break duration aligned with individual breaks
+                const breakDurationInput = document.getElementById('slotBreakDuration');
+                ['slotBreak1Duration', 'slotBreak2Duration'].forEach(id => {
+                    document.getElementById(id)?.addEventListener('change', () => {
+                        this.syncBreakDurationFromParts();
+                        this.ensureBreakDurationConsistency();
+                    });
+                });
+
+                breakDurationInput?.addEventListener('change', () => {
+                    this.ensureBreakDurationConsistency();
+                });
+
                 // Auto-calculate lunch timing based on shift duration
                 const startTime = document.getElementById('slotStartTime');
                 const endTime = document.getElementById('slotEndTime');
@@ -1748,6 +1783,10 @@
                 [startTime, endTime].forEach(input => {
                     input?.addEventListener('change', this.calculateOptimalBreakTimes.bind(this));
                 });
+
+                // Initialize totals on load
+                this.syncBreakDurationFromParts();
+                this.ensureBreakDurationConsistency();
             }
 
             async loadInitialData() {
@@ -2040,7 +2079,9 @@
                                         <strong>Time:</strong> ${this.formatTimeValue(slot.StartTime)} - ${this.formatTimeValue(slot.EndTime)}<br>
                                         <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
                                         <strong>Department:</strong> ${slot.Department || 'General'}<br>
-                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
+                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}<br>
+                                        <strong>Status:</strong> ${slot.IsActive === false ? 'Inactive' : 'Active'}<br>
+                                        <strong>Overtime Policy:</strong> ${slot.OvertimePolicy || 'Not set'}
                                     </p>
                                     <small class="text-muted">
                                         Created: ${this.formatDateTime(slot.CreatedAt)}
@@ -2397,6 +2438,7 @@
                         priority: parseInt(document.getElementById('slotPriority').value),
 
                         // Break & Lunch Configuration
+                        breakDuration: parseInt(document.getElementById('slotBreakDuration').value),
                         break1Duration: parseInt(document.getElementById('slotBreak1Duration').value),
                         lunchDuration: parseInt(document.getElementById('slotLunchDuration').value),
                         break2Duration: parseInt(document.getElementById('slotBreak2Duration').value),
@@ -2414,6 +2456,7 @@
                         otApproval: document.getElementById('slotOTApproval').value,
                         otRate: parseFloat(document.getElementById('slotOTRate').value),
                         otPolicy: document.getElementById('slotOTPolicy').value,
+                        overtimePolicy: document.getElementById('slotOvertimePolicy').value,
 
                         // Advanced Settings (skills removed)
                         allowSwaps: document.getElementById('allowSwaps').checked,
@@ -2423,6 +2466,7 @@
                         restPeriod: parseInt(document.getElementById('slotRestPeriod').value),
                         notificationLead: parseInt(document.getElementById('slotNotificationLead').value),
                         handoverTime: parseInt(document.getElementById('slotHandoverTime').value),
+                        isActive: document.getElementById('slotIsActive').checked,
 
                         // System fields
                         createdBy: this.getCurrentUserId() || 'System'
@@ -2531,12 +2575,25 @@
                 }
 
                 // Break validation
+                const totalBreaks = (slotData.break1Duration || 0) + (slotData.break2Duration || 0);
+                if (slotData.breakDuration < 0 || slotData.breakDuration > 120) {
+                    errors.push('Total break duration must be between 0 and 120 minutes');
+                }
+
+                if (slotData.breakDuration < totalBreaks) {
+                    errors.push('Total break duration must be at least the sum of individual breaks');
+                }
+
                 if (slotData.break1Duration < 5 || slotData.break1Duration > 30) {
                     errors.push('First break duration must be between 5 and 30 minutes');
                 }
 
                 if (slotData.lunchDuration < 15 || slotData.lunchDuration > 60) {
                     errors.push('Lunch duration must be between 15 and 60 minutes');
+                }
+
+                if (slotData.break2Duration < 0 || slotData.break2Duration > 30) {
+                    errors.push('Second break duration must be between 0 and 30 minutes');
                 }
 
                 // Overtime validation
@@ -2576,6 +2633,10 @@
                 document.getElementById('enableOvertime').checked = false;
                 document.getElementById('overtimeConfig').classList.add('d-none');
                 document.getElementById('enableStaggeredBreaks').checked = true;
+                document.getElementById('slotOvertimePolicy').value = 'LIMITED_30';
+                document.getElementById('slotIsActive').checked = true;
+                this.syncBreakDurationFromParts();
+                this.ensureBreakDurationConsistency();
             }
 
             calculateOptimalBreakTimes() {
@@ -2606,8 +2667,34 @@
                 document.getElementById('slotBreak1Duration').value = break1Duration;
                 document.getElementById('slotLunchDuration').value = lunchDuration;
                 document.getElementById('slotBreak2Duration').value = break2Duration;
+                this.syncBreakDurationFromParts();
+                this.ensureBreakDurationConsistency();
 
                 console.log(`Calculated optimal breaks for ${durationHours}h shift: ${break1Duration}m break, ${lunchDuration}m lunch, ${break2Duration}m break`);
+            }
+
+            syncBreakDurationFromParts() {
+                const breakDurationInput = document.getElementById('slotBreakDuration');
+                const break1 = parseInt(document.getElementById('slotBreak1Duration')?.value, 10) || 0;
+                const break2 = parseInt(document.getElementById('slotBreak2Duration')?.value, 10) || 0;
+
+                if (breakDurationInput) {
+                    breakDurationInput.value = break1 + break2;
+                }
+            }
+
+            ensureBreakDurationConsistency() {
+                const breakDurationInput = document.getElementById('slotBreakDuration');
+                if (!breakDurationInput) return;
+
+                const total = parseInt(breakDurationInput.value, 10) || 0;
+                const break1 = parseInt(document.getElementById('slotBreak1Duration')?.value, 10) || 0;
+                const break2 = parseInt(document.getElementById('slotBreak2Duration')?.value, 10) || 0;
+                const minimumTotal = break1 + break2;
+
+                if (total < minimumTotal) {
+                    breakDurationInput.value = minimumTotal;
+                }
             }
 
             async loadSchedules() {
