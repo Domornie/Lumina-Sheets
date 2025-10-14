@@ -280,10 +280,15 @@ function clientCreateShiftSlot(slotData) {
 
   } catch (error) {
     console.error('❌ Error creating shift slot:', error);
-    safeWriteError('clientCreateShiftSlot', error);
+    if (typeof safeWriteError === 'function') {
+      safeWriteError('clientCreateShiftSlot', error);
+    }
+    const errorMessage = error && error.message
+      ? error.message
+      : (typeof error === 'string' ? error : (error && error.toString ? error.toString() : 'Unknown error'));
     return {
       success: false,
-      error: error.message
+      error: errorMessage || 'Unknown error while creating shift slot'
     };
   }
 }
