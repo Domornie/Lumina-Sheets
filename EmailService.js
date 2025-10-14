@@ -730,6 +730,11 @@ function buildPasswordUrl_(token) {
   return `${EMAIL_CONFIG.baseUrl}${sep}page=setpassword&token=${t}&utm_source=email&utm_medium=auth&utm_campaign=${encodeURIComponent(EMAIL_CONFIG.brandName)}`;
 }
 
+function buildSecureAccountUrl_() {
+  const sep = EMAIL_CONFIG.baseUrl.indexOf('?') >= 0 ? '&' : '?';
+  return `${EMAIL_CONFIG.baseUrl}${sep}page=forgotpassword&utm_source=email&utm_medium=security&utm_campaign=${encodeURIComponent(EMAIL_CONFIG.brandName)}&utm_content=secure-account`;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Main Email Functions
 // ────────────────────────────────────────────────────────────────────────────
@@ -965,12 +970,13 @@ function sendDeviceVerificationEmail(email, data) {
     const expiresText = expiresAt && !isNaN(expiresAt.getTime())
       ? Utilities.formatDate(expiresAt, Session.getScriptTimeZone(), 'MMM d, yyyy h:mm a')
       : '15 minutes';
-    const ipAddress = escapeHtml_((data && data.ipAddress) || 'Unknown');
+    const ipAddress = escapeHtml_((data && data.ipAddress) || 'Not available');
     const userAgent = escapeHtml_((data && data.userAgent) || 'Unknown');
     const platform = escapeHtml_((data && data.platform) || 'Unknown device');
     const languages = Array.isArray(data && data.languages) && data.languages.length
       ? escapeHtml_(data.languages.join(', '))
       : '';
+    const secureUrl = buildSecureAccountUrl_();
 
     const content = `
 <div class="security-badge">🛡️ New Device Sign-In Verification</div>
@@ -992,7 +998,13 @@ function sendDeviceVerificationEmail(email, data) {
   </ul>
 </div>
 
-<p>If this was you, enter the code in the sign-in screen within the next few minutes. If it wasn’t you, deny the attempt immediately and our security team will be alerted.</p>
+<p>If this was you, enter the code in the sign-in screen within the next few minutes. If it wasn’t you, click the button below to reset your password immediately.</p>
+
+<div class="cta-wrap" style="margin-top:24px;">
+  <a href="${escapeHtml_(secureUrl)}" class="cta-button reset-button">Secure My Account</a>
+</div>
+
+<p style="margin-top:16px;"><strong>This wasn't you?</strong> Selecting <em>Secure My Account</em> will take you straight to the password reset screen so you can lock the untrusted device out right away.</p>
 `;
 
     const htmlBody = renderEmail_({
@@ -1029,7 +1041,7 @@ function sendDeniedDeviceAlertEmail(details) {
 
     const userName = escapeHtml_((details && details.userName) || 'Unknown user');
     const userEmail = escapeHtml_((details && details.userEmail) || '');
-    const ipAddress = escapeHtml_((details && details.ipAddress) || 'Unknown');
+    const ipAddress = escapeHtml_((details && details.ipAddress) || 'Not available');
     const clientIp = escapeHtml_((details && details.clientIp) || '');
     const userAgent = escapeHtml_((details && details.userAgent) || 'Unknown');
     const platform = escapeHtml_((details && details.platform) || 'Unknown');

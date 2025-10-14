@@ -189,6 +189,9 @@ var AuthenticationService = (function () {
     if (metadata.serverIp || metadata.serverObservedIp) {
       sanitized.serverIp = String(metadata.serverIp || metadata.serverObservedIp).slice(0, 100);
     }
+    if (metadata.forwardedFor) {
+      sanitized.forwardedFor = String(metadata.forwardedFor).slice(0, 250);
+    }
     if (metadata.platform) {
       sanitized.platform = String(metadata.platform).slice(0, 100);
     }
@@ -1128,6 +1131,25 @@ var AuthenticationService = (function () {
     return Object.keys(merged).length ? merged : null;
   }
 
+  function resolveObservedIp(metadata) {
+    if (!metadata || typeof metadata !== 'object') {
+      return '';
+    }
+
+    const candidates = [metadata.serverIp, metadata.ipAddress, metadata.forwardedFor];
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = normalizeString(candidates[i]);
+      if (!candidate) {
+        continue;
+      }
+      const primary = candidate.indexOf(',') !== -1 ? candidate.split(',')[0].trim() : candidate;
+      if (primary) {
+        return primary;
+      }
+    }
+    return '';
+  }
+
   function getLoginContextCacheKey() {
     try {
       if (typeof Session !== 'undefined' && Session && typeof Session.getTemporaryActiveUserKey === 'function') {
@@ -1425,7 +1447,7 @@ var AuthenticationService = (function () {
         fullName: user.FullName || user.UserName || user.Email,
         verificationCode: verificationCode,
         expiresAt: expiresAtIso,
-        ipAddress: metadata.serverIp || metadata.ipAddress || 'Unknown',
+        ipAddress: resolveObservedIp(metadata) || 'Not available',
         userAgent: metadata.userAgent || 'Unknown',
         platform: metadata.platform || '',
         originHost: metadata.originHost || '',
