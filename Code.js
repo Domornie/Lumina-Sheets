@@ -938,8 +938,25 @@ function getCurrentUser() {
  */
 function authenticateUser(e) {
   try {
-    // First check if there's a token parameter
-    const token = e.parameter.token;
+    // First resolve the session token from any available source
+    const rawToken = e && e.parameter ? (e.parameter.token || e.parameter.sessionToken || '') : '';
+    let token = rawToken;
+
+    if (typeof LuminaIdentity !== 'undefined'
+      && LuminaIdentity
+      && typeof LuminaIdentity.resolveSessionToken === 'function') {
+      try {
+        token = LuminaIdentity.resolveSessionToken(e, { sessionToken: rawToken }) || rawToken;
+      } catch (resolveError) {
+        console.warn('authenticateUser: unable to resolve session token via LuminaIdentity', resolveError);
+        token = rawToken;
+      }
+    }
+
+    if (!token && rawToken) {
+      token = rawToken;
+    }
+
     if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
       const user = AuthenticationService.getSessionUser(token);
       if (user) {
