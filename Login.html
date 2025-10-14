@@ -2433,7 +2433,12 @@
 
           hideAllAlerts();
           const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
-          let resumeUrl = normalizeRedirectUrl(resumeInput);
+          const hasServerRedirect = !!resumeInput;
+          let resumeUrl = '';
+
+          if (hasServerRedirect) {
+            resumeUrl = normalizeRedirectUrl(resumeInput);
+          }
 
           const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
           const preferredFromResponse = sanitizePreferredRedirect(result.requestedReturnUrl);
@@ -2448,7 +2453,27 @@
           state.lastLogoutReason = '';
           state.preferredReturnUrl = '';
 
-          setupRedirect(resumeUrl);
+          if (resumeUrl) {
+            setupRedirect(resumeUrl);
+            hideNextSteps();
+            return;
+          }
+
+          console.log('Session resume succeeded but no redirect target provided; staying on login page.');
+          setLoading(false);
+          hideNextSteps();
+
+          if (!state.loginRequestActive && elements.loginBtn) {
+            elements.loginBtn.disabled = false;
+            elements.loginBtn.classList.remove('btn-loading');
+            elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
+          }
+
+          if (resumedEmail) {
+            showAlert('info', `Welcome back, ${resumedEmail}. Click Log in to continue.`);
+          } else {
+            showAlert('info', 'Welcome back! Click Log in to continue.');
+          }
         })
         .withFailureHandler(error => {
           finalizeResumeAttempt();
