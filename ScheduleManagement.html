@@ -1934,18 +1934,63 @@
                 const container = document.getElementById('usersList');
                 if (!container) return;
 
-                if (this.availableUsers.length === 0) {
+                if (!Array.isArray(this.availableUsers) || this.availableUsers.length === 0) {
                     container.innerHTML = '<div class="text-muted text-center py-4">No users found. Please check user data and permissions.</div>';
+                    this.updateManagerStats();
                     return;
                 }
 
-                container.innerHTML = this.availableUsers.map(user => `
+                const groupedByManager = new Map();
+
+                this.availableUsers.forEach(user => {
+                    const managerNames = Array.isArray(user.assignedManagerNames) && user.assignedManagerNames.length
+                        ? user.assignedManagerNames
+                        : ['Unassigned'];
+
+                    const userKey = user.ID || user.Id || user.id || user.UserName || user.UserID || user.Email;
+
+                    managerNames.forEach(name => {
+                        const managerLabel = name && name.trim() ? name.trim() : 'Unassigned';
+                        if (!groupedByManager.has(managerLabel)) {
+                            groupedByManager.set(managerLabel, new Map());
+                        }
+
+                        const usersMap = groupedByManager.get(managerLabel);
+                        if (!usersMap.has(userKey)) {
+                            usersMap.set(userKey, user);
+                        }
+                    });
+                });
+
+                const sortedManagers = Array.from(groupedByManager.entries()).sort((a, b) => {
+                    const nameA = a[0].toLowerCase();
+                    const nameB = b[0].toLowerCase();
+                    if (nameA === 'unassigned' && nameB !== 'unassigned') return 1;
+                    if (nameB === 'unassigned' && nameA !== 'unassigned') return -1;
+                    return nameA.localeCompare(nameB);
+                });
+
+                container.innerHTML = sortedManagers.map(([managerName, usersMap]) => {
+                    const users = Array.from(usersMap.values());
+                    const managerBadge = managerName === 'Unassigned'
+                        ? '<span class="badge bg-secondary ms-2">Unassigned</span>'
+                        : '';
+
+                    const managerHeader = `
+                        <div class="d-flex align-items-center mb-2">
+                            <h6 class="fw-semibold mb-0 text-primary">${managerName}</h6>
+                            ${managerBadge}
+                            <span class="badge bg-light text-dark ms-auto">${users.length} ${users.length === 1 ? 'user' : 'users'}</span>
+                        </div>
+                    `;
+
+                    const userCards = users.map(user => `
                         <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded interactive-item">
                             <div>
                                 <strong class="d-block">${user.FullName || user.UserName}</strong>
                                 <small class="text-muted">
-                                    ${user.Email || 'No email'} • 
-                                    ${user.campaignName || 'No campaign'} • 
+                                    ${user.Email || 'No email'} •
+                                    ${user.campaignName || 'No campaign'} •
                                     ${user.EmploymentStatus || 'Active'}
                                 </small>
                             </div>
@@ -1955,15 +2000,45 @@
                         </div>
                     `).join('');
 
-                this.updateManagerStats();
+                    return `
+                        <div class="manager-group mb-4">
+                            ${managerHeader}
+                            ${userCards || '<div class="text-muted small">No users assigned.</div>'}
+                        </div>
+                    `;
+                }).join('');
+
+                this.updateManagerStats(groupedByManager);
             }
 
-            updateManagerStats() {
+            updateManagerStats(groupedByManager = null) {
                 const container = document.getElementById('managerStats');
                 if (!container) return;
 
                 const activeUsers = this.availableUsers.filter(u => u.isActive).length;
                 const withCampaigns = this.availableUsers.filter(u => u.CampaignID).length;
+                const managerIds = new Set();
+                this.availableUsers.forEach(user => {
+                    const assignedIds = Array.isArray(user.assignedManagerIds) ? user.assignedManagerIds : [];
+                    assignedIds.forEach(id => {
+                        if (id) {
+                            managerIds.add(String(id));
+                        }
+                    });
+                });
+
+                const managerCount = managerIds.size;
+                let unassignedCount = this.availableUsers.filter(user => {
+                    const assignedIds = Array.isArray(user.assignedManagerIds) ? user.assignedManagerIds : [];
+                    return assignedIds.length === 0;
+                }).length;
+
+                if (groupedByManager instanceof Map && groupedByManager.has('Unassigned')) {
+                    const unassignedGroup = groupedByManager.get('Unassigned');
+                    if (unassignedGroup && typeof unassignedGroup.size === 'number') {
+                        unassignedCount = unassignedGroup.size;
+                    }
+                }
 
                 container.innerHTML = `
                         <div class="row g-3">
@@ -1983,12 +2058,14 @@
                                 <div class="metric-card">
                                     <div class="metric-number text-info">${withCampaigns}</div>
                                     <div class="metric-label">With Campaigns</div>
+                                    <small class="text-muted">Campaigns tracked: ${this.availableCampaigns.length}</small>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-warning">${this.availableCampaigns.length}</div>
-                                    <div class="metric-label">Campaigns</div>
+                                    <div class="metric-number text-warning">${managerCount}</div>
+                                    <div class="metric-label">Managers Assigned</div>
+                                    <small class="text-muted">Unassigned users: ${unassignedCount}</small>
                                 </div>
                             </div>
                         </div>
@@ -2109,7 +2186,9 @@
 
                     const dashboard = await this.callServerFunction('clientGetAttendanceDashboard',
                         startDate.toISOString().split('T')[0],
-                        endDate.toISOString().split('T')[0]
+                        endDate.toISOString().split('T')[0],
+                        null,
+                        this.getCurrentUserId()
                     );
 
                     if (dashboard && dashboard.success) {
@@ -2703,7 +2782,8 @@
                         startDate: document.getElementById('filterStartDate')?.value,
                         endDate: document.getElementById('filterEndDate')?.value,
                         userName: document.getElementById('filterUser')?.value,
-                        status: document.getElementById('filterStatus')?.value
+                        status: document.getElementById('filterStatus')?.value,
+                        managerId: this.getCurrentUserId()
                     };
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
@@ -3214,7 +3294,8 @@
                             replaceExisting,
                             summary
                         },
-                        schedules
+                        schedules,
+                        managerUserId: this.getCurrentUserId()
                     };
 
                     const result = await this.callServerFunction('clientImportSchedules', payload);
