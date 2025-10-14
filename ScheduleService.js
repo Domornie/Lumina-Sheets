@@ -30,6 +30,7 @@ function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
     var rawOptions = {};
     var managerId = requestingUserId;
     var campaignFilter = null;
+    var managerIdStr = '';
 
     if (typeof campaignIdOrOptions === 'object' && campaignIdOrOptions !== null) {
       rawOptions = campaignIdOrOptions;
@@ -43,6 +44,8 @@ function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
       campaignFilter = _normStr_(campaignIdOrOptions);
     }
 
+    managerIdStr = managerId ? _normStr_(managerId) : '';
+
     var fetchOptions = Object.assign({
       includeManager: true,
       fallbackToCampaign: false,
@@ -55,13 +58,6 @@ function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
     var users = getUser(managerId, fetchOptions) || [];
     if (!Array.isArray(users)) {
       users = [];
-    }
-
-    if (campaignFilter) {
-      users = users.filter(function (user) {
-        var userCampaignId = _normStr_(user && (user.CampaignID || user.campaignId));
-        return userCampaignId === campaignFilter;
-      });
     }
 
     var assignmentRows = [];
@@ -103,10 +99,94 @@ function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
       });
     });
 
-    var campaignNameMap = _campaignNameMap_();
-    var managerIdStr = managerId ? _normStr_(managerId) : '';
+    var userCampaignMap = new Map();
+    var userCampaignSheetName = (typeof USER_CAMPAIGNS_SHEET !== 'undefined' && USER_CAMPAIGNS_SHEET)
+      ? USER_CAMPAIGNS_SHEET
+      : 'USER_CAMPAIGNS';
+    try {
+      var campaignRows = (typeof readSheet === 'function') ? (readSheet(userCampaignSheetName) || []) : [];
+      campaignRows.forEach(function (row) {
+        if (!row) return;
+        var campaignUserId = _normStr_(row.UserId || row.UserID || row.userId);
+        var campaignId = _normStr_(row.CampaignId || row.CampaignID || row.campaignId);
+        if (!campaignUserId || !campaignId) return;
+        var entry = userCampaignMap.get(campaignUserId);
+        if (!entry) {
+          entry = new Set();
+          userCampaignMap.set(campaignUserId, entry);
+        }
+        entry.add(campaignId);
+      });
+    } catch (campaignMapError) {
+      console.warn('clientGetScheduleUsers: unable to read USER_CAMPAIGNS sheet', campaignMapError);
+    }
 
-    var enriched = users.map(function (user) {
+    var campaignNameMap = _campaignNameMap_();
+    var managerCampaignSet = new Set();
+
+    if (managerIdStr) {
+      var managerCampaignEntries = userCampaignMap.get(managerIdStr);
+      if (managerCampaignEntries && managerCampaignEntries.size) {
+        managerCampaignEntries.forEach(function (cid) {
+          if (cid) managerCampaignSet.add(cid);
+        });
+      }
+    }
+
+    if (!managerCampaignSet.size) {
+      var managerDetails = managerLookup.get(managerIdStr);
+      if (managerDetails && managerDetails.campaignId) {
+        managerCampaignSet.add(managerDetails.campaignId);
+      }
+    }
+
+    var explicitCampaignId = campaignFilter || null;
+    var requireManagerCampaignMatch = managerCampaignSet.size > 0;
+
+    var filteredUsers = users.filter(function (user) {
+      var safeUserId = _normStr_(user && (user.ID || user.Id || user.id));
+      if (!safeUserId) return false;
+
+      if (managerIdStr) {
+        var assignedManagersSet = userAssignments.get(safeUserId);
+        if (!assignedManagersSet || !assignedManagersSet.has(managerIdStr)) {
+          return false;
+        }
+      }
+
+      var userCampaignIds = [];
+      var mappedCampaigns = userCampaignMap.get(safeUserId);
+      if (mappedCampaigns && mappedCampaigns.size) {
+        userCampaignIds = Array.from(mappedCampaigns);
+      }
+
+      var primaryCampaignId = _normStr_(user && (user.CampaignID || user.campaignId || ''));
+      if (primaryCampaignId && userCampaignIds.indexOf(primaryCampaignId) === -1) {
+        userCampaignIds.push(primaryCampaignId);
+      }
+
+      if (explicitCampaignId) {
+        var matchesExplicitCampaign = userCampaignIds.some(function (cid) {
+          return cid === explicitCampaignId;
+        });
+        if (!matchesExplicitCampaign) {
+          return false;
+        }
+      }
+
+      if (requireManagerCampaignMatch) {
+        var matchesManagerCampaign = userCampaignIds.some(function (cid) {
+          return managerCampaignSet.has(cid);
+        });
+        if (!matchesManagerCampaign) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    var enriched = filteredUsers.map(function (user) {
       var safeUser = Object.assign({}, user);
       var userId = _normStr_(safeUser.ID || safeUser.Id || safeUser.id);
       var campaignId = _normStr_(safeUser.CampaignID || safeUser.campaignId || '');
@@ -116,9 +196,6 @@ function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
 
       var assignedSet = userAssignments.get(userId);
       var assignedIds = assignedSet ? Array.from(assignedSet) : [];
-      if (!assignedIds.length && managerIdStr) {
-        assignedIds = [managerIdStr];
-      }
 
       var assignedManagers = assignedIds
         .map(function (mgrId) {
@@ -149,7 +226,7 @@ function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
       return safeUser;
     });
 
-    console.log('✅ Returning', enriched.length, 'schedule users scoped by manager assignments');
+    console.log('✅ Returning', enriched.length, 'schedule users scoped by manager assignments and campaign alignment');
     return enriched;
 
   } catch (error) {
