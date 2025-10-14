@@ -1028,27 +1028,59 @@ function reconcileUserIdReferencesAcrossSheets(options) {
       return sheetExistenceCache[cacheKey];
     }
 
+    let environmentChecked = false;
+
+    function markResult(result) {
+      sheetExistenceCache[cacheKey] = result;
+      return result;
+    }
+
+    // Check the main spreadsheet first (legacy behaviour)
     if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
-      sheetExistenceCache[cacheKey] = true;
-      return true;
+      return markResult(true);
     }
 
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
-      if (!ss || typeof ss.getSheetByName !== 'function') {
-        sheetExistenceCache[cacheKey] = true;
-        return true;
+      if (ss && typeof ss.getSheetByName === 'function') {
+        environmentChecked = true;
+        const existsOnMain = !!ss.getSheetByName(trimmed);
+        if (existsOnMain) {
+          return markResult(true);
+        }
       }
-      const exists = !!ss.getSheetByName(trimmed);
-      sheetExistenceCache[cacheKey] = exists;
-      return exists;
     } catch (existsError) {
       const message = existsError && existsError.message ? existsError.message : String(existsError);
       summary.warnings.push({ sheet: trimmed, stage: 'existsCheck', error: message });
       _userLog_('UserService.reconcileUserIdReferences.sheetExistsCheckFailed', { sheet: trimmed, error: message }, 'warn');
-      sheetExistenceCache[cacheKey] = true;
-      return true;
+      return markResult(true);
     }
+
+    // If not found on the main spreadsheet, check the dedicated schedule spreadsheet
+    if (typeof getScheduleSpreadsheet === 'function') {
+      try {
+        const scheduleSs = getScheduleSpreadsheet();
+        if (scheduleSs && typeof scheduleSs.getSheetByName === 'function') {
+          environmentChecked = true;
+          const existsOnSchedule = !!scheduleSs.getSheetByName(trimmed);
+          if (existsOnSchedule) {
+            return markResult(true);
+          }
+        }
+      } catch (scheduleError) {
+        const message = scheduleError && scheduleError.message ? scheduleError.message : String(scheduleError);
+        summary.warnings.push({ sheet: trimmed, stage: 'scheduleExistsCheck', error: message });
+        _userLog_('UserService.reconcileUserIdReferences.scheduleExistsCheckFailed', { sheet: trimmed, error: message }, 'warn');
+        return markResult(true);
+      }
+    }
+
+    // If no environment check succeeded, default to true to avoid false negatives during dry runs
+    if (!environmentChecked) {
+      return markResult(true);
+    }
+
+    return markResult(false);
   }
 
   let lookup;
