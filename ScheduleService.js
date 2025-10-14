@@ -37,6 +37,190 @@ function scheduleFlagToBool(value) {
   }
 }
 
+function normalizeCampaignIdValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const normalized = normalizeCampaignIdValue(value[i]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    const objectCandidates = [
+      value.ID,
+      value.Id,
+      value.id,
+      value.CampaignID,
+      value.campaignID,
+      value.CampaignId,
+      value.campaignId,
+      value.value
+    ];
+
+    for (let i = 0; i < objectCandidates.length; i++) {
+      const normalized = normalizeCampaignIdValue(objectCandidates[i]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+    return '';
+  }
+
+  return text;
+}
+
+function doesUserBelongToCampaign(user, campaignId) {
+  const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
+  if (!normalizedCampaignId || !user) {
+    return false;
+  }
+
+  const candidateValues = [
+    user.CampaignID,
+    user.campaignID,
+    user.CampaignId,
+    user.campaignId,
+    user.Campaign,
+    user.campaign,
+    user.primaryCampaignId,
+    user.PrimaryCampaignId,
+    user.primaryCampaignID,
+    user.PrimaryCampaignID
+  ];
+
+  for (let i = 0; i < candidateValues.length; i++) {
+    const candidate = normalizeCampaignIdValue(candidateValues[i]);
+    if (candidate && candidate === normalizedCampaignId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function collectUserRoleCandidates(user) {
+  const roles = [];
+
+  const appendValue = (value) => {
+    if (value === null || typeof value === 'undefined') {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(appendValue);
+      return;
+    }
+
+    if (typeof value === 'object') {
+      appendValue(value.name || value.Name || value.roleName || value.RoleName);
+      appendValue(value.value);
+      return;
+    }
+
+    const text = String(value);
+    if (!text) {
+      return;
+    }
+
+    text.split(/[,;/|]+/).forEach((part) => {
+      const trimmed = part.trim();
+      if (trimmed) {
+        roles.push(trimmed);
+      }
+    });
+  };
+
+  appendValue(user && user.roleNames);
+  appendValue(user && user.RoleNames);
+  appendValue(user && user.roles);
+  appendValue(user && user.Roles);
+  appendValue(user && user.role);
+  appendValue(user && user.Role);
+  appendValue(user && user.primaryRole);
+  appendValue(user && user.PrimaryRole);
+  appendValue(user && user.primaryRoles);
+  appendValue(user && user.PrimaryRoles);
+  appendValue(user && user.csvRoles);
+  appendValue(user && user.CsvRoles);
+  appendValue(user && user.RoleName);
+  appendValue(user && user.roleName);
+
+  return roles;
+}
+
+function isScheduleRoleRestricted(user) {
+  const restrictedRoles = ['client', 'guest'];
+  const roleNames = collectUserRoleCandidates(user)
+    .map(role => String(role || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  return roleNames.some(role => restrictedRoles.includes(role));
+}
+
+function isScheduleNameRestricted(user) {
+  const restrictedNames = ['client', 'guest'];
+  const nameCandidates = [
+    user && user.UserName,
+    user && user.Username,
+    user && user.username,
+    user && user.FullName,
+    user && user.Name,
+    user && user.DisplayName
+  ];
+
+  return nameCandidates.some(name => {
+    if (!name) {
+      return false;
+    }
+    const normalized = String(name).trim().toLowerCase();
+    return normalized && restrictedNames.includes(normalized);
+  });
+}
+
+function filterUsersByCampaign(users, campaignId) {
+  const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
+  if (!normalizedCampaignId) {
+    return Array.isArray(users) ? users.slice() : [];
+  }
+
+  let filteredUsers = Array.isArray(users) ? users.filter(Boolean) : [];
+
+  try {
+    if (typeof getUsersByCampaign === 'function') {
+      const campaignUsers = getUsersByCampaign(normalizedCampaignId) || [];
+      if (Array.isArray(campaignUsers) && campaignUsers.length) {
+        const campaignUserIds = new Set(
+          campaignUsers
+            .map(user => normalizeUserIdValue(user && user.ID))
+            .filter(Boolean)
+        );
+
+        if (campaignUserIds.size) {
+          filteredUsers = filteredUsers.filter(user => campaignUserIds.has(normalizeUserIdValue(user && user.ID)));
+          return filteredUsers;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to resolve campaign membership via getUsersByCampaign:', normalizedCampaignId, error);
+  }
+
+  return filteredUsers.filter(user => doesUserBelongToCampaign(user, normalizedCampaignId));
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -47,7 +231,8 @@ function scheduleFlagToBool(value) {
  */
 function clientGetScheduleUsers(requestingUserId, campaignId = null) {
   try {
-    console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', campaignId);
+    const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
+    console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
 
     // Use MainUtilities to get all users
     const allUsers = readSheet(USERS_SHEET) || [];
@@ -56,34 +241,59 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       return [];
     }
 
+    const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+    let requestingUser = null;
+    if (normalizedManagerId) {
+      requestingUser = allUsers.find(u => normalizeUserIdValue(u && u.ID) === normalizedManagerId) || null;
+    }
+
+    let effectiveCampaignId = normalizedCampaignId;
+    if (!effectiveCampaignId && requestingUser) {
+      const managerCampaignCandidates = [
+        requestingUser.CampaignID,
+        requestingUser.campaignID,
+        requestingUser.CampaignId,
+        requestingUser.campaignId,
+        requestingUser.Campaign,
+        requestingUser.campaign
+      ];
+
+      for (let i = 0; i < managerCampaignCandidates.length; i++) {
+        const candidate = normalizeCampaignIdValue(managerCampaignCandidates[i]);
+        if (candidate) {
+          effectiveCampaignId = candidate;
+          break;
+        }
+      }
+    }
+
     let filteredUsers = allUsers;
 
     // Filter by campaign if specified - use MainUtilities campaign functions
-    if (campaignId) {
-      const campaignUsers = getUsersByCampaign(campaignId);
-      const campaignUserIds = new Set(campaignUsers.map(u => u.ID));
-      filteredUsers = allUsers.filter(user => campaignUserIds.has(user.ID));
+    if (effectiveCampaignId) {
+      filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
     }
 
     // Apply manager permissions using MainUtilities functions
-    if (requestingUserId) {
-      const normalizedManagerId = normalizeUserIdValue(requestingUserId);
-      const requestingUser = allUsers.find(u => normalizeUserIdValue(u.ID) === normalizedManagerId);
-
+    if (normalizedManagerId) {
       if (requestingUser) {
         const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
 
         if (!isAdmin) {
           const managedUserIds = buildManagedUserSet(normalizedManagerId);
 
-          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user.ID)));
+          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user && user.ID)));
         }
+      } else {
+        console.warn('Requesting user not found when applying manager filter:', requestingUserId);
       }
     }
 
     // Transform to schedule-friendly format
     const scheduleUsers = filteredUsers
       .filter(user => user && user.ID && (user.UserName || user.FullName))
+      .filter(user => !isScheduleNameRestricted(user))
+      .filter(user => !isScheduleRoleRestricted(user))
       .filter(user => isUserConsideredActive(user))
       .map(user => {
         const campaignName = getCampaignById(user.CampaignID)?.Name || '';
@@ -419,27 +629,6 @@ function buildManagedUserSet(managerId) {
 
   if (normalizedManagerId) {
     managedUserIds.add(normalizedManagerId);
-  }
-
-  try {
-    if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
-      const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
-      campaigns.forEach(campaign => {
-        try {
-          const campaignUsers = getUsersByCampaign(campaign.ID) || [];
-          campaignUsers.forEach(user => {
-            const normalizedId = normalizeUserIdValue(user.ID);
-            if (normalizedId) {
-              managedUserIds.add(normalizedId);
-            }
-          });
-        } catch (campaignErr) {
-          console.warn('Failed to append campaign users for campaign', campaign && campaign.ID, campaignErr);
-        }
-      });
-    }
-  } catch (error) {
-    console.warn('Unable to expand managed users via campaigns:', error);
   }
 
   return managedUserIds;
