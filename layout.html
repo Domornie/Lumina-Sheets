@@ -2221,13 +2221,13 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 0.6rem)
-          clamp(0.5rem, 2.5vw, 1rem)
-          1rem;
+        margin: calc(var(--topbar-height) + 0.4rem)
+          clamp(0.35rem, 2vw, 0.75rem)
+          0.75rem;
       }
 
       #sidebar.collapsed~#maincontent {
-        margin-left: clamp(0.75rem, 3vw, 1.25rem);
+        margin-left: clamp(0.55rem, 2.4vw, 1rem);
       }
 
       body.sidebar-open #maincontent {
@@ -2255,9 +2255,9 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 0.5rem)
-          clamp(0.5rem, 4vw, 1rem)
-          1rem;
+        margin: calc(var(--topbar-height) + 0.35rem)
+          clamp(0.35rem, 3.5vw, 0.85rem)
+          0.75rem;
       }
 
       .breadcrumb-nav {
@@ -2274,9 +2274,9 @@
       }
 
       #maincontent {
-        margin: calc(var(--topbar-height) + 0.45rem)
-          clamp(0.4rem, 5vw, 0.85rem)
-          0.85rem;
+        margin: calc(var(--topbar-height) + 0.3rem)
+          clamp(0.3rem, 4.5vw, 0.7rem)
+          0.7rem;
       }
 
       .topbar-toggle {
@@ -2291,16 +2291,16 @@
     }
 
     #maincontent {
-      margin-left: calc(var(--sidebar-width) + 0.75rem);
-      margin-top: calc(var(--topbar-height) + 0.6rem);
-      margin-right: 0.85rem;
-      margin-bottom: 1rem;
+      margin-left: calc(var(--sidebar-width) + 0.5rem);
+      margin-top: calc(var(--topbar-height) + 0.35rem);
+      margin-right: 0.6rem;
+      margin-bottom: 0.75rem;
       transition: var(--transition-smooth);
-      min-height: calc(100vh - var(--topbar-height) - 1.6rem);
+      min-height: calc(100vh - var(--topbar-height) - 1.1rem);
     }
 
     #sidebar.collapsed~#maincontent {
-      margin-left: calc(var(--sidebar-collapsed) + 0.75rem);
+      margin-left: calc(var(--sidebar-collapsed) + 0.5rem);
     }
 
     /* Unified global page banner */
