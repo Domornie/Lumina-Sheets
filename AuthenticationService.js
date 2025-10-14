@@ -264,6 +264,58 @@ var AuthenticationService = (function () {
     return Object.keys(sanitized).length ? sanitized : null;
   }
 
+  function persistActiveSessionState(sessionToken, metadata, explicitUser) {
+    if (!sessionToken) {
+      return;
+    }
+    if (typeof LuminaIdentity === 'undefined' || !LuminaIdentity) {
+      return;
+    }
+
+    var payload = (metadata && typeof metadata === 'object') ? Object.assign({}, metadata) : {};
+    if (!payload.lastActivityAt) {
+      try {
+        payload.lastActivityAt = new Date().toISOString();
+      } catch (_) {
+        payload.lastActivityAt = '';
+      }
+    }
+
+    try {
+      if (typeof LuminaIdentity.persistActiveSessionToken === 'function') {
+        LuminaIdentity.persistActiveSessionToken(sessionToken, payload);
+      }
+    } catch (persistError) {
+      console.warn('persistActiveSessionState: unable to persist session token', persistError);
+    }
+
+    try {
+      if (typeof LuminaIdentity.resolve === 'function') {
+        LuminaIdentity.resolve(null, {
+          sessionToken: sessionToken,
+          explicitUser: explicitUser || null,
+          useCache: false
+        });
+      }
+    } catch (identityError) {
+      console.warn('persistActiveSessionState: unable to refresh identity cache', identityError);
+    }
+  }
+
+  function clearActiveSessionState() {
+    if (typeof LuminaIdentity === 'undefined' || !LuminaIdentity) {
+      return;
+    }
+
+    try {
+      if (typeof LuminaIdentity.clearActiveSessionToken === 'function') {
+        LuminaIdentity.clearActiveSessionToken();
+      }
+    } catch (clearError) {
+      console.warn('clearActiveSessionState: unable to clear active session token', clearError);
+    }
+  }
+
   function resolveScriptBaseUrl() {
     try {
       if (typeof SCRIPT_URL === 'string' && SCRIPT_URL) {
@@ -1908,7 +1960,7 @@ var AuthenticationService = (function () {
       ? 'Login approved. Your account is not yet assigned to any campaigns.'
       : 'Login successful';
 
-    return {
+    const response = {
       success: true,
       sessionToken: sessionResult.token,
       user: userPayload,
@@ -1923,6 +1975,15 @@ var AuthenticationService = (function () {
       needsCampaignAssignment: needsCampaignAssignment,
       trustedDeviceVerified: true
     };
+
+    persistActiveSessionState(sessionResult.token, {
+      sessionExpiresAt: sessionResult.expiresAt,
+      sessionTtlSeconds: sessionResult.ttlSeconds,
+      sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+      rememberMe: !!rememberMe
+    }, userPayload);
+
+    return response;
   }
 
   function sendDeniedDeviceAlertEmailSafe(user, record, metadata) {
@@ -4218,28 +4279,35 @@ var AuthenticationService = (function () {
       console.log('login: Login successful for user:', userPayload.FullName);
       console.log('=== AuthenticationService.login SUCCESS ===');
 
-      const result = {
-        success: true,
-        sessionToken: sessionToken,
-        user: userPayload,
-        message: loginMessage,
-        rememberMe: !!rememberMe,
-        sessionExpiresAt: sessionResult.expiresAt,
-        sessionTtlSeconds: sessionResult.ttlSeconds,
-        sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-        tenant: tenantSummary,
-        campaignScope: userPayload ? userPayload.CampaignScope : null,
-        warnings: warnings,
-        needsCampaignAssignment: needsCampaignAssignment,
-        redirectSlug: redirectSlug,
-        redirectUrl: redirectUrl
-      };
+        const result = {
+          success: true,
+          sessionToken: sessionToken,
+          user: userPayload,
+          message: loginMessage,
+          rememberMe: !!rememberMe,
+          sessionExpiresAt: sessionResult.expiresAt,
+          sessionTtlSeconds: sessionResult.ttlSeconds,
+          sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+          tenant: tenantSummary,
+          campaignScope: userPayload ? userPayload.CampaignScope : null,
+          warnings: warnings,
+          needsCampaignAssignment: needsCampaignAssignment,
+          redirectSlug: redirectSlug,
+          redirectUrl: redirectUrl
+        };
 
-      if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
-        result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
-      }
+        persistActiveSessionState(sessionToken, {
+          sessionExpiresAt: sessionResult.expiresAt,
+          sessionTtlSeconds: sessionResult.ttlSeconds,
+          sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+          rememberMe: !!rememberMe
+        }, userPayload);
 
-      return result;
+        if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
+          result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
+        }
+
+        return result;
 
     } catch (error) {
       console.error('login: Unexpected error:', error);
@@ -4326,22 +4394,31 @@ var AuthenticationService = (function () {
         ? landing.redirectUrl
         : buildLandingRedirectUrlFromSlug(redirectSlug);
 
-      return {
-        success: true,
-        sessionToken: sessionResult.token,
-        sessionExpiresAt: sessionResult.expiresAt,
-        sessionTtlSeconds: sessionResult.ttlSeconds,
-        sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-        user: userPayload,
-        tenant: tenantSummary,
-        campaignScope: userPayload ? userPayload.CampaignScope : null,
-        warnings: warnings,
-        needsCampaignAssignment: needsCampaignAssignment,
-        redirectSlug: redirectSlug,
-        redirectUrl: redirectUrl
-      };
+        const response = {
+          success: true,
+          sessionToken: sessionResult.token,
+          sessionExpiresAt: sessionResult.expiresAt,
+          sessionTtlSeconds: sessionResult.ttlSeconds,
+          sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+          user: userPayload,
+          tenant: tenantSummary,
+          campaignScope: userPayload ? userPayload.CampaignScope : null,
+          warnings: warnings,
+          needsCampaignAssignment: needsCampaignAssignment,
+          redirectSlug: redirectSlug,
+          redirectUrl: redirectUrl
+        };
 
-    } catch (error) {
+        persistActiveSessionState(sessionResult.token, {
+          sessionExpiresAt: sessionResult.expiresAt,
+          sessionTtlSeconds: sessionResult.ttlSeconds,
+          sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+          rememberMe: !!rememberMe
+        }, userPayload);
+
+        return response;
+
+      } catch (error) {
       console.error('createSessionFor: Error creating session for user', userId, error);
       return {
         success: false,
@@ -4421,6 +4498,8 @@ var AuthenticationService = (function () {
         removeSessionEntry(entry);
       }
 
+      clearActiveSessionState();
+
       return { success: true, message: 'Logged out successfully' };
 
     } catch (error) {
@@ -4433,28 +4512,30 @@ var AuthenticationService = (function () {
     try {
       const resolution = resolveSessionRecord(sessionToken, { touch: true });
 
-      if (!resolution || resolution.status !== 'active' || !resolution.entry) {
-        const reason = resolution ? resolution.reason : 'NOT_FOUND';
-        const message = reason === 'IDLE_TIMEOUT'
-          ? 'Session expired after 30 minutes of inactivity'
-          : 'Session expired or invalid';
-        return {
-          success: false,
-          expired: true,
-          message: message,
-          reason: reason,
-          errorCode: reason ? 'SESSION_' + reason : 'SESSION_NOT_FOUND'
-        };
-      }
+        if (!resolution || resolution.status !== 'active' || !resolution.entry) {
+          const reason = resolution ? resolution.reason : 'NOT_FOUND';
+          const message = reason === 'IDLE_TIMEOUT'
+            ? 'Session expired after 30 minutes of inactivity'
+            : 'Session expired or invalid';
+          clearActiveSessionState();
+          return {
+            success: false,
+            expired: true,
+            message: message,
+            reason: reason,
+            errorCode: reason ? 'SESSION_' + reason : 'SESSION_NOT_FOUND'
+          };
+        }
 
-      const context = buildSessionUserContext(resolution.entry, sessionToken, resolution);
-      if (!context || !context.user) {
-        removeSessionEntry(resolution.entry);
-        return {
-          success: false,
-          expired: true,
-          message: 'Session expired or invalid',
-          reason: 'USER_NOT_FOUND',
+        const context = buildSessionUserContext(resolution.entry, sessionToken, resolution);
+        if (!context || !context.user) {
+          removeSessionEntry(resolution.entry);
+          clearActiveSessionState();
+          return {
+            success: false,
+            expired: true,
+            message: 'Session expired or invalid',
+            reason: 'USER_NOT_FOUND',
           errorCode: 'SESSION_USER_NOT_FOUND'
         };
       }
@@ -4481,22 +4562,47 @@ var AuthenticationService = (function () {
         ? landing.redirectUrl
         : buildLandingRedirectUrlFromSlug(redirectSlug);
 
-      return {
-        success: true,
-        message: 'Session active',
-        user: user,
-        sessionToken: user.sessionToken,
-        sessionExpiresAt: user.sessionExpiresAt || user.sessionExpiry || null,
+        const response = {
+          success: true,
+          message: 'Session active',
+          user: user,
+          sessionToken: user.sessionToken,
+          sessionExpiresAt: user.sessionExpiresAt || user.sessionExpiry || null,
         sessionTtlSeconds: ttlSeconds,
         tenant: user.CampaignScope || null,
         campaignScope: user.CampaignScope || null,
         warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
-        needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false,
-        idleTimeoutMinutes: resolution.idleTimeoutMinutes,
-        lastActivityAt: user.sessionLastActivityAt || null,
-        redirectSlug: redirectSlug,
-        redirectUrl: redirectUrl
-      };
+          needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false,
+          idleTimeoutMinutes: resolution.idleTimeoutMinutes,
+          lastActivityAt: user.sessionLastActivityAt || null,
+          redirectSlug: redirectSlug,
+          redirectUrl: redirectUrl
+        };
+
+        const persistToken = (user && user.sessionToken) ? user.sessionToken : sessionToken;
+        const persistMetadata = {
+          sessionExpiresAt: response.sessionExpiresAt || user.sessionExpiresAt || null,
+          sessionTtlSeconds: typeof response.sessionTtlSeconds === 'number' ? response.sessionTtlSeconds : ttlSeconds,
+          sessionIdleTimeoutMinutes: response.idleTimeoutMinutes || resolution.idleTimeoutMinutes || null
+        };
+
+        if (user) {
+          let rememberFlag;
+          if (Object.prototype.hasOwnProperty.call(user, 'sessionRememberMe')) {
+            rememberFlag = toBool(user.sessionRememberMe);
+          } else if (Object.prototype.hasOwnProperty.call(user, 'rememberMe')) {
+            rememberFlag = toBool(user.rememberMe);
+          } else if (Object.prototype.hasOwnProperty.call(user, 'RememberMe')) {
+            rememberFlag = toBool(user.RememberMe);
+          }
+          if (typeof rememberFlag !== 'undefined') {
+            persistMetadata.rememberMe = rememberFlag;
+          }
+        }
+
+        persistActiveSessionState(persistToken, persistMetadata, user);
+
+        return response;
     } catch (error) {
       console.error('keepAlive: Error:', error);
       return {
@@ -4576,6 +4682,39 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
     }
 
     const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
+
+    try {
+      if (result && result.success && result.sessionToken && typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
+        try {
+          if (typeof LuminaIdentity.resolve === 'function') {
+            LuminaIdentity.resolve(null, {
+              sessionToken: result.sessionToken,
+              explicitUser: result.user || null,
+              useCache: true
+            });
+          }
+        } catch (identityResolveError) {
+          console.warn('loginUser: Unable to resolve identity after login', identityResolveError);
+        }
+
+        try {
+          if (typeof LuminaIdentity.persistActiveSessionToken === 'function') {
+            LuminaIdentity.persistActiveSessionToken(result.sessionToken, {
+              sessionExpiresAt: result.sessionExpiresAt,
+              sessionTtlSeconds: result.sessionTtlSeconds,
+              sessionIdleTimeoutMinutes: result.sessionIdleTimeoutMinutes,
+              rememberMe: result.rememberMe,
+              lastActivityAt: new Date().toISOString()
+            });
+          }
+        } catch (persistError) {
+          console.warn('loginUser: Unable to persist active session token', persistError);
+        }
+      }
+    } catch (postLoginError) {
+      console.warn('loginUser: post-login session persistence failed', postLoginError);
+    }
+
     console.log('=== loginUser wrapper END ===');
     return result;
   } catch (error) {
@@ -4642,7 +4781,17 @@ function verifyMfaCode(challengeId, code, clientMetadata) {
 
 function logoutUser(sessionToken) {
   try {
-    return AuthenticationService.logout(sessionToken);
+    const response = AuthenticationService.logout(sessionToken);
+
+    try {
+      if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity && typeof LuminaIdentity.clearActiveSessionToken === 'function') {
+        LuminaIdentity.clearActiveSessionToken();
+      }
+    } catch (clearError) {
+      console.warn('logoutUser: Unable to clear identity cache after logout', clearError);
+    }
+
+    return response;
   } catch (error) {
     console.error('logoutUser wrapper error:', error);
     return {
@@ -4654,7 +4803,25 @@ function logoutUser(sessionToken) {
 
 function keepAliveSession(sessionToken) {
   try {
-    return AuthenticationService.keepAlive(sessionToken);
+    const result = AuthenticationService.keepAlive(sessionToken);
+
+    if (result && result.success && sessionToken && typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
+      try {
+        if (typeof LuminaIdentity.persistActiveSessionToken === 'function') {
+          LuminaIdentity.persistActiveSessionToken(sessionToken, {
+            sessionExpiresAt: result.sessionExpiresAt || result.expiresAt,
+            sessionTtlSeconds: result.sessionTtlSeconds,
+            sessionIdleTimeoutMinutes: result.sessionIdleTimeoutMinutes,
+            rememberMe: result.rememberMe,
+            lastActivityAt: new Date().toISOString()
+          });
+        }
+      } catch (persistError) {
+        console.warn('keepAliveSession: Unable to persist active session token', persistError);
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error('keepAliveSession wrapper error:', error);
     return {
