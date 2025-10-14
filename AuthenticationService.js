@@ -448,6 +448,98 @@ var AuthenticationService = (function () {
     return Math.max(1, Math.round(numeric));
   }
 
+  function scrubLegacySessionTokens(sheet, headers) {
+    if (!sheet || !Array.isArray(headers) || !headers.length) {
+      return;
+    }
+
+    const tokenIndex = headers.indexOf('Token');
+    if (tokenIndex === -1) {
+      return;
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return;
+    }
+
+    const rows = lastRow - 1;
+    const tokenColumnRange = sheet.getRange(2, tokenIndex + 1, rows, 1);
+    let requiresScrub = false;
+    try {
+      const tokenColumnValues = tokenColumnRange.getValues();
+      for (let i = 0; i < tokenColumnValues.length; i++) {
+        const value = tokenColumnValues[i] && tokenColumnValues[i][0];
+        if (value && String(value).trim()) {
+          requiresScrub = true;
+          break;
+        }
+      }
+    } catch (columnReadError) {
+      console.warn('scrubLegacySessionTokens: Unable to read token column', columnReadError);
+      return;
+    }
+
+    if (!requiresScrub) {
+      return;
+    }
+
+    const hashIndex = headers.indexOf('TokenHash');
+    const saltIndex = headers.indexOf('TokenSalt');
+
+    try {
+      const dataRange = sheet.getRange(2, 1, rows, headers.length);
+      const values = dataRange.getValues();
+      let changed = false;
+
+      for (let rowIndex = 0; rowIndex < values.length; rowIndex++) {
+        const row = values[rowIndex];
+        const tokenValue = row[tokenIndex];
+        const normalizedToken = tokenValue && String(tokenValue).trim();
+        if (!normalizedToken) {
+          continue;
+        }
+
+        let rowChanged = false;
+        let hashValue = hashIndex === -1 ? '' : String(row[hashIndex] || '').trim();
+        let saltValue = saltIndex === -1 ? '' : String(row[saltIndex] || '').trim();
+
+        if (!hashValue || !saltValue) {
+          try {
+            const freshSalt = generateTokenSalt();
+            const freshHash = computeSessionTokenHash(normalizedToken, freshSalt);
+            if (freshHash) {
+              if (hashIndex !== -1) {
+                row[hashIndex] = freshHash;
+              }
+              if (saltIndex !== -1) {
+                row[saltIndex] = freshSalt;
+              }
+              rowChanged = true;
+            }
+          } catch (hashError) {
+            console.warn('scrubLegacySessionTokens: Failed to backfill token hash', hashError);
+          }
+        }
+
+        if (row[tokenIndex]) {
+          row[tokenIndex] = '';
+          rowChanged = true;
+        }
+
+        if (rowChanged) {
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        dataRange.setValues(values);
+      }
+    } catch (scrubError) {
+      console.warn('scrubLegacySessionTokens: Failed to sanitize session sheet', scrubError);
+    }
+  }
+
   function ensureSessionSheetContext() {
     const tableName = getSessionTableName();
     let sheet = null;
@@ -520,6 +612,13 @@ var AuthenticationService = (function () {
     }
 
     const headers = headerValues.map(function (value) { return String(value || '').trim(); });
+
+    try {
+      scrubLegacySessionTokens(sheet, headers);
+    } catch (scrubError) {
+      console.warn('ensureSessionSheetContext: Failed to scrub legacy tokens', scrubError);
+    }
+
     return {
       tableName: tableName,
       sheet: sheet,
