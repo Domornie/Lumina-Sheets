@@ -1710,9 +1710,10 @@
     /* Enhanced User Panel with Employment Info and Role Display */
     .user-panel {
       margin-top: auto;
-      padding: 1.5rem;
+      padding: 1.5rem calc(1rem + 1.25rem);
       display: flex;
       align-items: center;
+      gap: 1rem;
       width: 100%;
       text-align: left;
       cursor: default;
@@ -1736,8 +1737,8 @@
       content: '';
       position: absolute;
       top: 0;
-      left: 1rem;
-      right: 1rem;
+      left: calc(1rem + 1.25rem);
+      right: calc(1rem + 1.25rem);
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
     }
@@ -1765,10 +1766,10 @@
     }
 
     .user-info {
-      margin-left: 1rem;
       line-height: 1.4;
       overflow: hidden;
       flex: 1;
+      min-width: 0;
       transition: var(--transition-smooth);
     }
 
@@ -1794,7 +1795,10 @@
       margin: 0;
       display: inline-flex;
       align-items: center;
+      justify-content: space-between;
       gap: 0.35rem;
+      width: 100%;
+      min-width: 0;
       cursor: pointer;
     }
 
@@ -1812,6 +1816,13 @@
     .user-name-trigger i {
       font-size: 0.85rem;
       opacity: 0.6;
+      flex-shrink: 0;
+    }
+
+    .user-name-trigger span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .user-info .role {
@@ -1845,7 +1856,7 @@
     .user-panel-menu {
       position: absolute;
       bottom: calc(100% - 0.5rem);
-      right: 1.5rem;
+      right: calc(1rem + 1.25rem);
       display: none;
       flex-direction: column;
       gap: 0.25rem;
@@ -1935,6 +1946,11 @@
     .user-info .employment-status .status-full-time {
       color: #10b981;
       text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+    }
+
+    #sidebar.collapsed .user-panel {
+      padding: 1.25rem;
+      justify-content: center;
     }
 
     #sidebar.collapsed .user-info {
