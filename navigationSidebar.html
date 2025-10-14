@@ -53,6 +53,9 @@
   var navigationConfig = navigation && typeof navigation === 'object' ? navigation : { categories: [], uncategorizedPages: [] };
   var employmentMetaValue = employmentMeta && typeof employmentMeta === 'object' ? employmentMeta : { status: '', cls: '', icon: 'fas fa-briefcase' };
 
+  var campaignIdAttrValue = escapeHtml(campaignIdValue);
+  var campaignNameAttrValue = escapeHtml(campaignNameValue);
+
   function safeUserString(value) {
     if (value === null || typeof value === 'undefined') {
       return '';
@@ -392,7 +395,10 @@
   }
 </style>
 
-<nav id="sidebar" data-current-page='<?= currentPageAttrValue ?>'>
+<nav id="sidebar"
+  data-current-page='<?= currentPageAttrValue ?>'
+  data-campaign-id="<?= campaignIdAttrValue ?>"
+  data-campaign-name="<?= campaignNameAttrValue ?>">
   <!-- Enhanced Logo Section -->
   <div class="sidebar-logo" id="sidebarToggle">
     <img
