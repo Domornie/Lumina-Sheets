@@ -2810,8 +2810,9 @@
     const formData = {};
     
     // Basic information fields
+    const agentInfo = getSelectedAgentInfo();
     formData.callerName = document.getElementById('callerName').value || '';
-    formData.agentName = document.getElementById('agentName').value || '';
+    formData.agentName = agentInfo.name || agentInfo.id || '';
     formData.agentEmail = document.getElementById('agentEmail').value || '';
     formData.clientName = document.getElementById('clientName').value || '';
     formData.callDate = document.getElementById('callDate').value || '';
@@ -3010,18 +3011,52 @@
     return true;
   }
 
+  function getSelectedAgentInfo() {
+    const agentSelect = document.getElementById('agentName');
+    if (!agentSelect) {
+      return { id: '', name: '', option: null };
+    }
+
+    const usesIds = agentRosterState.useIds || agentSelect.dataset.usesIds === 'true';
+    const selectedOption = agentSelect.selectedIndex >= 0 ? agentSelect.options[agentSelect.selectedIndex] : null;
+    const selectedId = usesIds ? (agentSelect.value || '') : '';
+
+    let selectedName = '';
+    if (selectedOption) {
+      selectedName = (selectedOption.dataset.name || selectedOption.textContent || '').trim();
+    }
+
+    if (!selectedName && !usesIds) {
+      selectedName = (agentSelect.value || '').trim();
+    }
+
+    if (!selectedName && selectedId) {
+      const cached = getCachedUserById(selectedId);
+      if (cached && cached.name) {
+        selectedName = cached.name.trim();
+      }
+    }
+
+    return {
+      id: selectedId,
+      name: selectedName,
+      option: selectedOption
+    };
+  }
+
   function collectFormDataAsObject() {
     console.log('📦 COLLECTING FORM DATA AS OBJECT');
-    
+
     try {
       // Update hidden fields first
       updateHiddenFields();
-      
+
       const formData = {};
-      
+
       // Basic information fields
+      const agentInfo = getSelectedAgentInfo();
       formData.callerName = document.getElementById('callerName').value || '';
-      formData.agentName = document.getElementById('agentName').value || '';
+      formData.agentName = agentInfo.name || agentInfo.id || '';
       formData.agentEmail = document.getElementById('agentEmail').value || '';
       formData.clientName = document.getElementById('clientName').value || '';
       formData.callDate = document.getElementById('callDate').value || '';
