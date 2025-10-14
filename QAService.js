@@ -900,6 +900,151 @@ function clientGetQAIntelligence(request = {}) {
   }
 }
 
+function clientGetQADashboardSnapshot(request = {}) {
+  try {
+    const rawRecords = getAllQA();
+    const normalization = normalizeIntelligenceRequest_(request, rawRecords) || {};
+    const context = normalization.context || {
+      granularity: 'Week',
+      period: '',
+      timezone: Session.getScriptTimeZone(),
+      filters: { agent: '', campaignId: '', program: '' },
+      depth: 6,
+      agentUniverse: null,
+      passMark: QA_INTEL_PASS_MARK
+    };
+
+    const records = Array.isArray(normalization.records)
+      ? normalization.records
+      : [];
+
+    const filtered = filterRecordsForIntelligence_(records, context);
+    const previousPeriod = getPreviousPeriod_(context.granularity, context.period);
+    const previousContext = { ...context, period: previousPeriod };
+    const prevFiltered = previousPeriod
+      ? filterRecordsForIntelligence_(records, previousContext)
+      : [];
+
+    const universeOptions = {
+      agentUniverse: context.agentUniverse,
+      allAgents: records.map(record => record.agent).filter(Boolean)
+    };
+
+    const kpis = computeKpiSummary_(filtered, universeOptions);
+    const prevKpis = previousPeriod
+      ? computeKpiSummary_(prevFiltered, universeOptions)
+      : null;
+
+    const trendSeries = buildTrendSeries_(context, records);
+    const trendAnalysis = analyzeTrendSeries_(trendSeries, { granularity: context.granularity });
+
+    const categoryMetrics = computeCategoryMetrics_(filtered);
+    const prevCategoryMetrics = computeCategoryMetrics_(prevFiltered);
+    const categorySummary = summarizeCategoryChange_(categoryMetrics, prevCategoryMetrics);
+
+    const agentDisplayLookup = buildAgentDisplayLookup_(records);
+
+    const { profiles } = calculateAgentProfiles_(filtered, { displayLookup: agentDisplayLookup });
+    const { profiles: prevProfiles } = calculateAgentProfiles_(prevFiltered, { displayLookup: agentDisplayLookup });
+    const prevProfileLookup = {};
+    prevProfiles.forEach(profile => {
+      prevProfileLookup[profile.id || profile.name] = profile;
+    });
+
+    const timezone = context.timezone || Session.getScriptTimeZone();
+    const agents = profiles.map(profile => {
+      const key = profile.id || profile.name;
+      const previous = prevProfileLookup[key] || null;
+      return {
+        id: profile.id || profile.name,
+        name: profile.name,
+        displayName: profile.displayName || profile.name,
+        avgScore: profile.avgScore,
+        passRate: profile.passRate,
+        evaluations: profile.evaluations,
+        evaluationShare: profile.evaluationShare,
+        recentDate: profile.recentDate
+          ? Utilities.formatDate(profile.recentDate, timezone, 'yyyy-MM-dd')
+          : '',
+        deltas: {
+          avgScore: previous ? roundOneDecimal_(profile.avgScore - previous.avgScore) : null,
+          passRate: previous ? roundOneDecimal_(profile.passRate - previous.passRate) : null,
+          evaluations: previous ? (profile.evaluations - previous.evaluations) : null
+        }
+      };
+    });
+
+    const intelligence = buildAIIntelligenceAnalysis_({
+      filtered,
+      prevFiltered,
+      categoryMetrics,
+      prevCategoryMetrics,
+      kpis,
+      granularity: context.granularity,
+      agentLookup: agentDisplayLookup
+    });
+
+    const summary = Object.assign({}, kpis, {
+      previous: prevKpis,
+      delta: {
+        avg: computeDelta_(kpis.avg, prevKpis ? prevKpis.avg : null),
+        pass: computeDelta_(kpis.pass, prevKpis ? prevKpis.pass : null),
+        coverage: computeDelta_(kpis.coverage, prevKpis ? prevKpis.coverage : null),
+        completion: computeDelta_(kpis.completion, prevKpis ? prevKpis.completion : null),
+        evaluations: computeDelta_(kpis.evaluations, prevKpis ? prevKpis.evaluations : null),
+        agents: computeDelta_(kpis.agents, prevKpis ? prevKpis.agents : null)
+      }
+    });
+
+    const periodOptions = trendSeries
+      .slice()
+      .reverse()
+      .map(entry => ({ value: entry.period, label: entry.label }));
+
+    const availableAgents = Array.from(new Set(records.map(record => record.agent).filter(Boolean))).sort();
+    const agentNameLookup = {};
+    const agentOptions = availableAgents.map(identifier => {
+      const label = resolveAgentDisplayNameFromLookup_(identifier, agentDisplayLookup);
+      agentNameLookup[identifier] = label;
+      return {
+        value: identifier,
+        label
+      };
+    });
+
+    return {
+      success: true,
+      context,
+      summary,
+      trend: {
+        series: trendSeries,
+        analysis: trendAnalysis
+      },
+      categories: categorySummary,
+      agents,
+      insights: (intelligence && intelligence.insights) ? intelligence.insights : [],
+      actions: (intelligence && intelligence.actions) ? intelligence.actions : [],
+      nextBest: intelligence ? intelligence.nextBest : null,
+      intelligenceSummary: intelligence ? intelligence.summary : '',
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        totalRecords: records.length
+      },
+      periodOptions,
+      availableAgents,
+      agentOptions,
+      agentNameLookup
+    };
+  } catch (error) {
+    console.error('clientGetQADashboardSnapshot failed:', error);
+    writeError('clientGetQADashboardSnapshot', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : 'Unable to build QA dashboard snapshot.'
+    };
+  }
+}
+
 function normalizeIntelligenceRequest_(request, rawRecords) {
   const granularity = request && typeof request.granularity === 'string'
     ? request.granularity
@@ -1100,6 +1245,27 @@ function computeKpiSummary_(records, options) {
   };
 }
 
+function computeDelta_(current, previous) {
+  if (typeof current !== 'number' || typeof previous !== 'number' || Number.isNaN(current) || Number.isNaN(previous)) {
+    return null;
+  }
+
+  const delta = current - previous;
+  if (Number.isInteger(current) && Number.isInteger(previous)) {
+    return delta;
+  }
+
+  return Math.round(delta * 10) / 10;
+}
+
+function roundOneDecimal_(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return null;
+  }
+
+  return Math.round(value * 10) / 10;
+}
+
 function buildTrendSeries_(context, records) {
   const { granularity, period, depth } = context;
   const series = [];
@@ -1272,7 +1438,15 @@ function clampPercent_(value) {
 }
 
 function buildAIIntelligenceAnalysis_(payload) {
-  const { filtered = [], prevFiltered = [], categoryMetrics = {}, prevCategoryMetrics = {}, kpis = {}, granularity } = payload;
+  const {
+    filtered = [],
+    prevFiltered = [],
+    categoryMetrics = {},
+    prevCategoryMetrics = {},
+    kpis = {},
+    granularity,
+    agentLookup = {}
+  } = payload || {};
 
   const totalEvaluations = filtered.length;
   const periodLabel = granularity ? granularity.toLowerCase() : 'period';
@@ -1311,8 +1485,8 @@ function buildAIIntelligenceAnalysis_(payload) {
     };
   }
 
-  const { profiles } = calculateAgentProfiles_(filtered);
-  const { profiles: prevProfiles } = calculateAgentProfiles_(prevFiltered);
+  const { profiles } = calculateAgentProfiles_(filtered, { displayLookup: agentLookup });
+  const { profiles: prevProfiles } = calculateAgentProfiles_(prevFiltered, { displayLookup: agentLookup });
   const categorySummary = summarizeCategoryChange_(categoryMetrics, prevCategoryMetrics);
 
   const totalAgents = profiles.length;
@@ -1348,14 +1522,16 @@ function buildAIIntelligenceAnalysis_(payload) {
 
     const prevProfileMap = {};
     prevProfiles.forEach(profile => {
-      prevProfileMap[profile.name] = profile;
+      const key = profile.id || profile.name;
+      prevProfileMap[key] = profile;
     });
 
     let strongestImprovement = null;
     let largestRegression = null;
 
     profiles.forEach(profile => {
-      const prev = prevProfileMap[profile.name];
+      const key = profile.id || profile.name;
+      const prev = prevProfileMap[key];
       if (!prev) return;
       const delta = profile.avgScore - prev.avgScore;
       if (strongestImprovement === null || delta > strongestImprovement.delta) {
@@ -1453,9 +1629,10 @@ function buildAIIntelligenceAnalysis_(payload) {
   return base;
 }
 
-function calculateAgentProfiles_(records) {
+function calculateAgentProfiles_(records, options = {}) {
   const totalEvaluations = records.length;
   const aggregates = {};
+  const displayLookup = options.displayLookup || {};
 
   records.forEach(record => {
     const name = record.agent || 'Unassigned';
@@ -1464,7 +1641,8 @@ function calculateAgentProfiles_(records) {
         count: 0,
         scoreSum: 0,
         passCount: 0,
-        recent: null
+        recent: null,
+        displayName: ''
       };
     }
 
@@ -1480,6 +1658,13 @@ function calculateAgentProfiles_(records) {
         bucket.recent = record.callDate;
       }
     }
+
+    const candidateName = inferAgentDisplayNameFromRecord_(record, displayLookup);
+    if (candidateName) {
+      if (!bucket.displayName || bucket.displayName === name || bucket.displayName === prettifyAgentIdentifier_(name)) {
+        bucket.displayName = candidateName;
+      }
+    }
   });
 
   const profiles = Object.keys(aggregates).map(name => {
@@ -1487,9 +1672,13 @@ function calculateAgentProfiles_(records) {
     const avgScore = stats.count ? Math.round(stats.scoreSum / stats.count) : 0;
     const passRate = stats.count ? Math.round((stats.passCount / stats.count) * 100) : 0;
     const evaluationShare = totalEvaluations ? Math.round((stats.count / totalEvaluations) * 100) : 0;
+    const displayName = resolveAgentDisplayNameForIdentifier_(name, stats, displayLookup);
 
     return {
-      name,
+      id: name,
+      name: displayName,
+      displayName,
+      rawName: name,
       evaluations: stats.count,
       avgScore,
       passRate,
@@ -1499,6 +1688,151 @@ function calculateAgentProfiles_(records) {
   }).sort((a, b) => b.avgScore - a.avgScore);
 
   return { totalEvaluations, profiles };
+}
+
+function buildAgentDisplayLookup_(records) {
+  const lookup = {};
+
+  const assign = (key, display) => {
+    const normalizedKey = normalizeAgentKey_(key);
+    const cleanedDisplay = display ? String(display).trim() : '';
+    if (!normalizedKey || !cleanedDisplay) {
+      return;
+    }
+    const existing = lookup[normalizedKey];
+    if (!existing || existing === prettifyAgentIdentifier_(key) || existing === String(key || '').trim()) {
+      lookup[normalizedKey] = cleanedDisplay;
+    }
+  };
+
+  try {
+    const users = (typeof getUsers === 'function') ? getUsers() : [];
+    if (Array.isArray(users)) {
+      users.forEach(user => {
+        const display = String(user.FullName || user.UserName || user.Email || '').trim();
+        if (!display) {
+          return;
+        }
+        [user.ID, user.UserName, user.Email].forEach(candidate => assign(candidate, display));
+      });
+    }
+  } catch (directoryError) {
+    console.warn('Unable to load user directory for QA dashboard:', directoryError);
+  }
+
+  (records || []).forEach(record => {
+    if (!record || !record.raw) {
+      return;
+    }
+    const raw = record.raw;
+    const displayCandidate = getRecordFieldValue_(raw, [
+      'AgentName',
+      'Agent Name',
+      'AgentFullName',
+      'Agent Full Name',
+      'Associate Name',
+      'Associate'
+    ]);
+    const displayName = displayCandidate ? String(displayCandidate).trim() : '';
+    if (!displayName) {
+      return;
+    }
+
+    assign(record.agent, displayName);
+    const emailCandidate = getRecordFieldValue_(raw, ['AgentEmail', 'Agent Email', 'Email']);
+    assign(emailCandidate, displayName);
+    const idCandidate = getRecordFieldValue_(raw, ['AgentID', 'Agent Id', 'UserID', 'User Id', 'AgentIdentifier', 'Agent Identifier']);
+    assign(idCandidate, displayName);
+  });
+
+  return lookup;
+}
+
+function inferAgentDisplayNameFromRecord_(record, lookup) {
+  if (!record) {
+    return '';
+  }
+  const raw = record.raw || {};
+  const direct = getRecordFieldValue_(raw, [
+    'AgentName',
+    'Agent Name',
+    'AgentFullName',
+    'Agent Full Name',
+    'Associate Name',
+    'Associate'
+  ]);
+  if (direct) {
+    const name = String(direct).trim();
+    if (name) {
+      return name;
+    }
+  }
+
+  const normalized = normalizeAgentKey_(record.agent);
+  if (normalized && lookup && lookup[normalized]) {
+    return lookup[normalized];
+  }
+
+  return '';
+}
+
+function resolveAgentDisplayNameForIdentifier_(identifier, stats, lookup) {
+  const resolved = resolveAgentDisplayNameFromLookup_(identifier, lookup);
+  if (resolved && resolved !== 'Unassigned') {
+    return resolved;
+  }
+  if (stats && stats.displayName) {
+    return stats.displayName;
+  }
+  if (resolved) {
+    return resolved;
+  }
+  return 'Unassigned';
+}
+
+function resolveAgentDisplayNameFromLookup_(identifier, lookup) {
+  const normalized = normalizeAgentKey_(identifier);
+  if (normalized && lookup && lookup[normalized]) {
+    return lookup[normalized];
+  }
+  const fallback = prettifyAgentIdentifier_(identifier);
+  return fallback || 'Unassigned';
+}
+
+function normalizeAgentKey_(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value).trim().toLowerCase();
+}
+
+function prettifyAgentIdentifier_(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const raw = String(value).trim();
+  if (!raw) {
+    return '';
+  }
+  if (raw.toLowerCase() === 'unassigned') {
+    return 'Unassigned';
+  }
+  if (raw.includes('@')) {
+    const local = raw.split('@')[0];
+    return capitalizeAgentWords_(local.replace(/[._-]+/g, ' '));
+  }
+  if (raw.indexOf(' ') === -1 && /[._-]/.test(raw)) {
+    return capitalizeAgentWords_(raw.replace(/[._-]+/g, ' '));
+  }
+  return capitalizeAgentWords_(raw);
+}
+
+function capitalizeAgentWords_(value) {
+  return String(value || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 function summarizeCategoryChange_(currentMetrics, previousMetrics) {
