@@ -2186,7 +2186,9 @@
 
                     const dashboard = await this.callServerFunction('clientGetAttendanceDashboard',
                         startDate.toISOString().split('T')[0],
-                        endDate.toISOString().split('T')[0]
+                        endDate.toISOString().split('T')[0],
+                        null,
+                        this.getCurrentUserId()
                     );
 
                     if (dashboard && dashboard.success) {
@@ -2780,7 +2782,8 @@
                         startDate: document.getElementById('filterStartDate')?.value,
                         endDate: document.getElementById('filterEndDate')?.value,
                         userName: document.getElementById('filterUser')?.value,
-                        status: document.getElementById('filterStatus')?.value
+                        status: document.getElementById('filterStatus')?.value,
+                        managerId: this.getCurrentUserId()
                     };
 
                     const result = await this.callServerFunction('clientGetAllSchedules', filters);
@@ -3291,7 +3294,8 @@
                             replaceExisting,
                             summary
                         },
-                        schedules
+                        schedules,
+                        managerUserId: this.getCurrentUserId()
                     };
 
                     const result = await this.callServerFunction('clientImportSchedules', payload);
