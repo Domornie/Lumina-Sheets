@@ -17,13 +17,17 @@
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SESSION_EXPIRATION_ENABLED = false; // Disable automatic session expiration
-const DEFAULT_SESSION_COLUMNS = [
+
+const BASE_SESSION_COLUMNS = [
   'Token',
   'TokenHash',
   'TokenSalt',
   'UserId',
   'CreatedAt',
-  'LastActivityAt',
+  'LastActivityAt'
+];
+
+const OPTIONAL_SESSION_COLUMNS = [
   'ExpiresAt',
   'IdleTimeoutMinutes',
   'RememberMe',
@@ -32,15 +36,31 @@ const DEFAULT_SESSION_COLUMNS = [
   'IpAddress',
   'ServerIp'
 ];
-const SESSION_COLUMNS = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length)
-  ? SESSIONS_HEADERS.slice()
-  : DEFAULT_SESSION_COLUMNS.slice();
 
-DEFAULT_SESSION_COLUMNS.forEach(function (column) {
-  if (SESSION_COLUMNS.indexOf(column) === -1) {
-    SESSION_COLUMNS.push(column);
-  }
-});
+const DEFAULT_SESSION_COLUMNS = BASE_SESSION_COLUMNS.concat(OPTIONAL_SESSION_COLUMNS);
+
+const SESSION_COLUMNS = (function deriveSessionColumns() {
+  const source = (typeof SESSIONS_HEADERS !== 'undefined' && Array.isArray(SESSIONS_HEADERS) && SESSIONS_HEADERS.length)
+    ? SESSIONS_HEADERS.slice()
+    : DEFAULT_SESSION_COLUMNS.slice();
+
+  const unique = [];
+  source.forEach(function (column) {
+    const normalized = String(column || '').trim();
+    if (!normalized) return;
+    if (unique.indexOf(normalized) === -1) {
+      unique.push(normalized);
+    }
+  });
+
+  BASE_SESSION_COLUMNS.forEach(function (column) {
+    if (unique.indexOf(column) === -1) {
+      unique.push(column);
+    }
+  });
+
+  return unique;
+})();
 
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 
@@ -431,10 +451,19 @@ var AuthenticationService = (function () {
   function ensureSessionSheetContext() {
     const tableName = getSessionTableName();
     let sheet = null;
+    const headerTargetColumns = (SESSION_COLUMNS && SESSION_COLUMNS.length
+      ? SESSION_COLUMNS.slice()
+      : DEFAULT_SESSION_COLUMNS.slice());
+
+    BASE_SESSION_COLUMNS.forEach(function (column) {
+      if (headerTargetColumns.indexOf(column) === -1) {
+        headerTargetColumns.push(column);
+      }
+    });
 
     if (typeof ensureSheetWithHeaders === 'function') {
       try {
-        sheet = ensureSheetWithHeaders(tableName, SESSION_COLUMNS);
+        sheet = ensureSheetWithHeaders(tableName, headerTargetColumns);
       } catch (ensureError) {
         console.warn('ensureSessionSheetContext: ensureSheetWithHeaders failed', ensureError);
       }
@@ -451,7 +480,7 @@ var AuthenticationService = (function () {
       sheet = ss.getSheetByName(tableName);
       if (!sheet) {
         sheet = ss.insertSheet(tableName);
-        sheet.getRange(1, 1, 1, SESSION_COLUMNS.length).setValues([SESSION_COLUMNS]);
+        sheet.getRange(1, 1, 1, headerTargetColumns.length).setValues([headerTargetColumns]);
       }
     }
 
@@ -468,7 +497,7 @@ var AuthenticationService = (function () {
 
     const normalizedHeaders = headerValues.map(function (value) { return String(value || '').trim(); });
     let headerUpdated = false;
-    DEFAULT_SESSION_COLUMNS.forEach(function (column) {
+    headerTargetColumns.forEach(function (column) {
       if (normalizedHeaders.indexOf(column) === -1) {
         headerValues.push(column);
         normalizedHeaders.push(column);
@@ -477,7 +506,7 @@ var AuthenticationService = (function () {
     });
 
     if (!headerValues.length) {
-      headerValues = DEFAULT_SESSION_COLUMNS.slice();
+      headerValues = headerTargetColumns.slice();
       headerUpdated = true;
     }
 
