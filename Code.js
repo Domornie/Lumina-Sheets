@@ -938,11 +938,87 @@ function getCurrentUser() {
  */
 function authenticateUser(e) {
   try {
-    // First check if there's a token parameter
-    const token = e.parameter.token;
+    // First resolve the session token from any available source
+    const rawToken = e && e.parameter ? (e.parameter.token || e.parameter.sessionToken || '') : '';
+    let token = rawToken;
+
+    if (typeof LuminaIdentity !== 'undefined'
+      && LuminaIdentity
+      && typeof LuminaIdentity.resolveSessionToken === 'function') {
+      try {
+        token = LuminaIdentity.resolveSessionToken(e, { sessionToken: rawToken }) || rawToken;
+      } catch (resolveError) {
+        console.warn('authenticateUser: unable to resolve session token via LuminaIdentity', resolveError);
+        token = rawToken;
+      }
+    }
+
+    if (!token && rawToken) {
+      token = rawToken;
+    }
+
+    let identity = null;
+    if (token && typeof LuminaIdentity !== 'undefined' && LuminaIdentity && typeof LuminaIdentity.resolve === 'function') {
+      try {
+        identity = LuminaIdentity.resolve(e, { sessionToken: token, useCache: true });
+      } catch (identityError) {
+        console.warn('authenticateUser: unable to resolve identity via LuminaIdentity', identityError);
+        identity = null;
+      }
+    }
+
+    if (identity && (identity.ID || identity.id)) {
+      identity.sessionToken = identity.sessionToken || token;
+      return identity;
+    }
+
     if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
       const user = AuthenticationService.getSessionUser(token);
       if (user) {
+        user.sessionToken = user.sessionToken || token;
+
+        try {
+          if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
+            try {
+              if (typeof LuminaIdentity.resolve === 'function') {
+                LuminaIdentity.resolve(null, { sessionToken: token, explicitUser: user, useCache: false });
+              }
+            } catch (resolvePersistError) {
+              console.warn('authenticateUser: unable to hydrate identity cache', resolvePersistError);
+            }
+
+            if (typeof LuminaIdentity.persistActiveSessionToken === 'function') {
+              const rememberValue = (function () {
+                if (Object.prototype.hasOwnProperty.call(user, 'sessionRememberMe')) {
+                  return !!user.sessionRememberMe;
+                }
+                if (Object.prototype.hasOwnProperty.call(user, 'rememberMe')) {
+                  return !!user.rememberMe;
+                }
+                if (Object.prototype.hasOwnProperty.call(user, 'RememberMe')) {
+                  return _truthy(user.RememberMe);
+                }
+                return undefined;
+              })();
+
+              const metadata = {
+                sessionExpiresAt: user.sessionExpiresAt || user.expiresAt || user.ExpiresAt || '',
+                sessionTtlSeconds: user.sessionTtlSeconds || user.ttlSeconds || null,
+                sessionIdleTimeoutMinutes: user.sessionIdleTimeoutMinutes || user.idleTimeoutMinutes || user.IdleTimeoutMinutes || null,
+                lastActivityAt: new Date().toISOString()
+              };
+
+              if (rememberValue !== undefined) {
+                metadata.rememberMe = rememberValue;
+              }
+
+              LuminaIdentity.persistActiveSessionToken(token, metadata);
+            }
+          }
+        } catch (persistError) {
+          console.warn('authenticateUser: unable to persist active session token', persistError);
+        }
+
         return user;
       }
     }
