@@ -925,10 +925,7 @@
               <div id="deviceVerificationError" class="device-modal-error"></div>
               <div class="device-modal-actions">
                 <button type="button" id="deviceVerificationConfirmBtn" class="btn btn-primary flex-grow-1">
-                  <i class="fas fa-check me-2"></i>Yes, that was me
-                </button>
-                <button type="button" id="deviceVerificationDenyBtn" class="btn btn-outline-danger flex-grow-1">
-                  <i class="fas fa-ban me-2"></i>No, secure my account
+                  <i class="fas fa-paper-plane me-2"></i>Submit code
                 </button>
               </div>
               <button type="button" id="deviceVerificationCancelBtn" class="btn btn-link text-muted mt-3 p-0">
@@ -1152,7 +1149,6 @@
       deviceModalMeta: document.getElementById('deviceVerificationMeta'),
       deviceModalCodeInput: document.getElementById('deviceVerificationCode'),
       deviceModalConfirmBtn: document.getElementById('deviceVerificationConfirmBtn'),
-      deviceModalDenyBtn: document.getElementById('deviceVerificationDenyBtn'),
       deviceModalError: document.getElementById('deviceVerificationError'),
       deviceModalCancelBtn: document.getElementById('deviceVerificationCancelBtn'),
       deviceModalBadge: document.getElementById('deviceVerificationBadge')
@@ -1619,14 +1615,8 @@
       if (elements.deviceModalConfirmBtn) {
         elements.deviceModalConfirmBtn.disabled = !!isLoading;
         elements.deviceModalConfirmBtn.innerHTML = isLoading
-          ? '<i class="fas fa-spinner fa-spin me-2"></i>Verifying…'
-          : '<i class="fas fa-check me-2"></i>Yes, that was me';
-      }
-      if (elements.deviceModalDenyBtn) {
-        elements.deviceModalDenyBtn.disabled = !!isLoading;
-        elements.deviceModalDenyBtn.innerHTML = isLoading
-          ? '<i class="fas fa-spinner fa-spin me-2"></i>Processing…'
-          : '<i class="fas fa-ban me-2"></i>No, secure my account';
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Submitting…'
+          : '<i class="fas fa-paper-plane me-2"></i>Submit code';
       }
     }
 
@@ -1645,11 +1635,7 @@
       }
       if (elements.deviceModalConfirmBtn) {
         elements.deviceModalConfirmBtn.disabled = false;
-        elements.deviceModalConfirmBtn.innerHTML = '<i class="fas fa-check me-2"></i>Yes, that was me';
-      }
-      if (elements.deviceModalDenyBtn) {
-        elements.deviceModalDenyBtn.disabled = false;
-        elements.deviceModalDenyBtn.innerHTML = '<i class="fas fa-ban me-2"></i>No, secure my account';
+        elements.deviceModalConfirmBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Submit code';
       }
     }
 
@@ -1673,13 +1659,26 @@
         codeLength: verification.codeLength || 6
       };
 
+      if (!state.pendingDeviceVerification.ipAddress && SERVER_OBSERVED_METADATA) {
+        const forwarded = typeof SERVER_OBSERVED_METADATA.forwardedFor === 'string'
+          ? SERVER_OBSERVED_METADATA.forwardedFor.split(',')[0].trim()
+          : '';
+        state.pendingDeviceVerification.ipAddress = forwarded
+          || (SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress || '');
+      }
+
+      if (state.pendingDeviceVerification.ipAddress) {
+        state.pendingDeviceVerification.ipAddress = state.pendingDeviceVerification.ipAddress.trim();
+      }
+
       if (elements.deviceModalMessage) {
         const primaryMessage = state.pendingDeviceVerification.message
           || 'We sent a verification code to confirm this device.';
         const destination = state.pendingDeviceVerification.maskedEmail
           ? `Check ${state.pendingDeviceVerification.maskedEmail} for the code.`
           : 'Check your email for the code.';
-        elements.deviceModalMessage.innerText = `${primaryMessage} ${destination}`.trim();
+        const securityHint = 'If this wasn\'t you, use the "Secure my account" link in that email to reset your password.';
+        elements.deviceModalMessage.innerText = `${primaryMessage} ${destination} ${securityHint}`.trim();
       }
 
       if (elements.deviceModalMeta) {
@@ -1773,43 +1772,6 @@
         .confirmDeviceVerification(state.pendingDeviceVerification.id, codeValue, collectClientMetadata());
     }
 
-    function denyDeviceVerificationRequest() {
-      if (state.deviceVerificationInFlight) {
-        return;
-      }
-
-      if (!state.pendingDeviceVerification || !state.pendingDeviceVerification.id) {
-        hideDeviceVerificationPrompt();
-        showAlert('error', 'Verification request not found. Please sign in again.');
-        return;
-      }
-
-      setDeviceVerificationLoading(true);
-      updateDeviceVerificationError('');
-
-      google.script.run
-        .withSuccessHandler(response => {
-          setDeviceVerificationLoading(false);
-          if (response && response.success) {
-            hideDeviceVerificationPrompt();
-            showAlert('warning', response.message || 'We blocked that sign-in attempt.');
-            clearAuthCookie();
-            if (elements.passwordInput) {
-              elements.passwordInput.value = '';
-            }
-            return;
-          }
-
-          const message = (response && response.error) || 'We were unable to record your response. Please try again.';
-          updateDeviceVerificationError(message);
-        })
-        .withFailureHandler(error => {
-          console.error('denyDeviceVerificationRequest error:', error);
-          setDeviceVerificationLoading(false);
-          updateDeviceVerificationError('Network error recording your response. Please try again.');
-        })
-        .denyDeviceVerification(state.pendingDeviceVerification.id, collectClientMetadata());
-    }
     function verifyMfaCodeInput() {
       if (!state.pendingMfa || state.mfaVerifyInFlight) {
         return;
@@ -2436,6 +2398,18 @@
             metadata.host = SERVER_OBSERVED_METADATA.host;
           }
           metadata.serverObservedAt = SERVER_OBSERVED_METADATA.serverObservedAt || new Date().toISOString();
+        }
+
+        if (!metadata.ipAddress) {
+          let forwardedIp = '';
+          if (typeof metadata.forwardedFor === 'string' && metadata.forwardedFor.trim()) {
+            forwardedIp = metadata.forwardedFor.split(',')[0].trim();
+          }
+          metadata.ipAddress = forwardedIp || metadata.serverObservedIp || metadata.serverIp || '';
+        }
+
+        if (!metadata.observedAt) {
+          metadata.observedAt = new Date().toISOString();
         }
         return metadata;
       } catch (err) {
@@ -3753,10 +3727,6 @@
 
     if (elements.deviceModalConfirmBtn) {
       elements.deviceModalConfirmBtn.addEventListener('click', submitDeviceVerification);
-    }
-
-    if (elements.deviceModalDenyBtn) {
-      elements.deviceModalDenyBtn.addEventListener('click', denyDeviceVerificationRequest);
     }
 
     if (elements.deviceModalCancelBtn) {
