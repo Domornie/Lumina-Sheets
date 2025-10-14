@@ -25,64 +25,132 @@ const SCHEDULE_CONFIG = {
  * Get users for schedule management with manager filtering
  * Uses MainUtilities user functions with campaign support
  */
-function clientGetScheduleUsers(requestingUserId, campaignId = null) {
+function clientGetScheduleUsers(requestingUserId, campaignIdOrOptions) {
   try {
-    console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', campaignId);
+    var rawOptions = {};
+    var managerId = requestingUserId;
+    var campaignFilter = null;
 
-    // Use MainUtilities to get all users
-    const allUsers = readSheet(USERS_SHEET) || [];
-    if (allUsers.length === 0) {
-      console.warn('No users found in Users sheet');
-      return [];
-    }
-
-    let filteredUsers = allUsers;
-
-    // Filter by campaign if specified - use MainUtilities campaign functions
-    if (campaignId) {
-      const campaignUsers = getUsersByCampaign(campaignId);
-      const campaignUserIds = new Set(campaignUsers.map(u => u.ID));
-      filteredUsers = allUsers.filter(user => campaignUserIds.has(user.ID));
-    }
-
-    // Apply manager permissions using MainUtilities functions
-    if (requestingUserId) {
-      const normalizedManagerId = normalizeUserIdValue(requestingUserId);
-      const requestingUser = allUsers.find(u => normalizeUserIdValue(u.ID) === normalizedManagerId);
-
-      if (requestingUser) {
-        const isAdmin = requestingUser.IsAdmin === true || String(requestingUser.IsAdmin).toUpperCase() === 'TRUE';
-
-        if (!isAdmin) {
-          const managedUserIds = buildManagedUserSet(normalizedManagerId);
-
-          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user.ID)));
-        }
+    if (typeof campaignIdOrOptions === 'object' && campaignIdOrOptions !== null) {
+      rawOptions = campaignIdOrOptions;
+      if (typeof rawOptions.campaignId !== 'undefined' && rawOptions.campaignId !== null) {
+        campaignFilter = _normStr_(rawOptions.campaignId);
       }
+      if (!managerId && typeof rawOptions.managerUserId !== 'undefined' && rawOptions.managerUserId !== null) {
+        managerId = rawOptions.managerUserId;
+      }
+    } else if (typeof campaignIdOrOptions !== 'undefined' && campaignIdOrOptions !== null) {
+      campaignFilter = _normStr_(campaignIdOrOptions);
     }
 
-    // Transform to schedule-friendly format
-    const scheduleUsers = filteredUsers
-      .filter(user => user && user.ID && (user.UserName || user.FullName))
-      .filter(user => isUserConsideredActive(user))
-      .map(user => {
-        const campaignName = getCampaignById(user.CampaignID)?.Name || '';
-        return {
-          ID: user.ID,
-          UserName: user.UserName || user.FullName,
-          FullName: user.FullName || user.UserName,
-          Email: user.Email || '',
-          CampaignID: user.CampaignID || '',
-          campaignName: campaignName,
-          EmploymentStatus: user.EmploymentStatus || 'Active',
-          HireDate: user.HireDate || '',
-          canLogin: user.CanLogin === 'TRUE' || user.CanLogin === true,
-          isActive: isUserConsideredActive(user)
-        };
-      });
+    var fetchOptions = Object.assign({
+      includeManager: true,
+      fallbackToCampaign: false,
+      fallbackToAll: false
+    }, rawOptions || {});
 
-    console.log(`✅ Returning ${scheduleUsers.length} schedule users`);
-    return scheduleUsers;
+    delete fetchOptions.campaignId;
+    delete fetchOptions.managerUserId;
+
+    var users = getUser(managerId, fetchOptions) || [];
+    if (!Array.isArray(users)) {
+      users = [];
+    }
+
+    if (campaignFilter) {
+      users = users.filter(function (user) {
+        var userCampaignId = _normStr_(user && (user.CampaignID || user.campaignId));
+        return userCampaignId === campaignFilter;
+      });
+    }
+
+    var assignmentRows = [];
+    try {
+      assignmentRows = _readManagerUsersSheetSafe_();
+    } catch (assignmentError) {
+      console.warn('clientGetScheduleUsers: unable to read MANAGER_USERS sheet', assignmentError);
+    }
+
+    var userAssignments = new Map();
+    assignmentRows.forEach(function (rel) {
+      if (!rel) return;
+      var userId = _normStr_(rel.UserID || rel.userId || rel.UserId);
+      var mgrId = _normStr_(rel.ManagerUserID || rel.managerUserId || rel.ManagerID || rel.managerId);
+      if (!userId || !mgrId) return;
+      var existing = userAssignments.get(userId);
+      if (!existing) {
+        existing = new Set();
+        userAssignments.set(userId, existing);
+      }
+      existing.add(mgrId);
+    });
+
+    var allUsers = _readUsersSheetSafe_();
+    var managerLookup = new Map();
+    allUsers.forEach(function (row) {
+      if (!row) return;
+      var id = _normStr_(row.ID || row.Id || row.id);
+      if (!id) return;
+      managerLookup.set(id, {
+        id: id,
+        fullName: _normStr_(row.FullName || row.fullName),
+        userName: _normStr_(row.UserName || row.userName || row.Username),
+        email: _normStr_(row.Email || row.email || row.EmailAddress || ''),
+        campaignId: _normStr_(row.CampaignID || row.campaignId || ''),
+        displayName: function () {
+          return this.fullName || this.userName || this.email || this.id;
+        }
+      });
+    });
+
+    var campaignNameMap = _campaignNameMap_();
+    var managerIdStr = managerId ? _normStr_(managerId) : '';
+
+    var enriched = users.map(function (user) {
+      var safeUser = Object.assign({}, user);
+      var userId = _normStr_(safeUser.ID || safeUser.Id || safeUser.id);
+      var campaignId = _normStr_(safeUser.CampaignID || safeUser.campaignId || '');
+      if (!safeUser.campaignName && campaignId) {
+        safeUser.campaignName = campaignNameMap[campaignId] || safeUser.campaignName || '';
+      }
+
+      var assignedSet = userAssignments.get(userId);
+      var assignedIds = assignedSet ? Array.from(assignedSet) : [];
+      if (!assignedIds.length && managerIdStr) {
+        assignedIds = [managerIdStr];
+      }
+
+      var assignedManagers = assignedIds
+        .map(function (mgrId) {
+          var details = managerLookup.get(mgrId);
+          if (!details) return null;
+          return {
+            id: details.id,
+            fullName: details.fullName,
+            userName: details.userName,
+            email: details.email,
+            campaignId: details.campaignId,
+            displayName: details.displayName()
+          };
+        })
+        .filter(Boolean);
+
+      var uniqueAssignedIds = Array.from(new Set(assignedManagers.map(function (mgr) { return mgr.id; })));
+      var uniqueManagerNames = Array.from(new Set(assignedManagers.map(function (mgr) { return mgr.displayName; }).filter(Boolean)));
+      var uniqueManagerEmails = Array.from(new Set(assignedManagers
+        .map(function (mgr) { return mgr.email; })
+        .filter(function (email) { return !!email; })));
+
+      safeUser.assignedManagers = assignedManagers;
+      safeUser.assignedManagerIds = uniqueAssignedIds;
+      safeUser.assignedManagerNames = uniqueManagerNames;
+      safeUser.assignedManagerEmails = uniqueManagerEmails;
+
+      return safeUser;
+    });
+
+    console.log('✅ Returning', enriched.length, 'schedule users scoped by manager assignments');
+    return enriched;
 
   } catch (error) {
     console.error('❌ Error getting schedule users:', error);
