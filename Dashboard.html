@@ -699,6 +699,7 @@
                         <option value="Hour">Hourly</option>
                         <option value="Day">Daily</option>
                         <option value="Week">Weekly</option>
+                        <option value="Bi-Week">Bi-Weekly</option>
                         <option value="Month">Monthly</option>
                         <option value="Quarter">Quarterly</option>
                         <option value="Year">Yearly</option>
@@ -742,6 +743,8 @@
                         <option value="yesterday">Yesterday</option>
                         <option value="thisweek">This Week</option>
                         <option value="lastweek">Last Week</option>
+                        <option value="thisbiweek">This Bi-Week</option>
+                        <option value="lastbiweek">Last Bi-Week</option>
                         <option value="thismonth">This Month</option>
                         <option value="lastmonth">Last Month</option>
                         <option value="thisquarter">This Quarter</option>
@@ -1007,6 +1010,16 @@
                         const lastWeek = new Date(now);
                         lastWeek.setDate(lastWeek.getDate() - 7);
                         newPeriod = this.getCurrentPeriod('Week', lastWeek);
+                        break;
+                    case 'thisbiweek':
+                        newGranularity = 'Bi-Week';
+                        newPeriod = this.getCurrentPeriod('Bi-Week');
+                        break;
+                    case 'lastbiweek':
+                        newGranularity = 'Bi-Week';
+                        const lastBiWeek = new Date(now);
+                        lastBiWeek.setDate(lastBiWeek.getDate() - 14);
+                        newPeriod = this.getCurrentPeriod('Bi-Week', lastBiWeek);
                         break;
                     case 'thismonth':
                         newGranularity = 'Month';
@@ -1914,6 +1927,8 @@
                         return targetDate.toISOString().split('T')[0];
                     case 'Week':
                         return this.getWeekString(targetDate);
+                    case 'Bi-Week':
+                        return this.getBiWeekString(targetDate);
                     case 'Month':
                         return `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
                     case 'Quarter':
@@ -1933,6 +1948,13 @@
                 const yearStart = new Date(d.getFullYear(), 0, 1);
                 const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
                 return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+            }
+
+            getBiWeekString(date) {
+                const weekString = this.getWeekString(date);
+                const [yearPart, weekPart] = weekString.split('-W');
+                const biWeekNumber = Math.ceil(parseInt(weekPart, 10) / 2);
+                return `${yearPart}-BW${String(biWeekNumber).padStart(2, '0')}`;
             }
 
             destroy() {
