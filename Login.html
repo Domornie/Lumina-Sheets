@@ -1007,6 +1007,11 @@
   </div>
 
   <script>
+    const DEFAULT_REDIRECT_PAGE = 'dashboard';
+    if (typeof window !== 'undefined') {
+      window.DEFAULT_REDIRECT_PAGE = DEFAULT_REDIRECT_PAGE;
+    }
+
     const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
     const INITIAL_RETURN_URL = <?!= JSON.stringify(initialReturnUrl || '') ?>;
     // ───────────────────────────────────────────────────────────────────────────────
