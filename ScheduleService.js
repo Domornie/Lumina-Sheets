@@ -631,27 +631,6 @@ function buildManagedUserSet(managerId) {
     managedUserIds.add(normalizedManagerId);
   }
 
-  try {
-    if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
-      const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
-      campaigns.forEach(campaign => {
-        try {
-          const campaignUsers = getUsersByCampaign(campaign.ID) || [];
-          campaignUsers.forEach(user => {
-            const normalizedId = normalizeUserIdValue(user.ID);
-            if (normalizedId) {
-              managedUserIds.add(normalizedId);
-            }
-          });
-        } catch (campaignErr) {
-          console.warn('Failed to append campaign users for campaign', campaign && campaign.ID, campaignErr);
-        }
-      });
-    }
-  } catch (error) {
-    console.warn('Unable to expand managed users via campaigns:', error);
-  }
-
   return managedUserIds;
 }
 
