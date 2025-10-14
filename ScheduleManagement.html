@@ -1847,7 +1847,8 @@
                 try {
                     console.log('👥 Loading users...');
                     const currentUserId = this.getCurrentUserId();
-                    const users = await this.callServerFunction('clientGetScheduleUsers', currentUserId);
+                    const campaignId = this.getCurrentCampaignId();
+                    const users = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
 
                     this.availableUsers = Array.isArray(users) ? users : [];
                     console.log(`✅ Loaded ${this.availableUsers.length} users`);
@@ -3131,7 +3132,7 @@
                         `;
 
                     // Get attendance users
-                    const users = await this.callServerFunction('clientGetAttendanceUsers', this.getCurrentUserId());
+                    const users = await this.callServerFunction('clientGetAttendanceUsers', this.getCurrentUserId(), this.getCurrentCampaignId() || null);
 
                     if (!users || users.length === 0) {
                         container.innerHTML = `
@@ -4408,6 +4409,70 @@
                 ].filter(id => id);
 
                 return potentialIds.length > 0 ? String(potentialIds[0]) : 'system-user';
+            }
+
+            getCurrentCampaignId() {
+                const candidateValues = [
+                    this.currentUser?.CampaignID,
+                    this.currentUser?.campaignID,
+                    this.currentUser?.CampaignId,
+                    this.currentUser?.campaignId,
+                    this.currentUser?.Campaign,
+                    typeof window !== 'undefined' ? window.__layoutCampaignId : null,
+                    typeof window !== 'undefined' ? window.__LAYOUT_CAMPAIGN_ID : null,
+                    typeof window !== 'undefined' ? window.__LAYOUT_CAMPAIGNID : null,
+                    typeof window !== 'undefined' ? window.__absorbedBannerData?.campaignId : null,
+                    typeof window !== 'undefined' ? window.__absorbedBannerData?.campaignID : null
+                ];
+
+                for (const value of candidateValues) {
+                    const normalized = this.normalizeCampaignIdValue(value);
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                const sidebarCampaign = document.querySelector('[data-campaign-id]')?.getAttribute('data-campaign-id');
+                const normalizedSidebarCampaign = this.normalizeCampaignIdValue(sidebarCampaign);
+                if (normalizedSidebarCampaign) {
+                    return normalizedSidebarCampaign;
+                }
+
+                return '';
+            }
+
+            normalizeCampaignIdValue(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                if (Array.isArray(value)) {
+                    for (const candidate of value) {
+                        const normalizedCandidate = this.normalizeCampaignIdValue(candidate);
+                        if (normalizedCandidate) {
+                            return normalizedCandidate;
+                        }
+                    }
+                    return '';
+                }
+
+                if (typeof value === 'object') {
+                    const objectCandidates = [value.ID, value.Id, value.id, value.campaignId, value.CampaignID, value.value];
+                    for (const candidate of objectCandidates) {
+                        const normalizedCandidate = this.normalizeCampaignIdValue(candidate);
+                        if (normalizedCandidate) {
+                            return normalizedCandidate;
+                        }
+                    }
+                    return '';
+                }
+
+                const text = String(value).trim();
+                if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+                    return '';
+                }
+
+                return text;
             }
 
             formatDate(dateStr) {
