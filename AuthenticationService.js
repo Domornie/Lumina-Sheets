@@ -3927,30 +3927,90 @@ var AuthenticationService = (function () {
         ? campaignScope
         : null;
 
-      const sessionRecord = {
-        Token: token,
-        TokenHash: tokenHash,
-        TokenSalt: salt,
-        UserId: userId,
-        CreatedAt: nowIso,
-        LastActivityAt: nowIso,
-        ExpiresAt: expiresAtIso,
-        IdleTimeoutMinutes: String(idleTimeoutMinutes),
-        RememberMe: rememberMe ? 'TRUE' : 'FALSE',
-        CampaignScope: serializeCampaignScope(scopeData),
-        UserAgent: metadata && metadata.userAgent ? metadata.userAgent : 'Google Apps Script',
-        IpAddress: metadata && metadata.ipAddress ? metadata.ipAddress : 'N/A',
-        ServerIp: metadata && metadata.serverIp
-          ? metadata.serverIp
-          : (metadata && metadata.serverObservedIp ? metadata.serverObservedIp : 'N/A')
-      };
+      let sessionContext = null;
+      try {
+        sessionContext = ensureSessionSheetContext();
+      } catch (contextError) {
+        console.warn('createSession: ensureSessionSheetContext failed', contextError);
+      }
 
-      const tableName = (typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions';
+      const tableName = (sessionContext && sessionContext.tableName)
+        ? sessionContext.tableName
+        : ((typeof SESSIONS_SHEET === 'string' && SESSIONS_SHEET) ? SESSIONS_SHEET : 'Sessions');
+
+      let headers = [];
+      if (sessionContext && Array.isArray(sessionContext.headers) && sessionContext.headers.length) {
+        headers = sessionContext.headers.slice();
+      } else if (Array.isArray(SESSION_COLUMNS) && SESSION_COLUMNS.length) {
+        headers = SESSION_COLUMNS.slice();
+      } else {
+        headers = DEFAULT_SESSION_COLUMNS.slice();
+      }
+
+      SESSION_COLUMNS.forEach(function (column) {
+        if (headers.indexOf(column) === -1) {
+          headers.push(column);
+        }
+      });
+
+      headers = headers.filter(function (column, index, arr) {
+        return column && arr.indexOf(column) === index;
+      });
+
+      const canonicalRecord = {};
+      setRecordValue(canonicalRecord, 'Token', token);
+      setRecordValue(canonicalRecord, 'TokenHash', tokenHash);
+      setRecordValue(canonicalRecord, 'TokenSalt', salt);
+      if (userId || userId === 0) {
+        setRecordValue(canonicalRecord, 'UserId', userId);
+      }
+      setRecordValue(canonicalRecord, 'CreatedAt', nowIso);
+      setRecordValue(canonicalRecord, 'LastActivityAt', nowIso);
+      setRecordValue(canonicalRecord, 'ExpiresAt', expiresAtIso);
+      setRecordValue(canonicalRecord, 'IdleTimeoutMinutes', String(idleTimeoutMinutes));
+      setRecordValue(canonicalRecord, 'RememberMe', rememberMe ? 'TRUE' : 'FALSE');
+      setRecordValue(canonicalRecord, 'CampaignScope', serializeCampaignScope(scopeData));
+      setRecordValue(canonicalRecord, 'UserAgent', metadata && metadata.userAgent ? metadata.userAgent : 'Google Apps Script');
+      setRecordValue(canonicalRecord, 'IpAddress', metadata && metadata.ipAddress ? metadata.ipAddress : 'N/A');
+      setRecordValue(canonicalRecord, 'ServerIp', metadata && metadata.serverIp
+        ? metadata.serverIp
+        : (metadata && metadata.serverObservedIp ? metadata.serverObservedIp : 'N/A'));
+
+      const rowValues = headers.map(function (column) {
+        const value = getRecordValue(canonicalRecord, column);
+        return (typeof value === 'undefined' || value === null) ? '' : value;
+      });
+
+      const persistedRecord = {};
+      headers.forEach(function (column, index) {
+        const value = rowValues[index];
+        if (typeof value === 'undefined' || value === null || value === '') {
+          return;
+        }
+        setRecordValue(persistedRecord, column, value);
+      });
+
       let persisted = false;
 
-      if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function') {
+      if (typeof DatabaseManager !== 'undefined'
+        && DatabaseManager
+        && typeof DatabaseManager.defineTable === 'function') {
         try {
-          DatabaseManager.table(tableName).insert(sessionRecord);
+          DatabaseManager.defineTable(tableName, {
+            headers: headers,
+            idColumn: 'TokenHash',
+            timestamps: { created: 'CreatedAt', updated: null }
+          });
+        } catch (schemaError) {
+          console.warn('createSession: Failed to refresh DatabaseManager schema', schemaError);
+        }
+      }
+
+      if (typeof DatabaseManager !== 'undefined'
+        && DatabaseManager
+        && typeof DatabaseManager.table === 'function') {
+        try {
+          DatabaseManager.table(tableName).insert(persistedRecord);
           persisted = true;
         } catch (dbError) {
           console.warn('createSession: DatabaseManager insert failed:', dbError);
@@ -3959,25 +4019,19 @@ var AuthenticationService = (function () {
 
       if (!persisted && typeof dbCreate === 'function') {
         try {
-          dbCreate(tableName, sessionRecord);
+          dbCreate(tableName, persistedRecord);
           persisted = true;
         } catch (legacyError) {
           console.warn('createSession: dbCreate fallback failed:', legacyError);
         }
       }
 
-      if (!persisted && typeof ensureSheetWithHeaders === 'function') {
+      if (!persisted && sessionContext && sessionContext.sheet) {
         try {
-          const sessionsSheet = ensureSheetWithHeaders(tableName, SESSION_COLUMNS);
-          const rowValues = SESSION_COLUMNS.map(function (column) {
-            return Object.prototype.hasOwnProperty.call(sessionRecord, column)
-              ? sessionRecord[column]
-              : '';
-          });
-          sessionsSheet.appendRow(rowValues);
+          sessionContext.sheet.appendRow(rowValues);
           persisted = true;
         } catch (sheetError) {
-          console.warn('createSession: ensureSheetWithHeaders fallback failed:', sheetError);
+          console.warn('createSession: direct sheet append failed:', sheetError);
         }
       }
 
@@ -3988,16 +4042,9 @@ var AuthenticationService = (function () {
             let sheet = ss.getSheetByName(tableName);
             if (!sheet) {
               sheet = ss.insertSheet(tableName);
-              sheet.getRange(1, 1, 1, SESSION_COLUMNS.length).setValues([SESSION_COLUMNS]);
+              sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
             }
-            const headersRange = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-            const normalizedHeaders = headersRange.map(function (value) { return String(value || '').trim(); });
-            const row = normalizedHeaders.map(function (column) {
-              return Object.prototype.hasOwnProperty.call(sessionRecord, column)
-                ? sessionRecord[column]
-                : '';
-            });
-            sheet.appendRow(row);
+            sheet.appendRow(rowValues);
             persisted = true;
           }
         } catch (spreadsheetError) {
@@ -4005,14 +4052,33 @@ var AuthenticationService = (function () {
         }
       }
 
-      if (persisted && typeof invalidateCache === 'function') {
-        try { invalidateCache(tableName); } catch (cacheError) { console.warn('createSession: Cache invalidation failed:', cacheError); }
+      if (persisted) {
+        if (typeof invalidateCache === 'function') {
+          try { invalidateCache(tableName); } catch (cacheError) { console.warn('createSession: Cache invalidation failed:', cacheError); }
+        } else if (typeof DatabaseManager !== 'undefined'
+          && DatabaseManager
+          && typeof DatabaseManager.dropTableCache === 'function') {
+          try { DatabaseManager.dropTableCache(tableName); } catch (cacheError) { console.warn('createSession: dropTableCache failed:', cacheError); }
+        }
       }
+
+      const storedRecord = {};
+      headers.forEach(function (column, index) {
+        setRecordValue(storedRecord, column, rowValues[index]);
+      });
+
+      SESSION_COLUMNS.forEach(function (column) {
+        if (!column) return;
+        if (!Object.prototype.hasOwnProperty.call(storedRecord, column)) {
+          const value = getRecordValue(canonicalRecord, column);
+          setRecordValue(storedRecord, column, (typeof value === 'undefined' || value === null) ? '' : value);
+        }
+      });
 
       return {
         token: token,
-        record: sessionRecord,
-        expiresAt: sessionRecord.ExpiresAt,
+        record: storedRecord,
+        expiresAt: getRecordValue(storedRecord, 'ExpiresAt'),
         ttlSeconds: Math.max(60, Math.floor(ttl / 1000)),
         campaignScope: scopeData,
         idleTimeoutMinutes: idleTimeoutMinutes
