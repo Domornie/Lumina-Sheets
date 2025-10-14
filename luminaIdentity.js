@@ -5,7 +5,11 @@ var LuminaIdentity = (function () {
   var USER_CACHE_PREFIX = CACHE_PREFIX + 'USER:';
   var USER_ROW_CACHE_PREFIX = CACHE_PREFIX + 'USER_ROW:';
   var CLAIM_CACHE_PREFIX = CACHE_PREFIX + 'CLAIMS:';
+  var ACTIVE_SESSION_CACHE_PREFIX = CACHE_PREFIX + 'ACTIVE_SESSION:';
   var CACHE_TTL_SECONDS = 300;
+  var ACTIVE_SESSION_MIN_TTL_SECONDS = 60;
+  var ACTIVE_SESSION_MAX_TTL_SECONDS = 21600; // 6 hours (CacheService limit)
+  var ACTIVE_SESSION_IDLE_TIMEOUT_SECONDS = 20 * 60; // 20 minutes inactivity window
 
   function logWarning(label, error) {
     try {
@@ -131,6 +135,11 @@ var LuminaIdentity = (function () {
       candidates.push(opts.authToken);
     }
 
+    var storedToken = readActiveUserSessionToken();
+    if (storedToken) {
+      candidates.push(storedToken);
+    }
+
     ['sessionToken', 'token', 'authToken'].forEach(function (name) {
       candidates.push(readParameter(e, name));
       candidates.push(readQueryValue(e, name));
@@ -205,6 +214,258 @@ var LuminaIdentity = (function () {
       }
     } catch (err) {
       logWarning('LuminaIdentity.removeCache', err);
+    }
+  }
+
+  function getActiveUserStoreKey() {
+    try {
+      if (typeof Session !== 'undefined'
+        && Session
+        && typeof Session.getTemporaryActiveUserKey === 'function') {
+        var key = Session.getTemporaryActiveUserKey();
+        if (key) {
+          return ACTIVE_SESSION_CACHE_PREFIX + safeString(key);
+        }
+      }
+    } catch (err) {
+      logWarning('LuminaIdentity.getActiveUserStoreKey', err);
+    }
+    return null;
+  }
+
+  function normalizeIdleTimeoutSeconds(metadata) {
+    var idleSeconds = ACTIVE_SESSION_IDLE_TIMEOUT_SECONDS;
+
+    if (metadata && typeof metadata === 'object') {
+      if (typeof metadata.idleTimeoutSeconds === 'number' && metadata.idleTimeoutSeconds > 0) {
+        idleSeconds = metadata.idleTimeoutSeconds;
+      } else if (metadata.idleTimeoutSeconds) {
+        var parsedIdleSeconds = Number(metadata.idleTimeoutSeconds);
+        if (!isNaN(parsedIdleSeconds) && parsedIdleSeconds > 0) {
+          idleSeconds = parsedIdleSeconds;
+        }
+      } else if (typeof metadata.idleTimeoutMinutes === 'number' && metadata.idleTimeoutMinutes > 0) {
+        idleSeconds = Math.floor(metadata.idleTimeoutMinutes * 60);
+      } else if (metadata.idleTimeoutMinutes) {
+        var parsedIdleMinutes = Number(metadata.idleTimeoutMinutes);
+        if (!isNaN(parsedIdleMinutes) && parsedIdleMinutes > 0) {
+          idleSeconds = Math.floor(parsedIdleMinutes * 60);
+        }
+      } else if (typeof metadata.sessionIdleTimeoutMinutes === 'number' && metadata.sessionIdleTimeoutMinutes > 0) {
+        idleSeconds = Math.floor(metadata.sessionIdleTimeoutMinutes * 60);
+      } else if (metadata.sessionIdleTimeoutMinutes) {
+        var parsedSessionIdle = Number(metadata.sessionIdleTimeoutMinutes);
+        if (!isNaN(parsedSessionIdle) && parsedSessionIdle > 0) {
+          idleSeconds = Math.floor(parsedSessionIdle * 60);
+        }
+      }
+    }
+
+    idleSeconds = Math.min(idleSeconds, ACTIVE_SESSION_IDLE_TIMEOUT_SECONDS);
+    idleSeconds = Math.max(ACTIVE_SESSION_MIN_TTL_SECONDS, idleSeconds);
+    idleSeconds = Math.min(ACTIVE_SESSION_MAX_TTL_SECONDS, idleSeconds);
+
+    return idleSeconds;
+  }
+
+  function computeActiveSessionTtlSeconds(metadata) {
+    var idleTimeoutSeconds = normalizeIdleTimeoutSeconds(metadata);
+    var ttl = idleTimeoutSeconds;
+
+    if (metadata && typeof metadata === 'object') {
+      if (typeof metadata.ttlSeconds === 'number' && metadata.ttlSeconds > 0) {
+        ttl = metadata.ttlSeconds;
+      } else if (metadata.ttlSeconds) {
+        var parsedTtl = Number(metadata.ttlSeconds);
+        if (!isNaN(parsedTtl) && parsedTtl > 0) {
+          ttl = parsedTtl;
+        }
+      } else if (typeof metadata.sessionTtlSeconds === 'number' && metadata.sessionTtlSeconds > 0) {
+        ttl = metadata.sessionTtlSeconds;
+      } else if (metadata.sessionTtlSeconds) {
+        var parsedSessionTtl = Number(metadata.sessionTtlSeconds);
+        if (!isNaN(parsedSessionTtl) && parsedSessionTtl > 0) {
+          ttl = parsedSessionTtl;
+        }
+      } else if (metadata.expiresAt) {
+        var expiry = Date.parse(metadata.expiresAt);
+        if (!isNaN(expiry)) {
+          var delta = Math.floor((expiry - Date.now()) / 1000);
+          if (delta > 0) {
+            ttl = delta;
+          }
+        }
+      } else if (metadata.sessionExpiresAt) {
+        var altExpiry = Date.parse(metadata.sessionExpiresAt);
+        if (!isNaN(altExpiry)) {
+          var altDelta = Math.floor((altExpiry - Date.now()) / 1000);
+          if (altDelta > 0) {
+            ttl = altDelta;
+          }
+        }
+      }
+
+      if (metadata.rememberMe === true && ttl < 3600) {
+        ttl = 3600;
+      }
+    }
+
+    ttl = Math.max(ACTIVE_SESSION_MIN_TTL_SECONDS, ttl);
+    ttl = Math.min(ACTIVE_SESSION_MAX_TTL_SECONDS, ttl);
+    ttl = Math.min(ttl, idleTimeoutSeconds);
+
+    return ttl;
+  }
+
+  function persistActiveUserSessionToken(token, metadata) {
+    var normalized = safeString(token);
+    if (!normalized) {
+      return;
+    }
+
+    var storeKey = getActiveUserStoreKey();
+    if (!storeKey) {
+      return;
+    }
+
+    var idleTimeoutSeconds = normalizeIdleTimeoutSeconds(metadata);
+    var nowIso = new Date().toISOString();
+
+    var payload = {
+      token: normalized,
+      updatedAt: nowIso,
+      lastActivityAt: nowIso,
+      idleTimeoutSeconds: idleTimeoutSeconds
+    };
+
+    if (metadata && typeof metadata === 'object') {
+      if (metadata.expiresAt || metadata.sessionExpiresAt) {
+        var expiryIso = metadata.expiresAt || metadata.sessionExpiresAt;
+        payload.expiresAt = safeString(expiryIso);
+      }
+      if (metadata.ttlSeconds || metadata.sessionTtlSeconds) {
+        var ttlCandidate = metadata.ttlSeconds || metadata.sessionTtlSeconds;
+        var numericTtl = typeof ttlCandidate === 'number' ? ttlCandidate : Number(ttlCandidate);
+        if (!isNaN(numericTtl) && numericTtl > 0) {
+          payload.ttlSeconds = numericTtl;
+        }
+      }
+      if (metadata.rememberMe !== undefined) {
+        payload.rememberMe = !!metadata.rememberMe;
+      }
+      if (metadata.idleTimeoutMinutes || metadata.sessionIdleTimeoutMinutes) {
+        payload.idleTimeoutMinutes = metadata.idleTimeoutMinutes || metadata.sessionIdleTimeoutMinutes;
+      }
+    }
+
+    var serialized = null;
+    try {
+      serialized = JSON.stringify(payload);
+    } catch (err) {
+      logWarning('LuminaIdentity.persistActiveUserSessionToken.serialize', err);
+      return;
+    }
+
+    var ttlSeconds = computeActiveSessionTtlSeconds(metadata || {});
+
+    try {
+      if (typeof CacheService !== 'undefined' && CacheService && typeof CacheService.getUserCache === 'function') {
+        CacheService.getUserCache().put(storeKey, serialized, ttlSeconds);
+      }
+    } catch (cacheErr) {
+      logWarning('LuminaIdentity.persistActiveUserSessionToken.cache', cacheErr);
+    }
+
+    try {
+      if (typeof PropertiesService !== 'undefined' && PropertiesService && typeof PropertiesService.getUserProperties === 'function') {
+        PropertiesService.getUserProperties().setProperty(storeKey, serialized);
+      }
+    } catch (propErr) {
+      logWarning('LuminaIdentity.persistActiveUserSessionToken.props', propErr);
+    }
+  }
+
+  function readActiveUserSessionToken() {
+    var storeKey = getActiveUserStoreKey();
+    if (!storeKey) {
+      return '';
+    }
+
+    var raw = null;
+
+    try {
+      if (typeof CacheService !== 'undefined' && CacheService && typeof CacheService.getUserCache === 'function') {
+        raw = CacheService.getUserCache().get(storeKey);
+      }
+    } catch (cacheErr) {
+      logWarning('LuminaIdentity.readActiveUserSessionToken.cache', cacheErr);
+    }
+
+    if (!raw) {
+      try {
+        if (typeof PropertiesService !== 'undefined' && PropertiesService && typeof PropertiesService.getUserProperties === 'function') {
+          raw = PropertiesService.getUserProperties().getProperty(storeKey);
+        }
+      } catch (propErr) {
+        logWarning('LuminaIdentity.readActiveUserSessionToken.props', propErr);
+      }
+    }
+
+    if (!raw) {
+      return '';
+    }
+
+    try {
+      var payload = JSON.parse(raw);
+      if (!payload) {
+        return '';
+      }
+
+      var idleTimeoutSeconds = normalizeIdleTimeoutSeconds(payload);
+      var lastActivity = safeString(payload.lastActivityAt || payload.updatedAt);
+      if (lastActivity) {
+        var lastActivityDate = Date.parse(lastActivity);
+        if (!isNaN(lastActivityDate)) {
+          var inactiveSeconds = Math.floor((Date.now() - lastActivityDate) / 1000);
+          if (inactiveSeconds > idleTimeoutSeconds) {
+            try {
+              clearActiveUserSessionToken();
+            } catch (clearErr) {
+              logWarning('LuminaIdentity.readActiveUserSessionToken.expire', clearErr);
+            }
+            return '';
+          }
+        }
+      }
+
+      return safeString(payload.token);
+    } catch (err) {
+      logWarning('LuminaIdentity.readActiveUserSessionToken.parse', err);
+    }
+
+    return '';
+  }
+
+  function clearActiveUserSessionToken() {
+    var storeKey = getActiveUserStoreKey();
+    if (!storeKey) {
+      return;
+    }
+
+    try {
+      if (typeof CacheService !== 'undefined' && CacheService && typeof CacheService.getUserCache === 'function') {
+        CacheService.getUserCache().remove(storeKey);
+      }
+    } catch (cacheErr) {
+      logWarning('LuminaIdentity.clearActiveUserSessionToken.cache', cacheErr);
+    }
+
+    try {
+      if (typeof PropertiesService !== 'undefined' && PropertiesService && typeof PropertiesService.getUserProperties === 'function') {
+        PropertiesService.getUserProperties().deleteProperty(storeKey);
+      }
+    } catch (propErr) {
+      logWarning('LuminaIdentity.clearActiveUserSessionToken.props', propErr);
     }
   }
 
@@ -610,6 +871,20 @@ var LuminaIdentity = (function () {
 
     var cachedIdentity = useCache ? readCache(SESSION_CACHE_PREFIX + sessionToken) : null;
     if (cachedIdentity && cachedIdentity.sessionToken === sessionToken) {
+      try {
+        persistActiveUserSessionToken(sessionToken, {
+          sessionExpiresAt: (cachedIdentity.session && cachedIdentity.session.expiresAt) || cachedIdentity.sessionExpiresAt,
+          sessionTtlSeconds: (cachedIdentity.session && (cachedIdentity.session.ttlSeconds || cachedIdentity.session.sessionTtlSeconds))
+            || cachedIdentity.sessionTtlSeconds,
+          sessionIdleTimeoutMinutes: (cachedIdentity.session && (cachedIdentity.session.idleTimeoutMinutes || cachedIdentity.session.sessionIdleTimeoutMinutes))
+            || cachedIdentity.sessionIdleTimeoutMinutes,
+          rememberMe: (cachedIdentity.session && cachedIdentity.session.rememberMe !== undefined)
+            ? cachedIdentity.session.rememberMe
+            : cachedIdentity.sessionRememberMe
+        });
+      } catch (cachePersistErr) {
+        logWarning('LuminaIdentity.resolveIdentity.persistCacheActive', cachePersistErr);
+      }
       return buildIdentity(cachedIdentity, explicitUser, { source: 'cache', cacheHit: true });
     }
 
@@ -618,10 +893,28 @@ var LuminaIdentity = (function () {
       if (useCache) {
         removeCache(SESSION_CACHE_PREFIX + sessionToken);
       }
+      try {
+        clearActiveUserSessionToken();
+      } catch (clearErr) {
+        logWarning('LuminaIdentity.resolveIdentity.clearActive', clearErr);
+      }
       return buildIdentity({ sessionToken: sessionToken }, explicitUser, { source: 'anonymous', cacheHit: false });
     }
 
     var identity = buildIdentity(sessionUser, explicitUser, { source: 'session', cacheHit: false });
+
+    if (sessionToken) {
+      try {
+        persistActiveUserSessionToken(sessionToken, {
+          sessionExpiresAt: identity.sessionExpiresAt || (sessionUser && (sessionUser.sessionExpiresAt || sessionUser.expiresAt)),
+          sessionTtlSeconds: sessionUser && (sessionUser.sessionTtlSeconds || sessionUser.ttlSeconds),
+          sessionIdleTimeoutMinutes: sessionUser && (sessionUser.sessionIdleTimeoutMinutes || sessionUser.idleTimeoutMinutes),
+          rememberMe: sessionUser && (sessionUser.sessionRememberMe || sessionUser.rememberMe)
+        });
+      } catch (persistErr) {
+        logWarning('LuminaIdentity.resolveIdentity.persistActive', persistErr);
+      }
+    }
 
     if (useCache) {
       writeCache(SESSION_CACHE_PREFIX + sessionToken, clone(identity), CACHE_TTL_SECONDS);
@@ -673,7 +966,17 @@ var LuminaIdentity = (function () {
       return result || { success: false, error: 'Unable to authenticate' };
     }
 
-    var identity = resolveIdentity(null, { sessionToken: result.sessionToken, useCache: false });
+    var identity = resolveIdentity(null, { sessionToken: result.sessionToken });
+    try {
+      persistActiveUserSessionToken(result.sessionToken, {
+        sessionExpiresAt: result.sessionExpiresAt,
+        sessionTtlSeconds: result.sessionTtlSeconds,
+        sessionIdleTimeoutMinutes: result.sessionIdleTimeoutMinutes,
+        rememberMe: result.rememberMe
+      });
+    } catch (persistErr) {
+      logWarning('LuminaIdentity.login.persistResultActive', persistErr);
+    }
     result.identity = identity;
     result.user = identity;
     result.roles = identity.roleNames;
@@ -812,6 +1115,9 @@ var LuminaIdentity = (function () {
     resolveSessionToken: resolveSessionToken,
     injectTemplate: injectIntoTemplate,
     buildClaims: buildClaims,
+    persistActiveSessionToken: persistActiveUserSessionToken,
+    readActiveSessionToken: readActiveUserSessionToken,
+    clearActiveSessionToken: clearActiveUserSessionToken,
     password: passwordApi,
     getPasswordToolkit: ensurePasswordToolkit
   };
