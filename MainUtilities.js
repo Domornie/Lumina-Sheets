@@ -124,14 +124,7 @@ if (typeof SESSIONS_HEADERS === 'undefined') var SESSIONS_HEADERS = [
   "TokenSalt",
   "UserId",
   "CreatedAt",
-  "LastActivityAt",
-  "ExpiresAt",
-  "IdleTimeoutMinutes",
-  "RememberMe",
-  "CampaignScope",
-  "UserAgent",
-  "IpAddress",
-  "ServerIp"
+  "LastActivityAt"
 ];
 
 if (typeof CHAT_GROUPS_HEADERS === 'undefined') var CHAT_GROUPS_HEADERS = ['ID', 'Name', 'Description', 'CreatedBy', 'CreatedAt', 'UpdatedAt'];
