@@ -1007,6 +1007,15 @@
   </div>
 
   <script>
+    var DEFAULT_REDIRECT_PAGE = 'dashboard';
+    if (typeof window !== 'undefined') {
+      if (typeof window.DEFAULT_REDIRECT_PAGE === 'string' && window.DEFAULT_REDIRECT_PAGE.trim()) {
+        DEFAULT_REDIRECT_PAGE = window.DEFAULT_REDIRECT_PAGE;
+      } else {
+        window.DEFAULT_REDIRECT_PAGE = DEFAULT_REDIRECT_PAGE;
+      }
+    }
+
     const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
     const INITIAL_RETURN_URL = <?!= JSON.stringify(initialReturnUrl || '') ?>;
     // ───────────────────────────────────────────────────────────────────────────────
@@ -2568,7 +2577,7 @@
     }
 
     function normalizeRedirectUrl(serverUrl) {
-      let page = 'dashboard';
+      let page = DEFAULT_REDIRECT_PAGE;
       const params = {};
 
       if (serverUrl) {
@@ -2583,6 +2592,11 @@
         } catch (err) {
           console.warn('Unable to parse server redirect URL. Falling back to local page builder.', err);
         }
+      }
+
+      const normalizedPage = (page || '').trim().toLowerCase();
+      if (!normalizedPage || normalizedPage === 'login' || normalizedPage === 'logout') {
+        page = DEFAULT_REDIRECT_PAGE;
       }
 
       return stripTokenFromUrl(buildPageUrl(page, params));
