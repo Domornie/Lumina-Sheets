@@ -503,8 +503,10 @@ var AuthenticationService = (function () {
         let rowChanged = false;
         let hashValue = hashIndex === -1 ? '' : String(row[hashIndex] || '').trim();
         let saltValue = saltIndex === -1 ? '' : String(row[saltIndex] || '').trim();
+        const hadHash = !!hashValue;
+        const hadSalt = !!saltValue;
 
-        if (!hashValue || !saltValue) {
+        if (!hadHash || !hadSalt) {
           try {
             const freshSalt = generateTokenSalt();
             const freshHash = computeSessionTokenHash(normalizedToken, freshSalt);
@@ -522,7 +524,10 @@ var AuthenticationService = (function () {
           }
         }
 
-        if (row[tokenIndex]) {
+        hashValue = hashIndex === -1 ? hashValue : String(row[hashIndex] || '').trim();
+        saltValue = saltIndex === -1 ? saltValue : String(row[saltIndex] || '').trim();
+
+        if ((!hashValue || !saltValue) && row[tokenIndex]) {
           row[tokenIndex] = '';
           rowChanged = true;
         }
@@ -835,10 +840,6 @@ var AuthenticationService = (function () {
           setRecordValue(record, 'TokenSalt', salt);
           setRecordValue(record, 'TokenHash', hash);
         }
-      }
-
-      if (getRecordValue(record, 'Token')) {
-        setRecordValue(record, 'Token', '');
       }
 
       try {
@@ -3866,7 +3867,7 @@ var AuthenticationService = (function () {
         : null;
 
       const sessionRecord = {
-        Token: '',
+        Token: token,
         TokenHash: tokenHash,
         TokenSalt: salt,
         UserId: userId,
