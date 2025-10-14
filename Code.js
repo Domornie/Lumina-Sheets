@@ -981,8 +981,9 @@ function authenticateUser(e) {
 }
 
 function getAuthenticatedUrl(page, campaignId, additionalParams = {}) {
-  let url = SCRIPT_URL;
-  var queryParts = [];
+  const baseUrl = getBaseUrl();
+  const url = baseUrl || SCRIPT_URL || '';
+  const queryParts = [];
 
   if (page) {
     queryParts.push('page=' + encodeURIComponent(page));
@@ -999,35 +1000,96 @@ function getAuthenticatedUrl(page, campaignId, additionalParams = {}) {
     }
   });
 
-  if (queryParts.length > 0) {
-    return url + '?' + queryParts.join('&');
+  if (!url) {
+    return queryParts.length ? ('?' + queryParts.join('&')) : '';
   }
 
-  return url;
+  if (queryParts.length === 0) {
+    return url;
+  }
+
+  const separator = url.indexOf('?') === -1 ? '?' : '&';
+  return url + separator + queryParts.join('&');
 }
 
 function getBaseUrl() {
+  function normalizeWebAppUrl(candidate) {
+    if (!candidate) {
+      return '';
+    }
+
+    try {
+      const raw = String(candidate).trim();
+      if (!raw) {
+        return '';
+      }
+
+      // Ensure we always point to an /exec deployment and not the editor-facing /dev URL
+      const normalized = raw.replace(/\/dev(\?|$)/i, '/exec$1');
+
+      if (/usercodeapppanel/i.test(normalized)) {
+        return normalized.replace(/\/userCodeAppPanel.*$/i, '/exec');
+      }
+
+      return normalized;
+    } catch (error) {
+      console.warn('getBaseUrl: unable to normalize candidate URL', error);
+      return '';
+    }
+  }
+
+  const candidates = [];
+  const seen = new Set();
+
+  function pushCandidate(value, label) {
+    try {
+      const normalized = normalizeWebAppUrl(value);
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        candidates.push(normalized);
+      }
+    } catch (err) {
+      if (label) {
+        console.warn('getBaseUrl: failed to add candidate from ' + label, err);
+      } else {
+        console.warn('getBaseUrl: failed to add candidate', err);
+      }
+    }
+  }
+
   try {
     if (typeof resolveScriptUrl === 'function') {
-      const resolved = resolveScriptUrl();
-      if (resolved) {
-        return resolved;
-      }
+      pushCandidate(resolveScriptUrl(), 'resolveScriptUrl');
     }
   } catch (err) {
     console.warn('getBaseUrl: resolveScriptUrl failed', err);
   }
 
   if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
-    return SCRIPT_URL;
+    pushCandidate(SCRIPT_URL, 'SCRIPT_URL');
   }
 
   try {
-    return ScriptApp.getService().getUrl();
+    if (typeof ScriptApp !== 'undefined' && ScriptApp && ScriptApp.getService) {
+      const serviceUrl = ScriptApp.getService().getUrl();
+      if (serviceUrl) {
+        pushCandidate(serviceUrl, 'ScriptApp');
+      }
+    }
   } catch (error) {
-    console.warn('getBaseUrl: unable to determine script URL', error);
+    console.warn('getBaseUrl: unable to determine script URL via ScriptApp', error);
+  }
+
+  if (!candidates.length) {
     return '';
   }
+
+  // Prefer an /exec deployment if available.
+  const execCandidate = candidates.find(function (candidate) {
+    return /\/exec(\?|$)/i.test(candidate);
+  });
+
+  return execCandidate || candidates[0] || '';
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
