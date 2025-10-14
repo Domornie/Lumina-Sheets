@@ -4074,13 +4074,40 @@ function getUsers() {
     const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
     const managerId = currentUser && currentUser.ID ? currentUser.ID : null;
     const managerCampaignId = currentUser ? (currentUser.CampaignID || currentUser.campaignId || '') : '';
+    const isAdmin = isUserAdmin(currentUser);
 
-    const users = getUsersByManager(managerId, {
+    let users = getUsersByManager(managerId, {
       includeManager: true,
       fallbackToCampaign: true,
-      fallbackToAll: true,
+      fallbackToAll: isAdmin,
       managerCampaignId: managerCampaignId
     });
+
+    if (!isAdmin) {
+      const managerIdStr = managerId ? String(managerId) : '';
+      const normalizedCampaignId = managerCampaignId ? String(managerCampaignId) : '';
+
+      if (normalizedCampaignId) {
+        const scopedUsers = users.filter(function (user) {
+          const userCampaignId = String(user && (user.CampaignID || user.campaignId) || '');
+          const userId = String(user && (user.ID || user.Id || user.id) || '');
+          if (managerIdStr && userId === managerIdStr) return true;
+          return userCampaignId === normalizedCampaignId;
+        });
+
+        if (scopedUsers.length) {
+          users = scopedUsers;
+        } else if (managerIdStr) {
+          const managerUser = users.find(function (user) {
+            const userId = String(user && (user.ID || user.Id || user.id) || '');
+            return userId === managerIdStr;
+          });
+          users = managerUser ? [managerUser] : [];
+        } else {
+          users = [];
+        }
+      }
+    }
 
     if (users.length) {
       console.log('Final user list:', users.length, 'users');
