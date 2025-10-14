@@ -18,40 +18,77 @@ const FALLBACK_TO_MAIN_SPREADSHEET = true;
  * Get the Schedule Management spreadsheet
  * Returns the dedicated schedule spreadsheet if ID is configured, otherwise falls back to main/active spreadsheet
  */
-function getScheduleSpreadsheet() {
+function normalizeSpreadsheetId(spreadsheetId) {
+  return (typeof spreadsheetId === 'string' ? spreadsheetId.trim() : '') || '';
+}
+
+function isPlaceholderSpreadsheetId(spreadsheetId) {
+  if (!spreadsheetId) {
+    return true;
+  }
+
+  const normalized = spreadsheetId.toLowerCase();
+  return normalized.includes('todo') || normalized.includes('replace') || normalized.includes('your');
+}
+
+function getScheduleSpreadsheetIdCandidates() {
+  const candidates = [];
+
+  const normalizedConstantId = normalizeSpreadsheetId(SCHEDULE_SPREADSHEET_ID);
+  if (normalizedConstantId && !isPlaceholderSpreadsheetId(normalizedConstantId)) {
+    candidates.push(normalizedConstantId);
+  }
+
   try {
-    // First, try to use the dedicated schedule spreadsheet ID
-    if (SCHEDULE_SPREADSHEET_ID && SCHEDULE_SPREADSHEET_ID.trim() !== '') {
-      console.log('Using dedicated schedule spreadsheet:', SCHEDULE_SPREADSHEET_ID);
-      return SpreadsheetApp.openById(SCHEDULE_SPREADSHEET_ID);
+    if (typeof PropertiesService !== 'undefined') {
+      const properties = PropertiesService.getScriptProperties();
+      const propertyIds = [
+        normalizeSpreadsheetId(properties.getProperty('SCHEDULE_SPREADSHEET_ID')),
+        normalizeSpreadsheetId(properties.getProperty('MAIN_SPREADSHEET_ID'))
+      ];
+      propertyIds.filter(Boolean).forEach(id => candidates.push(id));
     }
-
-    // Fallback: Try to use the main spreadsheet ID if available
-    if (FALLBACK_TO_MAIN_SPREADSHEET) {
-      // Check if MAIN_SPREADSHEET_ID is available from the global scope
-      if (typeof G !== 'undefined' && G.MAIN_SPREADSHEET_ID && G.MAIN_SPREADSHEET_ID.trim() !== '') {
-        console.log('Using main spreadsheet for schedules:', G.MAIN_SPREADSHEET_ID);
-        return SpreadsheetApp.openById(G.MAIN_SPREADSHEET_ID);
-      }
-
-      // Final fallback: Use the active spreadsheet
-      console.log('Using active spreadsheet for schedules (fallback)');
-      return SpreadsheetApp.getActiveSpreadsheet();
-    } else {
-      throw new Error('SCHEDULE_SPREADSHEET_ID not configured and fallback disabled');
-    }
-
   } catch (error) {
-    console.error('Error accessing schedule spreadsheet:', error);
+    console.warn('Unable to read schedule spreadsheet ID from script properties:', error && error.message ? error.message : error);
+  }
 
-    // Emergency fallback to active spreadsheet
-    if (FALLBACK_TO_MAIN_SPREADSHEET) {
-      console.log('Emergency fallback to active spreadsheet');
-      return SpreadsheetApp.getActiveSpreadsheet();
-    } else {
-      throw new Error(`Cannot access schedule spreadsheet: ${error.message}`);
+  if (typeof G !== 'undefined' && G) {
+    const globalIds = [
+      normalizeSpreadsheetId(G.SCHEDULE_SPREADSHEET_ID),
+      normalizeSpreadsheetId(G.MAIN_SPREADSHEET_ID)
+    ];
+    globalIds.filter(Boolean).forEach(id => candidates.push(id));
+  }
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function getScheduleSpreadsheet() {
+  const candidates = getScheduleSpreadsheetIdCandidates();
+
+  for (let index = 0; index < candidates.length; index++) {
+    const candidateId = candidates[index];
+    try {
+      console.log('Using schedule spreadsheet candidate:', candidateId);
+      return SpreadsheetApp.openById(candidateId);
+    } catch (error) {
+      console.warn(`Unable to open schedule spreadsheet ${candidateId}:`, error && error.message ? error.message : error);
     }
   }
+
+  if (FALLBACK_TO_MAIN_SPREADSHEET) {
+    try {
+      const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      if (activeSpreadsheet) {
+        console.log('Using active spreadsheet for schedules (fallback)');
+        return activeSpreadsheet;
+      }
+    } catch (error) {
+      console.warn('Active spreadsheet unavailable for schedules:', error && error.message ? error.message : error);
+    }
+  }
+
+  throw new Error('Schedule spreadsheet not configured or accessible. Set SCHEDULE_SPREADSHEET_ID or configure the script property SCHEDULE_SPREADSHEET_ID / MAIN_SPREADSHEET_ID.');
 }
 
 /**
@@ -60,10 +97,12 @@ function getScheduleSpreadsheet() {
  */
 function validateScheduleSpreadsheetConfig() {
   try {
+    const candidates = getScheduleSpreadsheetIdCandidates();
     const config = {
-      hasScheduleSpreadsheetId: SCHEDULE_SPREADSHEET_ID && SCHEDULE_SPREADSHEET_ID.trim() !== '',
+      hasScheduleSpreadsheetId: candidates.length > 0,
       scheduleSpreadsheetId: SCHEDULE_SPREADSHEET_ID,
       fallbackEnabled: FALLBACK_TO_MAIN_SPREADSHEET,
+      candidateSpreadsheetIds: candidates,
       currentSpreadsheet: null,
       spreadsheetName: '',
       canAccess: false
