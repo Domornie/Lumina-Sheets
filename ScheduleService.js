@@ -254,7 +254,7 @@ function clientCreateShiftSlot(slotData) {
       NotificationLead: toNumber(slotData.notificationLead, 24),
       HandoverTime: toNumber(slotData.handoverTime, 15),
       OvertimePolicy: slotData.overtimePolicy || slotData.otPolicy || 'LIMITED_30',
-      IsActive: true,
+      IsActive: toBoolean(slotData.isActive, true),
       CreatedBy: slotData.createdBy || 'System',
       CreatedAt: now,
       UpdatedAt: now
