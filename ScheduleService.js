@@ -386,6 +386,66 @@ function clientCreateEnhancedShiftSlot(slotData) {
   return clientCreateShiftSlot(slotData);
 }
 
+function clientDeleteShiftSlot(slotId) {
+  try {
+    console.log('🗑️ Deleting shift slot:', slotId);
+
+    if (!slotId) {
+      throw new Error('Shift slot ID is required');
+    }
+
+    const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow <= 1) {
+      return {
+        success: false,
+        error: 'No shift slots available to delete'
+      };
+    }
+
+    const idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    const normalizedTargetId = String(slotId).trim();
+    let deleted = false;
+
+    for (let index = 0; index < idValues.length; index++) {
+      const rowId = idValues[index][0];
+      if (rowId && String(rowId).trim() === normalizedTargetId) {
+        sheet.deleteRow(index + 2);
+        deleted = true;
+        break;
+      }
+    }
+
+    if (!deleted) {
+      return {
+        success: false,
+        error: 'Shift slot not found'
+      };
+    }
+
+    SpreadsheetApp.flush();
+    invalidateScheduleCaches();
+
+    return {
+      success: true,
+      message: 'Shift slot deleted successfully',
+      deleted: 1,
+      slotId: slotId
+    };
+
+  } catch (error) {
+    console.error('❌ Error deleting shift slot:', error);
+    if (typeof safeWriteError === 'function') {
+      safeWriteError('clientDeleteShiftSlot', error);
+    }
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 function buildManagedUserSet(managerId) {
   const managedUserIds = getDirectManagedUserIds(managerId);
   const normalizedManagerId = normalizeUserIdValue(managerId);
