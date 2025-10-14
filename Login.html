@@ -69,6 +69,17 @@
 
     .page-wrapper {
       min-height: 100vh;
+      height: 100vh;
+      max-width: 100vw;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .page-wrapper > .row {
+      flex: 1;
+      height: 100%;
+      margin: 0;
     }
 
     /* Modern Background with subtle pattern */
@@ -97,6 +108,7 @@
       position: relative;
       overflow: hidden;
       min-height: 100vh;
+      height: 100%;
     }
 
     .feature-panel::before,
@@ -200,6 +212,9 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .form-column::before {
@@ -693,8 +708,20 @@
         overflow: auto;
       }
 
+      .page-wrapper {
+        height: auto;
+        overflow: visible;
+        display: block;
+      }
+
+      .page-wrapper > .row {
+        height: auto;
+      }
+
       .form-column {
         min-height: auto;
+        height: auto;
+        overflow-y: visible;
       }
     }
 
@@ -779,6 +806,23 @@
       transform: translateY(-1px);
     }
 
+    .security-tagline {
+      margin-top: 2rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .security-tagline .fa-lock {
+      color: var(--primary-blue);
+    }
+
     /* Responsive Design */
     @media (max-width: 767.98px) {
       .form-column {
@@ -840,7 +884,7 @@
 <body class="bg-light">
 
   <div class="container-fluid h-100 page-wrapper">
-    <div class="row h-100">
+    <div class="row h-100 g-0 align-items-stretch">
 
       <!-- LEFT: Hero / Feature Panel -->
       <div class="col-lg-5 d-none d-lg-flex align-items-center justify-content-center feature-panel">
@@ -990,6 +1034,11 @@
 
           <p class="consent-text text-center">
             By clicking <strong>Log in</strong>, you agree to our <a href="<?= baseUrl ?>?page=terms-of-service" target="_blank" rel="noopener">Terms &amp; Conditions</a> and acknowledge our <a href="<?= baseUrl ?>?page=privacy-policy" target="_blank" rel="noopener">Privacy Policy</a> on how we collect and handle data.
+          </p>
+
+          <p class="security-tagline">
+            <i class="fas fa-lock"></i>
+            Secure by Lumina Identity
           </p>
 
           <div class="footer-links text-center mt-4">
