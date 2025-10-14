@@ -1007,9 +1007,19 @@
   </div>
 
   <script>
-    const DEFAULT_REDIRECT_PAGE = 'dashboard';
-    if (typeof window !== 'undefined') {
-      window.DEFAULT_REDIRECT_PAGE = DEFAULT_REDIRECT_PAGE;
+    function getDefaultRedirectPage() {
+      if (typeof window === 'undefined') {
+        return 'dashboard';
+      }
+
+      var existing = window.DEFAULT_REDIRECT_PAGE;
+      if (typeof existing === 'string' && existing.trim()) {
+        return existing;
+      }
+
+      var fallback = 'dashboard';
+      window.DEFAULT_REDIRECT_PAGE = fallback;
+      return fallback;
     }
 
     const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson ?>;
@@ -2575,7 +2585,7 @@
     const DEFAULT_REDIRECT_PAGE = 'dashboard';
 
     function normalizeRedirectUrl(serverUrl) {
-      let page = DEFAULT_REDIRECT_PAGE;
+      let page = getDefaultRedirectPage();
       const params = {};
 
       if (serverUrl) {
@@ -2594,7 +2604,7 @@
 
       const normalizedPage = (page || '').trim().toLowerCase();
       if (!normalizedPage || normalizedPage === 'login' || normalizedPage === 'logout') {
-        page = DEFAULT_REDIRECT_PAGE;
+        page = getDefaultRedirectPage();
       }
 
       return stripTokenFromUrl(buildPageUrl(page, params));
