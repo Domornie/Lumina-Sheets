@@ -180,7 +180,7 @@ const HOLIDAYS_SHEET = "Holidays";
 // ────────────────────────────────────────────────────────────────────────────
 
 const SCHEDULE_GENERATION_HEADERS = [
-  'ID', 'UserID', 'UserName', 'Date', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
+  'ID', 'UserID', 'UserName', 'Date', 'PeriodStart', 'PeriodEnd', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
   'OriginalStartTime', 'OriginalEndTime', 'BreakStart', 'BreakEnd', 'LunchStart', 'LunchEnd',
   'IsDST', 'Status', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
   'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department'
@@ -1237,12 +1237,48 @@ function getAttendanceUserList() {
 /**
  * Check if schedule exists for user on date
  */
-function checkExistingSchedule(userName, date) {
+function checkExistingSchedule(userName, periodStart, periodEnd) {
   try {
     const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    return schedules.find(s => s.UserName === userName && s.Date === date);
+    const requestedStart = normalizeScheduleDate(periodStart);
+    const requestedEnd = normalizeScheduleDate(periodEnd || periodStart);
+
+    if (!requestedStart || !requestedEnd) {
+      return null;
+    }
+
+    return schedules.find(schedule => {
+      if (schedule.UserName !== userName) {
+        return false;
+      }
+
+      const existingStart = normalizeScheduleDate(schedule.PeriodStart || schedule.Date);
+      const existingEnd = normalizeScheduleDate(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart);
+
+      if (!existingStart || !existingEnd) {
+        return false;
+      }
+
+      return existingStart <= requestedEnd && existingEnd >= requestedStart;
+    }) || null;
   } catch (error) {
     console.warn('Error checking existing schedule:', error);
+    return null;
+  }
+}
+
+function normalizeScheduleDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+    return date;
+  } catch (error) {
     return null;
   }
 }
