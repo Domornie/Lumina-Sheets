@@ -1507,6 +1507,19 @@
       this.viewMode = 'standard';
       this.charts = {};
       this.performanceMetrics = { loadStartTime: Date.now(), apiCalls: 0, errors: 0 };
+      this.availablePeriods = {};
+      this.granularityOrder = ['Week', 'BiWeekly', 'Month', 'Quarter', 'Year'];
+      this.granularityDisplay = {
+        Week: '📅 Weekly',
+        BiWeekly: '📅 Bi-Weekly',
+        Month: '📆 Monthly',
+        Quarter: '📋 Quarterly',
+        Year: '📊 Yearly'
+      };
+      this.periodTimezoneInfo = {
+        timezone: window.COMPANY_TIMEZONE || COMPANY_TIMEZONE,
+        label: window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || window.COMPANY_TIMEZONE || COMPANY_TIMEZONE
+      };
 
       this.pagination = {
         currentPage: 1,
@@ -1529,6 +1542,7 @@
       if (window.INITIAL_ATTENDANCE_DATA && Object.keys(window.INITIAL_ATTENDANCE_DATA).length) {
         try {
           this.currentData = JSON.parse(JSON.stringify(window.INITIAL_ATTENDANCE_DATA));
+          this.refreshDynamicFilters();
           this.renderDashboard();
         } catch (bootstrapError) {
           console.warn('Unable to bootstrap dashboard from initial data:', bootstrapError);
@@ -1556,10 +1570,23 @@
         this.updateViewMode();
       });
 
-      document.getElementById('weekInput').addEventListener('change', (e) => {
-        this.currentPeriod = e.target.value;
-        this.loadDataDebounced();
-      });
+      const periodSelector = document.getElementById('periodSelector');
+      if (periodSelector) {
+        periodSelector.addEventListener('change', (event) => {
+          const target = event.target;
+          if (!target || typeof target.value !== 'string') {
+            return;
+          }
+
+          const newValue = target.value.trim();
+          if (!newValue) {
+            return;
+          }
+
+          this.currentPeriod = newValue;
+          this.loadDataDebounced();
+        });
+      }
     }
 
     initializeControls() {
@@ -1579,6 +1606,8 @@
 
       this.loadUserList();
       this.updateViewMode();
+      this.updateGranularityOptions();
+      this.updatePeriodSelector();
     }
 
     showToast(message, type) {
@@ -1658,96 +1687,394 @@
       }
     }
 
-    updatePeriodSelector() {
-      const selector = document.getElementById('periodSelector');
-      const granularity = this.currentGranularity;
+    refreshDynamicFilters() {
+      try {
+        this.computeAvailablePeriods();
 
-      let html = '<label class="form-label fw-bold">Period</label>';
+        const info = this.currentData?.periodInfo || {};
+        if (info.timezone || info.timezoneLabel) {
+          this.periodTimezoneInfo = {
+            timezone: info.timezone || this.periodTimezoneInfo.timezone,
+            label: info.timezoneLabel || this.periodTimezoneInfo.label
+          };
+        }
 
-      switch (granularity) {
-        case 'Week':
-          html += '<input type="week" class="form-control" id="weekInput" />';
-          selector.innerHTML = html;
-          setTimeout(() => {
-            document.getElementById('weekInput').value = this.currentPeriod;
-            document.getElementById('weekInput').addEventListener('change', (e) => {
-              this.currentPeriod = e.target.value; this.loadDataDebounced();
-            });
-          }, 0);
-          break;
-        case 'BiWeekly':
-          html += '<select class="form-select" id="biweeklySelect"></select>';
-          selector.innerHTML = html;
-          setTimeout(() => this.populateBiWeeklySelect(), 0);
-          break;
-        case 'Month':
-          html += '<input type="month" class="form-control" id="monthInput" />';
-          selector.innerHTML = html;
-          setTimeout(() => {
-            const monthInput = document.getElementById('monthInput');
-            const today = new Date();
-            this.currentPeriod = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-            monthInput.value = this.currentPeriod;
-            monthInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
-          }, 0);
-          break;
-        case 'Quarter':
-          html += '<select class="form-select" id="quarterSelect"></select>';
-          selector.innerHTML = html;
-          setTimeout(() => this.populateQuarterSelect(), 0);
-          break;
-        case 'Year':
-          html += '<input type="number" class="form-control" id="yearInput" min="2020" max="2030" value="2024" />';
-          selector.innerHTML = html;
-          setTimeout(() => {
-            const yearInput = document.getElementById('yearInput');
-            this.currentPeriod = yearInput.value;
-            yearInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
-          }, 0);
-          break;
+        if (info.granularity && typeof info.granularity === 'string') {
+          this.currentGranularity = info.granularity;
+        }
+
+        if (info.periodId && typeof info.periodId === 'string') {
+          this.currentPeriod = info.periodId;
+        } else if (!this.currentPeriod) {
+          this.currentPeriod = this.getDefaultPeriodValue(this.currentGranularity);
+        }
+
+        this.updateGranularityOptions();
+        this.updatePeriodSelector();
+      } catch (error) {
+        console.error('Error refreshing dynamic filters:', error);
       }
     }
 
-    populateBiWeeklySelect() {
-      const select = document.getElementById('biweeklySelect');
-      const currentYear = new Date().getFullYear();
-      select.innerHTML = '';
-      for (let i = 1; i <= 26; i++) {
-        const option = document.createElement('option');
-        option.value = `${currentYear}-BW${i.toString().padStart(2, '0')}`;
-        option.textContent = `Bi-Week ${i} - ${currentYear}`;
-        select.appendChild(option);
-      }
-      this.currentPeriod = select.value;
-      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
-    }
+    computeAvailablePeriods() {
+      const resultSets = {};
+      this.granularityOrder.forEach(granularity => { resultSets[granularity] = new Set(); });
 
-    populateQuarterSelect() {
-      const select = document.getElementById('quarterSelect');
-      if (!select) return;
+      const info = this.currentData?.periodInfo || {};
+      const timezone = info.timezone || this.periodTimezoneInfo.timezone || COMPANY_TIMEZONE;
+      const timezoneLabel = info.timezoneLabel || this.periodTimezoneInfo.label || COMPANY_TIMEZONE_LABEL || timezone;
 
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
-      const defaultValue = `Q${currentQuarter}-${currentYear}`;
+      const addDateKey = (dateKey) => {
+        if (!dateKey || typeof dateKey !== 'string') return;
+        const parts = dateKey.split('-').map(Number);
+        if (parts.length < 3 || parts.some(part => !Number.isFinite(part))) return;
+        const [year, month, day] = parts;
+        const utcDate = new Date(Date.UTC(year, month - 1, day));
+        const isoWeek = this.getISOWeekParts(utcDate);
+        const isoWeekValue = `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+        resultSets.Week.add(isoWeekValue);
 
-      select.innerHTML = '';
+        const biWeekIndex = Math.floor((isoWeek.week - 1) / 2) + 1;
+        const biWeekValue = `${isoWeek.year}-BW${String(biWeekIndex).padStart(2, '0')}`;
+        resultSets.BiWeekly.add(biWeekValue);
 
-      for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-        for (let quarter = 1; quarter <= 4; quarter++) {
-          const option = document.createElement('option');
-          option.value = `Q${quarter}-${year}`;
-          option.textContent = `Q${quarter} ${year}`;
-          select.appendChild(option);
+        const monthValue = `${year}-${String(month).padStart(2, '0')}`;
+        resultSets.Month.add(monthValue);
+
+        const quarter = Math.floor((month - 1) / 3) + 1;
+        const quarterValue = `Q${quarter}-${year}`;
+        resultSets.Quarter.add(quarterValue);
+
+        resultSets.Year.add(`${year}`);
+      };
+
+      const rows = Array.isArray(this.currentData?.filteredRows) ? this.currentData.filteredRows : [];
+      rows.forEach(row => {
+        const dateKey = this.extractDateKeyFromRow(row, timezone);
+        if (dateKey) addDateKey(dateKey);
+      });
+
+      const dailyMetrics = Array.isArray(this.currentData?.dailyMetrics) ? this.currentData.dailyMetrics : [];
+      dailyMetrics.forEach(metric => {
+        if (metric && typeof metric.date === 'string') {
+          addDateKey(metric.date);
+        }
+      });
+
+      if (Object.values(resultSets).every(set => set.size === 0) && info.startDateIso && info.endDateIso) {
+        const start = new Date(info.startDateIso);
+        const end = new Date(info.endDateIso);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          const cursor = new Date(start);
+          while (cursor <= end) {
+            const dateKey = cursor.toLocaleDateString('en-CA', { timeZone: timezone });
+            addDateKey(dateKey);
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+          }
         }
       }
 
-      if ([...select.options].some((opt) => opt.value === defaultValue)) {
-        select.value = defaultValue;
+      const sorted = {};
+      this.granularityOrder.forEach(granularity => {
+        const values = Array.from(resultSets[granularity]);
+        values.sort((a, b) => this.getPeriodSortKey(granularity, b) - this.getPeriodSortKey(granularity, a));
+        sorted[granularity] = values;
+      });
+
+      this.availablePeriods = sorted;
+      this.periodTimezoneInfo = { timezone, label: timezoneLabel };
+    }
+
+    extractDateKeyFromRow(row, timezone) {
+      if (!row || typeof row !== 'object') return null;
+
+      if (typeof row.dateString === 'string' && row.dateString) {
+        return row.dateString;
       }
 
-      this.currentPeriod = select.value;
-      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+      const timestamp = typeof row.timestampMs === 'number' && Number.isFinite(row.timestampMs)
+        ? row.timestampMs
+        : (row.timestamp instanceof Date
+          ? row.timestamp.getTime()
+          : (typeof row.timestamp === 'string' || typeof row.timestamp === 'number')
+            ? Number(new Date(row.timestamp))
+            : null);
+
+      if (!Number.isFinite(timestamp)) {
+        return null;
+      }
+
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return null;
+      }
+
+      return date.toLocaleDateString('en-CA', { timeZone: timezone || this.periodTimezoneInfo.timezone || COMPANY_TIMEZONE });
+    }
+
+    getAvailableGranularities() {
+      const info = this.currentData?.periodInfo || {};
+      if (Array.isArray(info.supportedGranularities) && info.supportedGranularities.length) {
+        return info.supportedGranularities.filter(g => typeof g === 'string');
+      }
+
+      const populated = this.granularityOrder.filter(granularity => {
+        const list = this.availablePeriods?.[granularity];
+        return Array.isArray(list) && list.length > 0;
+      });
+
+      return populated.length ? populated : [...this.granularityOrder];
+    }
+
+    updateGranularityOptions() {
+      const select = document.getElementById('granularitySelect');
+      if (!select) return;
+
+      const availableGranularities = this.getAvailableGranularities();
+      select.innerHTML = '';
+
+      availableGranularities.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = this.granularityDisplay[value] || value;
+        select.appendChild(option);
+      });
+
+      if (!availableGranularities.includes(this.currentGranularity)) {
+        this.currentGranularity = availableGranularities[0] || 'Week';
+      }
+
+      select.value = this.currentGranularity;
+    }
+
+    getAvailablePeriodsForGranularity(granularity) {
+      const list = this.availablePeriods?.[granularity];
+      if (Array.isArray(list) && list.length) {
+        return [...list];
+      }
+      return [];
+    }
+
+    getDefaultPeriodValue(granularity) {
+      const info = this.currentData?.periodInfo || {};
+      if (info.periodId && info.granularity === granularity) {
+        return info.periodId;
+      }
+
+      const tz = info.timezone || this.periodTimezoneInfo.timezone || COMPANY_TIMEZONE;
+      const dateKey = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+      const parts = dateKey.split('-').map(Number);
+      const [year, month, day] = parts.length === 3 ? parts : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()];
+      const utcDate = new Date(Date.UTC(year, month - 1, day));
+      const isoWeek = this.getISOWeekParts(utcDate);
+
+      switch (granularity) {
+        case 'Week':
+          return `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+        case 'BiWeekly': {
+          const biWeekIndex = Math.floor((isoWeek.week - 1) / 2) + 1;
+          return `${isoWeek.year}-BW${String(biWeekIndex).padStart(2, '0')}`;
+        }
+        case 'Month':
+          return `${year}-${String(month).padStart(2, '0')}`;
+        case 'Quarter': {
+          const quarter = Math.floor((month - 1) / 3) + 1;
+          return `Q${quarter}-${year}`;
+        }
+        case 'Year':
+          return `${year}`;
+        default:
+          return `${isoWeek.year}-W${String(isoWeek.week).padStart(2, '0')}`;
+      }
+    }
+
+    formatPeriodLabel(granularity, value) {
+      const tz = this.periodTimezoneInfo.timezone || COMPANY_TIMEZONE;
+      const labelFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: tz });
+      const monthYearFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: tz });
+
+      if (!value || typeof value !== 'string') {
+        return 'Unknown Period';
+      }
+
+      try {
+        if (granularity === 'Week') {
+          const match = value.match(/^(\d{4})-W(\d{2})$/);
+          if (match) {
+            const year = Number(match[1]);
+            const week = Number(match[2]);
+            const start = this.getStartDateOfISOWeek(year, week);
+            const end = new Date(start);
+            end.setUTCDate(end.getUTCDate() + 6);
+            return `Week ${String(week).padStart(2, '0')} · ${year} (${labelFormatter.format(start)} - ${labelFormatter.format(end)})`;
+          }
+        } else if (granularity === 'BiWeekly') {
+          const match = value.match(/^(\d{4})-BW(\d{2})$/);
+          if (match) {
+            const year = Number(match[1]);
+            const slot = Number(match[2]);
+            const startingWeek = (slot - 1) * 2 + 1;
+            const start = this.getStartDateOfISOWeek(year, startingWeek);
+            const end = new Date(start);
+            end.setUTCDate(end.getUTCDate() + 13);
+            return `Bi-Week ${String(slot).padStart(2, '0')} · ${year} (${labelFormatter.format(start)} - ${labelFormatter.format(end)})`;
+          }
+        } else if (granularity === 'Month') {
+          const match = value.match(/^(\d{4})-(\d{2})$/);
+          if (match) {
+            const year = Number(match[1]);
+            const month = Number(match[2]) - 1;
+            const date = new Date(Date.UTC(year, month, 1));
+            return monthYearFormatter.format(date);
+          }
+        } else if (granularity === 'Quarter') {
+          const match = value.match(/^Q(\d)-(\d{4})$/);
+          if (match) {
+            const quarter = Number(match[1]);
+            const year = Number(match[2]);
+            const startMonth = (quarter - 1) * 3;
+            const start = new Date(Date.UTC(year, startMonth, 1));
+            const end = new Date(Date.UTC(year, startMonth + 3, 0));
+            return `Q${quarter} · ${year} (${labelFormatter.format(start)} - ${labelFormatter.format(end)})`;
+          }
+        } else if (granularity === 'Year') {
+          if (/^\d{4}$/.test(value)) {
+            return value;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not format period label', granularity, value, error);
+      }
+
+      return value;
+    }
+
+    getPeriodSortKey(granularity, value) {
+      const startDate = this.getPeriodStartDate(granularity, value);
+      return startDate ? startDate.getTime() : Number.NEGATIVE_INFINITY;
+    }
+
+    getPeriodStartDate(granularity, value) {
+      if (!value) return null;
+
+      if (granularity === 'Week') {
+        const match = value.match(/^(\d{4})-W(\d{2})$/);
+        if (match) {
+          return this.getStartDateOfISOWeek(Number(match[1]), Number(match[2]));
+        }
+      } else if (granularity === 'BiWeekly') {
+        const match = value.match(/^(\d{4})-BW(\d{2})$/);
+        if (match) {
+          const year = Number(match[1]);
+          const slot = Number(match[2]);
+          const startingWeek = (slot - 1) * 2 + 1;
+          return this.getStartDateOfISOWeek(year, startingWeek);
+        }
+      } else if (granularity === 'Month') {
+        const match = value.match(/^(\d{4})-(\d{2})$/);
+        if (match) {
+          const year = Number(match[1]);
+          const month = Number(match[2]) - 1;
+          return new Date(Date.UTC(year, month, 1));
+        }
+      } else if (granularity === 'Quarter') {
+        const match = value.match(/^Q(\d)-(\d{4})$/);
+        if (match) {
+          const quarter = Number(match[1]);
+          const year = Number(match[2]);
+          const startMonth = (quarter - 1) * 3;
+          return new Date(Date.UTC(year, startMonth, 1));
+        }
+      } else if (granularity === 'Year') {
+        if (/^\d{4}$/.test(value)) {
+          return new Date(Date.UTC(Number(value), 0, 1));
+        }
+      }
+
+      return null;
+    }
+
+    getStartDateOfISOWeek(year, week) {
+      if (!Number.isFinite(year) || !Number.isFinite(week)) return null;
+      const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+      const dayOfWeek = simple.getUTCDay();
+      const isoWeekStart = new Date(simple);
+      const diff = dayOfWeek <= 4
+        ? 1 - dayOfWeek
+        : 8 - dayOfWeek;
+      isoWeekStart.setUTCDate(simple.getUTCDate() + diff);
+      return isoWeekStart;
+    }
+
+    getISOWeekParts(date) {
+      const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+      return { year: d.getUTCFullYear(), week: weekNo };
+    }
+
+    updatePeriodSelector() {
+      const selector = document.getElementById('periodSelector');
+      if (!selector) return;
+
+      const granularity = this.currentGranularity;
+      const available = this.getAvailablePeriodsForGranularity(granularity);
+
+      selector.innerHTML = '';
+
+      const label = document.createElement('label');
+      label.className = 'form-label fw-bold';
+      label.textContent = 'Period';
+      selector.appendChild(label);
+
+      if (available.length > 0) {
+        if (!this.currentPeriod || !available.includes(this.currentPeriod)) {
+          this.currentPeriod = available[0];
+        }
+
+        const select = document.createElement('select');
+        select.className = 'form-select';
+        select.id = 'periodValueSelect';
+
+        available.forEach(value => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = this.formatPeriodLabel(granularity, value);
+          select.appendChild(option);
+        });
+
+        select.value = this.currentPeriod;
+        selector.appendChild(select);
+      } else {
+        const fallback = document.createElement('input');
+        fallback.className = 'form-control';
+
+        const defaultValue = this.currentPeriod || this.getDefaultPeriodValue(granularity);
+
+        if (granularity === 'Week') {
+          fallback.type = 'week';
+          fallback.id = 'weekInput';
+        } else if (granularity === 'Month') {
+          fallback.type = 'month';
+          fallback.id = 'monthInput';
+        } else if (granularity === 'Year') {
+          fallback.type = 'number';
+          fallback.id = 'yearInput';
+          const currentYear = new Date().getFullYear();
+          fallback.min = String(currentYear - 5);
+          fallback.max = String(currentYear + 5);
+        } else {
+          fallback.type = 'text';
+          fallback.id = `${granularity.toLowerCase()}Input`;
+          fallback.placeholder = granularity === 'Quarter' ? 'Q1-2024' : '';
+        }
+
+        fallback.value = defaultValue;
+        this.currentPeriod = fallback.value;
+        selector.appendChild(fallback);
+      }
     }
 
     async loadData() {
@@ -1790,6 +2117,7 @@
         }
         
         this.currentData = data;
+        this.refreshDynamicFilters();
         this.renderDashboard();
 
       } catch (error) {
@@ -2336,48 +2664,49 @@
         const container = document.getElementById('dailyBreakdownBars');
         if (!container) return;
 
-        const dailyData = this.generateDailyBreakdownData();
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const breakdown = this.generateDailyBreakdownData();
+        const entries = Array.isArray(breakdown.entries) ? breakdown.entries : [];
+        const timezoneLabel = breakdown.timezoneLabel || this.periodTimezoneInfo.label || COMPANY_TIMEZONE_LABEL || 'Company Time';
+        const timezone = breakdown.timezone || this.periodTimezoneInfo.timezone || COMPANY_TIMEZONE;
+
+        if (!entries.length) {
+          container.innerHTML = '<div class="alert alert-modern alert-info text-center" role="alert"><i class="fas fa-info-circle me-2"></i>No break or lunch activity recorded for the selected period.</div>';
+          return;
+        }
 
         const uniqueAgents = this.getUniqueAgentsCount();
         const isAllAgents = !this.currentAgent || this.currentAgent === '';
 
         let html = '<div class="row g-3">';
 
-        days.forEach(day => {
-          const dayData = dailyData[day] || {
-            lunch: { total: 0, violations: 0, users: new Set() },
-            break: { total: 0, violations: 0, users: new Set() }
-          };
+        entries.forEach(entry => {
+          const lunchMinutes = Math.round(entry.lunch.total / 60);
+          const breakMinutes = Math.round(entry.break.total / 60);
 
-          const lunchMinutes = Math.round(dayData.lunch.total / 60);
-          const breakMinutes = Math.round(dayData.break.total / 60);
+          const lunchUsers = entry.lunch.users instanceof Set
+            ? Array.from(entry.lunch.users)
+            : Array.isArray(entry.lunch.users) ? entry.lunch.users : [];
+          const breakUsers = entry.break.users instanceof Set
+            ? Array.from(entry.break.users)
+            : Array.isArray(entry.break.users) ? entry.break.users : [];
 
-          const lunchUsers = dayData.lunch.users instanceof Set
-            ? Array.from(dayData.lunch.users)
-            : Array.isArray(dayData.lunch.users) ? dayData.lunch.users : [];
-          const breakUsers = dayData.break.users instanceof Set
-            ? Array.from(dayData.break.users)
-            : Array.isArray(dayData.break.users) ? dayData.break.users : [];
-
-          let lunchAllowed, breakAllowed, displayUnit;
+          let lunchAllowed;
+          let breakAllowed;
+          let displayUnit = 'min';
 
           if (isAllAgents && uniqueAgents > 1) {
-            // For all agents, calculate based on actual users who had lunch/break that day
             const lunchUserCount = lunchUsers.length || uniqueAgents;
             const breakUserCount = breakUsers.length || uniqueAgents;
-            
-            lunchAllowed = 30 * lunchUserCount;
-            breakAllowed = 30 * breakUserCount;
-            displayUnit = '';
+
+            lunchAllowed = Math.max(30, 30 * lunchUserCount);
+            breakAllowed = Math.max(30, 30 * breakUserCount);
           } else {
             lunchAllowed = 30;
             breakAllowed = 30;
-            displayUnit = '';
           }
 
-          const lunchPercent = Math.min((lunchMinutes / lunchAllowed) * 100, 150);
-          const breakPercent = Math.min((breakMinutes / breakAllowed) * 100, 150);
+          const lunchPercent = lunchAllowed > 0 ? Math.min((lunchMinutes / lunchAllowed) * 100, 200) : 0;
+          const breakPercent = breakAllowed > 0 ? Math.min((breakMinutes / breakAllowed) * 100, 200) : 0;
 
           const lunchColor = lunchMinutes <= lunchAllowed ? '#10b981' : '#dc2626';
           const breakColor = breakMinutes <= breakAllowed ? '#10b981' : '#dc2626';
@@ -2386,14 +2715,16 @@
             <div class="col-lg col-md-6 col-sm-12">
               <div class="card h-100">
                 <div class="card-body">
-                  <h6 class="card-title text-center fw-bold">${day}</h6>
-                  
+                  <h6 class="card-title text-center fw-bold">${entry.dayName}
+                    ${entry.displayDate ? `<br><small class="text-muted">${entry.displayDate}</small>` : ''}
+                  </h6>
+
                   <div class="mb-3">
                     <div class="d-flex align-items-center justify-content-between mb-1">
                       <div class="d-flex align-items-center">
                         <i class="fas fa-utensils text-warning me-2"></i>
                         <span class="small fw-medium">Lunch</span>
-                        ${dayData.lunch.violations > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1" title="${dayData.lunch.violations} agents exceeded 30min limit"></i>` : ''}
+                        ${entry.lunch.violations > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1" title="${entry.lunch.violations} agents exceeded 30min limit"></i>` : ''}
                       </div>
                       <span class="small fw-bold" style="color: ${lunchColor};">
                         ${lunchMinutes}/${lunchAllowed} ${displayUnit}
@@ -2405,7 +2736,7 @@
                       </div>
                     </div>
                     <small class="text-muted">
-                      ${isAllAgents ? `${lunchUsers.length} users had lunch` : `30 minutes maximum per agent`}
+                      ${isAllAgents ? `${lunchUsers.length} user${lunchUsers.length === 1 ? '' : 's'} had lunch` : `30 minutes maximum per agent`}
                     </small>
                   </div>
 
@@ -2414,7 +2745,7 @@
                       <div class="d-flex align-items-center">
                         <i class="fas fa-coffee text-info me-2"></i>
                         <span class="small fw-medium">Break</span>
-                        ${dayData.break.violations > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1" title="${dayData.break.violations} agents exceeded 30min limit"></i>` : ''}
+                        ${entry.break.violations > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1" title="${entry.break.violations} agents exceeded 30min limit"></i>` : ''}
                       </div>
                       <span class="small fw-bold" style="color: ${breakColor};">
                         ${breakMinutes}/${breakAllowed} ${displayUnit}
@@ -2426,7 +2757,7 @@
                       </div>
                     </div>
                     <small class="text-muted">
-                      ${isAllAgents ? `${breakUsers.length} users had breaks` : `30 minutes maximum per agent`}
+                      ${isAllAgents ? `${breakUsers.length} user${breakUsers.length === 1 ? '' : 's'} took breaks` : `30 minutes maximum per agent`}
                     </small>
                   </div>
                 </div>
@@ -2438,10 +2769,10 @@
         html += `<div class="mt-2 text-center">
           <small class="text-info">
             <i class="fas fa-info-circle me-1"></i>
-            All durations calculated from seconds data using ${window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone'} (${window.COMPANY_TIMEZONE || COMPANY_TIMEZONE})
+            All durations calculated from seconds data using ${timezoneLabel} (${timezone})
           </small>
         </div>`;
-        
+
         container.innerHTML = html;
       } catch (error) {
         console.error('Error rendering daily breakdown bars:', error);
@@ -2481,125 +2812,133 @@
 
     generateDailyBreakdownData() {
       try {
-        const dailyData = {};
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-        const tz = (this.currentData && this.currentData.periodInfo && this.currentData.periodInfo.timezone) || COMPANY_TIMEZONE;
+        const timezone = this.periodTimezoneInfo.timezone || (this.currentData?.periodInfo?.timezone) || COMPANY_TIMEZONE;
+        const timezoneLabel = this.periodTimezoneInfo.label || (this.currentData?.periodInfo?.timezoneLabel) || COMPANY_TIMEZONE_LABEL || timezone;
 
-        // Initialize data structure
-        days.forEach(day => {
-          dailyData[day] = {
-            lunch: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() },
-            break: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() }
-          };
-        });
+        const dayMap = new Map();
+        const ensureEntry = (dateKey) => {
+          if (!dateKey || typeof dateKey !== 'string') return null;
+          if (!dayMap.has(dateKey)) {
+            const parts = dateKey.split('-').map(Number);
+            if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) {
+              return null;
+            }
 
-        if (!this.currentData?.filteredRows || !Array.isArray(this.currentData.filteredRows)) {
-          console.warn('No filtered rows available for daily breakdown');
-          return dailyData;
+            const [year, month, day] = parts;
+            const utcDate = new Date(Date.UTC(year, month - 1, day));
+            const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: timezone }).format(utcDate);
+            const displayDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: timezone }).format(utcDate);
+
+            dayMap.set(dateKey, {
+              dateKey,
+              dayName,
+              displayDate,
+              lunch: { total: 0, count: 0, violations: 0, userViolations: new Set(), users: new Set() },
+              break: { total: 0, count: 0, violations: 0, userViolations: new Set(), users: new Set() }
+            });
+          }
+          return dayMap.get(dateKey);
+        };
+
+        const info = this.currentData?.periodInfo || {};
+        if (info.startDateIso && info.endDateIso) {
+          const start = new Date(info.startDateIso);
+          const end = new Date(info.endDateIso);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            const cursor = new Date(start);
+            while (cursor <= end) {
+              const dateKey = cursor.toLocaleDateString('en-CA', { timeZone: timezone });
+              ensureEntry(dateKey);
+              cursor.setUTCDate(cursor.getUTCDate() + 1);
+            }
+          }
         }
 
-        console.log('Processing', this.currentData.filteredRows.length, 'filtered rows for agent:', this.currentAgent || 'all');
+        const rows = Array.isArray(this.currentData?.filteredRows) ? this.currentData.filteredRows : [];
+        if (rows.length === 0) {
+          console.warn('No filtered rows available for daily breakdown');
+        }
 
-        const userDailyTotals = {};
+        console.log('Processing', rows.length, 'filtered rows for agent:', this.currentAgent || 'all');
 
-        // Process each record with enhanced filtering
-        this.currentData.filteredRows.forEach(r => {
+        const userDailyTotals = new Map();
+
+        rows.forEach(row => {
           try {
-            // Skip if single agent selected and this record doesn't match
-            if (this.currentAgent && this.currentAgent !== '' && r.user !== this.currentAgent) {
+            if (this.currentAgent && this.currentAgent !== '' && row.user !== this.currentAgent) {
               return;
             }
 
-            const timestamp = new Date(r.timestampMs || r.timestamp);
-            
-            if (isNaN(timestamp.getTime())) {
-              console.warn('Invalid timestamp in record:', r);
+            const dateKey = this.extractDateKeyFromRow(row, timezone);
+            if (!dateKey) {
               return;
             }
 
-            // Get localized date and day of week
-            const localizedDateString = timestamp.toLocaleDateString('en-CA', {
-              timeZone: tz
-            });
-            const localizedDate = new Date(localizedDateString + 'T12:00:00');
-            const dayOfWeek = localizedDate.getDay();
-            
-            // Skip weekends
-            if (dayOfWeek === 0 || dayOfWeek === 6) return;
-
-            const dayName = days[dayOfWeek - 1];
-            if (!dayName) return;
-
-            const duration = r.durationSec || 0;
-            const user = r.user;
-
-            if (!user) return;
-
-            // Initialize user daily totals
-            if (!userDailyTotals[user]) {
-              userDailyTotals[user] = {};
-            }
-            if (!userDailyTotals[user][dayName]) {
-              userDailyTotals[user][dayName] = { lunch: 0, break: 0 };
+            const entry = ensureEntry(dateKey);
+            if (!entry) {
+              return;
             }
 
-            // Process lunch and break with violation tracking
-            if (r.state === 'Lunch') {
-              dailyData[dayName].lunch.total += duration;
-              dailyData[dayName].lunch.count++;
-              dailyData[dayName].lunch.users.add(user);
-              userDailyTotals[user][dayName].lunch += duration;
+            const user = row.user;
+            if (!user) {
+              return;
+            }
 
-              // Check for violations (over 30 minutes = 1800 seconds)
-              if (userDailyTotals[user][dayName].lunch > 1800) {
-                if (!dailyData[dayName].lunch.userViolations[user]) {
-                  dailyData[dayName].lunch.userViolations[user] = true;
-                  dailyData[dayName].lunch.violations++;
-                }
+            const duration = typeof row.durationSec === 'number' ? row.durationSec : Number(row.durationSec) || 0;
+
+            if (!userDailyTotals.has(user)) {
+              userDailyTotals.set(user, new Map());
+            }
+
+            const userMap = userDailyTotals.get(user);
+            if (!userMap.has(dateKey)) {
+              userMap.set(dateKey, { lunch: 0, break: 0 });
+            }
+
+            const totals = userMap.get(dateKey);
+
+            if (row.state === 'Lunch') {
+              entry.lunch.total += duration;
+              entry.lunch.count++;
+              entry.lunch.users.add(user);
+              totals.lunch += duration;
+
+              if (totals.lunch > 1800 && !entry.lunch.userViolations.has(user)) {
+                entry.lunch.userViolations.add(user);
+                entry.lunch.violations++;
               }
-            } else if (r.state === 'Break') {
-              dailyData[dayName].break.total += duration;
-              dailyData[dayName].break.count++;
-              dailyData[dayName].break.users.add(user);
-              userDailyTotals[user][dayName].break += duration;
+            } else if (row.state === 'Break') {
+              entry.break.total += duration;
+              entry.break.count++;
+              entry.break.users.add(user);
+              totals.break += duration;
 
-              // Check for violations (over 30 minutes = 1800 seconds)
-              if (userDailyTotals[user][dayName].break > 1800) {
-                if (!dailyData[dayName].break.userViolations[user]) {
-                  dailyData[dayName].break.userViolations[user] = true;
-                  dailyData[dayName].break.violations++;
-                }
+              if (totals.break > 1800 && !entry.break.userViolations.has(user)) {
+                entry.break.userViolations.add(user);
+                entry.break.violations++;
               }
             }
-
           } catch (recordError) {
-            console.error('Error processing record:', recordError, r);
+            console.error('Error processing record for daily breakdown:', recordError, row);
           }
         });
 
-        // Log summary for debugging
+        const entries = Array.from(dayMap.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
         console.log('Daily breakdown summary:');
-        days.forEach(day => {
-          const lunchMin = Math.round(dailyData[day].lunch.total / 60);
-          const breakMin = Math.round(dailyData[day].break.total / 60);
-          console.log(`${day}: Lunch ${lunchMin}m (${dailyData[day].lunch.violations} violations), Break ${breakMin}m (${dailyData[day].break.violations} violations)`);
+        entries.forEach(entry => {
+          const lunchMin = Math.round(entry.lunch.total / 60);
+          const breakMin = Math.round(entry.break.total / 60);
+          console.log(`${entry.dayName} (${entry.dateKey}): Lunch ${lunchMin}m (${entry.lunch.violations} violations), Break ${breakMin}m (${entry.break.violations} violations)`);
         });
 
-        return dailyData;
+        return { entries, timezone, timezoneLabel };
 
       } catch (error) {
         console.error('Error generating daily breakdown data:', error);
-        
-        // Return empty structure to prevent crashes
-        const emptyData = {};
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-        days.forEach(day => {
-          emptyData[day] = {
-            lunch: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() },
-            break: { total: 0, count: 0, violations: 0, userViolations: {}, users: new Set() }
-          };
-        });
-        return emptyData;
+        const timezone = this.periodTimezoneInfo.timezone || COMPANY_TIMEZONE;
+        const timezoneLabel = this.periodTimezoneInfo.label || COMPANY_TIMEZONE_LABEL || timezone;
+        return { entries: [], timezone, timezoneLabel };
       }
     }
     renderIntelligentInsights() {
