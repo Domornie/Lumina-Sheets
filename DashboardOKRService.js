@@ -7,18 +7,31 @@
 /** ─────────────────────────────────────────────────────────────────────────
  * Period helpers used server-side
  * ───────────────────────────────────────────────────────────────────────── */
+function getIsoWeekInfo(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { year: d.getFullYear(), week: weekNo };
+}
+
 function getCurrentPeriod(granularity) {
   const now = new Date();
   if (granularity === 'Week') {
-    const d = new Date(now); d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    const { year, week } = getIsoWeekInfo(now);
+    return `${year}-W${String(week).padStart(2, '0')}`;
+  }
+  if (granularity === 'Bi-Week') {
+    const { year, week } = getIsoWeekInfo(now);
+    const biWeek = Math.ceil(week / 2);
+    return `${year}-BW${String(biWeek).padStart(2, '0')}`;
   }
   if (granularity === 'Month') return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   if (granularity === 'Quarter') return `Q${Math.floor(now.getMonth() / 3) + 1}-${now.getFullYear()}`;
   if (granularity === 'Year') return `${now.getFullYear()}`;
+  if (granularity === 'Day') return now.toISOString().split('T')[0];
+  if (granularity === 'Hour') return now.toISOString().slice(0, 13) + ':00:00Z';
   return `${now.getFullYear()}-W01`;
 }
 
@@ -28,24 +41,31 @@ function getPreviousPeriods(granularity, currentPeriod, count) {
   for (let i = count; i >= 1; i--) {
     const d = new Date(startDate);
     if (granularity === 'Week') d.setDate(d.getDate() - 7 * i);
+    if (granularity === 'Bi-Week') d.setDate(d.getDate() - 14 * i);
     if (granularity === 'Month') d.setMonth(d.getMonth() - i);
     if (granularity === 'Quarter') { d.setMonth(d.getMonth() - 3 * i); }
     if (granularity === 'Year') d.setFullYear(d.getFullYear() - i);
+    if (granularity === 'Day') d.setDate(d.getDate() - i);
+    if (granularity === 'Hour') d.setHours(d.getHours() - i);
     list.push(getPeriodKeyFromDate(granularity, d));
   }
   return list;
 }
 function getPeriodKeyFromDate(g, date) {
   if (g === 'Week') {
-    const d = new Date(date); d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    const { year, week } = getIsoWeekInfo(date);
+    return `${year}-W${String(week).padStart(2, '0')}`;
+  }
+  if (g === 'Bi-Week') {
+    const { year, week } = getIsoWeekInfo(date);
+    const biWeek = Math.ceil(week / 2);
+    return `${year}-BW${String(biWeek).padStart(2, '0')}`;
   }
   if (g === 'Month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   if (g === 'Quarter') return `Q${Math.floor(date.getMonth() / 3) + 1}-${date.getFullYear()}`;
   if (g === 'Year') return `${date.getFullYear()}`;
+  if (g === 'Day') return date.toISOString().split('T')[0];
+  if (g === 'Hour') return date.toISOString().slice(0, 13) + ':00:00Z';
   return '';
 }
 
@@ -85,7 +105,7 @@ function getDateVal_(row, names) {
  * Multi-sheet OKR aggregator (per-campaign)
  * Returns a "raw rows" array shaped for processCategory/processMetric
  * ───────────────────────────────────────────────────────────────────────── */
-function getRawOKRData(granularity, period, agent, campaign, department) {
+function buildAggregatedRawOKRData(granularity, period, agent, campaign, department) {
   const ss = getMainSpreadsheet();
   const dateRange = isoPeriodToDateRange(granularity, period);
   const inRange = (d) => !!d && d >= dateRange.startDate && d <= dateRange.endDate;
@@ -124,21 +144,21 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
   // Helper: filter by campaign/agent/department and date
   const passFilters = (row, dateNames, campaignName) => {
     const d = getDateVal_(row, dateNames);
-    if (!inRange(d)) return false;
+    if (!inRange(d)) return null;
 
-    if (campaign && campaignName !== campaign) return false;
+    if (campaign && campaignName !== campaign) return null;
 
     if (agent) {
       const ag = String(getVal_(row, ['ToSFUser', 'Agent', 'UserName', 'user', 'Owner', 'AgentName', 'CoacheeName', 'agent', 'owner'])).trim();
-      if (!ag || ag !== agent) return false;
+      if (!ag || ag !== agent) return null;
     }
 
     if (department) {
       const dep = deptMap[campaignName] || '';
-      if (dep !== department) return false;
+      if (dep !== department) return null;
     }
 
-    return true;
+    return d;
   };
 
   // Pre-aggregate facts per campaign
@@ -149,15 +169,30 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
       attMin: 0,
       qaPctSum: 0, qaCnt: 0,
       tasksCompleted: 0, tasksTotal: 0,
-      feedbackSum: 0, feedbackCnt: 0
+      feedbackSum: 0, feedbackCnt: 0,
+      agentSet: new Set(),
+      firstActivity: null,
+      lastActivity: null
     }; return facts[c];
   }
+
+  const registerAgent = (obj, row) => {
+    const ag = String(getVal_(row, ['ToSFUser', 'Agent', 'UserName', 'user', 'Owner', 'AgentName', 'CoacheeName', 'agent', 'owner'])).trim();
+    if (ag) obj.agentSet.add(ag);
+  };
+
+  const registerActivityWindow = (obj, date) => {
+    if (!(date instanceof Date) || isNaN(date)) return;
+    if (!obj.firstActivity || date < obj.firstActivity) obj.firstActivity = date;
+    if (!obj.lastActivity || date > obj.lastActivity) obj.lastActivity = date;
+  };
 
   // Calls
   calls.forEach(row => {
     const camp = String(getVal_(row, ['Campaign', 'campaign'])).trim();
     if (!camp) return;
-    if (!passFilters(row, ['CreatedDate', 'createddate', 'Date', 'date'], camp)) return;
+    const dateVal = passFilters(row, ['CreatedDate', 'createddate', 'Date', 'date'], camp);
+    if (!dateVal) return;
 
     const obj = f(camp);
     obj.calls += 1;
@@ -170,51 +205,70 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
 
     const wrap = String(getVal_(row, ['WrapupLabel', 'wrapuplabel', 'WrapUp', 'wrapup'])).toLowerCase();
     if (wrap.includes('resolved') || wrap.includes('sale') || wrap.includes('converted')) obj.resolved += 1;
+
+    registerAgent(obj, row);
+    registerActivityWindow(obj, dateVal);
   });
 
   // Attendance
   attendance.forEach(row => {
     const camp = String(getVal_(row, ['Campaign', 'campaign'])).trim();
     if (!camp) return;
-    if (!passFilters(row, ['timestamp', 'Timestamp', 'Date', 'date'], camp)) return;
+    const dateVal = passFilters(row, ['timestamp', 'Timestamp', 'Date', 'date'], camp);
+    if (!dateVal) return;
 
     const obj = f(camp);
     const dur = Number(getVal_(row, ['DurationMin', 'durationmin', 'Duration', 'duration']));
     if (isFinite(dur)) obj.attMin += dur;
+
+    registerAgent(obj, row);
+    registerActivityWindow(obj, dateVal);
   });
 
   // QA
   qa.forEach(row => {
     const camp = String(getVal_(row, ['Campaign', 'campaign'])).trim();
     if (!camp) return;
-    if (!passFilters(row, ['CallDate', 'calldate', 'Date', 'date'], camp)) return;
+    const dateVal = passFilters(row, ['CallDate', 'calldate', 'Date', 'date'], camp);
+    if (!dateVal) return;
 
     const obj = f(camp);
     const pct = Number(getVal_(row, ['Percentage', 'percentage', 'TotalScore', 'totalscore']));
     if (isFinite(pct)) { obj.qaPctSum += pct; obj.qaCnt += 1; }
+
+    registerAgent(obj, row);
+    registerActivityWindow(obj, dateVal);
   });
 
   // Tasks
   tasks.forEach(row => {
     const camp = String(getVal_(row, ['Campaign', 'campaign'])).trim();
     if (!camp) return;
-    if (!passFilters(row, ['CompletedDate', 'completeddate', 'Date', 'date', 'CreatedDate', 'createddate'], camp)) return;
+    const dateVal = passFilters(row, ['CompletedDate', 'completeddate', 'Date', 'date', 'CreatedDate', 'createddate'], camp);
+    if (!dateVal) return;
 
     const obj = f(camp);
     obj.tasksTotal += 1;
     const status = String(getVal_(row, ['Status', 'status'])).toLowerCase();
     if (!status || status.includes('done') || status.includes('complete')) obj.tasksCompleted += 1;
+
+    registerAgent(obj, row);
+    registerActivityWindow(obj, dateVal);
   });
 
   // Coaching (use Rating as engagement feedback)
   coaching.forEach(row => {
     const camp = String(getVal_(row, ['Campaign', 'campaign'])).trim();
     if (!camp) return;
-    if (!passFilters(row, ['SessionDate', 'sessiondate', 'Date', 'date'], camp)) return;
+    const dateVal = passFilters(row, ['SessionDate', 'sessiondate', 'Date', 'date'], camp);
+    if (!dateVal) return;
 
     const obj = f(camp);
     const rating = Number(getVal_(row, ['Rating', 'rating', 'Score', 'score']));
     if (isFinite(rating)) { obj.feedbackSum += rating; obj.feedbackCnt += 1; }
+
+    registerAgent(obj, row);
+    registerActivityWindow(obj, dateVal);
   });
 
   // Targets from Goals (optional). Campaign+Metric → Target
@@ -257,6 +311,10 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
     const T = CONFIG.DEFAULT_TARGETS;
 
     // productivity
+    const periodStart = dateRange.startDate ? new Date(dateRange.startDate) : null;
+    const periodEnd = dateRange.endDate ? new Date(dateRange.endDate) : null;
+    const agentList = Array.from(x.agentSet || []);
+
     rows.push({
       granularity, period,
       campaign: camp,
@@ -265,7 +323,14 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
       metric_calls_per_hour: callsPerHour,
       target_calls_per_hour: getTarget(camp, 'productivity', 'calls per hour', T.productivity.callsPerHour),
       metric_tasks_completed: x.tasksCompleted,
-      target_tasks_completed: getTarget(camp, 'productivity', 'tasks completed', T.productivity.tasksCompleted)
+      target_tasks_completed: getTarget(camp, 'productivity', 'tasks completed', T.productivity.tasksCompleted),
+      agentCount: agentList.length,
+      agentList,
+      callsTotal: x.calls,
+      periodStart: periodStart ? periodStart.toISOString() : null,
+      periodEnd: periodEnd ? periodEnd.toISOString() : null,
+      firstActivity: x.firstActivity ? x.firstActivity.toISOString() : null,
+      lastActivity: x.lastActivity ? x.lastActivity.toISOString() : null
     });
 
     // quality
@@ -275,7 +340,14 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
       metric_customer_satisfaction: avgCsat,
       target_customer_satisfaction: getTarget(camp, 'quality', 'customer satisfaction', T.quality.csat),
       metric_quality_score: qaScore,
-      target_quality_score: getTarget(camp, 'quality', 'quality score', T.quality.qaScore)
+      target_quality_score: getTarget(camp, 'quality', 'quality score', T.quality.qaScore),
+      agentCount: agentList.length,
+      agentList,
+      callsTotal: x.calls,
+      periodStart: periodStart ? periodStart.toISOString() : null,
+      periodEnd: periodEnd ? periodEnd.toISOString() : null,
+      firstActivity: x.firstActivity ? x.firstActivity.toISOString() : null,
+      lastActivity: x.lastActivity ? x.lastActivity.toISOString() : null
     });
 
     // efficiency (lower is better for response_time → we use avgTalk as proxy)
@@ -285,7 +357,14 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
       metric_response_time: avgTalk, // minutes
       target_response_time: getTarget(camp, 'efficiency', 'response time', T.efficiency.responseTimeMin),
       metric_resolution_rate: resolutionRate,
-      target_resolution_rate: getTarget(camp, 'efficiency', 'resolution rate', T.efficiency.resolutionRate)
+      target_resolution_rate: getTarget(camp, 'efficiency', 'resolution rate', T.efficiency.resolutionRate),
+      agentCount: agentList.length,
+      agentList,
+      callsTotal: x.calls,
+      periodStart: periodStart ? periodStart.toISOString() : null,
+      periodEnd: periodEnd ? periodEnd.toISOString() : null,
+      firstActivity: x.firstActivity ? x.firstActivity.toISOString() : null,
+      lastActivity: x.lastActivity ? x.lastActivity.toISOString() : null
     });
 
     // engagement
@@ -295,7 +374,14 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
       metric_participation_rate: participationRate,
       target_participation_rate: getTarget(camp, 'engagement', 'participation rate', T.engagement.participationRate),
       metric_feedback_score: feedbackScore,
-      target_feedback_score: getTarget(camp, 'engagement', 'feedback score', T.engagement.feedbackScore)
+      target_feedback_score: getTarget(camp, 'engagement', 'feedback score', T.engagement.feedbackScore),
+      agentCount: agentList.length,
+      agentList,
+      callsTotal: x.calls,
+      periodStart: periodStart ? periodStart.toISOString() : null,
+      periodEnd: periodEnd ? periodEnd.toISOString() : null,
+      firstActivity: x.firstActivity ? x.firstActivity.toISOString() : null,
+      lastActivity: x.lastActivity ? x.lastActivity.toISOString() : null
     });
 
     // growth
@@ -305,11 +391,32 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
       metric_conversion_rate: convRate,
       target_conversion_rate: getTarget(camp, 'growth', 'conversion rate', T.growth.conversionRate),
       metric_revenue: 0, // not available from provided sheets
-      target_revenue: getTarget(camp, 'growth', 'revenue', T.growth.revenue)
+      target_revenue: getTarget(camp, 'growth', 'revenue', T.growth.revenue),
+      agentCount: agentList.length,
+      agentList,
+      callsTotal: x.calls,
+      periodStart: periodStart ? periodStart.toISOString() : null,
+      periodEnd: periodEnd ? periodEnd.toISOString() : null,
+      firstActivity: x.firstActivity ? x.firstActivity.toISOString() : null,
+      lastActivity: x.lastActivity ? x.lastActivity.toISOString() : null
     });
   });
 
   return rows;
+}
+
+function getRawOKRData(granularity, period, agent, campaign, department) {
+  try {
+    return buildAggregatedRawOKRData(granularity, period, agent, campaign, department);
+  } catch (error) {
+    console.error('Error building aggregated OKR data, attempting legacy fallback:', error);
+    try {
+      return getLegacyOKRSheetData(granularity, period, agent, campaign, department);
+    } catch (legacyError) {
+      console.error('Legacy OKR data fallback failed:', legacyError);
+      return [];
+    }
+  }
 }
 
 /** ─────────────────────────────────────────────────────────────────────────
@@ -541,6 +648,61 @@ function isoPeriodToDateRange(granularity, periodIdentifier) {
     let startDate, endDate;
 
     switch (granularity) {
+      case 'Hour':
+        if (periodIdentifier) {
+          const parsedHour = new Date(periodIdentifier);
+          if (!isNaN(parsedHour)) {
+            startDate = parsedHour;
+            endDate = new Date(parsedHour);
+            endDate.setHours(endDate.getHours() + 1);
+            endDate.setMilliseconds(endDate.getMilliseconds() - 1);
+            break;
+          }
+        }
+        startDate = new Date(now);
+        endDate = new Date(now);
+        endDate.setHours(endDate.getHours() + 1);
+        break;
+
+      case 'Day':
+        if (periodIdentifier) {
+          const parsedDay = new Date(periodIdentifier);
+          if (!isNaN(parsedDay)) {
+            startDate = new Date(parsedDay.getFullYear(), parsedDay.getMonth(), parsedDay.getDate());
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 1);
+            endDate.setMilliseconds(endDate.getMilliseconds() - 1);
+            break;
+          }
+        }
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+        endDate.setMilliseconds(endDate.getMilliseconds() - 1);
+        break;
+
+      case 'Bi-Week':
+        if (periodIdentifier && periodIdentifier.includes('-BW')) {
+          const [yearPart, biWeekPart] = periodIdentifier.split('-BW');
+          const year = parseInt(yearPart, 10);
+          const biWeek = parseInt(biWeekPart, 10);
+          if (!isNaN(year) && !isNaN(biWeek)) {
+            const startWeek = Math.max(1, (biWeek - 1) * 2 + 1);
+            startDate = getDateFromWeek(year, startWeek);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 13);
+            break;
+          }
+        }
+        {
+          const { year, week } = getIsoWeekInfo(now);
+          const startWeek = Math.max(1, (Math.ceil(week / 2) - 1) * 2 + 1);
+          startDate = getDateFromWeek(year, startWeek);
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 13);
+        }
+        break;
+
       case 'Week':
         if (periodIdentifier.includes('-W')) {
           const [year, week] = periodIdentifier.split('-W').map(Number);
@@ -1756,7 +1918,7 @@ function processCategory(category, data) {
 /**
  * Get raw OKR data from spreadsheet
  */
-function getRawOKRData(granularity, period, agent, campaign, department) {
+function getLegacyOKRSheetData(granularity, period, agent, campaign, department) {
   try {
     const spreadsheet = SpreadsheetApp.openById(CAMPAIGN_SPREADSHEET_ID);
     const sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.OKR_DATA);
@@ -1796,9 +1958,8 @@ function getRawOKRData(granularity, period, agent, campaign, department) {
     });
 
   } catch (error) {
-    console.error('Error getting raw OKR data:', error);
-    // Return sample data if spreadsheet is not available
-    return clientGetOKRData(granularity, period, agent, campaign, department);
+    console.error('Error getting raw OKR data from legacy sheet:', error);
+    return [];
   }
 }
 
@@ -1864,16 +2025,42 @@ function calculateOverallScore(data) {
  */
 function calculateAggregatedStats(data) {
   try {
-    const uniqueAgents = [...new Set(data.map(row => row.agent))].filter(Boolean);
-    const uniqueCampaigns = [...new Set(data.map(row => row.campaign))].filter(Boolean);
+    const agentSet = new Set();
+    const campaignSet = new Set();
+    let start = null;
+    let end = null;
+
+    data.forEach(row => {
+      if (Array.isArray(row.agentList)) {
+        row.agentList.forEach(agent => {
+          if (agent) agentSet.add(agent);
+        });
+      } else if (row.agent) {
+        agentSet.add(row.agent);
+      }
+
+      if (row.campaign) {
+        campaignSet.add(row.campaign);
+      }
+
+      const rangeStart = row.firstActivity ? new Date(row.firstActivity) : (row.periodStart ? new Date(row.periodStart) : null);
+      const rangeEnd = row.lastActivity ? new Date(row.lastActivity) : (row.periodEnd ? new Date(row.periodEnd) : null);
+
+      if (rangeStart instanceof Date && !isNaN(rangeStart)) {
+        if (!start || rangeStart < start) start = rangeStart;
+      }
+      if (rangeEnd instanceof Date && !isNaN(rangeEnd)) {
+        if (!end || rangeEnd > end) end = rangeEnd;
+      }
+    });
 
     return {
-      totalUsers: uniqueAgents.length,
-      totalCampaigns: uniqueCampaigns.length,
+      totalUsers: agentSet.size,
+      totalCampaigns: campaignSet.size,
       totalRecords: data.length,
       dateRange: {
-        start: data.length > 0 ? Math.min(...data.map(row => new Date(row.timestamp || new Date()))) : null,
-        end: data.length > 0 ? Math.max(...data.map(row => new Date(row.timestamp || new Date()))) : null
+        start,
+        end
       }
     };
 
@@ -1932,8 +2119,13 @@ function generateAlerts(data) {
     // Check for agents with consistently low performance
     const agentPerformance = {};
     data.forEach(row => {
-      if (!agentPerformance[row.agent]) {
-        agentPerformance[row.agent] = [];
+      const agentName = row.agent;
+      if (!agentName) {
+        return;
+      }
+
+      if (!agentPerformance[agentName]) {
+        agentPerformance[agentName] = [];
       }
 
       const scores = [];
@@ -1945,7 +2137,7 @@ function generateAlerts(data) {
       }
 
       if (scores.length > 0) {
-        agentPerformance[row.agent].push(scores.reduce((a, b) => a + b, 0) / scores.length);
+        agentPerformance[agentName].push(scores.reduce((a, b) => a + b, 0) / scores.length);
       }
     });
 
@@ -1984,10 +2176,34 @@ function processCampaignData(data, selectedCampaign) {
       const campaignData = data.filter(row => row.campaign === campaign);
       const overall = calculateOverallScore(campaignData);
 
+      const agentSet = new Set();
+      let callsTotal = 0;
+      let department = '';
+
+      campaignData.forEach(row => {
+        if (Array.isArray(row.agentList)) {
+          row.agentList.forEach(agent => {
+            if (agent) agentSet.add(agent);
+          });
+        } else if (row.agent) {
+          agentSet.add(row.agent);
+        }
+
+        if (row.callsTotal && Number(row.callsTotal) > callsTotal) {
+          callsTotal = Number(row.callsTotal);
+        }
+
+        if (!department && row.department) {
+          department = row.department;
+        }
+      });
+
       return {
         name: campaign,
         overall: overall,
-        agents: [...new Set(campaignData.map(row => row.agent))].filter(Boolean).length,
+        agents: agentSet.size,
+        calls: callsTotal,
+        department: department,
         records: campaignData.length
       };
     });
@@ -2370,7 +2586,13 @@ function getUniqueAgentCount(rawData) {
   try {
     const agents = new Set();
     rawData.forEach(row => {
-      if (row.agent) agents.add(row.agent);
+      if (Array.isArray(row.agentList)) {
+        row.agentList.forEach(agent => {
+          if (agent) agents.add(agent);
+        });
+      } else if (row.agent) {
+        agents.add(row.agent);
+      }
     });
     return agents.size;
   } catch (error) {
@@ -2383,6 +2605,15 @@ function getUniqueAgentCount(rawData) {
  */
 function getTotalCalls(rawData) {
   try {
+    let total = 0;
+    rawData.forEach(row => {
+      if (typeof row.callsTotal === 'number' && row.callsTotal > total) {
+        total = row.callsTotal;
+      }
+    });
+    if (total > 0) {
+      return total;
+    }
     return rawData.filter(row => row.category === 'productivity').length;
   } catch (error) {
     return 0;
