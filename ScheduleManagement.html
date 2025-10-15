@@ -2534,6 +2534,18 @@
                         this.resetShiftSlotForm();
                         await this.loadShiftSlots();
                     } else {
+                        if (normalized.needsLegacyFallback) {
+                            const confirmed = await this.confirmShiftSlotCreation(slotData);
+                            if (confirmed) {
+                                const fallbackMessage = 'Shift slot created, but the server did not send a confirmation. The schedule has been refreshed.';
+                                console.warn('Shift slot creation confirmed via post-check despite missing server response.');
+                                this.showToast(fallbackMessage, 'warning');
+                                this.resetShiftSlotForm();
+                                await this.loadShiftSlots();
+                                return;
+                            }
+                        }
+
                         throw new Error(normalized.error || 'Failed to create shift slot');
                     }
 
@@ -2678,6 +2690,51 @@
                     data: rawResult,
                     needsLegacyFallback: true
                 };
+            }
+
+            async confirmShiftSlotCreation(slotData) {
+                try {
+                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+                    if (!Array.isArray(slots)) {
+                        return false;
+                    }
+
+                    const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
+                    const normalizeTime = (value) => (value || '').toString().trim();
+                    const normalizeDays = (days) => {
+                        if (Array.isArray(days)) {
+                            return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                        }
+                        if (typeof days === 'string') {
+                            return days.split(',').map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                        }
+                        return '';
+                    };
+
+                    const expectedName = normalizeString(slotData.name);
+                    const expectedStart = normalizeTime(slotData.startTime);
+                    const expectedEnd = normalizeTime(slotData.endTime);
+                    const expectedDays = normalizeDays(slotData.daysOfWeek);
+
+                    return slots.some(slot => {
+                        if (!slot || typeof slot !== 'object') {
+                            return false;
+                        }
+
+                        const slotName = normalizeString(slot.Name || slot.name);
+                        const slotStart = normalizeTime(slot.StartTime || slot.startTime);
+                        const slotEnd = normalizeTime(slot.EndTime || slot.endTime);
+                        const slotDays = normalizeDays(slot.DaysOfWeekArray || slot.DaysOfWeek || slot.daysOfWeek);
+
+                        return slotName === expectedName &&
+                            slotStart === expectedStart &&
+                            slotEnd === expectedEnd &&
+                            (!!expectedDays ? slotDays === expectedDays : true);
+                    });
+                } catch (error) {
+                    console.warn('Unable to verify shift slot creation after missing response:', error);
+                    return false;
+                }
             }
 
             validateEnhancedShiftSlot(slotData) {
