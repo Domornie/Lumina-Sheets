@@ -1047,13 +1047,6 @@
         .replace(/'/g, '&#39;');
     }
 
-    function formatNoteContent(note) {
-      if (!note || !String(note).trim()) {
-        return '<span class="text-muted">No notes recorded</span>';
-      }
-      return escapeHtml(note).replace(/\r\n|\r|\n/g, '<br>');
-    }
-
     function populateSelect(selectEl, options, placeholder) {
       if (!selectEl) return;
       const currentValue = selectEl.value;
