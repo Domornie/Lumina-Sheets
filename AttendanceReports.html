@@ -1035,7 +1035,7 @@
 <div id="dailyOverviewSection" class="mb-4">
   <div class="card ai-enhanced">
     <div class="card-header">
-      <h5><i class="fas fa-chart-line"></i>Daily Attendance Overview</h5>
+      <h5><i class="fas fa-chart-line"></i><span id="dailyOverviewTitle">Daily Attendance Overview</span></h5>
     </div>
     <div class="card-body">
       <div class="chart-container">
@@ -2056,21 +2056,69 @@
         const periodInfo = this.currentData.periodInfo || {};
         const tz = periodInfo.timezone || COMPANY_TIMEZONE;
         const tzLabel = periodInfo.timezoneLabel || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
+        const granularity = (periodInfo.granularity || this.currentGranularity || '').toLowerCase();
+
+        const showMonthlyOverview = granularity === 'quarter' || granularity === 'year';
+
+        const titleEl = document.getElementById('dailyOverviewTitle');
+        if (titleEl) {
+          titleEl.textContent = showMonthlyOverview ? 'Monthly Attendance Overview' : 'Daily Attendance Overview';
+        }
+
+        let labels = [];
+        let dataPoints = [];
+        let datasetLabel = '';
+        let xAxisTitle = '';
+
+        if (showMonthlyOverview) {
+          const monthlyAggregation = {};
+          daily.forEach((d) => {
+            if (!d || !d.date) return;
+            const date = new Date(d.date + 'T12:00:00');
+            if (Number.isNaN(date.getTime())) return;
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthlyAggregation[monthKey]) {
+              const label = date.toLocaleDateString('en-US', {
+                timeZone: tz,
+                month: 'short',
+                year: 'numeric'
+              });
+              monthlyAggregation[monthKey] = { label, total: 0 };
+            }
+            const hours = typeof d.OnWorkHrs === 'number' ? d.OnWorkHrs : parseFloat(d.OnWorkHrs) || 0;
+            monthlyAggregation[monthKey].total += hours;
+          });
+
+          const sortedKeys = Object.keys(monthlyAggregation).sort();
+          labels = sortedKeys.map((key) => monthlyAggregation[key].label);
+          dataPoints = sortedKeys.map((key) => monthlyAggregation[key].total);
+          datasetLabel = 'Work Hours by Month';
+          xAxisTitle = 'Month';
+        } else {
+          labels = daily.map(d => {
+            if (!d || !d.date) return '';
+            const date = new Date(d.date + 'T12:00:00');
+            return date.toLocaleDateString('en-US', {
+              timeZone: tz,
+              month: 'short',
+              day: 'numeric'
+            });
+          });
+          dataPoints = daily.map(d => {
+            if (!d) return 0;
+            return typeof d.OnWorkHrs === 'number' ? d.OnWorkHrs : parseFloat(d.OnWorkHrs) || 0;
+          });
+          datasetLabel = 'Work Hours (Corrected from Seconds)';
+          xAxisTitle = 'Date';
+        }
 
         this.charts.dailyAttendance = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: daily.map(d => {
-              const date = new Date(d.date + 'T12:00:00');
-              return date.toLocaleDateString('en-US', {
-                timeZone: tz,
-                month: 'short',
-                day: 'numeric'
-              });
-            }),
+            labels,
             datasets: [{
-              label: 'Work Hours (Corrected from Seconds)',
-              data: daily.map(d => d.OnWorkHrs || 0),
+              label: datasetLabel,
+              data: dataPoints,
               borderColor: '#00BFFF',
               backgroundColor: 'rgba(0,191,255,0.1)',
               fill: true,
@@ -2083,7 +2131,7 @@
             plugins: {
               title: {
                 display: true,
-                text: `Daily Attendance (${tzLabel})`
+                text: `${showMonthlyOverview ? 'Monthly' : 'Daily'} Attendance (${tzLabel})`
               }
             },
             scales: {
@@ -2097,7 +2145,7 @@
               x: {
                 title: {
                   display: true,
-                  text: 'Date'
+                  text: xAxisTitle
                 }
               }
             }
