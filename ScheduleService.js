@@ -797,6 +797,20 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error('Unable to determine the assignment dates. Please provide valid start and end dates.');
+    }
+
+    if (end < start) {
+      throw new Error('The assignment end date must be on or after the start date.');
+    }
+
+    const timeZone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
+      ? Session.getScriptTimeZone()
+      : 'UTC';
+    const periodStartStr = Utilities.formatDate(start, timeZone, 'yyyy-MM-dd');
+    const periodEndStr = Utilities.formatDate(end, timeZone, 'yyyy-MM-dd');
+
     // Get users to schedule
     let usersToSchedule = [];
     if (userNames && userNames.length > 0) {
@@ -812,114 +826,72 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     console.log(`📝 Scheduling for ${usersToSchedule.length} users`);
 
-    // Get shift slots - either selected ones or all available
-    let shiftSlots = [];
-    if (shiftSlotIds && shiftSlotIds.length > 0) {
-      // Get only the selected shift slots
-      console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
-      const allSlots = clientGetAllShiftSlots();
-      shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
-      
-      if (shiftSlots.length === 0) {
-        throw new Error('None of the selected shift slots were found. Please refresh and try again.');
-      }
-      
-      console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
-    } else {
-      // Use all available shift slots
-      shiftSlots = clientGetAllShiftSlots();
-      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
+    if (!shiftSlotIds || shiftSlotIds.length === 0) {
+      throw new Error('Please select at least one shift slot to assign to these agents.');
     }
+
+    const allSlots = clientGetAllShiftSlots();
+    const shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
 
     if (!shiftSlots || shiftSlots.length === 0) {
-      throw new Error('No shift slots available. Please create shift slots first or select specific slots.');
+      throw new Error('None of the selected shift slots were found. Please refresh and try again.');
     }
 
-    console.log(`⏰ Working with ${shiftSlots.length} shift slot(s)`);
+    console.log(`⏰ Assigning ${shiftSlots.length} shift slot(s) for period ${periodStartStr} → ${periodEndStr}`);
 
-    // Generate schedules
+    const existingSchedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
     const generatedSchedules = [];
     const conflicts = [];
-    const dstChanges = [];
 
-    // Loop through each date
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const currentDate = new Date(d);
-      const dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const findConflict = (userName) => {
+      const requestedStart = start;
+      const requestedEnd = end;
 
-      console.log(`📅 Processing date: ${dateStr} (Day: ${dayOfWeek})`);
+      return existingSchedules.find(schedule => {
+        if (schedule.UserName !== userName) {
+          return false;
+        }
 
-      // Check for holidays using ScheduleUtilities
-      const isHoliday = checkIfHoliday(dateStr);
-      if (isHoliday && !options.includeHolidays) {
-        console.log(`🎉 Skipping holiday: ${dateStr}`);
-        continue;
-      }
+        const existingStart = schedule.PeriodStart || schedule.Date;
+        const existingEnd = schedule.PeriodEnd || schedule.Date || existingStart;
 
-      // Check DST status using ScheduleUtilities
-      const dstStatus = checkDSTStatus(dateStr);
-      if (dstStatus.isDSTChange) {
-        dstChanges.push({
-          date: dateStr,
-          changeType: dstStatus.changeType,
-          adjustment: dstStatus.timeAdjustment
-        });
-      }
+        const parsedStart = existingStart ? new Date(existingStart) : null;
+        const parsedEnd = existingEnd ? new Date(existingEnd) : null;
 
-      // Generate schedules for each user
-      usersToSchedule.forEach(userName => {
+        if (!parsedStart || !parsedEnd || isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+          return false;
+        }
+
+        return parsedStart <= requestedEnd && parsedEnd >= requestedStart;
+      }) || null;
+    };
+
+    usersToSchedule.forEach(userName => {
+      shiftSlots.forEach(selectedSlot => {
         try {
-          // Get suitable shift slots for this user and day from the selected/available slots
-          const suitableSlots = shiftSlots.filter(slot => {
-            if (!slot.IsActive) return false;
-
-            // Check if slot is active on this day of week
-            const daysOfWeek = slot.DaysOfWeek ? slot.DaysOfWeek.split(',').map(d => parseInt(d)) : [1, 2, 3, 4, 5];
-            return daysOfWeek.includes(dayOfWeek);
-          });
-
-          if (suitableSlots.length === 0) {
-            console.log(`⚠️ No suitable slots for ${userName} on ${dateStr} from selected slots`);
-            conflicts.push({
-              user: userName,
-              date: dateStr,
-              error: 'No suitable shift slots available for this day from selected slots',
-              type: 'NO_SUITABLE_SLOTS'
-            });
-            return;
+          if (!selectedSlot || selectedSlot.IsActive === false) {
+            throw new Error('The selected shift slot is not active.');
           }
 
-          // Select best suitable slot (can be enhanced with more logic)
-          // For now, prefer slots with higher capacity or priority
-          const selectedSlot = suitableSlots.sort((a, b) => {
-            const priorityA = a.Priority || 2;
-            const priorityB = b.Priority || 2;
-            if (priorityA !== priorityB) return priorityB - priorityA; // Higher priority first
-            
-            const capacityA = a.MaxCapacity || 10;
-            const capacityB = b.MaxCapacity || 10;
-            return capacityB - capacityA; // Higher capacity first
-          })[0];
-
-          // Check for conflicts using ScheduleUtilities
-          const existingSchedule = checkExistingSchedule(userName, dateStr);
+          const existingSchedule = findConflict(userName);
           if (existingSchedule && !options.overrideExisting) {
             conflicts.push({
               user: userName,
-              date: dateStr,
-              error: 'User already has a schedule for this date',
+              periodStart: periodStartStr,
+              periodEnd: periodEndStr,
+              error: `User already has a slot assigned for this period (${existingSchedule.SlotName || 'Existing Slot'})`,
               type: 'USER_DOUBLE_BOOKING'
             });
             return;
           }
 
-          // Create schedule record using ScheduleUtilities time functions
           const schedule = {
             ID: Utilities.getUuid(),
             UserID: getUserIdByName(userName),
             UserName: userName,
-            Date: dateStr,
+            Date: periodStartStr,
+            PeriodStart: periodStartStr,
+            PeriodEnd: periodEndStr,
             SlotID: selectedSlot.ID,
             SlotName: selectedSlot.Name,
             StartTime: selectedSlot.StartTime,
@@ -930,7 +902,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
             BreakEnd: calculateBreakEnd(selectedSlot),
             LunchStart: calculateLunchStart(selectedSlot),
             LunchEnd: calculateLunchEnd(selectedSlot),
-            IsDST: dstStatus.isDST,
+            IsDST: false,
             Status: 'PENDING',
             GeneratedBy: generatedBy,
             ApprovedBy: null,
@@ -940,42 +912,42 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
             RecurringScheduleID: null,
             SwapRequestID: null,
             Priority: options.priority || 2,
-            Notes: options.notes || `Generated from selected slot: ${selectedSlot.Name}`,
+            Notes: options.notes || `Assigned to ${selectedSlot.Name} for ${periodStartStr} to ${periodEndStr}`,
             Location: selectedSlot.Location || '',
             Department: selectedSlot.Department || ''
           };
 
           generatedSchedules.push(schedule);
-          console.log(`✅ Generated schedule for ${userName} on ${dateStr} using slot: ${selectedSlot.Name}`);
-
+          existingSchedules.push(schedule);
+          console.log(`✅ Assigned ${userName} to ${selectedSlot.Name} for ${periodStartStr} → ${periodEndStr}`);
         } catch (userError) {
           conflicts.push({
             user: userName,
-            date: dateStr,
+            periodStart: periodStartStr,
+            periodEnd: periodEndStr,
             error: userError.message,
             type: 'GENERATION_ERROR'
           });
         }
       });
-    }
+    });
 
-    // Save generated schedules using ScheduleUtilities
     if (generatedSchedules.length > 0) {
       saveSchedulesToSheet(generatedSchedules);
-      console.log(`💾 Saved ${generatedSchedules.length} schedules`);
+      console.log(`💾 Saved ${generatedSchedules.length} schedule assignment(s)`);
     }
 
-    // Return comprehensive result with shift slot information
     const result = {
       success: true,
       generated: generatedSchedules.length,
       conflicts: conflicts,
-      dstChanges: dstChanges,
-      message: `Successfully generated ${generatedSchedules.length} schedules using ${shiftSlots.length} shift slot(s)`,
-      schedules: generatedSchedules.slice(0, 10), // Return first 10 for preview
+      message: `Successfully assigned ${generatedSchedules.length} schedule slot${generatedSchedules.length === 1 ? '' : 's'} for ${periodStartStr} to ${periodEndStr}`,
+      schedules: generatedSchedules.slice(0, 10),
       userCount: usersToSchedule.length,
       shiftSlotsUsed: shiftSlots.length,
-      selectedSlots: shiftSlotIds && shiftSlotIds.length > 0 ? shiftSlotIds : null
+      selectedSlots: shiftSlotIds && shiftSlotIds.length > 0 ? shiftSlotIds : null,
+      periodStart: periodStartStr,
+      periodEnd: periodEndStr
     };
 
     console.log('✅ Enhanced schedule generation completed:', result);
@@ -1044,14 +1016,38 @@ function clientGetAllSchedules(filters = {}) {
     let filteredSchedules = schedules;
 
     // Apply filters
+    const parseDate = (value) => {
+      if (!value) return null;
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    };
+
+    const getSchedulePeriod = (schedule) => {
+      const startValue = schedule.PeriodStart || schedule.Date;
+      const endValue = schedule.PeriodEnd || schedule.Date || startValue;
+      const startDate = parseDate(startValue);
+      const endDate = parseDate(endValue);
+      return { startDate, endDate: endDate || startDate };
+    };
+
     if (filters.startDate) {
-      const startDate = new Date(filters.startDate);
-      filteredSchedules = filteredSchedules.filter(s => new Date(s.Date) >= startDate);
+      const startFilter = parseDate(filters.startDate);
+      if (startFilter) {
+        filteredSchedules = filteredSchedules.filter(schedule => {
+          const { endDate } = getSchedulePeriod(schedule);
+          return endDate ? endDate >= startFilter : true;
+        });
+      }
     }
 
     if (filters.endDate) {
-      const endDate = new Date(filters.endDate);
-      filteredSchedules = filteredSchedules.filter(s => new Date(s.Date) <= endDate);
+      const endFilter = parseDate(filters.endDate);
+      if (endFilter) {
+        filteredSchedules = filteredSchedules.filter(schedule => {
+          const { startDate } = getSchedulePeriod(schedule);
+          return startDate ? startDate <= endFilter : true;
+        });
+      }
     }
 
     if (filters.userId) {
@@ -1070,8 +1066,15 @@ function clientGetAllSchedules(filters = {}) {
       filteredSchedules = filteredSchedules.filter(s => s.Department === filters.department);
     }
 
-    // Sort by date (newest first)
-    filteredSchedules.sort((a, b) => new Date(b.Date) - new Date(a.Date));
+    // Sort by assignment period (newest first)
+    filteredSchedules.sort((a, b) => {
+      const { startDate: startA } = getSchedulePeriod(a);
+      const { startDate: startB } = getSchedulePeriod(b);
+      if (!startA && !startB) return 0;
+      if (!startA) return 1;
+      if (!startB) return -1;
+      return startB - startA;
+    });
 
     console.log(`✅ Returning ${filteredSchedules.length} filtered schedules`);
 
@@ -2576,14 +2579,47 @@ function getUserIdByName(userName) {
 /**
  * Check if schedule exists for user on date - uses ScheduleUtilities
  */
-function checkExistingSchedule(userName, date) {
+function checkExistingSchedule(userName, periodStart, periodEnd) {
   try {
     const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    return schedules.find(s => s.UserName === userName && s.Date === date);
+    const requestedStart = normalizeScheduleDate(periodStart);
+    const requestedEnd = normalizeScheduleDate(periodEnd || periodStart);
+
+    if (!requestedStart || !requestedEnd) {
+      return null;
+    }
+
+    return schedules.find(schedule => {
+      if (schedule.UserName !== userName) {
+        return false;
+      }
+
+      const existingStart = normalizeScheduleDate(schedule.PeriodStart || schedule.Date);
+      const existingEnd = normalizeScheduleDate(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart);
+
+      if (!existingStart || !existingEnd) {
+        return false;
+      }
+
+      return existingStart <= requestedEnd && existingEnd >= requestedStart;
+    }) || null;
   } catch (error) {
     console.warn('Error checking existing schedule:', error);
     return null;
   }
+}
+
+function normalizeScheduleDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
 }
 
 /**
@@ -2646,6 +2682,8 @@ function normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, time
     UserID: raw.UserID || (matchedUser ? matchedUser.ID : ''),
     UserName: matchedUser ? (matchedUser.UserName || matchedUser.FullName) : userName,
     Date: dateStr,
+    PeriodStart: metadata && metadata.startDate ? metadata.startDate : dateStr,
+    PeriodEnd: metadata && metadata.endDate ? metadata.endDate : dateStr,
     SlotID: raw.SlotID || '',
     SlotName: raw.SlotName || `Imported ${raw.SourceDayLabel || 'Shift'}`,
     StartTime: raw.StartTime || '',
@@ -2889,6 +2927,8 @@ function convertLegacyScheduleRecord(raw) {
     UserID: userId || normalizeUserIdValue(userName),
     UserName: userName || userId,
     Date: normalizeDate(scheduleDate),
+    PeriodStart: normalizeDate(scheduleDate),
+    PeriodEnd: normalizeDate(scheduleDate),
     SlotID: resolve(['SlotID', 'ShiftID', 'TemplateID'], ''),
     SlotName: slotName || 'Shift',
     StartTime: resolve(['StartTime', 'Start', 'ShiftStart', 'Begin']),

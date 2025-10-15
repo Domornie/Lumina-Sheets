@@ -1692,13 +1692,9 @@
           }, 0);
           break;
         case 'Quarter':
-          html += '<select class="form-select" id="quarterSelect"><option value="Q1-2024">Q1 2024</option><option value="Q2-2024">Q2 2024</option><option value="Q3-2024">Q3 2024</option><option value="Q4-2024">Q4 2024</option></select>';
+          html += '<select class="form-select" id="quarterSelect"></select>';
           selector.innerHTML = html;
-          setTimeout(() => {
-            const quarterSelect = document.getElementById('quarterSelect');
-            this.currentPeriod = quarterSelect.value;
-            quarterSelect.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
-          }, 0);
+          setTimeout(() => this.populateQuarterSelect(), 0);
           break;
         case 'Year':
           html += '<input type="number" class="form-control" id="yearInput" min="2020" max="2030" value="2024" />';
@@ -1722,6 +1718,34 @@
         option.textContent = `Bi-Week ${i} - ${currentYear}`;
         select.appendChild(option);
       }
+      this.currentPeriod = select.value;
+      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+    }
+
+    populateQuarterSelect() {
+      const select = document.getElementById('quarterSelect');
+      if (!select) return;
+
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
+      const defaultValue = `Q${currentQuarter}-${currentYear}`;
+
+      select.innerHTML = '';
+
+      for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+        for (let quarter = 1; quarter <= 4; quarter++) {
+          const option = document.createElement('option');
+          option.value = `Q${quarter}-${year}`;
+          option.textContent = `Q${quarter} ${year}`;
+          select.appendChild(option);
+        }
+      }
+
+      if ([...select.options].some((opt) => opt.value === defaultValue)) {
+        select.value = defaultValue;
+      }
+
       this.currentPeriod = select.value;
       select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
     }

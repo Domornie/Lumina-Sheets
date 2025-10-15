@@ -224,6 +224,29 @@
       color: rgba(226, 232, 240, 0.72);
     }
 
+    .hero-points {
+      margin: 0;
+      padding-left: 1.1rem;
+      display: grid;
+      gap: 0.85rem;
+      color: rgba(226, 232, 240, 0.85);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      list-style: none;
+    }
+
+    .hero-points li {
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .hero-points li i {
+      position: absolute;
+      left: 0;
+      top: 0.1rem;
+      color: var(--lumina-cyan);
+    }
+
     .hero-ctas {
       display: flex;
       flex-wrap: wrap;
@@ -552,6 +575,79 @@
       line-height: 1.6;
     }
 
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.6rem;
+    }
+
+    .module-card {
+      background: var(--lumina-surface);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      padding: 1.8rem;
+      display: grid;
+      gap: 1.2rem;
+      box-shadow: 0 10px 18px rgba(4, 120, 211, 0.06);
+      transition: var(--transition);
+    }
+
+    .module-card header {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    .module-card h3 {
+      margin: 0;
+      font-size: 1.15rem;
+      color: var(--lumina-navy);
+    }
+
+    .module-card p {
+      margin: 0;
+      color: var(--lumina-text-muted);
+      line-height: 1.6;
+    }
+
+    .module-card ul {
+      margin: 0;
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.55rem;
+      list-style: none;
+    }
+
+    .module-card ul li {
+      position: relative;
+      padding-left: 1.5rem;
+      color: var(--lumina-text-muted);
+      font-weight: 500;
+    }
+
+    .module-card ul li i {
+      position: absolute;
+      left: 0;
+      top: 0.1rem;
+      color: var(--lumina-blue);
+    }
+
+    .module-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: #e6f2ff;
+      color: var(--lumina-blue-dark);
+      display: grid;
+      place-items: center;
+      font-size: 1.35rem;
+    }
+
+    .module-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 28px rgba(4, 120, 211, 0.12);
+    }
+
     footer {
       padding: 2.5rem 1.25rem 2rem;
       background: var(--lumina-navy);
@@ -638,8 +734,13 @@
             <div class="hero-content">
               <div class="hero-copy">
                 <span class="hero-tag"><i class="fa-solid fa-sparkles"></i> Modern Operations Platform</span>
-                <h2 class="hero-title">Unify your workforce intelligence from one elevated workspace.</h2>
-                <p class="hero-subtitle">LuminaHQ brings call center scheduling, performance, coaching, and collaboration into a single, secure control tower built for high-performing teams.</p>
+                <h2 class="hero-title">Guide every customer moment with a connected operations cockpit.</h2>
+                <p class="hero-subtitle">LuminaHQ syncs scheduling, performance, QA, and automations into a single, secure command center so leaders can move from reacting to proactively steering outcomes.</p>
+                <ul class="hero-points" role="list">
+                  <li><i class="fa-solid fa-compass"></i> Predictive dashboards that surface schedule risk before it impacts service levels.</li>
+                  <li><i class="fa-solid fa-waveform"></i> AI-assisted coaching loops that translate QA insights into ready-to-run playbooks.</li>
+                  <li><i class="fa-solid fa-plug"></i> Seamless Google Workspace deployment with SSO, audit trails, and tenant-aware controls.</li>
+                </ul>
                 <div class="hero-ctas">
                   <a class="primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
                   <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
@@ -705,6 +806,69 @@
           <div class="section-cta">
             <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore full capabilities</a>
             <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-light" id="modules">
+        <div class="section-shell">
+          <div class="section-header">
+            <h2>Command modules at a glance</h2>
+            <p>Each module is purpose-built yet tightly connected, letting teams orchestrate agent experience, customer outcomes, and compliance from one mission control.</p>
+          </div>
+          <div class="module-grid">
+            <article class="module-card">
+              <header>
+                <span class="module-icon"><i class="fa-solid fa-calendar-check"></i></span>
+                <h3>Adaptive Scheduling</h3>
+              </header>
+              <p>Balance staffing in real time with forecasting overlays, auto-approve shift swaps, and instant communication to every affected agent.</p>
+              <ul role="list">
+                <li><i class="fa-solid fa-bolt"></i> Rolling interval forecasts</li>
+                <li><i class="fa-solid fa-comments"></i> Native shift notifications</li>
+                <li><i class="fa-solid fa-chart-area"></i> Attendance anomaly alerts</li>
+              </ul>
+            </article>
+            <article class="module-card">
+              <header>
+                <span class="module-icon"><i class="fa-solid fa-user-shield"></i></span>
+                <h3>QA & Compliance</h3>
+              </header>
+              <p>Run calibrated evaluations, automate dispute workflows, and codify remediation steps to keep every campaign audit-ready.</p>
+              <ul role="list">
+                <li><i class="fa-solid fa-list-check"></i> Dynamic scorecard templates</li>
+                <li><i class="fa-solid fa-repeat"></i> Closed-loop dispute tracking</li>
+                <li><i class="fa-solid fa-lock"></i> Granular data permissions</li>
+              </ul>
+            </article>
+            <article class="module-card">
+              <header>
+                <span class="module-icon"><i class="fa-solid fa-chart-simple"></i></span>
+                <h3>Performance Intelligence</h3>
+              </header>
+              <p>Blend telephony data, CRM outcomes, and coaching milestones into interactive scoreboards that broadcast wins and spotlight gaps.</p>
+              <ul role="list">
+                <li><i class="fa-solid fa-arrows-rotate"></i> Real-time KPI sync</li>
+                <li><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-generated insights</li>
+                <li><i class="fa-solid fa-people-arrows"></i> Role-based dashboards</li>
+              </ul>
+            </article>
+            <article class="module-card">
+              <header>
+                <span class="module-icon"><i class="fa-solid fa-robot"></i></span>
+                <h3>Automation Studio</h3>
+              </header>
+              <p>Trigger workflows across Sheets, Gmail, and external APIs with reusable recipes that cut down manual effort and accelerate resolution.</p>
+              <ul role="list">
+                <li><i class="fa-solid fa-diagram-next"></i> Drag-and-drop flow builder</li>
+                <li><i class="fa-solid fa-cloud-arrow-up"></i> Secure integrations</li>
+                <li><i class="fa-solid fa-stopwatch-20"></i> SLA-aware triggers</li>
+              </ul>
+            </article>
+          </div>
+          <div class="section-cta">
+            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Dive into detailed capabilities</a>
+            <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Experience LuminaHQ live</a>
           </div>
         </div>
       </section>
