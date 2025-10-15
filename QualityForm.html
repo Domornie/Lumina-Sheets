@@ -656,6 +656,30 @@
     position: relative;
   }
 
+  .question-grid-header {
+    display: grid;
+    grid-template-columns: 3fr auto 1fr 2fr;
+    gap: 1.5rem;
+    padding: 0 1.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--navy-primary);
+    opacity: 0.85;
+  }
+
+  .question-note label {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+  }
+
   .question-row:hover {
     border-color: var(--cyan-accent);
     box-shadow: 0 4px 20px rgba(0, 191, 255, 0.1);
@@ -1622,6 +1646,12 @@
 
         <!-- Quality Assessment Questions -->
         <div id="qaQuestions">
+          <div class="question-grid-header">
+            <div>Question</div>
+            <div>Weight</div>
+            <div>Response</div>
+            <div>Notes</div>
+          </div>
           <!-- Courtesy & Communication -->
           <div class="category-header-con courtesy">
             <div class="category-header-left">
@@ -1658,8 +1688,9 @@
                 <input type="radio" name="q1" value="na" id="q1_na"><label for="q1_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c1" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c1||'' ?></textarea>
+            <div class="question-note">
+              <label for="q1Note">Notes</label>
+              <textarea class="comment-input" id="q1Note" name="q1Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q1 Note']||recObj['C1']||recObj.c1||'' ?></textarea>
             </div>
           </div>
 
@@ -1682,8 +1713,9 @@
                 <input type="radio" name="q2" value="na" id="q2_na"><label for="q2_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c2" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c2||'' ?></textarea>
+            <div class="question-note">
+              <label for="q2Note">Notes</label>
+              <textarea class="comment-input" id="q2Note" name="q2Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q2 Note']||recObj['C2']||recObj.c2||'' ?></textarea>
             </div>
           </div>
 
@@ -1705,8 +1737,9 @@
                 <input type="radio" name="q3" value="na" id="q3_na"><label for="q3_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c3" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c3||'' ?></textarea>
+            <div class="question-note">
+              <label for="q3Note">Notes</label>
+              <textarea class="comment-input" id="q3Note" name="q3Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q3 Note']||recObj['C3']||recObj.c3||'' ?></textarea>
             </div>
           </div>
 
@@ -1728,8 +1761,9 @@
                 <input type="radio" name="q4" value="na" id="q4_na"><label for="q4_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c4" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c4||'' ?></textarea>
+            <div class="question-note">
+              <label for="q4Note">Notes</label>
+              <textarea class="comment-input" id="q4Note" name="q4Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q4 Note']||recObj['C4']||recObj.c4||'' ?></textarea>
             </div>
           </div>
 
@@ -1752,8 +1786,9 @@
                 <input type="radio" name="q5" value="na" id="q5_na"><label for="q5_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c5" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c5||'' ?></textarea>
+            <div class="question-note">
+              <label for="q5Note">Notes</label>
+              <textarea class="comment-input" id="q5Note" name="q5Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q5 Note']||recObj['C5']||recObj.c5||'' ?></textarea>
             </div>
           </div>
 
@@ -1791,8 +1826,9 @@
                 <input type="radio" name="q6" value="na" id="q6_na"><label for="q6_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c6" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c6||'' ?></textarea>
+            <div class="question-note">
+              <label for="q6Note">Notes</label>
+              <textarea class="comment-input" id="q6Note" name="q6Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q6 Note']||recObj['C6']||recObj.c6||'' ?></textarea>
             </div>
           </div>
 
@@ -1814,8 +1850,9 @@
                 <input type="radio" name="q7" value="na" id="q7_na"><label for="q7_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c7" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c7||'' ?></textarea>
+            <div class="question-note">
+              <label for="q7Note">Notes</label>
+              <textarea class="comment-input" id="q7Note" name="q7Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q7 Note']||recObj['C7']||recObj.c7||'' ?></textarea>
             </div>
           </div>
 
@@ -1841,8 +1878,9 @@
                 <input type="radio" name="q8" value="na" id="q8_na"><label for="q8_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c8" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c8||'' ?></textarea>
+            <div class="question-note">
+              <label for="q8Note">Notes</label>
+              <textarea class="comment-input" id="q8Note" name="q8Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q8 Note']||recObj['C8']||recObj.c8||'' ?></textarea>
             </div>
           </div>
 
@@ -1864,8 +1902,9 @@
                 <input type="radio" name="q9" value="na" id="q9_na"><label for="q9_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c9" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c9||'' ?></textarea>
+            <div class="question-note">
+              <label for="q9Note">Notes</label>
+              <textarea class="comment-input" id="q9Note" name="q9Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q9 Note']||recObj['C9']||recObj.c9||'' ?></textarea>
             </div>
           </div>
 
@@ -1905,8 +1944,9 @@
                 <input type="radio" name="q10" value="na" id="q10_na"><label for="q10_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c10" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c10||'' ?></textarea>
+            <div class="question-note">
+              <label for="q10Note">Notes</label>
+              <textarea class="comment-input" id="q10Note" name="q10Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q10 Note']||recObj['C10']||recObj.c10||'' ?></textarea>
             </div>
           </div>
 
@@ -1930,8 +1970,9 @@
                 <input type="radio" name="q11" value="na" id="q11_na"><label for="q11_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c11" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c11||'' ?></textarea>
+            <div class="question-note">
+              <label for="q11Note">Notes</label>
+              <textarea class="comment-input" id="q11Note" name="q11Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q11 Note']||recObj['C11']||recObj.c11||'' ?></textarea>
             </div>
           </div>
 
@@ -1954,8 +1995,9 @@
                 <input type="radio" name="q12" value="na" id="q12_na"><label for="q12_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c12" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c12||'' ?></textarea>
+            <div class="question-note">
+              <label for="q12Note">Notes</label>
+              <textarea class="comment-input" id="q12Note" name="q12Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q12 Note']||recObj['C12']||recObj.c12||'' ?></textarea>
             </div>
           </div>
 
@@ -1979,8 +2021,9 @@
                 <input type="radio" name="q13" value="na" id="q13_na"><label for="q13_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c13" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c13||'' ?></textarea>
+            <div class="question-note">
+              <label for="q13Note">Notes</label>
+              <textarea class="comment-input" id="q13Note" name="q13Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q13 Note']||recObj['C13']||recObj.c13||'' ?></textarea>
             </div>
           </div>
 
@@ -2004,8 +2047,9 @@
                 <input type="radio" name="q14" value="na" id="q14_na"><label for="q14_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c14" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c14||'' ?></textarea>
+            <div class="question-note">
+              <label for="q14Note">Notes</label>
+              <textarea class="comment-input" id="q14Note" name="q14Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q14 Note']||recObj['C14']||recObj.c14||'' ?></textarea>
             </div>
           </div>
 
@@ -2046,8 +2090,9 @@
                 <input type="radio" name="q15" value="na" id="q15_na"><label for="q15_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c15" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c15||'' ?></textarea>
+            <div class="question-note">
+              <label for="q15Note">Notes</label>
+              <textarea class="comment-input" id="q15Note" name="q15Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q15 Note']||recObj['C15']||recObj.c15||'' ?></textarea>
             </div>
           </div>
 
@@ -2070,8 +2115,9 @@
                 <input type="radio" name="q16" value="na" id="q16_na"><label for="q16_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c16" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c16||'' ?></textarea>
+            <div class="question-note">
+              <label for="q16Note">Notes</label>
+              <textarea class="comment-input" id="q16Note" name="q16Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q16 Note']||recObj['C16']||recObj.c16||'' ?></textarea>
             </div>
           </div>
 
@@ -2098,8 +2144,9 @@
                 <input type="radio" name="q17" value="na" id="q17_na"><label for="q17_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c17" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c17||'' ?></textarea>
+            <div class="question-note">
+              <label for="q17Note">Notes</label>
+              <textarea class="comment-input" id="q17Note" name="q17Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q17 Note']||recObj['C17']||recObj.c17||'' ?></textarea>
             </div>
           </div>
 
@@ -2121,8 +2168,9 @@
                 <input type="radio" name="q18" value="na" id="q18_na"><label for="q18_na">N/A</label>
               </div>
             </div>
-            <div>
-              <textarea class="comment-input" name="c18" placeholder="Add specific comments, observations, or recommendations..."><?= recObj.c18||'' ?></textarea>
+            <div class="question-note">
+              <label for="q18Note">Notes</label>
+              <textarea class="comment-input" id="q18Note" name="q18Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q18 Note']||recObj['C18']||recObj.c18||'' ?></textarea>
             </div>
           </div>
         </div>
@@ -2835,11 +2883,14 @@
       if (radio && radio.value) answeredQuestions++;
     }
     
-    // Comments (C1-C18)
+    // Notes (Q1-Q18)
     for (let i = 1; i <= 18; i++) {
-      const commentKey = 'c' + i;
-      const textarea = document.querySelector(`textarea[name="${commentKey}"]`);
-      formData[commentKey] = textarea ? textarea.value : '';
+      const noteKey = `q${i}Note`;
+      const textarea = document.querySelector(`textarea[name="${noteKey}"]`) ||
+        document.querySelector(`textarea[name="c${i}"]`);
+      const value = textarea ? textarea.value : '';
+      formData[noteKey] = value;
+      formData['c' + i] = value;
     }
     
     // Overall feedback from Quill editor
@@ -3079,11 +3130,14 @@
         if (radio && radio.value) answeredQuestions++;
       }
       
-      // Comments (C1-C18)
+      // Notes (Q1-Q18)
       for (let i = 1; i <= 18; i++) {
-        const commentKey = 'c' + i;
-        const textarea = document.querySelector(`textarea[name="${commentKey}"]`);
-        formData[commentKey] = textarea ? textarea.value : '';
+        const noteKey = `q${i}Note`;
+        const textarea = document.querySelector(`textarea[name="${noteKey}"]`) ||
+          document.querySelector(`textarea[name="c${i}"]`);
+        const value = textarea ? textarea.value : '';
+        formData[noteKey] = value;
+        formData['c' + i] = value;
       }
       
       // Overall feedback (from hidden fields that were updated)
@@ -3498,6 +3552,17 @@
       if (!v) continue;
       const el = document.querySelector(`input[name="${keyForm}"][value="${v}"]`);
       if (el) el.checked = true;
+    }
+
+    // Notes prefilling
+    for (let i = 1; i <= 18; i++) {
+      const noteValue = r['Q' + i + ' Note'] || r['Q' + i + ' note'] || r['C' + i] ||
+        r['c' + i] || r['q' + i + 'Note'] || r['q' + i + 'note'] || '';
+      const noteField = document.querySelector(`textarea[name="q${i}Note"]`) ||
+        document.querySelector(`textarea[name="c${i}"]`);
+      if (noteField && typeof noteValue === 'string') {
+        noteField.value = noteValue;
+      }
     }
   }
 
