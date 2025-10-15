@@ -1,294 +1,524 @@
-<!-- Terms of Service -->
-<?!= include('layout', {
-  baseUrl: baseUrl || '',
-  scriptUrl: scriptUrl,
-  user: user || {},
-  currentPage: currentPage || 'terms-of-service',
-  pageTitle: 'Terms of Service',
-  pageDescription: 'Usage conditions for the Lumina HQ transparency platform.'
-}) ?>
+<!DOCTYPE html>
+<html lang="en">
 
-<style>
-  :root {
-    --tos-bg: #f6f8fb;
-    --tos-card: #ffffff;
-    --tos-border: #dde6f7;
-    --tos-primary: #003177;
-    --tos-accent: #00BFFF;
-    --tos-muted: #5f6d87;
-  }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base target="_top">
+  <title>LuminaHQ – Terms of Service</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --lumina-navy: #0b1b3f;
+      --lumina-navy-alt: #103060;
+      --lumina-blue: #0478d3;
+      --lumina-blue-dark: #035799;
+      --lumina-cyan: #38bdf8;
+      --lumina-surface: #ffffff;
+      --lumina-muted: #f1f5fb;
+      --lumina-muted-dark: #d6e2f5;
+      --lumina-text: #101828;
+      --lumina-text-muted: #475467;
+      --shadow-primary: 0 12px 24px rgba(4, 120, 211, 0.18);
+      --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.08);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --transition: all 0.28s ease;
+      --tos-bg: #f6f8fb;
+      --tos-card: #ffffff;
+      --tos-border: #dde6f7;
+      --tos-primary: #003177;
+      --tos-accent: #00bfff;
+      --tos-muted: #5f6d87;
+    }
 
-  body {
-    background: var(--tos-bg);
-  }
+    * {
+      box-sizing: border-box;
+    }
 
-  .tos-wrapper {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 3rem 1.5rem 4rem;
-    font-family: 'Inter', Arial, sans-serif;
-    color: #1a2640;
-  }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--lumina-surface);
+      color: var(--lumina-text);
+    }
 
-  .tos-hero {
-    background: linear-gradient(135deg, rgba(0, 49, 119, 0.92), rgba(0, 191, 255, 0.88));
-    color: #fff;
-    padding: 2.5rem;
-    border-radius: 24px;
-    box-shadow: 0 24px 48px rgba(0, 49, 119, 0.18);
-    margin-bottom: 2.5rem;
-    position: relative;
-    overflow: hidden;
-  }
+    .page-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
 
-  .tos-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.25), transparent 55%);
-  }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.85);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+      margin: 0;
+      padding: 0;
+    }
 
-  .tos-hero h1 {
-    font-size: 2.45rem;
-    margin-bottom: 0.85rem;
-  }
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
 
-  .tos-hero p {
-    font-size: 1.05rem;
-    line-height: 1.7;
-    max-width: 760px;
-  }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+    }
 
-  .tos-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 2.5rem;
-    margin-top: 1.5rem;
-    font-size: 0.82rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 600;
-  }
+    .brand-logo {
+      height: 46px;
+      width: auto;
+      display: block;
+    }
 
-  .tos-section {
-    background: var(--tos-card);
-    border-radius: 20px;
-    padding: 2rem 2.5rem;
-    margin-bottom: 1.75rem;
-    border: 1px solid var(--tos-border);
-    box-shadow: 0 10px 30px rgba(20, 40, 80, 0.06);
-  }
+    .brand h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--lumina-navy);
+      margin: 0;
+      letter-spacing: 0.01em;
+    }
 
-  .tos-section h2 {
-    font-size: 1.55rem;
-    margin-bottom: 1rem;
-    color: var(--tos-primary);
-  }
+    .brand span {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: var(--lumina-text-muted);
+      letter-spacing: 0.14em;
+    }
 
-  .tos-section h3 {
-    font-size: 1.1rem;
-    margin-top: 1.5rem;
-    color: #1a2640;
-  }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
 
-  .tos-section p,
-  .tos-section li {
-    color: var(--tos-muted);
-    line-height: 1.7;
-    font-size: 1rem;
-  }
+    .nav-actions a {
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0.65rem 1.3rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
 
-  .tos-section ul {
-    margin: 0.75rem 0 0;
-    padding-left: 1.25rem;
-  }
+    .nav-actions .btn-outline {
+      color: var(--lumina-blue-dark);
+      background: transparent;
+      border: 1px solid rgba(4, 120, 211, 0.36);
+    }
 
-  .tos-highlight {
-    background: linear-gradient(135deg, rgba(0, 191, 255, 0.18), rgba(0, 49, 119, 0.12));
-    border: 1px solid rgba(0, 191, 255, 0.35);
-    border-radius: 16px;
-    padding: 1.35rem 1.5rem;
-    margin-top: 1.1rem;
-  }
+    .nav-actions .btn-outline:hover {
+      background: rgba(4, 120, 211, 0.1);
+      transform: translateY(-1px);
+    }
 
-  .definition-list {
-    display: grid;
-    gap: 1rem;
-    margin-top: 1rem;
-  }
+    .nav-actions .btn-primary {
+      color: white;
+      background: var(--lumina-blue);
+      box-shadow: none;
+    }
 
-  .definition-item {
-    border-left: 4px solid var(--tos-accent);
-    padding-left: 1rem;
-  }
+    .nav-actions .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(4, 120, 211, 0.24);
+    }
 
-  .definition-item h4 {
-    margin: 0 0 0.35rem;
-    color: #0b284d;
-    font-size: 1.05rem;
-  }
+    .legal-hero {
+      background: var(--lumina-navy-alt);
+      color: rgba(226, 232, 240, 0.92);
+      padding: clamp(4rem, 5vw + 2rem, 6rem) 1.25rem clamp(3rem, 5vw, 5rem);
+    }
 
-  @media (max-width: 768px) {
-    .tos-hero {
-      padding: 2.2rem;
+    .legal-hero .hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 2.5rem;
+    }
+
+    .hero-card {
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: clamp(2.5rem, 5vw, 3.2rem);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 55%);
+      pointer-events: none;
+    }
+
+    .hero-card-content {
+      position: relative;
+      display: grid;
+      gap: 1.75rem;
+      z-index: 1;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1rem;
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--lumina-surface);
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .legal-title {
+      font-size: clamp(2.4rem, 3.4vw + 1rem, 3.2rem);
+      line-height: 1.15;
+      margin: 0;
+      color: var(--lumina-surface);
+    }
+
+    .legal-subtitle {
+      margin: 0;
+      max-width: 680px;
+      font-size: 1.05rem;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .legal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 2.5rem;
+      margin-top: 1.25rem;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .legal-content {
+      background: var(--tos-bg);
+      padding: clamp(3rem, 5vw + 1rem, 4.5rem) 1.25rem;
+    }
+
+    .tos-wrapper {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 1.75rem;
     }
 
     .tos-section {
-      padding: 1.75rem;
+      background: var(--tos-card);
+      border-radius: 20px;
+      padding: clamp(2rem, 3vw, 2.5rem);
+      border: 1px solid var(--tos-border);
+      box-shadow: 0 10px 30px rgba(20, 40, 80, 0.06);
+      color: var(--tos-muted);
     }
-  }
-</style>
 
-<main class="tos-wrapper">
-  <section class="tos-hero" data-banner-source="page-hero">
-    <h1>Lumina HQ Terms of Service</h1>
-    <p>
-      These Terms govern your access to the Lumina HQ workforce transparency platform operated by our organization for the benefit of contracted call center and BPO clients. By using the service, you agree to uphold the accountability and confidentiality standards described here.
-    </p>
-    <div class="tos-meta">
-      <span>Audience: Internal leaders, QA teams, and authorized client stakeholders</span>
-      <span>Effective Date: <?= new Date().toISOString().slice(0, 10) ?></span>
-    </div>
-  </section>
+    .tos-section h2 {
+      font-size: 1.55rem;
+      margin-bottom: 1rem;
+      color: var(--tos-primary);
+    }
 
-  <section class="tos-section" id="definitions">
-    <h2>1. Definitions</h2>
-    <div class="definition-list">
-      <div class="definition-item">
-        <h4>"Company"</h4>
-        <p>The managed services provider operating Lumina HQ and responsible for delivering call, chat, and digital engagement solutions.</p>
+    .tos-section h3 {
+      font-size: 1.1rem;
+      margin-top: 1.5rem;
+      color: #1a2640;
+    }
+
+    .tos-section p,
+    .tos-section li {
+      line-height: 1.7;
+      font-size: 1rem;
+    }
+
+    .tos-section ul {
+      margin: 0.75rem 0 0;
+      padding-left: 1.25rem;
+    }
+
+    .tos-highlight {
+      background: linear-gradient(135deg, rgba(0, 191, 255, 0.18), rgba(0, 49, 119, 0.12));
+      border: 1px solid rgba(0, 191, 255, 0.35);
+      border-radius: 16px;
+      padding: 1.35rem 1.5rem;
+      margin-top: 1.1rem;
+      color: #103060;
+    }
+
+    .definition-list {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .definition-item {
+      background: linear-gradient(135deg, rgba(4, 120, 211, 0.08), rgba(11, 27, 63, 0.08));
+      border-radius: 16px;
+      padding: 1.15rem 1.25rem;
+      border: 1px solid rgba(4, 120, 211, 0.1);
+    }
+
+    .definition-item strong {
+      display: block;
+      font-size: 0.95rem;
+      color: var(--tos-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
+    }
+
+    .definition-item span {
+      font-size: 0.95rem;
+      color: var(--tos-muted);
+    }
+
+    .contact-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      font-weight: 600;
+      color: var(--tos-primary);
+    }
+
+    footer {
+      padding: 2.5rem 1.25rem 2rem;
+      background: var(--lumina-navy);
+      color: rgba(226, 232, 240, 0.9);
+      margin-top: auto;
+    }
+
+    .footer-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .footer-shell a {
+      color: rgba(226, 232, 240, 0.85);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer-shell a:hover {
+      color: white;
+    }
+
+    @media (max-width: 720px) {
+      header {
+        position: static;
+      }
+
+      .nav-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .legal-hero {
+        padding-top: 3rem;
+      }
+
+      .legal-meta {
+        gap: 1rem;
+      }
+    }
+  </style>
+  <?
+    var loginUrl = buildLoginPageUrl({});
+    var __legalBase = scriptUrl || baseUrl || '';
+    var landingHomeUrl = __legalBase ? __legalBase + '?page=landing' : 'Landing.html';
+    var privacyUrl = __legalBase ? __legalBase + '?page=privacy-policy' : 'PrivacyPolicy.html';
+  ?>
+</head>
+
+<body class="landing-page legal-page" id="top">
+  <div class="page-shell">
+    <header>
+      <div class="nav-container">
+        <a class="brand" href="<?!= landingHomeUrl ?>" aria-label="LuminaHQ landing page">
+          <img class="brand-logo" src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
+          <div>
+            <span>LuminaHQ</span>
+            <h1>Command Center</h1>
+          </div>
+        </a>
+        <div class="nav-actions">
+          <a class="btn-outline" href="<?!= privacyUrl ?>"><i class="fa-regular fa-shield"></i> Privacy</a>
+          <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
+        </div>
       </div>
-      <div class="definition-item">
-        <h4>"Client"</h4>
-        <p>A business or organization that contracts the Company to provide business process outsourcing support and receives Lumina HQ access for transparency.</p>
+    </header>
+
+    <main class="landing-main legal-main">
+      <section class="legal-hero">
+        <div class="hero-inner">
+          <div class="hero-card">
+            <div class="hero-card-content">
+              <span class="hero-tag"><i class="fa-solid fa-scale-balanced"></i> Governance</span>
+              <h1 class="legal-title">Terms of Service</h1>
+              <p class="legal-subtitle">These terms govern how customers and team members interact with the LuminaHQ Command Center.
+                Please review them to understand your responsibilities and the safeguards we provide.</p>
+              <div class="legal-meta">
+                <span><i class="fa-regular fa-calendar-check"></i> Effective January 1, 2024</span>
+                <span><i class="fa-regular fa-file-lines"></i> Version 1.4</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="legal-content">
+        <div class="tos-wrapper">
+          <article class="tos-section" id="overview">
+            <h2>1. Acceptance of Terms</h2>
+            <p>By accessing LuminaHQ or any associated service, you agree to these Terms of Service and any referenced
+              policies. If you are using the platform on behalf of an organization, you confirm you have authority to
+              bind your organization to these terms.</p>
+            <div class="tos-highlight">
+              <strong>Key takeaway:</strong>
+              LuminaHQ is designed for professional use. Respect data policies, use the platform responsibly, and keep
+              account access secure.
+            </div>
+          </article>
+
+          <article class="tos-section" id="definitions">
+            <h2>2. Definitions</h2>
+            <div class="definition-list">
+              <div class="definition-item">
+                <strong>"Platform"</strong>
+                <span>The LuminaHQ Command Center, including dashboards, workspaces, automation, and APIs.</span>
+              </div>
+              <div class="definition-item">
+                <strong>"Customer"</strong>
+                <span>Any client organization that has licensed access to LuminaHQ.</span>
+              </div>
+              <div class="definition-item">
+                <strong>"Authorized User"</strong>
+                <span>Any individual granted access by a Customer or by LuminaHQ administrators.</span>
+              </div>
+              <div class="definition-item">
+                <strong>"Data"</strong>
+                <span>Information uploaded, processed, or stored in LuminaHQ, including agent data, QA evaluations, and
+                  workflow artifacts.</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="tos-section" id="usage">
+            <h2>3. Acceptable Use &amp; Responsibilities</h2>
+            <p>Authorized Users agree to use LuminaHQ exclusively for legitimate business operations. You must not:</p>
+            <ul>
+              <li>Reverse engineer, interfere with, or attempt to bypass security or access controls.</li>
+              <li>Introduce malware, automated scripts, or attempt to disrupt service availability.</li>
+              <li>Share confidential data outside your organization or violate applicable privacy regulations.</li>
+              <li>Access modules or data beyond your assigned permissions.</li>
+            </ul>
+            <p>We may suspend or terminate access if these responsibilities are violated.</p>
+          </article>
+
+          <article class="tos-section" id="security">
+            <h2>4. Security &amp; Compliance</h2>
+            <p>We implement technical, administrative, and organizational controls to protect your data. These include:</p>
+            <ul>
+              <li>Role-based access, audit trails, and encryption at rest and in transit.</li>
+              <li>Regular vulnerability testing and continuous monitoring.</li>
+              <li>Compliance with regional data handling standards and contractual obligations.</li>
+            </ul>
+            <p>Customers are responsible for secure password practices, user provisioning, and maintaining accurate
+              access rights.</p>
+          </article>
+
+          <article class="tos-section" id="data-rights">
+            <h2>5. Data Ownership &amp; Privacy</h2>
+            <p>Customers retain ownership of their data. We access or process data solely to provide LuminaHQ services,
+              comply with legal requirements, or prevent misuse. Refer to our <a href="<?!= privacyUrl ?>">Privacy Policy</a> for
+              more detail on data handling.</p>
+            <div class="tos-highlight">
+              <strong>Data requests:</strong>
+              Customers may request export or deletion of their data at any time. We fulfill requests within contractual
+              timeframes unless restricted by law.
+            </div>
+          </article>
+
+          <article class="tos-section" id="service">
+            <h2>6. Service Availability &amp; Updates</h2>
+            <p>We strive for high availability and publish maintenance windows in advance. We may update features to
+              improve performance, security, or usability. Significant changes to these terms will be communicated to
+              administrators with at least 30 days' notice.</p>
+            <h3>Service limitations</h3>
+            <ul>
+              <li>We are not responsible for issues caused by third-party integrations or customer-managed systems.</li>
+              <li>Beta features are provided “as-is” and may change or be discontinued.</li>
+              <li>Force majeure events may impact service levels, though we will communicate promptly.</li>
+            </ul>
+          </article>
+
+          <article class="tos-section" id="termination">
+            <h2>7. Suspension &amp; Termination</h2>
+            <p>We may suspend or terminate accounts that violate these terms, applicable laws, or contractual
+              obligations. Customers may terminate services per the Master Services Agreement. Upon termination, we will
+              securely destroy or return customer data according to contract terms.</p>
+          </article>
+
+          <article class="tos-section" id="contact">
+            <h2>8. Contact &amp; Questions</h2>
+            <p>If you have questions about these terms or need to report a violation, contact our governance team:</p>
+            <div class="contact-card">
+              <span><i class="fa-solid fa-building-shield"></i> LuminaHQ Governance Office</span>
+              <span>compliance@lumina-hq.com</span>
+              <span>+1 (312) 555-0169</span>
+              <span>401 Insight Drive, Suite 1200, Chicago, IL 60606</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-shell">
+        <strong>LuminaHQ Command Center</strong>
+        <div>
+          <a href="<?!= landingHomeUrl ?>">Home</a> •
+          <a href="<?!= privacyUrl ?>">Privacy Policy</a> •
+          <a href="#top">Back to top</a>
+        </div>
+        <small>© <?!= (new Date()).getFullYear() ?> LuminaHQ. All rights reserved.</small>
       </div>
-      <div class="definition-item">
-        <h4>"Authorized User"</h4>
-        <p>Any employee, contractor, QA coach, leader, or client stakeholder granted credentials to access Lumina HQ within an approved tenant.</p>
-      </div>
-      <div class="definition-item">
-        <h4>"Platform Data"</h4>
-        <p>Operational metrics, schedules, quality evaluations, coaching notes, and supporting documentation collected or generated within Lumina HQ.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="tos-section" id="acceptance">
-    <h2>2. Acceptance of Terms</h2>
-    <p>
-      Accessing Lumina HQ signifies acceptance of these Terms, the Privacy Policy, and any supporting security standards communicated by the Company. Client administrators are responsible for ensuring that their Authorized Users review and comply with these requirements prior to receiving credentials.
-    </p>
-  </section>
-
-  <section class="tos-section" id="access">
-    <h2>3. Access & Account Management</h2>
-    <ul>
-      <li>Accounts are provisioned based on active campaigns and least-privilege roles.</li>
-      <li>Credentials are unique to each individual and may not be shared or transferred.</li>
-      <li>Authorized Users must use multi-factor authentication and secure workstations.</li>
-      <li>The Company may suspend access to protect platform integrity, address misuse, or comply with legal obligations.</li>
-      <li>Clients must notify the Company within one business day when a user’s role changes or no longer requires access.</li>
-    </ul>
-  </section>
-
-  <section class="tos-section" id="permitted-use">
-    <h2>4. Permitted Use & Restrictions</h2>
-    <p>
-      Lumina HQ may be used solely to coordinate, measure, and report on call center and BPO services delivered under signed statements of work. Users must not:
-    </p>
-    <ul>
-      <li>Export or redistribute Platform Data to unauthorized parties.</li>
-      <li>Attempt to access campaigns or data outside their assigned tenant.</li>
-      <li>Introduce malicious code, attempt to bypass security controls, or interfere with system stability.</li>
-      <li>Use the platform for unrelated marketing, personal projects, or competitive analysis.</li>
-    </ul>
-    <div class="tos-highlight">
-      <strong>Transparency commitment:</strong> Each coaching review, QA score, and escalation captured in Lumina HQ is visible to stakeholders with corresponding permissions. Altering or falsifying records violates these Terms and may trigger disciplinary action or contract remedies.
-    </div>
-  </section>
-
-  <section class="tos-section" id="data-ownership">
-    <h2>5. Data Ownership & Confidentiality</h2>
-    <ul>
-      <li>Clients retain ownership of campaign deliverables, scorecards, and any customer information they provide.</li>
-      <li>The Company retains ownership of platform architecture, templates, anonymized benchmarks, and internal process documentation.</li>
-      <li>All parties agree to maintain confidentiality of non-public information and apply equivalent safeguards when exporting reports.</li>
-      <li>Sharing Platform Data externally requires prior written consent except when mandated by law.</li>
-    </ul>
-  </section>
-
-  <section class="tos-section" id="compliance">
-    <h2>6. Regulatory & Contractual Compliance</h2>
-    <p>
-      The Company designs Lumina HQ to support industry obligations such as GDPR, CCPA, HIPAA (where applicable), PCI-DSS call handling standards, and local labor requirements. Clients remain responsible for determining whether the platform meets their specific regulatory expectations and for executing any required data processing agreements.
-    </p>
-    <p>
-      The Company will cooperate with audits or questionnaires reasonably necessary to validate compliance, subject to confidentiality and scheduling constraints.
-    </p>
-  </section>
-
-  <section class="tos-section" id="service-delivery">
-    <h2>7. Service Delivery & Availability</h2>
-    <ul>
-      <li>Standard availability targets align with Google Workspace service levels. Planned maintenance windows are communicated in advance when feasible.</li>
-      <li>Support is available through the operations command center and assigned account managers during agreed business hours.</li>
-      <li>The Company may enhance, modify, or deprecate features with reasonable notice. Material changes impacting contracted deliverables will be coordinated with clients.</li>
-      <li>Data backups leverage Google’s redundancy. Clients may request scheduled exports for archiving.</li>
-    </ul>
-  </section>
-
-  <section class="tos-section" id="auditing">
-    <h2>8. Auditing & Reporting</h2>
-    <p>
-      Lumina HQ logs sign-ins, configuration updates, and key coaching activities. The Company may review logs to uphold accountability, investigate incidents, or satisfy client audit requirements. Clients may request audit extracts related to their campaigns, subject to reasonable limits and security review.
-    </p>
-  </section>
-
-  <section class="tos-section" id="suspension">
-    <h2>9. Suspension & Termination</h2>
-    <ul>
-      <li>Either party may terminate platform access upon completion or termination of the underlying services agreement.</li>
-      <li>The Company may suspend or terminate individual accounts for breach of these Terms, suspected fraud, or security risk.</li>
-      <li>Upon termination, the Company will provide mutually agreed data exports and delete or anonymize remaining Platform Data per the Privacy Policy.</li>
-      <li>Sections concerning confidentiality, intellectual property, disclaimers, and limitation of liability survive termination.</li>
-    </ul>
-  </section>
-
-  <section class="tos-section" id="warranties">
-    <h2>10. Disclaimers & Limitation of Liability</h2>
-    <p>
-      Lumina HQ is provided “as is” for operational transparency. Except as expressly stated in the master services agreement, the Company disclaims warranties of merchantability, fitness for a particular purpose, and non-infringement. Liability for any claim arising from platform use is limited to direct damages and capped at the fees paid for the applicable services during the preceding twelve (12) months.
-    </p>
-  </section>
-
-  <section class="tos-section" id="indemnification">
-    <h2>11. Indemnification</h2>
-    <p>
-      Clients agree to indemnify and hold harmless the Company and its personnel against third-party claims arising from client instructions, unlawful data submissions, or misuse of the platform by the client’s Authorized Users. The Company will indemnify the client against third-party claims alleging that the platform infringes intellectual property rights, provided the client promptly notifies the Company and cooperates with the defense.
-    </p>
-  </section>
-
-  <section class="tos-section" id="modifications">
-    <h2>12. Changes to These Terms</h2>
-    <p>
-      The Company may update these Terms to reflect new features, regulatory requirements, or operational changes. Clients will receive at least 30 days’ notice for material updates. Continued use of the platform after the effective date constitutes acceptance of the revised Terms.
-    </p>
-  </section>
-
-  <section class="tos-section" id="governing-law">
-    <h2>13. Governing Law & Dispute Resolution</h2>
-    <p>
-      Unless otherwise specified in a master services agreement, these Terms are governed by the laws of the jurisdiction where the Company is headquartered, without regard to conflicts of law principles. Parties will first attempt to resolve disputes through executive escalation and mediation before initiating formal proceedings.
-    </p>
-  </section>
-
-  <section class="tos-section" id="contact">
-    <h2>14. Contact</h2>
-    <p>
-      Questions about these Terms should be directed to your account manager or to <a href="mailto:legal@lumina-hq.internal">legal@lumina-hq.internal</a>. Incident notifications should follow the security escalation process outlined in the Privacy Policy.
-    </p>
-  </section>
-</main>
-
+    </footer>
+  </div>
 </body>
+
 </html>

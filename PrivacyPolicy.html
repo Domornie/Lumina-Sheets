@@ -1,278 +1,468 @@
-<!-- Privacy Policy -->
-<?!= include('layout', {
-  baseUrl: baseUrl || '',
-  scriptUrl: scriptUrl,
-  user: user || {},
-  currentPage: currentPage || 'privacy-policy',
-  pageTitle: 'Privacy Policy',
-  pageDescription: 'How Lumina HQ safeguards BPO workforce data and collaboration insights.'
-}) ?>
+<!DOCTYPE html>
+<html lang="en">
 
-<style>
-  :root {
-    --policy-bg: #f4f7fb;
-    --policy-card: #ffffff;
-    --policy-border: #e1e8f5;
-    --policy-primary: #003177;
-    --policy-accent: #00BFFF;
-    --policy-text: #1a2a4a;
-    --policy-muted: #64748b;
-  }
-
-  body {
-    background: var(--policy-bg);
-  }
-
-  .policy-wrapper {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 3rem 1.5rem 4rem;
-    font-family: 'Inter', Arial, sans-serif;
-    color: var(--policy-text);
-  }
-
-  .policy-header {
-    background: linear-gradient(135deg, rgba(0, 49, 119, 0.95), rgba(0, 191, 255, 0.85));
-    color: #fff;
-    padding: 2.5rem;
-    border-radius: 24px;
-    box-shadow: 0 30px 50px rgba(0, 49, 119, 0.15);
-    margin-bottom: 2.5rem;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .policy-header::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 55%);
-    pointer-events: none;
-  }
-
-  .policy-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .policy-header p {
-    max-width: 760px;
-    font-size: 1.05rem;
-    line-height: 1.7;
-  }
-
-  .policy-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 2.5rem;
-    margin-top: 1.5rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
-  }
-
-  .policy-section {
-    background: var(--policy-card);
-    border-radius: 20px;
-    padding: 2rem 2.5rem;
-    margin-bottom: 1.75rem;
-    border: 1px solid var(--policy-border);
-    box-shadow: 0 10px 30px rgba(15, 35, 95, 0.06);
-  }
-
-  .policy-section h2 {
-    font-size: 1.6rem;
-    margin-bottom: 1rem;
-    color: var(--policy-primary);
-  }
-
-  .policy-section h3 {
-    font-size: 1.15rem;
-    margin-top: 1.5rem;
-    color: var(--policy-text);
-  }
-
-  .policy-section p,
-  .policy-section li {
-    color: var(--policy-muted);
-    line-height: 1.7;
-    font-size: 1rem;
-  }
-
-  .policy-section ul {
-    margin: 0.75rem 0 0;
-    padding-left: 1.25rem;
-  }
-
-  .policy-callout {
-    background: linear-gradient(135deg, rgba(0, 191, 255, 0.15), rgba(0, 49, 119, 0.1));
-    border: 1px solid rgba(0, 191, 255, 0.35);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-top: 1.25rem;
-  }
-
-  .contact-box {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-weight: 600;
-  }
-
-  @media (max-width: 768px) {
-    .policy-header {
-      padding: 2rem;
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base target="_top">
+  <title>LuminaHQ – Privacy Policy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --lumina-navy: #0b1b3f;
+      --lumina-navy-alt: #103060;
+      --lumina-blue: #0478d3;
+      --lumina-blue-dark: #035799;
+      --lumina-cyan: #38bdf8;
+      --lumina-surface: #ffffff;
+      --lumina-muted: #f1f5fb;
+      --lumina-muted-dark: #d6e2f5;
+      --lumina-text: #101828;
+      --lumina-text-muted: #475467;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --transition: all 0.28s ease;
+      --policy-bg: #f4f7fb;
+      --policy-card: #ffffff;
+      --policy-border: #e1e8f5;
+      --policy-primary: #003177;
+      --policy-accent: #00bfff;
+      --policy-text: #1a2a4a;
+      --policy-muted: #64748b;
     }
 
-    .policy-header h1 {
-      font-size: 2rem;
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--lumina-surface);
+      color: var(--policy-text);
+    }
+
+    .page-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.85);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      height: 46px;
+      width: auto;
+      display: block;
+    }
+
+    .brand h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--lumina-navy);
+      margin: 0;
+      letter-spacing: 0.01em;
+    }
+
+    .brand span {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: var(--lumina-text-muted);
+      letter-spacing: 0.14em;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .nav-actions a {
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0.65rem 1.3rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+
+    .nav-actions .btn-outline {
+      color: var(--lumina-blue-dark);
+      background: transparent;
+      border: 1px solid rgba(4, 120, 211, 0.36);
+    }
+
+    .nav-actions .btn-outline:hover {
+      background: rgba(4, 120, 211, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .nav-actions .btn-primary {
+      color: white;
+      background: var(--lumina-blue);
+      box-shadow: none;
+    }
+
+    .nav-actions .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(4, 120, 211, 0.24);
+    }
+
+    .legal-hero {
+      background: var(--lumina-navy-alt);
+      color: rgba(226, 232, 240, 0.92);
+      padding: clamp(4rem, 5vw + 2rem, 6rem) 1.25rem clamp(3rem, 5vw, 5rem);
+    }
+
+    .legal-hero .hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 2.5rem;
+    }
+
+    .hero-card {
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: clamp(2.5rem, 5vw, 3.2rem);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 55%);
+      pointer-events: none;
+    }
+
+    .hero-card-content {
+      position: relative;
+      display: grid;
+      gap: 1.75rem;
+      z-index: 1;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1rem;
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--lumina-surface);
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .legal-title {
+      font-size: clamp(2.4rem, 3.4vw + 1rem, 3.2rem);
+      line-height: 1.15;
+      margin: 0;
+      color: var(--lumina-surface);
+    }
+
+    .legal-subtitle {
+      margin: 0;
+      max-width: 680px;
+      font-size: 1.05rem;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .legal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 2.5rem;
+      margin-top: 1.25rem;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .policy-content {
+      background: var(--policy-bg);
+      padding: clamp(3rem, 5vw + 1rem, 4.5rem) 1.25rem;
+    }
+
+    .policy-wrapper {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 1.75rem;
     }
 
     .policy-section {
-      padding: 1.75rem;
+      background: var(--policy-card);
+      border-radius: 20px;
+      padding: clamp(2rem, 3vw, 2.5rem);
+      margin: 0;
+      border: 1px solid var(--policy-border);
+      box-shadow: 0 10px 30px rgba(15, 35, 95, 0.06);
     }
-  }
-</style>
 
-<main class="policy-wrapper">
-  <header class="policy-header" data-banner-source="page-hero">
-    <h1>Lumina HQ Privacy Policy</h1>
-    <p>
-      Lumina HQ empowers business process outsourcing (BPO) leaders, quality assurance coaches, and client stakeholders with shared visibility into workforce performance. This Privacy Policy explains how we handle personal and operational data when clients and internal teams use the platform for call, chat, and digital engagement transparency.
-    </p>
-    <div class="policy-meta">
-      <span>Applies to: Lumina HQ workforce transparency suite</span>
-      <span>Audience: Internal operations teams & contracted clients</span>
-      <span>Last Updated: <?= new Date().toISOString().slice(0, 10) ?></span>
-    </div>
-  </header>
+    .policy-section h2 {
+      font-size: 1.6rem;
+      margin-bottom: 1rem;
+      color: var(--policy-primary);
+    }
 
-  <section class="policy-section" id="overview">
-    <h2>1. Scope & Responsibilities</h2>
-    <p>
-      Lumina HQ is deployed within our managed Google Workspace environment to support call center and BPO engagement. We act as the data controller for internal team member records and as a data processor for client-provided contact data or campaign information. Clients remain responsible for ensuring their own collection practices comply with applicable privacy laws and for providing any required notices to their workforce.
-    </p>
-    <div class="policy-callout">
-      <strong>Key principle:</strong> The platform is designed exclusively for operational transparency between our organization and contracted clients. No personal data is sold or shared outside of this relationship.
-    </div>
-  </section>
+    .policy-section h3 {
+      font-size: 1.15rem;
+      margin-top: 1.5rem;
+      color: var(--policy-text);
+    }
 
-  <section class="policy-section" id="data-collected">
-    <h2>2. Data We Collect</h2>
-    <p>We maintain only the information needed to coordinate service delivery, coaching, and quality outcomes:</p>
-    <h3>Workforce & Leadership Data</h3>
-    <ul>
-      <li>Employee and contractor profiles (name, work email, role assignments, tenant access).</li>
-      <li>Scheduling, attendance, and adherence metrics maintained in Google Sheets.</li>
-      <li>Performance coaching notes, QA scoring forms, and escalation records.</li>
-    </ul>
-    <h3>Client & Campaign Data</h3>
-    <ul>
-      <li>Campaign configuration, service level objectives, and authorized stakeholders.</li>
-      <li>Ticket, call, or chat identifiers required to measure outcomes—never the full recordings hosted in client telephony platforms.</li>
-      <li>Custom benchmarks or targets uploaded by clients to evaluate accountability.</li>
-    </ul>
-    <h3>Platform Telemetry</h3>
-    <ul>
-      <li>Authentication events, change history, and system audit trails.</li>
-      <li>Page navigation metadata and form submissions captured for troubleshooting and compliance.</li>
-      <li>API usage logs when synchronizing with Google Sheets or third-party services expressly authorized by the client.</li>
-    </ul>
-  </section>
+    .policy-section p,
+    .policy-section li {
+      color: var(--policy-muted);
+      line-height: 1.7;
+      font-size: 1rem;
+    }
 
-  <section class="policy-section" id="data-use">
-    <h2>3. How We Use Information</h2>
-    <ul>
-      <li>Deliver transparency dashboards and reports for leadership and client review.</li>
-      <li>Verify adherence to quality standards, compliance requirements, and contractual commitments.</li>
-      <li>Support coaching, escalation resolution, and corrective action workflows.</li>
-      <li>Maintain secure access controls, audit capabilities, and operational analytics.</li>
-      <li>Improve platform reliability and release new features aligned to client needs.</li>
-    </ul>
-    <p>
-      We do not use Lumina HQ data for marketing, sales prospecting, or unrelated analytics. Automated decision-making is limited to routing workflows defined by clients and internal leaders.
-    </p>
-  </section>
+    .policy-section ul {
+      margin: 0.75rem 0 0;
+      padding-left: 1.25rem;
+    }
 
-  <section class="policy-section" id="lawful-basis">
-    <h2>4. Legal Bases & Compliance</h2>
-    <p>
-      Depending on the data relationship, processing is grounded in contractual necessity, legitimate interest in operating our managed services, or compliance with labor, tax, and safety obligations. We align our practices with applicable regulations such as GDPR, CCPA, and local labor laws. Clients may request data processing addendums or standard contractual clauses when international transfers are required.
-    </p>
-  </section>
+    .policy-callout {
+      background: linear-gradient(135deg, rgba(0, 191, 255, 0.15), rgba(0, 49, 119, 0.1));
+      border: 1px solid rgba(0, 191, 255, 0.35);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-top: 1.25rem;
+    }
 
-  <section class="policy-section" id="access-control">
-    <h2>5. Access & Transparency Controls</h2>
-    <p>
-      Only authorized team leads, QA coaches, managers, and approved client stakeholders receive role-based access within their tenant. Lumina HQ enforces segregation of campaigns, detailed audit logs, and approval workflows for elevated privileges. Clients may request read-only access profiles to validate scorecards or verify agent interactions.
-    </p>
-    <p>
-      Personnel are trained on confidentiality, secure handling of personal data, and responsible use of coaching insights. Access reviews are conducted at least quarterly and immediately upon role changes.
-    </p>
-  </section>
+    .contact-box {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-weight: 600;
+      color: var(--policy-primary);
+    }
 
-  <section class="policy-section" id="data-sharing">
-    <h2>6. Sharing & Transfers</h2>
-    <ul>
-      <li><strong>Internal operations:</strong> Shared only with teams supporting the relevant campaign or quality initiative.</li>
-      <li><strong>Client stakeholders:</strong> Access provided through authenticated accounts with logging and expiration controls.</li>
-      <li><strong>Subprocessors:</strong> Limited to Google (Apps Script, Sheets, Drive) and approved infrastructure providers required to deliver the platform. Additional subprocessors are communicated before activation.</li>
-      <li><strong>Legal obligations:</strong> Disclosure occurs only when required by law, governmental request, or to enforce contractual rights.</li>
-    </ul>
-    <p>
-      International transfers rely on data protection addendums, regional hosting preferences, and encryption in transit and at rest.
-    </p>
-  </section>
+    footer {
+      padding: 2.5rem 1.25rem 2rem;
+      background: var(--lumina-navy);
+      color: rgba(226, 232, 240, 0.9);
+      margin-top: auto;
+    }
 
-  <section class="policy-section" id="retention">
-    <h2>7. Data Retention & Deletion</h2>
-    <p>
-      Operational records are retained for the duration of the client engagement plus a standard audit window (typically 12–24 months) unless a longer period is mandated by contract or regulation. Clients may request accelerated deletion of campaign datasets upon termination, provided there are no unresolved disputes or outstanding legal holds. Audit logs may be preserved to demonstrate compliance with quality and employment obligations.
-    </p>
-  </section>
+    .footer-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
 
-  <section class="policy-section" id="security">
-    <h2>8. Security Practices</h2>
-    <ul>
-      <li>Google Workspace security baseline, including enforced multi-factor authentication and context-aware access.</li>
-      <li>Sheet- and script-level permission scopes aligned to least privilege.</li>
-      <li>Encryption in transit (HTTPS) and at rest through Google-managed keys.</li>
-      <li>Continuous monitoring, vulnerability management, and incident response protocols.</li>
-      <li>Change management and code review workflows to protect platform integrity.</li>
-    </ul>
-    <p>
-      Suspected incidents are escalated to our security response team and impacted clients within applicable notification timelines.
-    </p>
-  </section>
+    .footer-shell a {
+      color: rgba(226, 232, 240, 0.85);
+      text-decoration: none;
+      font-weight: 500;
+    }
 
-  <section class="policy-section" id="rights">
-    <h2>9. Individual Rights & Requests</h2>
-    <p>
-      Eligible individuals may request access, correction, restriction, or deletion of their data by contacting our privacy office. We coordinate with clients to fulfill requests tied to their workforce. Identity verification is required, and response timelines follow relevant regulations. Certain operational data may be retained when necessary to comply with legal obligations or contractual commitments.
-    </p>
-  </section>
+    .footer-shell a:hover {
+      color: white;
+    }
 
-  <section class="policy-section" id="updates">
-    <h2>10. Policy Updates</h2>
-    <p>
-      We review this Privacy Policy regularly to reflect product enhancements, regulatory updates, and client feedback. Material changes are communicated through platform notifications or direct client outreach at least 30 days prior to enforcement, unless a faster update is required by law.
-    </p>
-  </section>
+    @media (max-width: 720px) {
+      header {
+        position: static;
+      }
 
-  <section class="policy-section" id="contact">
-    <h2>11. Contact & Escalations</h2>
-    <div class="contact-box">
-      <span>Privacy Office & Data Protection Contact</span>
-      <span>Email: privacy@lumina-hq.internal</span>
-      <span>Security Hotline: +1 (800) 000-0000 (24/7 incident reporting)</span>
-      <span>Address: Available upon request for client due diligence</span>
-    </div>
-    <p>
-      Clients may also request copies of our security certifications, subprocessors list, or data processing agreements through their account manager.
-    </p>
-  </section>
-</main>
+      .nav-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
 
+      .legal-hero {
+        padding-top: 3rem;
+      }
+
+      .legal-meta {
+        gap: 1rem;
+      }
+    }
+  </style>
+  <?
+    var loginUrl = buildLoginPageUrl({});
+    var __legalBase = scriptUrl || baseUrl || '';
+    var landingHomeUrl = __legalBase ? __legalBase + '?page=landing' : 'Landing.html';
+    var termsUrl = __legalBase ? __legalBase + '?page=terms-of-service' : 'TermsOfService.html';
+  ?>
+</head>
+
+<body class="landing-page legal-page" id="top">
+  <div class="page-shell">
+    <header>
+      <div class="nav-container">
+        <a class="brand" href="<?!= landingHomeUrl ?>" aria-label="LuminaHQ landing page">
+          <img class="brand-logo" src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
+          <div>
+            <span>LuminaHQ</span>
+            <h1>Command Center</h1>
+          </div>
+        </a>
+        <div class="nav-actions">
+          <a class="btn-outline" href="<?!= termsUrl ?>"><i class="fa-regular fa-file-lines"></i> Terms</a>
+          <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="landing-main legal-main">
+      <section class="legal-hero">
+        <div class="hero-inner">
+          <div class="hero-card">
+            <div class="hero-card-content">
+              <span class="hero-tag"><i class="fa-solid fa-user-shield"></i> Privacy First</span>
+              <h1 class="legal-title">Privacy Policy</h1>
+              <p class="legal-subtitle">We safeguard workforce, customer, and operational insights with rigorous
+                controls. This policy explains how LuminaHQ collects, uses, and protects your information.</p>
+              <div class="legal-meta">
+                <span><i class="fa-regular fa-calendar-check"></i> Effective January 1, 2024</span>
+                <span><i class="fa-regular fa-file-lines"></i> Version 2.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="policy-content">
+        <div class="policy-wrapper">
+          <article class="policy-section" id="scope">
+            <h2>1. Scope &amp; Overview</h2>
+            <p>This Privacy Policy applies to LuminaHQ Command Center services, integrations, and associated support
+              programs. It covers how we process personal and operational data on behalf of our customers.</p>
+            <div class="policy-callout">
+              <strong>Summary:</strong> LuminaHQ only processes information required to operate our platform, deliver
+              contracted services, and enhance security. We never sell customer or user data.
+            </div>
+          </article>
+
+          <article class="policy-section" id="collection">
+            <h2>2. Data We Collect</h2>
+            <p>Depending on the services you use, we may collect:</p>
+            <ul>
+              <li><strong>Account information</strong> such as names, business emails, and role assignments.</li>
+              <li><strong>Operational data</strong> including QA scores, attendance metrics, call summaries, and task
+                updates.</li>
+              <li><strong>Technical telemetry</strong> like device type, browser version, IP address, and session
+                metadata to support security monitoring.</li>
+            </ul>
+          </article>
+
+          <article class="policy-section" id="usage">
+            <h2>3. How We Use Data</h2>
+            <p>We use collected information to:</p>
+            <ul>
+              <li>Provide, maintain, and improve LuminaHQ services.</li>
+              <li>Authenticate users, manage permissions, and support audit requirements.</li>
+              <li>Deliver notifications, reports, and service updates.</li>
+              <li>Detect, investigate, and prevent fraudulent or malicious activity.</li>
+            </ul>
+          </article>
+
+          <article class="policy-section" id="sharing">
+            <h2>4. Data Sharing &amp; Transfers</h2>
+            <p>We share data with trusted sub-processors only when necessary to deliver services. Each partner is bound by
+              confidentiality obligations and undergoes security reviews. International transfers follow applicable data
+              protection laws and standard contractual clauses.</p>
+          </article>
+
+          <article class="policy-section" id="security">
+            <h2>5. Security &amp; Retention</h2>
+            <p>We maintain safeguards including encryption, continuous monitoring, and restricted access controls. Data is
+              retained according to customer agreements and regulatory requirements. When data is no longer required, we
+              securely delete or anonymize it.</p>
+            <div class="policy-callout">
+              <strong>Customer controls:</strong> Administrators can configure retention rules, request exports, or
+              trigger deletion workflows through governance channels.
+            </div>
+          </article>
+
+          <article class="policy-section" id="rights">
+            <h2>6. Privacy Rights</h2>
+            <p>Depending on your location, you may have rights to access, correct, delete, or restrict processing of your
+              data. LuminaHQ supports these rights through customer requests and built-in export tooling.</p>
+          </article>
+
+          <article class="policy-section" id="contact">
+            <h2>7. Contact Us</h2>
+            <p>For questions about privacy practices or to submit a data request, contact our privacy office:</p>
+            <div class="contact-box">
+              <span><i class="fa-solid fa-shield-heart"></i> LuminaHQ Privacy Office</span>
+              <span>privacy@lumina-hq.com</span>
+              <span>+1 (312) 555-0194</span>
+              <span>401 Insight Drive, Suite 1200, Chicago, IL 60606</span>
+            </div>
+          </article>
+
+          <article class="policy-section" id="updates">
+            <h2>8. Updates to This Policy</h2>
+            <p>We may update this policy to reflect new regulations or platform enhancements. Material changes will be
+              communicated to administrators with at least 30 days' notice. Continued use of LuminaHQ constitutes
+              acceptance of updated terms.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-shell">
+        <strong>LuminaHQ Command Center</strong>
+        <div>
+          <a href="<?!= landingHomeUrl ?>">Home</a> •
+          <a href="<?!= termsUrl ?>">Terms of Service</a> •
+          <a href="#top">Back to top</a>
+        </div>
+        <small>© <?!= (new Date()).getFullYear() ?> LuminaHQ. All rights reserved.</small>
+      </div>
+    </footer>
+  </div>
 </body>
+
 </html>
