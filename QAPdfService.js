@@ -638,7 +638,7 @@ getThemeStyles(theme = 'professional') {
       questions.forEach(questionKey => {
         const qNum = questionKey.replace(/^q/i, '');
         const answer = qaRecord[`Q${qNum}`] || 'N/A';
-        const notes = qaRecord[`C${qNum}`] || '';
+        const notes = qaRecord[`Q${qNum} Note`] || qaRecord[`Q${qNum} note`] || qaRecord[`C${qNum}`] || '';
         const weight = weights[questionKey] || 0;
         const questionDesc = questionText[questionKey] || questionKey;
 
