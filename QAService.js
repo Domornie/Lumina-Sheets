@@ -510,15 +510,28 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'Notes': return data.notes || '';
         case 'AgentFeedback': return data.agentFeedback || '';
         default:
-          // Handle Q1-Q18 and C1-C18
-          if (/^Q\d+$/i.test(col)) {
-            const qKey = col.toLowerCase();
+          // Handle Q1-Q18 answers and their note columns
+          const questionMatch = col.match(/^Q(\d+)$/i);
+          if (questionMatch) {
+            const qKey = ('q' + questionMatch[1]).toLowerCase();
             const val = data[qKey];
             if (!val || val === 'na') return 'N/A';
             return val === 'yes' ? 'Yes' : 'No';
           }
+          const noteMatch = col.match(/^Q(\d+)\s+Note$/i);
+          if (noteMatch) {
+            const number = noteMatch[1];
+            const camelKey = 'q' + number + 'Note';
+            const lowerKey = ('q' + number + 'note');
+            const legacyKey = 'c' + number;
+            return data[camelKey] || data[lowerKey] || data[legacyKey] || '';
+          }
           if (/^C\d+$/i.test(col)) {
-            return data[col.toLowerCase()] || '';
+            const number = col.replace(/[^0-9]/g, '');
+            const camelKey = number ? ('q' + number + 'Note') : '';
+            const lowerKey = number ? ('q' + number + 'note') : '';
+            const legacyKey = col.toLowerCase();
+            return (camelKey && data[camelKey]) || (lowerKey && data[lowerKey]) || data[legacyKey] || '';
           }
           // Other fields
           return data[col.charAt(0).toLowerCase() + col.slice(1)] || '';
@@ -1001,6 +1014,8 @@ function clientGetQADashboardSnapshot(request = {}) {
       .reverse()
       .map(entry => ({ value: entry.period, label: entry.label }));
 
+    const latestEvaluation = buildLatestEvaluationSummary_(filtered.length ? filtered : records);
+
     const availableAgents = Array.from(new Set(records.map(record => record.agent).filter(Boolean))).sort();
     const agentNameLookup = {};
     const agentOptions = availableAgents.map(identifier => {
@@ -1031,6 +1046,7 @@ function clientGetQADashboardSnapshot(request = {}) {
         totalRecords: records.length
       },
       periodOptions,
+      latestEvaluation,
       availableAgents,
       agentOptions,
       agentNameLookup
@@ -1914,6 +1930,147 @@ function getAnswerValue_(record, key) {
   return '';
 }
 
+function getQuestionNoteValue_(record, questionNumber) {
+  if (!record) {
+    return '';
+  }
+
+  const suffix = String(questionNumber || '').replace(/^q/i, '').trim();
+  if (!suffix) {
+    return '';
+  }
+
+  const candidates = [
+    `Q${suffix} Note`,
+    `q${suffix} Note`,
+    `Q${suffix} note`,
+    `q${suffix} note`,
+    `Q${suffix}Note`,
+    `Q${suffix}Notes`,
+    `q${suffix}Note`,
+    `q${suffix}Notes`,
+    `C${suffix}`,
+    `c${suffix}`,
+    `Note${suffix}`,
+    `Notes${suffix}`
+  ];
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
+    if (candidate in record && record[candidate] !== undefined && record[candidate] !== null) {
+      return record[candidate];
+    }
+  }
+
+  return '';
+}
+
+function normalizeAnswerDisplay_(value) {
+  if (value === null || value === undefined) {
+    return 'N/A';
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return 'N/A';
+  }
+
+  const normalized = text.toLowerCase();
+  if (normalized === 'yes') return 'Yes';
+  if (normalized === 'no') return 'No';
+  if (normalized === 'na' || normalized === 'n/a') return 'N/A';
+  return text;
+}
+
+function getComparableRecordTimestamp_(record) {
+  if (!record) {
+    return 0;
+  }
+
+  const dates = [];
+  if (record.callDate instanceof Date) {
+    dates.push(record.callDate.getTime());
+  }
+
+  const raw = record.raw || {};
+  const dateFields = ['CallDate', 'AuditDate', 'Timestamp', 'CreatedDate', 'CreatedAt', 'UpdatedAt'];
+  dateFields.forEach(field => {
+    if (!raw[field]) {
+      return;
+    }
+    const parsed = parseFlexibleDateString_(raw[field]);
+    if (parsed instanceof Date && !isNaN(parsed.getTime())) {
+      dates.push(parsed.getTime());
+    } else {
+      const direct = Date.parse(String(raw[field]));
+      if (!Number.isNaN(direct)) {
+        dates.push(direct);
+      }
+    }
+  });
+
+  if (!dates.length) {
+    return 0;
+  }
+
+  return Math.max.apply(null, dates);
+}
+
+function buildLatestEvaluationSummary_(records) {
+  if (!Array.isArray(records) || !records.length) {
+    return null;
+  }
+
+  const withRaw = records.filter(record => record && record.raw && typeof record.raw === 'object');
+  if (!withRaw.length) {
+    return null;
+  }
+
+  const sorted = withRaw.slice().sort((a, b) => getComparableRecordTimestamp_(b) - getComparableRecordTimestamp_(a));
+  const latest = sorted[0];
+  const raw = latest.raw || {};
+
+  const questionText = qaQuestionText_();
+  const weights = qaWeights_();
+  const tz = Session.getScriptTimeZone();
+
+  const questions = Object.keys(questionText).map(key => {
+    const number = key.replace(/^q/i, '');
+    const weight = weights[key] || weights[key.toLowerCase()] || 0;
+    const answerValue = getAnswerValue_(raw, key);
+    const noteValue = getQuestionNoteValue_(raw, number);
+
+    return {
+      key,
+      number: `Q${number}`,
+      question: questionText[key],
+      weight,
+      answer: normalizeAnswerDisplay_(answerValue),
+      note: noteValue || ''
+    };
+  });
+
+  const callDate = latest.callDate instanceof Date
+    ? Utilities.formatDate(latest.callDate, tz, 'yyyy-MM-dd')
+    : (raw.CallDate || '');
+  const percentage = raw.Percentage || raw.FinalScore;
+  const normalizedScore = typeof latest.recordScore === 'number'
+    ? Math.round(latest.recordScore)
+    : (percentage !== undefined && percentage !== null && percentage !== ''
+        ? Math.round(parsePercentageValue_(percentage) * 100)
+        : '');
+
+  return {
+    id: raw.ID || raw.Id || raw.id || '',
+    agent: raw.AgentName || latest.agent || '',
+    auditor: raw.AuditorName || '',
+    callDate,
+    auditDate: raw.AuditDate || '',
+    score: normalizedScore,
+    questions
+  };
+}
+
 function toISOWeek_(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const day = d.getUTCDay() || 7;
@@ -2382,7 +2539,7 @@ function testPdfGeneration() {
       Q6: 'Yes', Q7: 'Yes', Q8: 'Yes', Q9: 'Yes',
       Q10: 'Yes', Q11: 'Yes', Q12: 'No', Q13: 'Yes', Q14: 'N/A',
       Q15: 'Yes', Q16: 'Yes', Q17: 'No', Q18: 'Yes',
-      C1: 'Great opening', C2: 'Good closing',
+      'Q1 Note': 'Great opening', 'Q2 Note': 'Good closing',
       OverallFeedback: '<p>Overall <strong>excellent</strong> performance with minor areas for improvement.</p>',
       TotalScore: 85,
       Percentage: 0.85

@@ -801,6 +801,33 @@
         </div>
       </div>
     </div>
+    <div class="col-12">
+      <div class="card h-100" id="qa-notes-card">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span>Latest Evaluation Notes</span>
+          <small class="text-muted" id="qa-notes-meta">Awaiting evaluations</small>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-borderless align-middle qa-table">
+              <thead>
+                <tr>
+                  <th style="width: 45%;">Question</th>
+                  <th class="text-center" style="width: 10%;">Weight</th>
+                  <th class="text-center" style="width: 15%;">Response</th>
+                  <th style="width: 30%;">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="qa-notes-body">
+                <tr>
+                  <td colspan="4" class="text-center text-muted py-4">Awaiting data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="modal fade" id="qaInsightsModal" tabindex="-1" aria-hidden="true">
@@ -898,7 +925,10 @@
       openInsights: document.getElementById('qa-open-insights'),
       openActions: document.getElementById('qa-open-actions'),
       insightsModal: document.getElementById('qaInsightsModal'),
-      actionsModal: document.getElementById('qaActionsModal')
+      actionsModal: document.getElementById('qaActionsModal'),
+      notesBody: document.getElementById('qa-notes-body'),
+      notesMeta: document.getElementById('qa-notes-meta'),
+      notesCard: document.getElementById('qa-notes-card')
     };
 
     function tooltipPercentLabel(context) {
@@ -1003,6 +1033,25 @@
         text: `${sign}${rounded}${unit} vs prior`,
         tone: rounded > 0 ? 'positive' : 'negative'
       };
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatNoteContent(note) {
+      if (!note || !String(note).trim()) {
+        return '<span class="text-muted">No notes recorded</span>';
+      }
+      return escapeHtml(note).replace(/\r\n|\r|\n/g, '<br>');
     }
 
     function populateSelect(selectEl, options, placeholder) {
@@ -1614,6 +1663,51 @@
       });
     }
 
+    function renderLatestEvaluation(latest) {
+      if (!dom.notesBody) {
+        return;
+      }
+
+      dom.notesBody.innerHTML = '';
+
+      if (!latest || !Array.isArray(latest.questions) || !latest.questions.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="4" class="text-center text-muted py-4">No evaluation notes available.</td>';
+        dom.notesBody.appendChild(row);
+        if (dom.notesMeta) {
+          dom.notesMeta.textContent = 'Awaiting evaluations';
+        }
+        return;
+      }
+
+      if (dom.notesMeta) {
+        const metaParts = [];
+        if (latest.agent) {
+          metaParts.push(latest.agent);
+        }
+        if (latest.callDate) {
+          metaParts.push(latest.callDate);
+        }
+        if (typeof latest.score === 'number' && !Number.isNaN(latest.score)) {
+          metaParts.push(`${latest.score}%`);
+        }
+        dom.notesMeta.textContent = metaParts.join(' • ');
+      }
+
+      latest.questions.forEach(question => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>
+            <div class="fw-semibold">${escapeHtml(question.number || '')}</div>
+            <div class="text-muted small">${escapeHtml(question.question || '')}</div>
+          </td>
+          <td class="text-center fw-semibold">${question.weight || 0}</td>
+          <td class="text-center">${escapeHtml(question.answer || 'N/A')}</td>
+          <td>${formatNoteContent(question.note)}</td>`;
+        dom.notesBody.appendChild(row);
+      });
+    }
+
     function updateFiltersFromResponse(response) {
       const periodOptions = (response && response.periodOptions) || [];
       populateSelect(dom.period, periodOptions, 'Latest Period');
@@ -1695,6 +1789,7 @@
       renderAgentChart(agents);
       renderDistributionChart(agents);
       renderAgents(agents.slice(0, 8));
+      renderLatestEvaluation(response.latestEvaluation || null);
 
       if (dom.intelSummary) {
         dom.intelSummary.textContent = response.intelligenceSummary
