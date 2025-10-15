@@ -864,7 +864,7 @@
                                     <input type="checkbox" id="selectAllSchedules" class="form-check-input">
                                 </th>
                                 <th>User</th>
-                                <th>Date</th>
+                                <th>Period</th>
                                 <th>Shift</th>
                                 <th>Times</th>
                                 <th>Status</th>
@@ -1647,22 +1647,19 @@
 
             setDefaultDates() {
                 const today = new Date();
-                const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-                document.getElementById('scheduleStartDate').valueAsDate = today;
-                document.getElementById('scheduleEndDate').valueAsDate = nextWeek;
-                document.getElementById('filterStartDate').valueAsDate = lastWeek;
-                document.getElementById('filterEndDate').valueAsDate = today;
+                document.getElementById('scheduleStartDate').valueAsDate = monthStart;
+                document.getElementById('scheduleEndDate').valueAsDate = monthEnd;
+                document.getElementById('filterStartDate').valueAsDate = monthStart;
+                document.getElementById('filterEndDate').valueAsDate = monthEnd;
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
 
                 const importStartDate = document.getElementById('importStartDate');
                 const importEndDate = document.getElementById('importEndDate');
                 if (importStartDate && importEndDate) {
-                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
                     importStartDate.valueAsDate = monthStart;
                     importEndDate.valueAsDate = monthEnd >= monthStart ? monthEnd : monthStart;
                 }
@@ -2208,15 +2205,23 @@
             async generateSchedules() {
                 try {
                     this.showLoading(true);
-                    this.updateGenerationStatus('Generating schedules...', 'info');
+                    this.updateGenerationStatus('Assigning shift slots...', 'info');
 
                     const formData = this.getScheduleGenerationData();
                     console.log('Generating schedules with data:', formData);
+
+                    if (!formData.shiftSlots || formData.shiftSlots.length === 0) {
+                        this.showToast('Please select a shift slot before generating assignments.', 'warning');
+                        this.updateGenerationStatus('Select a shift slot to assign before generating.', 'warning');
+                        this.showLoading(false);
+                        return;
+                    }
 
                     const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
                         formData.startDate,
                         formData.endDate,
                         formData.users,
+                        formData.shiftSlots,
                         formData.templateId,
                         formData.generatedBy,
                         formData.options
@@ -2224,7 +2229,7 @@
 
                     if (result && result.success) {
                         this.displayGenerationResults(result);
-                        this.showToast(`Successfully generated ${result.generated} schedules!`, 'success');
+                        this.showToast(`Successfully assigned ${result.generated} schedule slot${result.generated === 1 ? '' : 's'}!`, 'success');
                         await this.loadSchedules();
                     } else {
                         throw new Error(result?.error || 'Failed to generate schedules');
@@ -2244,6 +2249,8 @@
                 const endDate = document.getElementById('scheduleEndDate').value;
                 const userSelections = Array.from(document.getElementById('scheduleUsers').selectedOptions);
                 const users = userSelections.map(option => option.value);
+                const slotSelections = Array.from(document.getElementById('scheduleShiftSlots').selectedOptions);
+                const shiftSlots = slotSelections.map(option => option.value).filter(value => value);
                 const campaignId = document.getElementById('campaignFilter').value || null;
                 const priority = parseInt(document.getElementById('schedulePriority').value);
                 const detectConflicts = document.getElementById('detectConflicts').checked;
@@ -2253,6 +2260,7 @@
                     startDate,
                     endDate,
                     users: users.length > 0 ? users : null,
+                    shiftSlots,
                     templateId: null,
                     generatedBy: this.getCurrentUserId() || 'System',
                     options: {
@@ -2275,7 +2283,7 @@
                             <div class="modern-card-header">
                                 <h5 class="modern-card-title">
                                     <i class="fas fa-check-circle text-success"></i>
-                                    Schedule Generation Complete
+                                    Slot Assignment Complete
                                 </h5>
                             </div>
                             <div class="modern-card-body">
@@ -2300,8 +2308,8 @@
                                     </div>
                                     <div class="col-md-3">
                                         <div class="metric-card">
-                                            <div class="metric-number text-info">${result.dstChanges?.length || 0}</div>
-                                            <div class="metric-label">DST Changes</div>
+                                            <div class="metric-number text-info">${this.formatPeriodLabel(result.periodStart, result.periodEnd) || '—'}</div>
+                                            <div class="metric-label">Assignment Period</div>
                                         </div>
                                     </div>
                                 </div>
@@ -2310,7 +2318,7 @@
                                     <div class="alert alert-warning-modern mt-3">
                                         <strong>Conflicts Found:</strong>
                                         <ul class="mb-0 mt-2">
-                                            ${result.conflicts.map(c => `<li>${c.user} on ${c.date}: ${c.error}</li>`).join('')}
+                                            ${result.conflicts.map(c => `<li>${c.user}: ${this.formatPeriodLabel(c.periodStart, c.periodEnd)} — ${c.error}</li>`).join('')}
                                         </ul>
                                     </div>
                                 ` : ''}
@@ -2318,14 +2326,14 @@
                                 <div class="mt-3">
                                     <p class="text-muted mb-0">
                                         <i class="fas fa-info-circle me-1"></i>
-                                        All schedules are pending approval. Review them in the Schedule Management tab.
+                                        All assignments are pending approval. Review them in the Schedule Management tab.
                                     </p>
                                 </div>
                             </div>
                         </div>
                     `;
 
-                this.updateGenerationStatus('Generation completed successfully!', 'success');
+                this.updateGenerationStatus('Slot assignments completed successfully!', 'success');
             }
 
             updateGenerationStatus(message, type = 'info') {
@@ -2853,7 +2861,7 @@
                                       ${schedule.Status === 'PENDING' ? '' : 'disabled'}>
                             </td>
                             <td>${schedule.UserName || 'N/A'}</td>
-                            <td>${this.formatDate(schedule.Date)}</td>
+                            <td>${this.formatSchedulePeriod(schedule)}</td>
                             <td>${schedule.SlotName || 'N/A'}</td>
                             <td>${schedule.StartTime || ''} - ${schedule.EndTime || ''}</td>
                             <td>
@@ -3100,6 +3108,8 @@
                 normalized.ID = resolveValue(['ID', 'Id', 'id', 'ScheduleID', 'ScheduleId', 'scheduleID', 'scheduleId', 'Schedule Id']);
                 normalized.UserName = resolveValue(['UserName', 'User', 'User Name', 'Agent', 'AgentName', 'Agent Name', 'Name']);
                 normalized.Date = resolveValue(['Date', 'date', 'ScheduleDate', 'Schedule Date', 'Day', 'ShiftDate']);
+                normalized.PeriodStart = resolveValue(['PeriodStart', 'StartDate', 'AssignmentStart', 'ScheduleStart'], normalized.Date);
+                normalized.PeriodEnd = resolveValue(['PeriodEnd', 'EndDate', 'AssignmentEnd', 'ScheduleEnd'], normalized.PeriodStart || normalized.Date);
                 normalized.SlotName = resolveValue(['SlotName', 'slotName', 'Slot', 'Slot Name', 'Shift', 'ShiftName', 'Shift Name']);
                 normalized.StartTime = resolveValue(['StartTime', 'startTime', 'Start', 'Start Time', 'ShiftStart', 'Shift Start']);
                 normalized.EndTime = resolveValue(['EndTime', 'endTime', 'End', 'End Time', 'ShiftEnd', 'Shift End']);
@@ -4479,12 +4489,49 @@
                 return text;
             }
 
+            formatSchedulePeriod(schedule) {
+                if (!schedule || typeof schedule !== 'object') {
+                    return '';
+                }
+
+                const start = schedule.PeriodStart || schedule.Date;
+                const end = schedule.PeriodEnd || schedule.Date || start;
+
+                if (!start && !end) {
+                    return '';
+                }
+
+                if (!end || start === end) {
+                    return this.formatDate(start);
+                }
+
+                return this.formatPeriodLabel(start, end);
+            }
+
             formatDate(dateStr) {
                 try {
                     return dateStr ? new Date(dateStr).toLocaleDateString() : '';
                 } catch (error) {
                     return dateStr;
                 }
+            }
+
+            formatPeriodLabel(start, end) {
+                const resolvedStart = start || end;
+                const resolvedEnd = end || start;
+
+                if (!resolvedStart && !resolvedEnd) {
+                    return '';
+                }
+
+                const startLabel = this.formatDate(resolvedStart);
+                const endLabel = this.formatDate(resolvedEnd);
+
+                if (!resolvedEnd || startLabel === endLabel) {
+                    return startLabel;
+                }
+
+                return `${startLabel} - ${endLabel}`;
             }
 
             formatDateTime(dateValue) {
