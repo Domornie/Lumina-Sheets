@@ -2711,22 +2711,77 @@
       return users;
     }
 
-    if (users && typeof users === 'object') {
-      if (Array.isArray(users.users)) {
-        return users.users;
-      }
-      if (Array.isArray(users.items)) {
-        return users.items;
-      }
-      if (Array.isArray(users.result)) {
-        return users.result;
-      }
-      if (Array.isArray(users.data)) {
-        return users.data;
+    if (typeof users === 'string') {
+      try {
+        return normalizeUsersResponse(JSON.parse(users));
+      } catch (_) {
+        return [];
       }
     }
 
-    return [];
+    if (!users || typeof users !== 'object') {
+      return [];
+    }
+
+    const visited = new WeakSet();
+    const candidateKeys = ['users', 'items', 'result', 'results', 'data', 'records', 'rows', 'list', 'entries', 'value', 'payload', 'body', 'response', 'userList'];
+
+    function dive(value) {
+      if (!value || typeof value !== 'object') {
+        return null;
+      }
+      if (visited.has(value)) {
+        return null;
+      }
+      visited.add(value);
+
+      if (Array.isArray(value)) {
+        if (!value.length) {
+          return value;
+        }
+
+        const hasPlainObject = value.some(item => item && typeof item === 'object' && !Array.isArray(item));
+        if (hasPlainObject) {
+          return value;
+        }
+
+        for (let i = 0; i < value.length; i++) {
+          const nested = dive(value[i]);
+          if (Array.isArray(nested)) {
+            return nested;
+          }
+        }
+
+        return null;
+      }
+
+      for (let i = 0; i < candidateKeys.length; i++) {
+        const key = candidateKeys[i];
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          const candidate = dive(value[key]);
+          if (Array.isArray(candidate)) {
+            return candidate;
+          }
+        }
+      }
+
+      const keys = Object.keys(value);
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (candidateKeys.includes(key)) {
+          continue;
+        }
+        const candidate = dive(value[key]);
+        if (Array.isArray(candidate)) {
+          return candidate;
+        }
+      }
+
+      return null;
+    }
+
+    const result = dive(users);
+    return Array.isArray(result) ? result : [];
   }
 
   function handleUsersLoaded(users) {
@@ -2960,7 +3015,18 @@
       return;
     }
 
-    container.innerHTML = users.map(renderUserCardWithPages).join('');
+    try {
+      container.innerHTML = users.map(renderUserCardWithPages).join('');
+    } catch (err) {
+      console.error('renderUsersWithPages failed', err, { usersPreview: safeForLog(users) });
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-triangle-exclamation text-danger"></i>
+          <h5 class="text-danger fw-bold">Unable to render users</h5>
+          <p class="text-muted mb-3">${escapeHtml(err?.message || 'An unexpected error occurred while rendering the user list.')}</p>
+          <button class="btn-modern btn-primary" onclick="refreshUsers()"><i class="fas fa-sync"></i>Try Again</button>
+        </div>`;
+    }
   }
 
   function renderUserCardWithPages(user) {
@@ -3048,7 +3114,7 @@
   }
 
   function renderUserPagesBadges(user) {
-    const userPages = user.pages || [];
+    const userPages = resolveUserPages(user);
     if (!userPages.length) return '<div class="user-pages"><span class="user-page-count">🚫 No pages assigned</span></div>';
     const maxDisplay = 5;
     const firstFew = userPages.slice(0, maxDisplay).map(key => {
@@ -3073,8 +3139,79 @@
       : '<span class="badge-modern" style="background:var(--gray-100);color:var(--gray-600);">No Campaign</span>';
   }
   function renderRolesBadges(user) {
-    if (!user.roleNames || !user.roleNames.length) return '';
-    return user.roleNames.map(r => `<span class="badge bg-secondary">${escapeHtml(r)}</span>`).join(' ');
+    const roles = resolveRoleNames(user);
+    if (!roles.length) return '';
+    return roles.map(role => `<span class="badge bg-secondary">${escapeHtml(role)}</span>`).join(' ');
+  }
+
+  function resolveRoleNames(user) {
+    if (!user || typeof user !== 'object') {
+      return [];
+    }
+
+    const seen = new Set();
+    const output = [];
+    const candidates = [user.roleNames, user.roles, user.Roles, user.csvRoles];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      if (candidate == null) continue;
+
+      let items = [];
+      if (Array.isArray(candidate)) {
+        items = candidate;
+      } else if (typeof candidate === 'string') {
+        items = candidate.split(/[|,;]/);
+      } else {
+        items = [candidate];
+      }
+
+      for (let j = 0; j < items.length; j++) {
+        const normalized = safeTrim(items[j]);
+        if (!normalized) continue;
+        const key = normalized.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        output.push(normalized);
+      }
+    }
+
+    return output;
+  }
+
+  function resolveUserPages(user) {
+    if (!user || typeof user !== 'object') {
+      return [];
+    }
+
+    const seen = new Set();
+    const output = [];
+    const candidates = [user.pages, user.Pages, user.pageKeys, user.assignedPages];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      if (candidate == null) continue;
+
+      let items = [];
+      if (Array.isArray(candidate)) {
+        items = candidate;
+      } else if (typeof candidate === 'string') {
+        items = candidate.split(/[|,;]/);
+      } else {
+        items = [candidate];
+      }
+
+      for (let j = 0; j < items.length; j++) {
+        const normalized = safeTrim(items[j]);
+        if (!normalized) continue;
+        const key = normalized.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        output.push(normalized);
+      }
+    }
+
+    return output;
   }
 
   function resolveUserProfileIdentifier(user) {
