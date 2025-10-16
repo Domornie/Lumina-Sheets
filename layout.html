@@ -3769,6 +3769,17 @@
 
             console.log('🚪 Initiating logout...');
 
+            let sessionToken = '';
+            try {
+                if (typeof readAuthTokenForGuard === 'function') {
+                    sessionToken = readAuthTokenForGuard() || '';
+                } else if (window.CookieHandler && typeof window.CookieHandler.readAuthToken === 'function') {
+                    sessionToken = window.CookieHandler.readAuthToken() || '';
+                }
+            } catch (tokenError) {
+                console.warn('handleLogout: unable to read session token', tokenError);
+            }
+
             stopSessionHeartbeat('logout-init');
 
             // Clear browser storage
@@ -3796,7 +3807,7 @@
                     console.warn('⚠️ Server logout failed, but proceeding with client logout:', err);
                     performLogout();
                 })
-                .logout('');
+                .logout(sessionToken || '');
         }
 
         function performLogout() {
