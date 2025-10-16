@@ -409,6 +409,14 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       }
     }
 
+    const allUsersById = new Map();
+    allUsers.forEach(user => {
+      const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
+      if (userId) {
+        allUsersById.set(userId, user);
+      }
+    });
+
     let filteredUsers = allUsers;
 
     // Filter by campaign if specified - use MainUtilities campaign functions
@@ -416,24 +424,63 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
     }
 
-    const resolvedManagerSet = context.managedUserIds instanceof Set
-      ? context.managedUserIds
-      : new Set();
+    const scopedUserById = new Map();
+    let allowedIds = null;
 
-    // Apply manager permissions using MainUtilities functions
     if (normalizedManagerId) {
+      if (typeof getUsersByManager === 'function') {
+        try {
+          const scopedUsers = getUsersByManager(normalizedManagerId, {
+            includeManager: false,
+            fallbackToCampaign: false,
+            fallbackToAll: false,
+            managerCampaignId: effectiveCampaignId || ''
+          }) || [];
+
+          scopedUsers.forEach(user => {
+            const userId = normalizeUserIdValue(user && (user.ID || user.Id || user.id));
+            if (!userId || userId === normalizedManagerId) {
+              return;
+            }
+            scopedUserById.set(userId, user);
+          });
+
+          if (scopedUserById.size) {
+            allowedIds = new Set(scopedUserById.keys());
+          }
+        } catch (scopedError) {
+          safeWriteError && safeWriteError('clientGetScheduleUsers.getUsersByManager', scopedError);
+        }
+      }
+
+      if (!allowedIds || !allowedIds.size) {
+        const resolvedManagerSet = context.managedUserIds instanceof Set
+          ? context.managedUserIds
+          : new Set();
+
+        if (resolvedManagerSet.size) {
+          allowedIds = new Set();
+          resolvedManagerSet.forEach(id => {
+            const normalized = normalizeUserIdValue(id);
+            if (normalized && normalized !== normalizedManagerId) {
+              allowedIds.add(normalized);
+            }
+          });
+        }
+      }
+
       if (requestingUser) {
         const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
 
         if (!isAdmin) {
-          if (resolvedManagerSet.size === 0) {
-            console.warn('No managed users found for manager:', normalizedManagerId);
-            filteredUsers = [];
-          } else {
+          if (allowedIds && allowedIds.size) {
             filteredUsers = filteredUsers.filter(user => {
               const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
-              return userId && resolvedManagerSet.has(userId);
+              return userId && allowedIds.has(userId);
             });
+          } else {
+            console.warn('No managed users found for manager:', normalizedManagerId);
+            filteredUsers = [];
           }
         }
       } else {
@@ -448,17 +495,28 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       .filter(user => !isScheduleRoleRestricted(user))
       .filter(user => isUserConsideredActive(user))
       .map(user => {
-        const campaignName = getCampaignById(user.CampaignID)?.Name || '';
+        const normalizedId = normalizeUserIdValue(user && (user.ID || user.UserID));
+        const scopedUser = normalizedId ? scopedUserById.get(normalizedId) : null;
+        const rawUser = normalizedId ? (allUsersById.get(normalizedId) || user) : user;
+        const campaignIdValue = rawUser.CampaignID || rawUser.campaignID || scopedUser?.CampaignID || scopedUser?.campaignId || '';
+        const campaignName = scopedUser?.campaignName || getCampaignById(campaignIdValue)?.Name || '';
+        const employmentStatus = scopedUser?.EmploymentStatus || scopedUser?.employmentStatus || rawUser.EmploymentStatus || 'Active';
+        const hireDate = rawUser.HireDate || scopedUser?.HireDate || '';
+        const email = scopedUser?.Email || scopedUser?.email || rawUser.Email || rawUser.email || '';
+        const displayName = scopedUser?.FullName || scopedUser?.UserName || rawUser.FullName || rawUser.UserName;
+        const username = scopedUser?.UserName || rawUser.UserName || rawUser.FullName;
+        const activeFlag = (typeof scopedUser?.activeBool === 'boolean') ? scopedUser.activeBool : isUserConsideredActive(rawUser);
+
         return {
-          ID: user.ID,
-          UserName: user.UserName || user.FullName,
-          FullName: user.FullName || user.UserName,
-          Email: user.Email || '',
-          CampaignID: user.CampaignID || '',
+          ID: normalizedId || user.ID,
+          UserName: username,
+          FullName: displayName,
+          Email: email,
+          CampaignID: campaignIdValue || '',
           campaignName: campaignName,
-          EmploymentStatus: user.EmploymentStatus || 'Active',
-          HireDate: user.HireDate || '',
-          isActive: isUserConsideredActive(user)
+          EmploymentStatus: employmentStatus,
+          HireDate: hireDate,
+          isActive: !!activeFlag
         };
       })
       .filter(user => {
@@ -783,12 +841,48 @@ function clientCreateEnhancedShiftSlot(slotData) {
 }
 
 function buildManagedUserSet(managerId) {
-  const managedUserIds = getDirectManagedUserIds(managerId);
   const normalizedManagerId = normalizeUserIdValue(managerId);
+  const managedUserIds = new Set();
 
-  if (normalizedManagerId) {
-    managedUserIds.add(normalizedManagerId);
+  if (!normalizedManagerId) {
+    return managedUserIds;
   }
+
+  let populatedFromScopedLookup = false;
+
+  if (typeof getUsersByManager === 'function') {
+    try {
+      const scopedUsers = getUsersByManager(normalizedManagerId, {
+        includeManager: false,
+        fallbackToCampaign: false,
+        fallbackToAll: false
+      }) || [];
+
+      if (Array.isArray(scopedUsers) && scopedUsers.length) {
+        populatedFromScopedLookup = true;
+        scopedUsers.forEach(user => {
+          const userId = normalizeUserIdValue(user && (user.ID || user.Id || user.id));
+          if (userId && userId !== normalizedManagerId) {
+            managedUserIds.add(userId);
+          }
+        });
+      }
+    } catch (error) {
+      safeWriteError && safeWriteError('buildManagedUserSet.getUsersByManager', error);
+    }
+  }
+
+  if (!populatedFromScopedLookup) {
+    const directIds = getDirectManagedUserIds(normalizedManagerId);
+    directIds.forEach(id => {
+      const normalized = normalizeUserIdValue(id);
+      if (normalized && normalized !== normalizedManagerId) {
+        managedUserIds.add(normalized);
+      }
+    });
+  }
+
+  managedUserIds.add(normalizedManagerId);
 
   return managedUserIds;
 }
