@@ -4219,17 +4219,22 @@ function getUsersByManager(managerUserId, options) {
     ];
     const effectiveCampaignId = _resolveCampaignIdFromInput_(campaignCandidates);
     if (!effectiveCampaignId) {
-      console.warn('getUsersByManager: no campaign context resolved; returning empty list');
-      return [];
+      console.warn('getUsersByManager: no campaign context resolved; defaulting to global user scope');
     }
 
-    opts.managerCampaignId = effectiveCampaignId;
-    opts.campaignId = effectiveCampaignId;
+    opts.managerCampaignId = effectiveCampaignId || '';
+    opts.campaignId = effectiveCampaignId || '';
 
-    let allUsers = _readUsersSheetSafe_({
-      campaignId: effectiveCampaignId,
+    const readOpts = {
       excludeGuests: opts.excludeGuests !== false
-    });
+    };
+    if (effectiveCampaignId) {
+      readOpts.campaignId = effectiveCampaignId;
+    } else {
+      readOpts.allowAllCampaigns = true;
+    }
+
+    let allUsers = _readUsersSheetSafe_(readOpts);
 
     if (managerRecord && !_isGuestUser_(managerRecord)) {
       const managerCampaign = _normStr_(managerRecord.CampaignID || managerRecord.campaignId);
