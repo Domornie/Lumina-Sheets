@@ -1600,12 +1600,15 @@
         if (users.length === 0) {
           try {
             console.log('Loading user list from server...');
-            users = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 10000 });
+            const campaignArg = (typeof window !== 'undefined' && window.__LAYOUT_CAMPAIGN_ID)
+              ? window.__LAYOUT_CAMPAIGN_ID
+              : (window.MANAGER_USER_ID || '');
+            users = await this.callServerFunction('clientGetAssignedAgentNames', [campaignArg], { timeoutMs: 10000 });
 
             if (!Array.isArray(users) || users.length === 0) {
               console.log('No users from clientGetAssignedAgentNames, trying fallback...');
               try {
-                const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 8000 });
+                const userData = await this.callServerFunction('getUsers', [{ campaignId: campaignArg, excludeGuests: true }], { timeoutMs: 8000 });
                 if (Array.isArray(userData)) {
                   users = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
                 }
@@ -2966,11 +2969,14 @@
         } else {
           console.log('Export manager calling server for user list...');
           try {
-            this.userList = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 8000 });
+            const campaignArg = (typeof window !== 'undefined' && window.__LAYOUT_CAMPAIGN_ID)
+              ? window.__LAYOUT_CAMPAIGN_ID
+              : (window.MANAGER_USER_ID || '');
+            this.userList = await this.callServerFunction('clientGetAssignedAgentNames', [campaignArg], { timeoutMs: 8000 });
 
             if (!Array.isArray(this.userList) || this.userList.length === 0) {
               console.log('No users from clientGetAssignedAgentNames, trying getUsers fallback...');
-              const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 6000 });
+              const userData = await this.callServerFunction('getUsers', [{ campaignId: campaignArg, excludeGuests: true }], { timeoutMs: 6000 });
               if (Array.isArray(userData)) {
                 this.userList = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
               } else {
