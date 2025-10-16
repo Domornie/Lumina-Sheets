@@ -3968,7 +3968,7 @@ function getUsersByManager(managerUserId, options) {
   try {
     const opts = Object.assign({
       includeManager: true,
-      fallbackToCampaign: true,
+      fallbackToCampaign: false,
       fallbackToAll: false,
       managerCampaignId: ''
     }, options || {});
@@ -3985,6 +3985,12 @@ function getUsersByManager(managerUserId, options) {
 
     const managerIdStr = managerUserId ? String(managerUserId) : '';
     const manager = managerIdStr ? byId.get(managerIdStr) : null;
+    const managerIsAdmin = manager ? !!isUserAdmin(manager) : false;
+    const normalizeManagerUserId = function (value) {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'number' && isFinite(value)) return String(Math.trunc(value));
+      return String(value).trim();
+    };
     const visible = [];
 
     const pushUser = function (rawUser) {
@@ -3992,41 +3998,185 @@ function getUsersByManager(managerUserId, options) {
       visible.push(_uiUserShape_(rawUser, cmap));
     };
 
+    if (!managerIdStr || managerIsAdmin) {
+      allUsers.forEach(pushUser);
+      return _dedupeAndSortUsers_(visible);
+    }
+
     if (opts.includeManager && manager) {
       pushUser(manager);
     }
 
     const assignedIds = new Set();
+    const assignedEmails = new Set();
+    const appendAssigned = function (input) {
+      if (!input) return;
+
+      let candidateId = input;
+      let candidateEmail = '';
+
+      if (typeof input === 'object') {
+        candidateId = Object.prototype.hasOwnProperty.call(input, 'id') ? input.id : input.ID;
+        candidateEmail = input.email || input.Email || '';
+      }
+
+      const normalizedId = normalizeManagerUserId(candidateId);
+      const looksLikeEmail = typeof candidateId === 'string' && candidateId.indexOf('@') !== -1;
+      if (normalizedId && normalizedId !== managerIdStr && !looksLikeEmail) {
+        assignedIds.add(normalizedId);
+      }
+
+      const emailCandidate = candidateEmail || (looksLikeEmail ? candidateId : '');
+      if (emailCandidate) {
+        const normalizedEmail = String(emailCandidate || '').trim().toLowerCase();
+        if (normalizedEmail && normalizedEmail.indexOf('@') !== -1) {
+          assignedEmails.add(normalizedEmail);
+        }
+      }
+    };
+
     if (managerIdStr) {
-      const relations = _readManagerUsersSheetSafe_();
-      for (let i = 0; i < relations.length; i++) {
-        const rel = relations[i];
-        if (!rel) continue;
-        if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
-          assignedIds.add(String(rel.UserID));
+      let managedSet = null;
+      if (typeof getManagerVisibleUserIds === 'function') {
+        try {
+          managedSet = getManagerVisibleUserIds(managerIdStr, { includeSelf: false });
+        } catch (helperError) {
+          console.warn('getUsersByManager: getManagerVisibleUserIds failed', helperError);
+          managedSet = null;
+        }
+      }
+
+      if (managedSet && typeof managedSet.forEach === 'function') {
+        managedSet.forEach(appendAssigned);
+      } else {
+        const relations = _readManagerUsersSheetSafe_();
+        for (let i = 0; i < relations.length; i++) {
+          const rel = relations[i];
+          if (!rel) continue;
+          if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
+            appendAssigned(rel.UserID);
+          }
         }
       }
     }
+
+    const hasExplicitAssignments = assignedIds.size > 0 || assignedEmails.size > 0;
+
+    if (!hasExplicitAssignments) {
+      const managerEmails = new Set();
+      if (manager) {
+        [manager.Email, manager.email, manager.WorkEmail, manager.workEmail, manager.PrimaryEmail, manager.primaryEmail]
+          .forEach(function (value) {
+            const normalizedEmail = String(value || '').trim().toLowerCase();
+            if (normalizedEmail && normalizedEmail.indexOf('@') !== -1) {
+              managerEmails.add(normalizedEmail);
+            }
+          });
+      }
+
+      const managerNameTokens = new Set();
+      if (manager) {
+        [manager.FullName, manager.fullName, manager.UserName, manager.userName]
+          .forEach(function (value) {
+            const normalizedName = String(value || '').trim().toLowerCase();
+            if (normalizedName) managerNameTokens.add(normalizedName);
+          });
+      }
+
+      for (let i = 0; i < allUsers.length; i++) {
+        const candidate = allUsers[i];
+        if (!candidate || String(candidate.ID) === managerIdStr) continue;
+
+        const candidateManagerIds = [
+          candidate.ManagerUserID, candidate.ManagerUserId, candidate.managerUserId,
+          candidate.ManagerID, candidate.ManagerId, candidate.managerId, candidate.manager_id,
+          candidate.UserManagerID, candidate.UserManagerId, candidate.userManagerId
+        ].map(normalizeManagerUserId).filter(Boolean);
+
+        const candidateManagerEmails = [
+          candidate.ManagerEmail, candidate.managerEmail,
+          candidate.ManagerEmailAddress, candidate.managerEmailAddress,
+          candidate.Manager_Email, candidate.manager_email,
+          candidate.SupervisorEmail, candidate.supervisorEmail
+        ].map(function (value) { return String(value || '').trim().toLowerCase(); }).filter(function (value) {
+          return value && value.indexOf('@') !== -1;
+        });
+
+        const candidateManagerNames = [
+          candidate.ManagerName, candidate.managerName,
+          candidate.Manager, candidate.manager,
+          candidate.Supervisor, candidate.supervisor
+        ].map(function (value) { return String(value || '').trim().toLowerCase(); }).filter(Boolean);
+
+        let matched = false;
+        if (candidateManagerIds.indexOf(managerIdStr) !== -1) {
+          matched = true;
+        } else if (managerEmails.size && candidateManagerEmails.some(function (email) { return managerEmails.has(email); })) {
+          matched = true;
+        } else if (managerNameTokens.size && candidateManagerNames.some(function (name) { return managerNameTokens.has(name); })) {
+          matched = true;
+        }
+
+        if (matched) {
+          appendAssigned({ id: candidate.ID, email: candidate.Email || candidate.email || '' });
+        }
+      }
+    }
+
+    const byEmail = new Map();
+    const addEmailMapping = function (value, user) {
+      const normalizedEmail = String(value || '').trim().toLowerCase();
+      if (!normalizedEmail || normalizedEmail.indexOf('@') === -1) return;
+      if (!byEmail.has(normalizedEmail)) {
+        byEmail.set(normalizedEmail, user);
+      }
+    };
+
+    allUsers.forEach(function (user) {
+      if (!user) return;
+      addEmailMapping(user.Email, user);
+      addEmailMapping(user.email, user);
+      addEmailMapping(user.EmailAddress, user);
+      addEmailMapping(user.WorkEmail, user);
+      addEmailMapping(user.workEmail, user);
+      addEmailMapping(user.PrimaryEmail, user);
+      addEmailMapping(user.primaryEmail, user);
+      addEmailMapping(user.PersonalEmail, user);
+      addEmailMapping(user.personalEmail, user);
+      addEmailMapping(user.AlternateEmail, user);
+      addEmailMapping(user.alternateEmail, user);
+    });
 
     assignedIds.forEach(function (id) {
       const match = byId.get(id);
       if (match) pushUser(match);
     });
 
-    const hasAssigned = assignedIds.size > 0;
+    assignedEmails.forEach(function (email) {
+      const match = byEmail.get(email);
+      if (match) pushUser(match);
+    });
 
-    if ((!hasAssigned || visible.length === (opts.includeManager && manager ? 1 : 0)) && opts.fallbackToCampaign) {
-      const targetCampaign = opts.managerCampaignId || (manager && (manager.CampaignID || manager.campaignId)) || '';
-      if (targetCampaign) {
-        allUsers.forEach(function (u) {
-          if (String(u.CampaignID || u.campaignId) === String(targetCampaign)) {
-            pushUser(u);
-          }
-        });
+    const hasAssigned = assignedIds.size > 0;
+    const hasVisibleAssigned = visible.length > (opts.includeManager && manager ? 1 : 0);
+
+    const allowCampaignFallback = opts.fallbackToCampaign && (managerIsAdmin || !managerIdStr);
+    const allowAllFallback = opts.fallbackToAll && (managerIsAdmin || !managerIdStr);
+
+    if ((!hasAssigned && assignedEmails.size === 0) || !hasVisibleAssigned) {
+      if (allowCampaignFallback) {
+        const targetCampaign = opts.managerCampaignId || (manager && (manager.CampaignID || manager.campaignId)) || '';
+        if (targetCampaign) {
+          allUsers.forEach(function (u) {
+            if (String(u.CampaignID || u.campaignId) === String(targetCampaign)) {
+              pushUser(u);
+            }
+          });
+        }
       }
     }
 
-    if (!visible.length && opts.fallbackToAll) {
+    if (!visible.length && allowAllFallback) {
       allUsers.forEach(pushUser);
     }
 
@@ -4074,11 +4224,12 @@ function getUsers() {
     const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
     const managerId = currentUser && currentUser.ID ? currentUser.ID : null;
     const managerCampaignId = currentUser ? (currentUser.CampaignID || currentUser.campaignId || '') : '';
+    const managerIsAdmin = currentUser ? !!isUserAdmin(currentUser) : false;
 
     const users = getUsersByManager(managerId, {
       includeManager: true,
-      fallbackToCampaign: true,
-      fallbackToAll: true,
+      fallbackToCampaign: managerIsAdmin || !managerId,
+      fallbackToAll: managerIsAdmin || !managerId,
       managerCampaignId: managerCampaignId
     });
 
