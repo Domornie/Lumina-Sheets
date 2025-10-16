@@ -221,6 +221,147 @@ function filterUsersByCampaign(users, campaignId) {
   return filteredUsers.filter(user => doesUserBelongToCampaign(user, normalizedCampaignId));
 }
 
+function resolveScheduleUserContext(requestingUserId, campaignId) {
+  const context = {
+    identity: null,
+    user: null,
+    managerId: '',
+    providedManagerId: normalizeUserIdValue(requestingUserId),
+    campaignId: normalizeCampaignIdValue(campaignId),
+    managedUserIds: new Set(),
+    authenticated: false
+  };
+
+  let identity = null;
+  try {
+    if (typeof LuminaIdentity !== 'undefined'
+      && LuminaIdentity
+      && typeof LuminaIdentity.ensureAuthenticated === 'function') {
+      identity = LuminaIdentity.ensureAuthenticated(null, { useCache: true });
+      context.authenticated = !!(identity && (identity.sessionToken
+        || (identity.session && (identity.session.token || identity.session.sessionToken))));
+    }
+  } catch (identityError) {
+    console.warn('resolveScheduleUserContext: LuminaIdentity.ensureAuthenticated failed', identityError);
+    identity = null;
+  }
+
+  let identityUser = null;
+  let identityManagerId = '';
+
+  if (identity && typeof identity === 'object') {
+    identityUser = identity.user && typeof identity.user === 'object' && Object.keys(identity.user).length
+      ? identity.user
+      : identity;
+
+    identityManagerId = normalizeUserIdValue(
+      (identity && (identity.id || identity.ID || identity.userId || identity.UserId))
+        || (identityUser && (identityUser.ID || identityUser.Id || identityUser.UserId || identityUser.userId))
+    );
+  }
+
+  let currentUser = null;
+  try {
+    if (typeof getCurrentUser === 'function') {
+      currentUser = getCurrentUser();
+    }
+  } catch (currentUserError) {
+    console.warn('resolveScheduleUserContext: getCurrentUser failed', currentUserError);
+    currentUser = null;
+  }
+
+  const currentUserId = normalizeUserIdValue(currentUser && (currentUser.ID || currentUser.Id || currentUser.UserId));
+
+  let resolvedManagerId = identityManagerId
+    || currentUserId
+    || context.providedManagerId
+    || '';
+
+  let resolvedUser = null;
+
+  const mergeRecords = (target, source) => {
+    if (!source || typeof source !== 'object') {
+      return target;
+    }
+
+    const output = target || {};
+    Object.keys(source).forEach(key => {
+      const value = source[key];
+      if (value !== undefined) {
+        output[key] = value;
+      }
+    });
+    return output;
+  };
+
+  if (currentUser && currentUserId && currentUserId === resolvedManagerId) {
+    resolvedUser = Object.assign({}, currentUser);
+  }
+
+  if (!resolvedUser && identityUser && identityManagerId && identityManagerId === resolvedManagerId) {
+    resolvedUser = mergeRecords({}, identityUser);
+  }
+
+  if (!resolvedUser && identityUser) {
+    resolvedUser = mergeRecords({}, identityUser);
+  }
+
+  if (!resolvedUser && currentUser) {
+    resolvedUser = Object.assign({}, currentUser);
+  }
+
+  if (!resolvedUser && resolvedManagerId) {
+    try {
+      const users = readSheet(USERS_SHEET) || [];
+      const hit = users.find(u => normalizeUserIdValue(u && u.ID) === resolvedManagerId)
+        || users.find(u => normalizeUserIdValue(u && u.UserID) === resolvedManagerId);
+      if (hit) {
+        resolvedUser = Object.assign({}, hit);
+      }
+    } catch (lookupError) {
+      console.warn('resolveScheduleUserContext: unable to lookup manager in Users sheet', lookupError);
+    }
+  }
+
+  if (!resolvedUser) {
+    resolvedUser = {};
+  }
+
+  if (!context.campaignId && resolvedUser) {
+    const candidateCampaigns = [
+      resolvedUser.CampaignID,
+      resolvedUser.campaignID,
+      resolvedUser.CampaignId,
+      resolvedUser.campaignId,
+      resolvedUser.Campaign,
+      resolvedUser.campaign
+    ];
+
+    for (let i = 0; i < candidateCampaigns.length; i++) {
+      const normalized = normalizeCampaignIdValue(candidateCampaigns[i]);
+      if (normalized) {
+        context.campaignId = normalized;
+        break;
+      }
+    }
+  }
+
+  if (resolvedManagerId) {
+    try {
+      context.managedUserIds = buildManagedUserSet(resolvedManagerId);
+    } catch (setError) {
+      console.warn('resolveScheduleUserContext: buildManagedUserSet failed', setError);
+      context.managedUserIds = new Set();
+    }
+  }
+
+  context.identity = identity || null;
+  context.user = resolvedUser;
+  context.managerId = resolvedManagerId;
+
+  return context;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -231,8 +372,11 @@ function filterUsersByCampaign(users, campaignId) {
  */
 function clientGetScheduleUsers(requestingUserId, campaignId = null) {
   try {
-    const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
-    console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
+    const context = resolveScheduleUserContext(requestingUserId, campaignId);
+    const normalizedCampaignId = context.campaignId;
+    const normalizedManagerId = normalizeUserIdValue(context.managerId);
+
+    console.log('🔍 Getting schedule users for manager:', normalizedManagerId || requestingUserId || '(unknown)', 'campaign:', normalizedCampaignId || '(not provided)');
 
     // Use MainUtilities to get all users
     const allUsers = readSheet(USERS_SHEET) || [];
@@ -241,11 +385,9 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       return [];
     }
 
-    const normalizedManagerId = normalizeUserIdValue(requestingUserId);
-    let requestingUser = null;
-    if (normalizedManagerId) {
-      requestingUser = allUsers.find(u => normalizeUserIdValue(u && u.ID) === normalizedManagerId) || null;
-    }
+    const requestingUser = context.user
+      ? allUsers.find(u => normalizeUserIdValue(u && u.ID) === normalizeUserIdValue(context.user.ID)) || context.user
+      : null;
 
     let effectiveCampaignId = normalizedCampaignId;
     if (!effectiveCampaignId && requestingUser) {
@@ -274,15 +416,25 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
     }
 
+    const resolvedManagerSet = context.managedUserIds instanceof Set
+      ? context.managedUserIds
+      : new Set();
+
     // Apply manager permissions using MainUtilities functions
     if (normalizedManagerId) {
       if (requestingUser) {
         const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
 
         if (!isAdmin) {
-          const managedUserIds = buildManagedUserSet(normalizedManagerId);
-
-          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user && user.ID)));
+          if (resolvedManagerSet.size === 0) {
+            console.warn('No managed users found for manager:', normalizedManagerId);
+            filteredUsers = [];
+          } else {
+            filteredUsers = filteredUsers.filter(user => {
+              const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
+              return userId && resolvedManagerSet.has(userId);
+            });
+          }
         }
       } else {
         console.warn('Requesting user not found when applying manager filter:', requestingUserId);
@@ -308,6 +460,13 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           HireDate: user.HireDate || '',
           isActive: isUserConsideredActive(user)
         };
+      })
+      .filter(user => {
+        if (!normalizedManagerId || scheduleFlagToBool(requestingUser && requestingUser.IsAdmin)) {
+          return true;
+        }
+        const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
+        return userId !== normalizedManagerId;
       });
 
     console.log(`✅ Returning ${scheduleUsers.length} schedule users`);
@@ -326,7 +485,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
   try {
     console.log('📋 Getting attendance users');
-    
+
     // Use the existing function but return just names for compatibility
     const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
     const userNames = scheduleUsers
@@ -632,6 +791,61 @@ function buildManagedUserSet(managerId) {
   }
 
   return managedUserIds;
+}
+
+function clientGetScheduleContext(requestingUserId, campaignId = null) {
+  try {
+    const context = resolveScheduleUserContext(requestingUserId, campaignId);
+    const managedUserIdsArray = Array.from(context.managedUserIds || []);
+    const normalizedManagerId = normalizeUserIdValue(context.managerId);
+
+    const identitySummary = (function () {
+      if (!context.identity || typeof context.identity !== 'object') {
+        return null;
+      }
+
+      const identity = context.identity;
+      const summary = {
+        id: normalizeUserIdValue(identity.id || identity.ID || identity.userId || identity.UserId),
+        email: identity.email || identity.Email || '',
+        displayName: identity.displayName
+          || identity.FullName
+          || identity.fullName
+          || identity.Name
+          || identity.name
+          || '',
+        roles: Array.isArray(identity.roleNames) ? identity.roleNames.slice(0, 10) : [],
+        campaigns: Array.isArray(identity.campaigns)
+          ? identity.campaigns.map(c => ({
+            id: normalizeCampaignIdValue(c && (c.id || c.ID || c.CampaignId || c.CampaignID)),
+            name: c && (c.name || c.Name || '')
+          }))
+          : [],
+        authenticated: !!(identity.sessionToken || (identity.session && (identity.session.token || identity.session.sessionToken)))
+      };
+
+      return summary;
+    })();
+
+    return {
+      success: true,
+      managerId: normalizedManagerId,
+      providedManagerId: context.providedManagerId,
+      campaignId: context.campaignId,
+      managedUserIds: managedUserIdsArray,
+      rosterSize: managedUserIdsArray.length,
+      authenticated: context.authenticated,
+      user: context.user || null,
+      identity: identitySummary
+    };
+  } catch (error) {
+    console.error('❌ Error resolving schedule context:', error);
+    safeWriteError && safeWriteError('clientGetScheduleContext', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : String(error || 'Unknown error')
+    };
+  }
 }
 
 function isUserConsideredActive(user) {

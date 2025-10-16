@@ -1658,6 +1658,14 @@
                 this.pendingImportSummary = null;
                 this.lastImportResult = null;
                 this.cachedSchedules = [];
+                this.resolvedManagerId = '';
+                this.resolvedCampaignId = '';
+                this.managedUserIds = [];
+                this.managedUserIdSet = new Set();
+                this.identityResolved = false;
+                this.identitySummary = null;
+                this.contextLoadingPromise = null;
+                this.visibleManagedCount = 0;
                 this.init();
             }
 
@@ -1667,6 +1675,80 @@
                 this.initEventListeners();
                 this.loadInitialData();
                 this.showWelcomeMessage();
+            }
+
+            async ensureScheduleContext(force = false) {
+                if (this.contextLoadingPromise) {
+                    return this.contextLoadingPromise;
+                }
+
+                if (this.identityResolved && !force && this.resolvedManagerId) {
+                    return Promise.resolve();
+                }
+
+                const managerIdCandidate = this.getCurrentUserId();
+                const campaignCandidate = this.getCurrentCampaignId();
+
+                const loadContext = (async () => {
+                    try {
+                        const context = await this.callServerFunction('clientGetScheduleContext', managerIdCandidate || null, campaignCandidate || null);
+
+                        if (context && context.success) {
+                            this.identityResolved = !!(context.authenticated || (context.identity && context.identity.authenticated));
+                            this.identitySummary = context.identity || null;
+
+                            const resolvedManagerId = this.normalizeUserIdValue(context.managerId) || this.normalizeUserIdValue(context.providedManagerId);
+                            if (resolvedManagerId) {
+                                this.resolvedManagerId = resolvedManagerId;
+                            }
+
+                            const resolvedCampaignId = this.normalizeCampaignIdValue(context.campaignId);
+                            if (resolvedCampaignId) {
+                                this.resolvedCampaignId = resolvedCampaignId;
+                            }
+
+                            if (Array.isArray(context.managedUserIds)) {
+                                this.managedUserIds = context.managedUserIds.slice();
+                            } else {
+                                this.managedUserIds = [];
+                            }
+
+                            this.managedUserIdSet = new Set(
+                                this.managedUserIds
+                                    .map(id => this.normalizeUserIdValue(id))
+                                    .filter(Boolean)
+                            );
+
+                            if (this.resolvedManagerId && this.managedUserIdSet.has(this.resolvedManagerId)) {
+                                this.managedUserIdSet.delete(this.resolvedManagerId);
+                            }
+
+                            if (context.user && typeof context.user === 'object') {
+                                this.currentUser = Object.assign({}, this.currentUser || {}, context.user);
+                            }
+                        } else {
+                            this.identityResolved = false;
+                            this.managedUserIds = [];
+                            this.managedUserIdSet = new Set();
+                            this.visibleManagedCount = 0;
+                        }
+                    } catch (error) {
+                        console.warn('Unable to resolve schedule identity context:', error);
+                        this.identityResolved = false;
+                        this.managedUserIds = [];
+                        this.managedUserIdSet = new Set();
+                        this.visibleManagedCount = 0;
+                    }
+                })();
+
+                this.contextLoadingPromise = loadContext.then(() => {
+                    this.contextLoadingPromise = null;
+                }).catch(error => {
+                    this.contextLoadingPromise = null;
+                    throw error;
+                });
+
+                return this.contextLoadingPromise;
             }
 
             setDefaultDates() {
@@ -1812,6 +1894,9 @@
                 try {
                     this.showToast('Loading system data...', 'info');
 
+                    // Resolve identity and manager context before loading data
+                    await this.ensureScheduleContext();
+
                     // Load users first as they're needed everywhere
                     await this.loadUsers();
 
@@ -1867,11 +1952,27 @@
             async loadUsers() {
                 try {
                     console.log('👥 Loading users...');
+                    await this.ensureScheduleContext();
+
                     const currentUserId = this.getCurrentUserId();
-                    const campaignId = this.getCurrentCampaignId();
+                    const campaignId = this.resolvedCampaignId || this.getCurrentCampaignId();
+                    console.log('🔐 Resolved manager context:', { managerId: currentUserId, campaignId: campaignId || '(all)' });
                     const users = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
 
                     this.availableUsers = Array.isArray(users) ? users : [];
+                    const managedSet = this.managedUserIdSet instanceof Set ? this.managedUserIdSet : new Set();
+                    if (managedSet.size) {
+                        const seen = new Set();
+                        this.availableUsers.forEach(user => {
+                            const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
+                            if (userId && managedSet.has(userId)) {
+                                seen.add(userId);
+                            }
+                        });
+                        this.visibleManagedCount = seen.size;
+                    } else {
+                        this.visibleManagedCount = this.availableUsers.length;
+                    }
                     console.log(`✅ Loaded ${this.availableUsers.length} users`);
 
                     // Update user dropdowns
@@ -1913,25 +2014,50 @@
                 if (!container) return;
 
                 if (this.availableUsers.length === 0) {
-                    container.innerHTML = '<div class="text-muted text-center py-4">No users found. Please check user data and permissions.</div>';
+                    const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your team');
+                    container.innerHTML = `
+                        <div class="text-muted text-center py-4">
+                            <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
+                            <p class="mb-1">No managed agents found for ${managerName}.</p>
+                            <p class="mb-0 small">Verify your manager assignments in the MANAGER_USERS sheet.</p>
+                        </div>
+                    `;
+                    this.updateManagerStats();
                     return;
                 }
 
-                container.innerHTML = this.availableUsers.map(user => `
+                const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your roster');
+                const identityBadge = this.identityResolved
+                    ? '<span class="badge bg-success">Lumina Identity</span>'
+                    : '<span class="badge bg-secondary">Limited Identity</span>';
+
+                const summary = `
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 small text-muted">
+                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}</span>
+                        ${identityBadge}
+                    </div>
+                `;
+
+                container.innerHTML = summary + this.availableUsers.map(user => {
+                    const fullName = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+                    const email = this.escapeHtml(user.Email || 'No email');
+                    const campaign = this.escapeHtml(user.campaignName || 'No campaign');
+                    const status = this.escapeHtml(user.EmploymentStatus || 'Active');
+                    const badgeClass = user.isActive ? 'bg-success' : 'bg-secondary';
+                    const badgeLabel = this.escapeHtml(user.isActive ? 'Active' : 'Inactive');
+
+                    return `
                         <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded interactive-item">
                             <div>
-                                <strong class="d-block">${user.FullName || user.UserName}</strong>
+                                <strong class="d-block">${fullName}</strong>
                                 <small class="text-muted">
-                                    ${user.Email || 'No email'} • 
-                                    ${user.campaignName || 'No campaign'} • 
-                                    ${user.EmploymentStatus || 'Active'}
+                                    ${email} • ${campaign} • ${status}
                                 </small>
                             </div>
-                            <span class="badge ${user.isActive ? 'bg-success' : 'bg-secondary'}">
-                                ${user.isActive ? 'Active' : 'Inactive'}
-                            </span>
+                            <span class="badge ${badgeClass}">${badgeLabel}</span>
                         </div>
-                    `).join('');
+                    `;
+                }).join('');
 
                 this.updateManagerStats();
             }
@@ -1941,31 +2067,40 @@
                 if (!container) return;
 
                 const activeUsers = this.availableUsers.filter(u => u.isActive).length;
-                const withCampaigns = this.availableUsers.filter(u => u.CampaignID).length;
+                const managedAgents = this.visibleManagedCount || this.availableUsers.length;
+                const rosterAssignments = (this.managedUserIdSet instanceof Set && this.managedUserIdSet.size)
+                    ? this.managedUserIdSet.size
+                    : managedAgents;
+                const uniqueCampaigns = new Set(
+                    this.availableUsers
+                        .map(user => (user.campaignName || '').trim())
+                        .filter(Boolean)
+                ).size;
+                const campaignMetric = uniqueCampaigns || this.availableCampaigns.length || 0;
 
                 container.innerHTML = `
                         <div class="row g-3">
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-primary">${this.availableUsers.length}</div>
-                                    <div class="metric-label">Total Users</div>
+                                    <div class="metric-number text-primary">${managedAgents}</div>
+                                    <div class="metric-label">Managed Agents</div>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
                                     <div class="metric-number text-success">${activeUsers}</div>
-                                    <div class="metric-label">Active Users</div>
+                                    <div class="metric-label">Active Agents</div>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-info">${withCampaigns}</div>
-                                    <div class="metric-label">With Campaigns</div>
+                                    <div class="metric-number text-info">${rosterAssignments}</div>
+                                    <div class="metric-label">Roster Assignments</div>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-warning">${this.availableCampaigns.length}</div>
+                                    <div class="metric-number text-warning">${campaignMetric}</div>
                                     <div class="metric-label">Campaigns</div>
                                 </div>
                             </div>
@@ -4491,18 +4626,30 @@
 
             // Utility methods
             getCurrentUserId() {
+                const resolvedId = this.normalizeUserIdValue(this.resolvedManagerId);
+                if (resolvedId) {
+                    return resolvedId;
+                }
+
                 const potentialIds = [
                     this.currentUser?.ID,
                     this.currentUser?.Id,
                     this.currentUser?.id,
                     this.currentUser?.UserID,
                     this.currentUser?.UserId
-                ].filter(id => id);
+                ]
+                    .map(id => this.normalizeUserIdValue(id))
+                    .filter(id => id);
 
-                return potentialIds.length > 0 ? String(potentialIds[0]) : 'system-user';
+                return potentialIds.length > 0 ? potentialIds[0] : 'system-user';
             }
 
             getCurrentCampaignId() {
+                const resolvedCampaign = this.normalizeCampaignIdValue(this.resolvedCampaignId);
+                if (resolvedCampaign) {
+                    return resolvedCampaign;
+                }
+
                 const candidateValues = [
                     this.currentUser?.CampaignID,
                     this.currentUser?.campaignID,
@@ -4568,6 +4715,32 @@
                 }
 
                 return text;
+            }
+
+            normalizeUserIdValue(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                const text = String(value).trim();
+                if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+                    return '';
+                }
+
+                return text;
+            }
+
+            escapeHtml(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
             }
 
             formatSchedulePeriod(schedule) {
