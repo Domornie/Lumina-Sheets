@@ -3802,9 +3802,18 @@
         function performLogout() {
             console.log('Performing logout...');
 
-            stopSessionHeartbeat('logout-finalize');
+            try {
+                clearClientAuthState('manual');
+            } catch (stateError) {
+                console.warn('performLogout: unable to clear client auth state', stateError);
+                try {
+                    stopSessionHeartbeat('logout-finalize');
+                } catch (heartbeatError) {
+                    console.warn('performLogout: unable to stop session heartbeat', heartbeatError);
+                }
+            }
 
-            // Clear browser storage again
+            // Ensure browser storage is cleared even if the auth state reset fails
             try {
                 localStorage.clear();
                 sessionStorage.clear();
@@ -3813,19 +3822,27 @@
                 console.warn('Could not clear storage:', e);
             }
 
+            // Persist the logout reason for downstream messaging
             try {
                 setLogoutReason('manual');
             } catch (reasonError) {
                 console.warn('performLogout: unable to persist manual logout reason', reasonError);
             }
 
-            // Show logout message and redirect
+            // Show logout message and redirect immediately to the login screen
             showLogoutMessage();
 
-            setTimeout(function() {
-                const target = buildLoginUrl({ includeReturn: false, reason: 'manual' });
-                window.location.href = target || BASE_URL;
-            }, 2000);
+            const target = buildLoginUrl({ includeReturn: false, reason: 'manual' }) || BASE_URL || '/';
+            try {
+                if (window.location && typeof window.location.replace === 'function') {
+                    window.location.replace(target);
+                } else {
+                    window.location.href = target;
+                }
+            } catch (redirectError) {
+                console.warn('performLogout: unable to redirect using replace', redirectError);
+                window.location.href = target;
+            }
         }
 
         function showLogoutMessage() {
