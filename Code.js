@@ -3968,7 +3968,7 @@ function getUsersByManager(managerUserId, options) {
   try {
     const opts = Object.assign({
       includeManager: true,
-      fallbackToCampaign: true,
+      fallbackToCampaign: false,
       fallbackToAll: false,
       managerCampaignId: ''
     }, options || {});
@@ -3985,6 +3985,7 @@ function getUsersByManager(managerUserId, options) {
 
     const managerIdStr = managerUserId ? String(managerUserId) : '';
     const manager = managerIdStr ? byId.get(managerIdStr) : null;
+    const managerIsAdmin = manager ? !!isUserAdmin(manager) : false;
     const visible = [];
 
     const pushUser = function (rawUser) {
@@ -3992,18 +3993,44 @@ function getUsersByManager(managerUserId, options) {
       visible.push(_uiUserShape_(rawUser, cmap));
     };
 
+    if (!managerIdStr || managerIsAdmin) {
+      allUsers.forEach(pushUser);
+      return _dedupeAndSortUsers_(visible);
+    }
+
     if (opts.includeManager && manager) {
       pushUser(manager);
     }
 
     const assignedIds = new Set();
+    const appendAssigned = function (id) {
+      if (!id) return;
+      const normalized = String(id);
+      if (!normalized || normalized === managerIdStr) return;
+      assignedIds.add(normalized);
+    };
+
     if (managerIdStr) {
-      const relations = _readManagerUsersSheetSafe_();
-      for (let i = 0; i < relations.length; i++) {
-        const rel = relations[i];
-        if (!rel) continue;
-        if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
-          assignedIds.add(String(rel.UserID));
+      let managedSet = null;
+      if (typeof getManagerVisibleUserIds === 'function') {
+        try {
+          managedSet = getManagerVisibleUserIds(managerIdStr, { includeSelf: false });
+        } catch (helperError) {
+          console.warn('getUsersByManager: getManagerVisibleUserIds failed', helperError);
+          managedSet = null;
+        }
+      }
+
+      if (managedSet && typeof managedSet.forEach === 'function') {
+        managedSet.forEach(appendAssigned);
+      } else {
+        const relations = _readManagerUsersSheetSafe_();
+        for (let i = 0; i < relations.length; i++) {
+          const rel = relations[i];
+          if (!rel) continue;
+          if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
+            appendAssigned(rel.UserID);
+          }
         }
       }
     }
@@ -4015,7 +4042,10 @@ function getUsersByManager(managerUserId, options) {
 
     const hasAssigned = assignedIds.size > 0;
 
-    if ((!hasAssigned || visible.length === (opts.includeManager && manager ? 1 : 0)) && opts.fallbackToCampaign) {
+    const allowCampaignFallback = opts.fallbackToCampaign && (managerIsAdmin || !managerIdStr);
+    const allowAllFallback = opts.fallbackToAll && (managerIsAdmin || !managerIdStr);
+
+    if ((!hasAssigned || visible.length === (opts.includeManager && manager ? 1 : 0)) && allowCampaignFallback) {
       const targetCampaign = opts.managerCampaignId || (manager && (manager.CampaignID || manager.campaignId)) || '';
       if (targetCampaign) {
         allUsers.forEach(function (u) {
@@ -4026,7 +4056,7 @@ function getUsersByManager(managerUserId, options) {
       }
     }
 
-    if (!visible.length && opts.fallbackToAll) {
+    if (!visible.length && allowAllFallback) {
       allUsers.forEach(pushUser);
     }
 
@@ -4074,11 +4104,12 @@ function getUsers() {
     const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
     const managerId = currentUser && currentUser.ID ? currentUser.ID : null;
     const managerCampaignId = currentUser ? (currentUser.CampaignID || currentUser.campaignId || '') : '';
+    const managerIsAdmin = currentUser ? !!isUserAdmin(currentUser) : false;
 
     const users = getUsersByManager(managerId, {
       includeManager: true,
-      fallbackToCampaign: true,
-      fallbackToAll: true,
+      fallbackToCampaign: managerIsAdmin || !managerId,
+      fallbackToAll: managerIsAdmin || !managerId,
       managerCampaignId: managerCampaignId
     });
 
