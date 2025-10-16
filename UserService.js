@@ -2016,15 +2016,17 @@ function getManagerVisibleUserIds(managerUserId, options) {
 function clientGetAllUsers(requestingUserId) {
   try {
     let resolvedRequestingUserId = requestingUserId;
-    if (!resolvedRequestingUserId) {
-      try {
-        const current = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-        if (current && current.ID) {
-          resolvedRequestingUserId = current.ID;
-        }
-      } catch (currentErr) {
-        try { writeError && writeError('clientGetAllUsers.getCurrentUser', currentErr); } catch (_) { }
-      }
+    let currentUser = null;
+
+    try {
+      currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    } catch (currentErr) {
+      try { writeError && writeError('clientGetAllUsers.getCurrentUser', currentErr); } catch (_) { }
+      currentUser = null;
+    }
+
+    if (!resolvedRequestingUserId && currentUser && currentUser.ID) {
+      resolvedRequestingUserId = currentUser.ID;
     }
 
     try {
@@ -2098,10 +2100,58 @@ function clientGetAllUsers(requestingUserId) {
 
     let filteredUsers = enhancedUsers;
     const normalizedRequestingId = normalizeManagerUserId(resolvedRequestingUserId);
+    const normalizedCurrentEmail = currentUser
+      ? _normEmail_(currentUser.Email || currentUser.email || currentUser.WorkEmail || currentUser.PrimaryEmail)
+      : '';
+    const fallbackEmailFromId = (normalizedRequestingId && normalizedRequestingId.indexOf('@') !== -1)
+      ? normalizedRequestingId.toLowerCase()
+      : '';
+    const emailCandidates = Array.from(new Set([normalizedCurrentEmail, fallbackEmailFromId].filter(Boolean)));
+
+    const matchUserById = (collection, targetId) => {
+      if (!targetId) return null;
+      for (let i = 0; i < collection.length; i++) {
+        const candidate = collection[i];
+        if (!candidate) continue;
+        const candidateId = normalizeManagerUserId(candidate.ID || candidate.Id || candidate.id);
+        if (candidateId && candidateId === targetId) {
+          return candidate;
+        }
+      }
+      return null;
+    };
+
+    const matchUserByEmail = (collection, targetEmail) => {
+      if (!targetEmail) return null;
+      for (let i = 0; i < collection.length; i++) {
+        const candidate = collection[i];
+        if (!candidate) continue;
+        const candidateEmail = _normEmail_(
+          candidate.Email || candidate.email || candidate.EmailAddress ||
+          candidate.WorkEmail || candidate.workEmail || candidate.PrimaryEmail || candidate.primaryEmail
+        );
+        if (candidateEmail && candidateEmail === targetEmail) {
+          return candidate;
+        }
+      }
+      return null;
+    };
+
+    const resolveRequestingUser = () => {
+      let found = matchUserById(enhancedUsers, normalizedRequestingId) || matchUserById(users, normalizedRequestingId);
+      if (found) return found;
+      for (let i = 0; i < emailCandidates.length; i++) {
+        const email = emailCandidates[i];
+        if (!email) continue;
+        found = matchUserByEmail(enhancedUsers, email) || matchUserByEmail(users, email);
+        if (found) return found;
+      }
+      return null;
+    };
+
     if (normalizedRequestingId) {
       try {
-        const requestingUser = enhancedUsers.find(u => String(u.ID) === normalizedRequestingId)
-          || users.find(u => String(u.ID) === normalizedRequestingId);
+        const requestingUser = resolveRequestingUser();
         if (requestingUser) {
           if (isUserAdmin(requestingUser)) {
             filteredUsers = enhancedUsers;
@@ -2156,7 +2206,12 @@ function clientGetAllUsers(requestingUserId) {
             }
           }
         } else {
-          filteredUsers = [];
+          _userLog_('clientGetAllUsers.requestingUserNotFound', {
+            resolvedRequestingUserId,
+            normalizedRequestingId,
+            emailCandidates
+          }, 'warn');
+          filteredUsers = enhancedUsers;
         }
       } catch (permissionError) {
         filteredUsers = enhancedUsers;
