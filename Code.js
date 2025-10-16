@@ -3892,46 +3892,7 @@ function _tryGetRoleNames_(userId) {
   return [];
 }
 
-const _GUEST_USER_PATTERNS_ = [
-  /^guest$/,
-  /^guest\s+user$/,
-  /^guest\s*account$/,
-  /^guest\s*access$/,
-  /^external\s+guest$/,
-  /^collab\s+guest$/,
-  /^guest\s+collab$/,
-  /^guest\s+partner$/
-];
-
-function _campaignNameKey_(name) {
-  return _normLower_(name).replace(/[^a-z0-9]+/g, '');
-}
-
-let __campaignNameLookupCache = null;
-
-function _campaignNameLookup_() {
-  try {
-    if (__campaignNameLookupCache) {
-      return __campaignNameLookupCache;
-    }
-
-    const cmap = _campaignNameMap_();
-    const lookup = {};
-    Object.keys(cmap).forEach(function (id) {
-      const rawName = cmap[id];
-      const key = _campaignNameKey_(rawName);
-      if (key && !lookup[key]) {
-        lookup[key] = id;
-      }
-    });
-
-    __campaignNameLookupCache = lookup;
-    return lookup;
-  } catch (error) {
-    console.warn('_campaignNameLookup_ failed:', error);
-    return {};
-  }
-}
+const _GUEST_USER_KEYWORDS_ = ['guest', 'client', 'partner', 'collab'];
 
 function _normLower_(value) { return _normStr_(value).toLowerCase(); }
 
@@ -3952,23 +3913,6 @@ function _extractCampaignIdsFromUser_(user) {
       .map(function (part) { return _normStr_(part); })
       .filter(Boolean)
       .forEach(function (val) { ids.add(val); });
-  }
-
-  const nameFields = [
-    user && (user.CampaignName || user.campaignName),
-    user && (user.Campaign || user.campaign),
-    user && (user.PrimaryCampaign || user.primaryCampaign)
-  ].filter(Boolean);
-
-  if (nameFields.length) {
-    const lookup = _campaignNameLookup_();
-    nameFields.forEach(function (name) {
-      const key = _campaignNameKey_(name);
-      const mappedId = key ? lookup[key] : null;
-      if (mappedId) {
-        ids.add(mappedId);
-      }
-    });
   }
 
   return Array.from(ids);
@@ -4023,28 +3967,11 @@ function _collectUserRoleTokens_(user) {
 }
 
 function _isGuestUser_(user) {
-  if (user && (_truthy(user.IsGuest) || _truthy(user.Guest))) {
-    return true;
-  }
-
-  const explicitFields = [
-    user && (user.UserType || user.userType),
-    user && (user.AccessLevel || user.accessLevel),
-    user && (user.AccountType || user.accountType)
-  ].map(_normLower_).filter(Boolean);
-
-  const hasExplicitGuest = explicitFields.some(function (value) {
-    return /^guest(\b|$)/.test(value) || /guest\s+access/.test(value) || /guest\s+user/.test(value);
-  });
-  if (hasExplicitGuest) {
-    return true;
-  }
-
   const tokens = _collectUserRoleTokens_(user);
   if (!tokens.length) return false;
   return tokens.some(function (token) {
-    return _GUEST_USER_PATTERNS_.some(function (pattern) {
-      return pattern.test(token);
+    return _GUEST_USER_KEYWORDS_.some(function (keyword) {
+      return token.indexOf(keyword) !== -1;
     });
   });
 }
