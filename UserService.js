@@ -1853,8 +1853,149 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
 // ───────────────────────────────────────────────────────────────────────────────
 // Users: get all (campaign-aware) + safe mappers
 // ───────────────────────────────────────────────────────────────────────────────
+function normalizeManagerUserId(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
+  return String(value).trim();
+}
+
+function collectManagerAssignmentsFromRows(rows, managerId, append) {
+  if (!Array.isArray(rows) || typeof append !== 'function' || !managerId) return;
+
+  if (Array.isArray(rows[0])) {
+    const headers = (rows[0] || []).map(header => String(header || '').trim());
+    const managerIdx = headers.indexOf('ManagerUserID');
+    let userIdx = headers.indexOf('UserID');
+    if (userIdx === -1) userIdx = headers.indexOf('ManagedUserID');
+    if (managerIdx === -1 || userIdx === -1) return;
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const managerCandidate = normalizeManagerUserId(row[managerIdx]);
+      const userCandidate = normalizeManagerUserId(row[userIdx]);
+      if (managerCandidate === managerId && userCandidate && userCandidate !== managerId) {
+        append(userCandidate);
+      }
+    }
+    return;
+  }
+
+  rows.forEach(record => {
+    if (!record || typeof record !== 'object') return;
+
+    const managerCandidates = [
+      record.ManagerUserID, record.ManagerUserId, record.managerUserId,
+      record.ManagerID, record.ManagerId, record.managerId, record.manager_id,
+      record.UserManagerID, record.UserManagerId, record.userManagerId
+    ].map(normalizeManagerUserId).filter(Boolean);
+
+    const userCandidates = [
+      record.UserID, record.UserId, record.userId,
+      record.ManagedUserID, record.ManagedUserId, record.managedUserId,
+      record.managed_user_id, record.ManagedID, record.ManagedId
+    ].map(normalizeManagerUserId).filter(Boolean);
+
+    const managerMatch = managerCandidates.find(candidate => candidate === managerId);
+
+    if (managerMatch && userCandidates.length) {
+      userCandidates.forEach(candidate => {
+        if (candidate && candidate !== managerId) append(candidate);
+      });
+    }
+
+    const reversedManager = userCandidates.find(candidate => candidate === managerId);
+    if (reversedManager && managerCandidates.length) {
+      managerCandidates.forEach(candidate => {
+        if (candidate && candidate !== managerId) append(candidate);
+      });
+    }
+  });
+}
+
+function getManagerVisibleUserIds(managerUserId, options) {
+  const opts = Object.assign({ includeSelf: false }, options || {});
+  const normalizedManagerId = normalizeManagerUserId(managerUserId);
+  const visible = new Set();
+
+  if (!normalizedManagerId) {
+    return visible;
+  }
+
+  const append = (value) => {
+    const normalized = normalizeManagerUserId(value);
+    if (!normalized || normalized === normalizedManagerId) return;
+    visible.add(normalized);
+  };
+
+  if (opts.includeSelf) {
+    visible.add(normalizedManagerId);
+  }
+
+  let populatedFromHelper = false;
+
+  if (typeof getDirectManagedUserIds === 'function') {
+    try {
+      const directSet = getDirectManagedUserIds(normalizedManagerId);
+      if (directSet && typeof directSet.forEach === 'function') {
+        directSet.forEach(append);
+        populatedFromHelper = populatedFromHelper || directSet.size > 0;
+      }
+    } catch (err) {
+      try { writeError && writeError('getManagerVisibleUserIds.getDirectManagedUserIds', err); } catch (_) { }
+    }
+  }
+
+  const loadAssignments = (rows, label) => {
+    try {
+      collectManagerAssignmentsFromRows(rows, normalizedManagerId, append);
+    } catch (err) {
+      try { writeError && writeError(`getManagerVisibleUserIds.${label}`, err); } catch (_) { }
+    }
+  };
+
+  if (!visible.size || !populatedFromHelper) {
+    if (typeof readManagerAssignments_ === 'function') {
+      loadAssignments(readManagerAssignments_(), 'readManagerAssignments');
+    }
+  }
+
+  if (!visible.size || !populatedFromHelper) {
+    const candidateSheets = Array.from(new Set([
+      (typeof getManagerUsersSheetName_ === 'function') ? getManagerUsersSheetName_() : null,
+      'MANAGER_USERS',
+      'ManagerUsers',
+      'manager_users',
+      'UserManagers'
+    ].filter(Boolean)));
+
+    candidateSheets.forEach(name => {
+      if (!name) return;
+      try {
+        loadAssignments(readSheet(name) || [], `readSheet.${name}`);
+      } catch (err) {
+        try { writeError && writeError(`getManagerVisibleUserIds.readSheet.${name}`, err); } catch (_) { }
+      }
+    });
+  }
+
+  return visible;
+}
+
 function clientGetAllUsers(requestingUserId) {
   try {
+    let resolvedRequestingUserId = requestingUserId;
+    if (!resolvedRequestingUserId) {
+      try {
+        const current = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (current && current.ID) {
+          resolvedRequestingUserId = current.ID;
+        }
+      } catch (currentErr) {
+        try { writeError && writeError('clientGetAllUsers.getCurrentUser', currentErr); } catch (_) { }
+      }
+    }
+
     try {
       ensureUsersHaveIds();
     } catch (ensureError) {
@@ -1925,26 +2066,20 @@ function clientGetAllUsers(requestingUserId) {
     }
 
     let filteredUsers = enhancedUsers;
-    if (requestingUserId) {
+    const normalizedRequestingId = normalizeManagerUserId(resolvedRequestingUserId);
+    if (normalizedRequestingId) {
       try {
-        const requestingUser = users.find(u => String(u.ID) === String(requestingUserId));
+        const requestingUser = enhancedUsers.find(u => String(u.ID) === normalizedRequestingId)
+          || users.find(u => String(u.ID) === normalizedRequestingId);
         if (requestingUser) {
           if (isUserAdmin(requestingUser)) {
             filteredUsers = enhancedUsers;
           } else {
-            const managedCampaigns = getUserManagedCampaigns(requestingUserId) || [];
-            const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
-            if (managedSet.size > 0) {
-              const managedIds = new Set(Array.from(managedSet).map(String));
-              filteredUsers = enhancedUsers.filter(u => {
-                if (String(u.ID) === String(requestingUserId)) return true;
-                const uCamps = (typeof getUserCampaignsSafe === 'function')
-                  ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
-                  : (u.CampaignID ? [String(u.CampaignID)] : []);
-                return uCamps.some(cid => managedIds.has(cid));
-              });
+            const managedIds = getManagerVisibleUserIds(normalizedRequestingId, { includeSelf: true });
+            if (managedIds && managedIds.size) {
+              filteredUsers = enhancedUsers.filter(user => managedIds.has(String(user.ID)));
             } else {
-              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(requestingUserId));
+              filteredUsers = enhancedUsers.filter(user => String(user.ID) === normalizedRequestingId);
             }
           }
         } else {
@@ -1953,6 +2088,8 @@ function clientGetAllUsers(requestingUserId) {
       } catch (permissionError) {
         filteredUsers = enhancedUsers;
       }
+    } else if (resolvedRequestingUserId) {
+      filteredUsers = enhancedUsers;
     }
     return filteredUsers;
   } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
