@@ -3735,6 +3735,9 @@
         // ──────────────────────────────────────────────────────────────────────────────
         // SIMPLIFIED LOGOUT FUNCTION
         // ──────────────────────────────────────────────────────────────────────────────
+        let logoutFinalizeTimerId = null;
+        let logoutFinalizeCompleted = false;
+
         function stopSessionHeartbeat(reason) {
             try {
                 if (window.LuminaSessionHeartbeat && typeof window.LuminaSessionHeartbeat.stop === 'function') {
@@ -3757,6 +3760,27 @@
             }
         }
 
+        function finalizeLogout(source) {
+            if (logoutFinalizeCompleted) {
+                console.log('🔁 Logout already finalized, ignoring duplicate finalize from:', source || 'unknown');
+                return;
+            }
+
+            logoutFinalizeCompleted = true;
+
+            try {
+                if (logoutFinalizeTimerId) {
+                    clearTimeout(logoutFinalizeTimerId);
+                    logoutFinalizeTimerId = null;
+                }
+            } catch (timerError) {
+                console.warn('finalizeLogout: unable to clear pending timer', timerError);
+            }
+
+            console.log('🔚 Finalizing logout via:', source || 'unspecified');
+            performLogout();
+        }
+
         function handleLogout() {
             if (!confirm('Are you sure you want to logout?')) return;
 
@@ -3769,6 +3793,16 @@
 
             console.log('🚪 Initiating logout...');
 
+            logoutFinalizeCompleted = false;
+            if (logoutFinalizeTimerId) {
+                try {
+                    clearTimeout(logoutFinalizeTimerId);
+                } catch (clearErr) {
+                    console.warn('handleLogout: unable to clear previous logout timer', clearErr);
+                }
+                logoutFinalizeTimerId = null;
+            }
+
             let sessionToken = '';
             try {
                 if (typeof readAuthTokenForGuard === 'function') {
@@ -3780,32 +3814,39 @@
                 console.warn('handleLogout: unable to read session token', tokenError);
             }
 
-            stopSessionHeartbeat('logout-init');
-
-            // Clear browser storage
-            try {
-                localStorage.clear();
-                sessionStorage.clear();
-                console.log('🧹 Browser storage cleared');
-            } catch (e) {
-                console.warn('⚠️ Could not clear storage:', e);
-            }
-
             try {
                 setLogoutReason('manual');
             } catch (reasonError) {
                 console.warn('handleLogout: unable to persist manual logout reason', reasonError);
             }
 
+            if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+                try {
+                    logoutFinalizeTimerId = window.setTimeout(function handleLogoutTimeout() {
+                        console.warn('⌛ Logout request timed out; forcing client-side logout.');
+                        finalizeLogout('timeout');
+                    }, 7000);
+                } catch (timerError) {
+                    console.warn('handleLogout: unable to create logout timeout', timerError);
+                    logoutFinalizeTimerId = null;
+                }
+            }
+
+            if (typeof window === 'undefined' || !(window.google && window.google.script && window.google.script.run)) {
+                console.warn('handleLogout: google.script.run unavailable, performing client-only logout.');
+                finalizeLogout('client-only');
+                return;
+            }
+
             // Call server logout
-            google.script.run
+            window.google.script.run
                 .withSuccessHandler(function(result) {
                     console.log('✅ Server logout completed:', result);
-                    performLogout();
+                    finalizeLogout('server-success');
                 })
                 .withFailureHandler(function(err) {
-                    console.warn('⚠️ Server logout failed, but proceeding with client logout:', err);
-                    performLogout();
+                    console.warn('⚠️ Server logout failed, proceeding with client logout:', err);
+                    finalizeLogout('server-failure');
                 })
                 .logout(sessionToken || '');
         }
