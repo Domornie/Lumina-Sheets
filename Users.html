@@ -1287,6 +1287,7 @@
             <option value="12" selected>12</option>
             <option value="24">24</option>
             <option value="48">48</option>
+            <option value="all">All</option>
         </select>
 
         <nav aria-label="Users pagination">
@@ -2259,6 +2260,9 @@
     { name: 'Schedule', identifiers: ['schedule', 'schedulemanagement', 'agentschedule'] }
   ];
 
+  const DEFAULT_USERS_PAGE_SIZE = 12;
+  const USERS_PAGE_SIZE_ALL = 'all';
+
   let allUsers = [];
   let allPages = [];
   let campaigns = [];
@@ -2272,7 +2276,7 @@
   let managedAssignments = new Set(); // user IDs under current manager
   let userFilters = { search: '', roles: [], campaignId: '', permission: '', employmentStatus: '' };
   let usersPage = 1;
-  let usersPerPage = 12;
+  let usersPageSizeSetting = DEFAULT_USERS_PAGE_SIZE;
   let filteredUsers = [];
   let userEquipmentItems = [];
   let currentEquipmentEntryId = null;
@@ -2618,7 +2622,18 @@
     $('#filterCampaign').select2({ theme: 'bootstrap-5', placeholder: 'Filter by campaign', allowClear: true, width: '100%' });
 
     $('#usersPageSize').on('change', function () {
-      usersPerPage = parseInt(this.value, 10) || 12;
+      const rawValue = String(this.value || '');
+      if (rawValue === USERS_PAGE_SIZE_ALL) {
+        usersPageSizeSetting = USERS_PAGE_SIZE_ALL;
+      } else {
+        const parsed = Number.parseInt(rawValue, 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          usersPageSizeSetting = DEFAULT_USERS_PAGE_SIZE;
+          this.value = String(DEFAULT_USERS_PAGE_SIZE);
+        } else {
+          usersPageSizeSetting = parsed;
+        }
+      }
       usersPage = 1;
       renderUsersPage();
     });
@@ -2979,12 +2994,24 @@
   }
 
   // ---------- Users list & pagination ----------
+  function resolveUsersPageSize(totalCount) {
+    if (usersPageSizeSetting === USERS_PAGE_SIZE_ALL) {
+      return totalCount > 0 ? totalCount : DEFAULT_USERS_PAGE_SIZE;
+    }
+    if (Number.isFinite(usersPageSizeSetting) && usersPageSizeSetting > 0) {
+      return usersPageSizeSetting;
+    }
+    return DEFAULT_USERS_PAGE_SIZE;
+  }
+
   function renderUsersPage() {
     const total = filteredUsers.length;
-    const totalPages = Math.max(1, Math.ceil(total / usersPerPage));
+    const pageSize = resolveUsersPageSize(total);
+    const shouldPaginate = usersPageSizeSetting !== USERS_PAGE_SIZE_ALL && total > pageSize;
+    const totalPages = shouldPaginate ? Math.max(1, Math.ceil(total / pageSize)) : 1;
     usersPage = Math.min(Math.max(1, usersPage), totalPages);
-    const start = (usersPage - 1) * usersPerPage;
-    const end = Math.min(start + usersPerPage, total);
+    const start = shouldPaginate ? (usersPage - 1) * pageSize : 0;
+    const end = shouldPaginate ? Math.min(start + pageSize, total) : total;
     const pageSlice = filteredUsers.slice(start, end);
 
     renderUsersWithPages(pageSlice);
@@ -2992,12 +3019,22 @@
     const infoEl = document.getElementById('usersPageInfo');
     const barEl = document.getElementById('usersPaginationBar');
     if (infoEl) {
-      infoEl.textContent = total ? `Showing ${start + 1}–${end} of ${total}` : 'No users';
+      if (!total) {
+        infoEl.textContent = 'No users';
+      } else if (!shouldPaginate) {
+        if (usersPageSizeSetting === USERS_PAGE_SIZE_ALL) {
+          infoEl.textContent = `Showing all ${total}`;
+        } else {
+          infoEl.textContent = `Showing ${total} of ${total}`;
+        }
+      } else {
+        infoEl.textContent = `Showing ${start + 1}–${end} of ${total}`;
+      }
     }
     if (barEl) {
       barEl.style.display = total ? 'flex' : 'none';
     }
-    updateUsersPagination(totalPages);
+    updateUsersPagination(totalPages, shouldPaginate);
   }
 
   function renderUsersWithPages(users) {
@@ -3680,10 +3717,13 @@
   }
 
   // ---------- Pagination control ----------
-  function updateUsersPagination(totalPages) {
+  function updateUsersPagination(totalPages, shouldPaginate = true) {
     const ul = document.getElementById('usersPagination');
     if (!ul) return;
     ul.innerHTML = '';
+    if (!shouldPaginate || totalPages <= 1) {
+      return;
+    }
     const addBtn = (label, page, disabled = false, active = false) => {
       const li = document.createElement('li');
       li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
