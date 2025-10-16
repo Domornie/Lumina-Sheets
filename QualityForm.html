@@ -2639,7 +2639,7 @@
     }
 
     try {
-      const users = await run('getUsers');
+      const users = await run('getUsers', { campaignId: cid, excludeGuests: true });
       if (Array.isArray(users) && users.length > 0) {
         userList = users.slice();
         populateAgentSelect(users);

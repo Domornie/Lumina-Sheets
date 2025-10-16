@@ -504,6 +504,13 @@ var LuminaIdentity = (function () {
     }
 
     try {
+      if (typeof _readUsersSheetSafe_ === 'function') {
+        var scoped = _readUsersSheetSafe_({ excludeGuests: true });
+        if (Array.isArray(scoped) && scoped.length) {
+          return scoped;
+        }
+      }
+
       if (typeof readSheet === 'function') {
         var sheetData = readSheet('Users') || [];
         if (Array.isArray(sheetData) && sheetData.length) {
