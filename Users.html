@@ -2691,7 +2691,7 @@
       callGoogleScript('clientGetValidEmploymentStatuses').catch(() => ({ success: false }))
     ])
       .then(([usersData, pagesData, campaignsData, rolesData, employmentRes]) => {
-        handleUsersLoaded(usersData || []);
+        handleUsersLoaded(usersData);
         handlePagesLoaded(pagesData || []);
         handleCampaignsLoaded(campaignsData || []);
         handleRolesLoaded(rolesData || []);
@@ -2706,9 +2706,33 @@
       .finally(() => showLoading(false));
   }
 
+  function normalizeUsersResponse(users) {
+    if (Array.isArray(users)) {
+      return users;
+    }
+
+    if (users && typeof users === 'object') {
+      if (Array.isArray(users.users)) {
+        return users.users;
+      }
+      if (Array.isArray(users.items)) {
+        return users.items;
+      }
+      if (Array.isArray(users.result)) {
+        return users.result;
+      }
+      if (Array.isArray(users.data)) {
+        return users.data;
+      }
+    }
+
+    return [];
+  }
+
   function handleUsersLoaded(users) {
-    allUsers = users || [];
-    filteredUsers = allUsers.slice();
+    const normalizedUsers = normalizeUsersResponse(users);
+    allUsers = normalizedUsers;
+    filteredUsers = normalizedUsers.slice();
     usersPage = 1;
     const missingIdUsers = allUsers.filter(user => !user || !user.ID);
     if (missingIdUsers.length) {
@@ -4543,7 +4567,7 @@
     showLoading(true);
     callGoogleScript('clientGetAllUsers')
       .then(usersData => {
-        handleUsersLoaded(usersData || []);
+        handleUsersLoaded(usersData);
         applyUserFilters();
       })
       .catch(err => {
