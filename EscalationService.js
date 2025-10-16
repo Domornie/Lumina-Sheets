@@ -75,8 +75,11 @@ function addEscalation(rec) {
  * @param {{user:string, type:string, timestamp:string, notes:string}} rec
  */
 function updateEscalation(id, rec) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(ESCALATIONS_SHEET);
+  const sheet = getIBTRSpreadsheet()
+    .getSheetByName(ESCALATIONS_SHEET);
+  if (!sheet) {
+    throw new Error('Escalations sheet not found.');
+  }
   const data = sheet.getDataRange().getValues();
   const now = new Date();
 
@@ -107,8 +110,11 @@ function updateEscalation(id, rec) {
  * @param {string} id
  */
 function removeEscalation(id) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+  const sheet = getIBTRSpreadsheet()
     .getSheetByName(ESCALATIONS_SHEET);
+  if (!sheet) {
+    throw new Error('Escalations sheet not found.');
+  }
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === id) {
