@@ -1862,18 +1862,11 @@ function normalizeManagerUserId(value) {
 function collectManagerAssignmentsFromRows(rows, managerId, append) {
   if (!Array.isArray(rows) || typeof append !== 'function' || !managerId) return;
 
-  const wrapCandidate = function (value, meta) {
-    if (!value && (!meta || !meta.email)) return;
-    const candidateMeta = Object.assign({ id: value }, meta || {});
-    append(candidateMeta);
-  };
-
   if (Array.isArray(rows[0])) {
     const headers = (rows[0] || []).map(header => String(header || '').trim());
     const managerIdx = headers.indexOf('ManagerUserID');
     let userIdx = headers.indexOf('UserID');
     if (userIdx === -1) userIdx = headers.indexOf('ManagedUserID');
-    const emailIdx = headers.indexOf('UserEmail') !== -1 ? headers.indexOf('UserEmail') : headers.indexOf('ManagedUserEmail');
     if (managerIdx === -1 || userIdx === -1) return;
 
     for (let i = 1; i < rows.length; i++) {
@@ -1881,18 +1874,12 @@ function collectManagerAssignmentsFromRows(rows, managerId, append) {
       if (!Array.isArray(row)) continue;
       const managerCandidate = normalizeManagerUserId(row[managerIdx]);
       const userCandidate = normalizeManagerUserId(row[userIdx]);
-      const emailCandidate = (emailIdx !== -1) ? String(row[emailIdx] || '').trim() : '';
       if (managerCandidate === managerId && userCandidate && userCandidate !== managerId) {
-        wrapCandidate(userCandidate, { email: emailCandidate });
+        append(userCandidate);
       }
     }
     return;
   }
-
-  const normalizeEmail = function (value) {
-    const email = String(value || '').trim().toLowerCase();
-    return email && email.includes('@') ? email : '';
-  };
 
   rows.forEach(record => {
     if (!record || typeof record !== 'object') return;
@@ -1909,27 +1896,18 @@ function collectManagerAssignmentsFromRows(rows, managerId, append) {
       record.managed_user_id, record.ManagedID, record.ManagedId
     ].map(normalizeManagerUserId).filter(Boolean);
 
-    const emailCandidates = [
-      record.UserEmail, record.userEmail, record.UserEmailAddress, record.userEmailAddress,
-      record.ManagedUserEmail, record.managedUserEmail, record.Email, record.email
-    ].map(normalizeEmail).filter(Boolean);
-
     const managerMatch = managerCandidates.find(candidate => candidate === managerId);
 
     if (managerMatch && userCandidates.length) {
       userCandidates.forEach(candidate => {
-        if (candidate && candidate !== managerId) {
-          wrapCandidate(candidate, { email: emailCandidates[0] || '' });
-        }
+        if (candidate && candidate !== managerId) append(candidate);
       });
     }
 
     const reversedManager = userCandidates.find(candidate => candidate === managerId);
     if (reversedManager && managerCandidates.length) {
       managerCandidates.forEach(candidate => {
-        if (candidate && candidate !== managerId) {
-          wrapCandidate(candidate);
-        }
+        if (candidate && candidate !== managerId) append(candidate);
       });
     }
   });
@@ -1945,17 +1923,8 @@ function getManagerVisibleUserIds(managerUserId, options) {
   }
 
   const append = (value) => {
-    if (!value && value !== 0) return;
-    if (value && typeof value === 'object') {
-      if (Object.prototype.hasOwnProperty.call(value, 'id')) {
-        append(value.id);
-      }
-      return;
-    }
-
     const normalized = normalizeManagerUserId(value);
     if (!normalized || normalized === normalizedManagerId) return;
-    if (typeof value === 'string' && value.indexOf('@') !== -1) return;
     visible.add(normalized);
   };
 
@@ -2157,50 +2126,8 @@ function clientGetAllUsers(requestingUserId) {
             filteredUsers = enhancedUsers;
           } else {
             const managedIds = getManagerVisibleUserIds(normalizedRequestingId, { includeSelf: true });
-            const allowedIds = new Set();
-            const allowedEmails = new Set();
-
-            if (managedIds && typeof managedIds.forEach === 'function') {
-              managedIds.forEach(id => {
-                const normalized = normalizeManagerUserId(id);
-                if (normalized) allowedIds.add(String(normalized));
-              });
-            }
-
-            if (typeof getUsersByManager === 'function') {
-              try {
-                const scopedUsers = getUsersByManager(normalizedRequestingId, {
-                  includeManager: true,
-                  fallbackToCampaign: false,
-                  fallbackToAll: false
-                }) || [];
-                if (Array.isArray(scopedUsers) && scopedUsers.length) {
-                  scopedUsers.forEach(scoped => {
-                    if (!scoped) return;
-                    if (scoped.ID) allowedIds.add(String(scoped.ID));
-                    const scopedEmail = String(scoped.Email || scoped.email || '').trim().toLowerCase();
-                    if (scopedEmail && scopedEmail.indexOf('@') !== -1) {
-                      allowedEmails.add(scopedEmail);
-                    }
-                  });
-                }
-              } catch (scopedErr) {
-                try { writeError && writeError('clientGetAllUsers.getUsersByManager', scopedErr); } catch (_) { }
-              }
-            }
-
-            if (!allowedIds.size) {
-              allowedIds.add(normalizedRequestingId);
-            }
-
-            if (allowedIds.size || allowedEmails.size) {
-              filteredUsers = enhancedUsers.filter(user => {
-                if (!user) return false;
-                if (allowedIds.has(String(user.ID))) return true;
-                const normalizedEmail = String(user.Email || user.email || '').trim().toLowerCase();
-                if (!normalizedEmail) return false;
-                return allowedEmails.has(normalizedEmail);
-              });
+            if (managedIds && managedIds.size) {
+              filteredUsers = enhancedUsers.filter(user => managedIds.has(String(user.ID)));
             } else {
               filteredUsers = enhancedUsers.filter(user => String(user.ID) === normalizedRequestingId);
             }
