@@ -417,17 +417,13 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       }
     });
 
-    let filteredUsers = allUsers;
-
-    // Filter by campaign if specified - use MainUtilities campaign functions
-    if (effectiveCampaignId) {
-      filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
-    }
-
     const scopedUserById = new Map();
     let allowedIds = null;
+    let managerScoped = false;
+    let requestingUserIsAdmin = false;
 
     if (normalizedManagerId) {
+      managerScoped = true;
       if (typeof getUsersByManager === 'function') {
         try {
           const scopedUsers = getUsersByManager(normalizedManagerId, {
@@ -470,22 +466,32 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       }
 
       if (requestingUser) {
-        const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
+        requestingUserIsAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
 
-        if (!isAdmin) {
-          if (allowedIds && allowedIds.size) {
-            filteredUsers = filteredUsers.filter(user => {
-              const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
-              return userId && allowedIds.has(userId);
-            });
-          } else {
-            console.warn('No managed users found for manager:', normalizedManagerId);
-            filteredUsers = [];
-          }
+        if (!requestingUserIsAdmin && (!allowedIds || !allowedIds.size)) {
+          console.warn('No managed users found for manager:', normalizedManagerId);
         }
       } else {
         console.warn('Requesting user not found when applying manager filter:', requestingUserId);
       }
+    }
+
+    let filteredUsers = allUsers.slice();
+
+    if (managerScoped && !requestingUserIsAdmin) {
+      if (allowedIds && allowedIds.size) {
+        filteredUsers = filteredUsers.filter(user => {
+          const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
+          return userId && allowedIds.has(userId);
+        });
+      } else {
+        filteredUsers = [];
+      }
+    }
+
+    // Only apply campaign filtering when we are not already scoping by explicit manager assignments.
+    if (effectiveCampaignId && !(managerScoped && !requestingUserIsAdmin && allowedIds && allowedIds.size)) {
+      filteredUsers = filterUsersByCampaign(filteredUsers, effectiveCampaignId);
     }
 
     // Transform to schedule-friendly format
