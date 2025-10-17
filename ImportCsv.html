@@ -477,6 +477,12 @@
     border: 1px solid rgba(6, 182, 212, 0.3);
   }
 
+  .data-badge.answer {
+    background: rgba(6, 182, 212, 0.1);
+    color: #0f172a;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+
   .btn-modern {
     display: inline-flex;
     align-items: center;
@@ -1106,7 +1112,7 @@
 
         // 3) Parse Answer Time → keep numeric seconds when possible
         const answerRaw = indices.answer !== undefined ? cols[indices.answer] : '';
-        const answerVal = this.normalizeAnswerTime(answerRaw, !isNaN(dtCandidate) ? dtCandidate : rawDate);
+        const answerVal = this.normalizeAnswerTime(answerRaw);
 
         // 4) Parse Policy & Wrapup
         const policyVal = String(cols[indices.policy] || "");
@@ -1254,81 +1260,151 @@
     parseAnswerSeconds(rawValue, createdDate) {
       if (rawValue === null || rawValue === undefined || rawValue === '') return null;
 
+      const parts = this.extractAnswerTimeParts(rawValue);
       const created = this.ensureDate(createdDate);
 
+      if (created) {
+        const absoluteAnswer = this.extractAnswerAbsoluteDate(rawValue);
+        if (absoluteAnswer) {
+          const diffAbs = (absoluteAnswer.getTime() - created.getTime()) / 1000;
+          if (isFinite(diffAbs)) return Math.max(0, Math.round(diffAbs * 100) / 100);
+        }
+      }
+
+      if (!parts) {
+        const numeric = Number(rawValue);
+        if (!isNaN(numeric) && isFinite(numeric)) {
+          return Math.max(0, numeric);
+        }
+        return null;
+      }
+
+      const baseSeconds = (parts.hours * 3600) + (parts.minutes * 60) + parts.seconds;
+      if (!createdDate || !created) {
+        return baseSeconds;
+      }
+
+      const answerDate = new Date(created);
+      answerDate.setHours(parts.hours, parts.minutes, parts.seconds, 0);
+      if (answerDate.getTime() < created.getTime()) {
+        answerDate.setDate(answerDate.getDate() + 1);
+      }
+
+      const diff = (answerDate.getTime() - created.getTime()) / 1000;
+      return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+    }
+
+    normalizeAnswerTime(rawValue) {
+      const parts = this.extractAnswerTimeParts(rawValue);
+      if (!parts) {
+        if (rawValue === null || rawValue === undefined) return '';
+        if (typeof rawValue === 'string') return rawValue.trim();
+        return String(rawValue);
+      }
+      return this.formatPartsToTime(parts);
+    }
+
+    secondsToParts(totalSeconds) {
+      if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) {
+        return null;
+      }
+      const normalized = ((Math.round(Number(totalSeconds)) % 86400) + 86400) % 86400;
+      const hours = Math.floor(normalized / 3600);
+      const minutes = Math.floor((normalized % 3600) / 60);
+      const seconds = normalized % 60;
+      return { hours, minutes, seconds };
+    }
+
+    extractAnswerAbsoluteDate(rawValue) {
       if (rawValue instanceof Date && !isNaN(rawValue)) {
-        if (!created) return null;
-        const diff = (rawValue.getTime() - created.getTime()) / 1000;
-        return isFinite(diff) ? Math.max(0, diff) : null;
+        return new Date(rawValue.getTime());
+      }
+      if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+      const str = String(rawValue).trim();
+      if (!str) return null;
+      const hasDateToken = /\d{4}-\d{2}-\d{2}/.test(str) || /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(str);
+      if (!hasDateToken && !str.toUpperCase().includes('T')) return null;
+      const parsed = new Date(str);
+      return isNaN(parsed) ? null : parsed;
+    }
+
+    extractAnswerTimeParts(rawValue) {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+      if (rawValue instanceof Date && !isNaN(rawValue)) {
+        return {
+          hours: rawValue.getHours(),
+          minutes: rawValue.getMinutes(),
+          seconds: rawValue.getSeconds()
+        };
       }
 
       if (typeof rawValue === 'number' && isFinite(rawValue)) {
-        let seconds = rawValue;
-        if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
-        return Math.max(0, seconds);
+        const numeric = Number(rawValue);
+        if (numeric >= 0 && numeric < 1) {
+          return this.secondsToParts(numeric * 86400);
+        }
+        if (numeric >= 0 && numeric < 86400) {
+          return this.secondsToParts(numeric);
+        }
+        return this.secondsToParts(numeric % 86400);
       }
 
       const str = String(rawValue).trim();
       if (!str) return null;
 
-      const numeric = Number(str);
-      if (!isNaN(numeric) && isFinite(numeric)) {
-        let seconds = numeric;
-        if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
-        return Math.max(0, seconds);
-      }
-
-      const timeParts = str.split(':');
-      if (timeParts.length >= 2 && timeParts.length <= 3) {
-        let seconds = 0;
-        for (let i = 0; i < timeParts.length; i++) {
-          const part = Number(timeParts[i]);
-          if (isNaN(part)) {
-            seconds = null;
-            break;
-          }
-          seconds = (seconds * 60) + part;
-        }
-        if (seconds !== null) return Math.max(0, seconds);
-      }
-
       const parsedDate = new Date(str);
-      if (!isNaN(parsedDate) && created) {
-        const diff = (parsedDate.getTime() - created.getTime()) / 1000;
-        return isFinite(diff) ? Math.max(0, diff) : null;
+      if (!isNaN(parsedDate)) {
+        return {
+          hours: parsedDate.getHours(),
+          minutes: parsedDate.getMinutes(),
+          seconds: parsedDate.getSeconds()
+        };
       }
 
-      const secondsMatch = str.match(/(\d+(?:\.\d+)?)/);
-      if (secondsMatch) {
-        const seconds = Number(secondsMatch[1]);
-        if (!isNaN(seconds)) return Math.max(0, seconds);
+      const clockMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+      if (clockMatch) {
+        let hours = Number(clockMatch[1]);
+        const minutes = Number(clockMatch[2]);
+        const seconds = clockMatch[3] !== undefined ? Number(clockMatch[3]) : 0;
+        if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+        const suffix = clockMatch[4] ? clockMatch[4].toUpperCase() : null;
+        if (suffix === 'PM' && hours < 12) hours += 12;
+        if (suffix === 'AM' && hours === 12) hours = 0;
+        return {
+          hours: ((hours % 24) + 24) % 24,
+          minutes: ((minutes % 60) + 60) % 60,
+          seconds: ((seconds % 60) + 60) % 60
+        };
+      }
+
+      const compactMatch = str.match(/^(\d{1,2})(\d{2})(\d{2})$/);
+      if (compactMatch) {
+        const hours = Number(compactMatch[1]);
+        const minutes = Number(compactMatch[2]);
+        const seconds = Number(compactMatch[3]);
+        if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+        return {
+          hours: ((hours % 24) + 24) % 24,
+          minutes: ((minutes % 60) + 60) % 60,
+          seconds: ((seconds % 60) + 60) % 60
+        };
       }
 
       return null;
     }
 
-    normalizeAnswerTime(rawValue, createdDate) {
-      const seconds = this.parseAnswerSeconds(rawValue, createdDate);
-      if (seconds === null) {
-        if (rawValue === null || rawValue === undefined) return '';
-        if (typeof rawValue === 'string') return rawValue.trim();
-        return rawValue;
-      }
-      return this.formatSecondsToTime(seconds);
+    formatPartsToTime(parts) {
+      if (!parts) return '';
+      const hh = String(parts.hours).padStart(2, '0');
+      const mm = String(parts.minutes).padStart(2, '0');
+      const ss = String(parts.seconds).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
     }
 
     formatSecondsToTime(seconds) {
-      if (seconds === null || seconds === undefined) return '';
-      const numeric = Number(seconds);
-      if (isNaN(numeric) || !isFinite(numeric)) return '';
-      const totalSeconds = Math.max(0, Math.round(numeric));
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const secs = totalSeconds % 60;
-      const hh = String(hours).padStart(2, '0');
-      const mm = String(minutes).padStart(2, '0');
-      const ss = String(secs).padStart(2, '0');
-      return `${hh}:${mm}:${ss}`;
+      const parts = this.secondsToParts(seconds);
+      return parts ? this.formatPartsToTime(parts) : '';
     }
 
     createAnswerBadge(value) {
@@ -1336,9 +1412,9 @@
         return '<span class="data-badge answer">—</span>';
       }
 
-      const seconds = this.parseAnswerSeconds(value);
-      if (seconds !== null) {
-        const formatted = this.formatSecondsToTime(seconds);
+      const parts = this.extractAnswerTimeParts(value);
+      if (parts) {
+        const formatted = this.formatPartsToTime(parts);
         if (formatted) {
           return `<span class="data-badge answer">${formatted}</span>`;
         }
