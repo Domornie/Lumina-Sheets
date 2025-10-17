@@ -886,6 +886,12 @@
         border: 1px solid var(--success-200);
     }
 
+    .employment-badge.turnover-rate {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.2));
+        color: var(--primary-700);
+        border: 1px solid rgba(14, 165, 233, 0.35);
+    }
+
     /* Enhanced Pagination */
     .pagination {
         gap: 0.5rem;
@@ -3063,6 +3069,7 @@
     const probationEnd = user.ProbationEnd || user.ProbationEndDate || '';
     const enrolled = !!(user.InsuranceEnrolled || user.InsuranceSignedUp || user.InsuranceEnrolledBool);
     const eligDate = user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '';
+    const turnoverRate = user.TurnoverRate ?? user.turnoverRate ?? '';
     const qualified = (user.InsuranceQualified === true || user.InsuranceEligible === true || user.InsuranceQualifiedBool === true)
       ? true
       : (eligDate ? (new Date() >= new Date(eligDate)) : false);
@@ -3075,6 +3082,8 @@
     if (terminationDate) html += `<span class="employment-badge termination"><i class="fas fa-user-slash me-1"></i>Terminated: ${formatHireVisual(terminationDate)}</span>`;
     if (probationEnd) html += `<span class="employment-badge probation"><i class="fas fa-flag-checkered me-1"></i>Probation End: ${formatHireVisual(probationEnd)}</span>`;
     if (eligDate) html += `<span class="employment-badge eligible-date"><i class="fas fa-id-card me-1"></i>Eligibility: ${formatHireVisual(eligDate)}</span>`;
+    const formattedTurnover = formatTurnoverRate(turnoverRate);
+    if (formattedTurnover) html += `<span class="employment-badge turnover-rate"><i class="fas fa-chart-line me-1"></i>Turnover Rate: ${escapeHtml(formattedTurnover)}</span>`;
     html += enrolled
       ? `<span class="employment-badge insured"><i class="fas fa-shield-heart me-1"></i>Insured</span>`
       : `<span class="employment-badge not-insured"><i class="fas fa-shield me-1"></i>Not Enrolled</span>`;
@@ -4253,6 +4262,34 @@
     } catch {
       return '';
     }
+  }
+
+  function formatTurnoverRate(value) {
+    if (value === null || value === undefined) return '';
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      if (trimmed.endsWith('%')) return trimmed;
+
+      const numeric = Number(trimmed.replace(/[^0-9.\-]/g, ''));
+      if (!Number.isNaN(numeric)) {
+        value = numeric;
+      } else {
+        return trimmed;
+      }
+    }
+
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) return String(value);
+
+    const normalized = numericValue > 1 ? numericValue : numericValue * 100;
+    const precision = Number.isInteger(normalized)
+      ? 0
+      : normalized >= 10
+        ? 1
+        : 2;
+    return `${normalized.toFixed(precision)}%`;
   }
 
   function formatHireVisual(dateStr) {
