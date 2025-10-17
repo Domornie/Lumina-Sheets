@@ -57,7 +57,7 @@
   // Headers (campaign)
   if (typeof G.CALL_REPORT_HEADERS === 'undefined') {
     G.CALL_REPORT_HEADERS = [
-      'ID','CreatedDate','TalkTimeMinutes','FromRoutingPolicy','WrapupLabel','ToSFUser','UserID','CSAT','CreatedAt','UpdatedAt'
+      'ID','CreatedDate','TalkTimeMinutes','To Answer Time','FromRoutingPolicy','WrapupLabel','ToSFUser','UserID','CSAT','CreatedAt','UpdatedAt'
     ];
   }
   if (typeof G.DIRTY_ROWS_HEADERS === 'undefined') {
