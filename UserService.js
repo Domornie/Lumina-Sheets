@@ -4651,6 +4651,54 @@ function clientGetEmploymentStatusReport(campaignId) {
     valid.forEach(s => statusCounts[s] = 0);
     statusCounts['Unspecified'] = 0;
 
+    const LOOKBACK_DAYS = 90;
+    const toStartOfDay = (value) => {
+      const d = (value instanceof Date) ? new Date(value.getTime()) : new Date(value);
+      if (isNaN(d)) return null;
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const fromSpreadsheetDate = (value) => {
+      if (!value && value !== 0) return null;
+      if (value instanceof Date) return isNaN(value) ? null : new Date(value.getTime());
+      if (typeof value === 'number') {
+        const ms = Math.round((Number(value) - 25569) * 86400 * 1000);
+        const d = new Date(ms);
+        return isNaN(d) ? null : d;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const numeric = Number(trimmed);
+        if (!Number.isNaN(numeric) && trimmed.replace(/[0-9.]/g, '') === '') {
+          const numericDate = new Date(Math.round((numeric - 25569) * 86400 * 1000));
+          if (!isNaN(numericDate)) return numericDate;
+        }
+        const parsed = new Date(trimmed);
+        if (!isNaN(parsed)) return parsed;
+        const match = trimmed.match(/^([0-9]{1,2})[\/\-]([0-9]{1,2})[\/\-]([0-9]{2,4})$/);
+        if (match) {
+          const month = Number(match[1]);
+          const day = Number(match[2]);
+          let year = Number(match[3]);
+          if (year < 100) year += year >= 70 ? 1900 : 2000;
+          const fallback = new Date(year, month - 1, day);
+          if (!isNaN(fallback)) return fallback;
+        }
+      }
+      return null;
+    };
+
+    const today = toStartOfDay(new Date());
+    const windowStart = today ? new Date(today.getTime()) : null;
+    if (windowStart) windowStart.setDate(windowStart.getDate() - Math.max(0, LOOKBACK_DAYS - 1));
+
+    let totalHires = 0;
+    let totalTerminations = 0;
+    let hiresWithinWindow = 0;
+    let terminationsWithinWindow = 0;
+    let activeHeadcount = 0;
+
     filtered.forEach(u => {
       const normalized = normalizeEmploymentStatus(u && (u.EmploymentStatus || u.employmentStatus));
       if (normalized) {
@@ -4659,13 +4707,58 @@ function clientGetEmploymentStatusReport(campaignId) {
       } else {
         statusCounts['Unspecified']++;
       }
+
+      const hireDateRaw = fromSpreadsheetDate(u && (u.HireDate || u.hireDate || u.DateHired || u.dateHired));
+      const terminationDateRaw = fromSpreadsheetDate(u && (u.TerminationDate || u.terminationDate || u.DateOfTermination || u.dateOfTermination));
+
+      const hireDate = hireDateRaw ? toStartOfDay(hireDateRaw) : null;
+      const terminationDate = terminationDateRaw ? toStartOfDay(terminationDateRaw) : null;
+
+      if (hireDate && today && hireDate <= today) {
+        totalHires++;
+        if (windowStart && hireDate >= windowStart) {
+          hiresWithinWindow++;
+        }
+      }
+
+      const terminationEffective = terminationDate && today && terminationDate <= today;
+      if (terminationEffective) {
+        totalTerminations++;
+        if (windowStart && terminationDate >= windowStart) {
+          terminationsWithinWindow++;
+        }
+      }
+
+      if (!terminationDate || (today && terminationDate > today)) {
+        activeHeadcount++;
+      }
     });
+
+    const hiringRate = activeHeadcount > 0
+      ? Number(((hiresWithinWindow / activeHeadcount) * 100).toFixed(1))
+      : 0;
+    const turnoverRate = activeHeadcount > 0
+      ? Number(((terminationsWithinWindow / activeHeadcount) * 100).toFixed(1))
+      : 0;
+
     return {
       success: true,
       campaignId,
       totalUsers: filtered.length,
       statusCounts,
       validStatuses: valid,
+      turnoverMetrics: {
+        lookbackDays: LOOKBACK_DAYS,
+        windowStart: windowStart ? _toIsoDateOnly_(windowStart) : '',
+        windowEnd: today ? _toIsoDateOnly_(today) : '',
+        activeHeadcount,
+        totalHires,
+        totalTerminations,
+        hiresWithinWindow,
+        terminationsWithinWindow,
+        hiringRate,
+        turnoverRate
+      },
       message: `Employment status report for ${filtered.length} users`
     };
   } catch (e) { writeError && writeError('clientGetEmploymentStatusReport', e); return { success: false, error: e.message }; }
