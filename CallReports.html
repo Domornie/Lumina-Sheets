@@ -1245,9 +1245,9 @@
         </div>
     </div>
     <div class="col-lg-3 col-md-6">
-        <div class="kpi-card" tabindex="0" role="button" aria-label="Average answer time metric">
-            <div class="label">Average Answer Time</div>
-            <div class="value" id="kpiAvgAnswerTime">0 sec</div>
+        <div class="kpi-card" tabindex="0" role="button" aria-label="Weekly peak call window metric">
+            <div class="label">Weekly Peak Call Window</div>
+            <div class="value" id="kpiWeeklyPeakWindow">—</div>
         </div>
     </div>
 </div>
@@ -1966,6 +1966,91 @@
     return `${value < 0 ? '-' : ''}${rounded} sec`;
   }
 
+  function minutesToTimeLabel(totalMinutes) {
+    const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+    const hour = Math.floor(normalized / 60);
+    const minute = normalized % 60;
+    const hour12 = ((hour + 11) % 12) + 1;
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    return `${hour12}:${String(minute).padStart(2, '0')} ${ampm}`;
+  }
+
+  function formatSlotRangeLabel(slotIndex, length = 1) {
+    if (!Number.isFinite(slotIndex)) return '';
+    const startMinutes = slotIndex * 15;
+    const endMinutes = (slotIndex + Math.max(length, 1)) * 15;
+    return `${minutesToTimeLabel(startMinutes)} – ${minutesToTimeLabel(endMinutes)}`;
+  }
+
+  function getWorkWindowConfig() {
+    const now = new Date();
+    const january = new Date(now.getFullYear(), 0, 1);
+    const july = new Date(now.getFullYear(), 6, 1);
+    const standardOffset = Math.max(january.getTimezoneOffset(), july.getTimezoneOffset());
+    const isDst = now.getTimezoneOffset() < standardOffset;
+    const startHour = isDst ? 9 : 8;
+    const endHour = isDst ? 19 : 18;
+    return {
+      isDst,
+      startHour,
+      endHour,
+      startSlot: startHour * 4,
+      endSlot: endHour * 4
+    };
+  }
+
+  function determinePeakWorkWindow(intervalVolume = []) {
+    const workConfig = getWorkWindowConfig();
+    const normalized = intervalVolume
+      .map(entry => ({
+        slotIndex: Number(entry.slotIndex),
+        callCount: Number(entry.callCount) || 0,
+        windowLabel: entry.windowLabel || ''
+      }))
+      .filter(entry => Number.isFinite(entry.slotIndex));
+
+    if (!normalized.length) {
+      return {
+        label: '—',
+        callCount: 0,
+        rawLabel: '',
+        workConfig,
+        withinWorkWindow: false
+      };
+    }
+
+    const withinWindow = normalized.filter(entry => entry.slotIndex >= workConfig.startSlot && entry.slotIndex < workConfig.endSlot);
+    const candidates = withinWindow.length ? withinWindow : normalized;
+
+    const topEntry = candidates.reduce((best, entry) => {
+      if (!best) return entry;
+      if (entry.callCount > best.callCount) return entry;
+      if (entry.callCount === best.callCount && entry.slotIndex < best.slotIndex) return entry;
+      return best;
+    }, null);
+
+    if (!topEntry) {
+      return {
+        label: '—',
+        callCount: 0,
+        rawLabel: '',
+        workConfig,
+        withinWorkWindow: false
+      };
+    }
+
+    const rawLabel = topEntry.windowLabel || formatSlotRangeLabel(topEntry.slotIndex);
+    const label = topEntry.callCount > 0 ? rawLabel : '—';
+
+    return {
+      label,
+      callCount: topEntry.callCount,
+      rawLabel,
+      workConfig,
+      withinWorkWindow: topEntry.slotIndex >= workConfig.startSlot && topEntry.slotIndex < workConfig.endSlot
+    };
+  }
+
   function renderKpiCards(analytics) {
     const totalCalls = analytics.repMetrics.reduce((sum, r) => sum + r.totalCalls, 0);
     document.getElementById("kpiTotalCalls").textContent = totalCalls.toLocaleString();
@@ -1980,18 +2065,29 @@
     const avgTalkTime = totalCallCount > 0 ? (totalTalk / totalCallCount).toFixed(2) : 0;
     document.getElementById("kpiAvgTalkTime").textContent = `${avgTalkTime} min`;
 
-    const answerStats = analytics.answerTimeStats || {};
-    const avgAnswerSeconds = Number(answerStats.averageSeconds) || 0;
-    const answerDisplay = Number(answerStats.answeredCount) > 0
-      ? formatSecondsToReadable(avgAnswerSeconds)
-      : '—';
-    document.getElementById("kpiAvgAnswerTime").textContent = answerDisplay;
+    const intervalVolume = Array.isArray(analytics.intervalVolume) ? analytics.intervalVolume : [];
+    const peakWindow = determinePeakWorkWindow(intervalVolume);
+    const peakEl = document.getElementById("kpiWeeklyPeakWindow");
+    if (peakEl) {
+      peakEl.textContent = peakWindow.label;
+      const tooltip = peakWindow.callCount > 0
+        ? `${peakWindow.callCount.toLocaleString()} calls • ${peakWindow.rawLabel}${peakWindow.withinWorkWindow ? '' : ' (outside staffing window)'}`
+        : 'No call activity within the staffing window';
+      peakEl.setAttribute('title', tooltip);
+      peakEl.dataset.windowLabel = peakWindow.rawLabel;
+      peakEl.dataset.callCount = String(peakWindow.callCount || 0);
+      const startHourLabel = String(peakWindow.workConfig.startHour).padStart(2, '0');
+      const endHourLabel = String(peakWindow.workConfig.endHour).padStart(2, '0');
+      peakEl.dataset.workStart = `${startHourLabel}:00`;
+      peakEl.dataset.workEnd = `${endHourLabel}:00`;
+      peakEl.dataset.withinWorkWindow = String(peakWindow.withinWorkWindow);
+    }
 
     // Add enhanced animation to value changes
     [document.getElementById('kpiTotalCalls'),
      document.getElementById('kpiAvgCsat'),
      document.getElementById('kpiAvgTalkTime'),
-     document.getElementById('kpiAvgAnswerTime')].forEach(el => {
+     document.getElementById('kpiWeeklyPeakWindow')].forEach(el => {
       el.style.transform = 'scale(1.05)';
       setTimeout(() => {
         el.style.transform = 'scale(1)';
