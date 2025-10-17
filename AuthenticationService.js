@@ -1184,6 +1184,20 @@ var AuthenticationService = (function () {
       userPayload.NeedsCampaignAssignment = userPayload.CampaignScope
         ? !!userPayload.CampaignScope.needsCampaignAssignment
         : false;
+
+      try {
+        if (typeof AuthorizationRegistry !== 'undefined'
+          && AuthorizationRegistry
+          && typeof AuthorizationRegistry.registerAuthorizationSnapshot === 'function') {
+          AuthorizationRegistry.registerAuthorizationSnapshot(userPayload, {
+            sessionToken: sessionToken,
+            tenantPayload: tenantPayload,
+            rawScope: rawScope
+          });
+        }
+      } catch (registryError) {
+        console.warn('buildSessionUserContext: failed to register authorization snapshot', registryError);
+      }
     }
 
     return {
@@ -3366,6 +3380,746 @@ var AuthenticationService = (function () {
     }
   }
 
+  function getLocalRoleHierarchyDefaults() {
+    try {
+      if (typeof AuthorizationRegistry !== 'undefined'
+        && AuthorizationRegistry
+        && typeof AuthorizationRegistry.getDefaultRoleHierarchyRules === 'function') {
+        const defaults = AuthorizationRegistry.getDefaultRoleHierarchyRules();
+        if (Array.isArray(defaults) && defaults.length) {
+          return defaults;
+        }
+      }
+    } catch (registryError) {
+      console.warn('AuthenticationService: unable to load defaults from AuthorizationRegistry', registryError);
+    }
+
+    return [
+      {
+        key: 'SYSTEM_ADMIN',
+        label: 'System Administrator',
+        weight: 2200,
+        aliases: ['system administrator', 'system admin', 'administrator', 'admin'],
+        capabilities: { isSystemAdmin: true, isExecutive: true, isManager: true, canManageUsers: true, canManagePages: true }
+      },
+      {
+        key: 'CEO',
+        label: 'Chief Executive Officer',
+        weight: 2100,
+        aliases: ['ceo', 'chief executive officer'],
+        capabilities: { isExecutive: true, isManager: true, canManageUsers: true, canManagePages: true }
+      },
+      {
+        key: 'COO',
+        label: 'Chief Operating Officer',
+        weight: 2050,
+        aliases: ['coo', 'chief operating officer'],
+        capabilities: { isExecutive: true, isManager: true, canManageUsers: true, canManagePages: true }
+      },
+      {
+        key: 'CFO',
+        label: 'Chief Financial Officer',
+        weight: 2000,
+        aliases: ['cfo', 'chief financial officer'],
+        capabilities: { isExecutive: true, canManagePages: true }
+      },
+      {
+        key: 'CTO',
+        label: 'Chief Technology Officer',
+        weight: 1950,
+        aliases: ['cto', 'chief technology officer'],
+        capabilities: { isExecutive: true, isManager: true, canManageUsers: true, canManagePages: true }
+      },
+      {
+        key: 'DIRECTOR',
+        label: 'Director',
+        weight: 1800,
+        aliases: ['director'],
+        capabilities: { isExecutive: true, isManager: true, canManageUsers: true, canManagePages: true }
+      },
+      {
+        key: 'OPERATIONS_MANAGER',
+        label: 'Operations Manager',
+        weight: 1700,
+        aliases: ['operations manager', 'ops manager'],
+        capabilities: { isManager: true, canManageUsers: true, canManagePages: true }
+      },
+      {
+        key: 'ACCOUNT_MANAGER',
+        label: 'Account Manager',
+        weight: 1650,
+        aliases: ['account manager'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'WORKFORCE_MANAGER',
+        label: 'Workforce Manager',
+        weight: 1600,
+        aliases: ['workforce manager'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'QUALITY_ASSURANCE_MANAGER',
+        label: 'Quality Assurance Manager',
+        weight: 1550,
+        aliases: ['quality assurance manager', 'qa manager'],
+        capabilities: { isManager: true, canManagePages: true }
+      },
+      {
+        key: 'TRAINING_MANAGER',
+        label: 'Training Manager',
+        weight: 1500,
+        aliases: ['training manager'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'TEAM_SUPERVISOR',
+        label: 'Team Supervisor',
+        weight: 1400,
+        aliases: ['team supervisor', 'team lead'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'FLOOR_SUPERVISOR',
+        label: 'Floor Supervisor',
+        weight: 1350,
+        aliases: ['floor supervisor'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'ESCALATIONS_MANAGER',
+        label: 'Escalations Manager',
+        weight: 1300,
+        aliases: ['escalations manager'],
+        capabilities: { isManager: true, canManagePages: true }
+      },
+      {
+        key: 'CLIENT_SUCCESS_MANAGER',
+        label: 'Client Success Manager',
+        weight: 1250,
+        aliases: ['client success manager', 'customer success manager'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'COMPLIANCE_MANAGER',
+        label: 'Compliance Manager',
+        weight: 1200,
+        aliases: ['compliance manager'],
+        capabilities: { isManager: true, canManagePages: true }
+      },
+      {
+        key: 'IT_SUPPORT_MANAGER',
+        label: 'IT Support Manager',
+        weight: 1150,
+        aliases: ['it support manager', 'it manager', 'technology manager'],
+        capabilities: { isManager: true, canManagePages: true }
+      },
+      {
+        key: 'REPORTING_ANALYST',
+        label: 'Reporting Analyst',
+        weight: 900,
+        aliases: ['reporting analyst', 'analyst'],
+        capabilities: { canManagePages: true }
+      },
+      {
+        key: 'QUALITY',
+        label: 'Quality',
+        weight: 850,
+        aliases: ['quality', 'qa'],
+        capabilities: { canManagePages: true }
+      },
+      {
+        key: 'MANAGER',
+        label: 'Manager',
+        weight: 1450,
+        aliases: ['manager', 'supervisor'],
+        capabilities: { isManager: true, canManageUsers: true }
+      },
+      {
+        key: 'AGENT',
+        label: 'Agent',
+        weight: 400,
+        aliases: ['agent', 'associate'],
+        capabilities: {}
+      },
+      {
+        key: 'GUEST',
+        label: 'Guest',
+        weight: 100,
+        aliases: ['guest', 'viewer'],
+        capabilities: {}
+      }
+    ];
+  }
+
+  const ROLE_HIERARCHY_RULES = (function resolveRoleHierarchyRules() {
+    const defaults = getLocalRoleHierarchyDefaults();
+    try {
+      if (typeof AuthorizationRegistry !== 'undefined' && AuthorizationRegistry) {
+        if (typeof AuthorizationRegistry.ensureRoleHierarchyRules === 'function') {
+          const ensured = AuthorizationRegistry.ensureRoleHierarchyRules(defaults);
+          if (Array.isArray(ensured) && ensured.length) {
+            return ensured;
+          }
+        }
+        if (typeof AuthorizationRegistry.getRoleHierarchyRules === 'function') {
+          const external = AuthorizationRegistry.getRoleHierarchyRules(defaults);
+          if (Array.isArray(external) && external.length) {
+            return external;
+          }
+        }
+      }
+    } catch (registryError) {
+      console.warn('AuthenticationService: failed to resolve role hierarchy from AuthorizationRegistry', registryError);
+    }
+    return defaults;
+  })();
+
+  function escapeRegExp(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function aliasMatchesRole(lowerName, alias) {
+    const normalizedAlias = String(alias || '').trim().toLowerCase();
+    if (!normalizedAlias) return false;
+    if (lowerName === normalizedAlias) return true;
+
+    try {
+      const pattern = new RegExp('(^|\\b)' + escapeRegExp(normalizedAlias) + '(?=\\b|$)');
+      return pattern.test(lowerName);
+    } catch (err) {
+      console.warn('aliasMatchesRole: failed to evaluate alias pattern', alias, err);
+      return false;
+    }
+  }
+
+  function cloneCapabilities(capabilities) {
+    const clone = {};
+    if (!capabilities || typeof capabilities !== 'object') {
+      return clone;
+    }
+    Object.keys(capabilities).forEach(function (key) {
+      clone[key] = !!capabilities[key];
+    });
+    return clone;
+  }
+
+  function resolveRoleClassification(name) {
+    const original = String(name || '').trim();
+    const lower = original.toLowerCase();
+    if (!lower) {
+      return { key: 'UNSPECIFIED', label: original || '', weight: 0, matched: null, capabilities: {} };
+    }
+
+    for (let i = 0; i < ROLE_HIERARCHY_RULES.length; i++) {
+      const rule = ROLE_HIERARCHY_RULES[i];
+      try {
+        if (rule.matcher && rule.matcher.test(lower)) {
+          return {
+            key: rule.key,
+            label: rule.label,
+            weight: rule.weight,
+            matched: rule.matcher.source,
+            capabilities: cloneCapabilities(rule.capabilities)
+          };
+        }
+        if (rule.aliases && rule.aliases.some(function (alias) { return aliasMatchesRole(lower, alias); })) {
+          return {
+            key: rule.key,
+            label: rule.label,
+            weight: rule.weight,
+            matched: 'alias',
+            capabilities: cloneCapabilities(rule.capabilities)
+          };
+        }
+      } catch (err) {
+        console.warn('resolveRoleClassification: matcher failed for role', original, err);
+      }
+    }
+
+    return { key: 'CUSTOM', label: original, weight: 100, matched: null, capabilities: {} };
+  }
+
+  function aggregateRoleCapabilities(roleHierarchy) {
+    const snapshot = {
+      isSystemAdmin: false,
+      isExecutive: false,
+      isManager: false,
+      canManageUsers: false,
+      canManagePages: false
+    };
+
+    if (!Array.isArray(roleHierarchy)) {
+      return snapshot;
+    }
+
+    roleHierarchy.forEach(function (role) {
+      if (!role || !role.capabilities) return;
+      if (role.capabilities.isSystemAdmin) snapshot.isSystemAdmin = true;
+      if (role.capabilities.isExecutive) snapshot.isExecutive = true;
+      if (role.capabilities.isManager) snapshot.isManager = true;
+      if (role.capabilities.canManageUsers) snapshot.canManageUsers = true;
+      if (role.capabilities.canManagePages) snapshot.canManagePages = true;
+    });
+
+    return snapshot;
+  }
+
+  function buildUserClaims(payload, authorization) {
+    const claims = [];
+    const seen = {};
+
+    function addClaim(value) {
+      const claim = String(value || '').trim();
+      if (!claim || seen[claim]) return;
+      seen[claim] = true;
+      claims.push(claim);
+    }
+
+    const userId = normalizeString(payload && (payload.ID || payload.Id || payload.id));
+    const userName = normalizeString(payload && payload.UserName);
+
+    addClaim('lumina:session:active');
+    if (userId) addClaim('lumina:user:' + userId);
+    if (userName) addClaim('lumina:username:' + userName.toLowerCase());
+
+    const email = normalizeString(payload && payload.Email);
+    if (email) addClaim('lumina:email:' + email.toLowerCase());
+
+    if (payload && toBool(payload.EmailConfirmed)) {
+      addClaim('lumina:identity:email-confirmed');
+    } else {
+      addClaim('lumina:identity:email-unconfirmed');
+    }
+
+    if (payload && toBool(payload.CanLogin)) {
+      addClaim('lumina:identity:login-enabled');
+    } else {
+      addClaim('lumina:identity:login-disabled');
+    }
+
+    if (payload && toBool(payload.IsAdmin)) addClaim('lumina:user:admin-flag');
+    if (payload && toBool(payload.IsSystemAdmin)) addClaim('lumina:system:admin');
+    if (payload && toBool(payload.IsGlobalAdmin)) addClaim('lumina:tenant:global-admin');
+    if (payload && toBool(payload.IsManager)) addClaim('lumina:role:manager');
+    if (payload && toBool(payload.IsExecutive)) addClaim('lumina:role:executive');
+
+    if (payload && toBool(payload.CanManageUsers)) addClaim('lumina:capability:manage-users');
+    if (payload && toBool(payload.CanManagePages)) addClaim('lumina:capability:manage-pages');
+
+    if (payload && payload.RoleCapabilities) {
+      if (payload.RoleCapabilities.isManager) addClaim('lumina:capability:team-supervision');
+      if (payload.RoleCapabilities.canManageUsers) addClaim('lumina:capability:team-admin');
+      if (payload.RoleCapabilities.canManagePages) addClaim('lumina:capability:content-admin');
+    }
+
+    if (authorization && Array.isArray(authorization.permissionLevels)) {
+      authorization.permissionLevels.forEach(function (level) {
+        const normalizedLevel = normalizeString(level).toUpperCase();
+        if (normalizedLevel) {
+          addClaim('lumina:permission-level:' + normalizedLevel.toLowerCase());
+        }
+      });
+    }
+
+    if (authorization && Array.isArray(authorization.roleHierarchy)) {
+      authorization.roleHierarchy.forEach(function (role) {
+        if (!role) return;
+        const roleKey = normalizeString(role.level).toLowerCase();
+        const roleLabel = normalizeString(role.label).toLowerCase();
+        if (roleKey) addClaim('lumina:role:' + roleKey);
+        if (roleLabel) addClaim('lumina:role-label:' + roleLabel);
+      });
+    }
+
+    if (authorization && authorization.highestRole && authorization.highestRole.level) {
+      addClaim('lumina:role:primary-' + authorization.highestRole.level.toLowerCase());
+    }
+
+    const campaignScope = payload && payload.CampaignScope ? payload.CampaignScope : {};
+    const defaultCampaignId = normalizeCampaignId(campaignScope.defaultCampaignId);
+    const activeCampaignId = normalizeCampaignId(payload && (payload.ActiveCampaignId || payload.CurrentCampaignId));
+
+    if (defaultCampaignId) addClaim('lumina:campaign:default:' + defaultCampaignId);
+    if (activeCampaignId) addClaim('lumina:campaign:active:' + activeCampaignId);
+
+    const allowedCampaigns = Array.isArray(payload && payload.AllowedCampaignIds) ? payload.AllowedCampaignIds : [];
+    allowedCampaigns.forEach(function (id) {
+      const normalized = normalizeCampaignId(id);
+      if (normalized) addClaim('lumina:campaign:access:' + normalized);
+    });
+
+    const managedCampaigns = Array.isArray(payload && payload.ManagedCampaignIds) ? payload.ManagedCampaignIds : [];
+    managedCampaigns.forEach(function (id) {
+      const normalized = normalizeCampaignId(id);
+      if (normalized) addClaim('lumina:campaign:manage:' + normalized);
+    });
+
+    const adminCampaigns = Array.isArray(payload && payload.AdminCampaignIds) ? payload.AdminCampaignIds : [];
+    adminCampaigns.forEach(function (id) {
+      const normalized = normalizeCampaignId(id);
+      if (normalized) addClaim('lumina:campaign:admin:' + normalized);
+    });
+
+    if (Array.isArray(payload && payload.CampaignPermissions)) {
+      payload.CampaignPermissions.forEach(function (perm) {
+        if (!perm) return;
+        const campaignId = normalizeCampaignId(perm.campaignId || perm.CampaignId);
+        if (!campaignId) return;
+        if (perm.canManageUsers) addClaim('lumina:campaign:' + campaignId + ':manage-users');
+        if (perm.canManagePages) addClaim('lumina:campaign:' + campaignId + ':manage-pages');
+        if (perm.permissionLevel) {
+          addClaim('lumina:campaign:' + campaignId + ':level:' + String(perm.permissionLevel).toLowerCase());
+        }
+      });
+    }
+
+    const managedUserIds = Array.isArray(payload && payload.ManagedUserIds) ? payload.ManagedUserIds : [];
+    if (managedUserIds.length) {
+      addClaim('lumina:assignment:has-team');
+      managedUserIds.forEach(function (id) {
+        const normalized = normalizeString(id);
+        if (normalized) addClaim('lumina:assignment:manages:' + normalized);
+      });
+    }
+
+    const directManagerId = normalizeString(payload && payload.DirectManagerId);
+    if (directManagerId) {
+      addClaim('lumina:assignment:reports-to');
+      addClaim('lumina:assignment:reports-to:' + directManagerId);
+    }
+
+    if (authorization && authorization.manager && Array.isArray(authorization.manager.directReports)) {
+      authorization.manager.directReports.forEach(function (id) {
+        const normalized = normalizeString(id);
+        if (normalized) addClaim('lumina:assignment:direct-report:' + normalized);
+      });
+    }
+
+    if (campaignScope && toBool(campaignScope.needsCampaignAssignment)) {
+      addClaim('lumina:campaign:needs-assignment');
+    }
+
+    addClaim('lumina:claims:version:1');
+
+    return claims;
+  }
+
+  function getManagerUsersSheetName() {
+    try {
+      if (typeof getManagerUsersSheetName_ === 'function') {
+        const name = getManagerUsersSheetName_();
+        if (name) return String(name);
+      }
+    } catch (err) {
+      console.warn('getManagerUsersSheetName: helper lookup failed', err);
+    }
+
+    try {
+      if (typeof G !== 'undefined' && G && G.MANAGER_USERS_SHEET) {
+        return String(G.MANAGER_USERS_SHEET);
+      }
+    } catch (err) {
+      console.warn('getManagerUsersSheetName: global lookup failed', err);
+    }
+
+    if (typeof MANAGER_USERS_SHEET === 'string') {
+      return MANAGER_USERS_SHEET;
+    }
+
+    return 'MANAGER_USERS';
+  }
+
+  function loadManagerAssignments() {
+    const name = getManagerUsersSheetName();
+    if (!name || typeof readSheet !== 'function') {
+      return [];
+    }
+    try {
+      const rows = readSheet(name) || [];
+      return Array.isArray(rows) ? rows : [];
+    } catch (err) {
+      console.warn('loadManagerAssignments: unable to read manager assignments', err);
+      return [];
+    }
+  }
+
+  function mapUserSummary(record) {
+    if (!record || typeof record !== 'object') {
+      return null;
+    }
+    return {
+      id: record.ID || record.Id || record.id || null,
+      userName: record.UserName || record.username || '',
+      fullName: record.FullName || record.fullName || record.UserName || '',
+      email: record.Email || record.email || '',
+      campaignId: record.CampaignID || record.CampaignId || record.campaignId || ''
+    };
+  }
+
+  function loadUsersIndex() {
+    if (typeof readSheet !== 'function') {
+      return {};
+    }
+    try {
+      const sheetName = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
+      const rows = readSheet(sheetName) || [];
+      const index = {};
+      rows.forEach(function (row) {
+        if (!row || typeof row !== 'object') return;
+        const key = String(row.ID || row.Id || row.id || '').trim();
+        if (!key) return;
+        index[key] = row;
+      });
+      return index;
+    } catch (err) {
+      console.warn('loadUsersIndex: unable to read users sheet', err);
+      return {};
+    }
+  }
+
+  function buildManagerProfile(userId) {
+    const normalizedId = normalizeString(userId);
+    if (!normalizedId) {
+      return {
+        isManager: false,
+        managedUserIds: [],
+        managedUsers: [],
+        hasAssignments: false,
+        directManagerId: null,
+        directManager: null,
+        directReports: []
+      };
+    }
+
+    const assignments = loadManagerAssignments();
+    if (!assignments.length) {
+      return {
+        isManager: false,
+        managedUserIds: [],
+        managedUsers: [],
+        hasAssignments: false,
+        directManagerId: null,
+        directManager: null,
+        directReports: []
+      };
+    }
+
+    const managedUserIds = [];
+    let directManagerId = null;
+
+    assignments.forEach(function (assignment) {
+      if (!assignment) return;
+      const managerId = normalizeString(assignment.ManagerUserID || assignment.managerUserId || assignment.ManagerID);
+      const targetId = normalizeString(assignment.UserID || assignment.userId || assignment.TargetUserID);
+      if (!managerId || !targetId) {
+        return;
+      }
+      if (managerId === normalizedId) {
+        if (managedUserIds.indexOf(targetId) === -1) {
+          managedUserIds.push(targetId);
+        }
+      }
+      if (targetId === normalizedId && !directManagerId) {
+        directManagerId = managerId;
+      }
+    });
+
+    const usersIndex = loadUsersIndex();
+    const managedUsers = managedUserIds
+      .map(function (id) { return mapUserSummary(usersIndex[id]); })
+      .filter(Boolean);
+
+    const directManager = directManagerId ? mapUserSummary(usersIndex[directManagerId]) : null;
+
+    return {
+      isManager: managedUserIds.length > 0,
+      managedUserIds: managedUserIds,
+      managedUsers: managedUsers,
+      hasAssignments: managedUserIds.length > 0,
+      directManagerId: directManagerId,
+      directManager: directManager,
+      directReports: managedUserIds.slice()
+    };
+  }
+
+  function buildCampaignPermissionProfile(userId, tenantPayload) {
+    const normalizedId = normalizeString(userId);
+    const profile = {
+      permissionLevels: [],
+      campaignPermissions: [],
+      activeCampaignPermission: null
+    };
+
+    if (!normalizedId) {
+      return profile;
+    }
+
+    let permissions = [];
+    try {
+      if (typeof readCampaignPermsSafely_ === 'function') {
+        permissions = readCampaignPermsSafely_();
+      } else if (typeof readSheet === 'function') {
+        const sheetName = (typeof G !== 'undefined' && G && G.CAMPAIGN_USER_PERMISSIONS_SHEET)
+          ? G.CAMPAIGN_USER_PERMISSIONS_SHEET
+          : 'CampaignUserPermissions';
+        permissions = readSheet(sheetName) || [];
+      }
+    } catch (err) {
+      console.warn('buildCampaignPermissionProfile: unable to load permissions', err);
+      permissions = [];
+    }
+
+    const userPermissions = (permissions || []).filter(function (perm) {
+      if (!perm || typeof perm !== 'object') return false;
+      const permUserId = normalizeString(perm.UserID || perm.UserId || perm.userId);
+      return permUserId === normalizedId;
+    }).map(function (perm) {
+      const permissionLevel = String(perm.PermissionLevel || perm.permissionLevel || 'USER').toUpperCase();
+      const canManageUsers = toBool(perm.CanManageUsers || perm.canManageUsers);
+      const canManagePages = toBool(perm.CanManagePages || perm.canManagePages);
+      const campaignId = normalizeCampaignId(perm.CampaignID || perm.CampaignId || perm.campaignId);
+      return {
+        id: perm.ID || perm.Id || perm.id || null,
+        campaignId: campaignId,
+        permissionLevel: permissionLevel,
+        canManageUsers: canManageUsers,
+        canManagePages: canManagePages,
+        createdAt: perm.CreatedAt || perm.createdAt || null,
+        updatedAt: perm.UpdatedAt || perm.updatedAt || null
+      };
+    });
+
+    const seenLevels = {};
+    userPermissions.forEach(function (perm) {
+      if (!perm) return;
+      if (!seenLevels[perm.permissionLevel]) {
+        profile.permissionLevels.push(perm.permissionLevel);
+        seenLevels[perm.permissionLevel] = true;
+      }
+    });
+
+    const activeCampaignId = tenantPayload && tenantPayload.activeCampaignId
+      ? String(tenantPayload.activeCampaignId)
+      : '';
+    if (activeCampaignId) {
+      profile.activeCampaignPermission = userPermissions.find(function (perm) {
+        return perm.campaignId === activeCampaignId;
+      }) || null;
+    }
+
+    profile.campaignPermissions = userPermissions;
+    return profile;
+  }
+
+  function resolveUserAuthorizationProfile(user, tenantPayload) {
+    const userId = normalizeString(user && (user.ID || user.Id || user.id));
+    if (!userId) {
+      return null;
+    }
+
+    let roles = [];
+    try {
+      if (typeof getUserRolesSafe === 'function') {
+        roles = getUserRolesSafe(userId) || [];
+      }
+    } catch (err) {
+      console.warn('resolveUserAuthorizationProfile: unable to load roles', err);
+      roles = [];
+    }
+
+    const roleEntries = [];
+    const roleNames = [];
+    const roleHierarchy = [];
+    const seenRoleIds = {};
+    const seenRoleNames = {};
+
+    roles.forEach(function (role) {
+      if (!role || typeof role !== 'object') return;
+      const id = String(role.id || role.ID || '').trim();
+      const name = String(role.name || role.Name || '').trim();
+      if (!name) return;
+      const normalizedName = name.toLowerCase();
+      if (id && seenRoleIds[id]) {
+        return;
+      }
+      if (normalizedName && seenRoleNames[normalizedName]) {
+        return;
+      }
+      if (id) seenRoleIds[id] = true;
+      if (normalizedName) seenRoleNames[normalizedName] = true;
+
+      const classification = resolveRoleClassification(name);
+      roleEntries.push({
+        id: id || null,
+        name: name,
+        normalizedName: normalizedName,
+        level: classification.key,
+        levelLabel: classification.label,
+        weight: classification.weight,
+        capabilities: classification.capabilities
+      });
+      roleNames.push(name);
+      roleHierarchy.push({
+        name: name,
+        level: classification.key,
+        label: classification.label,
+        weight: classification.weight,
+        capabilities: classification.capabilities
+      });
+    });
+
+    roleHierarchy.sort(function (a, b) { return (b.weight || 0) - (a.weight || 0); });
+
+    const roleCapabilities = aggregateRoleCapabilities(roleHierarchy);
+
+    const campaignProfile = buildCampaignPermissionProfile(userId, tenantPayload || {});
+    const managerProfile = buildManagerProfile(userId);
+
+    const permissionLevels = campaignProfile.permissionLevels.slice();
+    if (toBool(user && user.IsAdmin) && permissionLevels.indexOf('ADMIN') === -1) {
+      permissionLevels.push('ADMIN');
+    }
+
+    const highestRole = roleHierarchy.length ? roleHierarchy[0] : null;
+
+    const canManageUsersFromPerms = campaignProfile.campaignPermissions.some(function (perm) {
+      return perm && (perm.canManageUsers || perm.permissionLevel === 'MANAGER' || perm.permissionLevel === 'ADMIN');
+    });
+    const canManagePagesFromPerms = campaignProfile.campaignPermissions.some(function (perm) {
+      return perm && (perm.canManagePages || perm.permissionLevel === 'MANAGER' || perm.permissionLevel === 'ADMIN');
+    });
+
+    const flags = {
+      isSystemAdmin: !!(toBool(user && user.IsAdmin) || roleCapabilities.isSystemAdmin),
+      isManager: !!(managerProfile.isManager || canManageUsersFromPerms || roleCapabilities.isManager),
+      isExecutive: !!roleCapabilities.isExecutive,
+      canManageUsers: false,
+      canManagePages: false
+    };
+
+    flags.canManageUsers = !!(flags.isSystemAdmin || canManageUsersFromPerms || roleCapabilities.canManageUsers);
+    flags.canManagePages = !!(flags.isSystemAdmin || canManagePagesFromPerms || roleCapabilities.canManagePages);
+
+    if (flags.isSystemAdmin && permissionLevels.indexOf('ADMIN') === -1) {
+      permissionLevels.push('ADMIN');
+    }
+
+    return {
+      userId: userId,
+      roles: roleEntries,
+      roleNames: roleNames,
+      roleHierarchy: roleHierarchy,
+      highestRole: highestRole,
+      flags: flags,
+      roleCapabilities: roleCapabilities,
+      permissionLevels: permissionLevels,
+      campaignPermissions: campaignProfile.campaignPermissions,
+      activeCampaignPermission: campaignProfile.activeCampaignPermission,
+      manager: managerProfile
+    };
+  }
+
   function buildUserPayload(user, tenantPayload) {
     if (!user) return null;
 
@@ -3410,6 +4164,68 @@ var AuthenticationService = (function () {
       payload.IsGlobalAdmin = payload.CampaignScope.isGlobalAdmin || payload.IsAdmin;
       payload.NeedsCampaignAssignment = payload.CampaignScope.needsCampaignAssignment;
 
+    }
+
+    const authorization = resolveUserAuthorizationProfile(user, payload.CampaignScope || tenantPayload || {});
+    if (authorization) {
+      payload.Authorization = authorization;
+      payload.Roles = authorization.roles.slice();
+      payload.RoleNames = authorization.roleNames.slice();
+      payload.RoleHierarchy = authorization.roleHierarchy.slice();
+      payload.HighestRole = authorization.highestRole;
+      payload.PermissionLevels = authorization.permissionLevels.slice();
+      payload.CampaignPermissions = authorization.campaignPermissions.slice();
+      payload.ActiveCampaignPermission = authorization.activeCampaignPermission;
+      payload.ManagedUserIds = authorization.manager.managedUserIds.slice();
+      payload.ManagedUsers = authorization.manager.managedUsers.slice();
+      payload.DirectManagerId = authorization.manager.directManagerId;
+      payload.DirectManager = authorization.manager.directManager;
+      payload.IsManager = !!authorization.flags.isManager;
+      payload.IsExecutive = !!authorization.flags.isExecutive;
+      payload.CanManageUsers = !!authorization.flags.canManageUsers;
+      payload.CanManagePages = !!authorization.flags.canManagePages;
+      payload.IsSystemAdmin = !!(authorization.flags.isSystemAdmin || payload.IsAdmin);
+      payload.RoleCapabilities = Object.assign({
+        isSystemAdmin: false,
+        isExecutive: false,
+        isManager: false,
+        canManageUsers: false,
+        canManagePages: false
+      }, authorization.roleCapabilities || {});
+    } else {
+      payload.Roles = [];
+      payload.RoleNames = [];
+      payload.RoleHierarchy = [];
+      payload.PermissionLevels = [];
+      payload.CampaignPermissions = [];
+      payload.ActiveCampaignPermission = null;
+      payload.ManagedUserIds = [];
+      payload.ManagedUsers = [];
+      payload.DirectManagerId = null;
+      payload.DirectManager = null;
+      payload.IsManager = false;
+      payload.IsExecutive = false;
+      payload.CanManageUsers = payload.IsGlobalAdmin || payload.IsAdmin;
+      payload.CanManagePages = payload.IsGlobalAdmin || payload.IsAdmin;
+      payload.IsSystemAdmin = payload.IsAdmin;
+      payload.RoleCapabilities = {
+        isSystemAdmin: !!payload.IsSystemAdmin,
+        isExecutive: false,
+        isManager: false,
+        canManageUsers: !!payload.CanManageUsers,
+        canManagePages: !!payload.CanManagePages
+      };
+    }
+
+    payload.CurrentCampaignId = payload.ActiveCampaignId;
+    payload.CurrentUserId = payload.ID;
+
+    const claims = buildUserClaims(payload, authorization);
+    payload.Claims = claims.slice();
+    payload.AuthorizationClaims = claims.slice();
+    if (payload.Authorization) {
+      payload.Authorization.claims = claims.slice();
+      payload.Authorization.roleCapabilities = payload.RoleCapabilities;
     }
 
     return payload;
@@ -4561,7 +5377,31 @@ var AuthenticationService = (function () {
 
       const entry = findSessionEntry(sessionToken);
       if (entry) {
+        let userIdForRegistry = null;
+        try {
+          if (entry.record) {
+            userIdForRegistry = getRecordValue(entry.record, 'UserId')
+              || getRecordValue(entry.record, 'userId')
+              || null;
+          }
+        } catch (registryLookupError) {
+          console.warn('logout: unable to extract userId for authorization cleanup', registryLookupError);
+        }
+
         removeSessionEntry(entry);
+
+        try {
+          if (typeof AuthorizationRegistry !== 'undefined'
+            && AuthorizationRegistry
+            && typeof AuthorizationRegistry.clearAuthorizationSnapshot === 'function') {
+            AuthorizationRegistry.clearAuthorizationSnapshot({
+              userId: userIdForRegistry,
+              sessionToken: sessionToken
+            });
+          }
+        } catch (registryError) {
+          console.warn('logout: failed to clear authorization snapshot', registryError);
+        }
       }
 
       clearActiveSessionState();

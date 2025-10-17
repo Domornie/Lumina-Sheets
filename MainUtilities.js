@@ -183,6 +183,102 @@ if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timest
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
 
 // ────────────────────────────────────────────────────────────────────────────
+// Authorization hierarchy helpers (shared across the system)
+// ────────────────────────────────────────────────────────────────────────────
+
+function ensureAuthorizationHierarchyDefaults_() {
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.ensureRoleHierarchyRules === 'function') {
+      AuthorizationRegistry.ensureRoleHierarchyRules();
+    }
+  } catch (err) {
+    console.warn('MainUtilities.ensureAuthorizationHierarchyDefaults_: unable to ensure role hierarchy', err);
+  }
+}
+
+function getAuthorizationSnapshotForUser(userId) {
+  if (!userId && userId !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getAuthorizationSnapshotForUser === 'function') {
+      return AuthorizationRegistry.getAuthorizationSnapshotForUser(userId);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getAuthorizationSnapshotForUser: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getAuthorizationSnapshotForSession(sessionToken) {
+  if (!sessionToken && sessionToken !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getAuthorizationSnapshotForSession === 'function') {
+      return AuthorizationRegistry.getAuthorizationSnapshotForSession(sessionToken);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getAuthorizationSnapshotForSession: lookup failed', err);
+  }
+
+  return null;
+}
+
+function userHasCapabilityFlag(userOrId, capabilityKey) {
+  if (!capabilityKey && capabilityKey !== 0) {
+    return false;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.userHasCapability === 'function') {
+      return AuthorizationRegistry.userHasCapability(userOrId, capabilityKey);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.userHasCapabilityFlag: lookup failed', err);
+  }
+
+  return false;
+}
+
+function userCanManageUser(managerUserOrId, targetUserId) {
+  if (!targetUserId && targetUserId !== 0) {
+    return false;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.userManagesUser === 'function') {
+      return AuthorizationRegistry.userManagesUser(managerUserOrId, targetUserId);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.userCanManageUser: lookup failed', err);
+  }
+
+  return false;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // HR / Benefits – Users sheet upgrade + calculators
 // ────────────────────────────────────────────────────────────────────────────
 
