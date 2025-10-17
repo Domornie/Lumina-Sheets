@@ -1985,26 +1985,10 @@ function getManagerVisibleUserIds(managerUserId, options) {
 
 function clientGetAllUsers(requestingUserId) {
   try {
-    let resolvedRequestingUserId = requestingUserId;
-    let currentUser = null;
-
-    try {
-      currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    } catch (currentErr) {
-      try { writeError && writeError('clientGetAllUsers.getCurrentUser', currentErr); } catch (_) { }
-      currentUser = null;
-    }
-
-    if (!resolvedRequestingUserId && currentUser && currentUser.ID) {
-      resolvedRequestingUserId = currentUser.ID;
-    }
-
     try {
       ensureUsersHaveIds();
     } catch (ensureError) {
-      try {
-        writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError);
-      } catch (_) { }
+      try { writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError); } catch (_) { }
     }
 
     let users = [];
@@ -2039,9 +2023,7 @@ function clientGetAllUsers(requestingUserId) {
           try {
             ensureUsersHaveIds();
           } catch (ensureLoopError) {
-            try {
-              writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError);
-            } catch (_) { }
+            try { writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError); } catch (_) { }
           }
 
           if (!u.ID) {
@@ -2068,93 +2050,7 @@ function clientGetAllUsers(requestingUserId) {
       }
     }
 
-    let filteredUsers = enhancedUsers;
-    const allowFullDirectoryView = !!G.ALLOW_FULL_USER_DIRECTORY_VIEW;
-    if (!allowFullDirectoryView) {
-      const normalizedRequestingId = normalizeManagerUserId(resolvedRequestingUserId);
-      const normalizedCurrentEmail = currentUser
-        ? _normEmail_(currentUser.Email || currentUser.email || currentUser.WorkEmail || currentUser.PrimaryEmail)
-        : '';
-      const fallbackEmailFromId = (normalizedRequestingId && normalizedRequestingId.indexOf('@') !== -1)
-        ? normalizedRequestingId.toLowerCase()
-        : '';
-      const emailCandidates = Array.from(new Set([normalizedCurrentEmail, fallbackEmailFromId].filter(Boolean)));
-
-      const matchUserById = (collection, targetId) => {
-        if (!targetId) return null;
-        for (let i = 0; i < collection.length; i++) {
-          const candidate = collection[i];
-          if (!candidate) continue;
-          const candidateId = normalizeManagerUserId(candidate.ID || candidate.Id || candidate.id);
-          if (candidateId && candidateId === targetId) {
-            return candidate;
-          }
-        }
-        return null;
-      };
-
-      const matchUserByEmail = (collection, targetEmail) => {
-        if (!targetEmail) return null;
-        for (let i = 0; i < collection.length; i++) {
-          const candidate = collection[i];
-          if (!candidate) continue;
-          const candidateEmail = _normEmail_(
-            candidate.Email || candidate.email || candidate.EmailAddress ||
-            candidate.WorkEmail || candidate.workEmail || candidate.PrimaryEmail || candidate.primaryEmail
-          );
-          if (candidateEmail && candidateEmail === targetEmail) {
-            return candidate;
-          }
-        }
-        return null;
-      };
-
-      const resolveRequestingUser = () => {
-        let found = matchUserById(enhancedUsers, normalizedRequestingId) || matchUserById(users, normalizedRequestingId);
-        if (found) return found;
-        for (let i = 0; i < emailCandidates.length; i++) {
-          const email = emailCandidates[i];
-          if (!email) continue;
-          found = matchUserByEmail(enhancedUsers, email) || matchUserByEmail(users, email);
-          if (found) return found;
-        }
-        return null;
-      };
-
-      if (normalizedRequestingId) {
-        try {
-          const requestingUser = resolveRequestingUser();
-          if (requestingUser) {
-            if (isUserAdmin(requestingUser)) {
-              filteredUsers = enhancedUsers;
-            } else {
-              const managedIds = getManagerVisibleUserIds(normalizedRequestingId, { includeSelf: true });
-              if (managedIds && managedIds.size) {
-                filteredUsers = enhancedUsers.filter(user => managedIds.has(String(user.ID)));
-              } else {
-                filteredUsers = enhancedUsers.filter(user => String(user.ID) === normalizedRequestingId);
-              }
-            }
-          } else {
-            _userLog_('clientGetAllUsers.requestingUserNotFound', {
-              resolvedRequestingUserId,
-              normalizedRequestingId,
-              emailCandidates
-            }, 'warn');
-            filteredUsers = enhancedUsers;
-          }
-        } catch (permissionError) {
-          filteredUsers = enhancedUsers;
-        }
-      } else if (resolvedRequestingUserId) {
-        filteredUsers = enhancedUsers;
-      }
-    } else {
-      try {
-        _userLog_('clientGetAllUsers.fullDirectoryView', { count: enhancedUsers.length });
-      } catch (_) { }
-    }
-    return filteredUsers;
+    return enhancedUsers;
   } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
 }
 
