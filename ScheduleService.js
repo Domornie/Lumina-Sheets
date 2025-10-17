@@ -221,147 +221,6 @@ function filterUsersByCampaign(users, campaignId) {
   return filteredUsers.filter(user => doesUserBelongToCampaign(user, normalizedCampaignId));
 }
 
-function resolveScheduleUserContext(requestingUserId, campaignId) {
-  const context = {
-    identity: null,
-    user: null,
-    managerId: '',
-    providedManagerId: normalizeUserIdValue(requestingUserId),
-    campaignId: normalizeCampaignIdValue(campaignId),
-    managedUserIds: new Set(),
-    authenticated: false
-  };
-
-  let identity = null;
-  try {
-    if (typeof LuminaIdentity !== 'undefined'
-      && LuminaIdentity
-      && typeof LuminaIdentity.ensureAuthenticated === 'function') {
-      identity = LuminaIdentity.ensureAuthenticated(null, { useCache: true });
-      context.authenticated = !!(identity && (identity.sessionToken
-        || (identity.session && (identity.session.token || identity.session.sessionToken))));
-    }
-  } catch (identityError) {
-    console.warn('resolveScheduleUserContext: LuminaIdentity.ensureAuthenticated failed', identityError);
-    identity = null;
-  }
-
-  let identityUser = null;
-  let identityManagerId = '';
-
-  if (identity && typeof identity === 'object') {
-    identityUser = identity.user && typeof identity.user === 'object' && Object.keys(identity.user).length
-      ? identity.user
-      : identity;
-
-    identityManagerId = normalizeUserIdValue(
-      (identity && (identity.id || identity.ID || identity.userId || identity.UserId))
-        || (identityUser && (identityUser.ID || identityUser.Id || identityUser.UserId || identityUser.userId))
-    );
-  }
-
-  let currentUser = null;
-  try {
-    if (typeof getCurrentUser === 'function') {
-      currentUser = getCurrentUser();
-    }
-  } catch (currentUserError) {
-    console.warn('resolveScheduleUserContext: getCurrentUser failed', currentUserError);
-    currentUser = null;
-  }
-
-  const currentUserId = normalizeUserIdValue(currentUser && (currentUser.ID || currentUser.Id || currentUser.UserId));
-
-  let resolvedManagerId = identityManagerId
-    || currentUserId
-    || context.providedManagerId
-    || '';
-
-  let resolvedUser = null;
-
-  const mergeRecords = (target, source) => {
-    if (!source || typeof source !== 'object') {
-      return target;
-    }
-
-    const output = target || {};
-    Object.keys(source).forEach(key => {
-      const value = source[key];
-      if (value !== undefined) {
-        output[key] = value;
-      }
-    });
-    return output;
-  };
-
-  if (currentUser && currentUserId && currentUserId === resolvedManagerId) {
-    resolvedUser = Object.assign({}, currentUser);
-  }
-
-  if (!resolvedUser && identityUser && identityManagerId && identityManagerId === resolvedManagerId) {
-    resolvedUser = mergeRecords({}, identityUser);
-  }
-
-  if (!resolvedUser && identityUser) {
-    resolvedUser = mergeRecords({}, identityUser);
-  }
-
-  if (!resolvedUser && currentUser) {
-    resolvedUser = Object.assign({}, currentUser);
-  }
-
-  if (!resolvedUser && resolvedManagerId) {
-    try {
-      const users = readSheet(USERS_SHEET) || [];
-      const hit = users.find(u => normalizeUserIdValue(u && u.ID) === resolvedManagerId)
-        || users.find(u => normalizeUserIdValue(u && u.UserID) === resolvedManagerId);
-      if (hit) {
-        resolvedUser = Object.assign({}, hit);
-      }
-    } catch (lookupError) {
-      console.warn('resolveScheduleUserContext: unable to lookup manager in Users sheet', lookupError);
-    }
-  }
-
-  if (!resolvedUser) {
-    resolvedUser = {};
-  }
-
-  if (!context.campaignId && resolvedUser) {
-    const candidateCampaigns = [
-      resolvedUser.CampaignID,
-      resolvedUser.campaignID,
-      resolvedUser.CampaignId,
-      resolvedUser.campaignId,
-      resolvedUser.Campaign,
-      resolvedUser.campaign
-    ];
-
-    for (let i = 0; i < candidateCampaigns.length; i++) {
-      const normalized = normalizeCampaignIdValue(candidateCampaigns[i]);
-      if (normalized) {
-        context.campaignId = normalized;
-        break;
-      }
-    }
-  }
-
-  if (resolvedManagerId) {
-    try {
-      context.managedUserIds = buildManagedUserSet(resolvedManagerId);
-    } catch (setError) {
-      console.warn('resolveScheduleUserContext: buildManagedUserSet failed', setError);
-      context.managedUserIds = new Set();
-    }
-  }
-
-  context.identity = identity || null;
-  context.user = resolvedUser;
-  context.managerId = resolvedManagerId;
-
-  return context;
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -372,11 +231,8 @@ function resolveScheduleUserContext(requestingUserId, campaignId) {
  */
 function clientGetScheduleUsers(requestingUserId, campaignId = null) {
   try {
-    const context = resolveScheduleUserContext(requestingUserId, campaignId);
-    const normalizedCampaignId = context.campaignId;
-    const normalizedManagerId = normalizeUserIdValue(context.managerId);
-
-    console.log('🔍 Getting schedule users for manager:', normalizedManagerId || requestingUserId || '(unknown)', 'campaign:', normalizedCampaignId || '(not provided)');
+    const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
+    console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
 
     // Use MainUtilities to get all users
     const allUsers = readSheet(USERS_SHEET) || [];
@@ -385,9 +241,11 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       return [];
     }
 
-    const requestingUser = context.user
-      ? allUsers.find(u => normalizeUserIdValue(u && u.ID) === normalizeUserIdValue(context.user.ID)) || context.user
-      : null;
+    const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+    let requestingUser = null;
+    if (normalizedManagerId) {
+      requestingUser = allUsers.find(u => normalizeUserIdValue(u && u.ID) === normalizedManagerId) || null;
+    }
 
     let effectiveCampaignId = normalizedCampaignId;
     if (!effectiveCampaignId && requestingUser) {
@@ -409,89 +267,26 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       }
     }
 
-    const allUsersById = new Map();
-    allUsers.forEach(user => {
-      const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
-      if (userId) {
-        allUsersById.set(userId, user);
-      }
-    });
+    let filteredUsers = allUsers;
 
-    const scopedUserById = new Map();
-    let allowedIds = null;
-    let managerScoped = false;
-    let requestingUserIsAdmin = false;
+    // Filter by campaign if specified - use MainUtilities campaign functions
+    if (effectiveCampaignId) {
+      filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
+    }
 
+    // Apply manager permissions using MainUtilities functions
     if (normalizedManagerId) {
-      managerScoped = true;
-      if (typeof getUsersByManager === 'function') {
-        try {
-          const scopedUsers = getUsersByManager(normalizedManagerId, {
-            includeManager: false,
-            fallbackToCampaign: false,
-            fallbackToAll: false,
-            managerCampaignId: effectiveCampaignId || ''
-          }) || [];
-
-          scopedUsers.forEach(user => {
-            const userId = normalizeUserIdValue(user && (user.ID || user.Id || user.id));
-            if (!userId || userId === normalizedManagerId) {
-              return;
-            }
-            scopedUserById.set(userId, user);
-          });
-
-          if (scopedUserById.size) {
-            allowedIds = new Set(scopedUserById.keys());
-          }
-        } catch (scopedError) {
-          safeWriteError && safeWriteError('clientGetScheduleUsers.getUsersByManager', scopedError);
-        }
-      }
-
-      if (!allowedIds || !allowedIds.size) {
-        const resolvedManagerSet = context.managedUserIds instanceof Set
-          ? context.managedUserIds
-          : new Set();
-
-        if (resolvedManagerSet.size) {
-          allowedIds = new Set();
-          resolvedManagerSet.forEach(id => {
-            const normalized = normalizeUserIdValue(id);
-            if (normalized && normalized !== normalizedManagerId) {
-              allowedIds.add(normalized);
-            }
-          });
-        }
-      }
-
       if (requestingUser) {
-        requestingUserIsAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
+        const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
 
-        if (!requestingUserIsAdmin && (!allowedIds || !allowedIds.size)) {
-          console.warn('No managed users found for manager:', normalizedManagerId);
+        if (!isAdmin) {
+          const managedUserIds = buildManagedUserSet(normalizedManagerId);
+
+          filteredUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user && user.ID)));
         }
       } else {
         console.warn('Requesting user not found when applying manager filter:', requestingUserId);
       }
-    }
-
-    let filteredUsers = allUsers.slice();
-
-    if (managerScoped && !requestingUserIsAdmin) {
-      if (allowedIds && allowedIds.size) {
-        filteredUsers = filteredUsers.filter(user => {
-          const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
-          return userId && allowedIds.has(userId);
-        });
-      } else {
-        filteredUsers = [];
-      }
-    }
-
-    // Only apply campaign filtering when we are not already scoping by explicit manager assignments.
-    if (effectiveCampaignId && !(managerScoped && !requestingUserIsAdmin && allowedIds && allowedIds.size)) {
-      filteredUsers = filterUsersByCampaign(filteredUsers, effectiveCampaignId);
     }
 
     // Transform to schedule-friendly format
@@ -501,36 +296,18 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       .filter(user => !isScheduleRoleRestricted(user))
       .filter(user => isUserConsideredActive(user))
       .map(user => {
-        const normalizedId = normalizeUserIdValue(user && (user.ID || user.UserID));
-        const scopedUser = normalizedId ? scopedUserById.get(normalizedId) : null;
-        const rawUser = normalizedId ? (allUsersById.get(normalizedId) || user) : user;
-        const campaignIdValue = rawUser.CampaignID || rawUser.campaignID || scopedUser?.CampaignID || scopedUser?.campaignId || '';
-        const campaignName = scopedUser?.campaignName || getCampaignById(campaignIdValue)?.Name || '';
-        const employmentStatus = scopedUser?.EmploymentStatus || scopedUser?.employmentStatus || rawUser.EmploymentStatus || 'Active';
-        const hireDate = rawUser.HireDate || scopedUser?.HireDate || '';
-        const email = scopedUser?.Email || scopedUser?.email || rawUser.Email || rawUser.email || '';
-        const displayName = scopedUser?.FullName || scopedUser?.UserName || rawUser.FullName || rawUser.UserName;
-        const username = scopedUser?.UserName || rawUser.UserName || rawUser.FullName;
-        const activeFlag = (typeof scopedUser?.activeBool === 'boolean') ? scopedUser.activeBool : isUserConsideredActive(rawUser);
-
+        const campaignName = getCampaignById(user.CampaignID)?.Name || '';
         return {
-          ID: normalizedId || user.ID,
-          UserName: username,
-          FullName: displayName,
-          Email: email,
-          CampaignID: campaignIdValue || '',
+          ID: user.ID,
+          UserName: user.UserName || user.FullName,
+          FullName: user.FullName || user.UserName,
+          Email: user.Email || '',
+          CampaignID: user.CampaignID || '',
           campaignName: campaignName,
-          EmploymentStatus: employmentStatus,
-          HireDate: hireDate,
-          isActive: !!activeFlag
+          EmploymentStatus: user.EmploymentStatus || 'Active',
+          HireDate: user.HireDate || '',
+          isActive: isUserConsideredActive(user)
         };
-      })
-      .filter(user => {
-        if (!normalizedManagerId || scheduleFlagToBool(requestingUser && requestingUser.IsAdmin)) {
-          return true;
-        }
-        const userId = normalizeUserIdValue(user && (user.ID || user.UserID));
-        return userId !== normalizedManagerId;
       });
 
     console.log(`✅ Returning ${scheduleUsers.length} schedule users`);
@@ -549,7 +326,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
   try {
     console.log('📋 Getting attendance users');
-
+    
     // Use the existing function but return just names for compatibility
     const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
     const userNames = scheduleUsers
@@ -847,105 +624,35 @@ function clientCreateEnhancedShiftSlot(slotData) {
 }
 
 function buildManagedUserSet(managerId) {
+  const managedUserIds = getDirectManagedUserIds(managerId);
   const normalizedManagerId = normalizeUserIdValue(managerId);
-  const managedUserIds = new Set();
 
-  if (!normalizedManagerId) {
-    return managedUserIds;
+  if (normalizedManagerId) {
+    managedUserIds.add(normalizedManagerId);
   }
 
-  let populatedFromScopedLookup = false;
-
-  if (typeof getUsersByManager === 'function') {
-    try {
-      const scopedUsers = getUsersByManager(normalizedManagerId, {
-        includeManager: false,
-        fallbackToCampaign: false,
-        fallbackToAll: false
-      }) || [];
-
-      if (Array.isArray(scopedUsers) && scopedUsers.length) {
-        populatedFromScopedLookup = true;
-        scopedUsers.forEach(user => {
-          const userId = normalizeUserIdValue(user && (user.ID || user.Id || user.id));
-          if (userId && userId !== normalizedManagerId) {
-            managedUserIds.add(userId);
-          }
-        });
-      }
-    } catch (error) {
-      safeWriteError && safeWriteError('buildManagedUserSet.getUsersByManager', error);
+  try {
+    if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
+      const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
+      campaigns.forEach(campaign => {
+        try {
+          const campaignUsers = getUsersByCampaign(campaign.ID) || [];
+          campaignUsers.forEach(user => {
+            const normalizedId = normalizeUserIdValue(user.ID);
+            if (normalizedId) {
+              managedUserIds.add(normalizedId);
+            }
+          });
+        } catch (campaignErr) {
+          console.warn('Failed to append campaign users for campaign', campaign && campaign.ID, campaignErr);
+        }
+      });
     }
+  } catch (error) {
+    console.warn('Unable to expand managed users via campaigns:', error);
   }
-
-  if (!populatedFromScopedLookup) {
-    const directIds = getDirectManagedUserIds(normalizedManagerId);
-    directIds.forEach(id => {
-      const normalized = normalizeUserIdValue(id);
-      if (normalized && normalized !== normalizedManagerId) {
-        managedUserIds.add(normalized);
-      }
-    });
-  }
-
-  managedUserIds.add(normalizedManagerId);
 
   return managedUserIds;
-}
-
-function clientGetScheduleContext(requestingUserId, campaignId = null) {
-  try {
-    const context = resolveScheduleUserContext(requestingUserId, campaignId);
-    const managedUserIdsArray = Array.from(context.managedUserIds || []);
-    const normalizedManagerId = normalizeUserIdValue(context.managerId);
-
-    const identitySummary = (function () {
-      if (!context.identity || typeof context.identity !== 'object') {
-        return null;
-      }
-
-      const identity = context.identity;
-      const summary = {
-        id: normalizeUserIdValue(identity.id || identity.ID || identity.userId || identity.UserId),
-        email: identity.email || identity.Email || '',
-        displayName: identity.displayName
-          || identity.FullName
-          || identity.fullName
-          || identity.Name
-          || identity.name
-          || '',
-        roles: Array.isArray(identity.roleNames) ? identity.roleNames.slice(0, 10) : [],
-        campaigns: Array.isArray(identity.campaigns)
-          ? identity.campaigns.map(c => ({
-            id: normalizeCampaignIdValue(c && (c.id || c.ID || c.CampaignId || c.CampaignID)),
-            name: c && (c.name || c.Name || '')
-          }))
-          : [],
-        authenticated: !!(identity.sessionToken || (identity.session && (identity.session.token || identity.session.sessionToken)))
-      };
-
-      return summary;
-    })();
-
-    return {
-      success: true,
-      managerId: normalizedManagerId,
-      providedManagerId: context.providedManagerId,
-      campaignId: context.campaignId,
-      managedUserIds: managedUserIdsArray,
-      rosterSize: managedUserIdsArray.length,
-      authenticated: context.authenticated,
-      user: context.user || null,
-      identity: identitySummary
-    };
-  } catch (error) {
-    console.error('❌ Error resolving schedule context:', error);
-    safeWriteError && safeWriteError('clientGetScheduleContext', error);
-    return {
-      success: false,
-      error: error && error.message ? error.message : String(error || 'Unknown error')
-    };
-  }
 }
 
 function isUserConsideredActive(user) {
@@ -1111,20 +818,6 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      throw new Error('Unable to determine the assignment dates. Please provide valid start and end dates.');
-    }
-
-    if (end < start) {
-      throw new Error('The assignment end date must be on or after the start date.');
-    }
-
-    const timeZone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
-      ? Session.getScriptTimeZone()
-      : 'UTC';
-    const periodStartStr = Utilities.formatDate(start, timeZone, 'yyyy-MM-dd');
-    const periodEndStr = Utilities.formatDate(end, timeZone, 'yyyy-MM-dd');
-
     // Get users to schedule
     let usersToSchedule = [];
     if (userNames && userNames.length > 0) {
@@ -1140,72 +833,114 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     console.log(`📝 Scheduling for ${usersToSchedule.length} users`);
 
-    if (!shiftSlotIds || shiftSlotIds.length === 0) {
-      throw new Error('Please select at least one shift slot to assign to these agents.');
+    // Get shift slots - either selected ones or all available
+    let shiftSlots = [];
+    if (shiftSlotIds && shiftSlotIds.length > 0) {
+      // Get only the selected shift slots
+      console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
+      const allSlots = clientGetAllShiftSlots();
+      shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
+      
+      if (shiftSlots.length === 0) {
+        throw new Error('None of the selected shift slots were found. Please refresh and try again.');
+      }
+      
+      console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
+    } else {
+      // Use all available shift slots
+      shiftSlots = clientGetAllShiftSlots();
+      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
     }
-
-    const allSlots = clientGetAllShiftSlots();
-    const shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
 
     if (!shiftSlots || shiftSlots.length === 0) {
-      throw new Error('None of the selected shift slots were found. Please refresh and try again.');
+      throw new Error('No shift slots available. Please create shift slots first or select specific slots.');
     }
 
-    console.log(`⏰ Assigning ${shiftSlots.length} shift slot(s) for period ${periodStartStr} → ${periodEndStr}`);
+    console.log(`⏰ Working with ${shiftSlots.length} shift slot(s)`);
 
-    const existingSchedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    // Generate schedules
     const generatedSchedules = [];
     const conflicts = [];
+    const dstChanges = [];
 
-    const findConflict = (userName) => {
-      const requestedStart = start;
-      const requestedEnd = end;
+    // Loop through each date
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const currentDate = new Date(d);
+      const dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
-      return existingSchedules.find(schedule => {
-        if (schedule.UserName !== userName) {
-          return false;
-        }
+      console.log(`📅 Processing date: ${dateStr} (Day: ${dayOfWeek})`);
 
-        const existingStart = schedule.PeriodStart || schedule.Date;
-        const existingEnd = schedule.PeriodEnd || schedule.Date || existingStart;
+      // Check for holidays using ScheduleUtilities
+      const isHoliday = checkIfHoliday(dateStr);
+      if (isHoliday && !options.includeHolidays) {
+        console.log(`🎉 Skipping holiday: ${dateStr}`);
+        continue;
+      }
 
-        const parsedStart = existingStart ? new Date(existingStart) : null;
-        const parsedEnd = existingEnd ? new Date(existingEnd) : null;
+      // Check DST status using ScheduleUtilities
+      const dstStatus = checkDSTStatus(dateStr);
+      if (dstStatus.isDSTChange) {
+        dstChanges.push({
+          date: dateStr,
+          changeType: dstStatus.changeType,
+          adjustment: dstStatus.timeAdjustment
+        });
+      }
 
-        if (!parsedStart || !parsedEnd || isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
-          return false;
-        }
-
-        return parsedStart <= requestedEnd && parsedEnd >= requestedStart;
-      }) || null;
-    };
-
-    usersToSchedule.forEach(userName => {
-      shiftSlots.forEach(selectedSlot => {
+      // Generate schedules for each user
+      usersToSchedule.forEach(userName => {
         try {
-          if (!selectedSlot || selectedSlot.IsActive === false) {
-            throw new Error('The selected shift slot is not active.');
+          // Get suitable shift slots for this user and day from the selected/available slots
+          const suitableSlots = shiftSlots.filter(slot => {
+            if (!slot.IsActive) return false;
+
+            // Check if slot is active on this day of week
+            const daysOfWeek = slot.DaysOfWeek ? slot.DaysOfWeek.split(',').map(d => parseInt(d)) : [1, 2, 3, 4, 5];
+            return daysOfWeek.includes(dayOfWeek);
+          });
+
+          if (suitableSlots.length === 0) {
+            console.log(`⚠️ No suitable slots for ${userName} on ${dateStr} from selected slots`);
+            conflicts.push({
+              user: userName,
+              date: dateStr,
+              error: 'No suitable shift slots available for this day from selected slots',
+              type: 'NO_SUITABLE_SLOTS'
+            });
+            return;
           }
 
-          const existingSchedule = findConflict(userName);
+          // Select best suitable slot (can be enhanced with more logic)
+          // For now, prefer slots with higher capacity or priority
+          const selectedSlot = suitableSlots.sort((a, b) => {
+            const priorityA = a.Priority || 2;
+            const priorityB = b.Priority || 2;
+            if (priorityA !== priorityB) return priorityB - priorityA; // Higher priority first
+            
+            const capacityA = a.MaxCapacity || 10;
+            const capacityB = b.MaxCapacity || 10;
+            return capacityB - capacityA; // Higher capacity first
+          })[0];
+
+          // Check for conflicts using ScheduleUtilities
+          const existingSchedule = checkExistingSchedule(userName, dateStr);
           if (existingSchedule && !options.overrideExisting) {
             conflicts.push({
               user: userName,
-              periodStart: periodStartStr,
-              periodEnd: periodEndStr,
-              error: `User already has a slot assigned for this period (${existingSchedule.SlotName || 'Existing Slot'})`,
+              date: dateStr,
+              error: 'User already has a schedule for this date',
               type: 'USER_DOUBLE_BOOKING'
             });
             return;
           }
 
+          // Create schedule record using ScheduleUtilities time functions
           const schedule = {
             ID: Utilities.getUuid(),
             UserID: getUserIdByName(userName),
             UserName: userName,
-            Date: periodStartStr,
-            PeriodStart: periodStartStr,
-            PeriodEnd: periodEndStr,
+            Date: dateStr,
             SlotID: selectedSlot.ID,
             SlotName: selectedSlot.Name,
             StartTime: selectedSlot.StartTime,
@@ -1216,7 +951,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
             BreakEnd: calculateBreakEnd(selectedSlot),
             LunchStart: calculateLunchStart(selectedSlot),
             LunchEnd: calculateLunchEnd(selectedSlot),
-            IsDST: false,
+            IsDST: dstStatus.isDST,
             Status: 'PENDING',
             GeneratedBy: generatedBy,
             ApprovedBy: null,
@@ -1226,42 +961,42 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
             RecurringScheduleID: null,
             SwapRequestID: null,
             Priority: options.priority || 2,
-            Notes: options.notes || `Assigned to ${selectedSlot.Name} for ${periodStartStr} to ${periodEndStr}`,
+            Notes: options.notes || `Generated from selected slot: ${selectedSlot.Name}`,
             Location: selectedSlot.Location || '',
             Department: selectedSlot.Department || ''
           };
 
           generatedSchedules.push(schedule);
-          existingSchedules.push(schedule);
-          console.log(`✅ Assigned ${userName} to ${selectedSlot.Name} for ${periodStartStr} → ${periodEndStr}`);
+          console.log(`✅ Generated schedule for ${userName} on ${dateStr} using slot: ${selectedSlot.Name}`);
+
         } catch (userError) {
           conflicts.push({
             user: userName,
-            periodStart: periodStartStr,
-            periodEnd: periodEndStr,
+            date: dateStr,
             error: userError.message,
             type: 'GENERATION_ERROR'
           });
         }
       });
-    });
-
-    if (generatedSchedules.length > 0) {
-      saveSchedulesToSheet(generatedSchedules);
-      console.log(`💾 Saved ${generatedSchedules.length} schedule assignment(s)`);
     }
 
+    // Save generated schedules using ScheduleUtilities
+    if (generatedSchedules.length > 0) {
+      saveSchedulesToSheet(generatedSchedules);
+      console.log(`💾 Saved ${generatedSchedules.length} schedules`);
+    }
+
+    // Return comprehensive result with shift slot information
     const result = {
       success: true,
       generated: generatedSchedules.length,
       conflicts: conflicts,
-      message: `Successfully assigned ${generatedSchedules.length} schedule slot${generatedSchedules.length === 1 ? '' : 's'} for ${periodStartStr} to ${periodEndStr}`,
-      schedules: generatedSchedules.slice(0, 10),
+      dstChanges: dstChanges,
+      message: `Successfully generated ${generatedSchedules.length} schedules using ${shiftSlots.length} shift slot(s)`,
+      schedules: generatedSchedules.slice(0, 10), // Return first 10 for preview
       userCount: usersToSchedule.length,
       shiftSlotsUsed: shiftSlots.length,
-      selectedSlots: shiftSlotIds && shiftSlotIds.length > 0 ? shiftSlotIds : null,
-      periodStart: periodStartStr,
-      periodEnd: periodEndStr
+      selectedSlots: shiftSlotIds && shiftSlotIds.length > 0 ? shiftSlotIds : null
     };
 
     console.log('✅ Enhanced schedule generation completed:', result);
@@ -1330,38 +1065,14 @@ function clientGetAllSchedules(filters = {}) {
     let filteredSchedules = schedules;
 
     // Apply filters
-    const parseDate = (value) => {
-      if (!value) return null;
-      const date = new Date(value);
-      return isNaN(date.getTime()) ? null : date;
-    };
-
-    const getSchedulePeriod = (schedule) => {
-      const startValue = schedule.PeriodStart || schedule.Date;
-      const endValue = schedule.PeriodEnd || schedule.Date || startValue;
-      const startDate = parseDate(startValue);
-      const endDate = parseDate(endValue);
-      return { startDate, endDate: endDate || startDate };
-    };
-
     if (filters.startDate) {
-      const startFilter = parseDate(filters.startDate);
-      if (startFilter) {
-        filteredSchedules = filteredSchedules.filter(schedule => {
-          const { endDate } = getSchedulePeriod(schedule);
-          return endDate ? endDate >= startFilter : true;
-        });
-      }
+      const startDate = new Date(filters.startDate);
+      filteredSchedules = filteredSchedules.filter(s => new Date(s.Date) >= startDate);
     }
 
     if (filters.endDate) {
-      const endFilter = parseDate(filters.endDate);
-      if (endFilter) {
-        filteredSchedules = filteredSchedules.filter(schedule => {
-          const { startDate } = getSchedulePeriod(schedule);
-          return startDate ? startDate <= endFilter : true;
-        });
-      }
+      const endDate = new Date(filters.endDate);
+      filteredSchedules = filteredSchedules.filter(s => new Date(s.Date) <= endDate);
     }
 
     if (filters.userId) {
@@ -1380,15 +1091,8 @@ function clientGetAllSchedules(filters = {}) {
       filteredSchedules = filteredSchedules.filter(s => s.Department === filters.department);
     }
 
-    // Sort by assignment period (newest first)
-    filteredSchedules.sort((a, b) => {
-      const { startDate: startA } = getSchedulePeriod(a);
-      const { startDate: startB } = getSchedulePeriod(b);
-      if (!startA && !startB) return 0;
-      if (!startA) return 1;
-      if (!startB) return -1;
-      return startB - startA;
-    });
+    // Sort by date (newest first)
+    filteredSchedules.sort((a, b) => new Date(b.Date) - new Date(a.Date));
 
     console.log(`✅ Returning ${filteredSchedules.length} filtered schedules`);
 
@@ -2893,47 +2597,14 @@ function getUserIdByName(userName) {
 /**
  * Check if schedule exists for user on date - uses ScheduleUtilities
  */
-function checkExistingSchedule(userName, periodStart, periodEnd) {
+function checkExistingSchedule(userName, date) {
   try {
     const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const requestedStart = normalizeScheduleDate(periodStart);
-    const requestedEnd = normalizeScheduleDate(periodEnd || periodStart);
-
-    if (!requestedStart || !requestedEnd) {
-      return null;
-    }
-
-    return schedules.find(schedule => {
-      if (schedule.UserName !== userName) {
-        return false;
-      }
-
-      const existingStart = normalizeScheduleDate(schedule.PeriodStart || schedule.Date);
-      const existingEnd = normalizeScheduleDate(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart);
-
-      if (!existingStart || !existingEnd) {
-        return false;
-      }
-
-      return existingStart <= requestedEnd && existingEnd >= requestedStart;
-    }) || null;
+    return schedules.find(s => s.UserName === userName && s.Date === date);
   } catch (error) {
     console.warn('Error checking existing schedule:', error);
     return null;
   }
-}
-
-function normalizeScheduleDate(value) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
 }
 
 /**
@@ -2996,8 +2667,6 @@ function normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, time
     UserID: raw.UserID || (matchedUser ? matchedUser.ID : ''),
     UserName: matchedUser ? (matchedUser.UserName || matchedUser.FullName) : userName,
     Date: dateStr,
-    PeriodStart: metadata && metadata.startDate ? metadata.startDate : dateStr,
-    PeriodEnd: metadata && metadata.endDate ? metadata.endDate : dateStr,
     SlotID: raw.SlotID || '',
     SlotName: raw.SlotName || `Imported ${raw.SourceDayLabel || 'Shift'}`,
     StartTime: raw.StartTime || '',
@@ -3241,8 +2910,6 @@ function convertLegacyScheduleRecord(raw) {
     UserID: userId || normalizeUserIdValue(userName),
     UserName: userName || userId,
     Date: normalizeDate(scheduleDate),
-    PeriodStart: normalizeDate(scheduleDate),
-    PeriodEnd: normalizeDate(scheduleDate),
     SlotID: resolve(['SlotID', 'ShiftID', 'TemplateID'], ''),
     SlotName: slotName || 'Shift',
     StartTime: resolve(['StartTime', 'Start', 'ShiftStart', 'Begin']),
