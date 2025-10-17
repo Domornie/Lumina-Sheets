@@ -471,6 +471,12 @@
     border: 1px solid rgba(245, 158, 11, 0.3);
   }
 
+  .data-badge.answer {
+    background: rgba(6, 182, 212, 0.1);
+    color: #0f172a;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+
   .btn-modern {
     display: inline-flex;
     align-items: center;
@@ -575,7 +581,8 @@
     generateHeaderSuggestions(headers, missingKeys) {
       const suggestions = {
         date: 'Try renaming a date column to include "Created Date" or "Call Reporting"',
-        talk: 'Try renaming a time column to "Talk Time Minutes"', 
+        talk: 'Try renaming a time column to "Talk Time Minutes"',
+        answer: 'Try renaming the response column to include "To Answer Time"',
         policy: 'Try renaming a routing column to "From Routing Policy"',
         csat: 'Try renaming a satisfaction column to "Question1" or include "CSAT"',
         wrapup: 'Try renaming a wrap-up column to "Wrapup Label" or "Wrapup Label 0"',
@@ -1045,6 +1052,7 @@
       const headerMap = {
         date: this.findHeader(rawHeaders, ['call reporting', 'created date'], ['date', 'created']),
         talk: this.findHeader(rawHeaders, ['talk time minutes'], ['talk', 'time', 'minutes']),
+        answer: this.findHeader(rawHeaders, ['to answer time'], ['answer time', 'answer']),
         policy: this.findHeader(rawHeaders, ['from routing policy'], ['routing', 'policy']),
         csat: this.findHeader(rawHeaders, ['question1'], ['question', 'csat', 'satisfaction']),
         wrapup: this.findHeader(rawHeaders, ['wrapup label'], ['wrapup', 'wrap', 'label']),
@@ -1096,11 +1104,15 @@
         // 2) Parse TalkTimeMinutes
         const talkVal = Number(cols[indices.talk]) || 0;
 
-        // 3) Parse Policy & Wrapup
+        // 3) Parse Answer Time → keep numeric seconds when possible
+        const answerRaw = indices.answer !== undefined ? cols[indices.answer] : '';
+        const answerVal = this.normalizeAnswerTime(answerRaw, !isNaN(dtCandidate) ? dtCandidate : rawDate);
+
+        // 4) Parse Policy & Wrapup
         const policyVal = String(cols[indices.policy] || "");
         const wrapVal = String(cols[indices.wrapup] || "");
 
-        // 4) Parse CSAT: leave exactly "Yes", "No", or blank
+        // 5) Parse CSAT: leave exactly "Yes", "No", or blank
         let csatText = String(cols[indices.csat] || "").trim();
         const lc = csatText.toLowerCase();
         if (lc === "yes") {
@@ -1111,10 +1123,10 @@
           csatText = ""; // leave blank otherwise
         }
 
-        // 5) Parse UserName & strip "VLBPO"
+        // 6) Parse UserName & strip "VLBPO"
         let userName = String(cols[indices.user] || "").replace(/\s*VLBPO\s*/gi, " ").trim();
 
-        // 6) UserID not provided by file → empty string
+        // 7) UserID not provided by file → empty string
         const userIDVal = "";
 
         // Skip empty rows
@@ -1126,6 +1138,8 @@
         this.parsedRows.push({
           Date: dateVal,
           TalkTimeMinutes: talkVal,
+          ToAnswerTime: answerVal,
+          'To Answer Time': answerVal,
           Policy: policyVal,
           Wrapup: wrapVal,
           UserName: userName,
@@ -1184,6 +1198,7 @@
           <th style="width: 60px;">#</th>
           <th>Created Date</th>
           <th>Talk Time</th>
+          <th>Answer Time</th>
           <th>Policy</th>
           <th>CSAT</th>
           <th>Wrapup</th>
@@ -1201,6 +1216,7 @@
         // Create styled badges for better visual representation
         const csatBadge = this.createCSATBadge(rowObj.CSAT);
         const talktimeBadge = `<span class="data-badge talktime">${rowObj.TalkTimeMinutes}min</span>`;
+        const answerBadge = this.createAnswerBadge(rowObj.ToAnswerTime);
         const policyBadge = rowObj.Policy ? `<span class="data-badge policy">${this.escapeHtml(rowObj.Policy)}</span>` : '-';
         const wrapupBadge = rowObj.Wrapup ? `<span class="data-badge wrapup">${this.escapeHtml(rowObj.Wrapup)}</span>` : '-';
 
@@ -1209,6 +1225,7 @@
           <td><strong>${idx + 1}</strong></td>
           <td>${this.escapeHtml(displayDate)}</td>
           <td>${talktimeBadge}</td>
+          <td>${answerBadge}</td>
           <td>${policyBadge}</td>
           <td>${csatBadge}</td>
           <td>${wrapupBadge}</td>
@@ -1225,6 +1242,114 @@
         `Successfully parsed <strong>${this.parsedRows.length}</strong> call reports from <strong>${userCount}</strong> users. Review the preview above and click Import to proceed.`,
         "success"
       );
+    }
+
+    ensureDate(value) {
+      if (value instanceof Date && !isNaN(value)) return value;
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = new Date(value);
+      return isNaN(parsed) ? null : parsed;
+    }
+
+    parseAnswerSeconds(rawValue, createdDate) {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+      const created = this.ensureDate(createdDate);
+
+      if (rawValue instanceof Date && !isNaN(rawValue)) {
+        if (!created) return null;
+        const diff = (rawValue.getTime() - created.getTime()) / 1000;
+        return isFinite(diff) ? Math.max(0, diff) : null;
+      }
+
+      if (typeof rawValue === 'number' && isFinite(rawValue)) {
+        let seconds = rawValue;
+        if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+        return Math.max(0, seconds);
+      }
+
+      const str = String(rawValue).trim();
+      if (!str) return null;
+
+      const numeric = Number(str);
+      if (!isNaN(numeric) && isFinite(numeric)) {
+        let seconds = numeric;
+        if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+        return Math.max(0, seconds);
+      }
+
+      const timeParts = str.split(':');
+      if (timeParts.length >= 2 && timeParts.length <= 3) {
+        let seconds = 0;
+        for (let i = 0; i < timeParts.length; i++) {
+          const part = Number(timeParts[i]);
+          if (isNaN(part)) {
+            seconds = null;
+            break;
+          }
+          seconds = (seconds * 60) + part;
+        }
+        if (seconds !== null) return Math.max(0, seconds);
+      }
+
+      const parsedDate = new Date(str);
+      if (!isNaN(parsedDate) && created) {
+        const diff = (parsedDate.getTime() - created.getTime()) / 1000;
+        return isFinite(diff) ? Math.max(0, diff) : null;
+      }
+
+      const secondsMatch = str.match(/(\d+(?:\.\d+)?)/);
+      if (secondsMatch) {
+        const seconds = Number(secondsMatch[1]);
+        if (!isNaN(seconds)) return Math.max(0, seconds);
+      }
+
+      return null;
+    }
+
+    normalizeAnswerTime(rawValue, createdDate) {
+      const seconds = this.parseAnswerSeconds(rawValue, createdDate);
+      if (seconds === null) {
+        if (rawValue === null || rawValue === undefined) return '';
+        if (typeof rawValue === 'string') return rawValue.trim();
+        return rawValue;
+      }
+      return this.formatSecondsToTime(seconds);
+    }
+
+    formatSecondsToTime(seconds) {
+      if (seconds === null || seconds === undefined) return '';
+      const numeric = Number(seconds);
+      if (isNaN(numeric) || !isFinite(numeric)) return '';
+      const totalSeconds = Math.max(0, Math.round(numeric));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      const hh = String(hours).padStart(2, '0');
+      const mm = String(minutes).padStart(2, '0');
+      const ss = String(secs).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    createAnswerBadge(value) {
+      if (value === null || value === undefined || value === '') {
+        return '<span class="data-badge answer">—</span>';
+      }
+
+      const seconds = this.parseAnswerSeconds(value);
+      if (seconds !== null) {
+        const formatted = this.formatSecondsToTime(seconds);
+        if (formatted) {
+          return `<span class="data-badge answer">${formatted}</span>`;
+        }
+      }
+
+      const text = String(value).trim();
+      if (!text) {
+        return '<span class="data-badge answer">—</span>';
+      }
+
+      return `<span class="data-badge answer">${this.escapeHtml(text)}</span>`;
     }
 
     createCSATBadge(csat) {
