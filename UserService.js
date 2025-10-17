@@ -1985,26 +1985,10 @@ function getManagerVisibleUserIds(managerUserId, options) {
 
 function clientGetAllUsers(requestingUserId) {
   try {
-    let resolvedRequestingUserId = requestingUserId;
-    let currentUser = null;
-
-    try {
-      currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    } catch (currentErr) {
-      try { writeError && writeError('clientGetAllUsers.getCurrentUser', currentErr); } catch (_) { }
-      currentUser = null;
-    }
-
-    if (!resolvedRequestingUserId && currentUser && currentUser.ID) {
-      resolvedRequestingUserId = currentUser.ID;
-    }
-
     try {
       ensureUsersHaveIds();
     } catch (ensureError) {
-      try {
-        writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError);
-      } catch (_) { }
+      try { writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError); } catch (_) { }
     }
 
     let users = [];
@@ -2039,9 +2023,7 @@ function clientGetAllUsers(requestingUserId) {
           try {
             ensureUsersHaveIds();
           } catch (ensureLoopError) {
-            try {
-              writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError);
-            } catch (_) { }
+            try { writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError); } catch (_) { }
           }
 
           if (!u.ID) {
@@ -2068,93 +2050,7 @@ function clientGetAllUsers(requestingUserId) {
       }
     }
 
-    let filteredUsers = enhancedUsers;
-    const allowFullDirectoryView = !!G.ALLOW_FULL_USER_DIRECTORY_VIEW;
-    if (!allowFullDirectoryView) {
-      const normalizedRequestingId = normalizeManagerUserId(resolvedRequestingUserId);
-      const normalizedCurrentEmail = currentUser
-        ? _normEmail_(currentUser.Email || currentUser.email || currentUser.WorkEmail || currentUser.PrimaryEmail)
-        : '';
-      const fallbackEmailFromId = (normalizedRequestingId && normalizedRequestingId.indexOf('@') !== -1)
-        ? normalizedRequestingId.toLowerCase()
-        : '';
-      const emailCandidates = Array.from(new Set([normalizedCurrentEmail, fallbackEmailFromId].filter(Boolean)));
-
-      const matchUserById = (collection, targetId) => {
-        if (!targetId) return null;
-        for (let i = 0; i < collection.length; i++) {
-          const candidate = collection[i];
-          if (!candidate) continue;
-          const candidateId = normalizeManagerUserId(candidate.ID || candidate.Id || candidate.id);
-          if (candidateId && candidateId === targetId) {
-            return candidate;
-          }
-        }
-        return null;
-      };
-
-      const matchUserByEmail = (collection, targetEmail) => {
-        if (!targetEmail) return null;
-        for (let i = 0; i < collection.length; i++) {
-          const candidate = collection[i];
-          if (!candidate) continue;
-          const candidateEmail = _normEmail_(
-            candidate.Email || candidate.email || candidate.EmailAddress ||
-            candidate.WorkEmail || candidate.workEmail || candidate.PrimaryEmail || candidate.primaryEmail
-          );
-          if (candidateEmail && candidateEmail === targetEmail) {
-            return candidate;
-          }
-        }
-        return null;
-      };
-
-      const resolveRequestingUser = () => {
-        let found = matchUserById(enhancedUsers, normalizedRequestingId) || matchUserById(users, normalizedRequestingId);
-        if (found) return found;
-        for (let i = 0; i < emailCandidates.length; i++) {
-          const email = emailCandidates[i];
-          if (!email) continue;
-          found = matchUserByEmail(enhancedUsers, email) || matchUserByEmail(users, email);
-          if (found) return found;
-        }
-        return null;
-      };
-
-      if (normalizedRequestingId) {
-        try {
-          const requestingUser = resolveRequestingUser();
-          if (requestingUser) {
-            if (isUserAdmin(requestingUser)) {
-              filteredUsers = enhancedUsers;
-            } else {
-              const managedIds = getManagerVisibleUserIds(normalizedRequestingId, { includeSelf: true });
-              if (managedIds && managedIds.size) {
-                filteredUsers = enhancedUsers.filter(user => managedIds.has(String(user.ID)));
-              } else {
-                filteredUsers = enhancedUsers.filter(user => String(user.ID) === normalizedRequestingId);
-              }
-            }
-          } else {
-            _userLog_('clientGetAllUsers.requestingUserNotFound', {
-              resolvedRequestingUserId,
-              normalizedRequestingId,
-              emailCandidates
-            }, 'warn');
-            filteredUsers = enhancedUsers;
-          }
-        } catch (permissionError) {
-          filteredUsers = enhancedUsers;
-        }
-      } else if (resolvedRequestingUserId) {
-        filteredUsers = enhancedUsers;
-      }
-    } else {
-      try {
-        _userLog_('clientGetAllUsers.fullDirectoryView', { count: enhancedUsers.length });
-      } catch (_) { }
-    }
-    return filteredUsers;
+    return enhancedUsers;
   } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
 }
 
@@ -4843,29 +4739,63 @@ function clientGetValidEmploymentStatuses() {
 function clientGetEmploymentStatusReport(campaignId) {
   try {
     const users = readSheet(G.USERS_SHEET) || [];
-    let filtered = users;
-    if (campaignId) filtered = users.filter(u => u.CampaignID === campaignId);
+    const filtered = campaignId
+      ? users.filter(u => u && u.CampaignID === campaignId)
+      : users;
 
     const statusCounts = {};
     const valid = getValidEmploymentStatuses();
     valid.forEach(s => statusCounts[s] = 0);
     statusCounts['Unspecified'] = 0;
 
+    const changeEntries = [];
+    const scriptTimeZone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
+      ? Session.getScriptTimeZone()
+      : 'UTC';
+
     filtered.forEach(u => {
       const normalized = normalizeEmploymentStatus(u && (u.EmploymentStatus || u.employmentStatus));
-      if (normalized) {
-        if (typeof statusCounts[normalized] !== 'number') statusCounts[normalized] = 0;
-        statusCounts[normalized]++;
-      } else {
-        statusCounts['Unspecified']++;
+      const status = normalized || 'Unspecified';
+      if (typeof statusCounts[status] !== 'number') statusCounts[status] = 0;
+      statusCounts[status]++;
+
+      const displayName = String(u && (u.FullName || u.fullName || u.UserName || u.userName || u.username
+        || u.Email || u.email || '')).trim() || 'User';
+      const updatedRaw = u && (u.UpdatedAt || u.updatedAt || u.Updated || u.LastModified || u.Modified
+        || u.ModifiedAt || u.LastUpdated || u.UpdatedOn || u.updatedOn);
+      if (updatedRaw) {
+        const updatedDate = new Date(updatedRaw);
+        if (!isNaN(updatedDate.getTime())) {
+          let formatted;
+          try {
+            if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+              formatted = Utilities.formatDate(updatedDate, scriptTimeZone || 'UTC', 'MMM d, yyyy');
+            } else {
+              formatted = updatedDate.toISOString().split('T')[0];
+            }
+          } catch (formatErr) {
+            formatted = updatedDate.toISOString().split('T')[0];
+          }
+          changeEntries.push({
+            ts: updatedDate.getTime(),
+            text: `${displayName} → ${status} (${formatted})`
+          });
+        }
       }
     });
+
+    const recentChanges = changeEntries
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 10)
+      .map(entry => entry.text);
+
     return {
       success: true,
       campaignId,
       totalUsers: filtered.length,
       statusCounts,
       validStatuses: valid,
+      recentChanges,
       message: `Employment status report for ${filtered.length} users`
     };
   } catch (e) { writeError && writeError('clientGetEmploymentStatusReport', e); return { success: false, error: e.message }; }

@@ -4491,33 +4491,47 @@
     }
 
     const statusData = validList.map(status => {
-      const count = statusCounts[status] || 0;
-      const percentage = totalUsers > 0 ? ((count / totalUsers) * 100).toFixed(1) : '0.0';
-      return { status, count, percentage };
+      const label = safeTrim(status) || 'Unspecified';
+      const count = (typeof statusCounts[label] === 'number')
+        ? statusCounts[label]
+        : (typeof statusCounts[status] === 'number' ? statusCounts[status] : 0);
+      const percentage = totalUsers > 0 ? (count / totalUsers) * 100 : 0;
+      return {
+        status: label,
+        count,
+        percentage,
+        percentageLabel: percentage.toFixed(1)
+      };
     }).sort((a, b) => b.count - a.count);
 
+    const statusRowsHtml = statusData.map(item => `
+        <tr>
+          <td><strong>${escapeHtml(item.status)}</strong></td>
+          <td>${item.count}</td>
+          <td>${item.percentageLabel}%</td>
+          <td>
+            <div class="progress" style="height: 20px;">
+              <div class="progress-bar ${getStatusColorClass(item.status)}" role="progressbar"
+                   style="width: ${item.percentageLabel}%"
+                   aria-valuenow="${item.percentageLabel}" aria-valuemin="0" aria-valuemax="100">
+              </div>
+            </div>
+          </td>
+        </tr>`).join('');
+
+    const recentChangesHtml = Array.isArray(data.recentChanges) && data.recentChanges.length
+      ? data.recentChanges.slice(0, 5).map(r => `<li>${escapeHtml(r)}</li>`).join('')
+      : '<li>No recent changes</li>';
+
     content.innerHTML = `
-    <div class="row">
+    <div class="row g-4">
       <div class="col-md-8">
         <h6 class="fw-bold"><i class="fas fa-chart-pie me-2"></i>Employment Status Distribution</h6>
         <div class="table-responsive">
           <table class="table table-sm">
             <thead><tr><th>Status</th><th>Count</th><th>Percentage</th><th>Visual</th></tr></thead>
             <tbody>
-              ${statusData.map(item => `
-                <tr>
-                  <td><strong>${escapeHtml(item.status)}</strong></td>
-                  <td>${item.count}</td>
-                  <td>${item.percentage}%</td>
-                  <td>
-                    <div class="progress" style="height: 20px;">
-                      <div class="progress-bar ${getStatusColorClass(item.status)}" role="progressbar"
-                           style="width: ${item.percentage}%"
-                           aria-valuenow="${item.percentage}" aria-valuemin="0" aria-valuemax="100">
-                      </div>
-                    </div>
-                  </td>
-                </tr>`).join('')}
+              ${statusRowsHtml}
             </tbody>
           </table>
         </div>
@@ -4544,7 +4558,7 @@
           <h6 class="fw-bold"><i class="fas fa-calendar-alt me-2"></i>Recent Activity</h6>
           <div class="small text-muted">
             <ul class="mb-0">
-              ${(data.recentChanges || []).slice(0,5).map(r => `<li>${escapeHtml(r)}</li>`).join('') || '<li>No recent changes</li>'}
+              ${recentChangesHtml}
             </ul>
           </div>
         </div>
@@ -4570,7 +4584,6 @@
     if (s.includes('intern')) return 'bg-info';
     return 'bg-secondary';
   }
-
   // ---------- Permissions & Pages for a user ----------
   function loadUserPages(userId) {
     showLoading(true);
