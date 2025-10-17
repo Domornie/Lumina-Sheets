@@ -97,6 +97,140 @@
         -moz-osx-font-smoothing: grayscale;
     }
 
+    .peak-window-list,
+    .schedule-planner-container,
+    .peak-summary-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .peak-window-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px dashed var(--gray-200);
+    }
+
+    .peak-window-list li:last-child {
+        border-bottom: none;
+    }
+
+    .peak-window-time {
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .peak-window-load {
+        font-size: 0.85rem;
+        color: var(--gray-500);
+    }
+
+    .schedule-planner-container .schedule-plan-card {
+        background: rgba(255, 255, 255, 0.65);
+        border-radius: var(--radius);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 1rem 1.1rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 0.9rem;
+    }
+
+    .schedule-plan-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .schedule-plan-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .schedule-plan-times {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--primary);
+    }
+
+    .schedule-plan-meta {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        text-align: right;
+    }
+
+    .schedule-plan-card dl {
+        margin: 0;
+    }
+
+    .schedule-plan-card dt {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--gray-600);
+    }
+
+    .schedule-plan-card dd {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.9rem;
+        color: var(--gray-700);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .schedule-plan-note {
+        font-size: 0.78rem;
+        color: var(--gray-500);
+        margin-top: 0.5rem;
+    }
+
+    .load-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+    }
+
+    .load-chip.load-low {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+    }
+
+    .load-chip.load-moderate {
+        background: rgba(234, 179, 8, 0.18);
+        color: #b45309;
+    }
+
+    .load-chip.load-high {
+        background: rgba(239, 68, 68, 0.18);
+        color: #b91c1c;
+    }
+
+    .peak-summary-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px dashed var(--gray-200);
+    }
+
+    .peak-summary-list li:last-child {
+        border-bottom: none;
+    }
+
+    .peak-summary-list i {
+        margin-top: 0.15rem;
+    }
+
     /* Enhanced Typography */
     h1, h2, h3, h4, h5, h6 {
         font-weight: 700;
@@ -1067,6 +1201,22 @@
             </div>
         </div>
     </div>
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="ai-insight-card">
+                <h6 class="ai-section-title"><i class="fas fa-clock me-2 text-info"></i>Peak Call Windows</h6>
+                <ul class="peak-window-list" id="peakWindowList">
+                    <li class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading peak windows…</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="ai-insight-card">
+                <h6 class="ai-section-title"><i class="fas fa-utensils me-2 text-success"></i>Break & Lunch Planner</h6>
+                <div id="schedulePlannerContainer" class="schedule-planner-container text-muted">Recommendations will appear once data loads.</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Enhanced KPI Cards -->
@@ -1142,6 +1292,34 @@
                 <div class="chart-container">
                     <canvas id="csatDistChart" role="img" aria-label="CSAT distribution chart"></canvas>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Time-of-Day Analyzer -->
+<div class="row gx-4 mb-5 animate-fade-in-up" style="animation-delay: 0.2s;">
+    <div class="col-xl-7">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-1"><i class="fas fa-chart-bar me-2 text-primary"></i>Call Load by Time of Day</h5>
+                <p class="mb-0 text-muted">Historic call volume aggregated by hour to highlight demand spikes and quiet windows.</p>
+            </div>
+            <div class="card-body">
+                <canvas id="callLoadByHourChart" role="img" aria-label="Call load by hour chart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-1"><i class="fas fa-calendar-check me-2 text-success"></i>Peak Coverage Summary</h5>
+                <p class="mb-0 text-muted">Key scheduling notes derived from the latest call history.</p>
+            </div>
+            <div class="card-body">
+                <ul class="peak-summary-list" id="peakSummaryList">
+                    <li class="text-muted"><i class="fas fa-info-circle me-2"></i>Summary will appear once data loads.</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -1226,6 +1404,7 @@
   let callTrendChart = null;
   let talkTrendChart = null;
   let csatChart = null;
+  let callLoadByHourChart = null;
 
   // Current filters - keep exactly as before
   let currentGran = "Week";
@@ -1446,6 +1625,7 @@
     renderCsatChart(analytics.csatDist);
     renderCallTrendChart(analytics.callTrend);
     renderTalkTrendChart(analytics.talkTrend);
+    renderTimeOfDayInsights(analytics);
     renderRepMetricsTable(analytics.repMetrics);
   }
 
@@ -1465,6 +1645,9 @@
     const wrapDist = Array.isArray(analytics.wrapDist) ? analytics.wrapDist : [];
     const policyDist = Array.isArray(analytics.policyDist) ? analytics.policyDist : [];
     const csatDist = Array.isArray(analytics.csatDist) ? analytics.csatDist : [];
+    const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
+    const peakTimeWindows = Array.isArray(analytics.peakTimeWindows) ? analytics.peakTimeWindows : [];
+    const scheduleRecommendations = Array.isArray(analytics.scheduleRecommendations) ? analytics.scheduleRecommendations : [];
 
     const totalCalls = repMetrics.reduce((sum, r) => sum + (Number(r.totalCalls) || 0), 0);
     const totalTalkMinutes = talkTrend.reduce((sum, entry) => sum + (Number(entry.totalTalk) || 0), 0);
@@ -1559,6 +1742,17 @@
       }
     }
 
+    const busiestHourEntry = hourlyVolume.reduce((best, entry) =>
+      (Number(entry.callCount) || 0) > (Number(best?.callCount) || 0) ? entry : best
+    , null);
+
+    const quietHourEntry = hourlyVolume
+      .filter(entry => Number(entry.callCount) || 0)
+      .reduce((best, entry) => {
+        if (!best) return entry;
+        return (Number(entry.callCount) || 0) < (Number(best.callCount) || 0) ? entry : best;
+      }, null) || null;
+
     const insights = [];
 
     if (totalCsatResponses > 0) {
@@ -1577,6 +1771,14 @@
 
     if (busiestPeriod && peakPeriodCount > 0) {
       insights.push(`Busiest period: <strong>${peakPeriodLabel}</strong> with <strong>${peakPeriodCount.toLocaleString()}</strong> calls.`);
+    }
+
+    if (busiestHourEntry && Number(busiestHourEntry.callCount || 0) > 0) {
+      insights.push(`Peak hourly load: <strong>${busiestHourEntry.windowLabel}</strong> (${Number(busiestHourEntry.callCount || 0).toLocaleString()} calls).`);
+    }
+
+    if (quietHourEntry && Number(quietHourEntry.callCount || 0) >= 0) {
+      insights.push(`Quietest hour: <strong>${quietHourEntry.windowLabel}</strong> (${Number(quietHourEntry.callCount || 0).toLocaleString()} calls).`);
     }
 
     if (topAgent && Number(topAgent.totalCalls || 0) > 0) {
@@ -1611,6 +1813,15 @@
       } else if (callDelta < 0) {
         recommendations.push('Re-engage dormant campaigns or cross-sell initiatives to stabilise declining call volume.');
       }
+    }
+
+    if (peakTimeWindows.length) {
+      recommendations.push(`Protect coverage during <strong>${peakTimeWindows[0].windowLabel}</strong>; it holds ${Number(peakTimeWindows[0].shareOfDay || 0).toFixed(1)}% of the day's calls.`);
+    }
+
+    const midShiftPlan = scheduleRecommendations.find(plan => plan.id === 'mid') || scheduleRecommendations[0];
+    if (midShiftPlan && midShiftPlan.lunch?.rangeLabel) {
+      recommendations.push(`Schedule mid-morning shift lunch around <strong>${midShiftPlan.lunch.rangeLabel}</strong> to dodge peak call pressure.`);
     }
 
     if (topWrap && Number(topWrap.count || 0) > 0) {
@@ -1958,6 +2169,259 @@
     });
   }
 
+  function renderTimeOfDayInsights(analytics = {}) {
+    const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
+    const peakWindows = Array.isArray(analytics.peakTimeWindows) ? analytics.peakTimeWindows : [];
+    const schedulePlans = Array.isArray(analytics.scheduleRecommendations) ? analytics.scheduleRecommendations : [];
+
+    renderCallLoadByHourChart(hourlyVolume);
+    renderPeakWindowList(peakWindows);
+    renderSchedulePlanner(schedulePlans);
+    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans);
+  }
+
+  function renderCallLoadByHourChart(hourlyVolume = []) {
+    const canvas = document.getElementById('callLoadByHourChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const relevant = hourlyVolume.filter(entry => entry.callCount > 0 || (entry.hour >= 7 && entry.hour <= 21));
+    const dataset = relevant.length ? relevant : hourlyVolume;
+    const labels = dataset.map(entry => entry.windowLabel || entry.label || '');
+    const values = dataset.map(entry => Number(entry.callCount) || 0);
+    const intensities = dataset.map(entry => entry.intensity);
+    const maxValue = Math.max(...values, 1);
+    const colors = values.map(value => {
+      const factor = value / maxValue;
+      const alpha = Math.min(0.25 + factor * 0.55, 0.85);
+      return `rgba(37, 99, 235, ${alpha.toFixed(2)})`;
+    });
+
+    if (callLoadByHourChart) callLoadByHourChart.destroy();
+
+    callLoadByHourChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Calls',
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 8,
+          borderSkipped: false,
+          intensities
+        }]
+      },
+      options: {
+        ...getEnhancedChartOptions('bar', 'Call Load by Hour'),
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: context => {
+                const value = Number(context.parsed.y) || 0;
+                const dataset = context.dataset || {};
+                const load = Array.isArray(dataset.intensities) ? dataset.intensities[context.dataIndex] : null;
+                const loadLabel = getLoadLabel(load);
+                return `${value.toLocaleString()} calls • ${loadLabel}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Calls per hour' },
+            ticks: { precision: 0 }
+          },
+          x: {
+            grid: { display: false },
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              autoSkip: true,
+              font: { size: 11 }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderPeakWindowList(peaks = []) {
+    const listEl = document.getElementById('peakWindowList');
+    if (!listEl) return;
+
+    if (!peaks.length) {
+      listEl.innerHTML = `<li class="text-muted"><i class="fas fa-info-circle me-2"></i>No peak windows detected for this selection.</li>`;
+      return;
+    }
+
+    listEl.innerHTML = peaks
+      .map((item, index) => {
+        const share = Number(item.shareOfDay || 0).toFixed(1);
+        return `
+          <li>
+            <div>
+              <div class="peak-window-time">#${index + 1} ${item.windowLabel}</div>
+              <div class="peak-window-load">${Number(item.callCount || 0).toLocaleString()} calls • ${share}% of day</div>
+            </div>
+            ${renderLoadChip(item.intensity)}
+          </li>
+        `;
+      })
+      .join('');
+  }
+
+  function renderSchedulePlanner(plans = []) {
+    const container = document.getElementById('schedulePlannerContainer');
+    if (!container) return;
+
+    if (!plans.length) {
+      container.classList.add('text-muted');
+      container.innerHTML = 'No schedule recommendations available for the selected filters yet.';
+      return;
+    }
+
+    container.classList.remove('text-muted');
+    container.innerHTML = plans
+      .map(plan => {
+        const [firstBreak = {}, secondBreak = {}] = Array.isArray(plan.breaks) ? plan.breaks : [{}, {}];
+        const avgHour = Number(plan.averageHourlyLoad || 0).toFixed(1);
+        const overlap = Number(plan.overlapPercent || 0).toFixed(0);
+        const lunchShare = Number(plan.lunch?.shareOfShift || 0).toFixed(1);
+        const breakOneCalls = Number(firstBreak.callCount || 0).toLocaleString();
+        const breakTwoCalls = Number(secondBreak.callCount || 0).toLocaleString();
+
+        return `
+          <div class="schedule-plan-card">
+            <div class="schedule-plan-header">
+              <div>
+                <div class="schedule-plan-title">${plan.name}</div>
+                <div class="schedule-plan-times">${plan.shiftRangeLabel}</div>
+              </div>
+              <div class="schedule-plan-meta">
+                <div>${avgHour} avg calls/hr</div>
+                <div>${overlap}% of peak windows covered</div>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Lunch</dt>
+                <dd>
+                  ${plan.lunch?.rangeLabel || '—'}
+                  ${renderLoadChip(plan.lunch?.intensity)}
+                  <span class="text-muted small">(${Number(plan.lunch?.callCount || 0).toLocaleString()} calls • ${lunchShare}% of shift)</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Break 1</dt>
+                <dd>
+                  ${firstBreak.rangeLabel || '—'}
+                  ${renderLoadChip(firstBreak.intensity)}
+                  <span class="text-muted small">(${breakOneCalls} calls)</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Break 2</dt>
+                <dd>
+                  ${secondBreak.rangeLabel || '—'}
+                  ${renderLoadChip(secondBreak.intensity)}
+                  <span class="text-muted small">(${breakTwoCalls} calls)</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Watch</dt>
+                <dd>
+                  ${plan.peakGuard?.rangeLabel || '—'}
+                  ${renderLoadChip(plan.peakGuard?.intensity)}
+                  <span class="text-muted small">(${Number(plan.peakGuard?.callCount || 0).toLocaleString()} calls peak)</span>
+                </dd>
+              </div>
+            </dl>
+            <div class="schedule-plan-note">${plan.coverageNote || ''}</div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = []) {
+    const listEl = document.getElementById('peakSummaryList');
+    if (!listEl) return;
+
+    const meaningfulHours = hourlyVolume.filter(entry => entry.callCount > 0);
+    if (!meaningfulHours.length && !peaks.length) {
+      listEl.innerHTML = `<li class="text-muted"><i class="fas fa-info-circle me-2"></i>No call traffic recorded for this selection.</li>`;
+      return;
+    }
+
+    const busiestHour = (meaningfulHours.length ? meaningfulHours : hourlyVolume)
+      .reduce((best, entry) => (Number(entry.callCount) || 0) > (Number(best?.callCount) || 0) ? entry : best, null);
+
+    const quietHour = (meaningfulHours.length ? meaningfulHours : hourlyVolume)
+      .reduce((best, entry) => {
+        const value = Number(entry.callCount) || 0;
+        const currentBest = Number(best?.callCount);
+        if (best === null) return entry;
+        return value < (isNaN(currentBest) ? Infinity : currentBest) ? entry : best;
+      }, null);
+
+    const priorityPlan = plans.find(plan => plan.id === 'mid') || plans[0] || null;
+    const items = [];
+
+    if (busiestHour) {
+      items.push(`
+        <li>
+          <i class="fas fa-bolt mt-1 text-danger"></i>
+          <div><strong>${busiestHour.windowLabel}</strong> is the busiest hour (${Number(busiestHour.callCount || 0).toLocaleString()} calls).</div>
+        </li>
+      `);
+    }
+
+    if (peaks.length) {
+      const top = peaks[0];
+      items.push(`
+        <li>
+          <i class="fas fa-chart-line mt-1 text-primary"></i>
+          <div>Top spike: <strong>${top.windowLabel}</strong> (${Number(top.callCount || 0).toLocaleString()} calls • ${Number(top.shareOfDay || 0).toFixed(1)}% of day).</div>
+        </li>
+      `);
+    }
+
+    if (quietHour) {
+      items.push(`
+        <li>
+          <i class="fas fa-leaf mt-1 text-success"></i>
+          <div>Quietest hour: <strong>${quietHour.windowLabel}</strong> (${Number(quietHour.callCount || 0).toLocaleString()} calls).</div>
+        </li>
+      `);
+    }
+
+    if (priorityPlan && priorityPlan.lunch?.rangeLabel) {
+      items.push(`
+        <li>
+          <i class="fas fa-utensils mt-1 text-warning"></i>
+          <div>${priorityPlan.name} lunch sweet spot: <strong>${priorityPlan.lunch.rangeLabel}</strong>.</div>
+        </li>
+      `);
+    }
+
+    listEl.innerHTML = items.join('');
+  }
+
+  function getLoadLabel(intensity) {
+    if (intensity === 'high') return 'High load';
+    if (intensity === 'moderate') return 'Moderate load';
+    return 'Low load';
+  }
+
+  function renderLoadChip(intensity) {
+    const key = intensity === 'high' ? 'high' : intensity === 'moderate' ? 'moderate' : 'low';
+    const label = getLoadLabel(key);
+    return `<span class="load-chip load-${key}">${label}</span>`;
+  }
+
   // Keep existing table rendering function but enhance styling
   function formatDuration(totalSeconds) {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -2102,7 +2566,8 @@
       wrapupDistChart,
       callTrendChart,
       talkTrendChart,
-      csatChart
+      csatChart,
+      callLoadByHourChart
     }).forEach(chart => {
       if (chart && typeof chart.resize === 'function') {
         chart.resize();
