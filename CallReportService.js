@@ -167,6 +167,210 @@ function __parseAnswerSeconds(rawValue, createdDate) {
   return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
 }
 
+var __CALL_REPORT_ANSWER_HEADER_ALIASES = (function (global) {
+  if (global.__CALL_REPORT_ANSWER_HEADER_ALIASES && Array.isArray(global.__CALL_REPORT_ANSWER_HEADER_ALIASES)) {
+    return global.__CALL_REPORT_ANSWER_HEADER_ALIASES;
+  }
+
+  var existingAnswerAliases = global.__ANSWER_HEADER_ALIASES;
+  if (!Array.isArray(existingAnswerAliases) || !existingAnswerAliases.length) {
+    existingAnswerAliases = ['To Answer Time', 'ToAnswerTime'];
+  }
+
+  global.__CALL_REPORT_ANSWER_HEADER_ALIASES = existingAnswerAliases;
+  if (typeof global.__ANSWER_HEADER_ALIASES === 'undefined') {
+    global.__ANSWER_HEADER_ALIASES = existingAnswerAliases;
+  }
+
+  return existingAnswerAliases;
+})(this);
+
+function __isAnswerHeader(name) {
+  if (!name) return false;
+  for (let i = 0; i < __CALL_REPORT_ANSWER_HEADER_ALIASES.length; i++) {
+    if (name === __CALL_REPORT_ANSWER_HEADER_ALIASES[i]) return true;
+  }
+  return false;
+}
+
+function __getAnswerFieldValue(record) {
+  if (!record || typeof record !== 'object') return undefined;
+  for (let i = 0; i < __CALL_REPORT_ANSWER_HEADER_ALIASES.length; i++) {
+    const key = __CALL_REPORT_ANSWER_HEADER_ALIASES[i];
+    if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== undefined) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function __applyAnswerFieldAliases(record, value) {
+  if (!record || typeof record !== 'object') return;
+  for (let i = 0; i < __CALL_REPORT_ANSWER_HEADER_ALIASES.length; i++) {
+    record[__CALL_REPORT_ANSWER_HEADER_ALIASES[i]] = value;
+  }
+}
+
+function __ensureDate(value) {
+  if (value instanceof Date && !isNaN(value)) return value;
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = new Date(value);
+  return isNaN(parsed) ? null : parsed;
+}
+
+function __secondsToParts(totalSeconds) {
+  if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) return null;
+  const normalized = ((Math.round(Number(totalSeconds)) % 86400) + 86400) % 86400;
+  const hours = Math.floor(normalized / 3600);
+  const minutes = Math.floor((normalized % 3600) / 60);
+  const seconds = normalized % 60;
+  return { hours, minutes, seconds };
+}
+
+function __partsFromDate(dateObj) {
+  if (!(dateObj instanceof Date) || isNaN(dateObj)) return null;
+  const tz = Session.getScriptTimeZone ? Session.getScriptTimeZone() : 'UTC';
+  const formatted = Utilities.formatDate(dateObj, tz, 'HH:mm:ss');
+  const segments = formatted.split(':').map(Number);
+  if (segments.length !== 3 || segments.some(n => isNaN(n))) return null;
+  return { hours: segments[0], minutes: segments[1], seconds: segments[2] };
+}
+
+function __extractAnswerAbsoluteDate(rawValue) {
+  if (rawValue instanceof Date && !isNaN(rawValue)) {
+    return new Date(rawValue.getTime());
+  }
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+  const str = String(rawValue).trim();
+  if (!str) return null;
+  const hasDateToken = /\d{4}-\d{2}-\d{2}/.test(str) || /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(str);
+  if (!hasDateToken && !str.toUpperCase().includes('T')) return null;
+  const parsed = new Date(str);
+  if (isNaN(parsed)) return null;
+  return parsed;
+}
+
+function __extractAnswerTimeParts(rawValue) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+  if (rawValue instanceof Date && !isNaN(rawValue)) {
+    return __partsFromDate(rawValue);
+  }
+
+  if (typeof rawValue === 'number' && isFinite(rawValue)) {
+    const numeric = Number(rawValue);
+    if (numeric >= 0 && numeric < 1) {
+      return __secondsToParts(numeric * 86400);
+    }
+    if (numeric >= 0 && numeric < 86400) {
+      return __secondsToParts(numeric);
+    }
+    return __secondsToParts(numeric % 86400);
+  }
+
+  const str = String(rawValue).trim();
+  if (!str) return null;
+
+  const parsedDate = new Date(str);
+  const parsedParts = __partsFromDate(parsedDate);
+  if (parsedParts) {
+    return parsedParts;
+  }
+
+  const clockMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (clockMatch) {
+    let hours = Number(clockMatch[1]);
+    const minutes = Number(clockMatch[2]);
+    const seconds = clockMatch[3] !== undefined ? Number(clockMatch[3]) : 0;
+    if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+    const suffix = clockMatch[4] ? clockMatch[4].toUpperCase() : null;
+    if (suffix === 'PM' && hours < 12) hours += 12;
+    if (suffix === 'AM' && hours === 12) hours = 0;
+    return {
+      hours: ((hours % 24) + 24) % 24,
+      minutes: ((minutes % 60) + 60) % 60,
+      seconds: ((seconds % 60) + 60) % 60
+    };
+  }
+
+  const compactMatch = str.match(/^(\d{1,2})(\d{2})(\d{2})$/);
+  if (compactMatch) {
+    const hours = Number(compactMatch[1]);
+    const minutes = Number(compactMatch[2]);
+    const seconds = Number(compactMatch[3]);
+    if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+    return {
+      hours: ((hours % 24) + 24) % 24,
+      minutes: ((minutes % 60) + 60) % 60,
+      seconds: ((seconds % 60) + 60) % 60
+    };
+  }
+
+  return null;
+}
+
+function __formatAnswerSeconds(seconds) {
+  if (seconds === null || seconds === undefined || seconds === '') return '';
+  const numeric = Number(seconds);
+  if (isNaN(numeric) || !isFinite(numeric)) return '';
+  const parts = __secondsToParts(numeric);
+  if (!parts) return '';
+  const hh = String(parts.hours).padStart(2, '0');
+  const mm = String(parts.minutes).padStart(2, '0');
+  const ss = String(parts.seconds).padStart(2, '0');
+  return hh + ':' + mm + ':' + ss;
+}
+
+function __coerceAnswerCell(rawValue) {
+  const parts = __extractAnswerTimeParts(rawValue);
+  if (!parts) {
+    if (rawValue === null || rawValue === undefined) return '';
+    return String(rawValue).trim();
+  }
+  const seconds = (parts.hours * 3600) + (parts.minutes * 60) + parts.seconds;
+  return __formatAnswerSeconds(seconds);
+}
+
+function __parseAnswerSeconds(rawValue, createdDate) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+  const parts = __extractAnswerTimeParts(rawValue);
+  const baseSeconds = parts ? (parts.hours * 3600) + (parts.minutes * 60) + parts.seconds : null;
+  const created = __ensureDate(createdDate);
+
+  if (created) {
+    const absoluteAnswer = __extractAnswerAbsoluteDate(rawValue);
+    if (absoluteAnswer) {
+      const diffAbs = (absoluteAnswer.getTime() - created.getTime()) / 1000;
+      if (isFinite(diffAbs)) return Math.max(0, Math.round(diffAbs * 100) / 100);
+    }
+  }
+
+  if (!parts) {
+    const numeric = Number(rawValue);
+    if (!isNaN(numeric) && isFinite(numeric)) {
+      return Math.max(0, Math.round(numeric * 100) / 100);
+    }
+    return null;
+  }
+
+  if (!createdDate) {
+    return baseSeconds;
+  }
+
+  if (!created) {
+    return baseSeconds;
+  }
+
+  const answerDate = new Date(created);
+  answerDate.setHours(parts.hours, parts.minutes, parts.seconds, 0);
+  if (answerDate.getTime() < created.getTime()) {
+    answerDate.setDate(answerDate.getDate() + 1);
+  }
+  const diff = (answerDate.getTime() - created.getTime()) / 1000;
+  return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+}
+
 var __CALL_REPORT_ANSWER_HEADER_ALIASES = (typeof __CALL_REPORT_ANSWER_HEADER_ALIASES !== 'undefined')
   ? __CALL_REPORT_ANSWER_HEADER_ALIASES
   : ['To Answer Time', 'ToAnswerTime'];
