@@ -50,7 +50,6 @@ if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
 
 // HR/Benefits config
 if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTHS_AFTER_PROBATION = 3;
-if (typeof G.ALLOW_FULL_USER_DIRECTORY_VIEW === 'undefined') G.ALLOW_FULL_USER_DIRECTORY_VIEW = true;
 
 // Optional extra columns we’ll ensure on Users sheet if missing
 const OPTIONAL_USER_COLUMNS = [
@@ -1854,141 +1853,14 @@ function setCampaignUserPermissions(campaignId, userId, permissionLevel, canMana
 // ───────────────────────────────────────────────────────────────────────────────
 // Users: get all (campaign-aware) + safe mappers
 // ───────────────────────────────────────────────────────────────────────────────
-function normalizeManagerUserId(value) {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
-  return String(value).trim();
-}
-
-function collectManagerAssignmentsFromRows(rows, managerId, append) {
-  if (!Array.isArray(rows) || typeof append !== 'function' || !managerId) return;
-
-  if (Array.isArray(rows[0])) {
-    const headers = (rows[0] || []).map(header => String(header || '').trim());
-    const managerIdx = headers.indexOf('ManagerUserID');
-    let userIdx = headers.indexOf('UserID');
-    if (userIdx === -1) userIdx = headers.indexOf('ManagedUserID');
-    if (managerIdx === -1 || userIdx === -1) return;
-
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (!Array.isArray(row)) continue;
-      const managerCandidate = normalizeManagerUserId(row[managerIdx]);
-      const userCandidate = normalizeManagerUserId(row[userIdx]);
-      if (managerCandidate === managerId && userCandidate && userCandidate !== managerId) {
-        append(userCandidate);
-      }
-    }
-    return;
-  }
-
-  rows.forEach(record => {
-    if (!record || typeof record !== 'object') return;
-
-    const managerCandidates = [
-      record.ManagerUserID, record.ManagerUserId, record.managerUserId,
-      record.ManagerID, record.ManagerId, record.managerId, record.manager_id,
-      record.UserManagerID, record.UserManagerId, record.userManagerId
-    ].map(normalizeManagerUserId).filter(Boolean);
-
-    const userCandidates = [
-      record.UserID, record.UserId, record.userId,
-      record.ManagedUserID, record.ManagedUserId, record.managedUserId,
-      record.managed_user_id, record.ManagedID, record.ManagedId
-    ].map(normalizeManagerUserId).filter(Boolean);
-
-    const managerMatch = managerCandidates.find(candidate => candidate === managerId);
-
-    if (managerMatch && userCandidates.length) {
-      userCandidates.forEach(candidate => {
-        if (candidate && candidate !== managerId) append(candidate);
-      });
-    }
-
-    const reversedManager = userCandidates.find(candidate => candidate === managerId);
-    if (reversedManager && managerCandidates.length) {
-      managerCandidates.forEach(candidate => {
-        if (candidate && candidate !== managerId) append(candidate);
-      });
-    }
-  });
-}
-
-function getManagerVisibleUserIds(managerUserId, options) {
-  const opts = Object.assign({ includeSelf: false }, options || {});
-  const normalizedManagerId = normalizeManagerUserId(managerUserId);
-  const visible = new Set();
-
-  if (!normalizedManagerId) {
-    return visible;
-  }
-
-  const append = (value) => {
-    const normalized = normalizeManagerUserId(value);
-    if (!normalized || normalized === normalizedManagerId) return;
-    visible.add(normalized);
-  };
-
-  if (opts.includeSelf) {
-    visible.add(normalizedManagerId);
-  }
-
-  let populatedFromHelper = false;
-
-  if (typeof getDirectManagedUserIds === 'function') {
-    try {
-      const directSet = getDirectManagedUserIds(normalizedManagerId);
-      if (directSet && typeof directSet.forEach === 'function') {
-        directSet.forEach(append);
-        populatedFromHelper = populatedFromHelper || directSet.size > 0;
-      }
-    } catch (err) {
-      try { writeError && writeError('getManagerVisibleUserIds.getDirectManagedUserIds', err); } catch (_) { }
-    }
-  }
-
-  const loadAssignments = (rows, label) => {
-    try {
-      collectManagerAssignmentsFromRows(rows, normalizedManagerId, append);
-    } catch (err) {
-      try { writeError && writeError(`getManagerVisibleUserIds.${label}`, err); } catch (_) { }
-    }
-  };
-
-  if (!visible.size || !populatedFromHelper) {
-    if (typeof readManagerAssignments_ === 'function') {
-      loadAssignments(readManagerAssignments_(), 'readManagerAssignments');
-    }
-  }
-
-  if (!visible.size || !populatedFromHelper) {
-    const candidateSheets = Array.from(new Set([
-      (typeof getManagerUsersSheetName_ === 'function') ? getManagerUsersSheetName_() : null,
-      'MANAGER_USERS',
-      'ManagerUsers',
-      'manager_users',
-      'UserManagers'
-    ].filter(Boolean)));
-
-    candidateSheets.forEach(name => {
-      if (!name) return;
-      try {
-        loadAssignments(readSheet(name) || [], `readSheet.${name}`);
-      } catch (err) {
-        try { writeError && writeError(`getManagerVisibleUserIds.readSheet.${name}`, err); } catch (_) { }
-      }
-    });
-  }
-
-  return visible;
-}
-
 function clientGetAllUsers(requestingUserId) {
   try {
     try {
       ensureUsersHaveIds();
     } catch (ensureError) {
-      try { writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError); } catch (_) { }
+      try {
+        writeError && writeError('clientGetAllUsers.ensureUsersHaveIds', ensureError);
+      } catch (_) { }
     }
 
     let users = [];
@@ -2023,7 +1895,9 @@ function clientGetAllUsers(requestingUserId) {
           try {
             ensureUsersHaveIds();
           } catch (ensureLoopError) {
-            try { writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError); } catch (_) { }
+            try {
+              writeError && writeError('clientGetAllUsers.ensureUsersHaveIds.row', ensureLoopError);
+            } catch (_) { }
           }
 
           if (!u.ID) {
@@ -2050,7 +1924,37 @@ function clientGetAllUsers(requestingUserId) {
       }
     }
 
-    return enhancedUsers;
+    let filteredUsers = enhancedUsers;
+    if (requestingUserId) {
+      try {
+        const requestingUser = users.find(u => String(u.ID) === String(requestingUserId));
+        if (requestingUser) {
+          if (isUserAdmin(requestingUser)) {
+            filteredUsers = enhancedUsers;
+          } else {
+            const managedCampaigns = getUserManagedCampaigns(requestingUserId) || [];
+            const managedSet = new Set(managedCampaigns.map(c => String(c.ID)));
+            if (managedSet.size > 0) {
+              const managedIds = new Set(Array.from(managedSet).map(String));
+              filteredUsers = enhancedUsers.filter(u => {
+                if (String(u.ID) === String(requestingUserId)) return true;
+                const uCamps = (typeof getUserCampaignsSafe === 'function')
+                  ? (getUserCampaignsSafe(u.ID) || []).map(x => String(x.campaignId))
+                  : (u.CampaignID ? [String(u.CampaignID)] : []);
+                return uCamps.some(cid => managedIds.has(cid));
+              });
+            } else {
+              filteredUsers = enhancedUsers.filter(user => String(user.ID) === String(requestingUserId));
+            }
+          }
+        } else {
+          filteredUsers = [];
+        }
+      } catch (permissionError) {
+        filteredUsers = enhancedUsers;
+      }
+    }
+    return filteredUsers;
   } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
 }
 
@@ -4739,63 +4643,29 @@ function clientGetValidEmploymentStatuses() {
 function clientGetEmploymentStatusReport(campaignId) {
   try {
     const users = readSheet(G.USERS_SHEET) || [];
-    const filtered = campaignId
-      ? users.filter(u => u && u.CampaignID === campaignId)
-      : users;
+    let filtered = users;
+    if (campaignId) filtered = users.filter(u => u.CampaignID === campaignId);
 
     const statusCounts = {};
     const valid = getValidEmploymentStatuses();
     valid.forEach(s => statusCounts[s] = 0);
     statusCounts['Unspecified'] = 0;
 
-    const changeEntries = [];
-    const scriptTimeZone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
-      ? Session.getScriptTimeZone()
-      : 'UTC';
-
     filtered.forEach(u => {
       const normalized = normalizeEmploymentStatus(u && (u.EmploymentStatus || u.employmentStatus));
-      const status = normalized || 'Unspecified';
-      if (typeof statusCounts[status] !== 'number') statusCounts[status] = 0;
-      statusCounts[status]++;
-
-      const displayName = String(u && (u.FullName || u.fullName || u.UserName || u.userName || u.username
-        || u.Email || u.email || '')).trim() || 'User';
-      const updatedRaw = u && (u.UpdatedAt || u.updatedAt || u.Updated || u.LastModified || u.Modified
-        || u.ModifiedAt || u.LastUpdated || u.UpdatedOn || u.updatedOn);
-      if (updatedRaw) {
-        const updatedDate = new Date(updatedRaw);
-        if (!isNaN(updatedDate.getTime())) {
-          let formatted;
-          try {
-            if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
-              formatted = Utilities.formatDate(updatedDate, scriptTimeZone || 'UTC', 'MMM d, yyyy');
-            } else {
-              formatted = updatedDate.toISOString().split('T')[0];
-            }
-          } catch (formatErr) {
-            formatted = updatedDate.toISOString().split('T')[0];
-          }
-          changeEntries.push({
-            ts: updatedDate.getTime(),
-            text: `${displayName} → ${status} (${formatted})`
-          });
-        }
+      if (normalized) {
+        if (typeof statusCounts[normalized] !== 'number') statusCounts[normalized] = 0;
+        statusCounts[normalized]++;
+      } else {
+        statusCounts['Unspecified']++;
       }
     });
-
-    const recentChanges = changeEntries
-      .sort((a, b) => b.ts - a.ts)
-      .slice(0, 10)
-      .map(entry => entry.text);
-
     return {
       success: true,
       campaignId,
       totalUsers: filtered.length,
       statusCounts,
       validStatuses: valid,
-      recentChanges,
       message: `Employment status report for ${filtered.length} users`
     };
   } catch (e) { writeError && writeError('clientGetEmploymentStatusReport', e); return { success: false, error: e.message }; }
