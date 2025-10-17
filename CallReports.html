@@ -510,6 +510,11 @@
         margin: 0.5rem 0;
     }
 
+    .call-load-chart-container {
+        height: clamp(280px, 45vh, 360px);
+        margin: 0;
+    }
+
     /* Enhanced Buttons */
     .btn {
         border-radius: var(--radius);
@@ -1306,7 +1311,9 @@
                 <p class="mb-0 text-muted">Historic call volume aggregated by hour to highlight demand spikes and quiet windows.</p>
             </div>
             <div class="card-body">
-                <canvas id="callLoadByHourChart" role="img" aria-label="Call load by hour chart"></canvas>
+                <div class="chart-container call-load-chart-container">
+                    <canvas id="callLoadByHourChart" role="img" aria-label="Call load by hour chart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -2559,33 +2566,7 @@
       .getAnalyticsByPeriod(gran, periodIdentifier, agent);
   }
 
-  // Add window resize handler for responsive charts
-  window.addEventListener('resize', debounce(() => {
-    Object.values({
-      policyDistChart,
-      wrapupDistChart,
-      callTrendChart,
-      talkTrendChart,
-      csatChart,
-      callLoadByHourChart
-    }).forEach(chart => {
-      if (chart && typeof chart.resize === 'function') {
-        chart.resize();
-      }
-    });
-  }, 250));
-
-  function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
+  // Chart.js responsiveness handles resizing without manual listeners
 
   // Add accessibility enhancements
   document.addEventListener('keydown', (e) => {
