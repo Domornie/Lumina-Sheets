@@ -1226,22 +1226,28 @@
 
 <!-- Enhanced KPI Cards -->
 <div class="row gx-4 mb-4 animate-fade-in-up">
-    <div class="col-lg-4">
+    <div class="col-lg-3 col-md-6">
         <div class="kpi-card" tabindex="0" role="button" aria-label="Total calls metric">
             <div class="label">Total Calls</div>
             <div class="value" id="kpiTotalCalls">0</div>
         </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-3 col-md-6">
         <div class="kpi-card" tabindex="0" role="button" aria-label="Customer satisfaction metric">
             <div class="label">Average CSAT (% Yes)</div>
             <div class="value" id="kpiAvgCsat">0%</div>
         </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-3 col-md-6">
         <div class="kpi-card" tabindex="0" role="button" aria-label="Average talk time metric">
             <div class="label">Average Talk Time</div>
             <div class="value" id="kpiAvgTalkTime">0 min</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="kpi-card" tabindex="0" role="button" aria-label="Average answer time metric">
+            <div class="label">Average Answer Time</div>
+            <div class="value" id="kpiAvgAnswerTime">0 sec</div>
         </div>
     </div>
 </div>
@@ -1379,6 +1385,8 @@
                                 <th scope="col">Total Calls</th>
                                 <th scope="col">Total Talk</th>
                                 <th scope="col">Avg Talk</th>
+                                <th scope="col">Avg Answer</th>
+                                <th scope="col">≤30s %</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1655,6 +1663,7 @@
     const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
     const peakTimeWindows = Array.isArray(analytics.peakTimeWindows) ? analytics.peakTimeWindows : [];
     const scheduleRecommendations = Array.isArray(analytics.scheduleRecommendations) ? analytics.scheduleRecommendations : [];
+    const answerStats = analytics.answerTimeStats || {};
 
     const totalCalls = repMetrics.reduce((sum, r) => sum + (Number(r.totalCalls) || 0), 0);
     const totalTalkMinutes = talkTrend.reduce((sum, entry) => sum + (Number(entry.totalTalk) || 0), 0);
@@ -1688,6 +1697,15 @@
       (Number(item.count) || 0) > (Number(best?.count) || 0) ? item : best
     , null);
 
+    const answeredCount = Number(answerStats.answeredCount) || 0;
+    const averageAnswerSeconds = Number(answerStats.averageSeconds) || 0;
+    const medianAnswerSeconds = Number(answerStats.medianSeconds) || 0;
+    const p90AnswerSeconds = Number(answerStats.p90Seconds) || 0;
+    const fastAnswerRate = Number(answerStats.fastAnswerRate) || 0;
+    const slowAnswerRate = Number(answerStats.slowAnswerRate) || 0;
+    const fastestResponder = answerStats.fastestResponder || null;
+    const slowestResponder = answerStats.slowestResponder || null;
+
     const busiestPeriod = callTrend.reduce((best, item) =>
       (Number(item.callCount) || 0) > (Number(best?.callCount) || 0) ? item : best
     , null);
@@ -1704,6 +1722,13 @@
       : 'Stable range';
     const peakPeriodLabel = busiestPeriod?.periodLabel || 'N/A';
     const peakPeriodCount = Number(busiestPeriod?.callCount) || 0;
+
+    const talkLeader = topAgent
+      ? `Top: ${topAgent.agent} (${Number(topAgent.totalCalls || 0).toLocaleString()} calls)`
+      : 'No leader yet';
+    const talkSummary = totalTalkMinutes
+      ? `Total: ${formatMinutesToReadable(totalTalkMinutes)}`
+      : 'Awaiting talk data';
 
     summaryContainer.innerHTML = `
       <div class="col-lg-3 col-md-6">
@@ -1722,20 +1747,18 @@
       </div>
       <div class="col-lg-3 col-md-6">
         <div class="ai-metric-card">
-          <div class="metric-label">Top Performing Agent</div>
-          <div class="metric-value">${topAgent ? topAgent.agent : '—'}</div>
-          <div class="metric-subtext">${topAgent
-            ? `${Number(topAgent.totalCalls || 0).toLocaleString()} calls • ${formatMinutesToReadable(Number(topAgent.totalTalk || 0))} talk`
-            : 'Performance data pending'}</div>
+          <div class="metric-label">Answer Responsiveness</div>
+          <div class="metric-value">${answeredCount ? formatSecondsToReadable(averageAnswerSeconds) : '—'}</div>
+          <div class="metric-subtext">${answeredCount
+            ? `Median ${formatSecondsToReadable(medianAnswerSeconds)} • ≤30s ${fastAnswerRate.toFixed(1)}%`
+            : 'Awaiting answer time data'}</div>
         </div>
       </div>
       <div class="col-lg-3 col-md-6">
         <div class="ai-metric-card">
-          <div class="metric-label">Avg Talk Time</div>
+          <div class="metric-label">Engagement Highlights</div>
           <div class="metric-value">${formatMinutesToReadable(avgTalkMinutes)}</div>
-          <div class="metric-subtext">${totalTalkMinutes
-            ? `Total: ${formatMinutesToReadable(totalTalkMinutes)}`
-            : 'Awaiting talk data'}</div>
+          <div class="metric-subtext">${talkLeader} • ${talkSummary}</div>
         </div>
       </div>
     `;
@@ -1768,6 +1791,10 @@
       insights.push(`Analyzed <strong>${totalCalls.toLocaleString()}</strong> calls with no CSAT responses recorded.`);
     }
 
+    if (answeredCount > 0) {
+      insights.push(`Average answer time is <strong>${formatSecondsToReadable(averageAnswerSeconds)}</strong> (P90 ${formatSecondsToReadable(p90AnswerSeconds)} • ≤30s ${fastAnswerRate.toFixed(1)}%).`);
+    }
+
     if (callTrend.length > 1) {
       const direction = callDelta > 0 ? 'increased' : callDelta < 0 ? 'decreased' : 'remained stable';
       const deltaText = callDelta === 0
@@ -1792,6 +1819,10 @@
       insights.push(`Top performer <strong>${topAgent.agent}</strong> handled ${Number(topAgent.totalCalls || 0).toLocaleString()} calls with ${formatMinutesToReadable(Number(topAgent.totalTalk || 0))} of talk time.`);
     }
 
+    if (fastestResponder && fastestResponder.agent) {
+      insights.push(`Fastest responder: <strong>${fastestResponder.agent}</strong> averages ${formatSecondsToReadable(fastestResponder.averageAnswerSeconds)} across ${Number(fastestResponder.answeredCount || 0).toLocaleString()} answered calls.`);
+    }
+
     if (topWrap && Number(topWrap.count || 0) > 0) {
       const wrapShare = wrapTotal > 0 ? ((Number(topWrap.count) || 0) / wrapTotal) * 100 : 0;
       insights.push(`Most common wrap-up: <strong>${topWrap.wrapup}</strong> (${Number(topWrap.count || 0).toLocaleString()} calls • ${wrapShare.toFixed(1)}%).`);
@@ -1812,6 +1843,26 @@
       recommendations.push(`Replicate the winning moments from ${topAgent ? topAgent.agent : 'top performers'} to push conversions closer to 90%.`);
     } else {
       recommendations.push('Celebrate and document high-performing call flows to preserve this conversion streak.');
+    }
+
+    if (answeredCount === 0) {
+      recommendations.push('Ensure the “To Answer Time” column is included in the next import so responsiveness trends are captured.');
+    } else {
+      if (fastAnswerRate < 70) {
+        recommendations.push('Accelerate pickup speed with queue monitoring to lift the ≤30s answer rate above 70%.');
+      } else if (slowAnswerRate > 10) {
+        recommendations.push(`Reduce slow pickups—${slowAnswerRate.toFixed(1)}% of calls still wait over two minutes for an answer.`);
+      } else {
+        recommendations.push('Maintain current routing—answer speeds already meet service expectations.');
+      }
+
+      if (fastestResponder && fastestResponder.agent) {
+        recommendations.push(`Have ${fastestResponder.agent} share their ${formatSecondsToReadable(fastestResponder.averageAnswerSeconds)} answer cadence with the broader team.`);
+      }
+
+      if (slowestResponder && slowestResponder.agent && (!fastestResponder || fastestResponder.agent !== slowestResponder.agent)) {
+        recommendations.push(`Pair ${slowestResponder.agent} with a quick responder to trim their ${formatSecondsToReadable(slowestResponder.averageAnswerSeconds)} average answer time.`);
+      }
     }
 
     if (callTrend.length > 1) {
@@ -1898,6 +1949,23 @@
     return `${sign}${seconds} sec`;
   }
 
+  function formatSecondsToReadable(seconds) {
+    const value = Number(seconds) || 0;
+    const absValue = Math.abs(value);
+    if (absValue >= 3600) {
+      const hours = Math.floor(absValue / 3600);
+      const minutes = Math.floor((absValue % 3600) / 60);
+      return `${value < 0 ? '-' : ''}${hours}h ${minutes}m`;
+    }
+    if (absValue >= 60) {
+      const mins = Math.floor(absValue / 60);
+      const secs = Math.round(absValue % 60);
+      return `${value < 0 ? '-' : ''}${mins}m ${secs}s`;
+    }
+    const rounded = Math.round(absValue);
+    return `${value < 0 ? '-' : ''}${rounded} sec`;
+  }
+
   function renderKpiCards(analytics) {
     const totalCalls = analytics.repMetrics.reduce((sum, r) => sum + r.totalCalls, 0);
     document.getElementById("kpiTotalCalls").textContent = totalCalls.toLocaleString();
@@ -1912,10 +1980,18 @@
     const avgTalkTime = totalCallCount > 0 ? (totalTalk / totalCallCount).toFixed(2) : 0;
     document.getElementById("kpiAvgTalkTime").textContent = `${avgTalkTime} min`;
 
+    const answerStats = analytics.answerTimeStats || {};
+    const avgAnswerSeconds = Number(answerStats.averageSeconds) || 0;
+    const answerDisplay = Number(answerStats.answeredCount) > 0
+      ? formatSecondsToReadable(avgAnswerSeconds)
+      : '—';
+    document.getElementById("kpiAvgAnswerTime").textContent = answerDisplay;
+
     // Add enhanced animation to value changes
-    [document.getElementById('kpiTotalCalls'), 
-     document.getElementById('kpiAvgCsat'), 
-     document.getElementById('kpiAvgTalkTime')].forEach(el => {
+    [document.getElementById('kpiTotalCalls'),
+     document.getElementById('kpiAvgCsat'),
+     document.getElementById('kpiAvgTalkTime'),
+     document.getElementById('kpiAvgAnswerTime')].forEach(el => {
       el.style.transform = 'scale(1.05)';
       setTimeout(() => {
         el.style.transform = 'scale(1)';
@@ -2184,7 +2260,7 @@
     renderCallLoadByHourChart(hourlyVolume);
     renderPeakWindowList(peakWindows);
     renderSchedulePlanner(schedulePlans);
-    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans);
+    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans, analytics.answerTimeStats);
   }
 
   function renderCallLoadByHourChart(hourlyVolume = []) {
@@ -2353,7 +2429,7 @@
       .join('');
   }
 
-  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = []) {
+  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = [], answerStats = null) {
     const listEl = document.getElementById('peakSummaryList');
     if (!listEl) return;
 
@@ -2414,6 +2490,17 @@
       `);
     }
 
+    if (answerStats && Number(answerStats.answeredCount || 0) > 0) {
+      const avgAnswer = formatSecondsToReadable(answerStats.averageSeconds || 0);
+      const fastRate = Number(answerStats.fastAnswerRate || 0).toFixed(1);
+      items.push(`
+        <li>
+          <i class="fas fa-bolt mt-1 text-info"></i>
+          <div>Answer speed averages <strong>${avgAnswer}</strong> • ≤30s on ${fastRate}% of calls.</div>
+        </li>
+      `);
+    }
+
     listEl.innerHTML = items.join('');
   }
 
@@ -2446,7 +2533,7 @@
     if (!repMetrics.length) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="4" class="text-center py-3 text-muted">No data available for the selected period</td>
+          <td colspan="6" class="text-center py-3 text-muted">No data available for the selected period</td>
         </tr>`;
       return;
     }
@@ -2454,6 +2541,17 @@
     repMetrics.forEach(item => {
       const totalSeconds = Math.round((item.totalTalk || 0) * 60);
       const avgSeconds = item.totalCalls > 0 ? totalSeconds / item.totalCalls : 0;
+      const hasAnswerData = Number(item.answeredCount || 0) > 0 && Number.isFinite(Number(item.averageAnswerSeconds));
+      const avgAnswerSeconds = Number(item.averageAnswerSeconds);
+      const fastRate = Number(item.fastAnswerRate);
+
+      const answerCell = hasAnswerData
+        ? `<span class="text-warning fw-semibold">${formatSecondsToReadable(avgAnswerSeconds)}</span>`
+        : '<span class="text-muted">—</span>';
+
+      const fastCell = hasAnswerData && Number.isFinite(fastRate)
+        ? `<span class="badge bg-info text-dark">${fastRate.toFixed(1)}%</span>`
+        : '<span class="text-muted">—</span>';
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -2461,6 +2559,8 @@
         <td><span class="badge bg-primary rounded-pill">${item.totalCalls.toLocaleString()}</span></td>
         <td><span class="text-success fw-semibold">${formatDuration(totalSeconds)}</span></td>
         <td><span class="text-info fw-semibold">${formatDuration(avgSeconds)}</span></td>
+        <td>${answerCell}</td>
+        <td>${fastCell}</td>
       `;
       tbody.appendChild(tr);
     });

@@ -2,10 +2,106 @@
  * CallReportService_IBTR.gs — IBTR-scoped Call Report service
  * Uses getIBTRSpreadsheet() and campaign helpers from IBTRUtilities.gs
  * Sheet headers assumed from CALL_REPORT_HEADERS in IBTRUtilities:
- * ["ID","CreatedDate","TalkTimeMinutes","FromRoutingPolicy","WrapupLabel","ToSFUser","UserID","CSAT","CreatedAt","UpdatedAt"]
+ * ["ID","CreatedDate","TalkTimeMinutes","To Answer Time","FromRoutingPolicy","WrapupLabel","ToSFUser","UserID","CSAT","CreatedAt","UpdatedAt"]
  */
 
 const __PAGE_SIZE_FALLBACK = 50;
+
+function __ensureDate(value) {
+  if (value instanceof Date && !isNaN(value)) return value;
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = new Date(value);
+  return isNaN(parsed) ? null : parsed;
+}
+
+function __parseAnswerSeconds(rawValue, createdDate) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+  const created = __ensureDate(createdDate);
+
+  if (rawValue instanceof Date && !isNaN(rawValue)) {
+    if (!created) return null;
+    const diff = (rawValue.getTime() - created.getTime()) / 1000;
+    return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+  }
+
+  if (typeof rawValue === 'number' && isFinite(rawValue)) {
+    let seconds = rawValue;
+    if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+    return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const str = String(rawValue).trim();
+  if (!str) return null;
+
+  const numeric = Number(str);
+  if (!isNaN(numeric) && isFinite(numeric)) {
+    let seconds = numeric;
+    if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+    return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const timeParts = str.split(':');
+  if (timeParts.length >= 2 && timeParts.length <= 3) {
+    let seconds = 0;
+    for (let i = 0; i < timeParts.length; i++) {
+      const part = Number(timeParts[i]);
+      if (isNaN(part)) {
+        seconds = null;
+        break;
+      }
+      seconds = (seconds * 60) + part;
+    }
+    if (seconds !== null) return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const parsedDate = new Date(str);
+  if (!isNaN(parsedDate) && created) {
+    const diff = (parsedDate.getTime() - created.getTime()) / 1000;
+    return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+  }
+
+  const secondsMatch = str.match(/(\d+(?:\.\d+)?)/);
+  if (secondsMatch) {
+    const seconds = Number(secondsMatch[1]);
+    if (!isNaN(seconds)) return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  return null;
+}
+
+function __coerceAnswerCell(rawValue, createdDate) {
+  const seconds = __parseAnswerSeconds(rawValue, createdDate);
+  return seconds === null ? '' : seconds;
+}
+
+const __ANSWER_HEADER_ALIASES = ['To Answer Time', 'ToAnswerTime'];
+
+function __isAnswerHeader(name) {
+  if (!name) return false;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    if (name === __ANSWER_HEADER_ALIASES[i]) return true;
+  }
+  return false;
+}
+
+function __getAnswerFieldValue(record) {
+  if (!record || typeof record !== 'object') return undefined;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    const key = __ANSWER_HEADER_ALIASES[i];
+    if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== undefined) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function __applyAnswerFieldAliases(record, value) {
+  if (!record || typeof record !== 'object') return;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    record[__ANSWER_HEADER_ALIASES[i]] = value;
+  }
+}
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Internal: get the CallReport sheet (ensure headers exist)
@@ -33,6 +129,10 @@ function __readAllCallReportRows() {
     if (obj.CreatedDate && !(obj.CreatedDate instanceof Date)) {
       const d = new Date(obj.CreatedDate);
       if (!isNaN(d)) obj.CreatedDate = d;
+    }
+    const answerValue = __getAnswerFieldValue(obj);
+    if (answerValue !== undefined) {
+      __applyAnswerFieldAliases(obj, answerValue);
     }
     return obj;
   });
@@ -130,8 +230,26 @@ function createOrUpdateCallReport(reportData) {
     // UPDATE by UUID
     const rowNum = __findRowById(reportData.ID);
     if (!rowNum) throw new Error('Invalid report ID for update.');
+    const createdDateIdx = headers.indexOf('CreatedDate');
+    const existingCreatedDate = createdDateIdx >= 0
+      ? sh.getRange(rowNum, createdDateIdx + 1).getValue()
+      : null;
+    const answerRaw = __getAnswerFieldValue(reportData);
+    if (answerRaw !== undefined) {
+      __applyAnswerFieldAliases(reportData, answerRaw);
+    }
     headers.forEach((h, idx) => {
       if (h === 'ID' || h === 'CreatedDate' || h === 'CreatedAt') return;
+      if (__isAnswerHeader(h)) {
+        const baseDate = Object.prototype.hasOwnProperty.call(reportData, 'CreatedDate')
+          ? reportData.CreatedDate
+          : existingCreatedDate;
+        if (answerRaw !== undefined) {
+          const coerced = __coerceAnswerCell(answerRaw, baseDate);
+          sh.getRange(rowNum, idx + 1).setValue(coerced);
+        }
+        return;
+      }
       if (Object.prototype.hasOwnProperty.call(reportData, h)) {
         sh.getRange(rowNum, idx + 1).setValue(reportData[h]);
       }
@@ -147,12 +265,21 @@ function createOrUpdateCallReport(reportData) {
 
   // CREATE new
   const uuid = Utilities.getUuid();
+  const createAnswerRaw = __getAnswerFieldValue(reportData);
+  if (createAnswerRaw !== undefined) {
+    __applyAnswerFieldAliases(reportData, createAnswerRaw);
+  }
   const row = headers.map(h => {
     if (h === 'ID') return uuid;
     if (h === 'CreatedDate') return reportData.CreatedDate ? new Date(reportData.CreatedDate) : now;
     if (h === 'CreatedAt') return now;
     if (h === 'UpdatedAt') return now;
-    return reportData[h] || '';
+    if (__isAnswerHeader(h)) return __coerceAnswerCell(createAnswerRaw, reportData.CreatedDate || now);
+    if (Object.prototype.hasOwnProperty.call(reportData, h)) {
+      const value = reportData[h];
+      return value === undefined ? '' : value;
+    }
+    return '';
   });
   sh.appendRow(row);
   logCampaignDirtyRow(CALL_REPORT, uuid, 'CREATE');
@@ -186,18 +313,153 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
 
   // repMetrics
   const repMap = {};
+  const answerSecondsList = [];
   filtered.forEach(r => {
     const agent = r.ToSFUser || '—';
     const talk  = parseFloat(r.TalkTimeMinutes) || 0;
-    if (!repMap[agent]) repMap[agent] = { totalCalls: 0, totalTalk: 0 };
+    if (!repMap[agent]) {
+      repMap[agent] = {
+        totalCalls: 0,
+        totalTalk: 0,
+        totalAnswerSeconds: 0,
+        answeredCount: 0,
+        fastAnswerCount: 0
+      };
+    }
     repMap[agent].totalCalls += 1;
     repMap[agent].totalTalk  += talk;
+
+    const answerSeconds = __parseAnswerSeconds(__getAnswerFieldValue(r), r.CreatedDate);
+    if (answerSeconds !== null) {
+      repMap[agent].totalAnswerSeconds += answerSeconds;
+      repMap[agent].answeredCount += 1;
+      if (answerSeconds <= 30) repMap[agent].fastAnswerCount += 1;
+      answerSecondsList.push(answerSeconds);
+    }
   });
-  const repMetrics = Object.entries(repMap).map(([agent, v]) => ({
-    agent,
-    totalCalls: v.totalCalls,
-    totalTalk:  v.totalTalk
-  }));
+  const repMetrics = Object.entries(repMap).map(([agent, v]) => {
+    const averageAnswerSeconds = v.answeredCount > 0 ? v.totalAnswerSeconds / v.answeredCount : null;
+    const fastAnswerRate = v.answeredCount > 0 ? (v.fastAnswerCount / v.answeredCount) * 100 : null;
+    return {
+      agent,
+      totalCalls: v.totalCalls,
+      totalTalk: v.totalTalk,
+      totalAnswerSeconds: v.totalAnswerSeconds,
+      answeredCount: v.answeredCount,
+      averageAnswerSeconds,
+      fastAnswerRate,
+      fastAnswerCount: v.fastAnswerCount
+    };
+  });
+
+  const answerTimeStats = (function () {
+    const answeredCount = answerSecondsList.length;
+    if (!answeredCount) {
+      return {
+        answeredCount: 0,
+        averageSeconds: 0,
+        medianSeconds: 0,
+        p90Seconds: 0,
+        fastAnswerRate: 0,
+        underMinuteRate: 0,
+        slowAnswerRate: 0,
+        fastAnswerCount: 0,
+        underMinuteCount: 0,
+        slowAnswerCount: 0,
+        totalSeconds: 0,
+        buckets: [],
+        fastestResponder: null,
+        slowestResponder: null
+      };
+    }
+
+    const sorted = answerSecondsList.slice().sort((a, b) => a - b);
+    const totalSeconds = answerSecondsList.reduce((sum, value) => sum + value, 0);
+    const averageSeconds = totalSeconds / answeredCount;
+    const medianSeconds = answeredCount % 2 === 0
+      ? (sorted[answeredCount / 2 - 1] + sorted[answeredCount / 2]) / 2
+      : sorted[Math.floor(answeredCount / 2)];
+    const p90Index = Math.min(sorted.length - 1, Math.floor(0.9 * (sorted.length - 1)));
+    const p90Seconds = sorted[p90Index];
+
+    let fastCount = 0;
+    let underMinuteCount = 0;
+    let slowCount = 0;
+    const bucketCounts = {
+      fast15: 0,
+      fast30: 0,
+      medium60: 0,
+      medium120: 0,
+      slow: 0
+    };
+
+    answerSecondsList.forEach(seconds => {
+      if (seconds <= 15) {
+        bucketCounts.fast15 += 1;
+        fastCount += 1;
+        underMinuteCount += 1;
+      } else if (seconds <= 30) {
+        bucketCounts.fast30 += 1;
+        fastCount += 1;
+        underMinuteCount += 1;
+      } else if (seconds <= 60) {
+        bucketCounts.medium60 += 1;
+        underMinuteCount += 1;
+      } else if (seconds <= 120) {
+        bucketCounts.medium120 += 1;
+      } else {
+        bucketCounts.slow += 1;
+        slowCount += 1;
+      }
+    });
+
+    const fastAnswerRate = (fastCount / answeredCount) * 100;
+    const underMinuteRate = (underMinuteCount / answeredCount) * 100;
+    const slowAnswerRate = (slowCount / answeredCount) * 100;
+
+    const buckets = [
+      { id: '0_15', label: '0-15 sec', count: bucketCounts.fast15 },
+      { id: '16_30', label: '16-30 sec', count: bucketCounts.fast30 },
+      { id: '31_60', label: '31-60 sec', count: bucketCounts.medium60 },
+      { id: '61_120', label: '1-2 min', count: bucketCounts.medium120 },
+      { id: 'gt_120', label: 'Over 2 min', count: bucketCounts.slow }
+    ];
+
+    const responderPool = repMetrics
+      .filter(r => r.answeredCount >= 3 && r.averageAnswerSeconds !== null)
+      .sort((a, b) => a.averageAnswerSeconds - b.averageAnswerSeconds);
+    const fastestResponder = responderPool[0] || null;
+    const slowestResponder = responderPool.length ? responderPool[responderPool.length - 1] : null;
+
+    return {
+      answeredCount,
+      averageSeconds,
+      medianSeconds,
+      p90Seconds,
+      fastAnswerRate,
+      underMinuteRate,
+      slowAnswerRate,
+      fastAnswerCount: fastCount,
+      underMinuteCount,
+      slowAnswerCount: slowCount,
+      totalSeconds,
+      buckets,
+      fastestResponder: fastestResponder
+        ? {
+            agent: fastestResponder.agent,
+            averageAnswerSeconds: fastestResponder.averageAnswerSeconds,
+            answeredCount: fastestResponder.answeredCount
+          }
+        : null,
+      slowestResponder: slowestResponder
+        ? {
+            agent: slowestResponder.agent,
+            averageAnswerSeconds: slowestResponder.averageAnswerSeconds,
+            answeredCount: slowestResponder.answeredCount
+          }
+        : null
+    };
+  })();
 
   // policyDist
   const policyMap = {};
@@ -445,7 +707,8 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     hourlyVolume,
     intervalVolume,
     peakTimeWindows,
-    scheduleRecommendations
+    scheduleRecommendations,
+    answerTimeStats
   };
 }
 
@@ -456,18 +719,19 @@ function importCallReports(rows) {
   const sh = __getCallReportSheet();
   const now = new Date();
 
-  // Build Set of existing composite keys from B–H
+  // Build Set of existing composite keys from B–I
   const lr = sh.getLastRow();
   const existingKeys = new Set();
   if (lr > 1) {
-    const raw = sh.getRange(2, 2, lr - 1, 7).getValues(); // B..H
+    const raw = sh.getRange(2, 2, lr - 1, 8).getValues(); // B..I
     raw.forEach(row => {
       const rawDate = row[0];
       const rawTalk = row[1];
-      const policy  = (row[2] || '').toString().trim();
-      const wrap    = (row[3] || '').toString().trim();
-      const user    = (row[4] || '').toString().trim().replace(/\s*VLBPO\s*/gi, ' ').trim();
-      const csat    = (row[6] || '').toString().trim();
+      const rawAnswer = row[2];
+      const policy  = (row[3] || '').toString().trim();
+      const wrap    = (row[4] || '').toString().trim();
+      const user    = (row[5] || '').toString().trim().replace(/\s*VLBPO\s*/gi, ' ').trim();
+      const csat    = (row[7] || '').toString().trim();
 
       let dateIso;
       if (rawDate instanceof Date && !isNaN(rawDate)) dateIso = rawDate.toISOString();
@@ -476,7 +740,17 @@ function importCallReports(rows) {
         dateIso = !isNaN(t) ? t.toISOString() : String(rawDate || '').trim();
       }
       const talkStr = Number(rawTalk) >= 0 ? String(Number(rawTalk)) : String(rawTalk || '0');
-      const key = [dateIso, talkStr, policy, wrap, user, (csat.toLowerCase() === 'yes' ? 'Yes' : csat.toLowerCase() === 'no' ? 'No' : '')].join('||');
+      const answerSeconds = __parseAnswerSeconds(rawAnswer, rawDate);
+      const answerKey = answerSeconds !== null ? String(answerSeconds) : '';
+      const key = [
+        dateIso,
+        talkStr,
+        answerKey,
+        policy,
+        wrap,
+        user,
+        (csat.toLowerCase() === 'yes' ? 'Yes' : csat.toLowerCase() === 'no' ? 'No' : '')
+      ].join('||');
       existingKeys.add(key);
     });
   }
@@ -484,6 +758,7 @@ function importCallReports(rows) {
   // Build new rows
   const seen = new Set();
   const toAppend = [];
+  let skipped = 0;
 
   rows.forEach(r => {
     // Normalize incoming
@@ -497,9 +772,18 @@ function importCallReports(rows) {
     const userId = (r.UserID || '').toString().trim();
     const lc = (r.CSAT || '').toString().trim().toLowerCase();
     const csat = lc === 'yes' ? 'Yes' : lc === 'no' ? 'No' : '';
+    const incomingAnswer = __getAnswerFieldValue(r);
+    if (incomingAnswer !== undefined) {
+      __applyAnswerFieldAliases(r, incomingAnswer);
+    }
+    const answerValue = __coerceAnswerCell(incomingAnswer, r.Date || dateIso);
+    const answerKey = answerValue !== '' ? String(answerValue) : '';
 
-    const key = [dateIso, talkStr, policy, wrap, user, csat].join('||');
-    if (existingKeys.has(key) || seen.has(key)) return;
+    const key = [dateIso, talkStr, answerKey, policy, wrap, user, csat].join('||');
+    if (existingKeys.has(key) || seen.has(key)) {
+      skipped += 1;
+      return;
+    }
     seen.add(key);
 
     const uuid = Utilities.getUuid();
@@ -507,13 +791,14 @@ function importCallReports(rows) {
       uuid,                 // A: ID
       new Date(dateIso),    // B: CreatedDate
       talk,                 // C: TalkTimeMinutes
-      policy,               // D: FromRoutingPolicy
-      wrap,                 // E: WrapupLabel
-      user,                 // F: ToSFUser
-      userId,               // G: UserID
-      csat,                 // H: CSAT
-      now,                  // I: CreatedAt
-      now                   // J: UpdatedAt
+      answerValue,          // D: To Answer Time (seconds)
+      policy,               // E: FromRoutingPolicy
+      wrap,                 // F: WrapupLabel
+      user,                 // G: ToSFUser
+      userId,               // H: UserID
+      csat,                 // I: CSAT
+      now,                  // J: CreatedAt
+      now                   // K: UpdatedAt
     ]);
     logCampaignDirtyRow(CALL_REPORT, uuid, 'CREATE');
   });
@@ -523,7 +808,7 @@ function importCallReports(rows) {
     sh.getRange(first, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
   }
   flushCampaignDirtyRows();
-  return { imported: toAppend.length };
+  return { imported: toAppend.length, skipped };
 }
 
 // Remove "VLBPO" tokens from ToSFUser column
