@@ -1314,7 +1314,21 @@
         if (typeof rawValue === 'string') return rawValue.trim();
         return rawValue;
       }
-      return Math.round(seconds * 100) / 100;
+      return this.formatSecondsToTime(seconds);
+    }
+
+    formatSecondsToTime(seconds) {
+      if (seconds === null || seconds === undefined) return '';
+      const numeric = Number(seconds);
+      if (isNaN(numeric) || !isFinite(numeric)) return '';
+      const totalSeconds = Math.max(0, Math.round(numeric));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      const hh = String(hours).padStart(2, '0');
+      const mm = String(minutes).padStart(2, '0');
+      const ss = String(secs).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
     }
 
     createAnswerBadge(value) {
@@ -1322,22 +1336,20 @@
         return '<span class="data-badge answer">—</span>';
       }
 
-      const numeric = Number(value);
-      if (!isNaN(numeric) && isFinite(numeric)) {
-        if (numeric >= 3600) {
-          const hours = Math.floor(numeric / 3600);
-          const mins = Math.floor((numeric % 3600) / 60);
-          return `<span class="data-badge answer">${hours}h ${mins}m</span>`;
+      const seconds = this.parseAnswerSeconds(value);
+      if (seconds !== null) {
+        const formatted = this.formatSecondsToTime(seconds);
+        if (formatted) {
+          return `<span class="data-badge answer">${formatted}</span>`;
         }
-        if (numeric >= 60) {
-          const mins = Math.floor(numeric / 60);
-          const secs = Math.round(numeric % 60);
-          return `<span class="data-badge answer">${mins}m ${secs.toString().padStart(2, '0')}s</span>`;
-        }
-        return `<span class="data-badge answer">${Math.round(numeric)}s</span>`;
       }
 
-      return `<span class="data-badge answer">${this.escapeHtml(String(value))}</span>`;
+      const text = String(value).trim();
+      if (!text) {
+        return '<span class="data-badge answer">—</span>';
+      }
+
+      return `<span class="data-badge answer">${this.escapeHtml(text)}</span>`;
     }
 
     createCSATBadge(csat) {

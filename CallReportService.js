@@ -70,6 +70,116 @@ function __parseAnswerSeconds(rawValue, createdDate) {
   return null;
 }
 
+function __formatAnswerSeconds(seconds) {
+  if (seconds === null || seconds === undefined || seconds === '') return '';
+  const numeric = Number(seconds);
+  if (isNaN(numeric) || !isFinite(numeric)) return '';
+  const totalSeconds = Math.max(0, Math.round(numeric));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  const hh = String(hours).padStart(2, '0');
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(secs).padStart(2, '0');
+  return hh + ':' + mm + ':' + ss;
+}
+
+function __coerceAnswerCell(rawValue, createdDate) {
+  const seconds = __parseAnswerSeconds(rawValue, createdDate);
+  return seconds === null ? '' : __formatAnswerSeconds(seconds);
+}
+
+const __ANSWER_HEADER_ALIASES = ['To Answer Time', 'ToAnswerTime'];
+
+function __isAnswerHeader(name) {
+  if (!name) return false;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    if (name === __ANSWER_HEADER_ALIASES[i]) return true;
+  }
+  return false;
+}
+
+function __getAnswerFieldValue(record) {
+  if (!record || typeof record !== 'object') return undefined;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    const key = __ANSWER_HEADER_ALIASES[i];
+    if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== undefined) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function __applyAnswerFieldAliases(record, value) {
+  if (!record || typeof record !== 'object') return;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    record[__ANSWER_HEADER_ALIASES[i]] = value;
+  }
+}
+
+function __ensureDate(value) {
+  if (value instanceof Date && !isNaN(value)) return value;
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = new Date(value);
+  return isNaN(parsed) ? null : parsed;
+}
+
+function __parseAnswerSeconds(rawValue, createdDate) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+  const created = __ensureDate(createdDate);
+
+  if (rawValue instanceof Date && !isNaN(rawValue)) {
+    if (!created) return null;
+    const diff = (rawValue.getTime() - created.getTime()) / 1000;
+    return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+  }
+
+  if (typeof rawValue === 'number' && isFinite(rawValue)) {
+    let seconds = rawValue;
+    if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+    return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const str = String(rawValue).trim();
+  if (!str) return null;
+
+  const numeric = Number(str);
+  if (!isNaN(numeric) && isFinite(numeric)) {
+    let seconds = numeric;
+    if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+    return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const timeParts = str.split(':');
+  if (timeParts.length >= 2 && timeParts.length <= 3) {
+    let seconds = 0;
+    for (let i = 0; i < timeParts.length; i++) {
+      const part = Number(timeParts[i]);
+      if (isNaN(part)) {
+        seconds = null;
+        break;
+      }
+      seconds = (seconds * 60) + part;
+    }
+    if (seconds !== null) return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const parsedDate = new Date(str);
+  if (!isNaN(parsedDate) && created) {
+    const diff = (parsedDate.getTime() - created.getTime()) / 1000;
+    return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+  }
+
+  const secondsMatch = str.match(/(\d+(?:\.\d+)?)/);
+  if (secondsMatch) {
+    const seconds = Number(secondsMatch[1]);
+    if (!isNaN(seconds)) return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  return null;
+}
+
 function __coerceAnswerCell(rawValue, createdDate) {
   const seconds = __parseAnswerSeconds(rawValue, createdDate);
   return seconds === null ? '' : seconds;
@@ -235,9 +345,6 @@ function createOrUpdateCallReport(reportData) {
       ? sh.getRange(rowNum, createdDateIdx + 1).getValue()
       : null;
     const answerRaw = __getAnswerFieldValue(reportData);
-    if (answerRaw !== undefined) {
-      __applyAnswerFieldAliases(reportData, answerRaw);
-    }
     headers.forEach((h, idx) => {
       if (h === 'ID' || h === 'CreatedDate' || h === 'CreatedAt') return;
       if (__isAnswerHeader(h)) {
@@ -246,6 +353,7 @@ function createOrUpdateCallReport(reportData) {
           : existingCreatedDate;
         if (answerRaw !== undefined) {
           const coerced = __coerceAnswerCell(answerRaw, baseDate);
+          __applyAnswerFieldAliases(reportData, coerced);
           sh.getRange(rowNum, idx + 1).setValue(coerced);
         }
         return;
@@ -266,15 +374,16 @@ function createOrUpdateCallReport(reportData) {
   // CREATE new
   const uuid = Utilities.getUuid();
   const createAnswerRaw = __getAnswerFieldValue(reportData);
+  const coercedCreateAnswer = __coerceAnswerCell(createAnswerRaw, reportData.CreatedDate || now);
   if (createAnswerRaw !== undefined) {
-    __applyAnswerFieldAliases(reportData, createAnswerRaw);
+    __applyAnswerFieldAliases(reportData, coercedCreateAnswer);
   }
   const row = headers.map(h => {
     if (h === 'ID') return uuid;
     if (h === 'CreatedDate') return reportData.CreatedDate ? new Date(reportData.CreatedDate) : now;
     if (h === 'CreatedAt') return now;
     if (h === 'UpdatedAt') return now;
-    if (__isAnswerHeader(h)) return __coerceAnswerCell(createAnswerRaw, reportData.CreatedDate || now);
+    if (__isAnswerHeader(h)) return coercedCreateAnswer;
     if (Object.prototype.hasOwnProperty.call(reportData, h)) {
       const value = reportData[h];
       return value === undefined ? '' : value;
@@ -773,11 +882,10 @@ function importCallReports(rows) {
     const lc = (r.CSAT || '').toString().trim().toLowerCase();
     const csat = lc === 'yes' ? 'Yes' : lc === 'no' ? 'No' : '';
     const incomingAnswer = __getAnswerFieldValue(r);
-    if (incomingAnswer !== undefined) {
-      __applyAnswerFieldAliases(r, incomingAnswer);
-    }
     const answerValue = __coerceAnswerCell(incomingAnswer, r.Date || dateIso);
-    const answerKey = answerValue !== '' ? String(answerValue) : '';
+    __applyAnswerFieldAliases(r, answerValue);
+    const answerSeconds = __parseAnswerSeconds(answerValue, r.Date || dateIso);
+    const answerKey = answerSeconds !== null ? String(answerSeconds) : '';
 
     const key = [dateIso, talkStr, answerKey, policy, wrap, user, csat].join('||');
     if (existingKeys.has(key) || seen.has(key)) {
@@ -791,7 +899,7 @@ function importCallReports(rows) {
       uuid,                 // A: ID
       new Date(dateIso),    // B: CreatedDate
       talk,                 // C: TalkTimeMinutes
-      answerValue,          // D: To Answer Time (seconds)
+      answerValue,          // D: To Answer Time (HH:MM:SS)
       policy,               // E: FromRoutingPolicy
       wrap,                 // F: WrapupLabel
       user,                 // G: ToSFUser
