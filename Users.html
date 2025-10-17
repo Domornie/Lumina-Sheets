@@ -501,53 +501,116 @@
 
     /* Enhanced Tab Navigation */
     .nav-tabs {
-        border-bottom: 2px solid rgba(203, 213, 225, 0.3);
+        border: none;
         margin-bottom: 2rem;
     }
 
-    .nav-tabs .nav-link {
-        border: none;
-        border-bottom: 3px solid transparent;
-        color: var(--gray-600);
-        font-weight: 500;
-        padding: 1rem 1.5rem;
-        transition: var(--transition);
-        border-radius: var(--border-radius-xs) var(--border-radius-xs) 0 0;
-        position: relative;
-        overflow: hidden;
+    #userTabs.nav-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        background: rgba(148, 163, 184, 0.16);
+        border-radius: 999px;
+        padding: 0.75rem;
+        box-shadow: var(--shadow-md);
     }
 
-    .nav-tabs .nav-link::before {
+    #userTabs .nav-item {
+        margin-bottom: 0;
+    }
+
+    #userTabs .nav-link {
+        border: none;
+        color: var(--gray-600);
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 999px;
+        transition: var(--transition-fast);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: transparent;
+        position: relative;
+    }
+
+    #userTabs .nav-link::before {
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent);
+        border-radius: inherit;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(241, 245, 249, 0.45));
         opacity: 0;
-        transition: var(--transition);
+        transition: var(--transition-fast);
+        z-index: -1;
     }
 
-    .nav-tabs .nav-link:hover::before {
+    #userTabs .nav-link:hover {
+        color: var(--primary-600);
+    }
+
+    #userTabs .nav-link:hover::before {
         opacity: 1;
     }
 
-    .nav-tabs .nav-link.active {
-        background: none;
-        border-bottom-color: var(--primary-500);
-        color: var(--primary-600);
-        position: relative;
+    #userTabs .nav-link i {
+        font-size: 1rem;
+        color: var(--primary-500);
+        transition: var(--transition-fast);
     }
 
-    .nav-tabs .nav-link.active::after {
+    #userTabs .nav-link.active {
+        color: var(--primary-700);
+        box-shadow: var(--shadow-md);
+    }
+
+    #userTabs .nav-link.active::before {
+        opacity: 1;
+        background: white;
+    }
+
+    #userTabs .nav-link.active i {
+        color: var(--primary-600);
+    }
+
+    #userTabs .nav-link:focus-visible {
+        outline: 3px solid rgba(14, 165, 233, 0.35);
+        outline-offset: 2px;
+    }
+
+    #userTabs .nav-link::after {
         content: '';
         position: absolute;
-        bottom: -2px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 24px;
+        left: 1.5rem;
+        right: 1.5rem;
+        bottom: 0.55rem;
         height: 3px;
-        background: var(--primary-500);
-        border-radius: 2px;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        background: linear-gradient(90deg, var(--primary-400), var(--primary-600));
+        border-radius: 999px;
+        opacity: 0;
+        transition: var(--transition-fast);
+    }
+
+    #userTabs .nav-link.active::after {
+        opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+        #userTabs.nav-tabs {
+            border-radius: var(--border-radius-sm);
+            padding: 0.5rem;
+            justify-content: space-between;
+        }
+
+        #userTabs .nav-link {
+            flex: 1 1 calc(50% - 0.5rem);
+            justify-content: center;
+            padding: 0.75rem 1rem;
+        }
+
+        #userTabs .nav-link::after {
+            left: 1rem;
+            right: 1rem;
+        }
     }
 
     /* Enhanced Page Grid */
@@ -821,6 +884,12 @@
         background: linear-gradient(135deg, var(--success-50), var(--success-100));
         color: var(--success-700);
         border: 1px solid var(--success-200);
+    }
+
+    .employment-badge.turnover-rate {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.2));
+        color: var(--primary-700);
+        border: 1px solid rgba(14, 165, 233, 0.35);
     }
 
     /* Enhanced Pagination */
@@ -3000,6 +3069,7 @@
     const probationEnd = user.ProbationEnd || user.ProbationEndDate || '';
     const enrolled = !!(user.InsuranceEnrolled || user.InsuranceSignedUp || user.InsuranceEnrolledBool);
     const eligDate = user.InsuranceEligibleDate || user.InsuranceQualifiedDate || '';
+    const turnoverRate = user.TurnoverRate ?? user.turnoverRate ?? '';
     const qualified = (user.InsuranceQualified === true || user.InsuranceEligible === true || user.InsuranceQualifiedBool === true)
       ? true
       : (eligDate ? (new Date() >= new Date(eligDate)) : false);
@@ -3012,6 +3082,8 @@
     if (terminationDate) html += `<span class="employment-badge termination"><i class="fas fa-user-slash me-1"></i>Terminated: ${formatHireVisual(terminationDate)}</span>`;
     if (probationEnd) html += `<span class="employment-badge probation"><i class="fas fa-flag-checkered me-1"></i>Probation End: ${formatHireVisual(probationEnd)}</span>`;
     if (eligDate) html += `<span class="employment-badge eligible-date"><i class="fas fa-id-card me-1"></i>Eligibility: ${formatHireVisual(eligDate)}</span>`;
+    const formattedTurnover = formatTurnoverRate(turnoverRate);
+    if (formattedTurnover) html += `<span class="employment-badge turnover-rate"><i class="fas fa-chart-line me-1"></i>Turnover Rate: ${escapeHtml(formattedTurnover)}</span>`;
     html += enrolled
       ? `<span class="employment-badge insured"><i class="fas fa-shield-heart me-1"></i>Insured</span>`
       : `<span class="employment-badge not-insured"><i class="fas fa-shield me-1"></i>Not Enrolled</span>`;
@@ -4190,6 +4262,34 @@
     } catch {
       return '';
     }
+  }
+
+  function formatTurnoverRate(value) {
+    if (value === null || value === undefined) return '';
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      if (trimmed.endsWith('%')) return trimmed;
+
+      const numeric = Number(trimmed.replace(/[^0-9.\-]/g, ''));
+      if (!Number.isNaN(numeric)) {
+        value = numeric;
+      } else {
+        return trimmed;
+      }
+    }
+
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) return String(value);
+
+    const normalized = numericValue > 1 ? numericValue : numericValue * 100;
+    const precision = Number.isInteger(normalized)
+      ? 0
+      : normalized >= 10
+        ? 1
+        : 2;
+    return `${normalized.toFixed(precision)}%`;
   }
 
   function formatHireVisual(dateStr) {
