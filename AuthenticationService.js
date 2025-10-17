@@ -3681,6 +3681,12 @@ var AuthenticationService = (function () {
 
     addClaim('lumina:session:active');
     if (userId) addClaim('lumina:user:' + userId);
+
+    const currentUserId = normalizeString(payload && (payload.CurrentUserId || payload.CurrentUserID));
+    if (currentUserId) {
+      addClaim('lumina:session:current-user');
+      addClaim('lumina:session:current-user:' + currentUserId);
+    }
     if (userName) addClaim('lumina:username:' + userName.toLowerCase());
 
     const email = normalizeString(payload && payload.Email);
@@ -3739,6 +3745,12 @@ var AuthenticationService = (function () {
     const campaignScope = payload && payload.CampaignScope ? payload.CampaignScope : {};
     const defaultCampaignId = normalizeCampaignId(campaignScope.defaultCampaignId);
     const activeCampaignId = normalizeCampaignId(payload && (payload.ActiveCampaignId || payload.CurrentCampaignId));
+
+    const currentCampaignId = normalizeCampaignId(payload && payload.CurrentCampaignId);
+    if (currentCampaignId) {
+      addClaim('lumina:session:current-campaign');
+      addClaim('lumina:session:current-campaign:' + currentCampaignId);
+    }
 
     if (defaultCampaignId) addClaim('lumina:campaign:default:' + defaultCampaignId);
     if (activeCampaignId) addClaim('lumina:campaign:active:' + activeCampaignId);
