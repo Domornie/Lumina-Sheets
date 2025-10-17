@@ -1189,43 +1189,6 @@ function _findUserByEmail_(email) {
   }
 }
 
-function _findUserById_(id) {
-  try {
-    const normalized = _normalizeId(id);
-    if (!normalized) return null;
-
-    const cacheKey = 'USR_BY_ID_' + normalized;
-    try {
-      const cached = CacheService.getScriptCache().get(cacheKey);
-      if (cached) return JSON.parse(cached);
-    } catch (_) { }
-
-    const rows = (typeof readSheet === 'function')
-      ? (readSheet('Users', {
-        suppressTenantContext: true,
-        useCache: true,
-        where: { ID: normalized },
-        limit: 1
-      }) || [])
-      : [];
-
-    const hit = Array.isArray(rows)
-      ? rows.find(function (r) {
-        return _normalizeId(r && (r.ID || r.Id || r.id)) === normalized;
-      })
-      : null;
-
-    if (hit) {
-      try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(hit), 120); } catch (_) { }
-    }
-
-    return hit || null;
-  } catch (e) {
-    writeError && writeError('_findUserById_', e);
-    return null;
-  }
-}
-
 function _toClientUser_(row, fallbackEmail) {
   const rolesMap = (typeof getRolesMapping === 'function') ? getRolesMapping() : {};
   const roleIds = String(row && row.Roles || '')
@@ -3892,165 +3855,6 @@ function _tryGetRoleNames_(userId) {
   return [];
 }
 
-const _GUEST_USER_KEYWORDS_ = ['guest', 'client', 'partner', 'collab'];
-
-function _normLower_(value) { return _normStr_(value).toLowerCase(); }
-
-function _extractCampaignIdsFromUser_(user) {
-  const ids = new Set();
-  const primary = _normStr_(user && (user.CampaignID || user.CampaignId || user.campaignId));
-  if (primary) ids.add(primary);
-
-  const rawList = user && (user.CampaignIds || user.campaignIds);
-  if (Array.isArray(rawList)) {
-    rawList.forEach(function (val) {
-      const normalized = _normStr_(val);
-      if (normalized) ids.add(normalized);
-    });
-  } else if (typeof rawList !== 'undefined' && rawList !== null) {
-    String(rawList || '')
-      .split(/[,\s]+/)
-      .map(function (part) { return _normStr_(part); })
-      .filter(Boolean)
-      .forEach(function (val) { ids.add(val); });
-  }
-
-  return Array.from(ids);
-}
-
-function _collectUserRoleTokens_(user) {
-  const tokens = [];
-  if (!user) return tokens;
-
-  const directFields = [
-    user.Role, user.role, user.PrimaryRole, user.primaryRole,
-    user.UserType, user.userType,
-    user.Persona, user.persona, user.PersonaType, user.personaType,
-    user.AccessLevel, user.accessLevel,
-    user.AccountType, user.accountType,
-    user.Classification, user.classification,
-    user.EmploymentStatus, user.employmentStatus,
-    user.Department, user.department,
-    user.Title, user.title,
-    user.JobTitle, user.jobTitle
-  ];
-
-  directFields.forEach(function (value) {
-    const normalized = _normLower_(value);
-    if (normalized) tokens.push(normalized);
-  });
-
-  const rolesCsv = _normLower_(user && (user.Roles || user.roles || ''));
-  if (rolesCsv) {
-    rolesCsv.split(/[,\s]+/).forEach(function (part) {
-      const normalized = String(part || '').trim();
-      if (normalized) tokens.push(normalized);
-    });
-  }
-
-  if (Array.isArray(user && user.roleNames)) {
-    user.roleNames.forEach(function (name) {
-      const normalized = _normLower_(name);
-      if (normalized) tokens.push(normalized);
-    });
-  } else if (user && user.ID) {
-    try {
-      const safeRoles = _tryGetRoleNames_(user.ID) || [];
-      safeRoles.forEach(function (name) {
-        const normalized = _normLower_(name);
-        if (normalized) tokens.push(normalized);
-      });
-    } catch (_) { }
-  }
-
-  return tokens;
-}
-
-function _isGuestUser_(user) {
-  const tokens = _collectUserRoleTokens_(user);
-  if (!tokens.length) return false;
-  return tokens.some(function (token) {
-    return _GUEST_USER_KEYWORDS_.some(function (keyword) {
-      return token.indexOf(keyword) !== -1;
-    });
-  });
-}
-
-function _filterUsersForCampaign_(rows, campaignId, options) {
-  const cid = _normStr_(campaignId);
-  const excludeGuests = !options || options.excludeGuests !== false;
-  const list = Array.isArray(rows) ? rows : [];
-
-  return list.filter(function (user) {
-    if (!user) return false;
-    if (cid) {
-      const campaigns = _extractCampaignIdsFromUser_(user);
-      if (campaigns.indexOf(cid) === -1) {
-        return false;
-      }
-    }
-    if (excludeGuests && _isGuestUser_(user)) {
-      return false;
-    }
-    return true;
-  });
-}
-
-function _resolveCampaignIdFromInput_(input) {
-  if (typeof input === 'string' || typeof input === 'number') {
-    const candidate = _normStr_(input);
-    if (!candidate) return '';
-    if (/^\d+$/.test(candidate)) {
-      const userRow = _findUserById_(candidate);
-      if (userRow) {
-        const fromRow = _normStr_(userRow.CampaignID || userRow.campaignId);
-        if (fromRow) return fromRow;
-      }
-    }
-    return candidate;
-  }
-
-  if (Array.isArray(input)) {
-    for (let i = 0; i < input.length; i++) {
-      const candidate = _resolveCampaignIdFromInput_(input[i]);
-      if (candidate) return candidate;
-    }
-    return '';
-  }
-
-  if (input && typeof input === 'object') {
-    const props = ['campaignId', 'CampaignID', 'campaignid', 'CampaignId'];
-    for (let i = 0; i < props.length; i++) {
-      if (Object.prototype.hasOwnProperty.call(input, props[i])) {
-        const candidate = _normStr_(input[props[i]]);
-        if (candidate) return candidate;
-      }
-    }
-
-    const userProps = ['managerUserId', 'userId', 'UserID', 'managerId'];
-    for (let j = 0; j < userProps.length; j++) {
-      if (Object.prototype.hasOwnProperty.call(input, userProps[j])) {
-        const candidate = _resolveCampaignIdFromInput_(input[userProps[j]]);
-        if (candidate) return candidate;
-      }
-    }
-  }
-
-  const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-  if (currentUser) {
-    const fallback = _normStr_(
-      currentUser.activeCampaignId ||
-      currentUser.activeCampaignID ||
-      currentUser.campaignId ||
-      currentUser.CampaignId ||
-      currentUser.CampaignID
-    );
-    if (fallback) return fallback;
-  }
-
-  return '';
-}
-
 function _campaignNameMap_() {
   try {
     const rows = (typeof readSheet === 'function') ? (readSheet('CAMPAIGNS') || []) : [];
@@ -4120,43 +3924,9 @@ function _uiUserShape_(u, cmap) {
   };
 }
 
-function _readUsersSheetSafe_(options) {
+function _readUsersSheetSafe_() {
   try {
-    let opts = {};
-    if (typeof options === 'string' || typeof options === 'number') {
-      opts.campaignId = options;
-    } else if (options && typeof options === 'object') {
-      opts = Object.assign({}, options);
-    }
-
-    const campaignId = _resolveCampaignIdFromInput_(opts.campaignId);
-    const excludeGuests = opts.excludeGuests !== false;
-    const allowAllCampaigns = opts.allowAllCampaigns === true;
-
-    const readOptions = { useCache: opts.useCache !== false };
-    if (campaignId && !allowAllCampaigns) {
-      readOptions.campaignId = campaignId;
-      readOptions.where = Object.assign({}, opts.where || {}, { CampaignID: campaignId });
-    }
-    if (opts.suppressTenantContext) {
-      readOptions.suppressTenantContext = true;
-    }
-
-    let rows = (typeof readSheet === 'function') ? (readSheet('Users', readOptions) || []) : [];
-    if (!Array.isArray(rows)) rows = [];
-
-    if (allowAllCampaigns && campaignId) {
-      rows = rows.filter(function (row) {
-        const campaigns = _extractCampaignIdsFromUser_(row);
-        return campaigns.indexOf(campaignId) !== -1;
-      });
-    }
-
-    if (campaignId || excludeGuests) {
-      rows = _filterUsersForCampaign_(rows, allowAllCampaigns ? (campaignId || '') : campaignId, { excludeGuests: excludeGuests });
-    }
-
-    return rows;
+    return (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
   } catch (err) {
     console.warn('Unable to read Users sheet:', err);
     return [];
@@ -4196,17 +3966,71 @@ function _dedupeAndSortUsers_(list) {
 
 function getUsersByManager(managerUserId, options) {
   try {
-    const opts = Object.assign({ excludeGuests: true }, options || {});
-    const readOpts = {
-      excludeGuests: opts.excludeGuests !== false,
-      allowAllCampaigns: true
-    };
+    const opts = Object.assign({
+      includeManager: true,
+      fallbackToCampaign: true,
+      fallbackToAll: false,
+      managerCampaignId: ''
+    }, options || {});
+
+    const allUsers = _readUsersSheetSafe_();
+    if (!allUsers.length) return [];
 
     const cmap = _campaignNameMap_();
-    const rows = _readUsersSheetSafe_(readOpts);
-    const shaped = rows.map(function (row) { return _uiUserShape_(row, cmap); });
+    const byId = new Map(
+      allUsers
+        .filter(function (u) { return u && typeof u.ID !== 'undefined' && u.ID !== null && u.ID !== ''; })
+        .map(function (u) { return [String(u.ID), u]; })
+    );
 
-    return _dedupeAndSortUsers_(shaped);
+    const managerIdStr = managerUserId ? String(managerUserId) : '';
+    const manager = managerIdStr ? byId.get(managerIdStr) : null;
+    const visible = [];
+
+    const pushUser = function (rawUser) {
+      if (!rawUser) return;
+      visible.push(_uiUserShape_(rawUser, cmap));
+    };
+
+    if (opts.includeManager && manager) {
+      pushUser(manager);
+    }
+
+    const assignedIds = new Set();
+    if (managerIdStr) {
+      const relations = _readManagerUsersSheetSafe_();
+      for (let i = 0; i < relations.length; i++) {
+        const rel = relations[i];
+        if (!rel) continue;
+        if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
+          assignedIds.add(String(rel.UserID));
+        }
+      }
+    }
+
+    assignedIds.forEach(function (id) {
+      const match = byId.get(id);
+      if (match) pushUser(match);
+    });
+
+    const hasAssigned = assignedIds.size > 0;
+
+    if ((!hasAssigned || visible.length === (opts.includeManager && manager ? 1 : 0)) && opts.fallbackToCampaign) {
+      const targetCampaign = opts.managerCampaignId || (manager && (manager.CampaignID || manager.campaignId)) || '';
+      if (targetCampaign) {
+        allUsers.forEach(function (u) {
+          if (String(u.CampaignID || u.campaignId) === String(targetCampaign)) {
+            pushUser(u);
+          }
+        });
+      }
+    }
+
+    if (!visible.length && opts.fallbackToAll) {
+      allUsers.forEach(pushUser);
+    }
+
+    return _dedupeAndSortUsers_(visible);
 
   } catch (error) {
     console.error('Error in getUsersByManager:', error);
@@ -4217,10 +4041,24 @@ function getUsersByManager(managerUserId, options) {
 
 function getUser(managerUserId, options) {
   try {
-    const finalOpts = (typeof options === 'object' && options !== null)
-      ? Object.assign({}, options)
-      : {};
-    return getUsersByManager(managerUserId, finalOpts);
+    let mgrId = managerUserId;
+    let opts = options;
+
+    if (typeof mgrId === 'object' && mgrId !== null && !Array.isArray(mgrId) && typeof opts === 'undefined') {
+      opts = mgrId;
+      mgrId = undefined;
+    }
+
+    if (!mgrId) {
+      const current = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      if (current && current.ID) {
+        mgrId = current.ID;
+        opts = Object.assign({ managerCampaignId: current.CampaignID || current.campaignId || '' }, opts || {});
+      }
+    }
+
+    const finalOpts = Object.assign({ includeManager: false, fallbackToCampaign: false, fallbackToAll: false }, opts || {});
+    return getUsersByManager(mgrId, finalOpts);
 
   } catch (error) {
     console.error('Error in getUser:', error);
@@ -4229,99 +4067,112 @@ function getUser(managerUserId, options) {
   }
 }
 
-function getUsers(options) {
+function getUsers() {
   try {
-    const opts = (typeof options === 'string' || typeof options === 'number')
-      ? { campaignId: options }
-      : (options && typeof options === 'object')
-        ? Object.assign({}, options)
-        : {};
+    console.log('getUsers() called');
 
-    const excludeGuests = opts.excludeGuests !== false;
-    const cmap = _campaignNameMap_();
+    const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    const managerId = currentUser && currentUser.ID ? currentUser.ID : null;
+    const managerCampaignId = currentUser ? (currentUser.CampaignID || currentUser.campaignId || '') : '';
 
-    let rows = _readUsersSheetSafe_({
-      allowAllCampaigns: true,
-      excludeGuests: excludeGuests
+    const users = getUsersByManager(managerId, {
+      includeManager: true,
+      fallbackToCampaign: true,
+      fallbackToAll: true,
+      managerCampaignId: managerCampaignId
     });
 
-    const campaignCandidates = [opts.campaignId, opts.activeCampaignId, opts.managerCampaignId];
-    const resolvedCampaignId = _resolveCampaignIdFromInput_(campaignCandidates);
-    if (resolvedCampaignId) {
-      rows = rows.filter(function (row) {
-        const campaigns = _extractCampaignIdsFromUser_(row);
-        return campaigns.indexOf(resolvedCampaignId) !== -1;
-      });
+    if (users.length) {
+      console.log('Final user list:', users.length, 'users');
+      return users;
     }
 
-    const shaped = rows.map(function (row) { return _uiUserShape_(row, cmap); });
-    return _dedupeAndSortUsers_(shaped);
+    const fallback = currentUser ? [_uiUserShape_(currentUser, _campaignNameMap_())] : [];
+    console.warn('No users found by manager; returning fallback list of size', fallback.length);
+    return fallback;
 
   } catch (e) {
     console.error('Error in getUsers:', e);
     writeError && writeError('getUsers (enhanced)', e);
+
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        return [currentUser];
+      }
+    } catch (fallbackError) {
+      console.error('Fallback getCurrentUser also failed:', fallbackError);
+    }
+
     return [];
   }
 }
 
-function clientGetAssignedAgentNames(campaignInput) {
+function clientGetAssignedAgentNames(campaignId) {
   try {
-    const campaignId = _resolveCampaignIdFromInput_(campaignInput);
-    console.log('clientGetAssignedAgentNames resolved campaignId:', campaignId, 'from input:', campaignInput);
+    console.log('clientGetAssignedAgentNames called with campaignId:', campaignId);
 
-    const cmap = _campaignNameMap_();
     let users = [];
-
     try {
-      users = getUsers({ campaignId: campaignId, excludeGuests: true });
-      if (Array.isArray(users)) {
-        console.log('getUsers() returned:', users.length, 'users');
-      } else {
-        console.warn('getUsers() returned non-array data');
-        users = [];
-      }
+      users = getUsers();
+      console.log('getUsers() returned:', users.length, 'users');
     } catch (error) {
       console.warn('getUsers() failed, trying fallback approaches:', error);
-      users = [];
     }
 
-    if (!users.length) {
+    if (!users || users.length === 0) {
       try {
-        const rows = _readUsersSheetSafe_({ campaignId: campaignId, excludeGuests: true });
-        if (rows.length) {
-          users = rows.map(function (row) { return _uiUserShape_(row, cmap); });
-          console.log('Hydrated users from campaign-scoped sheet read:', users.length);
+        console.log('Trying direct Users sheet read...');
+        const allUsers = readSheet('Users') || [];
+        console.log('Direct Users sheet read returned:', allUsers.length, 'users');
+
+        if (campaignId && campaignId.trim() !== '') {
+          users = allUsers.filter(u =>
+            String(u.CampaignID || u.campaignId || '').trim() === String(campaignId).trim()
+          );
+          console.log('Filtered by campaignId:', users.length, 'users');
+        } else {
+          users = allUsers;
         }
+
+        users = users.map(u => ({
+          ID: u.ID || u.id,
+          FullName: u.FullName || u.UserName || u.name,
+          UserName: u.UserName || u.name,
+          Email: u.Email || u.email,
+          CampaignID: u.CampaignID || u.campaignId
+        }));
       } catch (error) {
-        console.error('Campaign-scoped user read failed:', error);
+        console.error('Direct Users sheet read failed:', error);
       }
     }
 
-    if (!users.length) {
+    if (!users || users.length === 0) {
       try {
+        console.log('No users found, trying to get current user...');
         const currentUser = getCurrentUser();
-        if (currentUser && !_isGuestUser_(currentUser)) {
-          users = [_uiUserShape_(currentUser, cmap)];
-          console.log('Using current user as fallback:', currentUser.FullName || currentUser.UserName || currentUser.Email);
+        if (currentUser && currentUser.FullName) {
+          users = [currentUser];
+          console.log('Using current user as fallback:', currentUser.FullName);
         }
       } catch (error) {
-        console.error('getCurrentUser fallback failed:', error);
+        console.error('getCurrentUser failed:', error);
       }
     }
 
-    if (!users.length) {
+    if (!users || users.length === 0) {
       console.warn('All user retrieval strategies failed, using empty array');
       users = [];
     }
 
     const displayNames = users
-      .map(function (user) {
-        const name = user && (user.FullName || user.UserName || user.name || user.Email || '');
-        return String(name || '').trim();
+      .map(u => {
+        const name = u.FullName || u.UserName || u.Email || u.name || '';
+        return name.trim();
       })
-      .filter(function (name) { return name !== ''; })
-      .filter(function (name, index, arr) { return arr.indexOf(name) === index; })
-      .sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
+      .filter(name => name !== '')
+      .filter((name, index, arr) => arr.indexOf(name) === index)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
     console.log('Final userList:', displayNames);
     return displayNames;
@@ -4355,19 +4206,26 @@ function clientGetUserList(campaignId) {
   }
 }
 
-function getSimpleUserList(campaignInput) {
+function getSimpleUserList(campaignId) {
   try {
-    const campaignId = _resolveCampaignIdFromInput_(campaignInput);
     console.log('getSimpleUserList called with campaignId:', campaignId);
 
-    const users = _readUsersSheetSafe_({ campaignId: campaignId, excludeGuests: true });
-    console.log('Read', users.length, 'users from scoped reader');
+    const users = readSheet('Users') || [];
+    console.log('Read', users.length, 'users from sheet');
 
-    const names = users
-      .map(function (u) { return u.FullName || u.UserName || u.Email || u.name || ''; })
-      .map(function (name) { return String(name || '').trim(); })
-      .filter(function (name) { return name !== ''; })
-      .filter(function (name, index, arr) { return arr.indexOf(name) === index; })
+    let filteredUsers = users;
+
+    if (campaignId && campaignId.trim() !== '') {
+      filteredUsers = users.filter(u =>
+        String(u.CampaignID || u.campaignId || '').trim() === String(campaignId).trim()
+      );
+      console.log('Filtered to', filteredUsers.length, 'users for campaign:', campaignId);
+    }
+
+    const names = filteredUsers
+      .map(u => u.FullName || u.UserName || u.Email || u.name || '')
+      .filter(name => name.trim() !== '')
+      .filter((name, index, arr) => arr.indexOf(name) === index)
       .sort();
 
     console.log('Returning', names.length, 'user names');
@@ -4379,34 +4237,21 @@ function getSimpleUserList(campaignInput) {
   }
 }
 
-function getUsersByCampaign(campaignInput) {
+function getUsersByCampaign(campaignId) {
   try {
-    const campaignId = _resolveCampaignIdFromInput_(campaignInput);
-    return _readUsersSheetSafe_({ campaignId: campaignId, excludeGuests: true });
-  } catch (error) {
-    console.warn('getUsersByCampaign failed:', error);
+    var rows = (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
+    return rows.filter(function (r) { return String(r.CampaignID || r.campaignId) === String(campaignId); });
+  } catch (_) {
     return [];
   }
 }
 
-function getAllUsersRaw(campaignInput, options) {
+function getAllUsersRaw() {
   try {
-    let opts = {};
-    if (campaignInput && typeof campaignInput === 'object' && !Array.isArray(campaignInput)) {
-      opts = Object.assign({}, campaignInput);
-    } else {
-      opts = Object.assign({}, options || {});
-      if (typeof campaignInput !== 'undefined') {
-        opts.campaignId = campaignInput;
-      }
+    if (typeof readSheet === 'function') {
+      return readSheet('Users') || [];
     }
-
-    const campaignId = _resolveCampaignIdFromInput_(opts.campaignId);
-    return _readUsersSheetSafe_({
-      campaignId: campaignId,
-      excludeGuests: opts.excludeGuests !== false,
-      allowAllCampaigns: opts.allowAllCampaigns === true
-    });
+    return [];
   } catch (error) {
     console.error('Error getting raw user list:', error);
     return [];
