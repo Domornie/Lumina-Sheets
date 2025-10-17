@@ -250,7 +250,203 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   const callTrend = Object.keys(buckets).map(k => ({ periodLabel: k, callCount: buckets[k].count }));
   const talkTrend = Object.keys(buckets).map(k => ({ periodLabel: k, totalTalk: buckets[k].talk }));
 
-  return { repMetrics, policyDist, wrapDist, callTrend, talkTrend, csatDist, activeAgents };
+  const fifteenMinuteBuckets = Array.from({ length: 24 * 4 }, () => 0);
+  const fifteenMinuteTalk = Array.from({ length: 24 * 4 }, () => 0);
+
+  filtered.forEach(r => {
+    const dt = r.CreatedDate instanceof Date ? r.CreatedDate : new Date(r.CreatedDate);
+    if (isNaN(dt)) return;
+    const hour = Number(Utilities.formatDate(dt, tz, 'H'));
+    const minute = Number(Utilities.formatDate(dt, tz, 'm'));
+    if (isNaN(hour) || isNaN(minute)) return;
+    const slotIndex = hour * 4 + Math.floor(minute / 15);
+    if (slotIndex < 0 || slotIndex >= fifteenMinuteBuckets.length) return;
+    fifteenMinuteBuckets[slotIndex] += 1;
+    fifteenMinuteTalk[slotIndex] += parseFloat(r.TalkTimeMinutes) || 0;
+  });
+
+  const totalCallsAll = filtered.length;
+  const activeSlotCount = fifteenMinuteBuckets.filter(count => count > 0).length || 1;
+  const averageActiveLoad = activeSlotCount ? totalCallsAll / activeSlotCount : 0;
+
+  const toTimeLabel = totalMinutes => {
+    const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+    const hour = Math.floor(normalized / 60);
+    const minute = normalized % 60;
+    const hour12 = ((hour + 11) % 12) + 1;
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    return `${hour12}:${String(minute).padStart(2, '0')} ${ampm}`;
+  };
+
+  const formatSlotRange = (startSlot, endSlot) => {
+    const startMinutes = startSlot * 15;
+    const endMinutes = endSlot * 15;
+    return `${toTimeLabel(startMinutes)} – ${toTimeLabel(endMinutes)}`;
+  };
+
+  const classifyLoad = avgPerSlot => {
+    if (!avgPerSlot || !isFinite(avgPerSlot) || averageActiveLoad === 0) return 'low';
+    if (avgPerSlot <= averageActiveLoad * 0.75) return 'low';
+    if (avgPerSlot <= averageActiveLoad * 1.25) return 'moderate';
+    return 'high';
+  };
+
+  const intensityLabel = key => {
+    if (key === 'high') return 'High load';
+    if (key === 'moderate') return 'Moderate load';
+    return 'Low load';
+  };
+
+  const intervalVolume = fifteenMinuteBuckets.map((count, idx) => ({
+    slotIndex: idx,
+    windowLabel: formatSlotRange(idx, idx + 1),
+    callCount: count,
+    averageTalk: fifteenMinuteTalk[idx],
+    intensity: classifyLoad(count),
+    intensityLabel: intensityLabel(classifyLoad(count))
+  }));
+
+  const hourlyVolume = Array.from({ length: 24 }, (_, hour) => {
+    const start = hour * 4;
+    const end = start + 4;
+    const callCount = fifteenMinuteBuckets.slice(start, end).reduce((sum, v) => sum + v, 0);
+    const talkTotal = fifteenMinuteTalk.slice(start, end).reduce((sum, v) => sum + v, 0);
+    return {
+      hour,
+      label: `${String(hour).padStart(2, '0')}:00`,
+      windowLabel: `${toTimeLabel(hour * 60)} – ${toTimeLabel((hour + 1) * 60)}`,
+      callCount,
+      averageTalk: callCount > 0 ? talkTotal / callCount : 0,
+      intensity: classifyLoad(callCount / 4 || 0),
+      intensityLabel: intensityLabel(classifyLoad(callCount / 4 || 0))
+    };
+  });
+
+  const peakTimeWindows = intervalVolume
+    .filter(entry => entry.callCount > 0)
+    .sort((a, b) => b.callCount - a.callCount)
+    .slice(0, 5)
+    .map(entry => ({
+      slotIndex: entry.slotIndex,
+      windowLabel: entry.windowLabel,
+      callCount: entry.callCount,
+      shareOfDay: totalCallsAll > 0 ? (entry.callCount / totalCallsAll) * 100 : 0,
+      intensity: entry.intensity,
+      intensityLabel: entry.intensityLabel
+    }));
+
+  const findBestWindow = (startIdx, endIdx, length) => {
+    if (startIdx < 0) startIdx = 0;
+    if (endIdx >= fifteenMinuteBuckets.length) endIdx = fifteenMinuteBuckets.length - 1;
+    if (length <= 0 || startIdx > endIdx) return null;
+    let best = null;
+    for (let idx = startIdx; idx <= endIdx - length + 1; idx++) {
+      let sum = 0;
+      for (let j = 0; j < length; j++) {
+        sum += fifteenMinuteBuckets[idx + j];
+      }
+      if (!best || sum < best.callCount || (sum === best.callCount && idx < best.startSlot)) {
+        best = { startSlot: idx, endSlot: idx + length, callCount: sum };
+      }
+    }
+    return best;
+  };
+
+  const globalPeakSlots = new Set(peakTimeWindows.map(p => p.slotIndex));
+
+  const convertWindow = (window, shiftTotal) => {
+    if (!window) {
+      return {
+        rangeLabel: '—',
+        callCount: 0,
+        shareOfShift: 0,
+        intensity: 'low',
+        intensityLabel: 'Low load'
+      };
+    }
+    const slots = Math.max(window.endSlot - window.startSlot, 1);
+    const avgPerSlot = window.callCount / slots;
+    const intensityKey = classifyLoad(avgPerSlot);
+    return {
+      rangeLabel: formatSlotRange(window.startSlot, window.endSlot),
+      callCount: window.callCount,
+      shareOfShift: shiftTotal > 0 ? (window.callCount / shiftTotal) * 100 : 0,
+      intensity: intensityKey,
+      intensityLabel: intensityLabel(intensityKey)
+    };
+  };
+
+  const scheduleTemplates = [
+    { id: 'early', name: 'Early Morning', startSlot: (8 * 4) + 2, startLabel: '8:30 AM' },
+    { id: 'mid', name: 'Mid-Morning', startSlot: 9 * 4, startLabel: '9:00 AM' },
+    { id: 'late', name: 'Late Morning', startSlot: (9 * 4) + 2, startLabel: '9:30 AM' },
+    { id: 'afternoon', name: 'Afternoon', startSlot: (9 * 4) + 2, startLabel: '9:30 AM', note: 'Extends coverage deepest into the afternoon window.' }
+  ];
+
+  const scheduleRecommendations = scheduleTemplates.map(template => {
+    const shiftLengthSlots = 8 * 4;
+    const startSlot = template.startSlot;
+    const endSlot = startSlot + shiftLengthSlots;
+    const shiftIntervals = intervalVolume.filter(entry => entry.slotIndex >= startSlot && entry.slotIndex < endSlot);
+    const shiftTotalCalls = shiftIntervals.reduce((sum, entry) => sum + entry.callCount, 0);
+    const averageHourlyLoad = shiftTotalCalls / 8;
+
+    const lunchWindow = findBestWindow(startSlot + 12, Math.min(endSlot - 4, startSlot + 20), 4);
+    const firstBreakWindow = findBestWindow(startSlot + 4, Math.min(endSlot - 1, startSlot + 12), 1);
+    const secondBreakWindow = findBestWindow(Math.max(startSlot + 20, startSlot + 8), endSlot - 1, 1);
+
+    const peakWithinShift = shiftIntervals
+      .slice()
+      .sort((a, b) => b.callCount - a.callCount)[0] || null;
+
+    const overlapCount = Array.from(globalPeakSlots).filter(slot => slot >= startSlot && slot < endSlot).length;
+    const overlapPercent = globalPeakSlots.size > 0 ? (overlapCount / globalPeakSlots.size) * 100 : 0;
+
+    const coverageNote = overlapPercent >= 75
+      ? 'Strong overlap with historic spikes—keep full coverage during the watch window.'
+      : overlapPercent >= 40
+        ? 'Moderate overlap—stagger lunches as recommended to stay ahead of the peak.'
+        : 'Light overlap with peaks—ideal window for flexible coverage.';
+
+    return {
+      id: template.id,
+      name: template.name,
+      startLabel: template.startLabel,
+      shiftRangeLabel: formatSlotRange(startSlot, endSlot),
+      totalCalls: shiftTotalCalls,
+      averageHourlyLoad: averageHourlyLoad || 0,
+      overlapPercent,
+      lunch: convertWindow(lunchWindow, shiftTotalCalls),
+      breaks: [
+        convertWindow(firstBreakWindow, shiftTotalCalls),
+        convertWindow(secondBreakWindow, shiftTotalCalls)
+      ],
+      peakGuard: peakWithinShift
+        ? {
+            rangeLabel: peakWithinShift.windowLabel,
+            callCount: peakWithinShift.callCount,
+            shareOfShift: shiftTotalCalls > 0 ? (peakWithinShift.callCount / shiftTotalCalls) * 100 : 0,
+            intensity: peakWithinShift.intensity,
+            intensityLabel: peakWithinShift.intensityLabel
+          }
+        : convertWindow(null, shiftTotalCalls),
+      coverageNote: template.note ? `${template.note} ${coverageNote}`.trim() : coverageNote
+    };
+  });
+
+  return {
+    repMetrics,
+    policyDist,
+    wrapDist,
+    callTrend,
+    talkTrend,
+    csatDist,
+    activeAgents,
+    hourlyVolume,
+    intervalVolume,
+    peakTimeWindows,
+    scheduleRecommendations
+  };
 }
 
 /**
