@@ -4851,21 +4851,103 @@ function clientGetEmploymentStatusReport(campaignId) {
     valid.forEach(s => statusCounts[s] = 0);
     statusCounts['Unspecified'] = 0;
 
+    const summaries = [];
+    const usersByStatus = {};
+    const changeEntries = [];
+    const scriptTimeZone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
+      ? Session.getScriptTimeZone()
+      : 'UTC';
+
     filtered.forEach(u => {
       const normalized = normalizeEmploymentStatus(u && (u.EmploymentStatus || u.employmentStatus));
-      if (normalized) {
-        if (typeof statusCounts[normalized] !== 'number') statusCounts[normalized] = 0;
-        statusCounts[normalized]++;
-      } else {
-        statusCounts['Unspecified']++;
+      const status = normalized || 'Unspecified';
+      if (typeof statusCounts[status] !== 'number') statusCounts[status] = 0;
+      statusCounts[status]++;
+
+      let safeUser;
+      try {
+        safeUser = (typeof createSafeUserObject === 'function') ? createSafeUserObject(u) : (u || {});
+      } catch (err) {
+        safeUser = u || {};
+      }
+
+      const roleValues = [];
+      const roleSources = [safeUser.roleNames, safeUser.roles, safeUser.Roles, safeUser.csvRoles];
+      for (let i = 0; i < roleSources.length; i++) {
+        const source = roleSources[i];
+        if (!source) continue;
+        if (Array.isArray(source)) {
+          source.forEach(role => {
+            const trimmed = role && String(role).trim();
+            if (trimmed && !roleValues.includes(trimmed)) roleValues.push(trimmed);
+          });
+        } else if (typeof source === 'string') {
+          source.split(',').forEach(part => {
+            const trimmed = part && part.trim();
+            if (trimmed && !roleValues.includes(trimmed)) roleValues.push(trimmed);
+          });
+        }
+      }
+
+      const summary = {
+        id: safeUser.ID || safeUser.Id || safeUser.id || u.ID || '',
+        name: (safeUser.FullName || safeUser.fullName || safeUser.UserName || safeUser.userName || safeUser.username
+          || safeUser.Email || safeUser.email || '').trim(),
+        email: (safeUser.Email || safeUser.email || '').trim(),
+        employmentStatus: status,
+        campaignId: safeUser.CampaignID || safeUser.campaignId || safeUser.CampaignId || '',
+        campaignName: safeUser.campaignName || safeUser.CampaignName || safeUser.Campaign || '',
+        roles: roleValues,
+        hireDate: safeUser.HireDate || safeUser.hireDate || '',
+        country: safeUser.Country || safeUser.country || ''
+      };
+
+      if (!summary.name) {
+        summary.name = summary.email || 'Unnamed user';
+      }
+
+      summaries.push(summary);
+
+      if (!Array.isArray(usersByStatus[status])) usersByStatus[status] = [];
+      usersByStatus[status].push(summary);
+
+      const updatedRaw = u && (u.UpdatedAt || u.updatedAt || u.Updated || u.LastModified || u.Modified
+        || u.ModifiedAt || u.LastUpdated || u.UpdatedOn || u.updatedOn);
+      if (updatedRaw) {
+        const updatedDate = new Date(updatedRaw);
+        if (!isNaN(updatedDate.getTime())) {
+          let formatted;
+          try {
+            if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+              formatted = Utilities.formatDate(updatedDate, scriptTimeZone || 'UTC', 'MMM d, yyyy');
+            } else {
+              formatted = updatedDate.toISOString().split('T')[0];
+            }
+          } catch (formatErr) {
+            formatted = updatedDate.toISOString().split('T')[0];
+          }
+          changeEntries.push({
+            ts: updatedDate.getTime(),
+            text: `${summary.name} → ${status} (${formatted})`
+          });
+        }
       }
     });
+
+    const recentChanges = changeEntries
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 10)
+      .map(entry => entry.text);
+
     return {
       success: true,
       campaignId,
       totalUsers: filtered.length,
       statusCounts,
       validStatuses: valid,
+      users: summaries,
+      usersByStatus,
+      recentChanges,
       message: `Employment status report for ${filtered.length} users`
     };
   } catch (e) { writeError && writeError('clientGetEmploymentStatusReport', e); return { success: false, error: e.message }; }
