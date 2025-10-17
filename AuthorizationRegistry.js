@@ -436,6 +436,73 @@ var AuthorizationRegistry = (function () {
     return Object.keys(ref).length ? ref : null;
   }
 
+  function normalizeSnapshotId(value) {
+    if (!value && value !== 0) {
+      return '';
+    }
+    return String(value).trim();
+  }
+
+  function deriveCurrentCampaignId(userPayload, snapshotCampaign) {
+    var fromPayload = '';
+    if (userPayload && typeof userPayload === 'object') {
+      fromPayload = normalizeSnapshotId(
+        userPayload.CurrentCampaignId
+          || userPayload.ActiveCampaignId
+          || (userPayload.CampaignScope && userPayload.CampaignScope.activeCampaignId)
+          || (userPayload.CampaignID || userPayload.campaignId)
+      );
+    }
+
+    if (fromPayload) {
+      return fromPayload;
+    }
+
+    if (snapshotCampaign && snapshotCampaign.activeCampaignId) {
+      return normalizeSnapshotId(snapshotCampaign.activeCampaignId);
+    }
+
+    return '';
+  }
+
+  function deriveCurrentUserId(userPayload, fallbackUserId) {
+    if (userPayload && typeof userPayload === 'object') {
+      var current = normalizeSnapshotId(
+        userPayload.CurrentUserId
+          || userPayload.UserId
+          || userPayload.userId
+          || userPayload.ID
+          || userPayload.Id
+          || userPayload.id
+      );
+      if (current) {
+        return current;
+      }
+    }
+    return normalizeSnapshotId(fallbackUserId);
+  }
+
+  function buildSessionDetails(userPayload, sessionToken) {
+    var expiresAt = null;
+    var lastActivityAt = null;
+    var idleTimeoutMinutes = null;
+
+    if (userPayload && typeof userPayload === 'object') {
+      expiresAt = normalizeSnapshotId(userPayload.sessionExpiresAt || userPayload.sessionExpiry);
+      lastActivityAt = normalizeSnapshotId(userPayload.sessionLastActivityAt);
+      if (typeof userPayload.sessionIdleTimeoutMinutes === 'number' && !isNaN(userPayload.sessionIdleTimeoutMinutes)) {
+        idleTimeoutMinutes = userPayload.sessionIdleTimeoutMinutes;
+      }
+    }
+
+    return {
+      token: normalizeSnapshotId(sessionToken) || null,
+      expiresAt: expiresAt || null,
+      lastActivityAt: lastActivityAt || null,
+      idleTimeoutMinutes: idleTimeoutMinutes
+    };
+  }
+
   function buildAuthorizationSnapshot(userPayload, options) {
     if (!userPayload || typeof userPayload !== 'object') {
       return null;
@@ -517,6 +584,13 @@ var AuthorizationRegistry = (function () {
       directManager: sanitizeUserReference(userPayload.DirectManager),
       timestamp: nowIsoString()
     };
+
+    snapshot.session = buildSessionDetails(userPayload, snapshot.sessionToken);
+
+    snapshot.currentUserId = deriveCurrentUserId(userPayload, snapshot.userId) || snapshot.userId;
+    snapshot.currentCampaignId = deriveCurrentCampaignId(userPayload, snapshot.campaign);
+    snapshot.campaign.currentCampaignId = snapshot.currentCampaignId;
+    snapshot.currentCampaignPermission = snapshot.campaign.activePermission || null;
 
     if (options && options.tenantPayload) {
       try {
@@ -674,6 +748,123 @@ var AuthorizationRegistry = (function () {
     return storeSnapshot(snapshot);
   }
 
+  function buildContextSummary(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      return null;
+    }
+
+    var summary = {
+      userId: snapshot.userId || null,
+      currentUserId: snapshot.currentUserId || snapshot.userId || null,
+      userName: snapshot.userName || null,
+      fullName: snapshot.fullName || null,
+      email: snapshot.email || null,
+      sessionToken: snapshot.sessionToken || (snapshot.session && snapshot.session.token) || null,
+      activeCampaignId: snapshot.currentCampaignId || (snapshot.campaign && snapshot.campaign.activeCampaignId) || null,
+      roleKey: snapshot.highestRole && snapshot.highestRole.key ? snapshot.highestRole.key : null,
+      roleLabel: snapshot.highestRole && snapshot.highestRole.label ? snapshot.highestRole.label : null,
+      flags: snapshot.flags || {},
+      roleCapabilities: snapshot.roleCapabilities || {},
+      permissionLevels: Array.isArray(snapshot.permissionLevels) ? snapshot.permissionLevels.slice() : [],
+      claims: Array.isArray(snapshot.claims) ? snapshot.claims.slice() : [],
+      directReports: Array.isArray(snapshot.directReports) ? snapshot.directReports.slice() : [],
+      timestamp: snapshot.timestamp || null
+    };
+
+    if (snapshot.campaign && typeof snapshot.campaign === 'object') {
+      summary.campaign = {
+        activeCampaignId: snapshot.campaign.activeCampaignId || null,
+        currentCampaignId: snapshot.campaign.currentCampaignId || summary.activeCampaignId || null,
+        defaultCampaignId: snapshot.campaign.defaultCampaignId || null,
+        allowedCampaignIds: Array.isArray(snapshot.campaign.allowedCampaignIds)
+          ? snapshot.campaign.allowedCampaignIds.slice()
+          : [],
+        managedCampaignIds: Array.isArray(snapshot.campaign.managedCampaignIds)
+          ? snapshot.campaign.managedCampaignIds.slice()
+          : [],
+        adminCampaignIds: Array.isArray(snapshot.campaign.adminCampaignIds)
+          ? snapshot.campaign.adminCampaignIds.slice()
+          : [],
+        activePermission: snapshot.campaign.activePermission || null
+      };
+    } else {
+      summary.campaign = {
+        activeCampaignId: null,
+        currentCampaignId: null,
+        defaultCampaignId: null,
+        allowedCampaignIds: [],
+        managedCampaignIds: [],
+        adminCampaignIds: [],
+        activePermission: null
+      };
+    }
+
+    if (snapshot.session && typeof snapshot.session === 'object') {
+      summary.session = {
+        token: snapshot.session.token || summary.sessionToken || null,
+        expiresAt: snapshot.session.expiresAt || null,
+        lastActivityAt: snapshot.session.lastActivityAt || null,
+        idleTimeoutMinutes: typeof snapshot.session.idleTimeoutMinutes === 'number'
+          ? snapshot.session.idleTimeoutMinutes
+          : null
+      };
+    } else {
+      summary.session = {
+        token: summary.sessionToken || null,
+        expiresAt: null,
+        lastActivityAt: null,
+        idleTimeoutMinutes: null
+      };
+    }
+
+    if (snapshot.tenant) {
+      try {
+        summary.tenant = JSON.parse(JSON.stringify(snapshot.tenant));
+      } catch (tenantErr) {
+        summary.tenant = snapshot.tenant;
+      }
+    } else {
+      summary.tenant = null;
+    }
+
+    if (snapshot.rawScope) {
+      try {
+        summary.rawScope = JSON.parse(JSON.stringify(snapshot.rawScope));
+      } catch (scopeErr) {
+        summary.rawScope = snapshot.rawScope;
+      }
+    } else {
+      summary.rawScope = null;
+    }
+
+    return summary;
+  }
+
+  function getAuthorizationContextSummaryForSession(sessionToken) {
+    var snapshot = getAuthorizationSnapshotForSession(sessionToken);
+    return buildContextSummary(snapshot);
+  }
+
+  function getAuthorizationContextSummaryForUser(userId) {
+    var snapshot = getAuthorizationSnapshotForUser(userId);
+    return buildContextSummary(snapshot);
+  }
+
+  function getActiveCampaignIdForSession(sessionToken) {
+    var summary = getAuthorizationContextSummaryForSession(sessionToken);
+    return summary && summary.activeCampaignId ? summary.activeCampaignId : null;
+  }
+
+  function getActiveCampaignIdForUser(userId) {
+    var summary = getAuthorizationContextSummaryForUser(userId);
+    return summary && summary.activeCampaignId ? summary.activeCampaignId : null;
+  }
+
+  function getCurrentUserIdForSession(sessionToken) {
+    var summary = getAuthorizationContextSummaryForSession(sessionToken);
+    return summary && summary.currentUserId ? summary.currentUserId : null;
+  }
+
   function userHasCapability(subject, capability) {
     if (!capability && capability !== 0) {
       return false;
@@ -811,6 +1002,11 @@ var AuthorizationRegistry = (function () {
     registerAuthorizationSnapshot: registerAuthorizationSnapshot,
     getAuthorizationSnapshotForUser: getAuthorizationSnapshotForUser,
     getAuthorizationSnapshotForSession: getAuthorizationSnapshotForSession,
+    getAuthorizationContextSummaryForSession: getAuthorizationContextSummaryForSession,
+    getAuthorizationContextSummaryForUser: getAuthorizationContextSummaryForUser,
+    getActiveCampaignIdForSession: getActiveCampaignIdForSession,
+    getActiveCampaignIdForUser: getActiveCampaignIdForUser,
+    getCurrentUserIdForSession: getCurrentUserIdForSession,
     clearAuthorizationSnapshot: clearAuthorizationSnapshot,
     compareRoleLevels: compareRoleLevels,
     roleIsAtLeast: roleIsAtLeast,
