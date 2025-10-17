@@ -471,6 +471,12 @@
     border: 1px solid rgba(245, 158, 11, 0.3);
   }
 
+  .data-badge.answer {
+    background: rgba(6, 182, 212, 0.1);
+    color: #0f172a;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+
   .btn-modern {
     display: inline-flex;
     align-items: center;
@@ -575,7 +581,8 @@
     generateHeaderSuggestions(headers, missingKeys) {
       const suggestions = {
         date: 'Try renaming a date column to include "Created Date" or "Call Reporting"',
-        talk: 'Try renaming a time column to "Talk Time Minutes"', 
+        talk: 'Try renaming a time column to "Talk Time Minutes"',
+        answer: 'Try renaming the response column to include "To Answer Time"',
         policy: 'Try renaming a routing column to "From Routing Policy"',
         csat: 'Try renaming a satisfaction column to "Question1" or include "CSAT"',
         wrapup: 'Try renaming a wrap-up column to "Wrapup Label" or "Wrapup Label 0"',
@@ -1045,6 +1052,7 @@
       const headerMap = {
         date: this.findHeader(rawHeaders, ['call reporting', 'created date'], ['date', 'created']),
         talk: this.findHeader(rawHeaders, ['talk time minutes'], ['talk', 'time', 'minutes']),
+        answer: this.findHeader(rawHeaders, ['to answer time'], ['answer time', 'answer']),
         policy: this.findHeader(rawHeaders, ['from routing policy'], ['routing', 'policy']),
         csat: this.findHeader(rawHeaders, ['question1'], ['question', 'csat', 'satisfaction']),
         wrapup: this.findHeader(rawHeaders, ['wrapup label'], ['wrapup', 'wrap', 'label']),
@@ -1096,11 +1104,15 @@
         // 2) Parse TalkTimeMinutes
         const talkVal = Number(cols[indices.talk]) || 0;
 
-        // 3) Parse Policy & Wrapup
+        // 3) Parse Answer Time → keep numeric seconds when possible
+        const answerRaw = indices.answer !== undefined ? cols[indices.answer] : '';
+        const answerVal = this.normalizeAnswerTime(answerRaw);
+
+        // 4) Parse Policy & Wrapup
         const policyVal = String(cols[indices.policy] || "");
         const wrapVal = String(cols[indices.wrapup] || "");
 
-        // 4) Parse CSAT: leave exactly "Yes", "No", or blank
+        // 5) Parse CSAT: leave exactly "Yes", "No", or blank
         let csatText = String(cols[indices.csat] || "").trim();
         const lc = csatText.toLowerCase();
         if (lc === "yes") {
@@ -1111,10 +1123,10 @@
           csatText = ""; // leave blank otherwise
         }
 
-        // 5) Parse UserName & strip "VLBPO"
+        // 6) Parse UserName & strip "VLBPO"
         let userName = String(cols[indices.user] || "").replace(/\s*VLBPO\s*/gi, " ").trim();
 
-        // 6) UserID not provided by file → empty string
+        // 7) UserID not provided by file → empty string
         const userIDVal = "";
 
         // Skip empty rows
@@ -1126,6 +1138,8 @@
         this.parsedRows.push({
           Date: dateVal,
           TalkTimeMinutes: talkVal,
+          ToAnswerTime: answerVal,
+          'To Answer Time': answerVal,
           Policy: policyVal,
           Wrapup: wrapVal,
           UserName: userName,
@@ -1184,6 +1198,7 @@
           <th style="width: 60px;">#</th>
           <th>Created Date</th>
           <th>Talk Time</th>
+          <th>Answer Time</th>
           <th>Policy</th>
           <th>CSAT</th>
           <th>Wrapup</th>
@@ -1201,6 +1216,7 @@
         // Create styled badges for better visual representation
         const csatBadge = this.createCSATBadge(rowObj.CSAT);
         const talktimeBadge = `<span class="data-badge talktime">${rowObj.TalkTimeMinutes}min</span>`;
+        const answerBadge = this.createAnswerBadge(rowObj.ToAnswerTime);
         const policyBadge = rowObj.Policy ? `<span class="data-badge policy">${this.escapeHtml(rowObj.Policy)}</span>` : '-';
         const wrapupBadge = rowObj.Wrapup ? `<span class="data-badge wrapup">${this.escapeHtml(rowObj.Wrapup)}</span>` : '-';
 
@@ -1209,6 +1225,7 @@
           <td><strong>${idx + 1}</strong></td>
           <td>${this.escapeHtml(displayDate)}</td>
           <td>${talktimeBadge}</td>
+          <td>${answerBadge}</td>
           <td>${policyBadge}</td>
           <td>${csatBadge}</td>
           <td>${wrapupBadge}</td>
@@ -1225,6 +1242,184 @@
         `Successfully parsed <strong>${this.parsedRows.length}</strong> call reports from <strong>${userCount}</strong> users. Review the preview above and click Import to proceed.`,
         "success"
       );
+    }
+
+    ensureDate(value) {
+      if (value instanceof Date && !isNaN(value)) return value;
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = new Date(value);
+      return isNaN(parsed) ? null : parsed;
+    }
+
+    parseAnswerSeconds(rawValue, createdDate) {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+      const parts = this.extractAnswerTimeParts(rawValue);
+      const created = this.ensureDate(createdDate);
+
+      if (created) {
+        const absoluteAnswer = this.extractAnswerAbsoluteDate(rawValue);
+        if (absoluteAnswer) {
+          const diffAbs = (absoluteAnswer.getTime() - created.getTime()) / 1000;
+          if (isFinite(diffAbs)) return Math.max(0, Math.round(diffAbs * 100) / 100);
+        }
+      }
+
+      if (!parts) {
+        const numeric = Number(rawValue);
+        if (!isNaN(numeric) && isFinite(numeric)) {
+          return Math.max(0, numeric);
+        }
+        return null;
+      }
+
+      const baseSeconds = (parts.hours * 3600) + (parts.minutes * 60) + parts.seconds;
+      if (!createdDate || !created) {
+        return baseSeconds;
+      }
+
+      const answerDate = new Date(created);
+      answerDate.setHours(parts.hours, parts.minutes, parts.seconds, 0);
+      if (answerDate.getTime() < created.getTime()) {
+        answerDate.setDate(answerDate.getDate() + 1);
+      }
+
+      const diff = (answerDate.getTime() - created.getTime()) / 1000;
+      return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+    }
+
+    normalizeAnswerTime(rawValue) {
+      const parts = this.extractAnswerTimeParts(rawValue);
+      if (!parts) {
+        if (rawValue === null || rawValue === undefined) return '';
+        if (typeof rawValue === 'string') return rawValue.trim();
+        return String(rawValue);
+      }
+      return this.formatPartsToTime(parts);
+    }
+
+    secondsToParts(totalSeconds) {
+      if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) {
+        return null;
+      }
+      const normalized = ((Math.round(Number(totalSeconds)) % 86400) + 86400) % 86400;
+      const hours = Math.floor(normalized / 3600);
+      const minutes = Math.floor((normalized % 3600) / 60);
+      const seconds = normalized % 60;
+      return { hours, minutes, seconds };
+    }
+
+    extractAnswerAbsoluteDate(rawValue) {
+      if (rawValue instanceof Date && !isNaN(rawValue)) {
+        return new Date(rawValue.getTime());
+      }
+      if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+      const str = String(rawValue).trim();
+      if (!str) return null;
+      const hasDateToken = /\d{4}-\d{2}-\d{2}/.test(str) || /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(str);
+      if (!hasDateToken && !str.toUpperCase().includes('T')) return null;
+      const parsed = new Date(str);
+      return isNaN(parsed) ? null : parsed;
+    }
+
+    extractAnswerTimeParts(rawValue) {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+      if (rawValue instanceof Date && !isNaN(rawValue)) {
+        return {
+          hours: rawValue.getHours(),
+          minutes: rawValue.getMinutes(),
+          seconds: rawValue.getSeconds()
+        };
+      }
+
+      if (typeof rawValue === 'number' && isFinite(rawValue)) {
+        const numeric = Number(rawValue);
+        if (numeric >= 0 && numeric < 1) {
+          return this.secondsToParts(numeric * 86400);
+        }
+        if (numeric >= 0 && numeric < 86400) {
+          return this.secondsToParts(numeric);
+        }
+        return this.secondsToParts(numeric % 86400);
+      }
+
+      const str = String(rawValue).trim();
+      if (!str) return null;
+
+      const parsedDate = new Date(str);
+      if (!isNaN(parsedDate)) {
+        return {
+          hours: parsedDate.getHours(),
+          minutes: parsedDate.getMinutes(),
+          seconds: parsedDate.getSeconds()
+        };
+      }
+
+      const clockMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+      if (clockMatch) {
+        let hours = Number(clockMatch[1]);
+        const minutes = Number(clockMatch[2]);
+        const seconds = clockMatch[3] !== undefined ? Number(clockMatch[3]) : 0;
+        if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+        const suffix = clockMatch[4] ? clockMatch[4].toUpperCase() : null;
+        if (suffix === 'PM' && hours < 12) hours += 12;
+        if (suffix === 'AM' && hours === 12) hours = 0;
+        return {
+          hours: ((hours % 24) + 24) % 24,
+          minutes: ((minutes % 60) + 60) % 60,
+          seconds: ((seconds % 60) + 60) % 60
+        };
+      }
+
+      const compactMatch = str.match(/^(\d{1,2})(\d{2})(\d{2})$/);
+      if (compactMatch) {
+        const hours = Number(compactMatch[1]);
+        const minutes = Number(compactMatch[2]);
+        const seconds = Number(compactMatch[3]);
+        if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+        return {
+          hours: ((hours % 24) + 24) % 24,
+          minutes: ((minutes % 60) + 60) % 60,
+          seconds: ((seconds % 60) + 60) % 60
+        };
+      }
+
+      return null;
+    }
+
+    formatPartsToTime(parts) {
+      if (!parts) return '';
+      const hh = String(parts.hours).padStart(2, '0');
+      const mm = String(parts.minutes).padStart(2, '0');
+      const ss = String(parts.seconds).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    formatSecondsToTime(seconds) {
+      const parts = this.secondsToParts(seconds);
+      return parts ? this.formatPartsToTime(parts) : '';
+    }
+
+    createAnswerBadge(value) {
+      if (value === null || value === undefined || value === '') {
+        return '<span class="data-badge answer">—</span>';
+      }
+
+      const parts = this.extractAnswerTimeParts(value);
+      if (parts) {
+        const formatted = this.formatPartsToTime(parts);
+        if (formatted) {
+          return `<span class="data-badge answer">${formatted}</span>`;
+        }
+      }
+
+      const text = String(value).trim();
+      if (!text) {
+        return '<span class="data-badge answer">—</span>';
+      }
+
+      return `<span class="data-badge answer">${this.escapeHtml(text)}</span>`;
     }
 
     createCSATBadge(csat) {
