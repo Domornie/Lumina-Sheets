@@ -1663,6 +1663,7 @@
     const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
     const peakTimeWindows = Array.isArray(analytics.peakTimeWindows) ? analytics.peakTimeWindows : [];
     const scheduleRecommendations = Array.isArray(analytics.scheduleRecommendations) ? analytics.scheduleRecommendations : [];
+    const callActivityWindow = analytics.callActivityWindow || null;
     const totalCalls = repMetrics.reduce((sum, r) => sum + (Number(r.totalCalls) || 0), 0);
     const totalTalkMinutes = talkTrend.reduce((sum, entry) => sum + (Number(entry.totalTalk) || 0), 0);
     const avgTalkMinutes = totalCalls > 0 ? totalTalkMinutes / totalCalls : 0;
@@ -1710,6 +1711,19 @@
     const peakHourlyLabel = peakHourlyEntry?.windowLabel || '—';
     const peakHourlyCount = Number(peakHourlyEntry?.callCount) || 0;
     const staffingLabel = `${minutesToTimeLabel(workConfig.startHour * 60)} – ${minutesToTimeLabel(workConfig.endHour * 60)}`;
+    const observedWindowLabel = callActivityWindow
+      ? `${callActivityWindow.startLabel} – ${callActivityWindow.endLabel}`
+      : (peakHourlyCount > 0 ? peakHourlyLabel : '—');
+    const coverageDuration = callActivityWindow ? Number(callActivityWindow.durationMinutes || 0) : 0;
+    const observedWindowSubtextParts = [];
+    if (callActivityWindow && coverageDuration > 0) {
+      observedWindowSubtextParts.push(`Coverage ${formatMinutesToReadable(coverageDuration)}`);
+    }
+    if (peakHourlyCount > 0) {
+      observedWindowSubtextParts.push(`Peak ${peakHourlyLabel} (${peakHourlyCount.toLocaleString()} calls)`);
+    }
+    observedWindowSubtextParts.push(`Staffing ${staffingLabel}`);
+    const observedWindowSubtext = observedWindowSubtextParts.join(' • ');
 
     const busiestPeriod = callTrend.reduce((best, item) =>
       (Number(item.callCount) || 0) > (Number(best?.callCount) || 0) ? item : best
@@ -1752,11 +1766,9 @@
       </div>
       <div class="col-lg-3 col-md-6">
         <div class="ai-metric-card">
-          <div class="metric-label">Weekly Peak Window</div>
-          <div class="metric-value">${peakHourlyCount > 0 ? peakHourlyLabel : '—'}</div>
-          <div class="metric-subtext">${peakHourlyCount > 0
-            ? `${peakHourlyCount.toLocaleString()} calls/hour • Staffing ${staffingLabel}`
-            : `No calls recorded within ${staffingLabel}`}</div>
+          <div class="metric-label">Observed Call Window</div>
+          <div class="metric-value">${observedWindowLabel}</div>
+          <div class="metric-subtext">${observedWindowSubtext}</div>
         </div>
       </div>
       <div class="col-lg-3 col-md-6">
@@ -1808,6 +1820,10 @@
       insights.push(`Busiest period: <strong>${peakPeriodLabel}</strong> with <strong>${peakPeriodCount.toLocaleString()}</strong> calls.`);
     }
 
+    if (callActivityWindow) {
+      insights.push(`Call activity spans <strong>${callActivityWindow.startLabel}</strong> to <strong>${callActivityWindow.endLabel}</strong> (${formatMinutesToReadable(coverageDuration)} window).`);
+    }
+
     if (peakHourlyCount > 0 && busiestHourEntry) {
       insights.push(`Peak hourly load lands in <strong>${peakHourlyLabel}</strong> (${peakHourlyCount.toLocaleString()} calls).`);
     }
@@ -1840,6 +1856,13 @@
       recommendations.push(`Replicate the winning moments from ${topAgent ? topAgent.agent : 'top performers'} to push conversions closer to 90%.`);
     } else {
       recommendations.push('Celebrate and document high-performing call flows to preserve this conversion streak.');
+    }
+
+    if (callActivityWindow) {
+      recommendations.push(`Anchor staffing to cover <strong>${callActivityWindow.startLabel} – ${callActivityWindow.endLabel}</strong> before layering breaks.`);
+      if (callActivityWindow.startSlot < workConfig.startSlot || callActivityWindow.endSlot > workConfig.endSlot) {
+        recommendations.push(`Observed call window extends beyond the default staffing window (${staffingLabel}); adjust schedules to match demand.`);
+      }
     }
 
     if (peakHourlyCount > 0 && busiestHourEntry) {
@@ -2379,11 +2402,12 @@
     const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
     const peakWindows = Array.isArray(analytics.peakTimeWindows) ? analytics.peakTimeWindows : [];
     const schedulePlans = Array.isArray(analytics.scheduleRecommendations) ? analytics.scheduleRecommendations : [];
+    const callWindow = analytics.callActivityWindow || null;
 
     renderCallLoadByHourChart(hourlyVolume);
     renderPeakWindowList(peakWindows);
-    renderSchedulePlanner(schedulePlans);
-    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans);
+    renderSchedulePlanner(schedulePlans, callWindow);
+    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans, callWindow);
   }
 
   function renderCallLoadByHourChart(hourlyVolume = []) {
@@ -2494,7 +2518,7 @@
       .join('');
   }
 
-  function renderSchedulePlanner(plans = []) {
+  function renderSchedulePlanner(plans = [], callWindow = null) {
     const container = document.getElementById('schedulePlannerContainer');
     if (!container) return;
 
@@ -2513,6 +2537,18 @@
         const lunchShare = Number(plan.lunch?.shareOfShift || 0).toFixed(1);
         const breakOneCalls = Number(firstBreak.callCount || 0).toLocaleString();
         const breakTwoCalls = Number(secondBreak.callCount || 0).toLocaleString();
+        const planWindow = plan.operatingWindow || callWindow;
+        const noteParts = [];
+        if (plan.coverageNote) noteParts.push(plan.coverageNote);
+        if (planWindow) {
+          const hasWindowText = typeof plan.coverageNote === 'string'
+            && plan.coverageNote.includes(planWindow.startLabel)
+            && plan.coverageNote.includes(planWindow.endLabel);
+          if (!hasWindowText) {
+            noteParts.push(`Observed call window ${planWindow.startLabel} – ${planWindow.endLabel}.`);
+          }
+        }
+        const planNote = noteParts.join(' ').trim();
 
         return `
           <div class="schedule-plan-card">
@@ -2560,14 +2596,14 @@
                 </dd>
               </div>
             </dl>
-            <div class="schedule-plan-note">${plan.coverageNote || ''}</div>
+            <div class="schedule-plan-note">${planNote}</div>
           </div>
         `;
       })
       .join('');
   }
 
-  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = []) {
+  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = [], callWindow = null) {
     const listEl = document.getElementById('peakSummaryList');
     if (!listEl) return;
 
@@ -2608,6 +2644,16 @@
 
     const priorityPlan = plans.find(plan => plan.id === 'mid') || plans[0] || null;
     const items = [];
+
+    if (callWindow) {
+      const duration = Number(callWindow.durationMinutes || 0);
+      items.push(`
+        <li>
+          <i class="fas fa-clock mt-1 text-primary"></i>
+          <div>Observed call window: <strong>${callWindow.startLabel} – ${callWindow.endLabel}</strong>${duration > 0 ? ` (${formatMinutesToReadable(duration)})` : ''}.</div>
+        </li>
+      `);
+    }
 
     if (busiestHour) {
       items.push(`

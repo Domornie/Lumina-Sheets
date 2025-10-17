@@ -166,6 +166,40 @@ function __parseAnswerSeconds(rawValue, createdDate) {
   return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
 }
 
+function __extractCallMinutesForAnalytics(record, tz) {
+  if (!record) return null;
+  const rawAnswer = __getAnswerFieldValue(record);
+
+  if (rawAnswer !== null && rawAnswer !== undefined && rawAnswer !== '') {
+    const absolute = __extractAnswerAbsoluteDate(rawAnswer);
+    if (absolute && absolute instanceof Date && !isNaN(absolute)) {
+      const hour = Number(Utilities.formatDate(absolute, tz, 'H'));
+      const minute = Number(Utilities.formatDate(absolute, tz, 'm'));
+      if (isFinite(hour) && isFinite(minute)) {
+        return (hour * 60) + minute;
+      }
+    }
+
+    const parts = __extractAnswerTimeParts(rawAnswer);
+    if (parts) {
+      return (parts.hours * 60) + parts.minutes;
+    }
+  }
+
+  const created = record.CreatedDate instanceof Date
+    ? record.CreatedDate
+    : new Date(record.CreatedDate);
+  if (created instanceof Date && !isNaN(created)) {
+    const hour = Number(Utilities.formatDate(created, tz, 'H'));
+    const minute = Number(Utilities.formatDate(created, tz, 'm'));
+    if (isFinite(hour) && isFinite(minute)) {
+      return (hour * 60) + minute;
+    }
+  }
+
+  return null;
+}
+
 var __CALL_REPORT_ANSWER_HEADER_ALIASES = (function (global) {
   if (global.__CALL_REPORT_ANSWER_HEADER_ALIASES && Array.isArray(global.__CALL_REPORT_ANSWER_HEADER_ALIASES)) {
     return global.__CALL_REPORT_ANSWER_HEADER_ALIASES;
@@ -622,17 +656,23 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
 
   const fifteenMinuteBuckets = Array.from({ length: 24 * 4 }, () => 0);
   const fifteenMinuteTalk = Array.from({ length: 24 * 4 }, () => 0);
+  let earliestCallMinutes = null;
+  let latestCallMinutes = null;
 
   filtered.forEach(r => {
-    const dt = r.CreatedDate instanceof Date ? r.CreatedDate : new Date(r.CreatedDate);
-    if (isNaN(dt)) return;
-    const hour = Number(Utilities.formatDate(dt, tz, 'H'));
-    const minute = Number(Utilities.formatDate(dt, tz, 'm'));
-    if (isNaN(hour) || isNaN(minute)) return;
-    const slotIndex = hour * 4 + Math.floor(minute / 15);
+    const minutesOfDay = __extractCallMinutesForAnalytics(r, tz);
+    if (minutesOfDay === null || !isFinite(minutesOfDay)) return;
+    const normalizedMinutes = ((Math.round(minutesOfDay) % 1440) + 1440) % 1440;
+    const slotIndex = Math.floor(normalizedMinutes / 15);
     if (slotIndex < 0 || slotIndex >= fifteenMinuteBuckets.length) return;
     fifteenMinuteBuckets[slotIndex] += 1;
     fifteenMinuteTalk[slotIndex] += parseFloat(r.TalkTimeMinutes) || 0;
+    if (earliestCallMinutes === null || normalizedMinutes < earliestCallMinutes) {
+      earliestCallMinutes = normalizedMinutes;
+    }
+    if (latestCallMinutes === null || normalizedMinutes > latestCallMinutes) {
+      latestCallMinutes = normalizedMinutes;
+    }
   });
 
   const totalCallsAll = filtered.length;
@@ -653,6 +693,29 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     const endMinutes = endSlot * 15;
     return `${toTimeLabel(startMinutes)} – ${toTimeLabel(endMinutes)}`;
   };
+
+  const callActivityWindow = (function () {
+    if (earliestCallMinutes === null || latestCallMinutes === null) return null;
+    let startSlot = Math.max(0, Math.floor(earliestCallMinutes / 15));
+    let endSlot = Math.floor(latestCallMinutes / 15) + 1;
+    if (endSlot <= startSlot) endSlot = startSlot + 1;
+    if (endSlot > fifteenMinuteBuckets.length) endSlot = fifteenMinuteBuckets.length;
+    if (startSlot >= endSlot) {
+      startSlot = Math.max(0, endSlot - 1);
+    }
+    const startMinutes = startSlot * 15;
+    const endMinutes = endSlot * 15;
+    const durationMinutes = Math.max(0, endMinutes - startMinutes);
+    return {
+      startMinutes,
+      endMinutes,
+      startSlot,
+      endSlot,
+      startLabel: toTimeLabel(startMinutes),
+      endLabel: toTimeLabel(endMinutes),
+      durationMinutes
+    };
+  })();
 
   const classifyLoad = avgPerSlot => {
     if (!avgPerSlot || !isFinite(avgPerSlot) || averageActiveLoad === 0) return 'low';
@@ -747,19 +810,33 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   };
 
   const scheduleTemplates = [
-    { id: 'early', name: 'Early Morning', startSlot: (8 * 4) + 2, startLabel: '8:30 AM' },
-    { id: 'mid', name: 'Mid-Morning', startSlot: 9 * 4, startLabel: '9:00 AM' },
-    { id: 'late', name: 'Late Morning', startSlot: (9 * 4) + 2, startLabel: '9:30 AM' },
+    { id: 'early', name: 'Early Morning', startSlot: 8 * 4, startLabel: '8:00 AM' },
+    { id: 'mid', name: 'Mid-Morning', startSlot: (8 * 4) + 2, startLabel: '8:30 AM' },
+    { id: 'late', name: 'Late Morning', startSlot: 9 * 4, startLabel: '9:00 AM' },
     { id: 'afternoon', name: 'Afternoon', startSlot: (9 * 4) + 2, startLabel: '9:30 AM', note: 'Extends coverage deepest into the afternoon window.' }
   ];
 
   const scheduleRecommendations = scheduleTemplates.map(template => {
     const shiftLengthSlots = 8 * 4;
-    const startSlot = template.startSlot;
-    const endSlot = startSlot + shiftLengthSlots;
+    let startSlot = template.startSlot;
+    if (callActivityWindow) {
+      startSlot = Math.max(startSlot, callActivityWindow.startSlot);
+    }
+    startSlot = Math.min(Math.max(startSlot, 0), fifteenMinuteBuckets.length - 1);
+    let endSlot = startSlot + shiftLengthSlots;
+    if (callActivityWindow) {
+      endSlot = Math.max(endSlot, callActivityWindow.endSlot);
+    }
+    if (endSlot > fifteenMinuteBuckets.length) {
+      endSlot = fifteenMinuteBuckets.length;
+    }
+    if (endSlot <= startSlot) {
+      endSlot = Math.min(startSlot + 1, fifteenMinuteBuckets.length);
+    }
+    const spanHours = Math.max((endSlot - startSlot) / 4, 1);
     const shiftIntervals = intervalVolume.filter(entry => entry.slotIndex >= startSlot && entry.slotIndex < endSlot);
     const shiftTotalCalls = shiftIntervals.reduce((sum, entry) => sum + entry.callCount, 0);
-    const averageHourlyLoad = shiftTotalCalls / 8;
+    const averageHourlyLoad = shiftTotalCalls / spanHours;
 
     const lunchWindow = findBestWindow(startSlot + 12, Math.min(endSlot - 4, startSlot + 20), 4);
     const firstBreakWindow = findBestWindow(startSlot + 4, Math.min(endSlot - 1, startSlot + 12), 1);
@@ -777,6 +854,13 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       : overlapPercent >= 40
         ? 'Moderate overlap—stagger lunches as recommended to stay ahead of the peak.'
         : 'Light overlap with peaks—ideal window for flexible coverage.';
+
+    const noteParts = [];
+    if (template.note) noteParts.push(template.note);
+    noteParts.push(coverageNote);
+    if (callActivityWindow) {
+      noteParts.push(`Observed call window ${callActivityWindow.startLabel} – ${callActivityWindow.endLabel}.`);
+    }
 
     return {
       id: template.id,
@@ -800,7 +884,8 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
             intensityLabel: peakWithinShift.intensityLabel
           }
         : convertWindow(null, shiftTotalCalls),
-      coverageNote: template.note ? `${template.note} ${coverageNote}`.trim() : coverageNote
+      coverageNote: noteParts.filter(Boolean).join(' ').trim(),
+      operatingWindow: callActivityWindow || null
     };
   });
 
@@ -816,7 +901,8 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     intervalVolume,
     peakTimeWindows,
     scheduleRecommendations,
-    answerTimeStats
+    answerTimeStats,
+    callActivityWindow
   };
 }
 
