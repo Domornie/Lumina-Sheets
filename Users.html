@@ -4454,6 +4454,7 @@
   }
 
   // ---------- Employment report ----------
+  let employmentReportCurrentFilter = '__all';
   function showEmploymentReport() {
     const modal = new bootstrap.Modal(document.getElementById('employmentReportModal'));
     modal.show();
@@ -4564,7 +4565,74 @@
         </div>
       </div>
     </div>
+    <div class="mt-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+        <h6 class="fw-bold mb-0"><i class="fas fa-users me-2"></i>Users by Status</h6>
+        <div class="d-flex align-items-center gap-2">
+          <select id="employmentReportStatusFilter" class="form-select form-select-sm w-auto">
+            ${filterOptionsHtml}
+          </select>
+          <span class="small text-muted" id="employmentReportUserCount">${initialVisibleCount} ${initialVisibleCount === 1 ? 'user' : 'users'}</span>
+        </div>
+      </div>
+      ${hasUsers ? `
+        <div class="table-responsive" id="employmentReportTableWrapper">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Status</th>
+                <th>Campaign</th>
+                <th>Roles</th>
+                <th>Hire Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${userRowsHtml}
+            </tbody>
+          </table>
+        </div>` : ''}
+      <div id="employmentReportEmptyState" class="text-center text-muted py-4${hasUsers ? ' d-none' : ''}">
+        <i class="fas fa-users-slash fa-2x mb-2"></i>
+        <div>No users found for the selected status.</div>
+      </div>
+    </div>
   `;
+
+    const filterSelect = content.querySelector('#employmentReportStatusFilter');
+    const userCountEl = content.querySelector('#employmentReportUserCount');
+    const emptyStateEl = content.querySelector('#employmentReportEmptyState');
+    const tableWrapper = content.querySelector('#employmentReportTableWrapper');
+    const rows = Array.from(content.querySelectorAll('[data-report-user-row]'));
+
+    const applyFilter = (key) => {
+      const normalizedKey = key && key !== '__all' ? key : '__all';
+      let visible = 0;
+      rows.forEach(row => {
+        const rowKey = row.getAttribute('data-status-key') || '';
+        const matches = normalizedKey === '__all' || rowKey === normalizedKey;
+        row.style.display = matches ? '' : 'none';
+        if (matches) visible++;
+      });
+      if (userCountEl) {
+        userCountEl.textContent = `${visible} ${visible === 1 ? 'user' : 'users'}`;
+      }
+      if (emptyStateEl) {
+        emptyStateEl.classList.toggle('d-none', visible > 0);
+      }
+      if (tableWrapper) {
+        tableWrapper.classList.toggle('d-none', rows.length > 0 && visible === 0);
+      }
+    };
+
+    if (filterSelect) {
+      filterSelect.addEventListener('change', () => {
+        const selectedKey = filterSelect.value || '__all';
+        employmentReportCurrentFilter = selectedKey;
+        applyFilter(selectedKey);
+      });
+      applyFilter(filterSelect.value || '__all');
+    }
   }
   function getStatusColorClass(status) {
     const s = (status || '').toLowerCase();
