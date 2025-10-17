@@ -4196,144 +4196,17 @@ function _dedupeAndSortUsers_(list) {
 
 function getUsersByManager(managerUserId, options) {
   try {
-    const opts = Object.assign({
-      includeManager: true,
-      fallbackToCampaign: false,
-      fallbackToAll: false,
-      managerCampaignId: '',
-      campaignId: null,
-      excludeGuests: true
-    }, options || {});
-
-    const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    const managerIdStr = managerUserId ? String(managerUserId) : '';
-    const managerRecord = managerIdStr ? _findUserById_(managerIdStr) : null;
-
-    const campaignCandidates = [
-      opts.campaignId,
-      opts.activeCampaignId,
-      opts.managerCampaignId,
-      managerRecord && (managerRecord.CampaignID || managerRecord.campaignId),
-      managerIdStr,
-      currentUser && (currentUser.activeCampaignId || currentUser.campaignId || currentUser.CampaignID)
-    ];
-    const effectiveCampaignId = _resolveCampaignIdFromInput_(campaignCandidates);
-    if (!effectiveCampaignId) {
-      console.warn('getUsersByManager: no campaign context resolved; defaulting to global user scope');
-    }
-
-    opts.managerCampaignId = effectiveCampaignId || '';
-    opts.campaignId = effectiveCampaignId || '';
-
+    const opts = Object.assign({ excludeGuests: true }, options || {});
     const readOpts = {
-      excludeGuests: opts.excludeGuests !== false
+      excludeGuests: opts.excludeGuests !== false,
+      allowAllCampaigns: true
     };
-    if (effectiveCampaignId) {
-      readOpts.campaignId = effectiveCampaignId;
-    } else {
-      readOpts.allowAllCampaigns = true;
-    }
-
-    let allUsers = _readUsersSheetSafe_(readOpts);
-
-    if (managerRecord && !_isGuestUser_(managerRecord)) {
-      const managerCampaign = _normStr_(managerRecord.CampaignID || managerRecord.campaignId);
-      if (managerCampaign === effectiveCampaignId) {
-        const exists = allUsers.some(function (user) {
-          return _normalizeId(user && user.ID) === _normalizeId(managerRecord.ID);
-        });
-        if (!exists) {
-          allUsers = allUsers.concat([managerRecord]);
-        }
-      }
-    }
-
-    if (!allUsers.length) return [];
 
     const cmap = _campaignNameMap_();
-    const byId = new Map(
-      allUsers
-        .filter(function (u) { return u && typeof u.ID !== 'undefined' && u.ID !== null && u.ID !== ''; })
-        .map(function (u) { return [String(u.ID), u]; })
-    );
+    const rows = _readUsersSheetSafe_(readOpts);
+    const shaped = rows.map(function (row) { return _uiUserShape_(row, cmap); });
 
-    const manager = managerIdStr ? byId.get(managerIdStr) : null;
-    const managerIsAdmin = manager ? !!isUserAdmin(manager) : false;
-    const visible = [];
-
-    const pushUser = function (rawUser) {
-      if (!rawUser) return;
-      visible.push(_uiUserShape_(rawUser, cmap));
-    };
-
-    if (!managerIdStr || managerIsAdmin) {
-      allUsers.forEach(pushUser);
-      return _dedupeAndSortUsers_(visible);
-    }
-
-    if (opts.includeManager && manager) {
-      pushUser(manager);
-    }
-
-    const assignedIds = new Set();
-    const appendAssigned = function (id) {
-      if (!id) return;
-      const normalized = String(id);
-      if (!normalized || normalized === managerIdStr) return;
-      assignedIds.add(normalized);
-    };
-
-    if (managerIdStr) {
-      let managedSet = null;
-      if (typeof getManagerVisibleUserIds === 'function') {
-        try {
-          managedSet = getManagerVisibleUserIds(managerIdStr, { includeSelf: false });
-        } catch (helperError) {
-          console.warn('getUsersByManager: getManagerVisibleUserIds failed', helperError);
-          managedSet = null;
-        }
-      }
-
-      if (managedSet && typeof managedSet.forEach === 'function') {
-        managedSet.forEach(appendAssigned);
-      } else {
-        const relations = _readManagerUsersSheetSafe_();
-        for (let i = 0; i < relations.length; i++) {
-          const rel = relations[i];
-          if (!rel) continue;
-          if (String(rel.ManagerUserID) === managerIdStr && rel.UserID) {
-            appendAssigned(rel.UserID);
-          }
-        }
-      }
-    }
-
-    assignedIds.forEach(function (id) {
-      const match = byId.get(id);
-      if (match) pushUser(match);
-    });
-
-    const hasAssigned = assignedIds.size > 0;
-
-    const allowCampaignFallback = opts.fallbackToCampaign && (managerIsAdmin || !managerIdStr);
-    const allowAllFallback = opts.fallbackToAll && (managerIsAdmin || !managerIdStr);
-
-    if ((!hasAssigned || visible.length === (opts.includeManager && manager ? 1 : 0)) && allowCampaignFallback) {
-      const targetCampaign = opts.managerCampaignId || (manager && (manager.CampaignID || manager.campaignId)) || '';
-      if (targetCampaign) {
-        allUsers.forEach(function (u) {
-          if (String(u.CampaignID || u.campaignId) === String(targetCampaign)) {
-            pushUser(u);
-          }
-        });
-      }
-    }
-
-    if (!visible.length && allowAllFallback) {
-      allUsers.forEach(pushUser);
-    }
-
-    return _dedupeAndSortUsers_(visible);
+    return _dedupeAndSortUsers_(shaped);
 
   } catch (error) {
     console.error('Error in getUsersByManager:', error);
@@ -4344,24 +4217,10 @@ function getUsersByManager(managerUserId, options) {
 
 function getUser(managerUserId, options) {
   try {
-    let mgrId = managerUserId;
-    let opts = options;
-
-    if (typeof mgrId === 'object' && mgrId !== null && !Array.isArray(mgrId) && typeof opts === 'undefined') {
-      opts = mgrId;
-      mgrId = undefined;
-    }
-
-    if (!mgrId) {
-      const current = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-      if (current && current.ID) {
-        mgrId = current.ID;
-        opts = Object.assign({ managerCampaignId: current.CampaignID || current.campaignId || '' }, opts || {});
-      }
-    }
-
-    const finalOpts = Object.assign({ includeManager: false, fallbackToCampaign: false, fallbackToAll: false }, opts || {});
-    return getUsersByManager(mgrId, finalOpts);
+    const finalOpts = (typeof options === 'object' && options !== null)
+      ? Object.assign({}, options)
+      : {};
+    return getUsersByManager(managerUserId, finalOpts);
 
   } catch (error) {
     console.error('Error in getUser:', error);
@@ -4378,62 +4237,29 @@ function getUsers(options) {
         ? Object.assign({}, options)
         : {};
 
-    console.log('getUsers() called', opts);
-
-    const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    const managerId = opts.managerUserId || (currentUser && currentUser.ID ? currentUser.ID : null);
-    const campaignCandidates = [
-      opts.campaignId,
-      opts.activeCampaignId,
-      opts.managerCampaignId,
-      currentUser && (currentUser.activeCampaignId || currentUser.campaignId || currentUser.CampaignID)
-    ];
-    const resolvedCampaignId = _resolveCampaignIdFromInput_(campaignCandidates);
     const excludeGuests = opts.excludeGuests !== false;
-
-    const users = getUsersByManager(managerId, {
-      includeManager: opts.includeManager !== false,
-      fallbackToCampaign: false,
-      fallbackToAll: false,
-      managerCampaignId: resolvedCampaignId,
-      campaignId: resolvedCampaignId,
-      excludeGuests: excludeGuests
-    });
-
-    if (users.length) {
-      console.log('Final user list:', users.length, 'users');
-      return users;
-    }
-
     const cmap = _campaignNameMap_();
-    const fallbackRows = _readUsersSheetSafe_({
-      campaignId: resolvedCampaignId,
+
+    let rows = _readUsersSheetSafe_({
+      allowAllCampaigns: true,
       excludeGuests: excludeGuests
     });
-    if (fallbackRows.length) {
-      console.warn('getUsers: manager lookup empty, using direct campaign read of', fallbackRows.length, 'users');
-      return _dedupeAndSortUsers_(fallbackRows.map(function (row) { return _uiUserShape_(row, cmap); }));
+
+    const campaignCandidates = [opts.campaignId, opts.activeCampaignId, opts.managerCampaignId];
+    const resolvedCampaignId = _resolveCampaignIdFromInput_(campaignCandidates);
+    if (resolvedCampaignId) {
+      rows = rows.filter(function (row) {
+        const campaigns = _extractCampaignIdsFromUser_(row);
+        return campaigns.indexOf(resolvedCampaignId) !== -1;
+      });
     }
 
-    const fallbackUser = (currentUser && !_isGuestUser_(currentUser))
-      ? [_uiUserShape_(currentUser, cmap)]
-      : [];
-    console.warn('No users found by manager; returning fallback list of size', fallbackUser.length);
-    return fallbackUser;
+    const shaped = rows.map(function (row) { return _uiUserShape_(row, cmap); });
+    return _dedupeAndSortUsers_(shaped);
 
   } catch (e) {
     console.error('Error in getUsers:', e);
     writeError && writeError('getUsers (enhanced)', e);
-
-    try {
-      const currentUser = getCurrentUser();
-      if (currentUser && !_isGuestUser_(currentUser)) {
-        return [currentUser];
-      }
-    } catch (fallbackError) {
-      console.error('Fallback getCurrentUser also failed:', fallbackError);
-    }
-
     return [];
   }
 }
