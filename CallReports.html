@@ -1663,8 +1663,6 @@
     const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
     const peakTimeWindows = Array.isArray(analytics.peakTimeWindows) ? analytics.peakTimeWindows : [];
     const scheduleRecommendations = Array.isArray(analytics.scheduleRecommendations) ? analytics.scheduleRecommendations : [];
-    const answerStats = analytics.answerTimeStats || {};
-
     const totalCalls = repMetrics.reduce((sum, r) => sum + (Number(r.totalCalls) || 0), 0);
     const totalTalkMinutes = talkTrend.reduce((sum, entry) => sum + (Number(entry.totalTalk) || 0), 0);
     const avgTalkMinutes = totalCalls > 0 ? totalTalkMinutes / totalCalls : 0;
@@ -1697,14 +1695,21 @@
       (Number(item.count) || 0) > (Number(best?.count) || 0) ? item : best
     , null);
 
-    const answeredCount = Number(answerStats.answeredCount) || 0;
-    const averageAnswerSeconds = Number(answerStats.averageSeconds) || 0;
-    const medianAnswerSeconds = Number(answerStats.medianSeconds) || 0;
-    const p90AnswerSeconds = Number(answerStats.p90Seconds) || 0;
-    const fastAnswerRate = Number(answerStats.fastAnswerRate) || 0;
-    const slowAnswerRate = Number(answerStats.slowAnswerRate) || 0;
-    const fastestResponder = answerStats.fastestResponder || null;
-    const slowestResponder = answerStats.slowestResponder || null;
+    const normalizedHours = normalizeHourlyVolume(hourlyVolume);
+    const workConfig = getWorkWindowConfig();
+    const staffingHours = normalizedHours.filter(entry => entry.hour >= workConfig.startHour && entry.hour < workConfig.endHour);
+    const hourEvaluationSet = staffingHours.length ? staffingHours : normalizedHours;
+    const peakHourlyEntry = hourEvaluationSet.reduce((best, entry) => {
+      if (!best) return entry;
+      const value = Number(entry.callCount) || 0;
+      const bestValue = Number(best.callCount) || 0;
+      if (value > bestValue) return entry;
+      if (value === bestValue && entry.hour < best.hour) return entry;
+      return best;
+    }, null);
+    const peakHourlyLabel = peakHourlyEntry?.windowLabel || '—';
+    const peakHourlyCount = Number(peakHourlyEntry?.callCount) || 0;
+    const staffingLabel = `${minutesToTimeLabel(workConfig.startHour * 60)} – ${minutesToTimeLabel(workConfig.endHour * 60)}`;
 
     const busiestPeriod = callTrend.reduce((best, item) =>
       (Number(item.callCount) || 0) > (Number(best?.callCount) || 0) ? item : best
@@ -1747,11 +1752,11 @@
       </div>
       <div class="col-lg-3 col-md-6">
         <div class="ai-metric-card">
-          <div class="metric-label">Answer Responsiveness</div>
-          <div class="metric-value">${answeredCount ? formatSecondsToReadable(averageAnswerSeconds) : '—'}</div>
-          <div class="metric-subtext">${answeredCount
-            ? `Median ${formatSecondsToReadable(medianAnswerSeconds)} • ≤30s ${fastAnswerRate.toFixed(1)}%`
-            : 'Awaiting answer time data'}</div>
+          <div class="metric-label">Weekly Peak Window</div>
+          <div class="metric-value">${peakHourlyCount > 0 ? peakHourlyLabel : '—'}</div>
+          <div class="metric-subtext">${peakHourlyCount > 0
+            ? `${peakHourlyCount.toLocaleString()} calls/hour • Staffing ${staffingLabel}`
+            : `No calls recorded within ${staffingLabel}`}</div>
         </div>
       </div>
       <div class="col-lg-3 col-md-6">
@@ -1772,16 +1777,16 @@
       }
     }
 
-    const busiestHourEntry = hourlyVolume.reduce((best, entry) =>
-      (Number(entry.callCount) || 0) > (Number(best?.callCount) || 0) ? entry : best
-    , null);
+    const busiestHourEntry = peakHourlyEntry;
 
-    const quietHourEntry = hourlyVolume
-      .filter(entry => Number(entry.callCount) || 0)
-      .reduce((best, entry) => {
-        if (!best) return entry;
-        return (Number(entry.callCount) || 0) < (Number(best.callCount) || 0) ? entry : best;
-      }, null) || null;
+    const quietHourEntry = hourEvaluationSet.reduce((best, entry) => {
+      if (!best) return entry;
+      const value = Number(entry.callCount) || 0;
+      const bestValue = Number(best.callCount) || 0;
+      if (value < bestValue) return entry;
+      if (value === bestValue && entry.hour < best.hour) return entry;
+      return best;
+    }, null) || null;
 
     const insights = [];
 
@@ -1789,10 +1794,6 @@
       insights.push(`Yes conversion is <strong>${yesRate.toFixed(1)}%</strong> (${yesCount.toLocaleString()} yes vs ${noCount.toLocaleString()} no).`);
     } else if (totalCalls > 0) {
       insights.push(`Analyzed <strong>${totalCalls.toLocaleString()}</strong> calls with no CSAT responses recorded.`);
-    }
-
-    if (answeredCount > 0) {
-      insights.push(`Average answer time is <strong>${formatSecondsToReadable(averageAnswerSeconds)}</strong> (P90 ${formatSecondsToReadable(p90AnswerSeconds)} • ≤30s ${fastAnswerRate.toFixed(1)}%).`);
     }
 
     if (callTrend.length > 1) {
@@ -1807,20 +1808,16 @@
       insights.push(`Busiest period: <strong>${peakPeriodLabel}</strong> with <strong>${peakPeriodCount.toLocaleString()}</strong> calls.`);
     }
 
-    if (busiestHourEntry && Number(busiestHourEntry.callCount || 0) > 0) {
-      insights.push(`Peak hourly load: <strong>${busiestHourEntry.windowLabel}</strong> (${Number(busiestHourEntry.callCount || 0).toLocaleString()} calls).`);
+    if (peakHourlyCount > 0 && busiestHourEntry) {
+      insights.push(`Peak hourly load lands in <strong>${peakHourlyLabel}</strong> (${peakHourlyCount.toLocaleString()} calls).`);
     }
 
-    if (quietHourEntry && Number(quietHourEntry.callCount || 0) >= 0) {
+    if (quietHourEntry && Number.isFinite(Number(quietHourEntry.callCount))) {
       insights.push(`Quietest hour: <strong>${quietHourEntry.windowLabel}</strong> (${Number(quietHourEntry.callCount || 0).toLocaleString()} calls).`);
     }
 
     if (topAgent && Number(topAgent.totalCalls || 0) > 0) {
       insights.push(`Top performer <strong>${topAgent.agent}</strong> handled ${Number(topAgent.totalCalls || 0).toLocaleString()} calls with ${formatMinutesToReadable(Number(topAgent.totalTalk || 0))} of talk time.`);
-    }
-
-    if (fastestResponder && fastestResponder.agent) {
-      insights.push(`Fastest responder: <strong>${fastestResponder.agent}</strong> averages ${formatSecondsToReadable(fastestResponder.averageAnswerSeconds)} across ${Number(fastestResponder.answeredCount || 0).toLocaleString()} answered calls.`);
     }
 
     if (topWrap && Number(topWrap.count || 0) > 0) {
@@ -1845,24 +1842,12 @@
       recommendations.push('Celebrate and document high-performing call flows to preserve this conversion streak.');
     }
 
-    if (answeredCount === 0) {
-      recommendations.push('Ensure the “To Answer Time” column is included in the next import so responsiveness trends are captured.');
-    } else {
-      if (fastAnswerRate < 70) {
-        recommendations.push('Accelerate pickup speed with queue monitoring to lift the ≤30s answer rate above 70%.');
-      } else if (slowAnswerRate > 10) {
-        recommendations.push(`Reduce slow pickups—${slowAnswerRate.toFixed(1)}% of calls still wait over two minutes for an answer.`);
-      } else {
-        recommendations.push('Maintain current routing—answer speeds already meet service expectations.');
-      }
+    if (peakHourlyCount > 0 && busiestHourEntry) {
+      recommendations.push(`Align staffing coverage with <strong>${peakHourlyLabel}</strong> to absorb the ~${peakHourlyCount.toLocaleString()} calls expected during the busiest hour.`);
+    }
 
-      if (fastestResponder && fastestResponder.agent) {
-        recommendations.push(`Have ${fastestResponder.agent} share their ${formatSecondsToReadable(fastestResponder.averageAnswerSeconds)} answer cadence with the broader team.`);
-      }
-
-      if (slowestResponder && slowestResponder.agent && (!fastestResponder || fastestResponder.agent !== slowestResponder.agent)) {
-        recommendations.push(`Pair ${slowestResponder.agent} with a quick responder to trim their ${formatSecondsToReadable(slowestResponder.averageAnswerSeconds)} average answer time.`);
-      }
+    if (quietHourEntry && busiestHourEntry && quietHourEntry.windowLabel !== busiestHourEntry.windowLabel) {
+      recommendations.push(`Use <strong>${quietHourEntry.windowLabel}</strong> for coaching or admin work while call volume dips.`);
     }
 
     if (callTrend.length > 1) {
@@ -1982,6 +1967,27 @@
     return `${minutesToTimeLabel(startMinutes)} – ${minutesToTimeLabel(endMinutes)}`;
   }
 
+  function normalizeHourlyVolume(hourlyVolume = []) {
+    if (!Array.isArray(hourlyVolume)) return [];
+
+    return hourlyVolume
+      .map(entry => {
+        const hour = Number(entry.hour);
+        if (!Number.isFinite(hour)) return null;
+        const callCount = Number(entry.callCount) || 0;
+        const windowLabel = entry.windowLabel || entry.label || formatSlotRangeLabel(hour * 4, 4);
+        return {
+          hour,
+          callCount,
+          windowLabel,
+          intensity: entry.intensity || null,
+          intensityLabel: entry.intensityLabel || null
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.hour - b.hour);
+  }
+
   function getWorkWindowConfig() {
     const now = new Date();
     const january = new Date(now.getFullYear(), 0, 1);
@@ -1999,15 +2005,27 @@
     };
   }
 
-  function determinePeakWorkWindow(intervalVolume = []) {
+  function determinePeakWorkWindow(intervalVolume = [], hourlyVolume = []) {
     const workConfig = getWorkWindowConfig();
-    const normalized = intervalVolume
+    const normalizedIntervals = Array.isArray(intervalVolume)
+      ? intervalVolume
       .map(entry => ({
         slotIndex: Number(entry.slotIndex),
         callCount: Number(entry.callCount) || 0,
-        windowLabel: entry.windowLabel || ''
+        windowLabel: entry.windowLabel || '',
+        slotSpan: 1
       }))
-      .filter(entry => Number.isFinite(entry.slotIndex));
+      .filter(entry => Number.isFinite(entry.slotIndex))
+      : [];
+
+    const normalizedHourly = normalizeHourlyVolume(hourlyVolume).map(entry => ({
+      slotIndex: entry.hour * 4,
+      slotSpan: 4,
+      callCount: Number(entry.callCount) || 0,
+      windowLabel: entry.windowLabel || ''
+    }));
+
+    const normalized = normalizedIntervals.length ? normalizedIntervals : normalizedHourly;
 
     if (!normalized.length) {
       return {
@@ -2019,7 +2037,13 @@
       };
     }
 
-    const withinWindow = normalized.filter(entry => entry.slotIndex >= workConfig.startSlot && entry.slotIndex < workConfig.endSlot);
+    const withinWindow = normalized.filter(entry => {
+      const start = Number(entry.slotIndex);
+      if (!Number.isFinite(start)) return false;
+      const span = Number(entry.slotSpan) || 1;
+      const end = start + span;
+      return start >= workConfig.startSlot && end <= workConfig.endSlot;
+    });
     const candidates = withinWindow.length ? withinWindow : normalized;
 
     const topEntry = candidates.reduce((best, entry) => {
@@ -2039,15 +2063,17 @@
       };
     }
 
-    const rawLabel = topEntry.windowLabel || formatSlotRangeLabel(topEntry.slotIndex);
+    const slotSpan = Number(topEntry.slotSpan) || 1;
+    const rawLabel = topEntry.windowLabel || formatSlotRangeLabel(topEntry.slotIndex, slotSpan);
     const label = topEntry.callCount > 0 ? rawLabel : '—';
+    const endSlot = topEntry.slotIndex + slotSpan;
 
     return {
       label,
       callCount: topEntry.callCount,
       rawLabel,
       workConfig,
-      withinWorkWindow: topEntry.slotIndex >= workConfig.startSlot && topEntry.slotIndex < workConfig.endSlot
+      withinWorkWindow: topEntry.slotIndex >= workConfig.startSlot && endSlot <= workConfig.endSlot
     };
   }
 
@@ -2066,7 +2092,8 @@
     document.getElementById("kpiAvgTalkTime").textContent = `${avgTalkTime} min`;
 
     const intervalVolume = Array.isArray(analytics.intervalVolume) ? analytics.intervalVolume : [];
-    const peakWindow = determinePeakWorkWindow(intervalVolume);
+    const hourlyVolume = Array.isArray(analytics.hourlyVolume) ? analytics.hourlyVolume : [];
+    const peakWindow = determinePeakWorkWindow(intervalVolume, hourlyVolume);
     const peakEl = document.getElementById("kpiWeeklyPeakWindow");
     if (peakEl) {
       peakEl.textContent = peakWindow.label;
@@ -2356,7 +2383,7 @@
     renderCallLoadByHourChart(hourlyVolume);
     renderPeakWindowList(peakWindows);
     renderSchedulePlanner(schedulePlans);
-    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans, analytics.answerTimeStats);
+    renderPeakSummaryList(hourlyVolume, peakWindows, schedulePlans);
   }
 
   function renderCallLoadByHourChart(hourlyVolume = []) {
@@ -2364,14 +2391,26 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    const relevant = hourlyVolume.filter(entry => entry.callCount > 0 || (entry.hour >= 7 && entry.hour <= 21));
-    const dataset = relevant.length ? relevant : hourlyVolume;
-    const labels = dataset.map(entry => entry.windowLabel || entry.label || '');
+    const normalizedHours = normalizeHourlyVolume(hourlyVolume);
+    const workConfig = getWorkWindowConfig();
+    const staffingHours = normalizedHours.filter(entry => entry.hour >= workConfig.startHour && entry.hour < workConfig.endHour);
+    const dataset = staffingHours.length ? staffingHours : normalizedHours;
+
+    if (!dataset.length) {
+      if (callLoadByHourChart) {
+        callLoadByHourChart.destroy();
+        callLoadByHourChart = null;
+      }
+      return;
+    }
+
+    const labels = dataset.map(entry => minutesToTimeLabel(entry.hour * 60));
     const values = dataset.map(entry => Number(entry.callCount) || 0);
     const intensities = dataset.map(entry => entry.intensity);
-    const maxValue = Math.max(...values, 1);
+    const windowLabels = dataset.map(entry => entry.windowLabel);
+    const maxValue = values.length ? Math.max(...values) : 0;
     const colors = values.map(value => {
-      const factor = value / maxValue;
+      const factor = maxValue > 0 ? value / maxValue : 0;
       const alpha = Math.min(0.25 + factor * 0.55, 0.85);
       return `rgba(37, 99, 235, ${alpha.toFixed(2)})`;
     });
@@ -2388,7 +2427,8 @@
           backgroundColor: colors,
           borderRadius: 8,
           borderSkipped: false,
-          intensities
+          intensities,
+          windowLabels
         }]
       },
       options: {
@@ -2399,10 +2439,12 @@
             callbacks: {
               label: context => {
                 const value = Number(context.parsed.y) || 0;
-                const dataset = context.dataset || {};
-                const load = Array.isArray(dataset.intensities) ? dataset.intensities[context.dataIndex] : null;
+                const datasetMeta = context.chart?.data?.datasets?.[context.datasetIndex] || {};
+                const load = Array.isArray(datasetMeta.intensities) ? datasetMeta.intensities[context.dataIndex] : null;
+                const rangeLabels = Array.isArray(datasetMeta.windowLabels) ? datasetMeta.windowLabels : [];
+                const range = rangeLabels[context.dataIndex] || context.label || '';
                 const loadLabel = getLoadLabel(load);
-                return `${value.toLocaleString()} calls • ${loadLabel}`;
+                return `${range}: ${value.toLocaleString()} calls • ${loadLabel}`;
               }
             }
           }
@@ -2525,26 +2567,44 @@
       .join('');
   }
 
-  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = [], answerStats = null) {
+  function renderPeakSummaryList(hourlyVolume = [], peaks = [], plans = []) {
     const listEl = document.getElementById('peakSummaryList');
     if (!listEl) return;
 
-    const meaningfulHours = hourlyVolume.filter(entry => entry.callCount > 0);
-    if (!meaningfulHours.length && !peaks.length) {
+    const normalizedHours = normalizeHourlyVolume(hourlyVolume);
+    const workConfig = getWorkWindowConfig();
+    const staffingHours = normalizedHours.filter(entry => entry.hour >= workConfig.startHour && entry.hour < workConfig.endHour);
+    const scopedHours = staffingHours.length ? staffingHours : normalizedHours;
+
+    if (!scopedHours.length && !peaks.length) {
       listEl.innerHTML = `<li class="text-muted"><i class="fas fa-info-circle me-2"></i>No call traffic recorded for this selection.</li>`;
       return;
     }
 
-    const busiestHour = (meaningfulHours.length ? meaningfulHours : hourlyVolume)
-      .reduce((best, entry) => (Number(entry.callCount) || 0) > (Number(best?.callCount) || 0) ? entry : best, null);
+    const meaningfulHours = scopedHours.filter(entry => entry.callCount > 0);
+    const evaluationSet = meaningfulHours.length ? meaningfulHours : scopedHours;
 
-    const quietHour = (meaningfulHours.length ? meaningfulHours : hourlyVolume)
-      .reduce((best, entry) => {
-        const value = Number(entry.callCount) || 0;
-        const currentBest = Number(best?.callCount);
-        if (best === null) return entry;
-        return value < (isNaN(currentBest) ? Infinity : currentBest) ? entry : best;
-      }, null);
+    const busiestHour = evaluationSet.length
+      ? evaluationSet.reduce((best, entry) => {
+          if (!best) return entry;
+          const value = Number(entry.callCount) || 0;
+          const bestValue = Number(best.callCount) || 0;
+          if (value > bestValue) return entry;
+          if (value === bestValue && entry.hour < best.hour) return entry;
+          return best;
+        }, null)
+      : null;
+
+    const quietHour = evaluationSet.length
+      ? evaluationSet.reduce((best, entry) => {
+          if (!best) return entry;
+          const value = Number(entry.callCount) || 0;
+          const bestValue = Number(best.callCount) || 0;
+          if (value < bestValue) return entry;
+          if (value === bestValue && entry.hour < best.hour) return entry;
+          return best;
+        }, null)
+      : null;
 
     const priorityPlan = plans.find(plan => plan.id === 'mid') || plans[0] || null;
     const items = [];
@@ -2582,17 +2642,6 @@
         <li>
           <i class="fas fa-utensils mt-1 text-warning"></i>
           <div>${priorityPlan.name} lunch sweet spot: <strong>${priorityPlan.lunch.rangeLabel}</strong>.</div>
-        </li>
-      `);
-    }
-
-    if (answerStats && Number(answerStats.answeredCount || 0) > 0) {
-      const avgAnswer = formatSecondsToReadable(answerStats.averageSeconds || 0);
-      const fastRate = Number(answerStats.fastAnswerRate || 0).toFixed(1);
-      items.push(`
-        <li>
-          <i class="fas fa-bolt mt-1 text-info"></i>
-          <div>Answer speed averages <strong>${avgAnswer}</strong> • ≤30s on ${fastRate}% of calls.</div>
         </li>
       `);
     }
