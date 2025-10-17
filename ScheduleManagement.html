@@ -864,7 +864,7 @@
                                     <input type="checkbox" id="selectAllSchedules" class="form-check-input">
                                 </th>
                                 <th>User</th>
-                                <th>Date</th>
+                                <th>Period</th>
                                 <th>Shift</th>
                                 <th>Times</th>
                                 <th>Status</th>
@@ -1623,6 +1623,30 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        (function initializeCurrentUserContext() {
+            try {
+                const injectedUser = <?!= currentUserJson || '{}' ?>;
+                const existingUser = (typeof window !== 'undefined' && window.CURRENT_USER && Object.keys(window.CURRENT_USER).length)
+                    ? window.CURRENT_USER
+                    : null;
+
+                const resolvedUser = existingUser && typeof existingUser === 'object' ? existingUser : injectedUser;
+
+                if (typeof window !== 'undefined') {
+                    window.CURRENT_USER = resolvedUser || {};
+                    window.currentUser = window.currentUser && Object.keys(window.currentUser).length ? window.currentUser : window.CURRENT_USER;
+                    window.user = window.user && Object.keys(window.user).length ? window.user : window.CURRENT_USER;
+                }
+            } catch (error) {
+                console.warn('Unable to initialize current user context for schedule management:', error);
+                if (typeof window !== 'undefined') {
+                    window.CURRENT_USER = window.CURRENT_USER || {};
+                }
+            }
+        })();
+    </script>
+
+    <script>
         // LUMINA Schedule Management System v4.0 - Modern UI Edition with Backend Integration
         class LuminaScheduleManager {
             constructor() {
@@ -1634,6 +1658,14 @@
                 this.pendingImportSummary = null;
                 this.lastImportResult = null;
                 this.cachedSchedules = [];
+                this.resolvedManagerId = '';
+                this.resolvedCampaignId = '';
+                this.managedUserIds = [];
+                this.managedUserIdSet = new Set();
+                this.identityResolved = false;
+                this.identitySummary = null;
+                this.contextLoadingPromise = null;
+                this.visibleManagedCount = 0;
                 this.init();
             }
 
@@ -1645,24 +1677,95 @@
                 this.showWelcomeMessage();
             }
 
+            async ensureScheduleContext(force = false) {
+                if (this.contextLoadingPromise) {
+                    return this.contextLoadingPromise;
+                }
+
+                if (this.identityResolved && !force && this.resolvedManagerId) {
+                    return Promise.resolve();
+                }
+
+                const managerIdCandidate = this.getCurrentUserId();
+                const campaignCandidate = this.getCurrentCampaignId();
+
+                const loadContext = (async () => {
+                    try {
+                        const context = await this.callServerFunction('clientGetScheduleContext', managerIdCandidate || null, campaignCandidate || null);
+
+                        if (context && context.success) {
+                            this.identityResolved = !!(context.authenticated || (context.identity && context.identity.authenticated));
+                            this.identitySummary = context.identity || null;
+
+                            const resolvedManagerId = this.normalizeUserIdValue(context.managerId) || this.normalizeUserIdValue(context.providedManagerId);
+                            if (resolvedManagerId) {
+                                this.resolvedManagerId = resolvedManagerId;
+                            }
+
+                            const resolvedCampaignId = this.normalizeCampaignIdValue(context.campaignId);
+                            if (resolvedCampaignId) {
+                                this.resolvedCampaignId = resolvedCampaignId;
+                            }
+
+                            if (Array.isArray(context.managedUserIds)) {
+                                this.managedUserIds = context.managedUserIds.slice();
+                            } else {
+                                this.managedUserIds = [];
+                            }
+
+                            this.managedUserIdSet = new Set(
+                                this.managedUserIds
+                                    .map(id => this.normalizeUserIdValue(id))
+                                    .filter(Boolean)
+                            );
+
+                            if (this.resolvedManagerId && this.managedUserIdSet.has(this.resolvedManagerId)) {
+                                this.managedUserIdSet.delete(this.resolvedManagerId);
+                            }
+
+                            if (context.user && typeof context.user === 'object') {
+                                this.currentUser = Object.assign({}, this.currentUser || {}, context.user);
+                            }
+                        } else {
+                            this.identityResolved = false;
+                            this.managedUserIds = [];
+                            this.managedUserIdSet = new Set();
+                            this.visibleManagedCount = 0;
+                        }
+                    } catch (error) {
+                        console.warn('Unable to resolve schedule identity context:', error);
+                        this.identityResolved = false;
+                        this.managedUserIds = [];
+                        this.managedUserIdSet = new Set();
+                        this.visibleManagedCount = 0;
+                    }
+                })();
+
+                this.contextLoadingPromise = loadContext.then(() => {
+                    this.contextLoadingPromise = null;
+                }).catch(error => {
+                    this.contextLoadingPromise = null;
+                    throw error;
+                });
+
+                return this.contextLoadingPromise;
+            }
+
             setDefaultDates() {
                 const today = new Date();
-                const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-                document.getElementById('scheduleStartDate').valueAsDate = today;
-                document.getElementById('scheduleEndDate').valueAsDate = nextWeek;
-                document.getElementById('filterStartDate').valueAsDate = lastWeek;
-                document.getElementById('filterEndDate').valueAsDate = today;
+                document.getElementById('scheduleStartDate').valueAsDate = monthStart;
+                document.getElementById('scheduleEndDate').valueAsDate = monthEnd;
+                document.getElementById('filterStartDate').valueAsDate = monthStart;
+                document.getElementById('filterEndDate').valueAsDate = monthEnd;
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
 
                 const importStartDate = document.getElementById('importStartDate');
                 const importEndDate = document.getElementById('importEndDate');
                 if (importStartDate && importEndDate) {
-                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
                     importStartDate.valueAsDate = monthStart;
                     importEndDate.valueAsDate = monthEnd >= monthStart ? monthEnd : monthStart;
                 }
@@ -1791,6 +1894,9 @@
                 try {
                     this.showToast('Loading system data...', 'info');
 
+                    // Resolve identity and manager context before loading data
+                    await this.ensureScheduleContext();
+
                     // Load users first as they're needed everywhere
                     await this.loadUsers();
 
@@ -1846,11 +1952,27 @@
             async loadUsers() {
                 try {
                     console.log('👥 Loading users...');
+                    await this.ensureScheduleContext();
+
                     const currentUserId = this.getCurrentUserId();
-                    const campaignId = this.getCurrentCampaignId();
+                    const campaignId = this.resolvedCampaignId || this.getCurrentCampaignId();
+                    console.log('🔐 Resolved manager context:', { managerId: currentUserId, campaignId: campaignId || '(all)' });
                     const users = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
 
                     this.availableUsers = Array.isArray(users) ? users : [];
+                    const managedSet = this.managedUserIdSet instanceof Set ? this.managedUserIdSet : new Set();
+                    if (managedSet.size) {
+                        const seen = new Set();
+                        this.availableUsers.forEach(user => {
+                            const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
+                            if (userId && managedSet.has(userId)) {
+                                seen.add(userId);
+                            }
+                        });
+                        this.visibleManagedCount = seen.size;
+                    } else {
+                        this.visibleManagedCount = this.availableUsers.length;
+                    }
                     console.log(`✅ Loaded ${this.availableUsers.length} users`);
 
                     // Update user dropdowns
@@ -1892,25 +2014,50 @@
                 if (!container) return;
 
                 if (this.availableUsers.length === 0) {
-                    container.innerHTML = '<div class="text-muted text-center py-4">No users found. Please check user data and permissions.</div>';
+                    const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your team');
+                    container.innerHTML = `
+                        <div class="text-muted text-center py-4">
+                            <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
+                            <p class="mb-1">No managed agents found for ${managerName}.</p>
+                            <p class="mb-0 small">Verify your manager assignments in the MANAGER_USERS sheet.</p>
+                        </div>
+                    `;
+                    this.updateManagerStats();
                     return;
                 }
 
-                container.innerHTML = this.availableUsers.map(user => `
+                const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your roster');
+                const identityBadge = this.identityResolved
+                    ? '<span class="badge bg-success">Lumina Identity</span>'
+                    : '<span class="badge bg-secondary">Limited Identity</span>';
+
+                const summary = `
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 small text-muted">
+                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}</span>
+                        ${identityBadge}
+                    </div>
+                `;
+
+                container.innerHTML = summary + this.availableUsers.map(user => {
+                    const fullName = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+                    const email = this.escapeHtml(user.Email || 'No email');
+                    const campaign = this.escapeHtml(user.campaignName || 'No campaign');
+                    const status = this.escapeHtml(user.EmploymentStatus || 'Active');
+                    const badgeClass = user.isActive ? 'bg-success' : 'bg-secondary';
+                    const badgeLabel = this.escapeHtml(user.isActive ? 'Active' : 'Inactive');
+
+                    return `
                         <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded interactive-item">
                             <div>
-                                <strong class="d-block">${user.FullName || user.UserName}</strong>
+                                <strong class="d-block">${fullName}</strong>
                                 <small class="text-muted">
-                                    ${user.Email || 'No email'} • 
-                                    ${user.campaignName || 'No campaign'} • 
-                                    ${user.EmploymentStatus || 'Active'}
+                                    ${email} • ${campaign} • ${status}
                                 </small>
                             </div>
-                            <span class="badge ${user.isActive ? 'bg-success' : 'bg-secondary'}">
-                                ${user.isActive ? 'Active' : 'Inactive'}
-                            </span>
+                            <span class="badge ${badgeClass}">${badgeLabel}</span>
                         </div>
-                    `).join('');
+                    `;
+                }).join('');
 
                 this.updateManagerStats();
             }
@@ -1920,31 +2067,40 @@
                 if (!container) return;
 
                 const activeUsers = this.availableUsers.filter(u => u.isActive).length;
-                const withCampaigns = this.availableUsers.filter(u => u.CampaignID).length;
+                const managedAgents = this.visibleManagedCount || this.availableUsers.length;
+                const rosterAssignments = (this.managedUserIdSet instanceof Set && this.managedUserIdSet.size)
+                    ? this.managedUserIdSet.size
+                    : managedAgents;
+                const uniqueCampaigns = new Set(
+                    this.availableUsers
+                        .map(user => (user.campaignName || '').trim())
+                        .filter(Boolean)
+                ).size;
+                const campaignMetric = uniqueCampaigns || this.availableCampaigns.length || 0;
 
                 container.innerHTML = `
                         <div class="row g-3">
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-primary">${this.availableUsers.length}</div>
-                                    <div class="metric-label">Total Users</div>
+                                    <div class="metric-number text-primary">${managedAgents}</div>
+                                    <div class="metric-label">Managed Agents</div>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
                                     <div class="metric-number text-success">${activeUsers}</div>
-                                    <div class="metric-label">Active Users</div>
+                                    <div class="metric-label">Active Agents</div>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-info">${withCampaigns}</div>
-                                    <div class="metric-label">With Campaigns</div>
+                                    <div class="metric-number text-info">${rosterAssignments}</div>
+                                    <div class="metric-label">Roster Assignments</div>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="metric-card">
-                                    <div class="metric-number text-warning">${this.availableCampaigns.length}</div>
+                                    <div class="metric-number text-warning">${campaignMetric}</div>
                                     <div class="metric-label">Campaigns</div>
                                 </div>
                             </div>
@@ -2208,15 +2364,23 @@
             async generateSchedules() {
                 try {
                     this.showLoading(true);
-                    this.updateGenerationStatus('Generating schedules...', 'info');
+                    this.updateGenerationStatus('Assigning shift slots...', 'info');
 
                     const formData = this.getScheduleGenerationData();
                     console.log('Generating schedules with data:', formData);
+
+                    if (!formData.shiftSlots || formData.shiftSlots.length === 0) {
+                        this.showToast('Please select a shift slot before generating assignments.', 'warning');
+                        this.updateGenerationStatus('Select a shift slot to assign before generating.', 'warning');
+                        this.showLoading(false);
+                        return;
+                    }
 
                     const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
                         formData.startDate,
                         formData.endDate,
                         formData.users,
+                        formData.shiftSlots,
                         formData.templateId,
                         formData.generatedBy,
                         formData.options
@@ -2224,7 +2388,7 @@
 
                     if (result && result.success) {
                         this.displayGenerationResults(result);
-                        this.showToast(`Successfully generated ${result.generated} schedules!`, 'success');
+                        this.showToast(`Successfully assigned ${result.generated} schedule slot${result.generated === 1 ? '' : 's'}!`, 'success');
                         await this.loadSchedules();
                     } else {
                         throw new Error(result?.error || 'Failed to generate schedules');
@@ -2244,6 +2408,8 @@
                 const endDate = document.getElementById('scheduleEndDate').value;
                 const userSelections = Array.from(document.getElementById('scheduleUsers').selectedOptions);
                 const users = userSelections.map(option => option.value);
+                const slotSelections = Array.from(document.getElementById('scheduleShiftSlots').selectedOptions);
+                const shiftSlots = slotSelections.map(option => option.value).filter(value => value);
                 const campaignId = document.getElementById('campaignFilter').value || null;
                 const priority = parseInt(document.getElementById('schedulePriority').value);
                 const detectConflicts = document.getElementById('detectConflicts').checked;
@@ -2253,6 +2419,7 @@
                     startDate,
                     endDate,
                     users: users.length > 0 ? users : null,
+                    shiftSlots,
                     templateId: null,
                     generatedBy: this.getCurrentUserId() || 'System',
                     options: {
@@ -2275,7 +2442,7 @@
                             <div class="modern-card-header">
                                 <h5 class="modern-card-title">
                                     <i class="fas fa-check-circle text-success"></i>
-                                    Schedule Generation Complete
+                                    Slot Assignment Complete
                                 </h5>
                             </div>
                             <div class="modern-card-body">
@@ -2300,8 +2467,8 @@
                                     </div>
                                     <div class="col-md-3">
                                         <div class="metric-card">
-                                            <div class="metric-number text-info">${result.dstChanges?.length || 0}</div>
-                                            <div class="metric-label">DST Changes</div>
+                                            <div class="metric-number text-info">${this.formatPeriodLabel(result.periodStart, result.periodEnd) || '—'}</div>
+                                            <div class="metric-label">Assignment Period</div>
                                         </div>
                                     </div>
                                 </div>
@@ -2310,7 +2477,7 @@
                                     <div class="alert alert-warning-modern mt-3">
                                         <strong>Conflicts Found:</strong>
                                         <ul class="mb-0 mt-2">
-                                            ${result.conflicts.map(c => `<li>${c.user} on ${c.date}: ${c.error}</li>`).join('')}
+                                            ${result.conflicts.map(c => `<li>${c.user}: ${this.formatPeriodLabel(c.periodStart, c.periodEnd)} — ${c.error}</li>`).join('')}
                                         </ul>
                                     </div>
                                 ` : ''}
@@ -2318,14 +2485,14 @@
                                 <div class="mt-3">
                                     <p class="text-muted mb-0">
                                         <i class="fas fa-info-circle me-1"></i>
-                                        All schedules are pending approval. Review them in the Schedule Management tab.
+                                        All assignments are pending approval. Review them in the Schedule Management tab.
                                     </p>
                                 </div>
                             </div>
                         </div>
                     `;
 
-                this.updateGenerationStatus('Generation completed successfully!', 'success');
+                this.updateGenerationStatus('Slot assignments completed successfully!', 'success');
             }
 
             updateGenerationStatus(message, type = 'info') {
@@ -2502,6 +2669,18 @@
                         this.resetShiftSlotForm();
                         await this.loadShiftSlots();
                     } else {
+                        if (normalized.needsLegacyFallback) {
+                            const confirmed = await this.confirmShiftSlotCreation(slotData);
+                            if (confirmed) {
+                                const fallbackMessage = 'Shift slot created, but the server did not send a confirmation. The schedule has been refreshed.';
+                                console.warn('Shift slot creation confirmed via post-check despite missing server response.');
+                                this.showToast(fallbackMessage, 'warning');
+                                this.resetShiftSlotForm();
+                                await this.loadShiftSlots();
+                                return;
+                            }
+                        }
+
                         throw new Error(normalized.error || 'Failed to create shift slot');
                     }
 
@@ -2646,6 +2825,51 @@
                     data: rawResult,
                     needsLegacyFallback: true
                 };
+            }
+
+            async confirmShiftSlotCreation(slotData) {
+                try {
+                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+                    if (!Array.isArray(slots)) {
+                        return false;
+                    }
+
+                    const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
+                    const normalizeTime = (value) => (value || '').toString().trim();
+                    const normalizeDays = (days) => {
+                        if (Array.isArray(days)) {
+                            return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                        }
+                        if (typeof days === 'string') {
+                            return days.split(',').map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                        }
+                        return '';
+                    };
+
+                    const expectedName = normalizeString(slotData.name);
+                    const expectedStart = normalizeTime(slotData.startTime);
+                    const expectedEnd = normalizeTime(slotData.endTime);
+                    const expectedDays = normalizeDays(slotData.daysOfWeek);
+
+                    return slots.some(slot => {
+                        if (!slot || typeof slot !== 'object') {
+                            return false;
+                        }
+
+                        const slotName = normalizeString(slot.Name || slot.name);
+                        const slotStart = normalizeTime(slot.StartTime || slot.startTime);
+                        const slotEnd = normalizeTime(slot.EndTime || slot.endTime);
+                        const slotDays = normalizeDays(slot.DaysOfWeekArray || slot.DaysOfWeek || slot.daysOfWeek);
+
+                        return slotName === expectedName &&
+                            slotStart === expectedStart &&
+                            slotEnd === expectedEnd &&
+                            (!!expectedDays ? slotDays === expectedDays : true);
+                    });
+                } catch (error) {
+                    console.warn('Unable to verify shift slot creation after missing response:', error);
+                    return false;
+                }
             }
 
             validateEnhancedShiftSlot(slotData) {
@@ -2853,7 +3077,7 @@
                                       ${schedule.Status === 'PENDING' ? '' : 'disabled'}>
                             </td>
                             <td>${schedule.UserName || 'N/A'}</td>
-                            <td>${this.formatDate(schedule.Date)}</td>
+                            <td>${this.formatSchedulePeriod(schedule)}</td>
                             <td>${schedule.SlotName || 'N/A'}</td>
                             <td>${schedule.StartTime || ''} - ${schedule.EndTime || ''}</td>
                             <td>
@@ -3100,6 +3324,8 @@
                 normalized.ID = resolveValue(['ID', 'Id', 'id', 'ScheduleID', 'ScheduleId', 'scheduleID', 'scheduleId', 'Schedule Id']);
                 normalized.UserName = resolveValue(['UserName', 'User', 'User Name', 'Agent', 'AgentName', 'Agent Name', 'Name']);
                 normalized.Date = resolveValue(['Date', 'date', 'ScheduleDate', 'Schedule Date', 'Day', 'ShiftDate']);
+                normalized.PeriodStart = resolveValue(['PeriodStart', 'StartDate', 'AssignmentStart', 'ScheduleStart'], normalized.Date);
+                normalized.PeriodEnd = resolveValue(['PeriodEnd', 'EndDate', 'AssignmentEnd', 'ScheduleEnd'], normalized.PeriodStart || normalized.Date);
                 normalized.SlotName = resolveValue(['SlotName', 'slotName', 'Slot', 'Slot Name', 'Shift', 'ShiftName', 'Shift Name']);
                 normalized.StartTime = resolveValue(['StartTime', 'startTime', 'Start', 'Start Time', 'ShiftStart', 'Shift Start']);
                 normalized.EndTime = resolveValue(['EndTime', 'endTime', 'End', 'End Time', 'ShiftEnd', 'Shift End']);
@@ -4400,24 +4626,40 @@
 
             // Utility methods
             getCurrentUserId() {
+                const resolvedId = this.normalizeUserIdValue(this.resolvedManagerId);
+                if (resolvedId) {
+                    return resolvedId;
+                }
+
                 const potentialIds = [
                     this.currentUser?.ID,
                     this.currentUser?.Id,
                     this.currentUser?.id,
                     this.currentUser?.UserID,
                     this.currentUser?.UserId
-                ].filter(id => id);
+                ]
+                    .map(id => this.normalizeUserIdValue(id))
+                    .filter(id => id);
 
-                return potentialIds.length > 0 ? String(potentialIds[0]) : 'system-user';
+                return potentialIds.length > 0 ? potentialIds[0] : 'system-user';
             }
 
             getCurrentCampaignId() {
+                const resolvedCampaign = this.normalizeCampaignIdValue(this.resolvedCampaignId);
+                if (resolvedCampaign) {
+                    return resolvedCampaign;
+                }
+
                 const candidateValues = [
                     this.currentUser?.CampaignID,
                     this.currentUser?.campaignID,
                     this.currentUser?.CampaignId,
                     this.currentUser?.campaignId,
                     this.currentUser?.Campaign,
+                    typeof document !== 'undefined' ? document.documentElement?.getAttribute('data-campaign-id') : null,
+                    typeof document !== 'undefined' ? document.documentElement?.dataset?.campaignId : null,
+                    typeof document !== 'undefined' ? document.body?.getAttribute('data-campaign-id') : null,
+                    typeof document !== 'undefined' ? document.body?.dataset?.campaignId : null,
                     typeof window !== 'undefined' ? window.__layoutCampaignId : null,
                     typeof window !== 'undefined' ? window.__LAYOUT_CAMPAIGN_ID : null,
                     typeof window !== 'undefined' ? window.__LAYOUT_CAMPAIGNID : null,
@@ -4475,12 +4717,75 @@
                 return text;
             }
 
+            normalizeUserIdValue(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                const text = String(value).trim();
+                if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+                    return '';
+                }
+
+                return text;
+            }
+
+            escapeHtml(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            formatSchedulePeriod(schedule) {
+                if (!schedule || typeof schedule !== 'object') {
+                    return '';
+                }
+
+                const start = schedule.PeriodStart || schedule.Date;
+                const end = schedule.PeriodEnd || schedule.Date || start;
+
+                if (!start && !end) {
+                    return '';
+                }
+
+                if (!end || start === end) {
+                    return this.formatDate(start);
+                }
+
+                return this.formatPeriodLabel(start, end);
+            }
+
             formatDate(dateStr) {
                 try {
                     return dateStr ? new Date(dateStr).toLocaleDateString() : '';
                 } catch (error) {
                     return dateStr;
                 }
+            }
+
+            formatPeriodLabel(start, end) {
+                const resolvedStart = start || end;
+                const resolvedEnd = end || start;
+
+                if (!resolvedStart && !resolvedEnd) {
+                    return '';
+                }
+
+                const startLabel = this.formatDate(resolvedStart);
+                const endLabel = this.formatDate(resolvedEnd);
+
+                if (!resolvedEnd || startLabel === endLabel) {
+                    return startLabel;
+                }
+
+                return `${startLabel} - ${endLabel}`;
             }
 
             formatDateTime(dateValue) {
