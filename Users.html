@@ -1287,7 +1287,6 @@
             <option value="12" selected>12</option>
             <option value="24">24</option>
             <option value="48">48</option>
-            <option value="all">All</option>
         </select>
 
         <nav aria-label="Users pagination">
@@ -2260,9 +2259,6 @@
     { name: 'Schedule', identifiers: ['schedule', 'schedulemanagement', 'agentschedule'] }
   ];
 
-  const DEFAULT_USERS_PAGE_SIZE = 12;
-  const USERS_PAGE_SIZE_ALL = 'all';
-
   let allUsers = [];
   let allPages = [];
   let campaigns = [];
@@ -2276,7 +2272,7 @@
   let managedAssignments = new Set(); // user IDs under current manager
   let userFilters = { search: '', roles: [], campaignId: '', permission: '', employmentStatus: '' };
   let usersPage = 1;
-  let usersPageSizeSetting = DEFAULT_USERS_PAGE_SIZE;
+  let usersPerPage = 12;
   let filteredUsers = [];
   let userEquipmentItems = [];
   let currentEquipmentEntryId = null;
@@ -2622,18 +2618,7 @@
     $('#filterCampaign').select2({ theme: 'bootstrap-5', placeholder: 'Filter by campaign', allowClear: true, width: '100%' });
 
     $('#usersPageSize').on('change', function () {
-      const rawValue = String(this.value || '');
-      if (rawValue === USERS_PAGE_SIZE_ALL) {
-        usersPageSizeSetting = USERS_PAGE_SIZE_ALL;
-      } else {
-        const parsed = Number.parseInt(rawValue, 10);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-          usersPageSizeSetting = DEFAULT_USERS_PAGE_SIZE;
-          this.value = String(DEFAULT_USERS_PAGE_SIZE);
-        } else {
-          usersPageSizeSetting = parsed;
-        }
-      }
+      usersPerPage = parseInt(this.value, 10) || 12;
       usersPage = 1;
       renderUsersPage();
     });
@@ -2706,7 +2691,7 @@
       callGoogleScript('clientGetValidEmploymentStatuses').catch(() => ({ success: false }))
     ])
       .then(([usersData, pagesData, campaignsData, rolesData, employmentRes]) => {
-        handleUsersLoaded(usersData);
+        handleUsersLoaded(usersData || []);
         handlePagesLoaded(pagesData || []);
         handleCampaignsLoaded(campaignsData || []);
         handleRolesLoaded(rolesData || []);
@@ -2721,88 +2706,9 @@
       .finally(() => showLoading(false));
   }
 
-  function normalizeUsersResponse(users) {
-    if (Array.isArray(users)) {
-      return users;
-    }
-
-    if (typeof users === 'string') {
-      try {
-        return normalizeUsersResponse(JSON.parse(users));
-      } catch (_) {
-        return [];
-      }
-    }
-
-    if (!users || typeof users !== 'object') {
-      return [];
-    }
-
-    const visited = new WeakSet();
-    const candidateKeys = ['users', 'items', 'result', 'results', 'data', 'records', 'rows', 'list', 'entries', 'value', 'payload', 'body', 'response', 'userList'];
-
-    function dive(value) {
-      if (!value || typeof value !== 'object') {
-        return null;
-      }
-      if (visited.has(value)) {
-        return null;
-      }
-      visited.add(value);
-
-      if (Array.isArray(value)) {
-        if (!value.length) {
-          return value;
-        }
-
-        const hasPlainObject = value.some(item => item && typeof item === 'object' && !Array.isArray(item));
-        if (hasPlainObject) {
-          return value;
-        }
-
-        for (let i = 0; i < value.length; i++) {
-          const nested = dive(value[i]);
-          if (Array.isArray(nested)) {
-            return nested;
-          }
-        }
-
-        return null;
-      }
-
-      for (let i = 0; i < candidateKeys.length; i++) {
-        const key = candidateKeys[i];
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-          const candidate = dive(value[key]);
-          if (Array.isArray(candidate)) {
-            return candidate;
-          }
-        }
-      }
-
-      const keys = Object.keys(value);
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (candidateKeys.includes(key)) {
-          continue;
-        }
-        const candidate = dive(value[key]);
-        if (Array.isArray(candidate)) {
-          return candidate;
-        }
-      }
-
-      return null;
-    }
-
-    const result = dive(users);
-    return Array.isArray(result) ? result : [];
-  }
-
   function handleUsersLoaded(users) {
-    const normalizedUsers = normalizeUsersResponse(users);
-    allUsers = normalizedUsers;
-    filteredUsers = normalizedUsers.slice();
+    allUsers = users || [];
+    filteredUsers = allUsers.slice();
     usersPage = 1;
     const missingIdUsers = allUsers.filter(user => !user || !user.ID);
     if (missingIdUsers.length) {
@@ -2994,24 +2900,12 @@
   }
 
   // ---------- Users list & pagination ----------
-  function resolveUsersPageSize(totalCount) {
-    if (usersPageSizeSetting === USERS_PAGE_SIZE_ALL) {
-      return totalCount > 0 ? totalCount : DEFAULT_USERS_PAGE_SIZE;
-    }
-    if (Number.isFinite(usersPageSizeSetting) && usersPageSizeSetting > 0) {
-      return usersPageSizeSetting;
-    }
-    return DEFAULT_USERS_PAGE_SIZE;
-  }
-
   function renderUsersPage() {
     const total = filteredUsers.length;
-    const pageSize = resolveUsersPageSize(total);
-    const shouldPaginate = usersPageSizeSetting !== USERS_PAGE_SIZE_ALL && total > pageSize;
-    const totalPages = shouldPaginate ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+    const totalPages = Math.max(1, Math.ceil(total / usersPerPage));
     usersPage = Math.min(Math.max(1, usersPage), totalPages);
-    const start = shouldPaginate ? (usersPage - 1) * pageSize : 0;
-    const end = shouldPaginate ? Math.min(start + pageSize, total) : total;
+    const start = (usersPage - 1) * usersPerPage;
+    const end = Math.min(start + usersPerPage, total);
     const pageSlice = filteredUsers.slice(start, end);
 
     renderUsersWithPages(pageSlice);
@@ -3019,22 +2913,12 @@
     const infoEl = document.getElementById('usersPageInfo');
     const barEl = document.getElementById('usersPaginationBar');
     if (infoEl) {
-      if (!total) {
-        infoEl.textContent = 'No users';
-      } else if (!shouldPaginate) {
-        if (usersPageSizeSetting === USERS_PAGE_SIZE_ALL) {
-          infoEl.textContent = `Showing all ${total}`;
-        } else {
-          infoEl.textContent = `Showing ${total} of ${total}`;
-        }
-      } else {
-        infoEl.textContent = `Showing ${start + 1}–${end} of ${total}`;
-      }
+      infoEl.textContent = total ? `Showing ${start + 1}–${end} of ${total}` : 'No users';
     }
     if (barEl) {
       barEl.style.display = total ? 'flex' : 'none';
     }
-    updateUsersPagination(totalPages, shouldPaginate);
+    updateUsersPagination(totalPages);
   }
 
   function renderUsersWithPages(users) {
@@ -3052,18 +2936,7 @@
       return;
     }
 
-    try {
-      container.innerHTML = users.map(renderUserCardWithPages).join('');
-    } catch (err) {
-      console.error('renderUsersWithPages failed', err, { usersPreview: safeForLog(users) });
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-triangle-exclamation text-danger"></i>
-          <h5 class="text-danger fw-bold">Unable to render users</h5>
-          <p class="text-muted mb-3">${escapeHtml(err?.message || 'An unexpected error occurred while rendering the user list.')}</p>
-          <button class="btn-modern btn-primary" onclick="refreshUsers()"><i class="fas fa-sync"></i>Try Again</button>
-        </div>`;
-    }
+    container.innerHTML = users.map(renderUserCardWithPages).join('');
   }
 
   function renderUserCardWithPages(user) {
@@ -3151,7 +3024,7 @@
   }
 
   function renderUserPagesBadges(user) {
-    const userPages = resolveUserPages(user);
+    const userPages = user.pages || [];
     if (!userPages.length) return '<div class="user-pages"><span class="user-page-count">🚫 No pages assigned</span></div>';
     const maxDisplay = 5;
     const firstFew = userPages.slice(0, maxDisplay).map(key => {
@@ -3176,79 +3049,8 @@
       : '<span class="badge-modern" style="background:var(--gray-100);color:var(--gray-600);">No Campaign</span>';
   }
   function renderRolesBadges(user) {
-    const roles = resolveRoleNames(user);
-    if (!roles.length) return '';
-    return roles.map(role => `<span class="badge bg-secondary">${escapeHtml(role)}</span>`).join(' ');
-  }
-
-  function resolveRoleNames(user) {
-    if (!user || typeof user !== 'object') {
-      return [];
-    }
-
-    const seen = new Set();
-    const output = [];
-    const candidates = [user.roleNames, user.roles, user.Roles, user.csvRoles];
-
-    for (let i = 0; i < candidates.length; i++) {
-      const candidate = candidates[i];
-      if (candidate == null) continue;
-
-      let items = [];
-      if (Array.isArray(candidate)) {
-        items = candidate;
-      } else if (typeof candidate === 'string') {
-        items = candidate.split(/[|,;]/);
-      } else {
-        items = [candidate];
-      }
-
-      for (let j = 0; j < items.length; j++) {
-        const normalized = safeTrim(items[j]);
-        if (!normalized) continue;
-        const key = normalized.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        output.push(normalized);
-      }
-    }
-
-    return output;
-  }
-
-  function resolveUserPages(user) {
-    if (!user || typeof user !== 'object') {
-      return [];
-    }
-
-    const seen = new Set();
-    const output = [];
-    const candidates = [user.pages, user.Pages, user.pageKeys, user.assignedPages];
-
-    for (let i = 0; i < candidates.length; i++) {
-      const candidate = candidates[i];
-      if (candidate == null) continue;
-
-      let items = [];
-      if (Array.isArray(candidate)) {
-        items = candidate;
-      } else if (typeof candidate === 'string') {
-        items = candidate.split(/[|,;]/);
-      } else {
-        items = [candidate];
-      }
-
-      for (let j = 0; j < items.length; j++) {
-        const normalized = safeTrim(items[j]);
-        if (!normalized) continue;
-        const key = normalized.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        output.push(normalized);
-      }
-    }
-
-    return output;
+    if (!user.roleNames || !user.roleNames.length) return '';
+    return user.roleNames.map(r => `<span class="badge bg-secondary">${escapeHtml(r)}</span>`).join(' ');
   }
 
   function resolveUserProfileIdentifier(user) {
@@ -3717,13 +3519,10 @@
   }
 
   // ---------- Pagination control ----------
-  function updateUsersPagination(totalPages, shouldPaginate = true) {
+  function updateUsersPagination(totalPages) {
     const ul = document.getElementById('usersPagination');
     if (!ul) return;
     ul.innerHTML = '';
-    if (!shouldPaginate || totalPages <= 1) {
-      return;
-    }
     const addBtn = (label, page, disabled = false, active = false) => {
       const li = document.createElement('li');
       li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
@@ -4454,7 +4253,6 @@
   }
 
   // ---------- Employment report ----------
-  let employmentReportCurrentFilter = '__all';
   function showEmploymentReport() {
     const modal = new bootstrap.Modal(document.getElementById('employmentReportModal'));
     modal.show();
@@ -4492,47 +4290,33 @@
     }
 
     const statusData = validList.map(status => {
-      const label = safeTrim(status) || 'Unspecified';
-      const count = (typeof statusCounts[label] === 'number')
-        ? statusCounts[label]
-        : (typeof statusCounts[status] === 'number' ? statusCounts[status] : 0);
-      const percentage = totalUsers > 0 ? (count / totalUsers) * 100 : 0;
-      return {
-        status: label,
-        count,
-        percentage,
-        percentageLabel: percentage.toFixed(1)
-      };
+      const count = statusCounts[status] || 0;
+      const percentage = totalUsers > 0 ? ((count / totalUsers) * 100).toFixed(1) : '0.0';
+      return { status, count, percentage };
     }).sort((a, b) => b.count - a.count);
 
-    const statusRowsHtml = statusData.map(item => `
-        <tr>
-          <td><strong>${escapeHtml(item.status)}</strong></td>
-          <td>${item.count}</td>
-          <td>${item.percentageLabel}%</td>
-          <td>
-            <div class="progress" style="height: 20px;">
-              <div class="progress-bar ${getStatusColorClass(item.status)}" role="progressbar"
-                   style="width: ${item.percentageLabel}%"
-                   aria-valuenow="${item.percentageLabel}" aria-valuemin="0" aria-valuemax="100">
-              </div>
-            </div>
-          </td>
-        </tr>`).join('');
-
-    const recentChangesHtml = Array.isArray(data.recentChanges) && data.recentChanges.length
-      ? data.recentChanges.slice(0, 5).map(r => `<li>${escapeHtml(r)}</li>`).join('')
-      : '<li>No recent changes</li>';
-
     content.innerHTML = `
-    <div class="row g-4">
+    <div class="row">
       <div class="col-md-8">
         <h6 class="fw-bold"><i class="fas fa-chart-pie me-2"></i>Employment Status Distribution</h6>
         <div class="table-responsive">
           <table class="table table-sm">
             <thead><tr><th>Status</th><th>Count</th><th>Percentage</th><th>Visual</th></tr></thead>
             <tbody>
-              ${statusRowsHtml}
+              ${statusData.map(item => `
+                <tr>
+                  <td><strong>${escapeHtml(item.status)}</strong></td>
+                  <td>${item.count}</td>
+                  <td>${item.percentage}%</td>
+                  <td>
+                    <div class="progress" style="height: 20px;">
+                      <div class="progress-bar ${getStatusColorClass(item.status)}" role="progressbar"
+                           style="width: ${item.percentage}%"
+                           aria-valuenow="${item.percentage}" aria-valuemin="0" aria-valuemax="100">
+                      </div>
+                    </div>
+                  </td>
+                </tr>`).join('')}
             </tbody>
           </table>
         </div>
@@ -4559,80 +4343,13 @@
           <h6 class="fw-bold"><i class="fas fa-calendar-alt me-2"></i>Recent Activity</h6>
           <div class="small text-muted">
             <ul class="mb-0">
-              ${recentChangesHtml}
+              ${(data.recentChanges || []).slice(0,5).map(r => `<li>${escapeHtml(r)}</li>`).join('') || '<li>No recent changes</li>'}
             </ul>
           </div>
         </div>
       </div>
     </div>
-    <div class="mt-4">
-      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
-        <h6 class="fw-bold mb-0"><i class="fas fa-users me-2"></i>Users by Status</h6>
-        <div class="d-flex align-items-center gap-2">
-          <select id="employmentReportStatusFilter" class="form-select form-select-sm w-auto">
-            ${filterOptionsHtml}
-          </select>
-          <span class="small text-muted" id="employmentReportUserCount">${initialVisibleCount} ${initialVisibleCount === 1 ? 'user' : 'users'}</span>
-        </div>
-      </div>
-      ${hasUsers ? `
-        <div class="table-responsive" id="employmentReportTableWrapper">
-          <table class="table table-hover table-sm align-middle mb-0">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Status</th>
-                <th>Campaign</th>
-                <th>Roles</th>
-                <th>Hire Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${userRowsHtml}
-            </tbody>
-          </table>
-        </div>` : ''}
-      <div id="employmentReportEmptyState" class="text-center text-muted py-4${hasUsers ? ' d-none' : ''}">
-        <i class="fas fa-users-slash fa-2x mb-2"></i>
-        <div>No users found for the selected status.</div>
-      </div>
-    </div>
   `;
-
-    const filterSelect = content.querySelector('#employmentReportStatusFilter');
-    const userCountEl = content.querySelector('#employmentReportUserCount');
-    const emptyStateEl = content.querySelector('#employmentReportEmptyState');
-    const tableWrapper = content.querySelector('#employmentReportTableWrapper');
-    const rows = Array.from(content.querySelectorAll('[data-report-user-row]'));
-
-    const applyFilter = (key) => {
-      const normalizedKey = key && key !== '__all' ? key : '__all';
-      let visible = 0;
-      rows.forEach(row => {
-        const rowKey = row.getAttribute('data-status-key') || '';
-        const matches = normalizedKey === '__all' || rowKey === normalizedKey;
-        row.style.display = matches ? '' : 'none';
-        if (matches) visible++;
-      });
-      if (userCountEl) {
-        userCountEl.textContent = `${visible} ${visible === 1 ? 'user' : 'users'}`;
-      }
-      if (emptyStateEl) {
-        emptyStateEl.classList.toggle('d-none', visible > 0);
-      }
-      if (tableWrapper) {
-        tableWrapper.classList.toggle('d-none', rows.length > 0 && visible === 0);
-      }
-    };
-
-    if (filterSelect) {
-      filterSelect.addEventListener('change', () => {
-        const selectedKey = filterSelect.value || '__all';
-        employmentReportCurrentFilter = selectedKey;
-        applyFilter(selectedKey);
-      });
-      applyFilter(filterSelect.value || '__all');
-    }
   }
   function getStatusColorClass(status) {
     const s = (status || '').toLowerCase();
@@ -4652,6 +4369,7 @@
     if (s.includes('intern')) return 'bg-info';
     return 'bg-secondary';
   }
+
   // ---------- Permissions & Pages for a user ----------
   function loadUserPages(userId) {
     showLoading(true);
@@ -4825,7 +4543,7 @@
     showLoading(true);
     callGoogleScript('clientGetAllUsers')
       .then(usersData => {
-        handleUsersLoaded(usersData);
+        handleUsersLoaded(usersData || []);
         applyUserFilters();
       })
       .catch(err => {
