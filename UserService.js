@@ -4739,16 +4739,15 @@ function clientGetValidEmploymentStatuses() {
 function clientGetEmploymentStatusReport(campaignId) {
   try {
     const users = readSheet(G.USERS_SHEET) || [];
-    let filtered = users;
-    if (campaignId) filtered = users.filter(u => u.CampaignID === campaignId);
+    const filtered = campaignId
+      ? users.filter(u => u && u.CampaignID === campaignId)
+      : users;
 
     const statusCounts = {};
     const valid = getValidEmploymentStatuses();
     valid.forEach(s => statusCounts[s] = 0);
     statusCounts['Unspecified'] = 0;
 
-    const summaries = [];
-    const usersByStatus = {};
     const changeEntries = [];
     const scriptTimeZone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
       ? Session.getScriptTimeZone()
@@ -4760,53 +4759,8 @@ function clientGetEmploymentStatusReport(campaignId) {
       if (typeof statusCounts[status] !== 'number') statusCounts[status] = 0;
       statusCounts[status]++;
 
-      let safeUser;
-      try {
-        safeUser = (typeof createSafeUserObject === 'function') ? createSafeUserObject(u) : (u || {});
-      } catch (err) {
-        safeUser = u || {};
-      }
-
-      const roleValues = [];
-      const roleSources = [safeUser.roleNames, safeUser.roles, safeUser.Roles, safeUser.csvRoles];
-      for (let i = 0; i < roleSources.length; i++) {
-        const source = roleSources[i];
-        if (!source) continue;
-        if (Array.isArray(source)) {
-          source.forEach(role => {
-            const trimmed = role && String(role).trim();
-            if (trimmed && !roleValues.includes(trimmed)) roleValues.push(trimmed);
-          });
-        } else if (typeof source === 'string') {
-          source.split(',').forEach(part => {
-            const trimmed = part && part.trim();
-            if (trimmed && !roleValues.includes(trimmed)) roleValues.push(trimmed);
-          });
-        }
-      }
-
-      const summary = {
-        id: safeUser.ID || safeUser.Id || safeUser.id || u.ID || '',
-        name: (safeUser.FullName || safeUser.fullName || safeUser.UserName || safeUser.userName || safeUser.username
-          || safeUser.Email || safeUser.email || '').trim(),
-        email: (safeUser.Email || safeUser.email || '').trim(),
-        employmentStatus: status,
-        campaignId: safeUser.CampaignID || safeUser.campaignId || safeUser.CampaignId || '',
-        campaignName: safeUser.campaignName || safeUser.CampaignName || safeUser.Campaign || '',
-        roles: roleValues,
-        hireDate: safeUser.HireDate || safeUser.hireDate || '',
-        country: safeUser.Country || safeUser.country || ''
-      };
-
-      if (!summary.name) {
-        summary.name = summary.email || 'Unnamed user';
-      }
-
-      summaries.push(summary);
-
-      if (!Array.isArray(usersByStatus[status])) usersByStatus[status] = [];
-      usersByStatus[status].push(summary);
-
+      const displayName = String(u && (u.FullName || u.fullName || u.UserName || u.userName || u.username
+        || u.Email || u.email || '')).trim() || 'User';
       const updatedRaw = u && (u.UpdatedAt || u.updatedAt || u.Updated || u.LastModified || u.Modified
         || u.ModifiedAt || u.LastUpdated || u.UpdatedOn || u.updatedOn);
       if (updatedRaw) {
@@ -4824,7 +4778,7 @@ function clientGetEmploymentStatusReport(campaignId) {
           }
           changeEntries.push({
             ts: updatedDate.getTime(),
-            text: `${summary.name} → ${status} (${formatted})`
+            text: `${displayName} → ${status} (${formatted})`
           });
         }
       }
@@ -4841,8 +4795,6 @@ function clientGetEmploymentStatusReport(campaignId) {
       totalUsers: filtered.length,
       statusCounts,
       validStatuses: valid,
-      users: summaries,
-      usersByStatus,
       recentChanges,
       message: `Employment status report for ${filtered.length} users`
     };

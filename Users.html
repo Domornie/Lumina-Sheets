@@ -4497,84 +4497,13 @@
         ? statusCounts[label]
         : (typeof statusCounts[status] === 'number' ? statusCounts[status] : 0);
       const percentage = totalUsers > 0 ? (count / totalUsers) * 100 : 0;
-      const key = safeLower(label) || 'unspecified';
       return {
         status: label,
-        key,
         count,
         percentage,
         percentageLabel: percentage.toFixed(1)
       };
     }).sort((a, b) => b.count - a.count);
-
-    const statusOrder = {};
-    statusData.forEach((item, index) => {
-      statusOrder[item.key] = index;
-    });
-
-    const userListRaw = Array.isArray(data.users) ? data.users : [];
-    const normalizedUsers = userListRaw.map(user => {
-      const rawStatus = user?.employmentStatus || user?.EmploymentStatus || user?.status || '';
-      const normalizedStatus = typeof normalizeEmploymentStatusClient === 'function'
-        ? normalizeEmploymentStatusClient(rawStatus)
-        : safeTrim(rawStatus);
-      const statusLabel = normalizedStatus || 'Unspecified';
-      const statusKey = safeLower(statusLabel) || 'unspecified';
-
-      const email = safeTrim(user?.email || user?.Email || '');
-      const rawName = user?.name || user?.fullName || user?.FullName || user?.UserName
-        || user?.userName || user?.username || '';
-      const name = safeTrim(rawName, email || 'Unnamed user');
-
-      const campaign = safeTrim(user?.campaignName || user?.campaign || user?.CampaignName || user?.Campaign || '');
-      const hireDate = safeTrim(user?.hireDate || user?.HireDate || '');
-      const hireDisplay = hireDate ? formatHireVisual(hireDate) : '';
-
-      const roleSet = new Set();
-      const roleSources = [user?.roles, user?.roleNames, user?.Roles, user?.csvRoles];
-      roleSources.forEach(source => {
-        if (!source) return;
-        if (Array.isArray(source)) {
-          source.forEach(role => {
-            const trimmed = safeTrim(role);
-            if (trimmed) roleSet.add(trimmed);
-          });
-        } else if (typeof source === 'string') {
-          source.split(',').forEach(part => {
-            const trimmed = safeTrim(part);
-            if (trimmed) roleSet.add(trimmed);
-          });
-        }
-      });
-
-      return {
-        id: safeTrim(user?.id || user?.ID || ''),
-        name,
-        email,
-        status: statusLabel,
-        statusKey,
-        campaign,
-        hireDate,
-        hireDisplay,
-        roles: Array.from(roleSet)
-      };
-    });
-
-    const sortedUsers = normalizedUsers.slice().sort((a, b) => {
-      const aOrder = Object.prototype.hasOwnProperty.call(statusOrder, a.statusKey)
-        ? statusOrder[a.statusKey]
-        : statusData.length;
-      const bOrder = Object.prototype.hasOwnProperty.call(statusOrder, b.statusKey)
-        ? statusOrder[b.statusKey]
-        : statusData.length;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-    });
-
-    const filterKey = employmentReportCurrentFilter || '__all';
-    const initialVisibleCount = filterKey === '__all'
-      ? sortedUsers.length
-      : sortedUsers.filter(user => user.statusKey === filterKey).length;
 
     const statusRowsHtml = statusData.map(item => `
         <tr>
@@ -4591,34 +4520,9 @@
           </td>
         </tr>`).join('');
 
-    const filterOptionsHtml = [`<option value="__all"${filterKey === '__all' ? ' selected' : ''}>All statuses (${sortedUsers.length})</option>`]
-      .concat(statusData.map(item => {
-        const selected = filterKey === item.key ? ' selected' : '';
-        return `<option value="${escapeHtml(item.key)}"${selected}>${escapeHtml(item.status)} (${item.count})</option>`;
-      })).join('');
-
-    const userRowsHtml = sortedUsers.map(user => {
-      const badgeClass = getStatusBadgeClass(user.status);
-      const emailHtml = user.email ? `<div class="small text-muted">${escapeHtml(user.email)}</div>` : '';
-      const campaignHtml = user.campaign ? escapeHtml(user.campaign) : '<span class="text-muted">—</span>';
-      const hireHtml = user.hireDisplay ? escapeHtml(user.hireDisplay) : '<span class="text-muted">—</span>';
-      const rolesHtml = user.roles.length
-        ? user.roles.map(role => `<span class="badge bg-light text-dark border me-1">${escapeHtml(role)}</span>`).join('')
-        : '<span class="text-muted">—</span>';
-      return `
-        <tr data-report-user-row data-status-key="${escapeHtml(user.statusKey)}">
-          <td>
-            <div class="fw-semibold">${escapeHtml(user.name)}</div>
-            ${emailHtml}
-          </td>
-          <td><span class="badge rounded-pill ${badgeClass}">${escapeHtml(user.status)}</span></td>
-          <td>${campaignHtml}</td>
-          <td>${rolesHtml}</td>
-          <td>${hireHtml}</td>
-        </tr>`;
-    }).join('');
-
-    const hasUsers = sortedUsers.length > 0;
+    const recentChangesHtml = Array.isArray(data.recentChanges) && data.recentChanges.length
+      ? data.recentChanges.slice(0, 5).map(r => `<li>${escapeHtml(r)}</li>`).join('')
+      : '<li>No recent changes</li>';
 
     content.innerHTML = `
     <div class="row g-4">
@@ -4655,7 +4559,7 @@
           <h6 class="fw-bold"><i class="fas fa-calendar-alt me-2"></i>Recent Activity</h6>
           <div class="small text-muted">
             <ul class="mb-0">
-              ${(data.recentChanges || []).slice(0,5).map(r => `<li>${escapeHtml(r)}</li>`).join('') || '<li>No recent changes</li>'}
+              ${recentChangesHtml}
             </ul>
           </div>
         </div>
@@ -4748,14 +4652,6 @@
     if (s.includes('intern')) return 'bg-info';
     return 'bg-secondary';
   }
-  function getStatusBadgeClass(status) {
-    const base = getStatusColorClass(status) || 'bg-secondary';
-    if (base.startsWith('bg-')) {
-      return `text-bg-${base.slice(3)}`;
-    }
-    return 'text-bg-secondary';
-  }
-
   // ---------- Permissions & Pages for a user ----------
   function loadUserPages(userId) {
     showLoading(true);
