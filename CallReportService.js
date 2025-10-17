@@ -117,6 +117,102 @@ function __applyAnswerFieldAliases(record, value) {
   }
 }
 
+function __ensureDate(value) {
+  if (value instanceof Date && !isNaN(value)) return value;
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = new Date(value);
+  return isNaN(parsed) ? null : parsed;
+}
+
+function __parseAnswerSeconds(rawValue, createdDate) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+  const created = __ensureDate(createdDate);
+
+  if (rawValue instanceof Date && !isNaN(rawValue)) {
+    if (!created) return null;
+    const diff = (rawValue.getTime() - created.getTime()) / 1000;
+    return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+  }
+
+  if (typeof rawValue === 'number' && isFinite(rawValue)) {
+    let seconds = rawValue;
+    if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+    return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const str = String(rawValue).trim();
+  if (!str) return null;
+
+  const numeric = Number(str);
+  if (!isNaN(numeric) && isFinite(numeric)) {
+    let seconds = numeric;
+    if (Math.abs(seconds) > 86400 * 365) seconds = seconds / 1000;
+    return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const timeParts = str.split(':');
+  if (timeParts.length >= 2 && timeParts.length <= 3) {
+    let seconds = 0;
+    for (let i = 0; i < timeParts.length; i++) {
+      const part = Number(timeParts[i]);
+      if (isNaN(part)) {
+        seconds = null;
+        break;
+      }
+      seconds = (seconds * 60) + part;
+    }
+    if (seconds !== null) return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  const parsedDate = new Date(str);
+  if (!isNaN(parsedDate) && created) {
+    const diff = (parsedDate.getTime() - created.getTime()) / 1000;
+    return isFinite(diff) ? Math.max(0, Math.round(diff * 100) / 100) : null;
+  }
+
+  const secondsMatch = str.match(/(\d+(?:\.\d+)?)/);
+  if (secondsMatch) {
+    const seconds = Number(secondsMatch[1]);
+    if (!isNaN(seconds)) return Math.max(0, Math.round(seconds * 100) / 100);
+  }
+
+  return null;
+}
+
+function __coerceAnswerCell(rawValue, createdDate) {
+  const seconds = __parseAnswerSeconds(rawValue, createdDate);
+  return seconds === null ? '' : seconds;
+}
+
+const __ANSWER_HEADER_ALIASES = ['To Answer Time', 'ToAnswerTime'];
+
+function __isAnswerHeader(name) {
+  if (!name) return false;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    if (name === __ANSWER_HEADER_ALIASES[i]) return true;
+  }
+  return false;
+}
+
+function __getAnswerFieldValue(record) {
+  if (!record || typeof record !== 'object') return undefined;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    const key = __ANSWER_HEADER_ALIASES[i];
+    if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== undefined) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function __applyAnswerFieldAliases(record, value) {
+  if (!record || typeof record !== 'object') return;
+  for (let i = 0; i < __ANSWER_HEADER_ALIASES.length; i++) {
+    record[__ANSWER_HEADER_ALIASES[i]] = value;
+  }
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Internal: get the CallReport sheet (ensure headers exist)
 function __getCallReportSheet() {
