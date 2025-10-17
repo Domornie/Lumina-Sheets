@@ -183,6 +183,202 @@ if (typeof ERROR_LOGS_HEADERS === 'undefined') var ERROR_LOGS_HEADERS = ["Timest
 if (typeof NOTIFICATIONS_HEADERS === 'undefined') var NOTIFICATIONS_HEADERS = ["ID", "UserId", "Type", "Severity", "Title", "Message", "Data", "Read", "ActionTaken", "CreatedAt", "ReadAt", "ExpiresAt"];
 
 // ────────────────────────────────────────────────────────────────────────────
+// Authorization hierarchy helpers (shared across the system)
+// ────────────────────────────────────────────────────────────────────────────
+
+function ensureAuthorizationHierarchyDefaults_() {
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.ensureRoleHierarchyRules === 'function') {
+      AuthorizationRegistry.ensureRoleHierarchyRules();
+    }
+  } catch (err) {
+    console.warn('MainUtilities.ensureAuthorizationHierarchyDefaults_: unable to ensure role hierarchy', err);
+  }
+}
+
+function getAuthorizationSnapshotForUser(userId) {
+  if (!userId && userId !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getAuthorizationSnapshotForUser === 'function') {
+      return AuthorizationRegistry.getAuthorizationSnapshotForUser(userId);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getAuthorizationSnapshotForUser: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getAuthorizationSnapshotForSession(sessionToken) {
+  if (!sessionToken && sessionToken !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getAuthorizationSnapshotForSession === 'function') {
+      return AuthorizationRegistry.getAuthorizationSnapshotForSession(sessionToken);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getAuthorizationSnapshotForSession: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getSessionAuthorizationContext(sessionToken) {
+  if (!sessionToken && sessionToken !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getAuthorizationContextSummaryForSession === 'function') {
+      return AuthorizationRegistry.getAuthorizationContextSummaryForSession(sessionToken);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getSessionAuthorizationContext: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getUserAuthorizationContext(userId) {
+  if (!userId && userId !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getAuthorizationContextSummaryForUser === 'function') {
+      return AuthorizationRegistry.getAuthorizationContextSummaryForUser(userId);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getUserAuthorizationContext: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getSessionActiveCampaignId(sessionToken) {
+  if (!sessionToken && sessionToken !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getActiveCampaignIdForSession === 'function') {
+      return AuthorizationRegistry.getActiveCampaignIdForSession(sessionToken);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getSessionActiveCampaignId: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getUserActiveCampaignId(userId) {
+  if (!userId && userId !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getActiveCampaignIdForUser === 'function') {
+      return AuthorizationRegistry.getActiveCampaignIdForUser(userId);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getUserActiveCampaignId: lookup failed', err);
+  }
+
+  return null;
+}
+
+function getSessionCurrentUserId(sessionToken) {
+  if (!sessionToken && sessionToken !== 0) {
+    return null;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.getCurrentUserIdForSession === 'function') {
+      return AuthorizationRegistry.getCurrentUserIdForSession(sessionToken);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.getSessionCurrentUserId: lookup failed', err);
+  }
+
+  return null;
+}
+
+function userHasCapabilityFlag(userOrId, capabilityKey) {
+  if (!capabilityKey && capabilityKey !== 0) {
+    return false;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.userHasCapability === 'function') {
+      return AuthorizationRegistry.userHasCapability(userOrId, capabilityKey);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.userHasCapabilityFlag: lookup failed', err);
+  }
+
+  return false;
+}
+
+function userCanManageUser(managerUserOrId, targetUserId) {
+  if (!targetUserId && targetUserId !== 0) {
+    return false;
+  }
+
+  ensureAuthorizationHierarchyDefaults_();
+
+  try {
+    if (typeof AuthorizationRegistry !== 'undefined'
+      && AuthorizationRegistry
+      && typeof AuthorizationRegistry.userManagesUser === 'function') {
+      return AuthorizationRegistry.userManagesUser(managerUserOrId, targetUserId);
+    }
+  } catch (err) {
+    console.warn('MainUtilities.userCanManageUser: lookup failed', err);
+  }
+
+  return false;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // HR / Benefits – Users sheet upgrade + calculators
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -2033,3 +2229,6 @@ console.log('   - clientGetNavigationForUser()');
 console.log('   - clientGetCampaignNavigation()');
 console.log('   - clientRunEnhancedDiscovery() / clientSetupEnhancedCategories() / clientRunEnhancedSetup()');
 console.log('   - clientDebugMultiCampaignSetup()');
+console.log('   - getSessionAuthorizationContext() / getUserAuthorizationContext()');
+console.log('   - getSessionActiveCampaignId() / getUserActiveCampaignId()');
+console.log('   - getSessionCurrentUserId()');
