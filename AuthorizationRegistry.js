@@ -753,6 +753,10 @@ var AuthorizationRegistry = (function () {
       return null;
     }
 
+    var managedRefs = Array.isArray(snapshot.managedUsers)
+      ? snapshot.managedUsers.map(sanitizeUserReference).filter(Boolean)
+      : [];
+
     var summary = {
       userId: snapshot.userId || null,
       currentUserId: snapshot.currentUserId || snapshot.userId || null,
@@ -770,6 +774,35 @@ var AuthorizationRegistry = (function () {
       directReports: Array.isArray(snapshot.directReports) ? snapshot.directReports.slice() : [],
       timestamp: snapshot.timestamp || null
     };
+
+    summary.managedUsers = managedRefs.map(function (ref) {
+      var clone = {};
+      if (ref.id) clone.id = ref.id;
+      if (ref.userId) clone.userId = ref.userId;
+      if (ref.userName) clone.userName = ref.userName;
+      if (ref.fullName) clone.fullName = ref.fullName;
+      if (ref.email) clone.email = ref.email;
+      return clone;
+    });
+
+    var managedIds = summary.directReports.slice();
+    managedRefs.forEach(function (ref) {
+      if (!ref) return;
+      var candidate = '';
+      if (ref.id) {
+        candidate = String(ref.id).trim();
+      }
+      if (!candidate && ref.userId) {
+        candidate = String(ref.userId).trim();
+      }
+      if (candidate) {
+        managedIds.push(candidate);
+      }
+    });
+
+    summary.managedUserIds = uniqStrings(managedIds);
+    summary.hasManagedUsers = summary.managedUsers.length > 0;
+    summary.hasDirectReports = summary.directReports.length > 0 || summary.hasManagedUsers;
 
     if (snapshot.campaign && typeof snapshot.campaign === 'object') {
       summary.campaign = {
