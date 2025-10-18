@@ -608,6 +608,18 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button" role="tab">
+                    <i class="fas fa-calendar-check"></i>
+                    <span class="d-none d-sm-inline ms-2">Attendance Calendar</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="attendance-dashboard-tab" data-bs-toggle="pill" data-bs-target="#attendance-dashboard" type="button" role="tab">
+                    <i class="fas fa-chart-pie"></i>
+                    <span class="d-none d-sm-inline ms-2">Attendance Dashboard</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="generation-tab" data-bs-toggle="pill" data-bs-target="#generation" type="button" role="tab">
                     <i class="fas fa-calendar-plus"></i>
                     <span class="d-none d-sm-inline ms-2">Generate</span>
@@ -626,18 +638,6 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button" role="tab">
-                    <i class="fas fa-calendar-check"></i>
-                    <span class="d-none d-sm-inline ms-2">Attendance Calendar</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="attendance-dashboard-tab" data-bs-toggle="pill" data-bs-target="#attendance-dashboard" type="button" role="tab">
-                    <i class="fas fa-chart-pie"></i>
-                    <span class="d-none d-sm-inline ms-2">Attendance Dashboard</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="shifts-tab" data-bs-toggle="pill" data-bs-target="#shifts" type="button" role="tab">
                     <i class="fas fa-clock"></i>
                     <span class="d-none d-sm-inline ms-2">Shifts</span>
@@ -647,12 +647,6 @@
                 <button class="nav-link" id="holidays-tab" data-bs-toggle="pill" data-bs-target="#holidays" type="button" role="tab">
                     <i class="fas fa-globe"></i>
                     <span class="d-none d-sm-inline ms-2">Holidays</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="users-tab" data-bs-toggle="pill" data-bs-target="#users" type="button" role="tab">
-                    <i class="fas fa-users"></i>
-                    <span class="d-none d-sm-inline ms-2">Users</span>
                 </button>
             </li>
         </ul>
@@ -791,6 +785,109 @@
                                 <div class="text-center text-success">
                                     <i class="fas fa-check-circle fa-2x mb-2"></i>
                                     <p>No compliance issues detected</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Dashboard Tab -->
+        <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
+            <div class="modern-card mb-4">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-chart-pie text-primary"></i>
+                        Attendance Dashboard
+                    </h5>
+                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                </div>
+                <div class="modern-card-body">
+                    <div class="attendance-dashboard">
+                        <div class="row g-4">
+                            <div class="col-lg-8">
+                                <div class="attendance-panel attendance-panel-dark h-100">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <div class="attendance-panel-title">Yearly Trends</div>
+                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
+                                        </div>
+                                    </div>
+                                    <div class="attendance-chart tall">
+                                        <canvas id="attendanceYearlyTrendChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="attendance-panel attendance-panel-dark h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 attendance-panel-actions">
+                                        <div class="attendance-panel-title mb-0">Monthly (%)</div>
+                                        <select id="attendanceDashboardMonth" class="form-select form-select-sm">
+                                            <option value="0">January</option>
+                                            <option value="1">February</option>
+                                            <option value="2">March</option>
+                                            <option value="3">April</option>
+                                            <option value="4">May</option>
+                                            <option value="5">June</option>
+                                            <option value="6">July</option>
+                                            <option value="7">August</option>
+                                            <option value="8">September</option>
+                                            <option value="9">October</option>
+                                            <option value="10">November</option>
+                                            <option value="11">December</option>
+                                        </select>
+                                    </div>
+                                    <div class="attendance-chart">
+                                        <canvas id="attendanceMonthlyPercentChart"></canvas>
+                                    </div>
+                                    <div class="attendance-percentage-value" id="attendanceMonthlyPercentValue">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-4">
+                            <div class="col-lg-8">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Monthly Attendance Breakdown</div>
+                                    <div class="attendance-panel-subtitle mb-3">Understand presence, absences and leave trends month-by-month.</div>
+                                    <div class="attendance-chart small">
+                                        <canvas id="attendanceMonthlyPresentChart"></canvas>
+                                    </div>
+                                    <div class="attendance-chart small">
+                                        <canvas id="attendanceMonthlyAbsentChart"></canvas>
+                                    </div>
+                                    <div class="attendance-chart small">
+                                        <canvas id="attendanceMonthlyLeavesChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
+                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
+                                    <div class="attendance-chart">
+                                        <canvas id="attendanceBiWeeklyChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-4">
+                            <div class="col-xl-8">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Monthly Analysis</div>
+                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
+                                    <div class="attendance-chart tall">
+                                        <canvas id="attendanceMonthlyAnalysisChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-4">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Yearly Analysis</div>
+                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
+                                    <div class="attendance-chart">
+                                        <canvas id="attendanceYearlyAnalysisChart"></canvas>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1118,210 +1215,8 @@
             </div>
         </div>
 
-        <!-- Attendance Dashboard Tab -->
-        <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
-            <div class="modern-card mb-4">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
-                </div>
-                <div class="modern-card-body">
-                    <div class="attendance-dashboard">
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                            <div class="attendance-panel-title">Yearly Trends</div>
-                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
-                                        </div>
-                                    </div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceYearlyTrendChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-center mb-2 attendance-panel-actions">
-                                        <div class="attendance-panel-title mb-0">Monthly (%)</div>
-                                        <select id="attendanceDashboardMonth" class="form-select form-select-sm">
-                                            <option value="0">January</option>
-                                            <option value="1">February</option>
-                                            <option value="2">March</option>
-                                            <option value="3">April</option>
-                                            <option value="4">May</option>
-                                            <option value="5">June</option>
-                                            <option value="6">July</option>
-                                            <option value="7">August</option>
-                                            <option value="8">September</option>
-                                            <option value="9">October</option>
-                                            <option value="10">November</option>
-                                            <option value="11">December</option>
-                                        </select>
-                                    </div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceMonthlyPercentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-percentage-value" id="attendanceMonthlyPercentValue">0%</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Attendance Breakdown</div>
-                                    <div class="attendance-panel-subtitle mb-3">Understand presence, absences and leave trends month-by-month.</div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyPresentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyAbsentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyLeavesChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
-                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceBiWeeklyChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-xl-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceMonthlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Yearly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceYearlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Attendance Calendar Tab -->
         <div class="tab-pane fade" id="attendance" role="tabpanel">
-            <div class="modern-card mb-4">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
-                </div>
-                <div class="modern-card-body">
-                    <div class="attendance-dashboard">
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                            <div class="attendance-panel-title">Yearly Trends</div>
-                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
-                                        </div>
-                                    </div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceYearlyTrendChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-center mb-2 attendance-panel-actions">
-                                        <div class="attendance-panel-title mb-0">Monthly (%)</div>
-                                        <select id="attendanceDashboardMonth" class="form-select form-select-sm">
-                                            <option value="0">January</option>
-                                            <option value="1">February</option>
-                                            <option value="2">March</option>
-                                            <option value="3">April</option>
-                                            <option value="4">May</option>
-                                            <option value="5">June</option>
-                                            <option value="6">July</option>
-                                            <option value="7">August</option>
-                                            <option value="8">September</option>
-                                            <option value="9">October</option>
-                                            <option value="10">November</option>
-                                            <option value="11">December</option>
-                                        </select>
-                                    </div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceMonthlyPercentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-percentage-value" id="attendanceMonthlyPercentValue">0%</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Attendance Breakdown</div>
-                                    <div class="attendance-panel-subtitle mb-3">Understand presence, absences and leave trends month-by-month.</div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyPresentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyAbsentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyLeavesChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
-                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceBiWeeklyChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-xl-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceMonthlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Yearly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceYearlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="modern-card mb-4">
                 <div class="modern-card-header">
                     <h5 class="modern-card-title">
@@ -1892,51 +1787,6 @@
             </div>
         </div>
 
-        <!-- User Management Tab -->
-        <div class="tab-pane fade" id="users" role="tabpanel">
-            <div class="modern-card">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-users text-primary"></i>
-                        User Management & Assignments
-                    </h5>
-                </div>
-                <div class="modern-card-body">
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-semibold mb-3">Current Users</h6>
-                            <div id="usersList" class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
-                                <div class="text-center py-4">
-                                    <div class="loading-spinner mx-auto mb-3"></div>
-                                    <p class="text-muted">Loading users...</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-semibold mb-3">Statistics</h6>
-                            <div id="managerStats" class="border rounded p-3">
-                                <div class="text-center py-4">
-                                    <div class="loading-spinner mx-auto mb-3"></div>
-                                    <p class="text-muted">Loading statistics...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 d-flex gap-3">
-                        <button class="btn btn-outline-modern btn-modern" onclick="refreshUsers()">
-                            <i class="fas fa-sync"></i>
-                            Refresh Users
-                        </button>
-                        <button class="btn btn-success-modern btn-modern" onclick="assignManagerUsers()">
-                            <i class="fas fa-user-plus"></i>
-                            Assign Manager
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 
@@ -2176,7 +2026,6 @@
                 document.getElementById('attendanceMonth')?.addEventListener('change', async () => {
                     try {
                         await this.loadAttendanceCalendar();
-                        await this.loadAttendanceDashboard(true);
                     } catch (error) {
                         console.error('Failed to refresh attendance data after month change:', error);
                     }
@@ -2256,6 +2105,14 @@
                         this.loadSchedules(),
                         this.refreshDashboard()
                     ]);
+
+                    const activePane = document.querySelector('#mainTabContent .tab-pane.show.active');
+                    if (activePane?.id === 'attendance') {
+                        await this.loadAttendanceCalendar();
+                    }
+                    if (activePane?.id === 'attendance-dashboard') {
+                        await this.loadAttendanceDashboard(true);
+                    }
 
                     this.showToast('System ready! All data loaded successfully.', 'success');
                     console.log('✅ Initial data loaded successfully');
@@ -4691,7 +4548,7 @@
                                     <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
                                     <h5>No Users Found</h5>
                                     <p>No users are available for attendance tracking.</p>
-                                    <p>Please check user assignments and permissions in the User Management tab.</p>
+                                    <p>Please review user assignments and permissions in your management tools.</p>
                                 </div>
                             `;
                         return;
@@ -5975,10 +5832,9 @@
                 switch (target) {
                     case '#attendance':
                         this.loadAttendanceCalendar();
-                        this.initializeAttendanceDashboard();
                         break;
                     case '#attendance-dashboard':
-                        this.loadAttendanceDashboard();
+                        this.loadAttendanceDashboard(true);
                         break;
                     case '#dashboard':
                         this.refreshDashboard();
@@ -5988,9 +5844,6 @@
                         break;
                     case '#holidays':
                         this.refreshHolidays();
-                        break;
-                    case '#users':
-                        this.loadUsers();
                         break;
                     case '#import':
                         this.updateImportFileName();
