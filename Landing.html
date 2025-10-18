@@ -1,920 +1,216 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-  <base target="_top">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LuminaHQ – Intelligent Workforce Command Center</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-
-  <style>
-    :root {
-      --lumina-navy: #0b1b3f;
-      --lumina-navy-alt: #103060;
-      --lumina-blue: #0478d3;
-      --lumina-blue-dark: #035799;
-      --lumina-cyan: #38bdf8;
-      --lumina-surface: #ffffff;
-      --lumina-muted: #f1f5fb;
-      --lumina-muted-dark: #d6e2f5;
-      --lumina-text: #101828;
-      --lumina-text-muted: #475467;
-      --shadow-primary: 0 12px 24px rgba(4, 120, 211, 0.18);
-      --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.08);
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --radius-sm: 12px;
-      --transition: all 0.28s ease;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      margin: 0;
-      color: var(--lumina-text);
-      background: var(--lumina-surface);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    body.landing-page {
-      background: var(--lumina-surface);
-    }
-
-    body.landing-page::before {
-      display: none;
-    }
-
-    .page-shell {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-    }
-
-    .landing-main {
-      width: 100%;
-      max-width: none;
-      margin: 0;
-      padding: 0;
-    }
-
-    .hero {
-      padding: clamp(4rem, 5vw + 2rem, 6rem) 1.25rem clamp(3rem, 5vw, 5rem);
-      width: 100%;
-      margin: 0;
-      position: relative;
-      background: var(--lumina-navy-alt);
-      color: rgba(226, 232, 240, 0.92);
-    }
-
-    .hero-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .hero-surface {
-      background: transparent;
-      border-radius: var(--radius-lg);
-      border: none;
-      box-shadow: none;
-      padding: clamp(2.5rem, 5vw, 3.2rem);
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      backdrop-filter: blur(14px);
-      background: rgba(255, 255, 255, 0.85);
-      border-bottom: 1px solid rgba(226, 232, 240, 0.7);
-      margin: 0;
-      padding: 0;
-    }
-
-    .nav-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem 1.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.85rem;
-      text-decoration: none;
-    }
-
-    .brand-logo {
-      height: 46px;
-      width: auto;
-      display: block;
-    }
-
-    .brand h1 {
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--lumina-navy);
-      margin: 0;
-      letter-spacing: 0.01em;
-    }
-
-    .brand span {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 500;
-      text-transform: uppercase;
-      color: var(--lumina-text-muted);
-      letter-spacing: 0.14em;
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .nav-actions a {
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.65rem 1.3rem;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: var(--transition);
-    }
-
-    .nav-actions .btn-outline {
-      color: var(--lumina-blue-dark);
-      background: transparent;
-      border: 1px solid rgba(4, 120, 211, 0.36);
-    }
-
-    .nav-actions .btn-outline:hover {
-      background: rgba(4, 120, 211, 0.1);
-      transform: translateY(-1px);
-    }
-
-    .nav-actions .btn-primary {
-      color: white;
-      background: var(--lumina-blue);
-      box-shadow: none;
-    }
-
-    .nav-actions .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(4, 120, 211, 0.24);
-    }
-
-    .hero-content {
-      position: relative;
-      display: grid;
-      gap: clamp(2.5rem, 5vw, 3.5rem);
-      align-items: center;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      z-index: 1;
-    }
-
-    .hero-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 1.75rem;
-    }
-
-    .hero-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.55rem 1rem;
-      background: rgba(56, 189, 248, 0.16);
-      color: var(--lumina-surface);
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .hero-title {
-      font-size: clamp(2.4rem, 3.4vw + 1rem, 3.7rem);
-      line-height: 1.1;
-      margin: 0;
-      color: var(--lumina-surface);
-    }
-
-    .hero-subtitle {
-      margin: 0;
-      max-width: 520px;
-      font-size: 1.05rem;
-      color: rgba(226, 232, 240, 0.72);
-    }
-
-    .hero-points {
-      margin: 0;
-      padding-left: 1.1rem;
-      display: grid;
-      gap: 0.85rem;
-      color: rgba(226, 232, 240, 0.85);
-      font-size: 0.95rem;
-      line-height: 1.5;
-      list-style: none;
-    }
-
-    .hero-points li {
-      position: relative;
-      padding-left: 2rem;
-    }
-
-    .hero-points li i {
-      position: absolute;
-      left: 0;
-      top: 0.1rem;
-      color: var(--lumina-cyan);
-    }
-
-    .hero-ctas {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .hero-ctas a {
-      text-decoration: none;
-      font-weight: 600;
-      padding: 0.8rem 1.6rem;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      transition: var(--transition);
-    }
-
-    .hero-ctas .primary {
-      background: var(--lumina-blue);
-      color: white;
-      box-shadow: none;
-    }
-
-    .hero-ctas .primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(4, 120, 211, 0.22);
-    }
-
-    .hero-ctas .ghost {
-      background: rgba(255, 255, 255, 0.12);
-      color: var(--lumina-surface);
-      border: 1px solid rgba(226, 232, 240, 0.28);
-    }
-
-    .hero-ctas .ghost:hover {
-      background: rgba(255, 255, 255, 0.18);
-      color: var(--lumina-surface);
-      border-color: rgba(226, 232, 240, 0.32);
-    }
-
-    .hero-showcase {
-      background: rgba(11, 27, 63, 0.55);
-      border-radius: var(--radius-md);
-      padding: clamp(1.5rem, 3vw, 2rem);
-      box-shadow: none;
-      border: 1px solid rgba(226, 232, 240, 0.15);
-      display: grid;
-      gap: 1.5rem;
-    }
-
-    .showcase-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .showcase-header h2 {
-      font-size: 1.1rem;
-      margin: 0;
-      color: var(--lumina-surface);
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.45rem 0.85rem;
-      border-radius: 999px;
-      background: rgba(56, 189, 248, 0.24);
-      color: var(--lumina-surface);
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1.25rem;
-    }
-
-    .metric-card {
-      background: rgba(15, 23, 42, 0.45);
-      color: var(--lumina-surface);
-      padding: 1.4rem;
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(226, 232, 240, 0.12);
-      position: relative;
-    }
-
-    .metric-card strong {
-      display: block;
-      font-size: 2rem;
-      font-weight: 700;
-    }
-
-    .metric-card span {
-      font-size: 0.85rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: rgba(226, 232, 240, 0.7);
-    }
-
-    .metric-card i {
-      font-size: 1.4rem;
-      opacity: 0.85;
-    }
-
-    .metric-card .icon-circle {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.14);
-      display: grid;
-      place-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .section {
-      width: 100%;
-      margin: 0;
-      padding: clamp(3rem, 5vw + 1rem, 4.5rem) 1.25rem;
-    }
-
-    .section-light {
-      background: var(--lumina-surface);
-    }
-
-    .section-dark {
-      background: var(--lumina-navy);
-      color: rgba(226, 232, 240, 0.9);
-    }
-
-    .section-shell {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      gap: 2.5rem;
-    }
-
-    .section-dark .section-shell {
-      max-width: 1100px;
-    }
-
-    .section-header {
-      display: grid;
-      gap: 0.75rem;
-      max-width: 720px;
-    }
-
-    .section-header h2 {
-      margin: 0;
-      font-size: clamp(2rem, 2vw + 1rem, 2.6rem);
-      color: var(--lumina-navy);
-    }
-
-    .section-header p {
-      margin: 0;
-      color: var(--lumina-text-muted);
-      font-size: 1.02rem;
-    }
-
-    .section-dark .section-header h2 {
-      color: var(--lumina-surface);
-    }
-
-    .section-dark .section-header p {
-      color: rgba(226, 232, 240, 0.75);
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.6rem;
-    }
-
-    .feature-card {
-      background: var(--lumina-surface);
-      border-radius: var(--radius-md);
-      padding: 1.8rem;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      display: grid;
-      gap: 1rem;
-      transition: var(--transition);
-    }
-
-    .feature-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 10px 18px rgba(4, 120, 211, 0.1);
-    }
-
-    .feature-icon {
-      width: 54px;
-      height: 54px;
-      border-radius: 16px;
-      background: #e6f2ff;
-      display: grid;
-      place-items: center;
-      color: var(--lumina-blue-dark);
-      font-size: 1.35rem;
-    }
-
-    .feature-card h3 {
-      margin: 0;
-      font-size: 1.2rem;
-      color: var(--lumina-navy);
-    }
-
-    .feature-card p {
-      margin: 0;
-      color: var(--lumina-text-muted);
-      line-height: 1.6;
-    }
-
-    .section-cta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: center;
-    }
-
-    .section-cta a {
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.65rem 1.35rem;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: var(--transition);
-    }
-
-    .section-cta a.primary {
-      background: var(--lumina-blue);
-      color: #fff;
-      box-shadow: 0 12px 20px rgba(4, 120, 211, 0.18);
-      border: 1px solid transparent;
-    }
-
-    .section-cta a.ghost {
-      background: transparent;
-      color: var(--lumina-blue-dark);
-      border: 1px solid rgba(4, 120, 211, 0.28);
-    }
-
-    .section-cta a:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 16px 26px rgba(4, 120, 211, 0.16);
-    }
-
-    .section-dark .section-cta a {
-      box-shadow: none;
-    }
-
-    .section-dark .section-cta a.primary {
-      background: rgba(255, 255, 255, 0.12);
-      color: var(--lumina-surface);
-      border: 1px solid rgba(255, 255, 255, 0.28);
-    }
-
-    .section-dark .section-cta a.ghost {
-      color: rgba(226, 232, 240, 0.9);
-      border: 1px solid rgba(226, 232, 240, 0.28);
-    }
-
-    .section-dark .section-cta a:hover {
-      background: rgba(255, 255, 255, 0.14);
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.45);
-    }
-
-    .about-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 2rem;
-    }
-
-    .about-card {
-      background: var(--lumina-surface);
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      padding: 2rem;
-      display: grid;
-      gap: 0.75rem;
-      box-shadow: none;
-    }
-
-    .section-dark .feature-card {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(226, 232, 240, 0.18);
-    }
-
-    .section-dark .feature-card h3,
-    .section-dark .feature-card p {
-      color: var(--lumina-surface);
-    }
-
-    .section-dark .feature-card p {
-      color: rgba(226, 232, 240, 0.78);
-    }
-
-    .section-dark .feature-icon {
-      background: rgba(56, 189, 248, 0.18);
-      color: var(--lumina-surface);
-    }
-
-    .section-dark .feature-card:hover {
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-    }
-
-    .about-card small {
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--lumina-blue-dark);
-      font-weight: 600;
-    }
-
-    .about-card h3 {
-      margin: 0;
-      color: var(--lumina-navy);
-    }
-
-    .about-card p {
-      margin: 0;
-      color: var(--lumina-text-muted);
-      line-height: 1.6;
-    }
-
-    .module-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.6rem;
-    }
-
-    .module-card {
-      background: var(--lumina-surface);
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      padding: 1.8rem;
-      display: grid;
-      gap: 1.2rem;
-      box-shadow: 0 10px 18px rgba(4, 120, 211, 0.06);
-      transition: var(--transition);
-    }
-
-    .module-card header {
-      display: flex;
-      align-items: center;
-      gap: 0.9rem;
-    }
-
-    .module-card h3 {
-      margin: 0;
-      font-size: 1.15rem;
-      color: var(--lumina-navy);
-    }
-
-    .module-card p {
-      margin: 0;
-      color: var(--lumina-text-muted);
-      line-height: 1.6;
-    }
-
-    .module-card ul {
-      margin: 0;
-      padding-left: 1.2rem;
-      display: grid;
-      gap: 0.55rem;
-      list-style: none;
-    }
-
-    .module-card ul li {
-      position: relative;
-      padding-left: 1.5rem;
-      color: var(--lumina-text-muted);
-      font-weight: 500;
-    }
-
-    .module-card ul li i {
-      position: absolute;
-      left: 0;
-      top: 0.1rem;
-      color: var(--lumina-blue);
-    }
-
-    .module-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      background: #e6f2ff;
-      color: var(--lumina-blue-dark);
-      display: grid;
-      place-items: center;
-      font-size: 1.35rem;
-    }
-
-    .module-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 16px 28px rgba(4, 120, 211, 0.12);
-    }
-
-    footer {
-      padding: 2.5rem 1.25rem 2rem;
-      background: var(--lumina-navy);
-      color: rgba(226, 232, 240, 0.9);
-      margin-top: auto;
-      width: 100%;
-      margin-left: 0;
-      margin-right: 0;
-    }
-
-    .footer-shell {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .footer-shell a {
-      color: rgba(226, 232, 240, 0.85);
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .footer-shell a:hover {
-      color: white;
-    }
-
-    @media (max-width: 720px) {
-      header {
-        position: static;
-      }
-
-      .nav-container {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .hero {
-        padding-top: 3rem;
-      }
-
-      .hero-ctas {
-        width: 100%;
-      }
-
-      .hero-ctas a {
-        flex: 1;
-        justify-content: center;
-      }
-    }
-  </style>
-  <?
-    var loginUrl = buildLoginPageUrl({});
-    var __landingBase = scriptUrl || baseUrl || '';
-    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
-    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
-    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
-  ?>
-</head>
-
-<body class="landing-page">
-  <div class="page-shell">
-    <header>
-      <div class="nav-container">
-        <a class="brand" href="#top" aria-label="LuminaHQ home">
-          <img class="brand-logo" src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
-          <div>
-            <span>LuminaHQ</span>
-            <h1>Command Center</h1>
-          </div>
-        </a>
-        <div class="nav-actions">
-          <a class="btn-outline" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
-          <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'landing-home',
+  pageTitle: 'LuminaHQ – Intelligent Workforce Command Center',
+  pageDescription: 'Preview LuminaHQ quality, coaching, and workforce automation in a unified landing experience.'
+}) ?>
+
+<?
+  var landingBase = (typeof scriptUrl !== 'undefined' && scriptUrl)
+    ? scriptUrl
+    : ((typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '');
+
+  var landingHomeUrl = landingBase ? landingBase + '?page=landing' : 'Landing.html';
+  var landingAboutUrl = landingBase ? landingBase + '?page=landing-about' : 'LandingAbout.html';
+  var landingCapabilitiesUrl = landingBase ? landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+  var landingCapabilitiesDetailUrl = landingBase ? landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+  var landingStoryUrl = landingBase ? landingBase + '?page=landing-story' : 'LandingStory.html';
+  var loginUrl = (typeof buildLoginPageUrl === 'function') ? buildLoginPageUrl({}) : (landingBase || '#');
+?>
+
+<?!= includeOnce('LandingTemplateStyles') ?>
+
+<div class="landing-shell landing-theme-slate" style="--landing-hero-image: url('https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1600&q=80');">
+  <header class="landing-hero">
+    <div class="container">
+      <div class="landing-hero-content">
+        <span class="landing-badge">
+          <i class="fa-solid fa-chart-line"></i>
+          LuminaHQ Command Center
+        </span>
+        <h1>Orchestrate high-performing support operations</h1>
+        <p>
+          Illuminate the full coaching, quality, and workforce lifecycle with one connected workspace.
+          LuminaHQ brings AI-assisted evaluations, proactive scheduling, and agent enablement together so
+          operations leaders can scale consistency with confidence.
+        </p>
+        <div class="landing-cta">
+          <a class="btn btn-primary" href="<?= loginUrl ?>">Sign in to LuminaHQ</a>
+          <a class="btn btn-outline-light" href="<?= landingCapabilitiesUrl ?>">Explore capabilities</a>
+        </div>
+        <div class="landing-hero-meta">
+          <span><i class="fa-solid fa-layer-group"></i> Quality · Coaching · Workforce</span>
+          <span><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided automations</span>
+          <span><i class="fa-solid fa-globe"></i> Built for hybrid global teams</span>
         </div>
       </div>
-    </header>
+      <div class="landing-hero-media">
+        <img src="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1600&q=80" alt="LuminaHQ operations analytics overview" loading="lazy">
+      </div>
+    </div>
+  </header>
 
-    <main class="landing-main">
-      <section class="hero" id="top">
-        <div class="hero-inner">
-          <div class="hero-surface">
-            <div class="hero-content">
-              <div class="hero-copy">
-                <span class="hero-tag"><i class="fa-solid fa-sparkles"></i> AI-Orchestrated Workforce Platform</span>
-                <h2 class="hero-title">Synchronize scheduling, quality, and automation in one command center.</h2>
-                <p class="hero-subtitle">LuminaHQ layers an operations graph across every queue, site, and partner so leaders can translate live performance data into confident decisions in seconds.</p>
-                <ul class="hero-points" role="list">
-                  <li><i class="fa-solid fa-compass"></i> Forecast-aware dashboards that warn of staffing or SLA drift before it hits customers.</li>
-                  <li><i class="fa-solid fa-waveform"></i> AI-assisted coaching loops that convert QA findings into prioritized actions for every leader.</li>
-                  <li><i class="fa-solid fa-plug"></i> Native Google Workspace deployment with SSO, audit trails, and tenant isolation from day one.</li>
-                </ul>
-                <div class="hero-ctas">
-                  <a class="primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
-                  <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
-                </div>
-              </div>
-              <aside class="hero-showcase" aria-label="Platform highlights">
-                <div class="showcase-header">
-                  <h2>Live intelligence snapshot</h2>
-                  <span class="status-pill"><i class="fa-solid fa-signal"></i> Live data fabric</span>
-                </div>
-                <div class="metrics-grid">
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-people-group"></i></div>
-                    <strong>3.4K</strong>
-                    <span>Agents orchestrated</span>
-                  </div>
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-chart-line"></i></div>
-                    <strong>12%</strong>
-                    <span>Lift in SLA adherence</span>
-                  </div>
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-stopwatch"></i></div>
-                    <strong>9m</strong>
-                    <span>Average onboarding</span>
-                  </div>
-                </div>
-                <p class="hero-subtitle" style="margin:0;">Designed for managers, analysts, and specialists who need a precise pulse on every customer moment.</p>
-              </aside>
+  <main class="landing-main">
+    <section class="landing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Unify the workforce playbook</h2>
+          <p>
+            LuminaHQ centralizes the quality, coaching, and workforce tools that operations teams rely on every day.
+            Align insight to action with curated dashboards, configurable workflows, and acknowledgment tracking in one hub.
+          </p>
+        </div>
+        <div class="landing-grid">
+          <article class="landing-card">
+            <h3>Quality intelligence</h3>
+            <p>
+              See trends instantly with dashboards that tie evaluation results to actionable QA backlogs and collaborative reviews.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-circle-check"></i> Live QA boards with filters for campaigns, analysts, and coaching moments.</li>
+              <li><i class="fa-solid fa-share-nodes"></i> Shared calibrations keep analysts aligned on scoring criteria.</li>
+              <li><i class="fa-solid fa-file-arrow-down"></i> Export-ready packets summarize findings for leadership briefings.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Coaching activations</h3>
+            <p>
+              Launch guided coaching sessions that capture commitments, acknowledgments, and follow-up tasks within minutes.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-handshake-angle"></i> Personalized forms document conversations and next steps.</li>
+              <li><i class="fa-solid fa-bell"></i> Automated nudges keep owners ahead of due dates.</li>
+              <li><i class="fa-solid fa-clipboard-check"></i> Signature-ready acknowledgments close the loop with agents.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Workforce precision</h3>
+            <p>
+              Balance staffing, attendance, and shift coverage with centralized calendars and scenario planning utilities.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-calendar-check"></i> Smart schedule management highlights gaps before they impact SLAs.</li>
+              <li><i class="fa-solid fa-diagram-project"></i> Cross-team dashboards blend adherence with coaching touchpoints.</li>
+              <li><i class="fa-solid fa-user-shield"></i> Access-aware controls ensure the right leaders see the right data.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section is-alt">
+      <div class="container">
+        <div class="section-header">
+          <h2>Operations snapshots</h2>
+          <p>
+            Preview the experiences that await once teams step inside LuminaHQ. Every module is crafted from real contact center workflows
+            and shaped to keep agents, analysts, and leaders aligned.
+          </p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Agent experience</h3>
+            <p>
+              Surface personalized scorecards, coaching actions, and acknowledgment status the moment an agent logs in.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-user-gear"></i> Consolidated view of feedback, QA results, and performance metrics.</li>
+              <li><i class="fa-solid fa-paper-plane"></i> Quick links jump directly into forms, chats, or acknowledgments.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Executive oversight</h3>
+            <p>
+              Leadership dashboards synthesize campaign health, trending escalations, and operational readiness at a glance.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-chart-pie"></i> Drill into campaign-level KPIs or filter by priority programs.</li>
+              <li><i class="fa-solid fa-shield"></i> Built-in controls protect sensitive client views while enabling collaboration.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Knowledge continuity</h3>
+            <p>
+              Guide teams through change with embedded documentation, policy references, and training roadmaps.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-book-open"></i> LuminaHQ user guides live alongside operations dashboards.</li>
+              <li><i class="fa-solid fa-lightbulb"></i> Highlight best practices and workflow explainers for new hires.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Collaboration fabric</h3>
+            <p>
+              Shared workspaces and comment threads empower analysts, supervisors, and enablement teams to solve together.
+            </p>
+            <ul>
+              <li><i class="fa-solid fa-comments"></i> Threaded discussions keep evaluation context connected to outcomes.</li>
+              <li><i class="fa-solid fa-link"></i> Deep links hop into escalations, tasks, or playbooks without breaking flow.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Continue exploring LuminaHQ</h2>
+          <p>Follow the guided paths below for the story, detailed capability breakdowns, and the teams behind the platform.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>About LuminaHQ</h3>
+            <p>Meet the operations principles, leadership commitments, and cultural anchors powering the platform.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingAboutUrl ?>"><i class="fa-solid fa-circle-info"></i> Visit About page</a>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section-dark" id="features">
-        <div class="section-shell">
-          <div class="section-header">
-            <h2>Operate with clarity and confidence</h2>
-            <p>LuminaHQ turns scattered spreadsheets and disconnected tools into a unified control tower. Every feature is tuned for contact center pace—revealing what changed, why it matters, and the action to take next.</p>
-          </div>
-          <div class="feature-grid">
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-headset"></i></div>
-              <h3>Unified agent visibility</h3>
-              <p>See adherence, skills, coaching, and productivity in a single glance to resolve staffing gaps before they impact experience.</p>
-            </article>
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-gauge-high"></i></div>
-              <h3>Performance intelligence</h3>
-              <p>Layer KPIs, QA signals, and customer sentiment into interactive scorecards that spotlight wins and risks by site, line of business, or client.</p>
-            </article>
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
-              <h3>Secure, tenant-ready</h3>
-              <p>Granular roles, audit logging, and tenant isolation give enterprise partners confidence without slowing delivery.</p>
-            </article>
-            <article class="feature-card">
-              <div class="feature-icon"><i class="fa-solid fa-rocket"></i></div>
-              <h3>Ready in minutes</h3>
-              <p>Deploy on Google Workspace in under an hour—keeping teams in familiar tools while unlocking enterprise automation.</p>
-            </article>
-          </div>
-          <div class="section-cta">
-            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore full capabilities</a>
-            <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section-light" id="modules">
-        <div class="section-shell">
-          <div class="section-header">
-            <h2>Mission-critical modules</h2>
-            <p>Each LuminaHQ module is purpose-built yet deeply connected. Together they orchestrate agent experience, customer outcomes, and compliance from a single mission control.</p>
-          </div>
-          <div class="module-grid">
-            <article class="module-card">
-              <header>
-                <span class="module-icon"><i class="fa-solid fa-calendar-check"></i></span>
-                <h3>Adaptive Scheduling</h3>
-              </header>
-              <p>Balance staffing in real time with forecasting overlays, automated shift swaps, and instant communication to every affected agent.</p>
-              <ul role="list">
-                <li><i class="fa-solid fa-bolt"></i> Rolling interval forecasts blended with live adherence.</li>
-                <li><i class="fa-solid fa-comments"></i> Native shift notifications and approvals.</li>
-                <li><i class="fa-solid fa-chart-area"></i> Attendance anomaly alerts with root-cause context.</li>
-              </ul>
-            </article>
-            <article class="module-card">
-              <header>
-                <span class="module-icon"><i class="fa-solid fa-user-shield"></i></span>
-                <h3>QA & Compliance</h3>
-              </header>
-              <p>Run calibrated evaluations, automate dispute workflows, and codify remediation steps to keep every campaign audit-ready.</p>
-              <ul role="list">
-                <li><i class="fa-solid fa-list-check"></i> Dynamic scorecards with weighted criteria.</li>
-                <li><i class="fa-solid fa-repeat"></i> Closed-loop disputes that sync with coaching plans.</li>
-                <li><i class="fa-solid fa-lock"></i> Granular permissions and audit-ready exports.</li>
-              </ul>
-            </article>
-            <article class="module-card">
-              <header>
-                <span class="module-icon"><i class="fa-solid fa-chart-simple"></i></span>
-                <h3>Performance Intelligence</h3>
-              </header>
-              <p>Blend telephony, CRM, WFM, and customer sentiment data into interactive scoreboards that broadcast wins and spotlight gaps.</p>
-              <ul role="list">
-                <li><i class="fa-solid fa-arrows-rotate"></i> Real-time KPI sync with predictive targets.</li>
-                <li><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-generated insights for supervisors and executives.</li>
-                <li><i class="fa-solid fa-people-arrows"></i> Role-based dashboards with drill-through.</li>
-              </ul>
-            </article>
-            <article class="module-card">
-              <header>
-                <span class="module-icon"><i class="fa-solid fa-robot"></i></span>
-                <h3>Automation Studio</h3>
-              </header>
-              <p>Trigger workflows across Sheets, Gmail, and external APIs with reusable recipes that shrink manual effort and accelerate resolution.</p>
-              <ul role="list">
-                <li><i class="fa-solid fa-diagram-next"></i> Drag-and-drop flow builder with approvals.</li>
-                <li><i class="fa-solid fa-cloud-arrow-up"></i> Secure integrations and webhook triggers.</li>
-                <li><i class="fa-solid fa-stopwatch-20"></i> SLA-aware automations with guardrails.</li>
-              </ul>
-            </article>
-          </div>
-          <div class="section-cta">
-            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Dive into detailed capabilities</a>
-            <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Experience LuminaHQ live</a>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section-light" id="about">
-        <div class="section-shell">
-          <div class="section-header">
-            <h2>The story behind LuminaHQ</h2>
-            <p>LuminaHQ was born inside Lumina's Innovation Lab in Kingston, Jamaica. We pair decades of contact center experience with modern data engineering to remove the friction between people, processes, and platforms.</p>
-          </div>
-          <div class="about-grid">
-            <article class="about-card">
-              <small>Purpose</small>
-              <h3>Elevate every customer moment</h3>
-              <p>Provide managers, analysts, and enablement leaders with a cohesive view of scheduling, coaching, QA, and collaboration so they can invest their time in people—not manual busywork.</p>
-            </article>
-            <article class="about-card">
-              <small>Built For</small>
-              <h3>Global call center teams</h3>
-              <p>From BPO networks to in-house support centers, LuminaHQ adapts to campaigns of every scale with tenant-aware governance baked in.</p>
-            </article>
-            <article class="about-card">
-              <small>Crafted In</small>
-              <h3>Kingston, Jamaica</h3>
-              <p>Engineered by Lumina's product studio with a focus on modern, flat UI, AI-ready data pipelines, and a seamless Google Apps Script backbone.</p>
-            </article>
-          </div>
-          <div class="section-cta">
-            <a class="primary" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> Discover our story</a>
-            <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <div class="footer-shell">
-        <p>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Built with secure Google Workspace automation.</p>
-        <div>
-          <a href="PrivacyPolicy.html">Privacy</a> &middot;
-          <a href="TermsOfService.html">Terms</a> &middot;
-          <a href="<?!= loginUrl ?>">Login</a>
+          </article>
+          <article class="landing-card">
+            <h3>Explore capabilities</h3>
+            <p>Review the full catalog of workforce, quality, and enablement solutions available on launch day.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingCapabilitiesUrl ?>"><i class="fa-solid fa-sitemap"></i> View capabilities</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>Dive into the details</h3>
+            <p>See how each capability layer works together with example workflows, data flows, and analyst toolkits.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-magnifying-glass-chart"></i> Dive deeper</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>Discover our story</h3>
+            <p>Learn how LuminaHQ grew from task tracking to an AI-ready command center that scales with every client.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingStoryUrl ?>"><i class="fa-solid fa-book"></i> Read the story</a>
+            </div>
+          </article>
         </div>
       </div>
-    </footer>
-  </div>
-</body>
+    </section>
+  </main>
 
-</html>
+  <footer class="landing-footer">
+    <div class="container">
+      <div class="brand-lockup">
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
+        LuminaHQ by VLBPO
+      </div>
+      <nav>
+        <a href="<?= landingAboutUrl ?>">About</a>
+        <a href="<?= landingCapabilitiesUrl ?>">Capabilities</a>
+        <a href="<?= landingCapabilitiesDetailUrl ?>">Deep dive</a>
+        <a href="<?= landingStoryUrl ?>">Our story</a>
+      </nav>
+      <div class="landing-metrics">
+        <span><i class="fa-solid fa-people-group"></i> Teams in sync</span>
+        <span><i class="fa-solid fa-shield"></i> Trust by design</span>
+        <span><i class="fa-solid fa-bolt"></i> AI-ready workflows</span>
+      </div>
+    </div>
+  </footer>
+</div>
