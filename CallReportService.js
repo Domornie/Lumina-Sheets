@@ -200,6 +200,152 @@ function __extractCallMinutesForAnalytics(record, tz) {
   return null;
 }
 
+function __startOfDay(value) {
+  const d = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (!(d instanceof Date) || isNaN(d)) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function __endOfDay(value) {
+  const d = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (!(d instanceof Date) || isNaN(d)) return null;
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function __ensureMondayStart(value) {
+  const start = __startOfDay(value);
+  if (!start) return null;
+  const dow = start.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  start.setDate(start.getDate() + diff);
+  return start;
+}
+
+function __isoWeekMonday(year, week) {
+  if (!Number.isFinite(year) || !Number.isFinite(week) || week < 1) return null;
+
+  if (typeof getDateOfISOWeek === 'function') {
+    try {
+      const isoDate = getDateOfISOWeek(week, year);
+      const monday = __ensureMondayStart(isoDate);
+      if (monday) return monday;
+    } catch (error) {
+      // fall through to manual calculation
+    }
+  }
+
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  if (isNaN(simple)) return null;
+  const dow = simple.getUTCDay();
+  const mondayUtc = new Date(simple.getTime());
+  if (dow <= 4) {
+    mondayUtc.setUTCDate(simple.getUTCDate() - dow + 1);
+  } else {
+    mondayUtc.setUTCDate(simple.getUTCDate() + 8 - dow);
+  }
+  return __ensureMondayStart(new Date(
+    mondayUtc.getUTCFullYear(),
+    mondayUtc.getUTCMonth(),
+    mondayUtc.getUTCDate()
+  ));
+}
+
+function __resolveCallReportPeriod(granularity, periodIdentifier) {
+  const fallbackRange = () => {
+    if (typeof isoPeriodToDateRange === 'function') {
+      try {
+        const base = isoPeriodToDateRange(granularity, periodIdentifier);
+        if (base && base.startDate && base.endDate) {
+          const start = __startOfDay(base.startDate);
+          const end = __endOfDay(base.endDate);
+          if (start && end) {
+            if (granularity === 'Week') {
+              const monday = __ensureMondayStart(start);
+              if (monday) {
+                const weekEnd = new Date(monday.getTime());
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                return { startDate: monday, endDate: __endOfDay(weekEnd) };
+              }
+            }
+            return { startDate: start, endDate: end };
+          }
+        }
+      } catch (error) {
+        // ignore and fall through to default fallback
+      }
+    }
+
+    const todayStart = __ensureMondayStart(new Date());
+    if (todayStart && (granularity === 'Week' || granularity === 'BiWeekly')) {
+      const span = granularity === 'BiWeekly' ? 13 : 6;
+      const periodEnd = new Date(todayStart.getTime());
+      periodEnd.setDate(periodEnd.getDate() + span);
+      return { startDate: todayStart, endDate: __endOfDay(periodEnd) };
+    }
+
+    const fallbackStart = __startOfDay(new Date());
+    const fallbackEnd = __endOfDay(new Date());
+    return {
+      startDate: fallbackStart || new Date(),
+      endDate: fallbackEnd || new Date()
+    };
+  };
+
+  if (granularity === 'Week') {
+    const match = typeof periodIdentifier === 'string'
+      ? periodIdentifier.trim().match(/^(\d{4})-W(\d{1,2})$/i)
+      : null;
+
+    let start = null;
+    if (match) {
+      const year = Number(match[1]);
+      const week = Number(match[2]);
+      start = __isoWeekMonday(year, week);
+    }
+
+    if (!start) {
+      const base = periodIdentifier ? new Date(periodIdentifier) : new Date();
+      start = __ensureMondayStart(isNaN(base) ? new Date() : base);
+    }
+
+    if (!start) return fallbackRange();
+
+    const end = new Date(start.getTime());
+    end.setDate(end.getDate() + 6);
+    return { startDate: start, endDate: __endOfDay(end) };
+  }
+
+  if (granularity === 'BiWeekly') {
+    const match = typeof periodIdentifier === 'string'
+      ? periodIdentifier.trim().match(/^(\d{4})-BW(\d{1,2})$/i)
+      : null;
+
+    let start = null;
+    if (match) {
+      const year = Number(match[1]);
+      const biWeek = Number(match[2]);
+      if (Number.isFinite(year) && Number.isFinite(biWeek) && biWeek >= 1) {
+        const startWeek = ((biWeek - 1) * 2) + 1;
+        start = __isoWeekMonday(year, startWeek);
+      }
+    }
+
+    if (!start) {
+      start = __ensureMondayStart(new Date());
+    }
+
+    if (!start) return fallbackRange();
+
+    const end = new Date(start.getTime());
+    end.setDate(end.getDate() + 13);
+    return { startDate: start, endDate: __endOfDay(end) };
+  }
+
+  return fallbackRange();
+}
+
 var __CALL_REPORT_ANSWER_HEADER_ALIASES = (function (global) {
   if (global.__CALL_REPORT_ANSWER_HEADER_ALIASES && Array.isArray(global.__CALL_REPORT_ANSWER_HEADER_ALIASES)) {
     return global.__CALL_REPORT_ANSWER_HEADER_ALIASES;
@@ -434,7 +580,7 @@ function createOrUpdateCallReport(reportData) {
  * Returns exactly what your view expects + activeAgents (the ones with activity in range)
  */
 function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
-  const { startDate, endDate } = isoPeriodToDateRange(granularity, periodIdentifier);
+  const { startDate, endDate } = __resolveCallReportPeriod(granularity, periodIdentifier);
   const tz = Session.getScriptTimeZone();
 
   // Filter by date range (CreatedDate, date-only)
