@@ -3755,6 +3755,95 @@ function persistScheduleHealthSnapshot(context, evaluation, bundle, options = {}
   }
 }
 
+function clientGetAttendanceDataRange(startDate, endDate, campaignId = null) {
+  try {
+    const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+
+    const normalizeDate = (value) => {
+      if (value instanceof Date) {
+        return new Date(value.getTime());
+      }
+      if (typeof value === 'number') {
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      }
+      if (typeof value === 'string' && value.trim().length > 0) {
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      }
+      return null;
+    };
+
+    const rangeStart = normalizeDate(startDate);
+    const rangeEnd = normalizeDate(endDate);
+
+    const filtered = attendanceData.filter(record => {
+      const recordDate = normalizeDate(record.Date || record.date);
+      if (!recordDate) {
+        return false;
+      }
+
+      if (rangeStart && recordDate < rangeStart) {
+        return false;
+      }
+      if (rangeEnd && recordDate > rangeEnd) {
+        return false;
+      }
+
+      if (campaignId) {
+        const recordCampaign = record.CampaignID || record.CampaignId || record.Campaign || null;
+        if (recordCampaign && recordCampaign !== campaignId) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const toIsoDate = (date) => {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        return '';
+      }
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const records = filtered
+      .map(record => {
+        const date = normalizeDate(record.Date || record.date);
+        const isoDate = toIsoDate(date);
+        const userName = record.UserName || record.User || record.user || '';
+        const status = record.Status || record.status || record.state || '';
+
+        if (!userName || !isoDate || !status) {
+          return null;
+        }
+
+        return {
+          userName,
+          status,
+          date: isoDate,
+          notes: record.Notes || record.notes || ''
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      success: true,
+      records
+    };
+  } catch (error) {
+    console.error('Error retrieving attendance data range:', error);
+    safeWriteError('clientGetAttendanceDataRange', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 function clientGetScheduleDashboard(managerIdCandidate, campaignIdCandidate, options = {}) {
   try {
     console.log('📊 Building schedule dashboard for manager/campaign:', managerIdCandidate, campaignIdCandidate);
