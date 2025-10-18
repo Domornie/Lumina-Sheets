@@ -2105,6 +2105,14 @@
                         this.refreshDashboard()
                     ]);
 
+                    const activePane = document.querySelector('#mainTabContent .tab-pane.show.active');
+                    if (activePane?.id === 'attendance') {
+                        await this.loadAttendanceCalendar();
+                    }
+                    if (activePane?.id === 'attendance-dashboard') {
+                        await this.loadAttendanceDashboard(true);
+                    }
+
                     this.showToast('System ready! All data loaded successfully.', 'success');
                     console.log('✅ Initial data loaded successfully');
 
@@ -5822,6 +5830,9 @@
                 switch (target) {
                     case '#attendance':
                         this.loadAttendanceCalendar();
+                        break;
+                    case '#attendance-dashboard':
+                        this.loadAttendanceDashboard(true);
                         break;
                     case '#dashboard':
                         this.refreshDashboard();
