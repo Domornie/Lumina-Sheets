@@ -2074,6 +2074,26 @@ function calculateComplianceScore(user) {
 // IMPORT FUNCTION
 // ────────────────────────────────────────────────────────────────────────────
 
+function generateUniqueAttendanceId(existingIds, batchIds) {
+  if (!existingIds || typeof existingIds.has !== 'function') {
+    existingIds = new Set();
+  }
+  if (!batchIds || typeof batchIds.has !== 'function') {
+    batchIds = new Set();
+  }
+
+  let attempts = 0;
+  while (attempts < 5_000) {
+    attempts += 1;
+    const candidate = Utilities.getUuid();
+    if (!existingIds.has(candidate) && !batchIds.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error('Unable to generate unique attendance ID after multiple attempts');
+}
+
 function importAttendance(rows) {
   return rpc('importAttendance', () => {
     const lock = LockService.getDocumentLock();
@@ -2091,7 +2111,7 @@ function importAttendance(rows) {
       const now = new Date();
       const lastRow = sheet.getLastRow();
       const existingKeys = new Set();
-      let nextId = 0;
+      const existingIds = new Set();
 
       // Load existing data for deduplication
       if (lastRow > 1) {
@@ -2099,9 +2119,13 @@ function importAttendance(rows) {
           const idRange = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
           idRange.forEach(row => {
             const value = Array.isArray(row) ? row[0] : row;
-            const parsed = Number.parseInt(value, 10);
-            if (Number.isFinite(parsed) && parsed > nextId) {
-              nextId = parsed;
+            if (value == null) {
+              return;
+            }
+
+            const id = String(value).trim();
+            if (id) {
+              existingIds.add(id);
             }
           });
         } catch (idReadError) {
@@ -2121,6 +2145,7 @@ function importAttendance(rows) {
       }
 
       const batchKeysSeen = new Set();
+      const batchIds = new Set();
       const toAppend = [];
 
       // Process each row from the frontend
@@ -2176,8 +2201,12 @@ function importAttendance(rows) {
 
           // Prepare row for insertion matching your exact database structure:
           // ID, Timestamp, User, DurationMin, State, Date, UserID, CreatedAt, UpdatedAt
+          const id = generateUniqueAttendanceId(existingIds, batchIds);
+          existingIds.add(id);
+          batchIds.add(id);
+
           toAppend.push([
-            String(++nextId), // ID
+            id, // ID
             Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'M/d/yyyy, h:mm:ss a'), // Timestamp (matching format "9/28/2023, 8:38 AM")
             rawName, // User
             durationInSeconds, // DurationMin (contains seconds despite name!)
