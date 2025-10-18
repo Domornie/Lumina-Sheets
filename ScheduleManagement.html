@@ -568,30 +568,57 @@
 
         <!-- AI Dashboard Tab -->
         <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
-            <!-- Metrics Row -->
+            <!-- Schedule Health Metrics -->
+            <div class="row g-4 mb-4">
+                <div class="col-xl-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-primary" id="scheduleHealthScore">0</div>
+                        <div class="metric-label">Schedule Health</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-success" id="scheduleServiceLevel">0%</div>
+                        <div class="metric-label">Service Level</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-warning" id="scheduleFairnessIndex">0</div>
+                        <div class="metric-label">Fairness Index</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-number text-info" id="scheduleComplianceScore">0</div>
+                        <div class="metric-label">Compliance Score</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row g-4 mb-4">
                 <div class="col-lg-3 col-sm-6">
                     <div class="metric-card">
                         <div class="metric-number text-primary" id="totalUsers">0</div>
-                        <div class="metric-label">Total Users</div>
+                        <div class="metric-label">Managed Agents</div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-sm-6">
                     <div class="metric-card">
-                        <div class="metric-number text-success" id="attendanceRate">0%</div>
-                        <div class="metric-label">Attendance Rate</div>
+                        <div class="metric-number text-info" id="scheduleRosterHours">0h</div>
+                        <div class="metric-label">Scheduled Hours</div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-sm-6">
                     <div class="metric-card">
-                        <div class="metric-number text-primary" id="totalSchedules">0</div>
-                        <div class="metric-label">Active Schedules</div>
+                        <div class="metric-number text-primary" id="scheduleRequiredFte">0</div>
+                        <div class="metric-label">Required FTE</div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-sm-6">
                     <div class="metric-card">
-                        <div class="metric-number text-info" id="totalSlots">0</div>
-                        <div class="metric-label">Shift Slots</div>
+                        <div class="metric-number text-primary" id="scheduleStaffedFte">0</div>
+                        <div class="metric-label">Staffed FTE</div>
                     </div>
                 </div>
             </div>
@@ -603,7 +630,7 @@
                         <div class="modern-card-header">
                             <h5 class="modern-card-title">
                                 <i class="fas fa-chart-line text-primary"></i>
-                                Attendance Trends
+                                Coverage vs Requirement
                             </h5>
                             <button class="btn btn-outline-modern btn-sm" onclick="refreshDashboard()">
                                 <i class="fas fa-sync"></i>
@@ -612,7 +639,7 @@
                         </div>
                         <div class="modern-card-body p-0">
                             <div class="chart-container">
-                                <canvas id="attendanceChart"></canvas>
+                                <canvas id="scheduleCoverageChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -621,15 +648,15 @@
                     <div class="modern-card h-100">
                         <div class="modern-card-header">
                             <h5 class="modern-card-title">
-                                <i class="fas fa-robot text-info"></i>
-                                AI Insights
+                                <i class="fas fa-lightbulb text-info"></i>
+                                Optimizer Insights
                             </h5>
                         </div>
                         <div class="modern-card-body">
-                            <div id="aiInsights">
+                            <div id="scheduleInsights">
                                 <div class="text-center text-muted">
                                     <div class="loading-spinner mx-auto mb-3"></div>
-                                    <p>Analyzing patterns...</p>
+                                    <p>Analyzing schedule health...</p>
                                 </div>
                             </div>
                         </div>
@@ -643,14 +670,14 @@
                     <div class="modern-card">
                         <div class="modern-card-header">
                             <h5 class="modern-card-title">
-                                <i class="fas fa-trophy text-warning"></i>
-                                Top Performers
+                                <i class="fas fa-balance-scale text-warning"></i>
+                                Fairness Watchlist
                             </h5>
                         </div>
                         <div class="modern-card-body">
-                            <div id="topPerformers">
+                            <div id="fairnessWatchlist">
                                 <div class="text-center text-muted">
-                                    <p>Loading performance data...</p>
+                                    <p>Evaluating rotation balance...</p>
                                 </div>
                             </div>
                         </div>
@@ -660,15 +687,15 @@
                     <div class="modern-card">
                         <div class="modern-card-header">
                             <h5 class="modern-card-title">
-                                <i class="fas fa-exclamation-triangle text-warning"></i>
-                                Alerts
+                                <i class="fas fa-shield-alt text-danger"></i>
+                                Compliance Alerts
                             </h5>
                         </div>
                         <div class="modern-card-body">
-                            <div id="attendanceAlerts">
+                            <div id="complianceAlerts">
                                 <div class="text-center text-success">
                                     <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                    <p>No issues detected</p>
+                                    <p>No compliance issues detected</p>
                                 </div>
                             </div>
                         </div>
@@ -1653,7 +1680,7 @@
                 this.currentUser = window.user || window.currentUser || window.CURRENT_USER || {};
                 this.availableUsers = [];
                 this.availableCampaigns = [];
-                this.attendanceChart = null;
+                this.coverageChart = null;
                 this.pendingImportSchedules = [];
                 this.pendingImportSummary = null;
                 this.lastImportResult = null;
@@ -2150,7 +2177,10 @@
                     const slots = await this.callServerFunction('clientGetAllShiftSlots');
 
                     this.displayShiftSlots(Array.isArray(slots) ? slots : []);
-                    document.getElementById('totalSlots').textContent = Array.isArray(slots) ? slots.length : 0;
+                    const totalSlotsElement = document.getElementById('totalSlots');
+                    if (totalSlotsElement) {
+                        totalSlotsElement.textContent = Array.isArray(slots) ? slots.length : 0;
+                    }
 
                     console.log(`✅ Loaded ${Array.isArray(slots) ? slots.length : 0} shift slots`);
                 } catch (error) {
@@ -2206,79 +2236,138 @@
             async refreshDashboard() {
                 try {
                     console.log('📊 Refreshing dashboard...');
+                    await this.ensureScheduleContext();
+
                     const endDate = new Date();
                     const startDate = new Date();
-                    startDate.setDate(endDate.getDate() - 30); // Last 30 days
+                    startDate.setDate(endDate.getDate() - 30);
 
-                    const dashboard = await this.callServerFunction('clientGetAttendanceDashboard',
-                        startDate.toISOString().split('T')[0],
-                        endDate.toISOString().split('T')[0]
-                    );
+                    const managerId = this.getCurrentUserId();
+                    const campaignId = this.resolvedCampaignId || this.getCurrentCampaignId();
+                    const options = {
+                        startDate: startDate.toISOString().split('T')[0],
+                        endDate: endDate.toISOString().split('T')[0],
+                        intervalMinutes: 30,
+                        openingHour: 8,
+                        closingHour: 21
+                    };
+
+                    const dashboard = await this.callServerFunction('clientGetScheduleDashboard', managerId, campaignId || null, options);
 
                     if (dashboard && dashboard.success) {
-                        this.updateDashboardMetrics(dashboard.dashboard);
-                        this.updateAttendanceChart(dashboard.dashboard.trends);
-                        this.displayAIInsights(dashboard.dashboard.insights);
-                        this.displayTopPerformers(dashboard.dashboard.userStats);
-                        this.displayAttendanceAlerts(dashboard.dashboard.insights);
+                        this.updateScheduleMetrics(dashboard);
+                        this.renderCoverageChart(dashboard.coverage);
+                        this.renderScheduleInsights(dashboard);
+                        this.renderFairnessWatchlist(dashboard.fairness);
+                        this.renderComplianceAlerts(dashboard.compliance);
+                    } else {
+                        throw new Error(dashboard && dashboard.error ? dashboard.error : 'Unknown dashboard error');
                     }
 
                 } catch (error) {
                     console.error('❌ Error refreshing dashboard:', error);
-                    this.displayAIInsights([{
-                        type: 'warning',
-                        category: 'System',
-                        message: 'Unable to load dashboard data. Please check system configuration.',
-                        priority: 'high'
-                    }]);
+                    this.renderScheduleInsights({
+                        recommendations: [`Unable to load schedule dashboard: ${error.message || error}`]
+                    });
+                    this.renderCoverageChart(null);
+                    this.renderFairnessWatchlist(null);
+                    this.renderComplianceAlerts(null);
                 }
             }
 
-            updateDashboardMetrics(dashboard) {
-                if (dashboard.metrics) {
-                    document.getElementById('attendanceRate').textContent = dashboard.metrics.attendanceRate + '%';
-                }
+            updateScheduleMetrics(dashboard) {
+                const summary = dashboard && dashboard.summary ? dashboard.summary : {};
+                const totals = dashboard && dashboard.totals ? dashboard.totals : {};
+                const fairness = dashboard && dashboard.fairness ? dashboard.fairness : {};
+                const compliance = dashboard && dashboard.compliance ? dashboard.compliance : {};
+
+                const setText = (id, value) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = value;
+                    }
+                };
+
+                setText('scheduleHealthScore', `${Math.round(dashboard.healthScore || 0)}`);
+                setText('scheduleServiceLevel', `${Math.round(summary.serviceLevel || 0)}%`);
+                setText('scheduleFairnessIndex', `${Math.round(summary.fairnessIndex || fairness.fairnessIndex || 0)}`);
+                setText('scheduleComplianceScore', `${Math.round(summary.complianceScore || compliance.complianceScore || 0)}`);
+                setText('scheduleRosterHours', `${Number(totals.rosterHours || 0).toFixed(1)}h`);
+                setText('scheduleRequiredFte', Number(totals.requiredFTE || 0).toFixed(1));
+                setText('scheduleStaffedFte', Number(totals.staffedFTE || 0).toFixed(1));
+                setText('totalUsers', String(dashboard.roster?.agentCount || this.availableUsers.length || 0));
             }
 
-            updateAttendanceChart(trends) {
-                const ctx = document.getElementById('attendanceChart')?.getContext('2d');
-                if (!ctx || !trends) return;
+            renderCoverageChart(coverage) {
+                const canvas = document.getElementById('scheduleCoverageChart');
+                if (!canvas) return;
 
-                if (this.attendanceChart) {
-                    this.attendanceChart.destroy();
+                const ctx = canvas.getContext('2d');
+                const container = canvas.parentElement;
+                if (this.coverageChart) {
+                    this.coverageChart.destroy();
+                    this.coverageChart = null;
                 }
 
-                const dailyTrends = trends.daily || [];
+                const placeholder = container.querySelector('.coverage-no-data');
+                if (placeholder) {
+                    placeholder.remove();
+                }
 
-                this.attendanceChart = new Chart(ctx, {
-                    type: 'line',
+                if (!coverage || !Array.isArray(coverage.intervalSummaries) || coverage.intervalSummaries.length === 0) {
+                    canvas.style.display = 'none';
+                    const message = document.createElement('div');
+                    message.className = 'coverage-no-data p-4 text-center text-muted';
+                    message.innerHTML = '<i class="fas fa-info-circle mb-2"></i><p class="mb-0">No coverage data available for the selected range.</p>';
+                    container.appendChild(message);
+                    return;
+                }
+
+                canvas.style.display = 'block';
+
+                const sortedIntervals = coverage.intervalSummaries.slice().sort((a, b) => a.intervalKey.localeCompare(b.intervalKey));
+                const sample = sortedIntervals.slice(0, 24);
+                const labels = sample.map(item => item.intervalKey.slice(5));
+                const required = sample.map(item => Number(item.requiredFTE || 0));
+                const staffed = sample.map(item => Number(item.staffedFTE || 0));
+
+                this.coverageChart = new Chart(ctx, {
+                    type: 'bar',
                     data: {
-                        labels: dailyTrends.map(d => d.date),
-                        datasets: [{
-                            label: 'Attendance Rate (%)',
-                            data: dailyTrends.map(d => d.attendanceRate),
-                            borderColor: 'rgb(0, 82, 204)',
-                            backgroundColor: 'rgba(0, 82, 204, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Required FTE',
+                                data: required,
+                                backgroundColor: 'rgba(0, 82, 204, 0.35)'
+                            },
+                            {
+                                label: 'Staffed FTE',
+                                data: staffed,
+                                backgroundColor: 'rgba(0, 150, 57, 0.6)'
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
                             legend: {
-                                display: false
+                                display: true
                             }
                         },
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                max: 100,
                                 ticks: {
-                                    callback: function(value) {
-                                        return value + '%';
-                                    }
+                                    callback: value => `${value}`
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    maxRotation: 0,
+                                    autoSkip: true,
+                                    maxTicksLimit: 12
                                 }
                             }
                         }
@@ -2286,79 +2375,125 @@
                 });
             }
 
-            displayAIInsights(insights) {
-                const container = document.getElementById('aiInsights');
+            renderScheduleInsights(dashboard) {
+                const container = document.getElementById('scheduleInsights');
                 if (!container) return;
 
-                if (!insights || insights.length === 0) {
+                const recommendations = dashboard && Array.isArray(dashboard.recommendations) ? dashboard.recommendations : [];
+                const coverage = dashboard && dashboard.coverage ? dashboard.coverage : null;
+                const fairness = dashboard && dashboard.fairness ? dashboard.fairness : null;
+                const compliance = dashboard && dashboard.compliance ? dashboard.compliance : null;
+
+                const insights = recommendations.slice(0, 5).map(message => ({ type: 'insight', message }));
+
+                if (coverage && Array.isArray(coverage.backlogRiskIntervals) && coverage.backlogRiskIntervals.length) {
+                    const interval = coverage.backlogRiskIntervals[0];
+                    insights.unshift({
+                        type: 'coverage',
+                        message: `Most under-staffed window: ${interval.intervalKey} (${interval.deficit.toFixed(2)} FTE deficit)`
+                    });
+                }
+
+                if (fairness && fairness.rotationHealth < 75) {
+                    insights.push({
+                        type: 'fairness',
+                        message: `Fairness rotation health at ${Math.round(fairness.rotationHealth)}. Consider rebalancing weekends.`
+                    });
+                }
+
+                if (compliance && compliance.totalViolations > 0) {
+                    insights.push({
+                        type: 'compliance',
+                        message: `${compliance.totalViolations} potential compliance issues detected. Review the alerts panel.`
+                    });
+                }
+
+                if (insights.length === 0) {
                     container.innerHTML = `
-                            <div class="text-center text-muted py-4">
-                                <i class="fas fa-brain fa-2x mb-3 opacity-50"></i>
-                                <p>No insights available yet.</p>
-                                <p class="small">Start tracking attendance to see AI-powered insights.</p>
-                            </div>
-                        `;
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-lightbulb fa-2x mb-3 opacity-50"></i>
+                            <p>Schedule health looks great! No actions required right now.</p>
+                        </div>
+                    `;
                     return;
                 }
 
-                container.innerHTML = insights.slice(0, 5).map(insight => `
-                        <div class="insight-card insight-${insight.type}">
-                            <div class="d-flex align-items-start gap-2">
-                                <i class="fas fa-${this.getInsightIcon(insight.type)}"></i>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1">${insight.category}</h6>
-                                    <p class="mb-0 small">${insight.message}</p>
-                                </div>
-                            </div>
+                container.innerHTML = insights.slice(0, 6).map(insight => `
+                    <div class="insight-card insight-${insight.type}">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fas fa-${this.getInsightIcon(insight.type)}"></i>
+                            <div class="flex-grow-1 small">${insight.message}</div>
                         </div>
-                    `).join('');
+                    </div>
+                `).join('');
             }
 
-            displayTopPerformers(userStats) {
-                const container = document.getElementById('topPerformers');
+            renderFairnessWatchlist(fairness) {
+                const container = document.getElementById('fairnessWatchlist');
                 if (!container) return;
 
-                if (!userStats || userStats.length === 0) {
-                    container.innerHTML = '<p class="text-muted py-4">No performance data available yet.</p>';
+                if (!fairness || !Array.isArray(fairness.agentSummaries) || fairness.agentSummaries.length === 0) {
+                    container.innerHTML = '<p class="text-muted py-4">No fairness data available yet.</p>';
                     return;
                 }
 
-                const topPerformers = userStats.slice(0, 5);
+                const watchlist = fairness.agentSummaries
+                    .slice()
+                    .sort((a, b) => (a.fairnessScore || 0) - (b.fairnessScore || 0))
+                    .slice(0, 5);
 
-                container.innerHTML = topPerformers.map((user, index) => `
-                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
-                            <div>
-                                <span class="badge bg-primary me-2">${index + 1}</span>
-                                <strong>${user.userName}</strong>
-                            </div>
-                            <div class="text-end">
-                                <span class="badge bg-success">${user.attendanceRate}%</span>
-                            </div>
+                container.innerHTML = watchlist.map(agent => `
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                        <div>
+                            <strong>${agent.userName || agent.userId}</strong>
+                            <div class="small text-muted">Weekend: ${agent.weekendShifts || 0} • Night: ${agent.nightShifts || 0}</div>
                         </div>
-                    `).join('');
+                        <div class="text-end">
+                            <span class="badge bg-warning text-dark">${Math.round(agent.fairnessScore || 0)}</span>
+                        </div>
+                    </div>
+                `).join('');
             }
 
-            displayAttendanceAlerts(insights) {
-                const container = document.getElementById('attendanceAlerts');
+            renderComplianceAlerts(compliance) {
+                const container = document.getElementById('complianceAlerts');
                 if (!container) return;
 
-                const alerts = insights.filter(i => i.priority === 'high' || i.priority === 'critical');
-
-                if (alerts.length === 0) {
+                if (!compliance || !Array.isArray(compliance.violationDetails) || compliance.violationDetails.length === 0) {
                     container.innerHTML = `
-                            <div class="text-center text-success py-4">
-                                <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                <p>No attendance issues detected.</p>
-                            </div>
-                        `;
+                        <div class="text-center text-success py-4">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <p>No compliance issues detected</p>
+                        </div>
+                    `;
                     return;
                 }
 
-                container.innerHTML = alerts.map(alert => `
-                        <div class="alert alert-${alert.priority === 'critical' ? 'danger' : 'warning'}-modern mb-2">
-                            <strong>${alert.category}:</strong> ${alert.message}
+                const alerts = compliance.violationDetails.slice(0, 5);
+                container.innerHTML = alerts.map(alert => {
+                    const severity = alert.type === 'SHIFT_DURATION' || alert.type === 'REST_PERIOD' ? 'danger' : 'warning';
+                    const message = (() => {
+                        if (alert.message) return alert.message;
+                        switch (alert.type) {
+                            case 'SHIFT_DURATION':
+                                return `Scheduled ${Number(alert.scheduledHours || 0).toFixed(2)}h (limit ${alert.maxHoursPerDay || 12}h)`;
+                            case 'REST_PERIOD':
+                                return `Rest ${Number(alert.restHours || 0).toFixed(2)}h (required ${alert.requiredRestHours || 10}h)`;
+                            case 'CONSECUTIVE_DAYS':
+                                return `${alert.consecutiveDays || '?'} consecutive days (max ${alert.maxConsecutiveDays || 6})`;
+                            case 'MISSING_BREAK':
+                                return `Missing required break on ${alert.date || 'scheduled day'}`;
+                            default:
+                                return 'Review schedule details for compliance adjustments.';
+                        }
+                    })();
+
+                    return `
+                        <div class="alert alert-${severity}-modern mb-2">
+                            <strong>${alert.type.replace('_', ' ')}:</strong> ${alert.userName || alert.userId || 'Agent'} - ${message}
                         </div>
-                    `).join('');
+                    `;
+                }).join('');
             }
 
             async generateSchedules() {
@@ -4894,6 +5029,10 @@
 
             getInsightIcon(type) {
                 switch (type) {
+                    case 'coverage': return 'chart-area';
+                    case 'fairness': return 'balance-scale';
+                    case 'compliance': return 'shield-alt';
+                    case 'insight': return 'lightbulb';
                     case 'positive': return 'thumbs-up';
                     case 'warning': return 'exclamation-triangle';
                     case 'critical': return 'exclamation-circle';

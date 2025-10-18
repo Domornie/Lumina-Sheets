@@ -798,6 +798,7 @@
   <script>
     // Global variables
         let currentAgent = null;
+        let currentAgentSnapshot = null;
         let agentSchedules = [];
         let agentSwapRequests = [];
 
@@ -808,7 +809,7 @@
             try {
                 initializeAgentPage();
                 setupEventListeners();
-                loadAgentData();
+                loadAgentSnapshot();
                 console.log('✅ Agent Schedule Page initialized successfully');
             } catch (error) {
                 console.error('❌ Failed to initialize Agent Schedule Page:', error);
@@ -865,7 +866,7 @@
             
             switch(tabId) {
                 case 'overview':
-                    loadOverviewData();
+                    loadAgentSnapshot();
                     break;
                 case 'my-schedule':
                     loadMySchedule();
@@ -882,83 +883,87 @@
             }
         }
 
-        function loadAgentData() {
-            console.log('Loading agent data...');
-            
-            // Extract agent ID from token (in real implementation)
-            const agentId = 'agent123'; // This would come from the token
-            
+        function loadAgentSnapshot(options = {}) {
+            console.log('Loading agent snapshot...');
+
+            const agentId = currentAgent && currentAgent.id ? currentAgent.id : null;
+            const payloadOptions = Object.assign({ limitUpcoming: 7, limitHistory: 5 }, options);
+            if (agentId) {
+                payloadOptions.agentId = agentId;
+            }
+            if (currentAgent && currentAgent.campaignId) {
+                payloadOptions.campaignId = currentAgent.campaignId;
+            }
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
-                    .withSuccessHandler(handleAgentDataLoaded)
+                    .withSuccessHandler(handleAgentSnapshot)
                     .withFailureHandler(handleError)
-                    .getAgentData(agentId);
+                    .clientGetAgentScheduleSnapshot(agentId, null, null, null, payloadOptions);
             } else {
-                // Use placeholder data for demo
-                handleAgentDataLoaded({
-                    id: 'agent123',
-                    name: 'John Doe',
-                    email: 'john.doe@company.com'
+                // Placeholder data when running outside Apps Script
+                handleAgentSnapshot({
+                    success: true,
+                    agentId: 'agent123',
+                    campaignId: 'campaign-1',
+                    summary: {
+                        agentId: 'agent123',
+                        agentName: 'John Doe',
+                        agentEmail: 'john.doe@company.com',
+                        totalShifts: 12,
+                        totalScheduledHours: 96,
+                        weekendShifts: 2,
+                        nightShifts: 1,
+                        pendingSwaps: 1,
+                        upcomingHolidays: 2,
+                        preferenceScore: 88,
+                        complianceScore: 92
+                    },
+                    upcomingShifts: [],
+                    recentShifts: [],
+                    alerts: []
                 });
             }
         }
 
-        function handleAgentDataLoaded(agent) {
-            console.log('Agent data loaded:', agent);
-            
-            currentAgent = agent;
-            
-            // Update UI with agent info
-            document.getElementById('agentName').textContent = agent.name;
-            document.getElementById('agentEmail').textContent = agent.email;
-            document.getElementById('agentId').textContent = agent.id;
-            
-            // Set current period
+        function handleAgentSnapshot(snapshot) {
+            if (!snapshot || snapshot.success === false) {
+                console.warn('Agent snapshot unavailable:', snapshot && snapshot.error);
+                showNotices([{ type: 'warning', title: 'Schedule', message: snapshot && snapshot.error ? snapshot.error : 'Unable to load your schedule snapshot.' }]);
+                return;
+            }
+
+            currentAgentSnapshot = snapshot;
+
+            const summary = snapshot.summary || {};
+            currentAgent = Object.assign({}, currentAgent || {}, {
+                id: summary.agentId || snapshot.agentId || currentAgent?.id || 'agent',
+                name: summary.agentName || currentAgent?.name || 'Agent',
+                email: summary.agentEmail || currentAgent?.email || 'agent@example.com',
+                campaignId: snapshot.campaignId || currentAgent?.campaignId || null
+            });
+
+            document.getElementById('agentName').textContent = currentAgent.name;
+            document.getElementById('agentEmail').textContent = currentAgent.email;
+            document.getElementById('agentId').textContent = currentAgent.id;
+
             const today = new Date();
             const endDate = new Date();
             endDate.setDate(today.getDate() + 14);
-            
-            document.getElementById('currentPeriod').textContent = 
-                `${today.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-            
-            // Load initial data
-            loadOverviewData();
-        }
+            document.getElementById('currentPeriod').textContent = `${today.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
 
-        function loadOverviewData() {
-            console.log('Loading overview data...');
-            
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
-                    .withSuccessHandler(handleOverviewDataLoaded)
-                    .withFailureHandler(handleError)
-                    .getAgentOverview(currentAgent.id);
-            } else {
-                // Use placeholder data for demo
-                handleOverviewDataLoaded({
-                    totalShifts: 12,
-                    totalHours: 96,
-                    pendingSwaps: 1,
-                    upcomingHolidays: 2,
-                    upcomingShifts: []
-                });
-            }
-        }
+            document.getElementById('totalShifts').textContent = summary.totalShifts || 0;
+            document.getElementById('totalHours').textContent = summary.totalScheduledHours || 0;
+            document.getElementById('pendingSwaps').textContent = summary.pendingSwaps || 0;
+            document.getElementById('upcomingHolidays').textContent = summary.upcomingHolidays || 0;
 
-        function handleOverviewDataLoaded(data) {
-            console.log('Overview data loaded:', data);
-            
-            // Update stats
-            document.getElementById('totalShifts').textContent = data.totalShifts || 0;
-            document.getElementById('totalHours').textContent = data.totalHours || 0;
-            document.getElementById('pendingSwaps').textContent = data.pendingSwaps || 0;
-            document.getElementById('upcomingHolidays').textContent = data.upcomingHolidays || 0;
-            
-            // Show notices if any
-            showNotices(data.notices || []);
-            
-            // Load upcoming shifts preview
-            loadUpcomingShiftsPreview(data.upcomingShifts || []);
+            showNotices((snapshot.alerts || []).map(alert => ({
+                type: alert && alert.toLowerCase && alert.toLowerCase().includes('compliance') ? 'danger' : 'info',
+                title: 'Schedule Alert',
+                message: alert
+            })));
+
+            loadUpcomingShiftsPreview(snapshot.upcomingShifts || []);
         }
 
         function showNotices(notices) {
@@ -1002,26 +1007,30 @@
                 const shiftDate = new Date(shift.date);
                 const isToday = shiftDate.toDateString() === new Date().toDateString();
                 const isTomorrow = shiftDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
-                
+
                 let dateLabel = shiftDate.toLocaleDateString();
                 if (isToday) dateLabel = 'Today';
                 else if (isTomorrow) dateLabel = 'Tomorrow';
-                
+
+                const shiftLabel = shift.skill || shift.location || shift.notes || 'Scheduled shift';
+                const statusLabel = shift.status || 'Scheduled';
+                const shiftId = shift.id || '';
+
                 shiftsHtml += `
                     <div class="schedule-item ${isToday ? 'today' : 'upcoming'}">
                         <div class="schedule-header-row">
                             <div>
                                 <div class="schedule-date">${dateLabel}</div>
                                 <div class="schedule-time">${shift.startTime} - ${shift.endTime}</div>
-                                <div class="text-muted">${shift.shiftSlot}</div>
+                                <div class="text-muted">${shiftLabel}</div>
                             </div>
-                            <span class="schedule-status ${shift.status}">${shift.status}</span>
+                            <span class="schedule-status ${statusLabel}">${statusLabel}</span>
                         </div>
                         <div class="schedule-actions">
-                            <button class="btn btn-sm btn-secondary" onclick="viewShiftDetails('${shift.id}')">
+                            <button class="btn btn-sm btn-secondary" ${shiftId ? `onclick="viewShiftDetails('${shiftId}')"` : 'disabled'}>
                                 <i class="fas fa-eye"></i> Details
                             </button>
-                            <button class="btn btn-sm btn-warning" onclick="requestShiftSwap('${shift.id}')">
+                            <button class="btn btn-sm btn-warning" ${shiftId ? `onclick="requestShiftSwap('${shiftId}')"` : 'disabled'}>
                                 <i class="fas fa-exchange-alt"></i> Request Swap
                             </button>
                         </div>
@@ -1032,37 +1041,75 @@
             container.innerHTML = shiftsHtml;
         }
 
-        function loadMySchedule() {
+        function loadMySchedule(options = {}) {
             console.log('Loading my schedule...');
-            
+
+            if (!currentAgent || !currentAgent.id) {
+                showAlert('Agent information is not available yet. Please refresh.', 'warning');
+                return;
+            }
+
             const container = document.getElementById('myScheduleContainer');
             container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span style="margin-left: 1rem;">Loading your schedule...</span></div>';
-            
+
+            const payloadOptions = Object.assign({ windowDays: 45 }, options, {
+                agentId: currentAgent.id
+            });
+            if (currentAgent.campaignId) {
+                payloadOptions.campaignId = currentAgent.campaignId;
+            }
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
                     .withSuccessHandler(handleMyScheduleLoaded)
                     .withFailureHandler(handleError)
-                    .getAgentSchedule(currentAgent.id);
+                    .clientGetAgentSchedule(currentAgent.id, payloadOptions);
             } else {
                 setTimeout(() => {
-                    handleMyScheduleLoaded([]);
-                }, 1000);
+                    const fallbackSchedules = (currentAgentSnapshot && Array.isArray(currentAgentSnapshot.upcomingShifts))
+                        ? currentAgentSnapshot.upcomingShifts.map(shift => ({
+                            id: shift.id,
+                            date: shift.date,
+                            startTime: shift.startTime,
+                            endTime: shift.endTime,
+                            shiftSlot: shift.skill || shift.shiftSlot || 'Scheduled',
+                            status: 'upcoming',
+                            startDateTime: shift.date ? `${shift.date}T${(shift.startTime || '08:00')}:00` : '',
+                            endDateTime: shift.date ? `${shift.date}T${(shift.endTime || '17:00')}:00` : ''
+                        }))
+                        : [];
+                    handleMyScheduleLoaded({ success: true, schedules: fallbackSchedules });
+                }, 500);
             }
         }
 
-        function handleMyScheduleLoaded(schedules) {
+        function handleMyScheduleLoaded(response) {
+            const isError = response && response.success === false;
+            if (isError) {
+                console.warn('My schedule unavailable:', response && response.error);
+                showAlert(response && response.error ? response.error : 'Unable to load schedule.', 'warning');
+                agentSchedules = [];
+                displaySchedules([]);
+                populateMyShifts([]);
+                return;
+            }
+
+            const schedules = Array.isArray(response)
+                ? response
+                : Array.isArray(response?.schedules) ? response.schedules : [];
+
             console.log('My schedule loaded:', schedules);
-            
+
             agentSchedules = schedules;
             displaySchedules(schedules);
-            
+
             // Populate shift selector for swap requests
             populateMyShifts(schedules);
         }
 
         function displaySchedules(schedules) {
             const container = document.getElementById('myScheduleContainer');
-            
+
             if (schedules.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -1073,33 +1120,56 @@
                 `;
                 return;
             }
-            
+
             let schedulesHtml = '';
             schedules.forEach(schedule => {
-                const scheduleDate = new Date(schedule.date);
-                const isToday = scheduleDate.toDateString() === new Date().toDateString();
-                const isPast = scheduleDate < new Date();
-                
+                let scheduleDate = null;
+                if (schedule.startDateTime) {
+                    const parsed = new Date(schedule.startDateTime);
+                    if (!isNaN(parsed)) scheduleDate = parsed;
+                }
+                if (!scheduleDate && schedule.dateIso) {
+                    const parsed = new Date(schedule.dateIso);
+                    if (!isNaN(parsed)) scheduleDate = parsed;
+                }
+                if (!scheduleDate && schedule.date) {
+                    const parsed = new Date(schedule.date);
+                    if (!isNaN(parsed)) scheduleDate = parsed;
+                }
+
+                scheduleDate = scheduleDate || new Date();
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const scheduleDay = new Date(scheduleDate.getTime());
+                scheduleDay.setHours(0, 0, 0, 0);
+
+                const isToday = scheduleDay.getTime() === today.getTime();
+                const isPast = scheduleDay.getTime() < today.getTime();
+
                 let scheduleClass = 'schedule-item';
                 if (isToday) scheduleClass += ' today';
                 else if (isPast) scheduleClass += ' past';
                 else scheduleClass += ' upcoming';
-                
+
+                const statusLabel = (schedule.status || 'upcoming').toLowerCase();
+                const shiftSlotLabel = schedule.shiftSlot || schedule.skill || 'Scheduled Shift';
+
                 schedulesHtml += `
                     <div class="${scheduleClass}">
                         <div class="schedule-header-row">
                             <div>
                                 <div class="schedule-date">${scheduleDate.toLocaleDateString()}</div>
-                                <div class="schedule-time">${schedule.startTime} - ${schedule.endTime}</div>
-                                <div class="text-muted">${schedule.shiftSlot}</div>
+                                <div class="schedule-time">${schedule.startTime || '00:00'} - ${schedule.endTime || ''}</div>
+                                <div class="text-muted">${shiftSlotLabel}</div>
                             </div>
-                            <span class="schedule-status ${schedule.status}">${schedule.status}</span>
+                            <span class="schedule-status ${statusLabel}">${statusLabel.toUpperCase()}</span>
                         </div>
                         <div class="schedule-actions">
                             <button class="btn btn-sm btn-secondary" onclick="viewShiftDetails('${schedule.id}')">
                                 <i class="fas fa-eye"></i> Details
                             </button>
-                            ${schedule.status === 'active' && !isPast ? `
+                            ${(statusLabel === 'active' || statusLabel === 'upcoming') && !isPast ? `
                                 <button class="btn btn-sm btn-warning" onclick="requestShiftSwap('${schedule.id}')">
                                     <i class="fas fa-exchange-alt"></i> Request Swap
                                 </button>
@@ -1115,36 +1185,47 @@
         function populateMyShifts(schedules) {
             const select = document.getElementById('myShiftSelect');
             select.innerHTML = '<option value="">Select your shift to swap</option>';
-            
+
             // Only show upcoming shifts that are active
-            const upcomingShifts = schedules.filter(s => 
-                new Date(s.date) > new Date() && s.status === 'active'
+            const upcomingShifts = schedules.filter(s =>
+                (() => {
+                    const startDate = s.startDateTime ? new Date(s.startDateTime) : (s.dateIso ? new Date(s.dateIso) : new Date(s.date));
+                    const validDate = startDate && !isNaN(startDate);
+                    const isFuture = validDate ? startDate > new Date() : false;
+                    const statusLabel = (s.status || '').toLowerCase();
+                    return isFuture && (statusLabel === 'active' || statusLabel === 'upcoming');
+                })()
             );
-            
+
             upcomingShifts.forEach(shift => {
                 const option = document.createElement('option');
                 option.value = shift.id;
-                option.textContent = `${new Date(shift.date).toLocaleDateString()} - ${shift.startTime}-${shift.endTime} (${shift.shiftSlot})`;
+                const startDate = shift.startDateTime ? new Date(shift.startDateTime) : (shift.dateIso ? new Date(shift.dateIso) : new Date(shift.date));
+                const startLabel = startDate && !isNaN(startDate) ? startDate.toLocaleDateString() : shift.date || 'Upcoming';
+                option.textContent = `${startLabel} - ${shift.startTime || ''}${shift.endTime ? `-${shift.endTime}` : ''} (${shift.shiftSlot || shift.skill || 'Shift'})`;
                 select.appendChild(option);
             });
         }
 
         function filterSchedules(filter) {
             console.log('Filtering schedules by:', filter);
-            
+
             let filteredSchedules = [...agentSchedules];
             const now = new Date();
-            
+
             switch(filter) {
                 case 'upcoming':
-                    filteredSchedules = agentSchedules.filter(s => new Date(s.date) > now);
+                    filteredSchedules = agentSchedules.filter(s => {
+                        const startDate = s.startDateTime ? new Date(s.startDateTime) : (s.dateIso ? new Date(s.dateIso) : new Date(s.date));
+                        return startDate && !isNaN(startDate) && startDate > now;
+                    });
                     break;
                 case 'this-week':
                     const endOfWeek = new Date(now);
                     endOfWeek.setDate(now.getDate() + (7 - now.getDay()));
                     filteredSchedules = agentSchedules.filter(s => {
-                        const date = new Date(s.date);
-                        return date >= now && date <= endOfWeek;
+                        const date = s.startDateTime ? new Date(s.startDateTime) : (s.dateIso ? new Date(s.dateIso) : new Date(s.date));
+                        return date && !isNaN(date) && date >= now && date <= endOfWeek;
                     });
                     break;
                 case 'next-week':
@@ -1153,40 +1234,64 @@
                     const endOfNextWeek = new Date(startOfNextWeek);
                     endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
                     filteredSchedules = agentSchedules.filter(s => {
-                        const date = new Date(s.date);
-                        return date >= startOfNextWeek && date <= endOfNextWeek;
+                        const date = s.startDateTime ? new Date(s.startDateTime) : (s.dateIso ? new Date(s.dateIso) : new Date(s.date));
+                        return date && !isNaN(date) && date >= startOfNextWeek && date <= endOfNextWeek;
                     });
                     break;
             }
-            
+
             displaySchedules(filteredSchedules);
         }
 
         function loadSwapRequests() {
             console.log('Loading swap requests...');
-            
+
             const container = document.getElementById('mySwapRequests');
             container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span style="margin-left: 1rem;">Loading swap requests...</span></div>';
-            
+
+            if (!currentAgent || !currentAgent.id) {
+                showAlert('Agent information is missing. Please refresh.', 'warning');
+                container.innerHTML = '';
+                return;
+            }
+
+            const payloadOptions = {
+                agentId: currentAgent.id,
+                windowDays: 90
+            };
+            if (currentAgent.campaignId) {
+                payloadOptions.campaignId = currentAgent.campaignId;
+            }
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
                     .withSuccessHandler(handleSwapRequestsLoaded)
                     .withFailureHandler(handleError)
-                    .getAgentSwapRequests(currentAgent.id);
+                    .clientGetAgentSwapRequests(currentAgent.id, payloadOptions);
             } else {
                 setTimeout(() => {
-                    handleSwapRequestsLoaded([]);
-                }, 1000);
+                    handleSwapRequestsLoaded({ success: true, requests: [] });
+                }, 500);
             }
         }
 
-        function handleSwapRequestsLoaded(requests) {
+        function handleSwapRequestsLoaded(response) {
+            const isError = response && response.success === false;
+            const requests = Array.isArray(response)
+                ? response
+                : Array.isArray(response?.requests) ? response.requests : [];
+
+            if (isError) {
+                console.warn('Swap requests unavailable:', response && response.error);
+                showAlert(response && response.error ? response.error : 'Unable to load swap requests.', 'warning');
+            }
+
             console.log('Swap requests loaded:', requests);
-            
+
             agentSwapRequests = requests;
-            
+
             const container = document.getElementById('mySwapRequests');
-            
+
             if (requests.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -1195,14 +1300,17 @@
                         <p>You haven't made any shift swap requests yet.</p>
                     </div>
                 `;
+                loadAvailableAgents();
                 return;
             }
-            
+
             let requestsHtml = '';
             requests.forEach(request => {
-                const statusClass = request.status === 'pending' ? 'warning' : 
-                                   request.status === 'approved' ? 'success' : 'danger';
-                
+                const status = (request.status || '').toLowerCase();
+                const statusClass = status === 'pending' ? 'warning' :
+                                   status === 'approved' ? 'success' :
+                                   status === 'cancelled' ? 'secondary' : 'danger';
+
                 requestsHtml += `
                     <div class="card mb-3">
                         <div class="card-body">
@@ -1210,19 +1318,19 @@
                                 <div>
                                     <h6>Swap Request with ${request.swapWithName}</h6>
                                     <p class="mb-1">
-                                        <strong>Your shift:</strong> ${new Date(request.myShiftDate).toLocaleDateString()} ${request.myShiftTime}
+                                        <strong>Your shift:</strong> ${request.myShiftDate ? new Date(request.myShiftDate).toLocaleDateString() : 'TBD'} ${request.myShiftTime || ''}
                                     </p>
                                     ${request.theirShiftDate ? `
                                         <p class="mb-1">
-                                            <strong>Their shift:</strong> ${new Date(request.theirShiftDate).toLocaleDateString()} ${request.theirShiftTime}
+                                            <strong>Their shift:</strong> ${new Date(request.theirShiftDate).toLocaleDateString()} ${request.theirShiftTime || ''}
                                         </p>
                                     ` : ''}
                                     <p class="mb-1"><strong>Reason:</strong> ${request.reason}</p>
-                                    <small class="text-muted">Requested: ${new Date(request.requestedAt).toLocaleDateString()}</small>
+                                    <small class="text-muted">Requested: ${request.requestedAt ? new Date(request.requestedAt).toLocaleDateString() : 'Pending'}</small>
                                 </div>
-                                <span class="badge bg-${statusClass}">${request.status.toUpperCase()}</span>
+                                <span class="badge bg-${statusClass}">${status.toUpperCase()}</span>
                             </div>
-                            ${request.status === 'pending' ? `
+                            ${status === 'pending' ? `
                                 <div class="mt-2">
                                     <button class="btn btn-sm btn-danger" onclick="cancelSwapRequest('${request.id}')">
                                         <i class="fas fa-times"></i> Cancel Request
@@ -1233,26 +1341,43 @@
                     </div>
                 `;
             });
-            
+
             container.innerHTML = requestsHtml;
-            
+
             // Load available agents for new swap requests
             loadAvailableAgents();
         }
 
         function loadAvailableAgents() {
+            if (!currentAgent || !currentAgent.id) {
+                return;
+            }
+
+            const options = {
+                agentId: currentAgent.id
+            };
+            if (currentAgent.campaignId) {
+                options.campaignId = currentAgent.campaignId;
+            }
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
                     .withSuccessHandler(handleAvailableAgentsLoaded)
                     .withFailureHandler(handleError)
-                    .getAvailableAgents();
+                    .clientGetAvailableSwapAgents(currentAgent.id, options);
+            } else {
+                handleAvailableAgentsLoaded({ success: true, agents: [] });
             }
         }
 
-        function handleAvailableAgentsLoaded(agents) {
+        function handleAvailableAgentsLoaded(response) {
+            const agents = Array.isArray(response)
+                ? response
+                : Array.isArray(response?.agents) ? response.agents : [];
+
             const select = document.getElementById('swapWithAgent');
             select.innerHTML = '<option value="">Select agent to swap with</option>';
-            
+
             // Filter out current agent
             const availableAgents = agents.filter(a => a.id !== currentAgent.id);
             
@@ -1269,23 +1394,40 @@
                 document.getElementById('theirShiftSelect').innerHTML = '<option value="">Select their shift (or leave blank)</option>';
                 return;
             }
-            
+
+            const options = { agentId, limit: 10 };
+            if (currentAgent && currentAgent.campaignId) {
+                options.campaignId = currentAgent.campaignId;
+            }
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
                     .withSuccessHandler(handleAgentShiftsLoaded)
                     .withFailureHandler(handleError)
-                    .getAgentUpcomingShifts(agentId);
+                    .clientGetAgentUpcomingShifts(agentId, options);
+            } else {
+                handleAgentShiftsLoaded({ success: true, shifts: [] });
             }
         }
 
-        function handleAgentShiftsLoaded(shifts) {
+        function handleAgentShiftsLoaded(response) {
             const select = document.getElementById('theirShiftSelect');
             select.innerHTML = '<option value="">Select their shift (or leave blank)</option>';
-            
+
+            const shifts = Array.isArray(response)
+                ? response
+                : Array.isArray(response?.shifts) ? response.shifts : [];
+
+            if (!shifts || shifts.length === 0) {
+                return;
+            }
+
             shifts.forEach(shift => {
                 const option = document.createElement('option');
                 option.value = shift.id;
-                option.textContent = `${new Date(shift.date).toLocaleDateString()} - ${shift.startTime}-${shift.endTime} (${shift.shiftSlot})`;
+                const startDate = shift.startDateTime ? new Date(shift.startDateTime) : (shift.dateIso ? new Date(shift.dateIso) : new Date(shift.date));
+                const startLabel = startDate && !isNaN(startDate) ? startDate.toLocaleDateString() : shift.date || 'Upcoming';
+                option.textContent = `${startLabel} - ${shift.startTime || ''}${shift.endTime ? `-${shift.endTime}` : ''} (${shift.shiftSlot || shift.skill || 'Shift'})`;
                 select.appendChild(option);
             });
         }
@@ -1441,38 +1583,51 @@
         }
 
         function submitSwapRequest() {
-            const swapRequest = {
-                myShift: document.getElementById('myShiftSelect').value,
-                swapWithAgent: document.getElementById('swapWithAgent').value,
-                theirShift: document.getElementById('theirShiftSelect').value,
-                reason: document.getElementById('swapReason').value
-            };
-            
-            if (!swapRequest.myShift || !swapRequest.swapWithAgent || !swapRequest.reason) {
-                showAlert('Please fill in all required fields', 'warning');
+            if (!currentAgent || !currentAgent.id) {
+                showAlert('Agent data not available. Please refresh.', 'warning');
                 return;
             }
-            
+
+            const swapRequest = {
+                myShiftId: document.getElementById('myShiftSelect').value,
+                swapWith: document.getElementById('swapWithAgent').value,
+                theirShiftId: document.getElementById('theirShiftSelect').value,
+                reason: document.getElementById('swapReason').value.trim()
+            };
+
+            if (!swapRequest.myShiftId || !swapRequest.swapWith || !swapRequest.reason) {
+                showAlert('Please select your shift, a teammate, and provide a reason.', 'warning');
+                return;
+            }
+
+            const hasShift = agentSchedules.some(shift => shift.id === swapRequest.myShiftId);
+            if (!hasShift) {
+                showAlert('The selected shift could not be found. Please refresh and try again.', 'warning');
+                return;
+            }
+
             console.log('Submitting swap request:', swapRequest);
-            
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
                     .withSuccessHandler(handleSwapRequestSubmitted)
                     .withFailureHandler(handleError)
-                    .submitShiftSwapRequest(currentAgent.id, swapRequest);
+                    .clientSubmitShiftSwapRequest(currentAgent.id, Object.assign({}, swapRequest, {
+                        campaignId: currentAgent.campaignId || null
+                    }));
             } else {
                 setTimeout(() => {
-                    handleSwapRequestSubmitted({ success: true });
-                }, 1000);
+                    handleSwapRequestSubmitted({ success: true, request: Object.assign({}, swapRequest, { id: Date.now() }) });
+                }, 500);
             }
         }
 
         function handleSwapRequestSubmitted(result) {
-            if (result.success) {
+            if (result && result.success) {
                 showAlert('Swap request submitted successfully! You will be notified when it is processed.', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('swapRequestModal')).hide();
                 document.getElementById('swapRequestForm').reset();
-                
+
                 // Refresh swap requests
                 loadSwapRequests();
             } else {
@@ -1484,14 +1639,14 @@
             if (!confirm('Are you sure you want to cancel this swap request?')) {
                 return;
             }
-            
+
             console.log('Cancelling swap request:', requestId);
-            
+
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run
                     .withSuccessHandler(handleSwapRequestCancelled)
                     .withFailureHandler(handleError)
-                    .cancelShiftSwapRequest(requestId);
+                    .clientCancelShiftSwapRequest(requestId, currentAgent?.id || null);
             } else {
                 setTimeout(() => {
                     handleSwapRequestCancelled({ success: true });
@@ -1500,7 +1655,7 @@
         }
 
         function handleSwapRequestCancelled(result) {
-            if (result.success) {
+            if (result && result.success) {
                 showAlert('Swap request cancelled successfully', 'success');
                 loadSwapRequests();
             } else {

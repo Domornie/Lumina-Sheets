@@ -169,6 +169,10 @@ const SCHEDULE_NOTIFICATIONS_SHEET = "ScheduleNotifications";
 const SCHEDULE_ADHERENCE_SHEET = "ScheduleAdherence";
 const SCHEDULE_CONFLICTS_SHEET = "ScheduleConflicts";
 const RECURRING_SCHEDULES_SHEET = "RecurringSchedules";
+const DEMAND_SHEET = "Demand";
+const FTE_PLAN_SHEET = "FTEPlan";
+const SCHEDULE_FORECAST_METADATA_SHEET = "ScheduleForecastMetadata";
+const SCHEDULE_HEALTH_SHEET = "ScheduleHealth";
 
 // Attendance and holiday sheets
 const ATTENDANCE_STATUS_SHEET = "AttendanceStatus";
@@ -225,6 +229,30 @@ const SCHEDULE_CONFLICTS_HEADERS = [
 const RECURRING_SCHEDULES_HEADERS = [
   'ID', 'UserID', 'UserName', 'SlotID', 'SlotName', 'RecurrencePattern',
   'StartDate', 'EndDate', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
+];
+
+const DEMAND_HEADERS = [
+  'ID', 'Campaign', 'Skill', 'IntervalStart', 'IntervalEnd',
+  'ForecastContacts', 'ForecastAHT', 'TargetSL', 'TargetASA',
+  'Shrinkage', 'RequiredFTE', 'Notes', 'CreatedAt', 'UpdatedAt'
+];
+
+const FTE_PLAN_HEADERS = [
+  'ID', 'Campaign', 'Skill', 'IntervalStart', 'IntervalEnd',
+  'PlannedFTE', 'ActualFTE', 'Variance', 'CoverageStatus',
+  'CreatedAt', 'UpdatedAt', 'CreatedBy', 'Notes'
+];
+
+const SCHEDULE_FORECAST_METADATA_HEADERS = [
+  'ID', 'Campaign', 'GeneratedAt', 'ForecastWindowStart', 'ForecastWindowEnd',
+  'ModelType', 'Parameters', 'Notes', 'Author'
+];
+
+const SCHEDULE_HEALTH_HEADERS = [
+  'ID', 'Campaign', 'GeneratedAt', 'ServiceLevel', 'ASA', 'AbandonRate',
+  'Occupancy', 'Utilization', 'OvertimeHours', 'CostPerHour',
+  'FairnessIndex', 'PreferenceSatisfaction', 'ComplianceScore',
+  'ScheduleEfficiency', 'Summary'
 ];
 
 const ATTENDANCE_STATUS_HEADERS = [
@@ -304,6 +332,13 @@ const CONFLICT_TYPES = {
   INVALID_ASSIGNMENT: 'INVALID_ASSIGNMENT'
 };
 
+const SHIFT_SWAP_STATUS = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED'
+};
+
 const RECURRENCE_PATTERNS = {
   DAILY: 'daily',
   WEEKLY: 'weekly',
@@ -347,6 +382,10 @@ function getHeadersForSheet(sheetName) {
   map[SCHEDULE_ADHERENCE_SHEET] = SCHEDULE_ADHERENCE_HEADERS;
   map[SCHEDULE_CONFLICTS_SHEET] = SCHEDULE_CONFLICTS_HEADERS;
   map[RECURRING_SCHEDULES_SHEET] = RECURRING_SCHEDULES_HEADERS;
+  map[DEMAND_SHEET] = DEMAND_HEADERS;
+  map[FTE_PLAN_SHEET] = FTE_PLAN_HEADERS;
+  map[SCHEDULE_FORECAST_METADATA_SHEET] = SCHEDULE_FORECAST_METADATA_HEADERS;
+  map[SCHEDULE_HEALTH_SHEET] = SCHEDULE_HEALTH_HEADERS;
   map[ATTENDANCE_STATUS_SHEET] = ATTENDANCE_STATUS_HEADERS;
   map[USER_HOLIDAY_PAY_STATUS_SHEET] = USER_HOLIDAY_PAY_STATUS_HEADERS;
   map[HOLIDAYS_SHEET] = HOLIDAYS_HEADERS;
@@ -519,7 +558,14 @@ function setupScheduleManagementSheets() {
       { name: RECURRING_SCHEDULES_SHEET, headers: RECURRING_SCHEDULES_HEADERS }
     ];
 
-    coreSheets.forEach(sheetConfig => {
+    const analyticsSheets = [
+      { name: DEMAND_SHEET, headers: DEMAND_HEADERS },
+      { name: FTE_PLAN_SHEET, headers: FTE_PLAN_HEADERS },
+      { name: SCHEDULE_FORECAST_METADATA_SHEET, headers: SCHEDULE_FORECAST_METADATA_HEADERS },
+      { name: SCHEDULE_HEALTH_SHEET, headers: SCHEDULE_HEALTH_HEADERS }
+    ];
+
+    const setupSheetDefinition = (sheetConfig) => {
       try {
         const ss = getScheduleSpreadsheet();
         const existedBefore = ss.getSheetByName(sheetConfig.name) !== null;
@@ -535,7 +581,10 @@ function setupScheduleManagementSheets() {
         console.error(`Failed to setup sheet ${sheetConfig.name}:`, error);
         throw error;
       }
-    });
+    };
+
+    coreSheets.forEach(setupSheetDefinition);
+    analyticsSheets.forEach(setupSheetDefinition);
 
     // Attendance and holiday sheets
     console.log('Creating attendance and holiday sheets...');
@@ -546,23 +595,7 @@ function setupScheduleManagementSheets() {
       { name: HOLIDAYS_SHEET, headers: HOLIDAYS_HEADERS }
     ];
 
-    attendanceSheets.forEach(sheetConfig => {
-      try {
-        const ss = getScheduleSpreadsheet();
-        const existedBefore = ss.getSheetByName(sheetConfig.name) !== null;
-
-        ensureScheduleSheetWithHeaders(sheetConfig.name, sheetConfig.headers);
-
-        if (existedBefore) {
-          sheetsUpdated.push(sheetConfig.name);
-        } else {
-          sheetsCreated.push(sheetConfig.name);
-        }
-      } catch (error) {
-        console.error(`Failed to setup sheet ${sheetConfig.name}:`, error);
-        throw error;
-      }
-    });
+    attendanceSheets.forEach(setupSheetDefinition);
 
     // Create default shift slots if none exist
     console.log('Checking for default shift slots...');
@@ -625,6 +658,10 @@ function fixExistingScheduleSheetsFormatting() {
       SCHEDULE_ADHERENCE_SHEET,
       SCHEDULE_CONFLICTS_SHEET,
       RECURRING_SCHEDULES_SHEET,
+      DEMAND_SHEET,
+      FTE_PLAN_SHEET,
+      SCHEDULE_FORECAST_METADATA_SHEET,
+      SCHEDULE_HEALTH_SHEET,
       ATTENDANCE_STATUS_SHEET,
       USER_HOLIDAY_PAY_STATUS_SHEET,
       HOLIDAYS_SHEET
@@ -938,6 +975,10 @@ function invalidateScheduleCaches() {
     SHIFT_SLOTS_SHEET,
     SHIFT_SWAPS_SHEET,
     SCHEDULE_TEMPLATES_SHEET,
+    DEMAND_SHEET,
+    FTE_PLAN_SHEET,
+    SCHEDULE_FORECAST_METADATA_SHEET,
+    SCHEDULE_HEALTH_SHEET,
     ATTENDANCE_STATUS_SHEET,
     USER_HOLIDAY_PAY_STATUS_SHEET,
     HOLIDAYS_SHEET
@@ -951,6 +992,133 @@ function invalidateScheduleCaches() {
       console.warn(`Failed to invalidate cache for ${sheetName}:`, error);
     }
   });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SHIFT SWAP DATA HELPERS
+// ────────────────────────────────────────────────────────────────────────────
+
+function ensureShiftSwapsSheet() {
+  return ensureScheduleSheetWithHeaders(SHIFT_SWAPS_SHEET, SHIFT_SWAPS_HEADERS);
+}
+
+function listShiftSwapRequests(options = {}) {
+  const rows = readScheduleSheet(SHIFT_SWAPS_SHEET) || [];
+  if (!rows.length) {
+    return [];
+  }
+
+  const statusFilter = Array.isArray(options.status)
+    ? options.status.map(value => String(value || '').toUpperCase()).filter(Boolean)
+    : (options.status ? [String(options.status).toUpperCase()] : null);
+
+  const userFilter = Array.isArray(options.userIds)
+    ? options.userIds.map(value => String(value || '').trim()).filter(Boolean)
+    : (options.userId ? [String(options.userId).trim()] : null);
+
+  return rows.filter(row => {
+    if (statusFilter && statusFilter.length) {
+      const status = String(row.Status || row.status || SHIFT_SWAP_STATUS.PENDING).toUpperCase();
+      if (!statusFilter.includes(status)) {
+        return false;
+      }
+    }
+
+    if (userFilter && userFilter.length) {
+      const requestorId = String(row.RequestorUserID || row.RequestorUserId || row.requestorUserId || '').trim();
+      const targetId = String(row.TargetUserID || row.TargetUserId || row.targetUserId || '').trim();
+      if (!userFilter.includes(requestorId) && !userFilter.includes(targetId)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function createShiftSwapRequestEntry(request = {}) {
+  const sheet = ensureShiftSwapsSheet();
+  const id = request.ID || request.Id || request.id || (typeof Utilities !== 'undefined' && Utilities.getUuid ? Utilities.getUuid() : `swap_${Date.now()}`);
+  const now = new Date();
+
+  const normalized = {
+    ID: id,
+    RequestorUserID: request.requestorUserId || request.RequestorUserID || '',
+    RequestorUserName: request.requestorUserName || request.RequestorUserName || '',
+    TargetUserID: request.targetUserId || request.TargetUserID || '',
+    TargetUserName: request.targetUserName || request.TargetUserName || '',
+    RequestorScheduleID: request.requestorScheduleId || request.RequestorScheduleID || '',
+    TargetScheduleID: request.targetScheduleId || request.TargetScheduleID || '',
+    SwapDate: request.swapDate || request.SwapDate || '',
+    Reason: request.reason || request.Reason || '',
+    Status: (request.status || SHIFT_SWAP_STATUS.PENDING),
+    ApprovedBy: request.approvedBy || request.ApprovedBy || '',
+    RejectedBy: request.rejectedBy || request.RejectedBy || '',
+    DecisionNotes: request.decisionNotes || request.DecisionNotes || '',
+    CreatedAt: request.createdAt || request.CreatedAt || now,
+    UpdatedAt: request.updatedAt || request.UpdatedAt || now
+  };
+
+  const rowValues = SHIFT_SWAPS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(normalized, header) ? normalized[header] : '');
+  sheet.appendRow(rowValues);
+
+  removeFromCache && removeFromCache(`schedule_${SHIFT_SWAPS_SHEET}`);
+  return normalized;
+}
+
+function updateShiftSwapRequestEntry(requestId, updates = {}) {
+  if (!requestId) {
+    return null;
+  }
+
+  const sheet = ensureShiftSwapsSheet();
+  const idValue = String(requestId).trim();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return null;
+  }
+
+  const headers = SHIFT_SWAPS_HEADERS.slice();
+  const idColumn = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let targetRowNumber = null;
+  for (let index = 0; index < idColumn.length; index++) {
+    if (String(idColumn[index][0] || '').trim() === idValue) {
+      targetRowNumber = index + 2;
+      break;
+    }
+  }
+
+  if (!targetRowNumber) {
+    return null;
+  }
+
+  const currentValues = sheet.getRange(targetRowNumber, 1, 1, headers.length).getValues()[0];
+  const currentRecord = {};
+  headers.forEach((header, columnIndex) => {
+    currentRecord[header] = currentValues[columnIndex];
+  });
+
+  const now = new Date();
+  const merged = Object.assign({}, currentRecord, updates, { ID: currentRecord.ID || idValue });
+
+  if (merged.status && !merged.Status) {
+    merged.Status = merged.status;
+  }
+
+  const normalizedStatus = merged.Status || SHIFT_SWAP_STATUS.PENDING;
+  merged.Status = String(normalizedStatus).toUpperCase();
+  merged.UpdatedAt = merged.UpdatedAt || merged.updatedAt || now;
+
+  const rowValues = headers.map(header => Object.prototype.hasOwnProperty.call(merged, header) ? merged[header] : currentRecord[header]);
+  sheet.getRange(targetRowNumber, 1, 1, headers.length).setValues([rowValues]);
+
+  removeFromCache && removeFromCache(`schedule_${SHIFT_SWAPS_SHEET}`);
+
+  const resultRecord = {};
+  headers.forEach((header, columnIndex) => {
+    resultRecord[header] = rowValues[columnIndex];
+  });
+  return resultRecord;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1508,6 +1676,914 @@ function createSuccessResponse(message, data = null) {
     message: message,
     data: data,
     timestamp: new Date().toISOString()
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SCHEDULE ANALYTICS AND HEALTH METRICS
+// ────────────────────────────────────────────────────────────────────────────
+
+function normalizeScheduleUserId(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const normalized = normalizeScheduleUserId(value[i]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    const candidates = [value.ID, value.Id, value.id, value.UserID, value.UserId, value.userId, value.value];
+    for (let i = 0; i < candidates.length; i++) {
+      const normalized = normalizeScheduleUserId(candidates[i]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return '';
+  }
+
+  const text = String(value).trim();
+  return text;
+}
+
+function normalizeScheduleDate(value) {
+  if (!value && value !== 0) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+
+  if (typeof value === 'number') {
+    if (value > 100000000000) {
+      return new Date(value);
+    }
+
+    const baseDate = new Date(Date.UTC(1899, 11, 30));
+    baseDate.setUTCDate(baseDate.getUTCDate() + Math.floor(value));
+    return new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate()));
+  }
+
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (!text) {
+      return null;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      return new Date(`${text}T00:00:00`);
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(text)) {
+      const parsed = new Date(text.replace(' ', 'T'));
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    const parsedDate = new Date(text);
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate;
+    }
+  }
+
+  return null;
+}
+
+function normalizeScheduleTimeToMinutes(value) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.getHours() * 60 + value.getMinutes();
+  }
+
+  if (typeof value === 'number') {
+    if (value > 100000000000) {
+      const date = new Date(value);
+      return date.getHours() * 60 + date.getMinutes();
+    }
+
+    if (value >= 0 && value <= 1) {
+      return Math.round(value * 24 * 60);
+    }
+
+    if (value > 1 && value < 24) {
+      return Math.round(value * 60);
+    }
+
+    return Math.round(value);
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const ampmMatch = text.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const minutes = parseInt(ampmMatch[2] || '0', 10);
+    const period = ampmMatch[4].toUpperCase();
+    if (period === 'PM' && hours < 12) {
+      hours += 12;
+    }
+    if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    return hours * 60 + minutes;
+  }
+
+  const isoMatch = text.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (isoMatch) {
+    const hours = parseInt(isoMatch[2], 10);
+    const minutes = parseInt(isoMatch[3], 10);
+    return hours * 60 + minutes;
+  }
+
+  const hhmmMatch = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (hhmmMatch) {
+    const hours = parseInt(hhmmMatch[1], 10);
+    const minutes = parseInt(hhmmMatch[2], 10);
+    return hours * 60 + minutes;
+  }
+
+  const numeric = parseFloat(text);
+  if (!isNaN(numeric)) {
+    return normalizeScheduleTimeToMinutes(numeric);
+  }
+
+  return null;
+}
+
+function normalizeSchedulePercentage(value, fallback = 0) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return fallback;
+  }
+
+  const numeric = Number(value);
+  if (!isFinite(numeric)) {
+    return fallback;
+  }
+
+  if (Math.abs(numeric) > 1) {
+    return numeric / 100;
+  }
+
+  return numeric;
+}
+
+function buildIntervalKeyFromDate(date, minutesFromMidnight, intervalMinutes = 30) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return null;
+  }
+
+  const normalized = new Date(date.getTime());
+  normalized.setHours(0, 0, 0, 0);
+
+  const roundedMinutes = Math.max(0, Math.round(minutesFromMidnight / intervalMinutes) * intervalMinutes);
+  const hours = Math.floor(roundedMinutes / 60);
+  const minutes = roundedMinutes % 60;
+
+  normalized.setHours(hours, minutes, 0, 0);
+
+  const year = normalized.getFullYear();
+  const month = String(normalized.getMonth() + 1).padStart(2, '0');
+  const day = String(normalized.getDate()).padStart(2, '0');
+  const hour = String(hours).padStart(2, '0');
+  const minute = String(minutes).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+function expandScheduleIntervals(scheduleRow, intervalMinutes = 30, options = {}) {
+  const dateValue = scheduleRow.Date || scheduleRow.ScheduleDate || scheduleRow.PeriodStart || scheduleRow.StartDate || scheduleRow.Day;
+  const date = normalizeScheduleDate(dateValue);
+  if (!date) {
+    return [];
+  }
+
+  const startMinutes = normalizeScheduleTimeToMinutes(scheduleRow.StartTime || scheduleRow.PeriodStart || scheduleRow.ScheduleStart || scheduleRow.ShiftStart);
+  const endMinutes = normalizeScheduleTimeToMinutes(scheduleRow.EndTime || scheduleRow.PeriodEnd || scheduleRow.ScheduleEnd || scheduleRow.ShiftEnd);
+
+  if (startMinutes === null || endMinutes === null) {
+    return [];
+  }
+
+  const breakRanges = [];
+
+  const addBreakRange = (startValue, endValue) => {
+    const breakStart = normalizeScheduleTimeToMinutes(startValue);
+    const breakEnd = normalizeScheduleTimeToMinutes(endValue);
+    if (breakStart === null || breakEnd === null) {
+      return;
+    }
+    const start = Math.min(breakStart, breakEnd);
+    const end = Math.max(breakStart, breakEnd);
+    if (end > start) {
+      breakRanges.push([start, end]);
+    }
+  };
+
+  addBreakRange(scheduleRow.BreakStart || scheduleRow.Break1Start, scheduleRow.BreakEnd || scheduleRow.Break1End);
+  addBreakRange(scheduleRow.Break2Start, scheduleRow.Break2End);
+  addBreakRange(scheduleRow.LunchStart, scheduleRow.LunchEnd);
+  addBreakRange(scheduleRow.MealStart, scheduleRow.MealEnd);
+
+  const coverage = [];
+  const bufferMinutes = Number(options.breakBufferMinutes || 0);
+
+  for (let minute = startMinutes; minute < endMinutes; minute += intervalMinutes) {
+    const intervalCenter = minute + intervalMinutes / 2;
+    const onBreak = breakRanges.some(range => intervalCenter >= range[0] - bufferMinutes && intervalCenter < range[1] + bufferMinutes);
+    if (!onBreak) {
+      const key = buildIntervalKeyFromDate(date, minute, intervalMinutes);
+      if (key) {
+        coverage.push(key);
+      }
+    }
+  }
+
+  return coverage;
+}
+
+function aggregateIntervalsFromDemandRow(demandRow, intervalMinutes = 30) {
+  const intervals = [];
+  const intervalStartValue = demandRow.IntervalStart || demandRow.intervalStart || demandRow.Interval || demandRow.Start;
+  const intervalEndValue = demandRow.IntervalEnd || demandRow.intervalEnd || demandRow.End;
+
+  const startDate = normalizeScheduleDate(intervalStartValue || demandRow.Date || demandRow.Day);
+  const endDate = normalizeScheduleDate(intervalEndValue);
+
+  if (!startDate) {
+    return intervals;
+  }
+
+  const startMinutes = normalizeScheduleTimeToMinutes(intervalStartValue);
+  const endMinutes = normalizeScheduleTimeToMinutes(intervalEndValue);
+
+  if (startMinutes === null) {
+    const derivedMinutes = normalizeScheduleTimeToMinutes(demandRow.StartTime || demandRow.IntervalTime || demandRow.Time);
+    if (derivedMinutes !== null) {
+      intervals.push(buildIntervalKeyFromDate(startDate, derivedMinutes, intervalMinutes));
+      return intervals;
+    }
+    intervals.push(buildIntervalKeyFromDate(startDate, 0, intervalMinutes));
+    return intervals;
+  }
+
+  const finalMinutes = endMinutes !== null ? endMinutes : startMinutes + intervalMinutes;
+  for (let minute = startMinutes; minute < finalMinutes; minute += intervalMinutes) {
+    const key = buildIntervalKeyFromDate(startDate, minute, intervalMinutes);
+    if (key) {
+      intervals.push(key);
+    }
+  }
+
+  return intervals;
+}
+
+function toNumeric(value, fallback = 0) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return fallback;
+  }
+
+  const numberValue = Number(value);
+  return isFinite(numberValue) ? numberValue : fallback;
+}
+
+function average(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return 0;
+  }
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return total / values.length;
+}
+
+function standardDeviation(values, meanValue) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return 0;
+  }
+  const mean = typeof meanValue === 'number' ? meanValue : average(values);
+  const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+function calculateCoverageMetrics(scheduleRows, demandRows, options = {}) {
+  const intervalMinutes = Number(options.intervalMinutes || 30);
+  const peakWeight = Number(options.peakWindowWeight || 1.25);
+  const openingHour = Number(options.openingHour || 8);
+  const closingHour = Number(options.closingHour || 21);
+  const baselineASA = Number(options.baselineASA || 45);
+  const targetServiceLevel = Number(options.targetServiceLevel || 0.8);
+
+  const demandByInterval = new Map();
+  const coverageByInterval = new Map();
+  const intervalDemandMetadata = new Map();
+
+  if (Array.isArray(demandRows)) {
+    demandRows.forEach(row => {
+      const intervals = aggregateIntervalsFromDemandRow(row, intervalMinutes);
+      const requiredFTE = toNumeric(row.RequiredFTE || row.requiredFTE, null);
+      const contacts = toNumeric(row.ForecastContacts || row.Contacts || row.Volume, 0);
+      const aht = toNumeric(row.ForecastAHT || row.AHT || row.HandleTime, 0);
+      const shrinkage = normalizeSchedulePercentage(row.Shrinkage, options.defaultShrinkage || 0.3);
+
+      const computedFTE = requiredFTE !== null && requiredFTE !== undefined && requiredFTE !== ''
+        ? Number(requiredFTE)
+        : ((contacts * aht) / (intervalMinutes * 60 || 1)) / Math.max(1 - shrinkage, 0.5);
+
+      intervals.forEach((key, index) => {
+        if (!key) {
+          return;
+        }
+
+        const existing = demandByInterval.get(key) || { requiredFTE: 0, contacts: 0 };
+        existing.requiredFTE += computedFTE || 0;
+        existing.contacts += contacts;
+        existing.weight = (existing.weight || 0) + (computedFTE || 1);
+        demandByInterval.set(key, existing);
+        intervalDemandMetadata.set(key, {
+          campaign: row.Campaign || row.campaign || row.CampaignID || row.CampaignId || '',
+          skill: row.Skill || row.skill || row.Queue || '',
+          targetSL: toNumeric(row.TargetSL || row.TargetServiceLevel, targetServiceLevel * 100),
+          targetASA: toNumeric(row.TargetASA || row.ASA || baselineASA),
+          shrinkage: shrinkage
+        });
+      });
+    });
+  }
+
+  const scheduleRowsArray = Array.isArray(scheduleRows) ? scheduleRows : [];
+  scheduleRowsArray.forEach(row => {
+    const intervals = expandScheduleIntervals(row, intervalMinutes, options);
+    if (!intervals.length) {
+      return;
+    }
+
+    const userId = normalizeScheduleUserId(row.UserID || row.UserId || row.AgentID || row.AgentId);
+    const fteWeight = toNumeric(row.FTE || row.Fte || row.FTEEquivalent || row.WorkdayTarget, 1);
+    const skill = row.Skill || row.Queue || row.Channel || '';
+    const campaign = row.Campaign || row.CampaignID || row.CampaignId || '';
+
+    intervals.forEach(intervalKey => {
+      if (!intervalKey) {
+        return;
+      }
+
+      if (!coverageByInterval.has(intervalKey)) {
+        coverageByInterval.set(intervalKey, {
+          staffedFTE: 0,
+          agentSet: new Set(),
+          skillSet: new Set(),
+          campaignSet: new Set()
+        });
+      }
+
+      const coverage = coverageByInterval.get(intervalKey);
+      coverage.staffedFTE += fteWeight || 1;
+      if (userId) {
+        coverage.agentSet.add(userId);
+      }
+      if (skill) {
+        coverage.skillSet.add(String(skill));
+      }
+      if (campaign) {
+        coverage.campaignSet.add(String(campaign));
+      }
+    });
+  });
+
+  const intervalSummaries = [];
+  let totalRequired = 0;
+  let totalStaffed = 0;
+  let weightedCoverage = 0;
+  let weightedRequirement = 0;
+  let peakCoverageWeighted = 0;
+  let peakWeightTotal = 0;
+  let underIntervals = 0;
+  let overIntervals = 0;
+
+  const backlogRiskIntervals = [];
+
+  demandByInterval.forEach((demand, key) => {
+    const required = Number(demand.requiredFTE || 0);
+    const coverage = coverageByInterval.get(key) || { staffedFTE: 0, agentSet: new Set(), skillSet: new Set(), campaignSet: new Set() };
+    const staffed = Number(coverage.staffedFTE || 0);
+
+    totalRequired += required;
+    totalStaffed += staffed;
+
+    const coverageRatio = required > 0 ? staffed / required : (staffed > 0 ? 1 : 1);
+    const normalizedCoverage = Math.min(Math.max(coverageRatio, 0), 2);
+
+    const intervalDate = normalizeScheduleDate(key);
+    const intervalHour = intervalDate instanceof Date ? intervalDate.getHours() : Number(String(key).substring(11, 13));
+    const isOpening = intervalHour <= openingHour;
+    const isClosing = intervalHour >= (closingHour - 1);
+
+    const weight = demand.weight || (required > 0 ? required : 1);
+    const adjustedWeight = weight * (isOpening || isClosing ? peakWeight : 1);
+
+    weightedCoverage += Math.min(normalizedCoverage, 1) * adjustedWeight;
+    weightedRequirement += adjustedWeight;
+
+    if (isOpening || isClosing) {
+      peakCoverageWeighted += Math.min(normalizedCoverage, 1) * adjustedWeight;
+      peakWeightTotal += adjustedWeight;
+    }
+
+    if (coverageRatio < 0.95) {
+      underIntervals += 1;
+      backlogRiskIntervals.push({
+        intervalKey: key,
+        requiredFTE: Number(required.toFixed(2)),
+        staffedFTE: Number(staffed.toFixed(2)),
+        coverageRatio: Number(coverageRatio.toFixed(3)),
+        deficit: Number((required - staffed).toFixed(2)),
+        skill: (intervalDemandMetadata.get(key) || {}).skill || ''
+      });
+    } else if (coverageRatio > 1.15) {
+      overIntervals += 1;
+    }
+
+    intervalSummaries.push({
+      intervalKey: key,
+      requiredFTE: Number(required.toFixed(2)),
+      staffedFTE: Number(staffed.toFixed(2)),
+      coverageRatio: Number(coverageRatio.toFixed(3)),
+      variance: Number((staffed - required).toFixed(2)),
+      agents: Array.from(coverage.agentSet || []),
+      skillsCovered: Array.from(coverage.skillSet || []),
+      campaigns: Array.from(coverage.campaignSet || []),
+      isOpeningWindow: isOpening,
+      isClosingWindow: isClosing,
+      metadata: intervalDemandMetadata.get(key) || {}
+    });
+  });
+
+  coverageByInterval.forEach((coverage, key) => {
+    if (demandByInterval.has(key)) {
+      return;
+    }
+    intervalSummaries.push({
+      intervalKey: key,
+      requiredFTE: 0,
+      staffedFTE: Number((coverage.staffedFTE || 0).toFixed(2)),
+      coverageRatio: coverage.staffedFTE > 0 ? 2 : 0,
+      variance: Number((coverage.staffedFTE || 0).toFixed(2)),
+      agents: Array.from(coverage.agentSet || []),
+      skillsCovered: Array.from(coverage.skillSet || []),
+      campaigns: Array.from(coverage.campaignSet || []),
+      metadata: intervalDemandMetadata.get(key) || {}
+    });
+  });
+
+  intervalSummaries.sort((a, b) => a.intervalKey.localeCompare(b.intervalKey));
+  backlogRiskIntervals.sort((a, b) => b.deficit - a.deficit);
+
+  const averageCoverageRatio = totalRequired > 0 ? totalStaffed / totalRequired : 1;
+  const serviceLevel = Math.round(Math.min(1, weightedRequirement ? weightedCoverage / weightedRequirement : 1) * 100);
+  const asa = Math.round(Math.max(5, baselineASA / Math.max(averageCoverageRatio, 0.4)));
+  const abandonRate = Number(Math.max(0, Math.min(40, (1 - Math.min(averageCoverageRatio, 1)) * 25)).toFixed(2));
+  const occupancy = Number(Math.max(50, Math.min(98, averageCoverageRatio * 90)).toFixed(2));
+  const peakCoverage = peakWeightTotal > 0 ? Number((peakCoverageWeighted / peakWeightTotal * 100).toFixed(2)) : serviceLevel;
+
+  return {
+    intervalMinutes,
+    intervalSummaries,
+    totalRequiredFTE: Number(totalRequired.toFixed(2)),
+    totalStaffedFTE: Number(totalStaffed.toFixed(2)),
+    coverageScore: Number(Math.min(100, Math.max(0, (weightedRequirement ? (weightedCoverage / weightedRequirement) : 1) * 100)).toFixed(2)),
+    averageCoverageRatio: Number(averageCoverageRatio.toFixed(3)),
+    serviceLevel,
+    asa,
+    abandonRate,
+    occupancy,
+    peakCoverage,
+    underStaffedIntervals: underIntervals,
+    overStaffedIntervals: overIntervals,
+    backlogRiskIntervals: backlogRiskIntervals.slice(0, 10)
+  };
+}
+
+function evaluatePreferenceAlignment(stats, profile, options = {}) {
+  if (!profile) {
+    return 100;
+  }
+
+  const preferenceText = String(profile.PreferenceNotes || profile.Preferences || profile.preferences || '').toLowerCase();
+  if (!preferenceText) {
+    return 100;
+  }
+
+  let score = 100;
+  const totalShifts = Math.max(stats.totalShifts || 0, 1);
+
+  if (/no weekend|avoid weekend|weekend off/.test(preferenceText)) {
+    score -= Math.min(40, (stats.weekendShifts / totalShifts) * 120);
+  }
+
+  if (/no night|avoid night|prefer day|day shift/.test(preferenceText)) {
+    score -= Math.min(35, (stats.nightShifts / totalShifts) * 120);
+  }
+
+  if (/prefer morning|prefer opening|early shift/.test(preferenceText)) {
+    const ratio = stats.openingShifts / totalShifts;
+    score -= Math.max(0, 30 - ratio * 100);
+  }
+
+  if (/prefer evening|prefer closing|late shift/.test(preferenceText)) {
+    const ratio = stats.closingShifts / totalShifts;
+    score -= Math.max(0, 30 - ratio * 100);
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function calculateFairnessMetrics(scheduleRows, agentProfiles = [], options = {}) {
+  const statsByUser = new Map();
+  const profileByUser = new Map();
+
+  (agentProfiles || []).forEach(profile => {
+    const userId = normalizeScheduleUserId(profile.ID || profile.UserID || profile.UserId || profile.Email || profile.Username);
+    if (userId) {
+      profileByUser.set(userId, profile);
+    }
+  });
+
+  const ensureStats = (userId) => {
+    if (!statsByUser.has(userId)) {
+      statsByUser.set(userId, {
+        userId,
+        userName: '',
+        totalShifts: 0,
+        totalMinutes: 0,
+        weekendShifts: 0,
+        nightShifts: 0,
+        openingShifts: 0,
+        closingShifts: 0,
+        consecutiveDayBlocks: 0,
+        skills: new Set(),
+        locations: new Set(),
+        preferenceScore: 100,
+        fairnessScore: 100
+      });
+    }
+    return statsByUser.get(userId);
+  };
+
+  const nightStart = Number(options.nightThresholdStart || 20 * 60);
+  const nightEnd = Number(options.nightThresholdEnd || 6 * 60);
+  const openingThreshold = Number(options.openingThreshold || 8 * 60);
+  const closingThreshold = Number(options.closingThreshold || 21 * 60);
+
+  const scheduleRowsArray = Array.isArray(scheduleRows) ? scheduleRows : [];
+  scheduleRowsArray.forEach(row => {
+    const userId = normalizeScheduleUserId(row.UserID || row.UserId || row.AgentID || row.AgentId);
+    if (!userId) {
+      return;
+    }
+
+    const stats = ensureStats(userId);
+    const date = normalizeScheduleDate(row.Date || row.ScheduleDate || row.PeriodStart || row.StartDate || row.Day);
+    if (!date) {
+      return;
+    }
+
+    const startMinutes = normalizeScheduleTimeToMinutes(row.StartTime || row.PeriodStart || row.ScheduleStart || row.ShiftStart);
+    const endMinutes = normalizeScheduleTimeToMinutes(row.EndTime || row.PeriodEnd || row.ScheduleEnd || row.ShiftEnd);
+
+    if (row.UserName || row.FullName || row.Name) {
+      stats.userName = stats.userName || row.UserName || row.FullName || row.Name;
+    }
+
+    stats.totalShifts += 1;
+    if (startMinutes !== null && endMinutes !== null) {
+      let duration = endMinutes - startMinutes;
+      if (duration < 0) {
+        duration += 24 * 60;
+      }
+      stats.totalMinutes += Math.max(0, duration);
+    }
+
+    const dayOfWeek = date.getDay();
+    if (WEEKEND.includes(dayOfWeek)) {
+      stats.weekendShifts += 1;
+    }
+
+    if ((startMinutes !== null && startMinutes >= nightStart) || (endMinutes !== null && endMinutes <= nightEnd)) {
+      stats.nightShifts += 1;
+    }
+
+    if (startMinutes !== null && startMinutes <= openingThreshold) {
+      stats.openingShifts += 1;
+    }
+
+    if (endMinutes !== null && endMinutes >= closingThreshold) {
+      stats.closingShifts += 1;
+    }
+
+    if (row.Skill) {
+      stats.skills.add(String(row.Skill));
+    }
+    if (row.Location) {
+      stats.locations.add(String(row.Location));
+    }
+  });
+
+  const userStats = Array.from(statsByUser.values());
+  const weekendCounts = userStats.map(stats => stats.weekendShifts);
+  const nightCounts = userStats.map(stats => stats.nightShifts);
+  const closingCounts = userStats.map(stats => stats.closingShifts);
+
+  const weekendMean = average(weekendCounts);
+  const nightMean = average(nightCounts);
+  const closingMean = average(closingCounts);
+
+  const weekendStd = standardDeviation(weekendCounts, weekendMean);
+  const nightStd = standardDeviation(nightCounts, nightMean);
+  const closingStd = standardDeviation(closingCounts, closingMean);
+
+  const normalizeVariance = (stdDev, mean) => {
+    if (!isFinite(stdDev) || mean <= 0) {
+      return 0;
+    }
+    return Math.min(1.5, stdDev / Math.max(mean, 0.5));
+  };
+
+  const fairnessVariance = (normalizeVariance(weekendStd, weekendMean) + normalizeVariance(nightStd, nightMean) + normalizeVariance(closingStd, closingMean)) / 3;
+  const fairnessIndex = Math.max(0, Math.min(100, Math.round(100 - fairnessVariance * 50)));
+
+  let preferenceTotal = 0;
+
+  userStats.forEach(stats => {
+    const profile = profileByUser.get(stats.userId);
+    stats.preferenceScore = evaluatePreferenceAlignment(stats, profile, options);
+    preferenceTotal += stats.preferenceScore;
+
+    const fairnessPenalty = (
+      Math.abs(stats.weekendShifts - weekendMean) / Math.max(weekendMean || 1, 1) +
+      Math.abs(stats.nightShifts - nightMean) / Math.max(nightMean || 1, 1) +
+      Math.abs(stats.closingShifts - closingMean) / Math.max(closingMean || 1, 1)
+    ) / 3;
+
+    stats.fairnessScore = Math.max(0, Math.min(100, Math.round(100 - fairnessPenalty * 40)));
+    stats.skills = Array.from(stats.skills);
+    stats.locations = Array.from(stats.locations);
+  });
+
+  const preferenceSatisfaction = userStats.length ? Math.round(preferenceTotal / userStats.length) : 100;
+  const rotationHealth = Math.max(0, Math.min(100, Math.round(100 - normalizeVariance(weekendStd, weekendMean) * 60)));
+
+  return {
+    fairnessIndex,
+    preferenceSatisfaction,
+    rotationHealth,
+    weekendBalance: {
+      average: Number(weekendMean.toFixed(2)),
+      stdDev: Number(weekendStd.toFixed(2)),
+      counts: weekendCounts
+    },
+    nightBalance: {
+      average: Number(nightMean.toFixed(2)),
+      stdDev: Number(nightStd.toFixed(2)),
+      counts: nightCounts
+    },
+    closingBalance: {
+      average: Number(closingMean.toFixed(2)),
+      stdDev: Number(closingStd.toFixed(2)),
+      counts: closingCounts
+    },
+    agentSummaries: userStats
+  };
+}
+
+function calculateComplianceMetrics(scheduleRows, agentProfiles = [], options = {}) {
+  const maxHoursPerDay = Number(options.maxHoursPerDay || 12);
+  const minRestHours = Number(options.minRestHours || 10);
+  const allowedBreakOverlap = Number(options.allowedBreakOverlap || 3);
+  const maxConsecutiveDays = Number(options.maxConsecutiveDays || 6);
+
+  const violationDetails = [];
+  const shiftsByUser = new Map();
+  const breakOverlapCounter = new Map();
+
+  const addViolation = (type, details) => {
+    violationDetails.push(Object.assign({ type, timestamp: new Date().toISOString() }, details || {}));
+  };
+
+  const scheduleRowsArray = Array.isArray(scheduleRows) ? scheduleRows : [];
+  scheduleRowsArray.forEach(row => {
+    const userId = normalizeScheduleUserId(row.UserID || row.UserId || row.AgentID || row.AgentId);
+    if (!userId) {
+      return;
+    }
+
+    const date = normalizeScheduleDate(row.Date || row.ScheduleDate || row.PeriodStart || row.StartDate || row.Day);
+    if (!date) {
+      return;
+    }
+
+    const startMinutes = normalizeScheduleTimeToMinutes(row.StartTime || row.PeriodStart || row.ScheduleStart || row.ShiftStart);
+    const endMinutes = normalizeScheduleTimeToMinutes(row.EndTime || row.PeriodEnd || row.ScheduleEnd || row.ShiftEnd);
+    if (startMinutes === null || endMinutes === null) {
+      return;
+    }
+
+    const shiftStart = new Date(date.getTime());
+    shiftStart.setHours(0, 0, 0, 0);
+    shiftStart.setMinutes(shiftStart.getMinutes() + startMinutes);
+
+    const shiftEnd = new Date(date.getTime());
+    shiftEnd.setHours(0, 0, 0, 0);
+    shiftEnd.setMinutes(shiftEnd.getMinutes() + endMinutes);
+    if (shiftEnd <= shiftStart) {
+      shiftEnd.setDate(shiftEnd.getDate() + 1);
+    }
+
+    const durationHours = (shiftEnd.getTime() - shiftStart.getTime()) / (1000 * 60 * 60);
+    if (durationHours > maxHoursPerDay) {
+      addViolation('SHIFT_DURATION', {
+        userId,
+        userName: row.UserName || row.FullName || row.Name,
+        scheduledHours: Number(durationHours.toFixed(2)),
+        maxHoursPerDay
+      });
+    }
+
+    const breaks = [];
+    const addBreak = (startValue, endValue, type) => {
+      const breakStartMinutes = normalizeScheduleTimeToMinutes(startValue);
+      const breakEndMinutes = normalizeScheduleTimeToMinutes(endValue);
+      if (breakStartMinutes === null || breakEndMinutes === null) {
+        return;
+      }
+      breaks.push({
+        startMinutes: breakStartMinutes,
+        endMinutes: breakEndMinutes,
+        type: type || 'BREAK'
+      });
+      const key = `${date.toISOString().slice(0, 10)}|${breakStartMinutes}`;
+      breakOverlapCounter.set(key, (breakOverlapCounter.get(key) || 0) + 1);
+    };
+
+    addBreak(row.BreakStart || row.Break1Start, row.BreakEnd || row.Break1End, 'BREAK');
+    addBreak(row.Break2Start, row.Break2End, 'BREAK');
+    addBreak(row.LunchStart, row.LunchEnd, 'LUNCH');
+
+    if (breaks.length === 0) {
+      addViolation('MISSING_BREAK', {
+        userId,
+        userName: row.UserName || row.FullName || row.Name,
+        date: date.toISOString().slice(0, 10)
+      });
+    }
+
+    if (!shiftsByUser.has(userId)) {
+      shiftsByUser.set(userId, []);
+    }
+
+    shiftsByUser.get(userId).push({
+      start: shiftStart,
+      end: shiftEnd,
+      date,
+      breaks,
+      userName: row.UserName || row.FullName || row.Name
+    });
+  });
+
+  let restViolations = 0;
+  let consecutiveViolations = 0;
+
+  shiftsByUser.forEach((shifts, userId) => {
+    shifts.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    for (let i = 1; i < shifts.length; i++) {
+      const restHours = (shifts[i].start.getTime() - shifts[i - 1].end.getTime()) / (1000 * 60 * 60);
+      if (restHours < minRestHours) {
+        restViolations += 1;
+        addViolation('REST_PERIOD', {
+          userId,
+          userName: shifts[i].userName,
+          restHours: Number(restHours.toFixed(2)),
+          requiredRestHours: minRestHours,
+          previousShiftEnd: shifts[i - 1].end.toISOString(),
+          nextShiftStart: shifts[i].start.toISOString()
+        });
+      }
+    }
+
+    let currentStreak = 1;
+    for (let i = 1; i < shifts.length; i++) {
+      const previousDay = shifts[i - 1].date;
+      const currentDay = shifts[i].date;
+      const dayDifference = Math.floor((currentDay - previousDay) / (24 * 60 * 60 * 1000));
+      if (dayDifference === 1) {
+        currentStreak += 1;
+      } else if (dayDifference > 1) {
+        currentStreak = 1;
+      }
+
+      if (currentStreak > maxConsecutiveDays) {
+        consecutiveViolations += 1;
+        addViolation('CONSECUTIVE_DAYS', {
+          userId,
+          userName: shifts[i].userName,
+          consecutiveDays: currentStreak,
+          maxConsecutiveDays
+        });
+        currentStreak = 1;
+      }
+    }
+  });
+
+  let maxBreakOverlap = 0;
+  breakOverlapCounter.forEach(count => {
+    if (count > maxBreakOverlap) {
+      maxBreakOverlap = count;
+    }
+  });
+
+  const breakOverlapViolations = Math.max(0, maxBreakOverlap - allowedBreakOverlap);
+
+  const totalViolations = violationDetails.length;
+  const penalty = totalViolations * 3 + restViolations * 2 + breakOverlapViolations * 5 + consecutiveViolations * 2;
+  const complianceScore = Math.max(0, Math.min(100, Math.round(100 - penalty)));
+
+  const recommendations = [];
+  if (restViolations > 0) {
+    recommendations.push(`Increase rest periods to at least ${minRestHours} hours between consecutive shifts.`);
+  }
+  if (breakOverlapViolations > 0) {
+    recommendations.push(`Stagger breaks to ensure no more than ${allowedBreakOverlap} agents are off simultaneously.`);
+  }
+  if (violationDetails.some(v => v.type === 'MISSING_BREAK')) {
+    recommendations.push('Insert the required paid breaks and unpaid lunch for every shift.');
+  }
+  if (violationDetails.some(v => v.type === 'SHIFT_DURATION')) {
+    recommendations.push(`Review long shifts exceeding ${maxHoursPerDay} hours and split or reassign as needed.`);
+  }
+
+  return {
+    complianceScore,
+    totalViolations,
+    restViolations,
+    consecutiveViolations,
+    breakOverlap: {
+      maxSimultaneous: maxBreakOverlap,
+      allowed: allowedBreakOverlap
+    },
+    violationDetails,
+    recommendations
+  };
+}
+
+function evaluateSchedulePerformance(scheduleRows, demandRows, agentProfiles = [], options = {}) {
+  const coverage = calculateCoverageMetrics(scheduleRows, demandRows, options);
+  const fairness = calculateFairnessMetrics(scheduleRows, agentProfiles, options);
+  const compliance = calculateComplianceMetrics(scheduleRows, agentProfiles, options);
+
+  const weights = Object.assign({ coverage: 0.45, fairness: 0.25, compliance: 0.2, preference: 0.1 }, options.healthWeights || {});
+
+  const coverageComponent = (coverage.coverageScore || 0) / 100;
+  const fairnessComponent = (fairness.fairnessIndex || 0) / 100;
+  const complianceComponent = (compliance.complianceScore || 0) / 100;
+  const preferenceComponent = (fairness.preferenceSatisfaction || 0) / 100;
+
+  const healthScore = Math.round(
+    (coverageComponent * weights.coverage) +
+    (fairnessComponent * weights.fairness) +
+    (complianceComponent * weights.compliance) +
+    (preferenceComponent * weights.preference)
+  * 100
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    healthScore,
+    coverage,
+    fairness,
+    compliance,
+    summary: {
+      serviceLevel: coverage.serviceLevel,
+      asa: coverage.asa,
+      abandonRate: coverage.abandonRate,
+      occupancy: coverage.occupancy,
+      fairnessIndex: fairness.fairnessIndex,
+      preferenceSatisfaction: fairness.preferenceSatisfaction,
+      complianceScore: compliance.complianceScore,
+      scheduleEfficiency: coverage.coverageScore
+    }
   };
 }
 
