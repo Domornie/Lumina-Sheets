@@ -1559,6 +1559,9 @@
     const aiAnalyzerModalEl = document.getElementById("aiAnalyzerModal");
     const aiInsightPanel = document.getElementById("aiInsightPanel");
     if (aiAnalyzerBtn && aiAnalyzerModalEl) {
+      if (aiAnalyzerModalEl.parentNode !== document.body) {
+        document.body.appendChild(aiAnalyzerModalEl);
+      }
       const bootstrapModal = window.bootstrap?.Modal;
       if (bootstrapModal) {
         const aiAnalyzerModal = new bootstrapModal(aiAnalyzerModalEl);
