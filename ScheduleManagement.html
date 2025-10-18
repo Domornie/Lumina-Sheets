@@ -127,6 +127,247 @@
         padding: var(--spacing-md);
     }
 
+    /* Attendance Calendar */
+    .attendance-calendar {
+        background: linear-gradient(135deg, #ffffff 0%, #f3f7ff 100%);
+        border-radius: var(--border-radius);
+        border: 1px solid #dbe3f4;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .attendance-calendar__header {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md);
+        background: linear-gradient(135deg, rgba(0, 82, 204, 0.08) 0%, rgba(0, 150, 57, 0.08) 100%);
+        border-bottom: 1px solid rgba(13, 86, 176, 0.15);
+    }
+
+    .attendance-calendar__header-top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .attendance-calendar__period {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .attendance-calendar__period-label {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--primary-dark);
+    }
+
+    .attendance-calendar__period-subtitle {
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        color: rgba(14, 53, 102, 0.75);
+        letter-spacing: 0.12em;
+    }
+
+    .attendance-calendar__legend {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .attendance-calendar__legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(13, 86, 176, 0.1);
+        border-radius: var(--border-radius-sm);
+        font-size: 0.85rem;
+        color: #0f2a56;
+        box-shadow: 0 2px 4px rgba(15, 42, 86, 0.05);
+    }
+
+    .attendance-calendar__status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.25rem;
+        height: 2rem;
+        border-radius: 0.5rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+        letter-spacing: 0.05em;
+        box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+        color: #fff;
+        text-transform: uppercase;
+    }
+
+    .attendance-calendar__status--present { background: #2f9d63; }
+    .attendance-calendar__status--absent { background: #d64545; }
+    .attendance-calendar__status--late { background: #f29f3f; color: #3f2a00; }
+    .attendance-calendar__status--sick { background: #2a8bdc; }
+    .attendance-calendar__status--vacation { background: #4b6cb7; }
+    .attendance-calendar__status--bereavement { background: #4a5568; }
+    .attendance-calendar__status--loa { background: #6b46c1; }
+    .attendance-calendar__status--personal { background: #0f172a; }
+    .attendance-calendar__status--training { background: #1f9d8f; }
+    .attendance-calendar__status--ncns { background: #8b1a1a; }
+    .attendance-calendar__status--other {
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    }
+
+    .attendance-calendar__status--empty {
+        background: #e2e8f0;
+        color: #475569;
+        box-shadow: none;
+    }
+
+    .attendance-calendar__table-wrapper {
+        overflow-x: auto;
+        padding: var(--spacing-md);
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    .attendance-calendar__table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 960px;
+        font-size: 0.875rem;
+        box-shadow: 0 1px 3px rgba(15, 42, 86, 0.1);
+    }
+
+    .attendance-calendar__table thead th {
+        background: linear-gradient(135deg, rgba(0, 82, 204, 0.12) 0%, rgba(0, 150, 57, 0.12) 100%);
+        color: #0f2a56;
+        text-align: center;
+        padding: 0.75rem 0.5rem;
+        font-weight: 600;
+        border-bottom: 2px solid rgba(13, 86, 176, 0.35);
+        border-right: 1px solid rgba(13, 86, 176, 0.1);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    .attendance-calendar__table thead th:first-child {
+        text-align: left;
+        padding-left: 1rem;
+        border-right: 2px solid rgba(13, 86, 176, 0.25);
+    }
+
+    .attendance-calendar__participant-header {
+        width: 220px;
+        min-width: 200px;
+    }
+
+    .attendance-calendar__day {
+        min-width: 48px;
+    }
+
+    .attendance-calendar__day-number {
+        display: block;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .attendance-calendar__day-name {
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(15, 42, 86, 0.7);
+    }
+
+    .attendance-calendar__table tbody th {
+        position: sticky;
+        left: 0;
+        background: #f8fafc;
+        border-right: 2px solid rgba(13, 86, 176, 0.1);
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        color: #0f2a56;
+        vertical-align: middle;
+        z-index: 1;
+    }
+
+    .attendance-calendar__participant-name {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+        white-space: nowrap;
+    }
+
+    .attendance-calendar__table td {
+        text-align: center;
+        padding: 0.4rem 0.35rem;
+        border-right: 1px solid rgba(13, 86, 176, 0.08);
+        border-bottom: 1px solid rgba(13, 86, 176, 0.08);
+        background: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .attendance-calendar__cell {
+        position: relative;
+    }
+
+    .attendance-calendar__table td:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(15, 42, 86, 0.15);
+    }
+
+    .attendance-calendar__cell--weekend {
+        background: rgba(229, 231, 235, 0.6);
+    }
+
+    .attendance-calendar__table tbody tr:nth-child(odd) td {
+        background: rgba(248, 250, 252, 0.85);
+    }
+
+    .attendance-calendar__table tbody tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .attendance-calendar__table tbody tr:nth-child(odd) td.attendance-calendar__cell--weekend,
+    .attendance-calendar__table tbody tr:nth-child(even) td.attendance-calendar__cell--weekend {
+        background: rgba(229, 231, 235, 0.6);
+    }
+
+    .attendance-calendar__table tbody tr:hover td {
+        background: rgba(214, 230, 255, 0.4);
+    }
+
+    @media (max-width: 992px) {
+        .attendance-calendar__legend {
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        }
+
+        .attendance-calendar__table {
+            min-width: 720px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .attendance-calendar__header {
+            padding: var(--spacing-sm);
+        }
+
+        .attendance-calendar__period-label {
+            font-size: 1.25rem;
+        }
+
+        .attendance-calendar__table-wrapper {
+            padding: var(--spacing-sm);
+        }
+    }
+
     /* Navigation Tabs */
     .modern-nav {
         background: white;
@@ -608,6 +849,18 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button" role="tab">
+                    <i class="fas fa-calendar-check"></i>
+                    <span class="d-none d-sm-inline ms-2">Attendance Calendar</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="attendance-dashboard-tab" data-bs-toggle="pill" data-bs-target="#attendance-dashboard" type="button" role="tab">
+                    <i class="fas fa-chart-pie"></i>
+                    <span class="d-none d-sm-inline ms-2">Attendance Dashboard</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="generation-tab" data-bs-toggle="pill" data-bs-target="#generation" type="button" role="tab">
                     <i class="fas fa-calendar-plus"></i>
                     <span class="d-none d-sm-inline ms-2">Generate</span>
@@ -626,18 +879,6 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="attendance-tab" data-bs-toggle="pill" data-bs-target="#attendance" type="button" role="tab">
-                    <i class="fas fa-calendar-check"></i>
-                    <span class="d-none d-sm-inline ms-2">Attendance Calendar</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="attendance-dashboard-tab" data-bs-toggle="pill" data-bs-target="#attendance-dashboard" type="button" role="tab">
-                    <i class="fas fa-chart-pie"></i>
-                    <span class="d-none d-sm-inline ms-2">Attendance Dashboard</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="shifts-tab" data-bs-toggle="pill" data-bs-target="#shifts" type="button" role="tab">
                     <i class="fas fa-clock"></i>
                     <span class="d-none d-sm-inline ms-2">Shifts</span>
@@ -647,12 +888,6 @@
                 <button class="nav-link" id="holidays-tab" data-bs-toggle="pill" data-bs-target="#holidays" type="button" role="tab">
                     <i class="fas fa-globe"></i>
                     <span class="d-none d-sm-inline ms-2">Holidays</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="users-tab" data-bs-toggle="pill" data-bs-target="#users" type="button" role="tab">
-                    <i class="fas fa-users"></i>
-                    <span class="d-none d-sm-inline ms-2">Users</span>
                 </button>
             </li>
         </ul>
@@ -791,6 +1026,109 @@
                                 <div class="text-center text-success">
                                     <i class="fas fa-check-circle fa-2x mb-2"></i>
                                     <p>No compliance issues detected</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Dashboard Tab -->
+        <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
+            <div class="modern-card mb-4">
+                <div class="modern-card-header">
+                    <h5 class="modern-card-title">
+                        <i class="fas fa-chart-pie text-primary"></i>
+                        Attendance Dashboard
+                    </h5>
+                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                </div>
+                <div class="modern-card-body">
+                    <div class="attendance-dashboard">
+                        <div class="row g-4">
+                            <div class="col-lg-8">
+                                <div class="attendance-panel attendance-panel-dark h-100">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <div class="attendance-panel-title">Yearly Trends</div>
+                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
+                                        </div>
+                                    </div>
+                                    <div class="attendance-chart tall">
+                                        <canvas id="attendanceYearlyTrendChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="attendance-panel attendance-panel-dark h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 attendance-panel-actions">
+                                        <div class="attendance-panel-title mb-0">Monthly (%)</div>
+                                        <select id="attendanceDashboardMonth" class="form-select form-select-sm">
+                                            <option value="0">January</option>
+                                            <option value="1">February</option>
+                                            <option value="2">March</option>
+                                            <option value="3">April</option>
+                                            <option value="4">May</option>
+                                            <option value="5">June</option>
+                                            <option value="6">July</option>
+                                            <option value="7">August</option>
+                                            <option value="8">September</option>
+                                            <option value="9">October</option>
+                                            <option value="10">November</option>
+                                            <option value="11">December</option>
+                                        </select>
+                                    </div>
+                                    <div class="attendance-chart">
+                                        <canvas id="attendanceMonthlyPercentChart"></canvas>
+                                    </div>
+                                    <div class="attendance-percentage-value" id="attendanceMonthlyPercentValue">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-4">
+                            <div class="col-lg-8">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Monthly Attendance Breakdown</div>
+                                    <div class="attendance-panel-subtitle mb-3">Understand presence, absences and leave trends month-by-month.</div>
+                                    <div class="attendance-chart small">
+                                        <canvas id="attendanceMonthlyPresentChart"></canvas>
+                                    </div>
+                                    <div class="attendance-chart small">
+                                        <canvas id="attendanceMonthlyAbsentChart"></canvas>
+                                    </div>
+                                    <div class="attendance-chart small">
+                                        <canvas id="attendanceMonthlyLeavesChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
+                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
+                                    <div class="attendance-chart">
+                                        <canvas id="attendanceBiWeeklyChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-4">
+                            <div class="col-xl-8">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Monthly Analysis</div>
+                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
+                                    <div class="attendance-chart tall">
+                                        <canvas id="attendanceMonthlyAnalysisChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-4">
+                                <div class="attendance-panel h-100">
+                                    <div class="attendance-panel-title">Yearly Analysis</div>
+                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
+                                    <div class="attendance-chart">
+                                        <canvas id="attendanceYearlyAnalysisChart"></canvas>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1118,210 +1456,8 @@
             </div>
         </div>
 
-        <!-- Attendance Dashboard Tab -->
-        <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
-            <div class="modern-card mb-4">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
-                </div>
-                <div class="modern-card-body">
-                    <div class="attendance-dashboard">
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                            <div class="attendance-panel-title">Yearly Trends</div>
-                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
-                                        </div>
-                                    </div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceYearlyTrendChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-center mb-2 attendance-panel-actions">
-                                        <div class="attendance-panel-title mb-0">Monthly (%)</div>
-                                        <select id="attendanceDashboardMonth" class="form-select form-select-sm">
-                                            <option value="0">January</option>
-                                            <option value="1">February</option>
-                                            <option value="2">March</option>
-                                            <option value="3">April</option>
-                                            <option value="4">May</option>
-                                            <option value="5">June</option>
-                                            <option value="6">July</option>
-                                            <option value="7">August</option>
-                                            <option value="8">September</option>
-                                            <option value="9">October</option>
-                                            <option value="10">November</option>
-                                            <option value="11">December</option>
-                                        </select>
-                                    </div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceMonthlyPercentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-percentage-value" id="attendanceMonthlyPercentValue">0%</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Attendance Breakdown</div>
-                                    <div class="attendance-panel-subtitle mb-3">Understand presence, absences and leave trends month-by-month.</div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyPresentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyAbsentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyLeavesChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
-                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceBiWeeklyChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-xl-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceMonthlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Yearly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceYearlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Attendance Calendar Tab -->
         <div class="tab-pane fade" id="attendance" role="tabpanel">
-            <div class="modern-card mb-4">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
-                </div>
-                <div class="modern-card-body">
-                    <div class="attendance-dashboard">
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                            <div class="attendance-panel-title">Yearly Trends</div>
-                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
-                                        </div>
-                                    </div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceYearlyTrendChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel attendance-panel-dark h-100">
-                                    <div class="d-flex justify-content-between align-items-center mb-2 attendance-panel-actions">
-                                        <div class="attendance-panel-title mb-0">Monthly (%)</div>
-                                        <select id="attendanceDashboardMonth" class="form-select form-select-sm">
-                                            <option value="0">January</option>
-                                            <option value="1">February</option>
-                                            <option value="2">March</option>
-                                            <option value="3">April</option>
-                                            <option value="4">May</option>
-                                            <option value="5">June</option>
-                                            <option value="6">July</option>
-                                            <option value="7">August</option>
-                                            <option value="8">September</option>
-                                            <option value="9">October</option>
-                                            <option value="10">November</option>
-                                            <option value="11">December</option>
-                                        </select>
-                                    </div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceMonthlyPercentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-percentage-value" id="attendanceMonthlyPercentValue">0%</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-lg-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Attendance Breakdown</div>
-                                    <div class="attendance-panel-subtitle mb-3">Understand presence, absences and leave trends month-by-month.</div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyPresentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyAbsentChart"></canvas>
-                                    </div>
-                                    <div class="attendance-chart small">
-                                        <canvas id="attendanceMonthlyLeavesChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
-                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceBiWeeklyChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-xl-8">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Monthly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
-                                    <div class="attendance-chart tall">
-                                        <canvas id="attendanceMonthlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-4">
-                                <div class="attendance-panel h-100">
-                                    <div class="attendance-panel-title">Yearly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
-                                    <div class="attendance-chart">
-                                        <canvas id="attendanceYearlyAnalysisChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="modern-card mb-4">
                 <div class="modern-card-header">
                     <h5 class="modern-card-title">
@@ -1892,51 +2028,6 @@
             </div>
         </div>
 
-        <!-- User Management Tab -->
-        <div class="tab-pane fade" id="users" role="tabpanel">
-            <div class="modern-card">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-users text-primary"></i>
-                        User Management & Assignments
-                    </h5>
-                </div>
-                <div class="modern-card-body">
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-semibold mb-3">Current Users</h6>
-                            <div id="usersList" class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
-                                <div class="text-center py-4">
-                                    <div class="loading-spinner mx-auto mb-3"></div>
-                                    <p class="text-muted">Loading users...</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-semibold mb-3">Statistics</h6>
-                            <div id="managerStats" class="border rounded p-3">
-                                <div class="text-center py-4">
-                                    <div class="loading-spinner mx-auto mb-3"></div>
-                                    <p class="text-muted">Loading statistics...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 d-flex gap-3">
-                        <button class="btn btn-outline-modern btn-modern" onclick="refreshUsers()">
-                            <i class="fas fa-sync"></i>
-                            Refresh Users
-                        </button>
-                        <button class="btn btn-success-modern btn-modern" onclick="assignManagerUsers()">
-                            <i class="fas fa-user-plus"></i>
-                            Assign Manager
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 
@@ -1997,6 +2088,18 @@
                 this.attendanceDashboardYear = null;
                 this.attendanceDashboardRecords = [];
                 this.attendanceCalendarRecords = [];
+                this.attendanceStatusLegend = [
+                    { code: 'P', label: 'Punctual', className: 'attendance-calendar__status--present' },
+                    { code: 'B', label: 'Bereavement', className: 'attendance-calendar__status--bereavement' },
+                    { code: 'A', label: 'Absent', className: 'attendance-calendar__status--absent' },
+                    { code: 'L', label: 'Late', className: 'attendance-calendar__status--late' },
+                    { code: 'NCNS', label: 'No Call No Show', className: 'attendance-calendar__status--ncns' },
+                    { code: 'V', label: 'Vacation', className: 'attendance-calendar__status--vacation' },
+                    { code: 'S', label: 'Sick Leave', className: 'attendance-calendar__status--sick' },
+                    { code: 'LOA', label: 'Leave of Absence', className: 'attendance-calendar__status--loa' },
+                    { code: 'PL', label: 'Personal Leave', className: 'attendance-calendar__status--personal' },
+                    { code: 'T', label: 'Training', className: 'attendance-calendar__status--training' }
+                ];
                 this.init();
             }
 
@@ -2176,7 +2279,6 @@
                 document.getElementById('attendanceMonth')?.addEventListener('change', async () => {
                     try {
                         await this.loadAttendanceCalendar();
-                        await this.loadAttendanceDashboard(true);
                     } catch (error) {
                         console.error('Failed to refresh attendance data after month change:', error);
                     }
@@ -2185,7 +2287,6 @@
                 document.getElementById('attendanceYear')?.addEventListener('change', async () => {
                     try {
                         await this.loadAttendanceCalendar();
-                        await this.loadAttendanceDashboard(true);
                     } catch (error) {
                         console.error('Failed to refresh attendance data after year change:', error);
                     }
@@ -2256,6 +2357,14 @@
                         this.loadSchedules(),
                         this.refreshDashboard()
                     ]);
+
+                    const activePane = document.querySelector('#mainTabContent .tab-pane.show.active');
+                    if (activePane?.id === 'attendance') {
+                        await this.loadAttendanceCalendar();
+                    }
+                    if (activePane?.id === 'attendance-dashboard') {
+                        await this.loadAttendanceDashboard(true);
+                    }
 
                     this.showToast('System ready! All data loaded successfully.', 'success');
                     console.log('✅ Initial data loaded successfully');
@@ -4691,11 +4800,20 @@
                                     <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
                                     <h5>No Users Found</h5>
                                     <p>No users are available for attendance tracking.</p>
-                                    <p>Please check user assignments and permissions in the User Management tab.</p>
+                                    <p>Please review user assignments and permissions in your management tools.</p>
                                 </div>
                             `;
                         return;
                     }
+
+                    let scheduleUsers = [];
+                    try {
+                        scheduleUsers = await this.callServerFunction('clientGetScheduleUsers', this.getCurrentUserId(), this.getCurrentCampaignId() || null);
+                    } catch (metadataError) {
+                        console.warn('Unable to load schedule user metadata for attendance calendar:', metadataError);
+                    }
+
+                    const userEntries = this.buildAttendanceUserEntries(users, Array.isArray(scheduleUsers) ? scheduleUsers : []);
 
                     const resolvedMonth = parseInt(month, 10);
                     const resolvedYear = parseInt(year, 10);
@@ -4721,10 +4839,10 @@
                     this.mergeAttendanceDashboardRecords(attendanceRecords, safeYear);
                     const attendanceMap = this.buildAttendanceRecordMap(attendanceRecords);
 
-                    const calendar = this.generateAttendanceCalendarGrid(users, safeYear, safeMonth, daysInMonth, attendanceMap);
+                    const calendar = this.generateAttendanceCalendarGrid(userEntries, safeYear, safeMonth, daysInMonth, attendanceMap);
 
                     container.innerHTML = calendar;
-                    console.log(`✅ Loaded attendance calendar with ${users.length} users`);
+                    console.log(`✅ Loaded attendance calendar with ${userEntries.length} users`);
 
                 } catch (error) {
                     console.error('❌ Error loading attendance calendar:', error);
@@ -4741,63 +4859,184 @@
                 }
             }
 
-            generateAttendanceCalendarGrid(users, year, month, daysInMonth, attendanceMap = new Map()) {
+            buildAttendanceUserEntries(userNames = [], scheduleUsers = []) {
+                const metadataIndex = new Map();
+
+                scheduleUsers.forEach(user => {
+                    if (!user) {
+                        return;
+                    }
+
+                    const userName = (user.UserName || '').toString().trim();
+                    const fullName = (user.FullName || '').toString().trim();
+                    const email = (user.Email || '').toString().trim();
+
+                    const metadata = {
+                        userName,
+                        fullName,
+                        email
+                    };
+
+                    [userName, fullName, email].forEach(value => {
+                        const key = this.normalizePersonKey(value);
+                        if (key && !metadataIndex.has(key)) {
+                            metadataIndex.set(key, metadata);
+                        }
+                    });
+                });
+
+                return userNames.map(name => {
+                    const normalizedName = this.normalizePersonKey(name);
+                    const metadata = normalizedName ? metadataIndex.get(normalizedName) : null;
+
+                    const recordKeySet = new Set();
+                    if (metadata) {
+                        [metadata.userName, metadata.fullName, metadata.email].forEach(value => {
+                            const key = this.normalizePersonKey(value);
+                            if (key) {
+                                recordKeySet.add(key);
+                            }
+                        });
+                    }
+                    if (normalizedName) {
+                        recordKeySet.add(normalizedName);
+                    }
+
+                    const identifier = metadata && metadata.userName ? metadata.userName : name;
+                    const displayName = metadata && metadata.fullName
+                        ? metadata.fullName
+                        : (metadata && metadata.userName ? metadata.userName : name);
+
+                    return {
+                        identifier,
+                        displayName,
+                        original: name,
+                        recordKeys: Array.from(recordKeySet)
+                    };
+                });
+            }
+
+            renderAttendanceLegend() {
+                if (!Array.isArray(this.attendanceStatusLegend) || this.attendanceStatusLegend.length === 0) {
+                    return '';
+                }
+
+                return this.attendanceStatusLegend.map(item => {
+                    const code = this.escapeHtml(item.code || '-');
+                    const label = this.escapeHtml(item.label || '');
+                    const className = item.className || 'attendance-calendar__status--other';
+                    return `
+                        <div class="attendance-calendar__legend-item">
+                            <span class="attendance-calendar__status ${className}">${code}</span>
+                            <span>${label}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            resolveAttendanceRecord(recordKeys, dateStr, attendanceMap) {
+                if (!Array.isArray(recordKeys) || !dateStr || !attendanceMap) {
+                    return null;
+                }
+
+                for (let i = 0; i < recordKeys.length; i++) {
+                    const key = `${recordKeys[i]}::${dateStr}`;
+                    if (attendanceMap.has(key)) {
+                        return attendanceMap.get(key);
+                    }
+                }
+
+                return null;
+            }
+
+            generateAttendanceCalendarGrid(userEntries, year, month, daysInMonth, attendanceMap = new Map()) {
+                const monthDate = new Date(year, month - 1, 1);
+                const monthName = monthDate.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+                const monthLabel = `${monthName} - ${year}`;
+                const safeMonthLabel = this.escapeHtml(monthLabel);
+                const participantLabel = `${userEntries.length} Participant${userEntries.length === 1 ? '' : 's'}`;
+
                 let html = `
-                        <div class="table-responsive">
-                            <table class="table table-modern table-bordered table-sm">
-                                <thead class="table-primary">
-                                    <tr>
-                                        <th style="min-width: 150px;">User</th>
+                        <div class="attendance-calendar">
+                            <div class="attendance-calendar__header">
+                                <div class="attendance-calendar__header-top">
+                                    <div class="attendance-calendar__period">
+                                        <span class="attendance-calendar__period-label">${safeMonthLabel}</span>
+                                        <span class="attendance-calendar__period-subtitle">${this.escapeHtml(participantLabel)}</span>
+                                    </div>
+                                </div>
+                                <div class="attendance-calendar__legend">
+                                    ${this.renderAttendanceLegend()}
+                                </div>
+                            </div>
+                            <div class="attendance-calendar__table-wrapper">
+                                <table class="attendance-calendar__table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" class="attendance-calendar__participant-header">Participants</th>
                     `;
 
                 for (let day = 1; day <= daysInMonth; day++) {
                     const date = new Date(year, month - 1, day);
                     const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                    html += `<th class="text-center ${isWeekend ? 'table-warning' : ''}" style="min-width: 40px;">
-                            <div>${day}</div>
-                            <small>${dayName}</small>
-                        </th>`;
+                    html += `
+                                            <th scope="col" class="${isWeekend ? 'attendance-calendar__day attendance-calendar__cell--weekend' : 'attendance-calendar__day'}">
+                                                <span class="attendance-calendar__day-number">${day}</span>
+                                                <span class="attendance-calendar__day-name">${this.escapeHtml(dayName)}</span>
+                                            </th>
+                    `;
                 }
 
-                html += '</tr></thead><tbody>';
+                html += `
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
 
-                users.forEach(userName => {
-                    const safeUserName = this.escapeHtml(userName);
-                    const clickUserName = String(userName || '')
-                        .replace(/\\/g, '\\\\')
-                        .replace(/'/g, "\\'")
-                        .replace(/\r/g, '\\r')
-                        .replace(/\n/g, '\\n');
-                    html += `<tr><td class="fw-bold">${safeUserName}</td>`;
+                userEntries.forEach(entry => {
+                    const safeDisplay = this.escapeHtml(entry.displayName || entry.identifier || '');
+                    const clickIdentifier = this.escapeForInlineEvent(entry.identifier || entry.original || '');
+                    const clickDisplay = this.escapeForInlineEvent(entry.displayName || entry.identifier || '');
+
+                    html += `
+                                        <tr>
+                                            <th scope="row" class="attendance-calendar__participant-cell">
+                                                <span class="attendance-calendar__participant-name" title="${safeDisplay}">${safeDisplay}</span>
+                                            </th>
+                    `;
 
                     for (let day = 1; day <= daysInMonth; day++) {
                         const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                         const date = new Date(year, month - 1, day);
                         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                        const recordKey = `${this.normalizePersonKey(userName)}::${dateStr}`;
-                        const record = attendanceMap.get(recordKey);
+                        const record = this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap);
                         const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
-                        const badgeLabel = badge ? this.escapeHtml(badge.label) : '';
-
-                        const badgeHtml = badge
-                            ? `<span class="badge ${badge.className}" title="${badgeLabel}">${badge.code}</span>`
-                            : '<span class="badge bg-light text-muted">-</span>';
+                        const badgeLabel = badge ? this.escapeHtml(badge.label) : 'Unmarked';
+                        const statusClass = badge ? `attendance-calendar__status ${badge.className}` : 'attendance-calendar__status attendance-calendar__status--empty';
+                        const statusContent = badge ? this.escapeHtml(badge.code) : '&#8211;';
 
                         html += `
-                                <td class="text-center p-1 ${isWeekend ? 'table-light' : ''}"
-                                    style="cursor: pointer;"
-                                    onclick="scheduleManager.markAttendance('${clickUserName}', '${dateStr}')"
-                                    title="Click to mark attendance for ${safeUserName} on ${dateStr}">
-                                    ${badgeHtml}
-                                </td>
-                            `;
+                                            <td class="${isWeekend ? 'attendance-calendar__cell attendance-calendar__cell--weekend' : 'attendance-calendar__cell'}"
+                                                onclick="scheduleManager.markAttendance('${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
+                                                title="Click to mark attendance for ${safeDisplay} on ${dateStr}">
+                                                <span class="${statusClass}" title="${badgeLabel}">${statusContent}</span>
+                                            </td>
+                        `;
                     }
 
-                    html += '</tr>';
+                    html += `
+                                        </tr>
+                    `;
                 });
 
-                html += '</tbody></table></div>';
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+
                 return html;
             }
 
@@ -4839,58 +5078,58 @@
                 const value = normalized.toLowerCase();
 
                 if (!value) {
-                    return { code: '-', className: 'bg-light text-muted', label: 'Unmarked' };
+                    return { code: '-', className: 'attendance-calendar__status--empty', label: 'Unmarked' };
                 }
 
                 if (value === 'present' || value === 'on time') {
-                    return { code: 'P', className: 'bg-success text-white', label: 'Present' };
+                    return { code: 'P', className: 'attendance-calendar__status--present', label: 'Present' };
                 }
                 if (value === 'absent' || value === 'no show') {
-                    return { code: 'A', className: 'bg-danger text-white', label: 'Absent' };
+                    return { code: 'A', className: 'attendance-calendar__status--absent', label: 'Absent' };
                 }
                 if (value === 'late' || value.includes('tardy')) {
-                    return { code: 'L', className: 'bg-warning text-dark', label: 'Late' };
+                    return { code: 'L', className: 'attendance-calendar__status--late', label: 'Late' };
                 }
                 if (value.includes('no call no show')) {
-                    return { code: 'NCNS', className: 'bg-danger text-white', label: 'No Call No Show' };
+                    return { code: 'NCNS', className: 'attendance-calendar__status--ncns', label: 'No Call No Show' };
                 }
                 if (value.includes('sick')) {
-                    return { code: 'S', className: 'bg-info text-white', label: 'Sick Leave' };
+                    return { code: 'S', className: 'attendance-calendar__status--sick', label: 'Sick Leave' };
                 }
                 if (value.includes('bereavement')) {
-                    return { code: 'B', className: 'bg-dark text-white', label: 'Bereavement' };
+                    return { code: 'B', className: 'attendance-calendar__status--bereavement', label: 'Bereavement' };
                 }
                 if (value.includes('vacation') || value.includes('pto')) {
-                    return { code: 'V', className: 'bg-primary text-white', label: 'Vacation' };
+                    return { code: 'V', className: 'attendance-calendar__status--vacation', label: 'Vacation' };
                 }
                 if (value.includes('leave of absence') || value.includes('loa')) {
-                    return { code: 'LOA', className: 'bg-secondary text-white', label: 'Leave of Absence' };
+                    return { code: 'LOA', className: 'attendance-calendar__status--loa', label: 'Leave of Absence' };
                 }
                 if (value.includes('personal')) {
-                    return { code: 'PL', className: 'bg-secondary text-white', label: 'Personal Leave' };
+                    return { code: 'PL', className: 'attendance-calendar__status--personal', label: 'Personal Leave' };
                 }
                 if (value.includes('training')) {
-                    return { code: 'T', className: 'bg-success text-white', label: 'Training' };
+                    return { code: 'T', className: 'attendance-calendar__status--training', label: 'Training' };
                 }
 
                 const fallbackCode = normalized ? normalized.substring(0, 3).toUpperCase() : '?';
                 return {
                     code: fallbackCode,
-                    className: 'bg-light text-dark',
+                    className: 'attendance-calendar__status--other',
                     label: normalized || 'Other'
                 };
             }
 
-            async markAttendance(userName, date) {
-                const status = prompt(`Mark attendance for ${userName} on ${date}:\n\nOptions:\n- Present\n- Absent\n- Late\n- Sick Leave\n- Bereavement\n- Vacation\n- Leave Of Absence\n- No Call No Show\n\nEnter status:`);
+            async markAttendance(userName, date, displayName = null) {
+                const displayValue = displayName || userName;
+                const status = prompt(`Mark attendance for ${displayValue} on ${date}:\n\nOptions:\n- Present\n- Absent\n- Late\n- Sick Leave\n- Bereavement\n- Vacation\n- Leave Of Absence\n- No Call No Show\n\nEnter status:`);
 
                 if (status && status.trim()) {
                     try {
                         const result = await this.callServerFunction('clientMarkAttendanceStatus', userName, date, status.trim());
                         if (result && result.success) {
-                            this.showToast(`Marked ${userName} as ${status} on ${date}`, 'success');
+                            this.showToast(`Marked ${displayValue} as ${status} on ${date}`, 'success');
                             await this.loadAttendanceCalendar();
-                            await this.loadAttendanceDashboard(true);
                         } else {
                             throw new Error(result?.error || 'Failed to mark attendance');
                         }
@@ -5975,10 +6214,9 @@
                 switch (target) {
                     case '#attendance':
                         this.loadAttendanceCalendar();
-                        this.initializeAttendanceDashboard();
                         break;
                     case '#attendance-dashboard':
-                        this.loadAttendanceDashboard();
+                        this.loadAttendanceDashboard(true);
                         break;
                     case '#dashboard':
                         this.refreshDashboard();
@@ -5988,9 +6226,6 @@
                         break;
                     case '#holidays':
                         this.refreshHolidays();
-                        break;
-                    case '#users':
-                        this.loadUsers();
                         break;
                     case '#import':
                         this.updateImportFileName();
@@ -6187,6 +6422,19 @@
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#39;');
+            }
+
+            escapeForInlineEvent(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                return String(value)
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'")
+                    .replace(/"/g, '\\"')
+                    .replace(/\r/g, '\\r')
+                    .replace(/\n/g, '\\n');
             }
 
             formatSchedulePeriod(schedule) {
