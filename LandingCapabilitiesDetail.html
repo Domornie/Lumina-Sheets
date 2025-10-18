@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dive Into LuminaHQ Capabilities</title>
+    <link rel="stylesheet" href="LandingSharedStyles.css" />
+    <style>
+      .detail-grid {
+        display: grid;
+        gap: 24px;
+      }
+
+      .detail-card {
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: 26px;
+        box-shadow: 0 20px 48px rgba(15, 31, 69, 0.2);
+        padding: 32px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .detail-card h3 {
+        margin: 0;
+        color: var(--sky-900);
+      }
+
+      .detail-card p {
+        margin: 0;
+        color: var(--slate-500);
+        line-height: 1.65;
+      }
+
+      .detail-card ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: var(--slate-500);
+      }
+
+      .workflow-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .workflow-step {
+        background: rgba(15, 31, 69, 0.7);
+        border-radius: 24px;
+        padding: 24px;
+        color: rgba(226, 235, 255, 0.92);
+        box-shadow: 0 18px 42px rgba(15, 31, 69, 0.22);
+      }
+
+      .workflow-step strong {
+        display: block;
+        color: var(--white);
+        margin-bottom: 8px;
+        font-size: 1.1rem;
+      }
+
+      .hero-floating-card ol {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--slate-500);
+      }
+
+      .hero-floating-card ol li {
+        margin-bottom: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero-shell">
+        <div class="hero">
+          <div class="hero-grid">
+            <div class="hero-content">
+              <span class="hero-badge">Capability deep dive</span>
+              <h1>Guided workflows that scale with your operation</h1>
+              <p>
+                Peek behind the scenes of LuminaHQ’s modules to see the exact journeys your teams will experience. Each
+                workflow is built from real-world playbooks contributed by operations experts.
+              </p>
+              <div class="hero-actions">
+                <a class="btn-primary" href="LandingCapabilities.html">Return to overview</a>
+                <a class="btn-ghost" href="LandingStory.html">See it in action</a>
+              </div>
+              <div class="hero-metrics">
+                <div class="metric-card">
+                  <strong data-counter="4" data-suffix=" hrs">4 hrs</strong>
+                  <span>saved per week by QA leaders on reporting</span>
+                </div>
+                <div class="metric-card">
+                  <strong data-counter="2" data-suffix="x">2x</strong>
+                  <span>increase in coaching follow-through</span>
+                </div>
+                <div class="metric-card">
+                  <strong data-counter="98" data-suffix="%">98%</strong>
+                  <span>adoption among pilot supervisors</span>
+                </div>
+              </div>
+            </div>
+            <div class="hero-visual">
+              <img
+                src="https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=1200&q=80"
+                alt="Product dashboards"
+                loading="lazy"
+              />
+              <div class="hero-floating-card">
+                <h3>How teams ramp</h3>
+                <ol>
+                  <li>Discover key dashboards in day-one enablement.</li>
+                  <li>Configure workflows with guided onboarding.</li>
+                  <li>Monitor adoption through real-time health checks.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="partners">
+        <div class="partner-strip">
+          <span>Discover</span>
+          <span>Configure</span>
+          <span>Activate</span>
+          <span>Optimize</span>
+          <span>Celebrate</span>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>Workflow spotlights</h2>
+            <p>
+              Dig into the core flows that differentiate LuminaHQ. Each spotlight outlines the decisions, automations,
+              and handoffs built into the experience.
+            </p>
+          </div>
+          <div class="detail-grid">
+            <article class="detail-card">
+              <h3>Quality calibration journey</h3>
+              <p>
+                Invite analysts, review sample evaluations, and document consensus in one guided flow that updates QA
+                guidelines instantly.
+              </p>
+              <ul>
+                <li>Auto-select sample interactions based on campaign goals.</li>
+                <li>Capture commentary and decisions directly alongside scorecards.</li>
+                <li>Publish updated rubrics to analysts with one click.</li>
+              </ul>
+            </article>
+            <article class="detail-card">
+              <h3>Coaching momentum planner</h3>
+              <p>
+                Connect QA insights to targeted coaching actions with reminders that keep supervisors and agents aligned.
+              </p>
+              <ul>
+                <li>Launch plans with suggested talking points and resources.</li>
+                <li>Assign follow-up tasks and track acknowledgments automatically.</li>
+                <li>Surface progress and celebrate wins in executive dashboards.</li>
+              </ul>
+            </article>
+            <article class="detail-card">
+              <h3>Workforce assurance loop</h3>
+              <p>
+                Combine attendance monitoring, forecasting, and shift changes into a proactive process that protects SLAs.
+              </p>
+              <ul>
+                <li>Flag adherence risks using predictive alerts.</li>
+                <li>Offer shift swaps through an employee marketplace.</li>
+                <li>Summarize weekly coverage in partner-ready stories.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>Activation blueprint</h2>
+            <p>
+              Our onboarding approach combines curated enablement, rapid configuration, and adoption coaching to ensure
+              teams thrive from day one.
+            </p>
+          </div>
+          <div class="workflow-grid">
+            <div class="workflow-step">
+              <strong>Discover & Align</strong>
+              Map your current processes to LuminaHQ journeys with discovery workshops led by operations strategists.
+            </div>
+            <div class="workflow-step">
+              <strong>Configure & Launch</strong>
+              Import data, tailor forms, and activate automations with support from our implementation crew.
+            </div>
+            <div class="workflow-step">
+              <strong>Coach & Celebrate</strong>
+              Monitor adoption, iterate with feedback loops, and share success stories with leadership every month.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-content dual-panel">
+          <div class="panel-media">
+            <img
+              src="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80"
+              alt="Analytics detail"
+              loading="lazy"
+            />
+          </div>
+          <div class="panel-copy">
+            <h3>See LuminaHQ in motion</h3>
+            <p>
+              Request a guided tour to experience these workflows firsthand. We’ll show how quality insights surface next
+              to coaching plans, how workforce scenarios play out, and how leadership gets the context they need.
+            </p>
+            <p>
+              Our team tailors each walkthrough to your goals so you can visualize a launch path with confidence.
+            </p>
+            <div class="navigation-cta">
+              <a class="btn-ghost" href="LandingStory.html">Read success stories</a>
+              <a class="btn-ghost" href="Landing.html">Return to landing</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-shell">
+      <div class="footer-card">
+        <h3>Need a deeper dive?</h3>
+        <p>
+          Connect with LuminaHQ specialists for custom demos, integration planning, and transformation playbooks.
+        </p>
+        <div class="footer-links">
+          <a href="LandingCapabilities.html">Capabilities overview</a>
+          <a href="LandingStory.html">Discover customer wins</a>
+          <a href="LandingAbout.html">Meet the team</a>
+        </div>
+      </div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="LandingInteractions.js"></script>
+  </body>
+</html>
