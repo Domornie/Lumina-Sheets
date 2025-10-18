@@ -1,4 +1,12 @@
-(function ($) {
+(function (factory) {
+  if (typeof window !== 'undefined' && window.jQuery) {
+    factory(window.jQuery);
+  } else {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('LandingInteractions requires jQuery to run. Animations are disabled.');
+    }
+  }
+})(function ($) {
   function applyRevealAnimations() {
     var revealSelector =
       '.metric-card, .card, .mission-card, .timeline-step, .values-grid .card, .workflow-card, ' +
@@ -111,4 +119,4 @@
     applyRevealAnimations();
     applyMetricCounters();
   });
-})(jQuery);
+});
