@@ -15,6 +15,8 @@
     var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
     var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
     var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+    var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+    var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
   ?>
   <style>
     :root {
@@ -391,6 +393,8 @@
         </a>
         <div class="nav-actions">
           <a href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+          <a href="<?!= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-layer-group"></i> Dive into details</a>
+          <a href="<?!= landingStoryUrl ?>"><i class="fa-solid fa-book-open"></i> Discover story</a>
           <a class="primary" href="<?!= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Back to landing</a>
         </div>
       </div>
@@ -512,6 +516,8 @@
         <strong>Ready to explore the workspace?</strong>
         <div>
           <a href="<?!= landingCapabilitiesUrl ?>">Discover LuminaHQ capabilities</a> &middot;
+          <a href="<?!= landingCapabilitiesDetailUrl ?>">Dive into detailed capabilities</a> &middot;
+          <a href="<?!= landingStoryUrl ?>">Explore our story</a> &middot;
           <a href="<?!= landingHomeUrl ?>#about">Back to landing overview</a>
         </div>
         <small>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Crafted by Lumina's Innovation Lab in Kingston, Jamaica.</small>

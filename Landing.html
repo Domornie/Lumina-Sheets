@@ -287,14 +287,45 @@
       border-color: rgba(226, 232, 240, 0.32);
     }
 
-    .hero-showcase {
-      background: rgba(11, 27, 63, 0.55);
-      border-radius: var(--radius-md);
-      padding: clamp(1.5rem, 3vw, 2rem);
-      box-shadow: none;
-      border: 1px solid rgba(226, 232, 240, 0.15);
+    .hero-visual {
       display: grid;
-      gap: 1.5rem;
+      gap: 1.2rem;
+      position: relative;
+    }
+
+    .hero-visual-frame {
+      position: relative;
+      border-radius: var(--radius-md);
+      padding: clamp(1.2rem, 2.5vw, 2rem);
+      background: linear-gradient(150deg, rgba(11, 27, 63, 0.6), rgba(4, 120, 211, 0.35));
+      border: 1px solid rgba(226, 232, 240, 0.16);
+      overflow: hidden;
+      min-height: 320px;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .hero-visual-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: calc(var(--radius-md) - 8px);
+      box-shadow: 0 34px 70px rgba(8, 47, 73, 0.35);
+    }
+
+    .hero-showcase {
+      position: absolute;
+      left: clamp(1.4rem, 7vw, 3.2rem);
+      bottom: clamp(1.4rem, 6vw, 3.2rem);
+      width: min(340px, 72%);
+      background: rgba(11, 27, 63, 0.92);
+      border-radius: var(--radius-md);
+      padding: 1.4rem 1.6rem;
+      border: 1px solid rgba(226, 232, 240, 0.22);
+      box-shadow: 0 24px 45px rgba(8, 47, 73, 0.35);
+      display: grid;
+      gap: 1.25rem;
     }
 
     .showcase-header {
@@ -305,9 +336,11 @@
     }
 
     .showcase-header h2 {
-      font-size: 1.1rem;
+      font-size: 1rem;
       margin: 0;
       color: var(--lumina-surface);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .status-pill {
@@ -318,51 +351,94 @@
       border-radius: 999px;
       background: rgba(56, 189, 248, 0.24);
       color: var(--lumina-surface);
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
     }
 
     .metric-card {
-      background: rgba(15, 23, 42, 0.45);
+      background: rgba(15, 23, 42, 0.68);
       color: var(--lumina-surface);
-      padding: 1.4rem;
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(226, 232, 240, 0.12);
-      position: relative;
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(226, 232, 240, 0.18);
+      display: grid;
+      gap: 0.5rem;
     }
 
     .metric-card strong {
       display: block;
-      font-size: 2rem;
+      font-size: 1.6rem;
       font-weight: 700;
     }
 
     .metric-card span {
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: rgba(226, 232, 240, 0.7);
     }
 
     .metric-card i {
-      font-size: 1.4rem;
+      font-size: 1.2rem;
       opacity: 0.85;
     }
 
     .metric-card .icon-circle {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.14);
       display: grid;
       place-items: center;
-      margin-bottom: 1rem;
+    }
+
+    .hero-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+    }
+
+    .hero-mini-card {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(226, 232, 240, 0.24);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem;
+      text-align: left;
+      display: grid;
+      gap: 0.5rem;
+      color: var(--lumina-surface);
+    }
+
+    .hero-mini-card i {
+      font-size: 1.35rem;
+      color: var(--lumina-cyan);
+    }
+
+    .hero-mini-card strong {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .hero-mini-card span {
+      font-size: 0.85rem;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .hero-note {
+      margin: 0;
+      color: rgba(226, 232, 240, 0.75);
+      font-size: 0.82rem;
+      line-height: 1.5;
     }
 
     .section {
@@ -698,6 +774,16 @@
         flex: 1;
         justify-content: center;
       }
+
+      .hero-visual-frame {
+        min-height: 260px;
+        padding: 1rem;
+      }
+
+      .hero-showcase {
+        position: static;
+        width: 100%;
+      }
     }
   </style>
   <?
@@ -706,6 +792,8 @@
     var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
     var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
     var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+    var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+    var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
   ?>
 </head>
 
@@ -722,6 +810,8 @@
         </a>
         <div class="nav-actions">
           <a class="btn-outline" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
+          <a class="btn-outline" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Capabilities</a>
+          <a class="btn-outline" href="<?!= landingStoryUrl ?>"><i class="fa-solid fa-book-open"></i> Story</a>
           <a class="btn-primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
         </div>
       </div>
@@ -743,33 +833,55 @@
                 </ul>
                 <div class="hero-ctas">
                   <a class="primary" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to your workspace</a>
-                  <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
+                  <a class="ghost" href="<?!= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-diagram-project"></i> Dive into capabilities</a>
                 </div>
               </div>
-              <aside class="hero-showcase" aria-label="Platform highlights">
-                <div class="showcase-header">
-                  <h2>Live intelligence snapshot</h2>
-                  <span class="status-pill"><i class="fa-solid fa-signal"></i> Live data fabric</span>
+              <div class="hero-visual" aria-hidden="true">
+                <div class="hero-visual-frame">
+                  <img src="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80" alt="LuminaHQ analytics preview with charts and graphs" loading="lazy">
+                  <div class="hero-showcase" aria-hidden="true">
+                    <div class="showcase-header">
+                      <h2>Live intelligence snapshot</h2>
+                      <span class="status-pill"><i class="fa-solid fa-signal"></i> Live data fabric</span>
+                    </div>
+                    <div class="metrics-grid">
+                      <div class="metric-card">
+                        <div class="icon-circle"><i class="fa-solid fa-people-group"></i></div>
+                        <strong>3.4K</strong>
+                        <span>Agents orchestrated</span>
+                      </div>
+                      <div class="metric-card">
+                        <div class="icon-circle"><i class="fa-solid fa-chart-line"></i></div>
+                        <strong>12%</strong>
+                        <span>Lift in SLA adherence</span>
+                      </div>
+                      <div class="metric-card">
+                        <div class="icon-circle"><i class="fa-solid fa-stopwatch"></i></div>
+                        <strong>9m</strong>
+                        <span>Average onboarding</span>
+                      </div>
+                    </div>
+                    <p class="hero-note">Signals stream in from scheduling, QA, and collaboration channels to guide frontline action without delay.</p>
+                  </div>
                 </div>
-                <div class="metrics-grid">
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-people-group"></i></div>
-                    <strong>3.4K</strong>
-                    <span>Agents orchestrated</span>
+                <div class="hero-mini-grid">
+                  <div class="hero-mini-card">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <strong>Scheduling</strong>
+                    <span>Forecast-aware shift orchestration for every queue.</span>
                   </div>
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-chart-line"></i></div>
-                    <strong>12%</strong>
-                    <span>Lift in SLA adherence</span>
+                  <div class="hero-mini-card">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    <strong>Coaching</strong>
+                    <span>Guided workflows that transform QA insights into action.</span>
                   </div>
-                  <div class="metric-card">
-                    <div class="icon-circle"><i class="fa-solid fa-stopwatch"></i></div>
-                    <strong>9m</strong>
-                    <span>Average onboarding</span>
+                  <div class="hero-mini-card">
+                    <i class="fa-solid fa-chart-column"></i>
+                    <strong>Analytics</strong>
+                    <span>Role-based dashboards aligned to every partner.</span>
                   </div>
                 </div>
-                <p class="hero-subtitle" style="margin:0;">Designed for managers, analysts, and specialists who need a precise pulse on every customer moment.</p>
-              </aside>
+              </div>
             </div>
           </div>
         </div>
@@ -867,7 +979,7 @@
             </article>
           </div>
           <div class="section-cta">
-            <a class="primary" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Dive into detailed capabilities</a>
+            <a class="primary" href="<?!= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-diagram-project"></i> Dive into detailed capabilities</a>
             <a class="ghost" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Experience LuminaHQ live</a>
           </div>
         </div>
@@ -897,7 +1009,7 @@
             </article>
           </div>
           <div class="section-cta">
-            <a class="primary" href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> Discover our story</a>
+            <a class="primary" href="<?!= landingStoryUrl ?>"><i class="fa-solid fa-book-open"></i> Discover our story</a>
             <a class="ghost" href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
           </div>
         </div>
