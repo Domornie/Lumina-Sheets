@@ -1,523 +1,271 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>About LuminaHQ</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-  <?
-    var __landingBase = scriptUrl || baseUrl || '';
-    var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
-    var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
-    var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
-  ?>
-  <style>
-    :root {
-      --lumina-navy: #0b1b3f;
-      --lumina-blue: #0478d3;
-      --lumina-blue-dark: #035799;
-      --lumina-cyan: #38bdf8;
-      --lumina-surface: #f5f8ff;
-      --lumina-card: #ffffff;
-      --lumina-muted: #475467;
-      --lumina-border: rgba(15, 23, 42, 0.08);
-      --lumina-gradient: linear-gradient(135deg, rgba(11, 27, 63, 0.96), rgba(4, 120, 211, 0.9));
-      --shadow-card: 0 30px 60px rgba(11, 27, 63, 0.12);
-      --radius-lg: 26px;
-      --radius-md: 18px;
-      --transition: all 0.28s ease;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: var(--lumina-navy);
-      background: radial-gradient(circle at 20% 20%, rgba(4, 120, 211, 0.08), transparent 55%),
-        radial-gradient(circle at 80% 0, rgba(56, 189, 248, 0.1), transparent 45%),
-        var(--lumina-surface);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    a {
-      color: inherit;
-    }
-
-    .page-shell {
-      flex: 1;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      backdrop-filter: blur(16px);
-      background: rgba(255, 255, 255, 0.82);
-      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-      z-index: 20;
-    }
-
-    .nav-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.85rem;
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .brand img {
-      width: 46px;
-      height: 46px;
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: 1.25rem;
-      font-weight: 700;
-    }
-
-    .brand span {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--lumina-muted);
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .nav-actions a {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 999px;
-      transition: var(--transition);
-      color: var(--lumina-blue-dark);
-      border: 1px solid rgba(4, 120, 211, 0.32);
-      background: rgba(255, 255, 255, 0.9);
-    }
-
-    .nav-actions a.primary {
-      color: #fff;
-      background: var(--lumina-blue);
-      border-color: transparent;
-      box-shadow: 0 18px 30px rgba(4, 120, 211, 0.18);
-    }
-
-    .nav-actions a:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 14px 22px rgba(4, 120, 211, 0.15);
-    }
-
-    main {
-      flex: 1;
-    }
-
-    .hero {
-      position: relative;
-      padding: clamp(4rem, 5vw + 2rem, 6rem) 1.5rem 4rem;
-      color: rgba(241, 247, 255, 0.96);
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 0 0 48px 48px;
-      background: var(--lumina-gradient);
-      z-index: 0;
-    }
-
-    .hero-inner {
-      position: relative;
-      z-index: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      gap: 2.5rem;
-      align-items: center;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    }
-
-    .hero-copy h2 {
-      font-size: clamp(2.4rem, 4vw, 3.2rem);
-      margin-bottom: 1.2rem;
-      line-height: 1.1;
-    }
-
-    .hero-copy p {
-      font-size: 1.05rem;
-      line-height: 1.7;
-      max-width: 520px;
-      margin-bottom: 1.5rem;
-    }
-
-    .hero-meta {
-      display: grid;
-      gap: 1rem;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    }
-
-    .meta-card {
-      background: rgba(255, 255, 255, 0.14);
-      padding: 1.25rem 1.4rem;
-      border-radius: var(--radius-md);
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-    }
-
-    .meta-card span {
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-weight: 600;
-      font-size: 0.72rem;
-      color: rgba(248, 250, 252, 0.72);
-    }
-
-    .meta-card strong {
-      font-size: 1.4rem;
-      font-weight: 700;
-    }
-
-    .content-section {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: clamp(3rem, 5vw, 4.5rem) 1.5rem;
-      display: grid;
-      gap: 2.75rem;
-    }
-
-    .section-header {
-      max-width: 760px;
-    }
-
-    .section-header h3 {
-      font-size: clamp(2rem, 3.5vw, 2.6rem);
-      margin-bottom: 1rem;
-      color: var(--lumina-navy);
-    }
-
-    .section-header p {
-      font-size: 1.05rem;
-      line-height: 1.8;
-      color: var(--lumina-muted);
-    }
-
-    .value-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.75rem;
-    }
-
-    .value-card {
-      background: var(--lumina-card);
-      border-radius: var(--radius-md);
-      padding: 2rem 2.2rem;
-      border: 1px solid var(--lumina-border);
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .value-card i {
-      font-size: 1.5rem;
-      color: var(--lumina-blue);
-    }
-
-    .value-card h4 {
-      margin: 0;
-      font-size: 1.35rem;
-    }
-
-    .value-card p {
-      margin: 0;
-      line-height: 1.7;
-      color: var(--lumina-muted);
-    }
-
-    .story-timeline {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1.5rem;
-      position: relative;
-    }
-
-    .story-card {
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: var(--radius-md);
-      padding: 1.75rem 1.9rem;
-      border: 1px solid var(--lumina-border);
-      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-    }
-
-    .story-card strong {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--lumina-blue-dark);
-    }
-
-    .story-card h4 {
-      font-size: 1.35rem;
-      margin: 0.75rem 0;
-    }
-
-    .story-card p {
-      margin: 0;
-      line-height: 1.7;
-      color: var(--lumina-muted);
-    }
-
-    .culture-banner {
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(4, 120, 211, 0.18));
-      border-radius: var(--radius-lg);
-      padding: 3rem 2.5rem;
-      display: grid;
-      gap: 2rem;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      border: 1px solid rgba(4, 120, 211, 0.25);
-    }
-
-    .culture-banner h4 {
-      margin: 0;
-      font-size: 1.6rem;
-    }
-
-    .culture-banner ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 0.9rem;
-    }
-
-    .culture-banner li {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      color: var(--lumina-muted);
-      line-height: 1.6;
-    }
-
-    .culture-banner li i {
-      color: var(--lumina-blue);
-      margin-top: 0.2rem;
-    }
-
-    footer {
-      padding: 2.5rem 1.5rem 3rem;
-      background: #0b1b3f;
-      color: rgba(226, 232, 240, 0.85);
-      margin-top: auto;
-    }
-
-    .footer-shell {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .footer-shell a {
-      color: rgba(148, 163, 184, 0.85);
-      text-decoration: none;
-    }
-
-    .footer-shell a:hover {
-      color: #fff;
-    }
-
-    @media (max-width: 720px) {
-      header {
-        position: static;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About LuminaHQ</title>
+    <link rel="stylesheet" href="LandingSharedStyles.css" />
+    <style>
+      .mission-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       }
 
-      .nav-container {
-        flex-direction: column;
-        align-items: flex-start;
+      .mission-card {
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: 24px;
+        padding: 24px;
+        box-shadow: 0 18px 38px rgba(16, 34, 84, 0.18);
       }
-    }
-  </style>
-</head>
 
-<body>
-  <div class="page-shell">
-    <header>
-      <div class="nav-container">
-        <a class="brand" href="<?!= landingHomeUrl ?>">
-          <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
-          <div>
-            <span>LuminaHQ</span>
-            <h1>Command Center</h1>
-          </div>
-        </a>
-        <div class="nav-actions">
-          <a href="<?!= landingCapabilitiesUrl ?>"><i class="fa-solid fa-diagram-project"></i> Explore capabilities</a>
-          <a class="primary" href="<?!= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Back to landing</a>
-        </div>
-      </div>
-    </header>
+      .mission-card h3 {
+        margin: 0 0 12px;
+        color: var(--sky-900);
+      }
 
+      .timeline {
+        display: grid;
+        gap: 18px;
+      }
+
+      .timeline-step {
+        background: rgba(15, 31, 69, 0.65);
+        padding: 24px;
+        border-radius: 24px;
+        color: rgba(226, 235, 255, 0.9);
+        box-shadow: 0 18px 36px rgba(15, 31, 69, 0.2);
+      }
+
+      .timeline-step strong {
+        display: block;
+        font-size: 1.2rem;
+        margin-bottom: 8px;
+        color: var(--white);
+      }
+
+      .values-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+
+      .values-grid .card {
+        background: rgba(255, 255, 255, 0.92);
+      }
+
+      .team-photo {
+        width: 100%;
+        border-radius: 30px;
+        box-shadow: 0 20px 44px rgba(12, 32, 80, 0.22);
+      }
+
+      .hero-floating-card ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--slate-500);
+      }
+    </style>
+  </head>
+  <body>
     <main>
-      <section class="hero">
-        <div class="hero-inner">
-          <div class="hero-copy">
-            <h2>The humans and history behind our workforce command center.</h2>
-            <p>We build LuminaHQ in Kingston, Jamaica with an obsession for frontline momentum. Designers, engineers, analysts, and former operations leaders sit side-by-side to remove the friction contact center teams feel every day.</p>
-            <div class="hero-meta">
-              <div class="meta-card">
-                <span>Origin</span>
-                <strong>Innovation Lab</strong>
-                <p>Born from Lumina's partnerships with BPO networks across the Caribbean and North America.</p>
+      <section class="hero-shell">
+        <div class="hero">
+          <div class="hero-grid">
+            <div class="hero-content">
+              <span class="hero-badge">About LuminaHQ</span>
+              <h1>Building the modern nerve center for operations teams</h1>
+              <p>
+                LuminaHQ began with a simple belief: that quality, coaching, and workforce leaders deserve a single
+                workspace that reflects the pace of their teams. Our mission is to amplify every conversation,
+                evaluation, and schedule with intelligence.
+              </p>
+              <div class="hero-actions">
+                <a class="btn-primary" href="Landing.html">Return to landing</a>
+                <a class="btn-ghost" href="LandingStory.html">Read customer stories</a>
               </div>
-              <div class="meta-card">
-                <span>Craft</span>
-                <strong>Design × Data</strong>
-                <p>Product strategy meets applied data science to translate raw signals into guided action.</p>
+              <div class="hero-metrics">
+                <div class="metric-card">
+                  <strong>50+</strong>
+                  <span>specialists crafting LuminaHQ features</span>
+                </div>
+                <div class="metric-card">
+                  <strong>8 years</strong>
+                  <span>supporting global customer operations</span>
+                </div>
+                <div class="metric-card">
+                  <strong>24/5</strong>
+                  <span>product and enablement partnership coverage</span>
+                </div>
               </div>
-              <div class="meta-card">
-                <span>Promise</span>
-                <strong>Operational clarity</strong>
-                <p>Every workflow unifies scheduling, QA, coaching, and collaboration inside one control tower.</p>
+            </div>
+            <div class="hero-visual">
+              <img
+                src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80"
+                alt="Team collaboration"
+                loading="lazy"
+              />
+              <div class="hero-floating-card">
+                <h3>What drives us</h3>
+                <ul>
+                  <li>Elevate the craft of quality and coaching professionals.</li>
+                  <li>Create clarity for leaders navigating complex operations.</li>
+                  <li>Design tools that honor the people behind every metric.</li>
+                </ul>
               </div>
             </div>
           </div>
-          <div class="hero-visual" aria-hidden="true">
-            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1710450011/vlbpo/lumina/about-grid_qws7ir.png" alt="LuminaHQ culture collage" style="width:100%;border-radius:24px;box-shadow:0 32px 60px rgba(8, 47, 73, 0.2);object-fit:cover;">
+        </div>
+      </section>
+
+      <div class="partners">
+        <div class="partner-strip">
+          <span>Integrity</span>
+          <span>Innovation</span>
+          <span>Empathy</span>
+          <span>Momentum</span>
+          <span>Trust</span>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>Our mission and promise</h2>
+            <p>
+              From the first calibration to enterprise-scale rollouts, LuminaHQ pairs attentive experts with a
+              product built for evolving customer experiences. We map workflows directly to your playbooks so your
+              teams can focus on the human moments.
+            </p>
+          </div>
+          <div class="mission-grid">
+            <article class="mission-card">
+              <h3>Human-centered design</h3>
+              <p>
+                Every feature is crafted with direct input from analysts, coaches, and workforce leaders who depend on
+                LuminaHQ each day.
+              </p>
+            </article>
+            <article class="mission-card">
+              <h3>Operational empathy</h3>
+              <p>
+                We embed alongside your teams to understand the nuance behind each metric and deliver playbooks that
+                reflect it.
+              </p>
+            </article>
+            <article class="mission-card">
+              <h3>Reliable partnership</h3>
+              <p>
+                Dedicated onboarding, enablement, and success specialists ensure LuminaHQ evolves with your programs.
+              </p>
+            </article>
           </div>
         </div>
       </section>
 
-      <section class="content-section">
-        <div class="section-header">
-          <h3>Why we exist</h3>
-          <p>Contact center leaders are asked to coach, forecast, report, and innovate at the same time. LuminaHQ eliminates the swivel-chair effort by giving every role a shared workspace that adapts to each campaign, geography, and client requirement.</p>
-        </div>
-        <div class="value-grid">
-          <article class="value-card">
-            <i class="fa-solid fa-compass"></i>
-            <h4>Customer-first design</h4>
-            <p>Every workflow is tested with active operations teams so the UI stays intuitive even as programs scale or pivot.</p>
-          </article>
-          <article class="value-card">
-            <i class="fa-solid fa-people-group"></i>
-            <h4>Human-centered automation</h4>
-            <p>Automation is only valuable when it empowers analysts and supervisors. Our scripts reduce manual steps while keeping humans in control.</p>
-          </article>
-          <article class="value-card">
-            <i class="fa-solid fa-shield-heart"></i>
-            <h4>Secure collaboration</h4>
-            <p>Multi-tenant controls, audit trails, and granular permissions safeguard customer data while keeping teams aligned.</p>
-          </article>
-          <article class="value-card">
-            <i class="fa-solid fa-globe"></i>
-            <h4>Global reach, local roots</h4>
-            <p>We support distributed teams across the Americas while grounding our craft and culture in the Caribbean.</p>
-          </article>
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>The journey so far</h2>
+            <p>
+              LuminaHQ has grown through close collaboration with support teams across industries. Together we have
+              transformed manual spreadsheets into guided journeys that celebrate progress.
+            </p>
+          </div>
+          <div class="timeline">
+            <div class="timeline-step">
+              <strong>2016 – Foundations</strong>
+              Started as a small collective of QA specialists developing tooling to streamline evaluations and
+              calibrations.
+            </div>
+            <div class="timeline-step">
+              <strong>2018 – Coaching unlock</strong>
+              Introduced guided coaching workflows that connected QA results to personalized development paths.
+            </div>
+            <div class="timeline-step">
+              <strong>2021 – Workforce fusion</strong>
+              Unified staffing, attendance, and performance data to create a cohesive operations command center.
+            </div>
+            <div class="timeline-step">
+              <strong>Today – Continuous momentum</strong>
+              Expanding AI assistance, predictive insights, and integrations to keep teams future-ready.
+            </div>
+          </div>
         </div>
       </section>
 
-      <section class="content-section">
-        <div class="section-header">
-          <h3>How LuminaHQ evolved</h3>
-          <p>A cross-functional team of engineers, data analysts, and operations specialists continues to expand LuminaHQ based on live call center feedback.</p>
-        </div>
-        <div class="story-timeline">
-          <article class="story-card">
-            <strong><i class="fa-solid fa-flag"></i> 2019</strong>
-            <h4>Scheduling foundations</h4>
-            <p>Rolled out Google Workspace scripts to automate agent shift updates and broadcast daily coaching plans.</p>
-          </article>
-          <article class="story-card">
-            <strong><i class="fa-solid fa-rocket"></i> 2021</strong>
-            <h4>Unified coaching</h4>
-            <p>Expanded into coaching dashboards, QA data pipelines, and collaboration workflows for hybrid teams.</p>
-          </article>
-          <article class="story-card">
-            <strong><i class="fa-solid fa-shield"></i> 2023</strong>
-            <h4>Enterprise-ready security</h4>
-            <p>Shipped tenant-aware access controls, SSO alignment, and audit logging for compliance-focused partners.</p>
-          </article>
-          <article class="story-card">
-            <strong><i class="fa-solid fa-chart-line"></i> Today</strong>
-            <h4>Predictive intelligence</h4>
-            <p>Integrating forecasting, AI summarization, and proactive alerts so teams anticipate change instead of reacting to it.</p>
-          </article>
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>Values we live by</h2>
+            <p>
+              Our values guide how we show up for each other and for our customers. They ensure LuminaHQ remains a
+              trusted partner as the landscape evolves.
+            </p>
+          </div>
+          <div class="values-grid">
+            <article class="card">
+              <h3>Listen deeply</h3>
+              <p>We start by understanding the people behind the process before proposing any change.</p>
+            </article>
+            <article class="card">
+              <h3>Iterate boldly</h3>
+              <p>Constant experimentation lets us deliver measurable improvements every quarter.</p>
+            </article>
+            <article class="card">
+              <h3>Celebrate growth</h3>
+              <p>We highlight the wins that teams achieve together and capture the stories that inspire the next step.</p>
+            </article>
+            <article class="card">
+              <h3>Protect trust</h3>
+              <p>Security, privacy, and accessibility are embedded into every product and partnership decision.</p>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section class="content-section" style="padding-bottom:4.5rem;">
-        <div class="culture-banner">
-          <div>
-            <h4>Inside the LuminaHQ culture</h4>
-            <p style="color:var(--lumina-muted);line-height:1.7;margin-top:0.75rem;">We operate with curiosity, empathy, and a bias toward shipping. Product rituals keep customer teams connected to the builders shaping their tools.</p>
+      <section class="section">
+        <div class="section-content dual-panel">
+          <div class="panel-media">
+            <img
+              class="team-photo"
+              src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80"
+              alt="LuminaHQ team workshop"
+              loading="lazy"
+            />
           </div>
-          <div>
-            <ul>
-              <li><i class="fa-solid fa-lightbulb"></i> Weekly design reviews align engineering, QA, and enablement on upcoming experiments.</li>
-              <li><i class="fa-solid fa-person-chalkboard"></i> Immersive onboarding embeds our product team inside partner operations for live feedback.</li>
-              <li><i class="fa-solid fa-hands"></i> Community initiatives reinvest in Jamaican tech talent through mentorship, internships, and open-source learning.</li>
-            </ul>
-          </div>
-          <div>
-            <ul>
-              <li><i class="fa-solid fa-headset"></i> Dedicated customer pods pair product managers with operations leads for faster roadmap alignment.</li>
-              <li><i class="fa-solid fa-leaf"></i> We balance rapid delivery with sustainable workloads to maintain a resilient, creative team.</li>
-            </ul>
+          <div class="panel-copy">
+            <h3>Meet the people behind the platform</h3>
+            <p>
+              Product strategists, data scientists, operations veterans, and service designers collaborate daily to
+              shape LuminaHQ. We carry the same passion for customer experience that defines your teams.
+            </p>
+            <p>
+              When you partner with LuminaHQ, you work with people invested in your success—from onboarding through
+              every new capability release.
+            </p>
+            <div class="navigation-cta">
+              <a class="btn-ghost" href="LandingCapabilities.html">See capabilities</a>
+              <a class="btn-ghost" href="LandingStory.html">Explore customer journey</a>
+            </div>
           </div>
         </div>
       </section>
     </main>
 
-    <footer>
-      <div class="footer-shell">
-        <strong>Ready to explore the workspace?</strong>
-        <div>
-          <a href="<?!= landingCapabilitiesUrl ?>">Discover LuminaHQ capabilities</a> &middot;
-          <a href="<?!= landingHomeUrl ?>#about">Back to landing overview</a>
+    <footer class="footer-shell">
+      <div class="footer-card">
+        <h3>Connect with LuminaHQ</h3>
+        <p>
+          Ready to bring your teams into a smarter workspace? Reach out to discuss how LuminaHQ can transform quality,
+          coaching, and workforce operations.
+        </p>
+        <div class="footer-links">
+          <a href="LandingCapabilities.html">Capabilities overview</a>
+          <a href="LandingCapabilitiesDetail.html">Detailed modules</a>
+          <a href="LandingStory.html">Customer wins</a>
         </div>
-        <small>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Crafted by Lumina's Innovation Lab in Kingston, Jamaica.</small>
       </div>
     </footer>
-  </div>
-</body>
-
+  </body>
 </html>
