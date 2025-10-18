@@ -16,6 +16,8 @@
     var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
     var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
     var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+    var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+    var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
   ?>
   <style>
     :root {
@@ -188,6 +190,142 @@
       margin-bottom: 1.6rem;
     }
 
+    .hero-visual {
+      display: grid;
+      gap: 1.2rem;
+      position: relative;
+    }
+
+    .hero-visual-frame {
+      position: relative;
+      border-radius: var(--radius-md);
+      padding: clamp(1.1rem, 2.5vw, 1.8rem);
+      background: linear-gradient(155deg, rgba(11, 27, 63, 0.65), rgba(4, 120, 211, 0.35));
+      border: 1px solid rgba(226, 232, 240, 0.18);
+      overflow: hidden;
+      min-height: 320px;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .hero-visual-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: calc(var(--radius-md) - 8px);
+      box-shadow: 0 32px 60px rgba(8, 47, 73, 0.32);
+    }
+
+    .hero-showcase {
+      position: absolute;
+      left: clamp(1.2rem, 6vw, 3rem);
+      bottom: clamp(1.2rem, 5vw, 3rem);
+      width: min(320px, 70%);
+      background: rgba(11, 27, 63, 0.9);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.45rem;
+      border: 1px solid rgba(226, 232, 240, 0.22);
+      box-shadow: 0 24px 45px rgba(8, 47, 73, 0.32);
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .showcase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+    }
+
+    .showcase-header h3 {
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin: 0;
+      color: #fff;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.24);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(226, 232, 240, 0.18);
+      border-radius: var(--radius-sm);
+      padding: 0.9rem;
+      display: grid;
+      gap: 0.45rem;
+      color: #fff;
+    }
+
+    .metric-card strong {
+      font-size: 1.45rem;
+    }
+
+    .metric-card span {
+      font-size: 0.74rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .hero-note {
+      margin: 0;
+      color: rgba(226, 232, 240, 0.7);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .hero-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+    }
+
+    .hero-mini-card {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(226, 232, 240, 0.24);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      display: grid;
+      gap: 0.45rem;
+      color: rgba(241, 247, 255, 0.92);
+    }
+
+    .hero-mini-card i {
+      font-size: 1.3rem;
+      color: var(--lumina-cyan);
+    }
+
+    .hero-mini-card strong {
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .hero-mini-card span {
+      font-size: 0.82rem;
+      color: rgba(226, 232, 240, 0.78);
+    }
+
     .hero-cta {
       display: inline-flex;
       align-items: center;
@@ -206,6 +344,16 @@
     .hero-cta:hover {
       transform: translateY(-2px);
       background: rgba(255, 255, 255, 0.24);
+    }
+
+    .hero-cta.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.22);
+      color: rgba(241, 247, 255, 0.9);
+    }
+
+    .hero-cta.secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
     }
 
     main {
@@ -417,6 +565,18 @@
       box-shadow: 0 16px 30px rgba(255, 255, 255, 0.25);
     }
 
+    .cta-panel a.secondary {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: none;
+    }
+
+    .cta-panel a.secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+      box-shadow: none;
+    }
+
     footer {
       padding: 2.5rem 1.5rem 3rem;
       background: #0b1b3f;
@@ -450,6 +610,16 @@
         flex-direction: column;
         align-items: flex-start;
       }
+
+      .hero-visual-frame {
+        min-height: 260px;
+        padding: 1rem;
+      }
+
+      .hero-showcase {
+        position: static;
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -467,6 +637,8 @@
         </a>
         <div class="nav-actions">
           <a href="<?!= landingAboutUrl ?>"><i class="fa-regular fa-circle-question"></i> About</a>
+          <a href="<?!= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-layer-group"></i> Dive deeper</a>
+          <a href="<?!= landingStoryUrl ?>"><i class="fa-solid fa-book-open"></i> Story</a>
           <a class="primary" href="<?!= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Back to landing</a>
         </div>
       </div>
@@ -478,41 +650,51 @@
           <div class="hero-copy">
             <h2>Every capability connects frontline execution to leadership insight.</h2>
             <p>Explore the mission-ready modules that power LuminaHQ. Each capability extends a unified operations graph so every decision reflects what is happening on the floor right now.</p>
-            <a class="hero-cta" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to experience LuminaHQ</a>
+            <div style="display:flex;flex-wrap:wrap;gap:0.75rem;">
+              <a class="hero-cta" href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to experience LuminaHQ</a>
+              <a class="hero-cta secondary" href="<?!= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-layer-group"></i> Dive into detailed modules</a>
+            </div>
           </div>
-          <div class="hero-visual" aria-hidden="true" style="display:grid;gap:1rem;">
-            <div style="background:rgba(255,255,255,0.12);border-radius:22px;padding:1.4rem 1.6rem;border:1px solid rgba(255,255,255,0.28);display:grid;gap:0.75rem;">
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <strong style="font-size:0.95rem;letter-spacing:0.12em;text-transform:uppercase;">Live insights</strong>
-                <span style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.85rem;"><i class="fa-solid fa-signal"></i> Synced</span>
-              </div>
-              <div style="display:grid;gap:0.6rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span>Schedule adherence</span>
-                  <strong>97.4%</strong>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="hero-visual-frame">
+              <img src="https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1200&q=80" alt="Operational dashboards showing LuminaHQ capabilities" loading="lazy">
+              <div class="hero-showcase" aria-hidden="true">
+                <div class="showcase-header">
+                  <h3>Capability pulse</h3>
+                  <span class="status-pill"><i class="fa-solid fa-wave-square"></i> Synced</span>
                 </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span>QA coaching cycles</span>
-                  <strong>128</strong>
+                <div class="metrics-grid">
+                  <div class="metric-card">
+                    <strong>97.4%</strong>
+                    <span>Schedule adherence</span>
+                  </div>
+                  <div class="metric-card">
+                    <strong>128</strong>
+                    <span>Coaching cycles</span>
+                  </div>
+                  <div class="metric-card">
+                    <strong>Green</strong>
+                    <span>Campaign health</span>
+                  </div>
                 </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span>Campaign health</span>
-                  <strong>Green</strong>
-                </div>
+                <p class="hero-note">Operational telemetry merges workforce, QA, and collaboration signals to inform every module.</p>
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.75rem;">
-              <div style="background:rgba(255,255,255,0.16);border-radius:16px;padding:0.9rem;text-align:center;">
-                <i class="fa-solid fa-calendar-check" style="font-size:1.4rem;"></i>
-                <p style="margin:0.6rem 0 0;font-size:0.85rem;">Scheduling</p>
+            <div class="hero-mini-grid">
+              <div class="hero-mini-card">
+                <i class="fa-solid fa-calendar-check"></i>
+                <strong>Scheduling</strong>
+                <span>Predictive staffing and instant shift orchestration.</span>
               </div>
-              <div style="background:rgba(255,255,255,0.16);border-radius:16px;padding:0.9rem;text-align:center;">
-                <i class="fa-solid fa-chalkboard-user" style="font-size:1.4rem;"></i>
-                <p style="margin:0.6rem 0 0;font-size:0.85rem;">Coaching</p>
+              <div class="hero-mini-card">
+                <i class="fa-solid fa-chalkboard-user"></i>
+                <strong>Coaching</strong>
+                <span>Guided workflows that fuel accountability and wins.</span>
               </div>
-              <div style="background:rgba(255,255,255,0.16);border-radius:16px;padding:0.9rem;text-align:center;">
-                <i class="fa-solid fa-chart-line" style="font-size:1.4rem;"></i>
-                <p style="margin:0.6rem 0 0;font-size:0.85rem;">Analytics</p>
+              <div class="hero-mini-card">
+                <i class="fa-solid fa-chart-line"></i>
+                <strong>Analytics</strong>
+                <span>Live intelligence that elevates decisions at every level.</span>
               </div>
             </div>
           </div>
@@ -649,6 +831,7 @@
             <h3>See LuminaHQ in action</h3>
             <p>Log in to your workspace or request a guided walkthrough to explore how LuminaHQ adapts to the rhythm of your operations.</p>
             <a href="<?!= loginUrl ?>"><i class="fa-solid fa-right-to-bracket"></i> Login to LuminaHQ</a>
+            <a class="secondary" href="<?!= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-layer-group"></i> Explore module deep dive</a>
           </div>
         </div>
       </section>
@@ -659,6 +842,8 @@
         <strong>Looking for our story?</strong>
         <div>
           <a href="<?!= landingAboutUrl ?>">Visit the LuminaHQ about page</a> &middot;
+          <a href="<?!= landingCapabilitiesDetailUrl ?>">Dive into detailed modules</a> &middot;
+          <a href="<?!= landingStoryUrl ?>">Discover our story</a> &middot;
           <a href="<?!= landingHomeUrl ?>#features">Return to landing highlights</a>
         </div>
         <small>&copy; <?!= new Date().getFullYear(); ?> LuminaHQ. Built with secure Google Workspace automation.</small>
