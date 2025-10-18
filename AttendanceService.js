@@ -2083,7 +2083,7 @@ function generateUniqueAttendanceId(existingIds, batchIds) {
   }
 
   let attempts = 0;
-  while (attempts < 5_000) {
+  while (attempts < 5000) {
     attempts += 1;
     const candidate = Utilities.getUuid();
     if (!existingIds.has(candidate) && !batchIds.has(candidate)) {
