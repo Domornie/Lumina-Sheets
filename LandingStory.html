@@ -1,0 +1,240 @@
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: 'landing-story',
+  pageTitle: 'LuminaHQ Story',
+  pageDescription: 'Follow the LuminaHQ journey from task tracker to AI-assisted workforce command center.'
+}) ?>
+
+<?
+  var landingBase = (typeof scriptUrl !== 'undefined' && scriptUrl)
+    ? scriptUrl
+    : ((typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '');
+
+  var landingHomeUrl = landingBase ? landingBase + '?page=landing' : 'Landing.html';
+  var landingAboutUrl = landingBase ? landingBase + '?page=landing-about' : 'LandingAbout.html';
+  var landingCapabilitiesUrl = landingBase ? landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+  var landingCapabilitiesDetailUrl = landingBase ? landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+  var landingStoryUrl = landingBase ? landingBase + '?page=landing-story' : 'LandingStory.html';
+  var loginUrl = (typeof buildLoginPageUrl === 'function') ? buildLoginPageUrl({}) : (landingBase || '#');
+?>
+
+<?!= includeOnce('LandingTemplateStyles') ?>
+
+<div class="landing-shell landing-theme-slate" style="--landing-hero-image: url('https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1600&q=80');">
+  <header class="landing-hero">
+    <div class="container">
+      <div class="landing-hero-content">
+        <span class="landing-badge"><i class="fa-solid fa-book-open"></i>The LuminaHQ journey</span>
+        <h1>From spreadsheets to an operations nerve center</h1>
+        <p>
+          LuminaHQ started as a lightweight tracker. Today, it fuels end-to-end quality, coaching, and workforce programs for teams around the world.
+          Explore the milestones, lessons, and innovations that shaped the platform.
+        </p>
+        <div class="landing-cta">
+          <a class="btn btn-primary" href="<?= landingHomeUrl ?>">Visit the landing hub</a>
+          <a class="btn btn-outline-light" href="<?= loginUrl ?>">Connect with LuminaHQ</a>
+        </div>
+        <div class="landing-hero-meta">
+          <span><i class="fa-solid fa-timeline"></i> Built with operations leaders</span>
+          <span><i class="fa-solid fa-earth-americas"></i> Supporting global teams</span>
+          <span><i class="fa-solid fa-wand-magic-sparkles"></i> AI-ready foundation</span>
+        </div>
+      </div>
+      <div class="landing-hero-media">
+        <img src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1600&q=80" alt="LuminaHQ growth story with teams collaborating" loading="lazy">
+      </div>
+    </div>
+  </header>
+
+  <main class="landing-main">
+    <section class="landing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Milestones that shaped LuminaHQ</h2>
+          <p>Every release responded to a real operational challenge.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Foundations</h3>
+            <p>We began by centralizing coaching notes and QA results for a single campaign.</p>
+            <ul>
+              <li><i class="fa-solid fa-square-check"></i> Shared spreadsheets transformed into guided digital forms.</li>
+              <li><i class="fa-solid fa-user-group"></i> Supervisors and QA partners collaborated without email ping-pong.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Scaling up</h3>
+            <p>Multiple campaigns required stronger governance and automation.</p>
+            <ul>
+              <li><i class="fa-solid fa-building"></i> Role-based navigation ensured the right teams saw the right data.</li>
+              <li><i class="fa-solid fa-bolt"></i> Attendance imports and schedule alerts streamlined workforce oversight.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Analytics evolution</h3>
+            <p>Partners wanted predictive insight, not just historical reporting.</p>
+            <ul>
+              <li><i class="fa-solid fa-chart-gantt"></i> Dashboards connected QA, CSAT, and staffing signals.</li>
+              <li><i class="fa-solid fa-robot"></i> AI copilots drafted summaries and surfaced trend commentary.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Global readiness</h3>
+            <p>Remote and hybrid teams needed flexible, secure access.</p>
+            <ul>
+              <li><i class="fa-solid fa-cloud"></i> Cloud-based delivery ensured uptime across regions.</li>
+              <li><i class="fa-solid fa-lock"></i> Compliance tooling supported privacy-first operations.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section is-alt">
+      <div class="container">
+        <div class="section-header">
+          <h2>Voices from the journey</h2>
+          <p>Stories from the teams who helped steer LuminaHQ.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Operations leaders</h3>
+            <p>“LuminaHQ gave us visibility to align QA, coaching, and staffing for the first time.”</p>
+            <ul>
+              <li><i class="fa-solid fa-quote-left"></i> Leaders influence navigation updates and dashboard priorities.</li>
+              <li><i class="fa-solid fa-people-arrows"></i> Cross-functional councils keep releases grounded in frontline needs.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Quality analysts</h3>
+            <p>“Calibrations and feedback loops feel natural—we can focus on improving conversations.”</p>
+            <ul>
+              <li><i class="fa-solid fa-comment-dots"></i> Comment threads maintain context around every evaluation.</li>
+              <li><i class="fa-solid fa-wand-magic-sparkles"></i> Assisted summaries prepare talking points for coaching.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Supervisors & coaches</h3>
+            <p>“Coaching actions stay visible so nothing slips past due.”</p>
+            <ul>
+              <li><i class="fa-solid fa-list-check"></i> Task cues guide supervisors through follow-ups.</li>
+              <li><i class="fa-solid fa-handshake-angle"></i> Acknowledgment workflows reinforce accountability.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Agents</h3>
+            <p>“I see my progress, expectations, and resources in one workspace.”</p>
+            <ul>
+              <li><i class="fa-solid fa-gauge-high"></i> Personalized dashboards highlight achievements and next steps.</li>
+              <li><i class="fa-solid fa-lightbulb"></i> Integrated resources answer questions without leaving the page.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Looking ahead</h2>
+          <p>Where LuminaHQ is headed next.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>AI copilots</h3>
+            <p>Draft coaching insights, QA summaries, and staffing signals automatically.</p>
+            <ul>
+              <li><i class="fa-solid fa-robot"></i> Responsible AI guardrails keep humans in the loop.</li>
+              <li><i class="fa-solid fa-gears"></i> Configurable prompts tune outputs to each campaign.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Deeper integrations</h3>
+            <p>Connect LuminaHQ with CRM, telephony, and BI suites.</p>
+            <ul>
+              <li><i class="fa-solid fa-plug"></i> Flexible connectors speed up onboarding.</li>
+              <li><i class="fa-solid fa-database"></i> Unified data models power richer insights.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Experience design</h3>
+            <p>Elevate the agent and supervisor experience with contextual learning.</p>
+            <ul>
+              <li><i class="fa-solid fa-graduation-cap"></i> Micro-learnings surface during coaching and QA reviews.</li>
+              <li><i class="fa-solid fa-user"></i> Accessibility improvements ensure everyone can participate.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Community forums</h3>
+            <p>Share best practices and gather feedback across partner sites.</p>
+            <ul>
+              <li><i class="fa-solid fa-people-group"></i> Facilitated forums connect leaders, analysts, and agents.</li>
+              <li><i class="fa-solid fa-comments"></i> Knowledge exchanges highlight new use cases.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section is-alt">
+      <div class="container">
+        <div class="section-header">
+          <h2>Explore more of LuminaHQ</h2>
+          <p>Continue your tour or step back to the overview.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Landing hub</h3>
+            <p>Start from the hero experience for a quick orientation.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Go to landing</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>About LuminaHQ</h3>
+            <p>Meet the builders and principles behind the product.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingAboutUrl ?>"><i class="fa-solid fa-circle-info"></i> Visit About page</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>Capabilities overview</h3>
+            <p>Review the pillars and modules that power LuminaHQ.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingCapabilitiesUrl ?>"><i class="fa-solid fa-sitemap"></i> Explore capabilities</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>Capability deep dive</h3>
+            <p>See the detailed workflows that connect the LuminaHQ ecosystem.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingCapabilitiesDetailUrl ?>"><i class="fa-solid fa-magnifying-glass-chart"></i> Dive deeper</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <div class="container">
+      <div class="brand-lockup">
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
+        LuminaHQ by VLBPO
+      </div>
+      <nav>
+        <a href="<?= landingHomeUrl ?>">Landing</a>
+        <a href="<?= landingAboutUrl ?>">About</a>
+        <a href="<?= landingCapabilitiesUrl ?>">Capabilities</a>
+        <a href="<?= landingCapabilitiesDetailUrl ?>">Deep dive</a>
+      </nav>
+      <div class="landing-metrics">
+        <span><i class="fa-solid fa-book-open"></i> Guided by experience</span>
+        <span><i class="fa-solid fa-compass"></i> Navigating what’s next</span>
+        <span><i class="fa-solid fa-bolt"></i> Momentum for every team</span>
+      </div>
+    </div>
+  </footer>
+</div>

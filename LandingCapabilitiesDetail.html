@@ -1,0 +1,239 @@
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: 'landing-capabilities-detail',
+  pageTitle: 'LuminaHQ Capability Deep Dive',
+  pageDescription: 'Detailed walkthrough of LuminaHQ workflows with sequencing, data inputs, and role expectations.'
+}) ?>
+
+<?
+  var landingBase = (typeof scriptUrl !== 'undefined' && scriptUrl)
+    ? scriptUrl
+    : ((typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : '');
+
+  var landingHomeUrl = landingBase ? landingBase + '?page=landing' : 'Landing.html';
+  var landingAboutUrl = landingBase ? landingBase + '?page=landing-about' : 'LandingAbout.html';
+  var landingCapabilitiesUrl = landingBase ? landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+  var landingCapabilitiesDetailUrl = landingBase ? landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+  var landingStoryUrl = landingBase ? landingBase + '?page=landing-story' : 'LandingStory.html';
+  var loginUrl = (typeof buildLoginPageUrl === 'function') ? buildLoginPageUrl({}) : (landingBase || '#');
+?>
+
+<?!= includeOnce('LandingTemplateStyles') ?>
+
+<div class="landing-shell landing-theme-amber" style="--landing-hero-image: url('https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1600&q=80');">
+  <header class="landing-hero">
+    <div class="container">
+      <div class="landing-hero-content">
+        <span class="landing-badge"><i class="fa-solid fa-magnifying-glass-chart"></i>Detailed workflow guide</span>
+        <h1>Dive into LuminaHQ capabilities</h1>
+        <p>
+          Map each capability to the operational moments it supports. From intake to insights, LuminaHQ keeps your team aligned with clear
+          roles, repeatable workflows, and ready-to-use analytics outputs.
+        </p>
+        <div class="landing-cta">
+          <a class="btn btn-primary" href="<?= landingCapabilitiesUrl ?>">Return to overview</a>
+          <a class="btn btn-outline-light" href="<?= loginUrl ?>">Plan an implementation</a>
+        </div>
+        <div class="landing-hero-meta">
+          <span><i class="fa-solid fa-route"></i> Sequenced playbooks</span>
+          <span><i class="fa-solid fa-users"></i> Role clarity baked in</span>
+          <span><i class="fa-solid fa-file-circle-check"></i> Audit-friendly outputs</span>
+        </div>
+      </div>
+      <div class="landing-hero-media">
+        <img src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1600&q=80" alt="Detailed LuminaHQ capability boards" loading="lazy">
+      </div>
+    </div>
+  </header>
+
+  <main class="landing-main">
+    <section class="landing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>How the modules connect</h2>
+          <p>Follow the orchestration path from insight capture to agent enablement.</p>
+        </div>
+        <div class="landing-grid">
+          <article class="landing-card">
+            <h3>1. Observe & evaluate</h3>
+            <p>Quality analysts capture evaluations with rich context and standardized scoring.</p>
+            <ul>
+              <li><i class="fa-solid fa-clipboard-list"></i> Guided forms collect customer impact, root cause, and policy notes.</li>
+              <li><i class="fa-solid fa-comments"></i> Collaboration widgets invite calibrations before publishing.</li>
+              <li><i class="fa-solid fa-diagram-project"></i> Evaluations flow to dashboards that highlight trend outliers.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>2. Coach & acknowledge</h3>
+            <p>Supervisors turn QA insights into action while agents stay looped in at every step.</p>
+            <ul>
+              <li><i class="fa-solid fa-handshake"></i> Coaching forms map improvement plans and celebrate wins.</li>
+              <li><i class="fa-solid fa-pen"></i> Agents sign digital acknowledgments that confirm understanding.</li>
+              <li><i class="fa-solid fa-clock"></i> Automated reminders surface pending follow-ups before deadlines.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>3. Optimize & forecast</h3>
+            <p>Workforce leaders blend attendance, scheduling, and coaching commitments to stay ahead of demand.</p>
+            <ul>
+              <li><i class="fa-solid fa-calendar"></i> Shared calendars display staffing coverage alongside coaching events.</li>
+              <li><i class="fa-solid fa-database"></i> Data exports feed BI layers or AI copilots for advanced modeling.</li>
+              <li><i class="fa-solid fa-shield"></i> Governance controls ensure only authorized leaders can trigger changes.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section is-alt">
+      <div class="container">
+        <div class="section-header">
+          <h2>Workflow deep dives</h2>
+          <p>Key processes showing how teams collaborate inside LuminaHQ.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Quality calibration loop</h3>
+            <p>Align criteria before evaluations impact scoring.</p>
+            <ul>
+              <li><i class="fa-solid fa-users-gear"></i> Analysts submit sample evaluations for leadership review.</li>
+              <li><i class="fa-solid fa-scale-balanced"></i> Calibration notes sync to scoring rubrics automatically.</li>
+              <li><i class="fa-solid fa-clipboard-check"></i> Finalized standards publish directly to QA forms.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Coaching follow-through</h3>
+            <p>Ensure accountability after every coaching conversation.</p>
+            <ul>
+              <li><i class="fa-solid fa-list-check"></i> Action items assigned to agents with due dates and owners.</li>
+              <li><i class="fa-solid fa-link"></i> Links to knowledge resources and policy updates embedded in context.</li>
+              <li><i class="fa-solid fa-chart-line"></i> Progress tracked across dashboards for leaders and QA partners.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Attendance harmonization</h3>
+            <p>Keep workforce, QA, and coaching schedules synchronized.</p>
+            <ul>
+              <li><i class="fa-solid fa-cloud-arrow-up"></i> Imports normalize data from biometric or WFM systems.</li>
+              <li><i class="fa-solid fa-bell"></i> Alerts notify leaders when adherence or compliance thresholds slip.</li>
+              <li><i class="fa-solid fa-people-group"></i> Joint reviews prioritize coverage for coaching-critical agents.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Executive insights</h3>
+            <p>Provide leadership with a cohesive view of operations health.</p>
+            <ul>
+              <li><i class="fa-solid fa-chart-pie"></i> Dashboards blend QA, CSAT, staffing, and escalation data.</li>
+              <li><i class="fa-solid fa-wand-magic-sparkles"></i> AI-ready summaries convert metrics into key talking points.</li>
+              <li><i class="fa-solid fa-file-signature"></i> Shareable packets export for governance and partner reviews.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Implementation blueprint</h2>
+          <p>Use these steps to align stakeholders and launch successfully.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Kickoff & discovery</h3>
+            <ul>
+              <li><i class="fa-solid fa-microphone-lines"></i> Workshops gather current QA, coaching, and WFM processes.</li>
+              <li><i class="fa-solid fa-map-location-dot"></i> Define campaign groupings, roles, and navigation access.</li>
+              <li><i class="fa-solid fa-folder-tree"></i> Consolidate templates, scripts, and policies for import.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Configuration sprint</h3>
+            <ul>
+              <li><i class="fa-solid fa-sliders"></i> Tailor evaluation rubrics, coaching forms, and notification cadences.</li>
+              <li><i class="fa-solid fa-diagram-next"></i> Map integrations and schedule data refresh windows.</li>
+              <li><i class="fa-solid fa-person-chalkboard"></i> Build enablement assets for analysts and supervisors.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Pilot & iterate</h3>
+            <ul>
+              <li><i class="fa-solid fa-people-arrows"></i> Select pilot teams across QA, coaching, and workforce functions.</li>
+              <li><i class="fa-solid fa-chart-column"></i> Collect baseline metrics to measure improvement.</li>
+              <li><i class="fa-solid fa-reply"></i> Incorporate feedback and finalize go-live runbooks.</li>
+            </ul>
+          </article>
+          <article class="landing-card">
+            <h3>Launch & expand</h3>
+            <ul>
+              <li><i class="fa-solid fa-rocket"></i> Deploy modules with coordinated communications.</li>
+              <li><i class="fa-solid fa-gauge"></i> Monitor adoption dashboards and respond to support signals.</li>
+              <li><i class="fa-solid fa-diagram-predecessor"></i> Extend automations and analytics layers as teams mature.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section is-alt">
+      <div class="container">
+        <div class="section-header">
+          <h2>Continue the journey</h2>
+          <p>Keep exploring LuminaHQ or loop back to the overview pages.</p>
+        </div>
+        <div class="landing-grid is-two">
+          <article class="landing-card">
+            <h3>Capability overview</h3>
+            <p>Summaries of each module with quick comparisons.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingCapabilitiesUrl ?>"><i class="fa-solid fa-sitemap"></i> View overview</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>About LuminaHQ</h3>
+            <p>Learn about the people and principles backing the product.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingAboutUrl ?>"><i class="fa-solid fa-circle-info"></i> Meet the team</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>Our story</h3>
+            <p>See how our operations heritage shaped this deep dive.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingStoryUrl ?>"><i class="fa-solid fa-book"></i> Read the story</a>
+            </div>
+          </article>
+          <article class="landing-card">
+            <h3>Main landing</h3>
+            <p>Jump back to the hero view with quick navigation shortcuts.</p>
+            <div class="landing-navigation">
+              <a href="<?= landingHomeUrl ?>"><i class="fa-solid fa-house"></i> Go to landing</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <div class="container">
+      <div class="brand-lockup">
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png" alt="LuminaHQ logo" loading="lazy">
+        LuminaHQ by VLBPO
+      </div>
+      <nav>
+        <a href="<?= landingHomeUrl ?>">Landing</a>
+        <a href="<?= landingAboutUrl ?>">About</a>
+        <a href="<?= landingCapabilitiesUrl ?>">Capabilities</a>
+        <a href="<?= landingStoryUrl ?>">Our story</a>
+      </nav>
+      <div class="landing-metrics">
+        <span><i class="fa-solid fa-route"></i> Guided implementation</span>
+        <span><i class="fa-solid fa-users"></i> Cross-team alignment</span>
+        <span><i class="fa-solid fa-chart-line"></i> Outcome visibility</span>
+      </div>
+    </div>
+  </footer>
+</div>

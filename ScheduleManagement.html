@@ -2034,7 +2034,6 @@
                 document.getElementById('attendanceYear')?.addEventListener('change', async () => {
                     try {
                         await this.loadAttendanceCalendar();
-                        await this.loadAttendanceDashboard(true);
                     } catch (error) {
                         console.error('Failed to refresh attendance data after year change:', error);
                     }
@@ -4747,7 +4746,6 @@
                         if (result && result.success) {
                             this.showToast(`Marked ${userName} as ${status} on ${date}`, 'success');
                             await this.loadAttendanceCalendar();
-                            await this.loadAttendanceDashboard(true);
                         } else {
                             throw new Error(result?.error || 'Failed to mark attendance');
                         }
