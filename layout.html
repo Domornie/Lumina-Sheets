@@ -1215,6 +1215,18 @@
       --topbar-text-muted: #64748b;
       --topbar-text-strong: #1e293b;
 
+      --z-dropdown: 1000;
+      --z-sticky: 1020;
+      --z-fixed: 1030;
+      --z-modal-backdrop: 1040;
+      --z-modal: 1050;
+      --z-popover: 1060;
+      --z-tooltip: 1070;
+      --z-toast: 9999;
+
+      --bs-backdrop-zindex: var(--z-modal-backdrop);
+      --bs-modal-zindex: var(--z-modal);
+
       --sidebar-width: 320px;
       --sidebar-collapsed: 80px;
       --topbar-height: 72px;
@@ -1261,6 +1273,14 @@
       font-size: 14px;
       line-height: 1.6;
       font-weight: 400;
+    }
+
+    .modal-backdrop {
+      z-index: var(--bs-backdrop-zindex, 1040) !important;
+    }
+
+    .modal {
+      z-index: var(--bs-modal-zindex, 1050) !important;
     }
 
     /* Enhanced Sidebar with Glassmorphism */
