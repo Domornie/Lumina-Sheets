@@ -3047,19 +3047,21 @@
             async loadShiftSlots() {
                 try {
                     console.log('🕒 Loading shift slots...');
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const rawSlots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots, metadata } = this.normalizeShiftSlotListResponse(rawSlots);
 
-                    this.displayShiftSlots(Array.isArray(slots) ? slots : []);
+                    this.displayShiftSlots(slots);
+
                     const totalSlotsElement = document.getElementById('totalSlots');
                     if (totalSlotsElement) {
-                        totalSlotsElement.textContent = Array.isArray(slots) ? slots.length : 0;
+                        totalSlotsElement.textContent = metadata.totalCount;
                     }
 
-                    console.log(`✅ Loaded ${Array.isArray(slots) ? slots.length : 0} shift slots`);
+                    console.log(`✅ Loaded ${metadata.totalCount} shift slots`);
                 } catch (error) {
                     console.error('❌ Error loading shift slots:', error);
                     this.displayShiftSlots([]);
-                    this.showToast('Failed to load shift slots. You may need to create some first.', 'warning');
+                    this.showToast(error.message || 'Failed to load shift slots. You may need to create some first.', 'warning');
                 }
             }
 
@@ -3104,6 +3106,93 @@
                             </div>
                         </div>
                     `).join('');
+            }
+
+            normalizeShiftSlotListResponse(rawSlots) {
+                const emptyResult = { slots: [], metadata: { totalCount: 0 } };
+
+                const coerceArray = (value) => {
+                    if (Array.isArray(value)) {
+                        return value.filter(slot => slot && typeof slot === 'object');
+                    }
+
+                    if (value && typeof value === 'object' && (value.ID || value.Name)) {
+                        return [value];
+                    }
+
+                    return [];
+                };
+
+                const handleFailure = (message) => {
+                    throw new Error(message || 'Failed to load shift slots from the server.');
+                };
+
+                if (Array.isArray(rawSlots)) {
+                    const normalized = coerceArray(rawSlots);
+                    return {
+                        slots: normalized,
+                        metadata: { totalCount: normalized.length }
+                    };
+                }
+
+                if (!rawSlots) {
+                    return emptyResult;
+                }
+
+                if (typeof rawSlots === 'string') {
+                    handleFailure(rawSlots);
+                }
+
+                if (typeof rawSlots === 'object') {
+                    if (rawSlots.success === false) {
+                        handleFailure(rawSlots.error || rawSlots.message);
+                    }
+
+                    const candidateArrays = [
+                        rawSlots.slots,
+                        rawSlots.data?.slots,
+                        rawSlots.result?.slots,
+                        rawSlots.records,
+                        rawSlots.items
+                    ];
+
+                    for (const candidate of candidateArrays) {
+                        if (Array.isArray(candidate)) {
+                            const normalized = coerceArray(candidate);
+                            return {
+                                slots: normalized,
+                                metadata: {
+                                    totalCount: normalized.length,
+                                    source: rawSlots
+                                }
+                            };
+                        }
+                    }
+
+                    if (rawSlots.success === true && Array.isArray(rawSlots.data)) {
+                        const normalized = coerceArray(rawSlots.data);
+                        return {
+                            slots: normalized,
+                            metadata: {
+                                totalCount: normalized.length,
+                                source: rawSlots
+                            }
+                        };
+                    }
+
+                    const singleSlot = coerceArray(rawSlots);
+                    if (singleSlot.length) {
+                        return {
+                            slots: singleSlot,
+                            metadata: {
+                                totalCount: singleSlot.length,
+                                source: rawSlots
+                            }
+                        };
+                    }
+                }
+
+                return emptyResult;
             }
 
             async refreshDashboard() {
