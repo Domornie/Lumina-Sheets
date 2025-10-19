@@ -4880,6 +4880,8 @@
 
             async loadAttendanceCalendar() {
                 try {
+                    await this.ensureScheduleContext();
+
                     const month = document.getElementById('attendanceMonth').value;
                     const year = document.getElementById('attendanceYear').value;
 
@@ -4892,10 +4894,46 @@
                             </div>
                         `;
 
-                    // Get attendance users
-                    const users = await this.callServerFunction('clientGetAttendanceUsers', this.getCurrentUserId(), this.getCurrentCampaignId() || null);
+                    const managerId = this.getCurrentUserId();
+                    const campaignId = this.getCurrentCampaignId() || null;
 
-                    if (!users || users.length === 0) {
+                    const [attendanceUsersRaw, scheduleUsersRaw] = await Promise.all([
+                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId),
+                        Array.isArray(this.availableUsers) && this.availableUsers.length
+                            ? Promise.resolve(this.availableUsers)
+                            : this.callServerFunction('clientGetScheduleUsers', managerId, campaignId)
+                    ]);
+
+                    const scheduleUsers = Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : [];
+
+                    if (!Array.isArray(this.availableUsers) || !this.availableUsers.length) {
+                        this.availableUsers = scheduleUsers.slice();
+                    }
+
+                    const combinedUsers = [];
+                    const seenUserKeys = new Set();
+
+                    const appendUserName = (name) => {
+                        const normalized = this.normalizePersonKey(name);
+                        if (!normalized || seenUserKeys.has(normalized)) {
+                            return;
+                        }
+                        combinedUsers.push(name);
+                        seenUserKeys.add(normalized);
+                    };
+
+                    scheduleUsers.forEach(user => {
+                        if (!user) {
+                            return;
+                        }
+                        appendUserName(user.UserName || user.FullName || user.Email);
+                    });
+
+                    if (Array.isArray(attendanceUsersRaw)) {
+                        attendanceUsersRaw.forEach(name => appendUserName(name));
+                    }
+
+                    if (combinedUsers.length === 0) {
                         container.innerHTML = `
                                 <div class="text-center py-5 text-muted">
                                     <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
@@ -4907,14 +4945,7 @@
                         return;
                     }
 
-                    let scheduleUsers = [];
-                    try {
-                        scheduleUsers = await this.callServerFunction('clientGetScheduleUsers', this.getCurrentUserId(), this.getCurrentCampaignId() || null);
-                    } catch (metadataError) {
-                        console.warn('Unable to load schedule user metadata for attendance calendar:', metadataError);
-                    }
-
-                    const userEntries = this.buildAttendanceUserEntries(users, Array.isArray(scheduleUsers) ? scheduleUsers : []);
+                    const userEntries = this.buildAttendanceUserEntries(combinedUsers, scheduleUsers);
 
                     const resolvedMonth = parseInt(month, 10);
                     const resolvedYear = parseInt(year, 10);
