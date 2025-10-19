@@ -7,979 +7,909 @@
 }) ?>
 
 <style>
-  /* Import-specific styles using the modern design system */
-  .import-container {
+  .manual-shift-container {
     max-width: 1200px;
     margin: 0 auto;
+    padding-bottom: 2rem;
   }
 
-  .modern-card {
-    background: linear-gradient(145deg, #ffffff 0%, var(--surface-variant) 100%);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--outline);
-    box-shadow: var(--shadow-lg);
-    margin-bottom: 2rem;
-    transition: var(--transition-smooth);
-    overflow: hidden;
-    position: relative;
+  .manual-page-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
   }
 
-  .modern-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
+  .manual-page-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
     background: var(--gradient-primary);
-  }
-
-  .modern-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl);
-  }
-
-  .card-header-modern {
-    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-variant) 100%);
-    border-bottom: 1px solid var(--outline);
-    padding: 2rem;
-    position: relative;
-  }
-
-  .card-header-modern::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 2rem;
-    right: 2rem;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--primary), transparent);
-    opacity: 0.5;
-  }
-
-  .card-header-modern h2 {
-    margin: 0;
-    font-size: 1.75rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    color: var(--dark);
-    background: linear-gradient(135deg, var(--dark) 0%, var(--primary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .card-header-modern h2 i {
-    margin-right: 1rem;
-    width: 2.5rem;
-    height: 2.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--gradient-primary);
-    color: white;
-    border-radius: var(--border-radius-sm);
-    font-size: 1.25rem;
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
-    -webkit-text-fill-color: initial;
+  .manual-page-subtitle {
+    font-size: 1.05rem;
+    color: var(--gray-600);
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
   }
 
-  .card-body-modern {
-    padding: 2.5rem;
-  }
-
-  .file-input-container {
-    position: relative;
-    margin-bottom: 2rem;
-  }
-
-  .file-input-modern {
-    position: relative;
-    display: block;
-    width: 100%;
-    min-height: 120px;
-    border: 2px dashed var(--outline);
+  .modern-card {
     border-radius: var(--border-radius);
-    background: linear-gradient(145deg, var(--surface) 0%, var(--surface-variant) 100%);
-    transition: var(--transition-smooth);
-    cursor: pointer;
+    border: 1px solid var(--outline);
+    background: linear-gradient(145deg, #ffffff 0%, var(--surface-variant) 100%);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
   }
 
-  .file-input-modern::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(45deg, transparent 30%, rgba(14, 165, 233, 0.05) 50%, transparent 70%);
-    transform: translateX(-100%);
-    transition: transform 0.6s ease;
+  .modern-card-header {
+    padding: 1.5rem 1.75rem 1.25rem;
+    border-bottom: 1px solid var(--outline);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(14, 165, 233, 0.08) 100%);
   }
 
-  .file-input-modern:hover::before {
-    transform: translateX(100%);
-  }
-
-  .file-input-modern:hover {
-    border-color: var(--primary);
-    background: linear-gradient(145deg, var(--surface) 0%, rgba(14, 165, 233, 0.05) 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.15);
-  }
-
-  .file-input-modern.dragover {
-    border-color: var(--success);
-    background: linear-gradient(145deg, var(--surface) 0%, rgba(16, 185, 129, 0.05) 100%);
-    transform: scale(1.02);
-  }
-
-  .file-input-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 2rem;
-    text-align: center;
-    position: relative;
-    z-index: 2;
-  }
-
-  .file-input-icon {
-    width: 4rem;
-    height: 4rem;
-    margin-bottom: 1rem;
-    background: var(--gradient-primary);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3);
-    transition: var(--transition-smooth);
-  }
-
-  .file-input-modern:hover .file-input-icon {
-    transform: scale(1.1) rotate(5deg);
-    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
-  }
-
-  .file-input-text {
+  .modern-card-title {
+    margin: 0;
     font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-bottom: 0.5rem;
-  }
-
-  .file-input-subtext {
-    font-size: 0.9rem;
-    color: var(--gray-500);
-    margin-bottom: 1.5rem;
-  }
-
-  .file-input-real {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 3;
-  }
-
-  .file-type-badges {
+    font-weight: 700;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: center;
-    margin-bottom: 1.5rem;
+    gap: 0.75rem;
+    align-items: center;
+    color: var(--dark);
   }
 
-  .file-type-badge-modern {
+  .modern-card-title i {
+    width: 2.5rem;
+    height: 2.5rem;
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
-    background: linear-gradient(135deg, var(--surface) 0%, var(--outline) 100%);
-    color: var(--gray-600);
-    padding: 0.375rem 0.75rem;
-    border-radius: var(--border-radius-full);
-    font-size: 0.8rem;
-    font-weight: 600;
-    border: 1px solid var(--outline);
-    transition: var(--transition-fast);
-  }
-
-  .file-type-badge-modern:hover {
+    justify-content: center;
+    border-radius: var(--border-radius-sm);
     background: var(--gradient-primary);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+    color: #fff;
+    font-size: 1.25rem;
   }
 
-  .requirements-section {
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
-    border: 1px solid rgba(14, 165, 233, 0.2);
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    margin-top: 2rem;
+  .modern-card-body {
+    padding: 1.75rem;
   }
 
-  .requirements-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  .shift-field-group {
+    display: grid;
+    gap: 1rem 1.5rem;
   }
 
-  .requirements-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  .shift-field-group.three-cols {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
-  .requirements-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(14, 165, 233, 0.1);
+  .shift-field-group.two-cols {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 
-  .requirements-list li:last-child {
-    border-bottom: none;
-  }
-
-  .requirements-list li i {
-    color: var(--success);
-    margin-top: 0.125rem;
-    flex-shrink: 0;
-  }
-
-  .requirements-list code {
-    background: rgba(14, 165, 233, 0.1);
-    color: var(--primary-dark);
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-    font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-    font-size: 0.875rem;
+  .form-label-modern {
     font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.35rem;
   }
 
-  .preview-container {
-    background: linear-gradient(145deg, var(--surface) 0%, var(--surface-variant) 100%);
+  .form-control-modern,
+  .form-select-modern,
+  .form-textarea-modern {
+    width: 100%;
     border-radius: var(--border-radius);
-    padding: 2rem;
-    margin-top: 2rem;
     border: 1px solid var(--outline);
-    box-shadow: var(--shadow-md);
-    animation: slideIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    padding: 0.65rem 0.85rem;
+    background: rgba(255, 255, 255, 0.9);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
-  .preview-header {
+  .form-control-modern:focus,
+  .form-select-modern:focus,
+  .form-textarea-modern:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.15);
+  }
+
+  .form-textarea-modern {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .user-selection-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+
+  .user-search-box {
+    position: relative;
+    margin-bottom: 1rem;
+  }
+
+  .user-search-box i {
+    position: absolute;
+    top: 50%;
+    left: 0.85rem;
+    transform: translateY(-50%);
+    color: var(--gray-500);
+  }
+
+  .user-search-input {
+    padding-left: 2.5rem;
+  }
+
+  .user-selection-controls {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--outline);
+    gap: 1rem;
+    margin-bottom: 1rem;
   }
 
-  .preview-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--dark);
+  .user-count-label {
+    font-weight: 600;
+    color: var(--gray-600);
+  }
+
+  .user-list {
+    flex: 1;
+    border: 1px solid var(--outline);
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.9);
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 0.75rem;
+  }
+
+  .user-list-empty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 0.95rem;
+  }
+
+  .user-list-item {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-  }
-
-  .preview-title i {
-    color: var(--primary);
-    background: rgba(14, 165, 233, 0.1);
-    padding: 0.5rem;
     border-radius: var(--border-radius-sm);
+    padding: 0.5rem 0.65rem;
+    transition: background-color 0.2s ease;
   }
 
-  .preview-stats {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.875rem;
+  .user-list-item:hover {
+    background: rgba(14, 165, 233, 0.08);
+  }
+
+  .user-list-item + .user-list-item {
+    margin-top: 0.35rem;
+  }
+
+  .user-name {
+    font-weight: 600;
+    color: var(--dark);
+  }
+
+  .user-meta {
+    font-size: 0.8rem;
     color: var(--gray-500);
   }
 
-  .preview-stat {
+  .user-loading-state {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-  }
-
-  .preview-table-container {
-    max-height: 400px;
-    overflow-y: auto;
-    border-radius: var(--border-radius-sm);
-    border: 1px solid var(--outline);
-    background: var(--surface);
-  }
-
-  .preview-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .preview-table th {
-    background: var(--gradient-primary);
-    color: white;
-    padding: 1rem;
-    font-weight: 600;
-    text-align: left;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  }
-
-  .preview-table td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--outline);
-    transition: var(--transition-fast);
-  }
-
-  .preview-table tbody tr:hover {
-    background: rgba(14, 165, 233, 0.05);
-  }
-
-  .preview-table tbody tr:nth-child(even) {
-    background: rgba(248, 250, 252, 0.5);
-  }
-
-  .btn-modern {
-    display: inline-flex;
-    align-items: center;
+    justify-content: center;
     gap: 0.75rem;
-    padding: 0.875rem 2rem;
-    border-radius: var(--border-radius);
-    font-weight: 600;
-    font-size: 1rem;
-    border: none;
-    cursor: pointer;
-    transition: var(--transition-smooth);
-    text-decoration: none;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-  }
-
-  .btn-modern::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
-    transform: translateX(-100%);
-    transition: transform 0.6s ease;
-  }
-
-  .btn-modern:hover::before {
-    transform: translateX(100%);
-  }
-
-  .btn-modern:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl);
-  }
-
-  .btn-modern:active {
-    transform: translateY(0);
-  }
-
-  .btn-modern:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .btn-primary-modern {
-    background: var(--gradient-primary);
-    color: white;
-  }
-
-  .btn-primary-modern:hover {
-    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
-    color: white;
-  }
-
-  .btn-success-modern {
-    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
-    color: white;
-  }
-
-  .btn-success-modern:hover {
-    background: linear-gradient(135deg, #059669 0%, var(--success) 100%);
-    color: white;
-  }
-
-  .feedback-container {
-    margin-top: 1.5rem;
+    padding: 2.25rem 1rem;
+    color: var(--gray-600);
   }
 
   .loading-spinner {
     display: inline-block;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    width: 1.25rem;
+    height: 1.25rem;
     border-radius: 50%;
-    border-top-color: currentColor;
-    animation: spin 1s ease-in-out infinite;
+    border: 2px solid rgba(14, 165, 233, 0.25);
+    border-top-color: var(--primary);
+    animation: spin 1s linear infinite;
   }
 
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
 
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .alert-modern {
+    border-radius: var(--border-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid transparent;
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    position: relative;
   }
 
-  .page-header {
-    text-align: center;
-    margin-bottom: 3rem;
+  .alert-modern i {
+    font-size: 1.15rem;
   }
 
-  .page-title {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 1rem;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .alert-modern p {
+    margin: 0;
   }
 
-  .page-subtitle {
-    font-size: 1.1rem;
-    color: var(--gray-500);
-    max-width: 600px;
-    margin: 0 auto;
-    line-height: 1.6;
+  .alert-success-modern {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #047857;
   }
 
-  /* Responsive Design */
+  .alert-danger-modern {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #b91c1c;
+  }
+
+  .alert-warning-modern {
+    background: rgba(234, 179, 8, 0.15);
+    border-color: rgba(234, 179, 8, 0.35);
+    color: #92400e;
+  }
+
+  .alert-info-modern {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #1d4ed8;
+  }
+
+  .alert-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .activity-log {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .activity-entry {
+    border-left: 4px solid var(--primary);
+    padding-left: 1rem;
+    background: rgba(14, 165, 233, 0.06);
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    padding: 1rem 1.25rem;
+  }
+
+  .activity-entry strong {
+    display: block;
+    font-weight: 700;
+    color: var(--dark);
+  }
+
+  .activity-meta {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin-top: 0.35rem;
+  }
+
+  .form-footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .btn-modern {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    border-radius: var(--border-radius);
+    padding: 0.6rem 1.1rem;
+  }
+
+  .btn-success-modern {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    color: #fff;
+    border: none;
+  }
+
+  .btn-success-modern:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+  }
+
+  .btn-outline-modern {
+    background: transparent;
+    color: var(--gray-700);
+    border: 1px solid var(--outline);
+  }
+
   @media (max-width: 768px) {
-    .card-header-modern,
-    .card-body-modern {
-      padding: 1.5rem;
+    .manual-page-title {
+      font-size: 1.85rem;
     }
 
-    .page-title {
-      font-size: 2rem;
+    .modern-card-body {
+      padding: 1.25rem;
     }
 
-    .file-type-badges {
-      justify-content: flex-start;
-    }
-
-    .preview-stats {
+    .form-footer-actions {
       flex-direction: column;
-      gap: 0.5rem;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .file-input-content {
-      padding: 1rem;
+      align-items: stretch;
     }
 
     .btn-modern {
-      width: 100%;
       justify-content: center;
-    }
-
-    .preview-table-container {
-      font-size: 0.8rem;
+      width: 100%;
     }
   }
 </style>
 
-<div class="import-container">
+<div class="manual-shift-container">
+  <div class="manual-page-header">
+    <h1 class="manual-page-title">Manual Shift Slot Assignment</h1>
+    <p class="manual-page-subtitle">
+      Create and assign shift slots without importing spreadsheets. Select a date, define the shift timing,
+      and choose the agents who should receive the assignment. You can also add context from a source month or year
+      to track where the schedule originated.
+    </p>
+  </div>
 
-  <!-- Main Import Card -->
-  <div class="modern-card">
-    <div class="card-header-modern">
-      <h2>
-        <i class="fas fa-cloud-upload-alt"></i>
-        Upload & Preview Attendance Data
-      </h2>
-    </div>
-    
-    <div class="card-body-modern">
-      <!-- File Input Section -->
-      <div class="file-input-container">
-        <div class="file-input-modern" id="fileInputContainer">
-          <input
-            type="file"
-            class="file-input-real"
-            id="dataFile"
-            accept=".csv,.xlsx,.xls,.tsv,.txt,.json"
-            required
-          />
-          <div class="file-input-content">
-            <div class="file-input-icon">
-              <i class="fas fa-upload"></i>
+  <div id="feedbackArea"></div>
+
+  <form id="manualShiftForm" novalidate>
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="modern-card h-100">
+          <div class="modern-card-header">
+            <h3 class="modern-card-title">
+              <i class="fas fa-calendar-plus text-primary"></i>
+              Shift Details
+            </h3>
+          </div>
+          <div class="modern-card-body">
+            <div class="shift-field-group three-cols">
+              <div>
+                <label class="form-label-modern" for="assignmentDate">Assignment Date</label>
+                <input type="date" class="form-control-modern" id="assignmentDate" min="2023-01-01" required>
+                <small class="text-muted">You can schedule back to January 2023.</small>
+              </div>
+              <div>
+                <label class="form-label-modern" for="startTime">Start Time</label>
+                <input type="time" class="form-control-modern" id="startTime" required>
+              </div>
+              <div>
+                <label class="form-label-modern" for="endTime">End Time</label>
+                <input type="time" class="form-control-modern" id="endTime" required>
+              </div>
             </div>
-            <div class="file-input-text">
-              Drop your file here or click to browse
+
+            <div class="shift-field-group two-cols mt-3">
+              <div>
+                <label class="form-label-modern" for="sourceMonth">Source Month (optional)</label>
+                <select class="form-select-modern" id="sourceMonth">
+                  <option value="">Select month</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label-modern" for="sourceYear">Source Year (optional)</label>
+                <select class="form-select-modern" id="sourceYear">
+                  <option value="">Select year</option>
+                </select>
+              </div>
             </div>
-            <div class="file-input-subtext">
-              Choose from multiple supported formats below
+
+            <div class="mt-3">
+              <label class="form-label-modern" for="slotLabel">Slot Label (optional)</label>
+              <input type="text" class="form-control-modern" id="slotLabel" placeholder="e.g., Manual Morning Shift">
             </div>
-            
-            <!-- File Type Badges -->
-            <div class="file-type-badges">
-              <div class="file-type-badge-modern">
-                <i class="fas fa-file-csv"></i>CSV
-              </div>
-              <div class="file-type-badge-modern">
-                <i class="fas fa-file-excel"></i>Excel
-              </div>
-              <div class="file-type-badge-modern">
-                <i class="fas fa-file-alt"></i>TSV
-              </div>
-              <div class="file-type-badge-modern">
-                <i class="fas fa-file-text"></i>Text
-              </div>
-              <div class="file-type-badge-modern">
-                <i class="fas fa-file-code"></i>JSON
-              </div>
+
+            <div class="mt-3">
+              <label class="form-label-modern" for="additionalNotes">Additional Notes</label>
+              <textarea class="form-textarea-modern" id="additionalNotes" placeholder="Add context for this assignment"></textarea>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="replaceExisting">
+              <label class="form-check-label" for="replaceExisting">
+                Replace existing shift assignment on the selected date for chosen users
+              </label>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Requirements Section -->
-      <div class="requirements-section">
-        <div class="requirements-title">
-          <i class="fas fa-list-check"></i>
-          Required Data Headers
+      <div class="col-lg-6">
+        <div class="modern-card user-selection-card">
+          <div class="modern-card-header">
+            <h3 class="modern-card-title">
+              <i class="fas fa-user-clock text-success"></i>
+              Select Users
+            </h3>
+          </div>
+          <div class="modern-card-body d-flex flex-column">
+            <div class="user-search-box">
+              <i class="fas fa-search"></i>
+              <input type="search" class="form-control-modern user-search-input" id="userSearch" placeholder="Search by name or email" autocomplete="off">
+            </div>
+            <div class="user-selection-controls">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="selectAllUsers">
+                <label class="form-check-label" for="selectAllUsers">Select all filtered users</label>
+              </div>
+              <div class="user-count-label">
+                <span id="selectedUserCount">0</span> / <span id="totalUserCount">0</span> selected
+              </div>
+            </div>
+            <div class="user-list" id="userList">
+              <div class="user-loading-state" id="userLoadingState">
+                <span class="loading-spinner"></span>
+                <span>Loading available users...</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <ul class="requirements-list">
-          <li>
-            <i class="fas fa-check-circle"></i>
-            <div>
-              <code>Time</code> - Timestamp (e.g. <code>"1/2/2025, 8:48 AM"</code>)
-            </div>
-          </li>
-          <li>
-            <i class="fas fa-check-circle"></i>
-            <div>
-              <code>Natterbox User: Name</code> - User name (e.g. <code>"Dwayne VLBPO Gordon"</code>)
-            </div>
-          </li>
-          <li>
-            <i class="fas fa-check-circle"></i>
-            <div>
-              <code>Seconds In State</code> - Duration in seconds (e.g. <code>13382</code>)
-            </div>
-          </li>
-          <li>
-            <i class="fas fa-check-circle"></i>
-            <div>
-              <code>Availability State</code> - Status (e.g. <code>"Available"</code>)
-            </div>
-          </li>
-          <li>
-            <i class="fas fa-check-circle"></i>
-            <div>
-              <code>Availability Log: Created Date</code> - Date (e.g. <code>"1/2/2025"</code>)
-            </div>
-          </li>
-        </ul>
+      </div>
+    </div>
+
+    <div class="modern-card mt-4">
+      <div class="modern-card-body form-footer-actions">
+        <div>
+          <strong>Ready to assign?</strong>
+          <span class="text-muted">Review your selections and click <em>Add Shift Slots</em> to apply the changes.</span>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="submit" class="btn-modern btn-success-modern" id="submitManualShift">
+            <i class="fas fa-plus-circle"></i>
+            Add Shift Slots
+          </button>
+          <button type="button" class="btn-modern btn-outline-modern" id="clearSelection">
+            <i class="fas fa-eraser"></i>
+            Clear Selection
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="modern-card mt-4">
+    <div class="modern-card-header">
+      <h3 class="modern-card-title">
+        <i class="fas fa-history text-info"></i>
+        Recent Activity
+      </h3>
+    </div>
+    <div class="modern-card-body">
+      <div class="activity-log" id="activityLog">
+        <p class="text-muted mb-0" id="activityEmptyState">
+          Shift slot assignments that you create will appear here for quick reference.
+        </p>
       </div>
     </div>
   </div>
-
-  <!-- Preview Container (Hidden by default) -->
-  <div class="preview-container" id="previewContainer" style="display: none;">
-    <div class="preview-header">
-      <div class="preview-title">
-        <i class="fas fa-table"></i>
-        Data Preview
-      </div>
-      <div class="preview-stats">
-        <div class="preview-stat">
-          <i class="fas fa-database"></i>
-          <span id="recordCount">0 records</span>
-        </div>
-        <div class="preview-stat">
-          <i class="fas fa-users"></i>
-          <span id="userCount">0 users</span>
-        </div>
-        <div class="preview-stat">
-          <i class="fas fa-eye"></i>
-          <span>Showing first 10</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="preview-table-container" id="previewTableContainer">
-      <table class="preview-table">
-        <thead id="previewHeader"></thead>
-        <tbody id="previewBody"></tbody>
-      </table>
-    </div>
-    
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-      <button id="importBtn" class="btn-modern btn-success-modern">
-        <i class="fas fa-cloud-upload-alt"></i>
-        Import All Records
-      </button>
-    </div>
-  </div>
-
-  <!-- Feedback Container -->
-  <div class="feedback-container" id="feedback"></div>
 </div>
 
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
 <script>
-  class ModernAttendanceImporter {
+  class ManualShiftSlotManager {
     constructor() {
-      this.parsedRows = [];
-      this.fileInputContainer = document.getElementById('fileInputContainer');
-      this.fileInput = document.getElementById('dataFile');
-      this.previewContainer = document.getElementById('previewContainer');
-      this.importBtn = document.getElementById('importBtn');
-      this.feedback = document.getElementById('feedback');
-      
-      this.init();
+      this.form = document.getElementById('manualShiftForm');
+      this.feedbackArea = document.getElementById('feedbackArea');
+      this.activityLog = document.getElementById('activityLog');
+      this.activityEmptyState = document.getElementById('activityEmptyState');
+      this.dateInput = document.getElementById('assignmentDate');
+      this.startTimeInput = document.getElementById('startTime');
+      this.endTimeInput = document.getElementById('endTime');
+      this.sourceMonthSelect = document.getElementById('sourceMonth');
+      this.sourceYearSelect = document.getElementById('sourceYear');
+      this.slotLabelInput = document.getElementById('slotLabel');
+      this.notesInput = document.getElementById('additionalNotes');
+      this.replaceExistingToggle = document.getElementById('replaceExisting');
+      this.userSearchInput = document.getElementById('userSearch');
+      this.userList = document.getElementById('userList');
+      this.userLoadingState = document.getElementById('userLoadingState');
+      this.selectAllToggle = document.getElementById('selectAllUsers');
+      this.selectedCountLabel = document.getElementById('selectedUserCount');
+      this.totalCountLabel = document.getElementById('totalUserCount');
+      this.clearSelectionBtn = document.getElementById('clearSelection');
+      this.submitButton = document.getElementById('submitManualShift');
+
+      this.users = [];
+      this.userMap = new Map();
+      this.selectedUserIds = new Set();
+
+      this.form.addEventListener('submit', (event) => this.handleSubmit(event));
+      this.userSearchInput.addEventListener('input', () => this.renderUserList());
+      this.selectAllToggle.addEventListener('change', () => this.toggleSelectAll());
+      this.clearSelectionBtn.addEventListener('click', () => this.clearSelection());
+
+      this.populateSourceYears();
+      this.setDefaultDate();
+      this.loadUsers();
     }
 
-    init() {
-      this.setupEventListeners();
-      this.setupDragAndDrop();
-    }
-
-    setupEventListeners() {
-      // File input change
-      this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-      
-      // Import button click
-      this.importBtn.addEventListener('click', () => this.handleImport());
-    }
-
-    setupDragAndDrop() {
-      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        this.fileInputContainer.addEventListener(eventName, this.preventDefaults, false);
-        document.body.addEventListener(eventName, this.preventDefaults, false);
-      });
-
-      ['dragenter', 'dragover'].forEach(eventName => {
-        this.fileInputContainer.addEventListener(eventName, () => {
-          this.fileInputContainer.classList.add('dragover');
-        });
-      });
-
-      ['dragleave', 'drop'].forEach(eventName => {
-        this.fileInputContainer.addEventListener(eventName, () => {
-          this.fileInputContainer.classList.remove('dragover');
-        });
-      });
-
-      this.fileInputContainer.addEventListener('drop', (e) => this.handleDrop(e));
-    }
-
-    preventDefaults(e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
-    handleDrop(e) {
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        this.fileInput.files = files;
-        this.handleFileSelect({ target: { files } });
+    populateSourceYears() {
+      const currentYear = new Date().getFullYear();
+      const earliestYear = 2023;
+      const endYear = currentYear + 2;
+      for (let year = currentYear; year >= earliestYear; year--) {
+        this.appendYearOption(year);
+      }
+      for (let year = currentYear + 1; year <= endYear; year++) {
+        this.appendYearOption(year);
       }
     }
 
-    handleFileSelect(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      this.showFeedback(`Processing ${file.name}...`, 'info');
-      
-      const fileName = file.name.toLowerCase();
-      const fileExtension = fileName.split('.').pop();
-
-      const reader = new FileReader();
-
-      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'excel');
-        reader.readAsArrayBuffer(file);
-      } else if (fileExtension === 'json') {
-        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'json');
-        reader.readAsText(file);
-      } else if (fileExtension === 'tsv' || fileExtension === 'txt') {
-        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'tsv');
-        reader.readAsText(file);
-      } else {
-        reader.onload = (evt) => this.handleFileContent(evt.target.result, 'csv');
-        reader.readAsText(file);
-      }
+    appendYearOption(year) {
+      const option = document.createElement('option');
+      option.value = year;
+      option.textContent = year;
+      this.sourceYearSelect.appendChild(option);
     }
 
-    handleFileContent(content, type) {
+    setDefaultDate() {
+      if (!this.dateInput) {
+        return;
+      }
+      const today = new Date();
+      const iso = today.toISOString().split('T')[0];
+      this.dateInput.value = iso;
+    }
+
+    async loadUsers() {
       try {
-        let dataArray;
-        
-        switch (type) {
-          case 'excel':
-            dataArray = this.parseExcelFile(content);
-            break;
-          case 'json':
-            dataArray = this.parseJsonFile(content);
-            break;
-          case 'tsv':
-            dataArray = this.parseTsvFile(content);
-            break;
-          case 'csv':
-          default:
-            dataArray = this.parseCsvFile(content);
-            break;
-        }
-
-        this.processAndPreviewData(dataArray);
-      } catch (error) {
-        this.showFeedback(`Error processing file: ${error.message}`, 'danger');
-      }
-    }
-
-    parseExcelFile(arrayBuffer) {
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
-      if (jsonData.length < 2) {
-        throw new Error("Excel file needs at least one header row and one data row.");
-      }
-      
-      return jsonData;
-    }
-
-    parseJsonFile(text) {
-      const data = JSON.parse(text);
-      if (!Array.isArray(data)) {
-        throw new Error("JSON file must contain an array of objects");
-      }
-      if (data.length === 0) {
-        throw new Error("JSON file is empty");
-      }
-      
-      const headers = Object.keys(data[0]);
-      const rows = [headers];
-      data.forEach(obj => {
-        const row = headers.map(header => obj[header] || '');
-        rows.push(row);
-      });
-      
-      return rows;
-    }
-
-    parseTsvFile(text) {
-      const lines = text.trim().split(/\r?\n/);
-      return lines.map(line => line.split('\t'));
-    }
-
-    parseCsvFile(text) {
-      const lines = text.trim().split(/\r?\n/);
-      return lines.map(line => this.parseCsvRow(line));
-    }
-
-    parseCsvRow(row) {
-      const result = [];
-      let cur = "";
-      let inQuotes = false;
-      
-      for (let i = 0; i < row.length; i++) {
-        const ch = row[i];
-        if (ch === '"') {
-          if (inQuotes && i + 1 < row.length && row[i + 1] === '"') {
-            cur += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
+        this.setUserLoading(true);
+        const users = await this.callServerFunction('clientGetScheduleUsers', 'system');
+        this.users = Array.isArray(users) ? users : [];
+        this.users.sort((a, b) => {
+          const nameA = (a.FullName || a.UserName || '').toLowerCase();
+          const nameB = (b.FullName || b.UserName || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        this.userMap.clear();
+        this.users.forEach(user => {
+          if (user && user.ID) {
+            this.userMap.set(String(user.ID), user);
           }
-        } else if (ch === "," && !inQuotes) {
-          result.push(cur);
-          cur = "";
-        } else {
-          cur += ch;
-        }
+        });
+        this.totalCountLabel.textContent = this.users.length;
+        this.renderUserList();
+      } catch (error) {
+        console.error('Failed to load users:', error);
+        this.showFeedback('Unable to load users. Please refresh and try again.', 'danger');
+        this.userList.innerHTML = '<div class="user-list-empty">Users could not be loaded.</div>';
+        this.selectAllToggle.checked = false;
+        this.selectAllToggle.disabled = true;
+        this.selectedCountLabel.textContent = '0';
+        this.totalCountLabel.textContent = '0';
+      } finally {
+        this.setUserLoading(false);
       }
-      result.push(cur);
-      return result;
     }
 
-    processAndPreviewData(dataArray) {
-      if (dataArray.length < 2) {
-        this.showFeedback("File needs at least one header row and one data row.", "danger");
+    setUserLoading(isLoading) {
+      if (this.userLoadingState) {
+        this.userLoadingState.style.display = isLoading ? 'flex' : 'none';
+      }
+    }
+
+    getFilteredUsers() {
+      const term = this.userSearchInput.value.trim().toLowerCase();
+      if (!term) {
+        return this.users;
+      }
+      return this.users.filter(user => {
+        const name = (user.FullName || user.UserName || '').toLowerCase();
+        const email = (user.Email || '').toLowerCase();
+        const campaign = (user.campaignName || '').toLowerCase();
+        return name.includes(term) || email.includes(term) || campaign.includes(term);
+      });
+    }
+
+    renderUserList() {
+      if (!this.userList) {
         return;
       }
 
-      // Extract header row & find required indices
-      const rawHeaders = dataArray[0].map(h => String(h).trim());
-      const requiredHeaders = {
-        time: "Time",
-        name: "Natterbox User: Name", 
-        seconds: "Seconds In State",
-        state: "Availability State",
-        date: "Availability Log: Created Date"
-      };
+      const filteredUsers = this.getFilteredUsers();
+      this.userList.innerHTML = '';
 
-      const indices = {};
-      for (const [key, header] of Object.entries(requiredHeaders)) {
-        indices[key] = rawHeaders.indexOf(header);
-        if (indices[key] < 0) {
-          this.showFeedback(
-            `Missing required header: <strong>${header}</strong><br>` +
-            `Found headers: ${rawHeaders.map(h => `<code>${h}</code>`).join(', ')}`,
-            "danger"
-          );
+      if (!filteredUsers.length) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'user-list-empty';
+        emptyState.textContent = this.users.length
+          ? 'No users match your search.'
+          : 'No eligible users were found.';
+        this.userList.appendChild(emptyState);
+        this.updateSelectionCounters();
+        this.selectAllToggle.checked = false;
+        this.selectAllToggle.disabled = this.users.length === 0;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      filteredUsers.forEach(user => {
+        const userId = String(user.ID || '');
+        const isChecked = this.selectedUserIds.has(userId);
+
+        const item = document.createElement('label');
+        item.className = 'user-list-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'form-check-input';
+        checkbox.checked = isChecked;
+        checkbox.dataset.userId = userId;
+        checkbox.dataset.userName = user.UserName || user.FullName || '';
+        checkbox.addEventListener('change', (event) => this.toggleUser(event));
+
+        const details = document.createElement('div');
+        details.style.flex = '1';
+
+        const name = document.createElement('div');
+        name.className = 'user-name';
+        name.textContent = user.FullName || user.UserName || 'Unnamed User';
+
+        const meta = document.createElement('div');
+        meta.className = 'user-meta';
+        const parts = [];
+        if (user.UserName && user.FullName && user.UserName !== user.FullName) {
+          parts.push(user.UserName);
+        }
+        if (user.Email) {
+          parts.push(user.Email);
+        }
+        if (user.campaignName) {
+          parts.push(user.campaignName);
+        }
+        meta.textContent = parts.join(' • ');
+
+        details.appendChild(name);
+        if (parts.length) {
+          details.appendChild(meta);
+        }
+
+        item.appendChild(checkbox);
+        item.appendChild(details);
+        fragment.appendChild(item);
+      });
+
+      this.userList.appendChild(fragment);
+      this.updateSelectionCounters();
+      this.syncSelectAllState(filteredUsers);
+      this.selectAllToggle.disabled = false;
+    }
+
+    toggleUser(event) {
+      const checkbox = event.target;
+      const userId = checkbox.dataset.userId;
+      if (!userId) {
+        return;
+      }
+      if (checkbox.checked) {
+        this.selectedUserIds.add(userId);
+      } else {
+        this.selectedUserIds.delete(userId);
+      }
+      this.updateSelectionCounters();
+      this.syncSelectAllState();
+    }
+
+    toggleSelectAll() {
+      const filteredUsers = this.getFilteredUsers();
+      const shouldSelectAll = this.selectAllToggle.checked;
+      filteredUsers.forEach(user => {
+        const userId = String(user.ID || '');
+        if (!userId) {
           return;
         }
-      }
-
-      // Process data rows
-      const tempRows = [];
-      const rowKeySet = new Set();
-      const users = new Set();
-
-      for (let i = 1; i < dataArray.length; i++) {
-        const cols = dataArray[i];
-
-        const rawTimestamp = String(cols[indices.time] || "");
-        let rawName = String(cols[indices.name] || "").trim();
-        rawName = rawName.replace(/\bVLBPO\b/gi, "").replace(/\s+/g, " ").trim();
-        const secondsInState = String(cols[indices.seconds] || "").trim();
-        const stateVal = String(cols[indices.state] || "").trim();
-        const dateOnlyString = String(cols[indices.date] || "").trim();
-
-        // Skip empty rows
-        if (!rawTimestamp || !rawName || !stateVal) continue;
-
-        const compositeKey = [rawTimestamp, rawName, secondsInState, stateVal, dateOnlyString].join("||");
-
-        if (!rowKeySet.has(compositeKey)) {
-          rowKeySet.add(compositeKey);
-          users.add(rawName);
-          tempRows.push({
-            "Time": rawTimestamp,
-            "Natterbox User: Name": rawName,
-            "Seconds In State": secondsInState,
-            "Availability State": stateVal,
-            "Availability Log: Created Date": dateOnlyString
-          });
+        if (shouldSelectAll) {
+          this.selectedUserIds.add(userId);
+        } else {
+          this.selectedUserIds.delete(userId);
         }
-      }
-
-      this.parsedRows = tempRows;
-      this.displayPreview(users.size);
-    }
-
-    displayPreview(userCount) {
-      // Update stats
-      document.getElementById('recordCount').textContent = `${this.parsedRows.length} records`;
-      document.getElementById('userCount').textContent = `${userCount} users`;
-
-      // Build table header
-      const previewHeader = document.getElementById('previewHeader');
-      previewHeader.innerHTML = `
-        <tr>
-          <th style="width: 60px;">#</th>
-          <th>Timestamp</th>
-          <th>User</th>
-          <th>Duration (sec)</th>
-          <th>State</th>
-          <th>Date</th>
-        </tr>`;
-
-      // Build table body
-      const previewBody = document.getElementById('previewBody');
-      previewBody.innerHTML = "";
-
-      this.parsedRows.slice(0, 10).forEach((rowObj, idx) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><strong>${idx + 1}</strong></td>
-          <td>${this.escapeHtml(rowObj["Time"])}</td>
-          <td><strong>${this.escapeHtml(rowObj["Natterbox User: Name"])}</strong></td>
-          <td><span class="badge bg-info">${this.escapeHtml(rowObj["Seconds In State"])}</span></td>
-          <td><span class="badge bg-primary">${this.escapeHtml(rowObj["Availability State"])}</span></td>
-          <td>${this.escapeHtml(rowObj["Availability Log: Created Date"])}</td>
-        `;
-        previewBody.appendChild(tr);
       });
-
-      // Show preview container
-      this.previewContainer.style.display = "block";
-      this.previewContainer.scrollIntoView({ behavior: 'smooth' });
-
-      this.showFeedback(
-        `Successfully parsed <strong>${this.parsedRows.length}</strong> unique records from <strong>${userCount}</strong> users. Review the preview above and click Import to proceed.`,
-        "success"
-      );
+      this.renderUserList();
     }
 
-    async handleImport() {
-      if (!this.parsedRows.length) {
-        this.showFeedback("No data to import.", "danger");
+    syncSelectAllState(filteredUsers = this.getFilteredUsers()) {
+      if (!filteredUsers.length) {
+        this.selectAllToggle.checked = false;
+        return;
+      }
+      const allSelected = filteredUsers.every(user => this.selectedUserIds.has(String(user.ID || '')));
+      this.selectAllToggle.checked = allSelected && filteredUsers.length > 0;
+    }
+
+    clearSelection(options = {}) {
+      this.selectedUserIds.clear();
+      this.renderUserList();
+      if (!options.silent) {
+        this.showFeedback('User selection cleared.', 'info');
+      }
+    }
+
+    updateSelectionCounters() {
+      this.selectedCountLabel.textContent = this.selectedUserIds.size;
+      this.totalCountLabel.textContent = this.users.length;
+    }
+
+    async handleSubmit(event) {
+      event.preventDefault();
+
+      const selectedIds = Array.from(this.selectedUserIds);
+      if (!selectedIds.length) {
+        this.showFeedback('Select at least one user before adding shift slots.', 'warning');
         return;
       }
 
-      // Update button state
-      const originalContent = this.importBtn.innerHTML;
-      this.importBtn.disabled = true;
-      this.importBtn.innerHTML = '<span class="loading-spinner"></span> Importing...';
+      const dateValue = this.dateInput.value;
+      const startTimeValue = this.startTimeInput.value;
+      const endTimeValue = this.endTimeInput.value;
+
+      if (!dateValue || !startTimeValue || !endTimeValue) {
+        this.showFeedback('Date, start time, and end time are required.', 'danger');
+        return;
+      }
+
+      if (startTimeValue >= endTimeValue) {
+        this.showFeedback('End time must be later than start time.', 'warning');
+        return;
+      }
+
+      const payload = {
+        date: dateValue,
+        startTime: startTimeValue,
+        endTime: endTimeValue,
+        sourceMonth: this.sourceMonthSelect.value ? Number(this.sourceMonthSelect.value) : '',
+        sourceYear: this.sourceYearSelect.value ? Number(this.sourceYearSelect.value) : '',
+        slotName: this.slotLabelInput.value.trim(),
+        notes: this.notesInput.value.trim(),
+        replaceExisting: this.replaceExistingToggle.checked,
+        users: selectedIds.map(id => {
+          const user = this.userMap.get(id) || {};
+          return {
+            id,
+            userName: user.UserName || user.FullName || '',
+            fullName: user.FullName || '',
+            email: user.Email || ''
+          };
+        })
+      };
+
+      const originalButtonContent = this.submitButton.innerHTML;
+      this.submitButton.disabled = true;
+      this.submitButton.innerHTML = '<span class="loading-spinner"></span> Saving...';
 
       try {
-        const result = await this.callServerFunction('importAttendance', [this.parsedRows]);
-        
-        this.showFeedback(
-          `Successfully imported <strong>${result.imported}</strong> records!` + 
-          (result.skipped > 0 ? `<br><small>Skipped ${result.skipped} duplicate records.</small>` : ''),
-          "success"
-        );
+        const result = await this.callServerFunction('clientAddManualShiftSlots', payload);
+        if (result && result.success) {
+          const message = result.message || 'Shift slots added successfully.';
+          this.showFeedback(message, 'success');
+          this.appendActivity(result);
+          if (!this.replaceExistingToggle.checked) {
+          this.clearSelection({ silent: true });
+          }
+        } else {
+          const errorMessage = (result && result.error) || 'Unable to add shift slots.';
+          this.showFeedback(errorMessage, 'danger');
+        }
 
-        // Reset form
-        this.fileInput.value = "";
-        this.previewContainer.style.display = "none";
-        this.parsedRows = [];
-        
+        if (result && Array.isArray(result.failed) && result.failed.length) {
+          const skippedNames = result.failed.map(item => item.userName || item.userId || 'Unknown').join(', ');
+          this.showFeedback(`Skipped ${result.failed.length} user(s): ${skippedNames}`, 'warning');
+        }
       } catch (error) {
-        console.error("Import failed:", error);
-        this.showFeedback(
-          `Import failed: ${error.message}<br><small>Please check your data and try again.</small>`,
-          "danger"
-        );
+        console.error('Manual shift slot assignment failed:', error);
+        this.showFeedback(error.message || 'An unexpected error occurred while saving shift slots.', 'danger');
       } finally {
-        // Restore button state
-        this.importBtn.disabled = false;
-        this.importBtn.innerHTML = originalContent;
+        this.submitButton.disabled = false;
+        this.submitButton.innerHTML = originalButtonContent;
       }
     }
 
-    callServerFunction(functionName, args) {
+    appendActivity(result) {
+      if (!result || !Array.isArray(result.details)) {
+        return;
+      }
+
+      if (this.activityEmptyState) {
+        this.activityEmptyState.remove();
+        this.activityEmptyState = null;
+      }
+
+      const entry = document.createElement('div');
+      entry.className = 'activity-entry';
+
+      const userNames = result.details.map(detail => detail.userName || detail.userId || 'Unknown').join(', ');
+      const slotName = result.details[0]?.slotName || 'Manual Shift';
+      const dateLabel = result.details[0]?.date || this.dateInput.value;
+      const timeLabel = `${result.details[0]?.startTime || this.startTimeInput.value} - ${result.details[0]?.endTime || this.endTimeInput.value}`;
+      const timestamp = new Date().toLocaleString();
+
+      entry.innerHTML = `
+        <strong>${this.escapeHtml(slotName)}</strong>
+        <div>${this.escapeHtml(userNames)}</div>
+        <div class="activity-meta">
+          <i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(dateLabel)}
+          &nbsp;•&nbsp;
+          <i class="far fa-clock me-1"></i>${this.escapeHtml(timeLabel)}
+          &nbsp;•&nbsp;
+          Recorded ${this.escapeHtml(timestamp)}
+        </div>
+      `;
+
+      this.activityLog.prepend(entry);
+
+      const maxEntries = 8;
+      while (this.activityLog.children.length > maxEntries) {
+        this.activityLog.removeChild(this.activityLog.lastElementChild);
+      }
+    }
+
+    showFeedback(message, type) {
+      if (!this.feedbackArea) {
+        return;
+      }
+
+      const icons = {
+        success: 'fas fa-check-circle',
+        danger: 'fas fa-exclamation-triangle',
+        warning: 'fas fa-exclamation-circle',
+        info: 'fas fa-info-circle'
+      };
+
+      const alert = document.createElement('div');
+      alert.className = `alert-modern alert-${type}-modern`;
+      alert.innerHTML = `
+        <i class="${icons[type] || icons.info}"></i>
+        <div>
+          <p>${this.escapeHtml(message)}</p>
+        </div>
+        <button type="button" class="alert-close" aria-label="Dismiss" title="Dismiss alert">&times;</button>
+      `;
+
+      alert.querySelector('.alert-close').addEventListener('click', () => alert.remove());
+
+      this.feedbackArea.prepend(alert);
+
+      setTimeout(() => {
+        alert.style.opacity = '0';
+        alert.style.transform = 'translateY(-6px)';
+        setTimeout(() => alert.remove(), 250);
+      }, type === 'info' ? 3500 : 6000);
+    }
+
+    escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = value || '';
+      return div.innerHTML;
+    }
+
+    callServerFunction(functionName, ...args) {
       return new Promise((resolve, reject) => {
         google.script.run
           .withSuccessHandler(resolve)
@@ -987,58 +917,12 @@
           [functionName](...args);
       });
     }
-
-    showFeedback(message, type) {
-      const alertClass = `alert-${type}-modern`;
-      const icons = {
-        success: 'fas fa-check-circle',
-        danger: 'fas fa-exclamation-triangle', 
-        warning: 'fas fa-exclamation-circle',
-        info: 'fas fa-info-circle'
-      };
-
-      this.feedback.innerHTML = `
-        <div class="alert-modern ${alertClass}" role="alert">
-          <div style="display: flex; align-items: flex-start; gap: 1rem;">
-            <i class="${icons[type] || icons.info}" style="margin-top: 0.125rem; flex-shrink: 0;"></i>
-            <div style="flex: 1;">${message}</div>
-          </div>
-          <button type="button" class="alert-close" onclick="this.parentElement.remove()">
-            &times;
-          </button>
-        </div>`;
-
-      // Auto-hide info messages
-      if (type === 'info') {
-        setTimeout(() => {
-          const alertElement = this.feedback.querySelector('.alert-modern');
-          if (alertElement) {
-            alertElement.style.opacity = '0';
-            alertElement.style.transform = 'translateY(-10px)';
-            setTimeout(() => alertElement.remove(), 300);
-          }
-        }, 3000);
-      }
-
-      // Scroll feedback into view
-      this.feedback.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
   }
 
-  // Initialize when DOM is ready
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Initializing Modern Attendance Importer...');
-    window.attendanceImporter = new ModernAttendanceImporter();
-    console.log('✅ Modern Attendance Importer ready');
+    window.manualShiftSlotManager = new ManualShiftSlotManager();
   });
 </script>
 
 </body>
-
 </html>
