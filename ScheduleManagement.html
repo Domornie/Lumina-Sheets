@@ -2170,17 +2170,55 @@
                     { code: 'T', label: 'Training', className: 'attendance-calendar__status--training' }
                 ];
                 this.attendanceStatusOptions = [
-                    { value: 'Present', code: 'P', label: 'Present', description: 'On time and present', className: 'attendance-calendar__status--present' },
+                    { value: 'Present', code: 'P', label: 'Punctual', description: 'On time and present', className: 'attendance-calendar__status--present' },
+                    { value: 'Bereavement', code: 'B', label: 'Bereavement', description: 'Approved bereavement leave', className: 'attendance-calendar__status--bereavement' },
                     { value: 'Absent', code: 'A', label: 'Absent', description: 'Not scheduled or missed shift', className: 'attendance-calendar__status--absent' },
                     { value: 'Late', code: 'L', label: 'Late', description: 'Arrived late or tardy', className: 'attendance-calendar__status--late' },
                     { value: 'No Call No Show', code: 'NCNS', label: 'No Call No Show', description: 'No call and no show', className: 'attendance-calendar__status--ncns' },
-                    { value: 'Sick Leave', code: 'S', label: 'Sick Leave', description: 'Out due to illness', className: 'attendance-calendar__status--sick' },
-                    { value: 'Bereavement', code: 'B', label: 'Bereavement', description: 'Approved bereavement leave', className: 'attendance-calendar__status--bereavement' },
                     { value: 'Vacation', code: 'V', label: 'Vacation', description: 'Approved vacation/PTO', className: 'attendance-calendar__status--vacation' },
+                    { value: 'Sick Leave', code: 'S', label: 'Sick Leave', description: 'Out due to illness', className: 'attendance-calendar__status--sick' },
                     { value: 'Leave Of Absence', code: 'LOA', label: 'Leave Of Absence', description: 'Authorized leave of absence', className: 'attendance-calendar__status--loa' },
                     { value: 'Personal Leave', code: 'PL', label: 'Personal Leave', description: 'Approved personal leave', className: 'attendance-calendar__status--personal' },
                     { value: 'Training', code: 'T', label: 'Training', description: 'In training or workshop', className: 'attendance-calendar__status--training' }
                 ];
+                this.attendanceStatusBadges = {
+                    empty: { code: '-', className: 'attendance-calendar__status--empty', label: 'Unmarked' },
+                    present: { code: 'P', className: 'attendance-calendar__status--present', label: 'Punctual' },
+                    bereavement: { code: 'B', className: 'attendance-calendar__status--bereavement', label: 'Bereavement' },
+                    absent: { code: 'A', className: 'attendance-calendar__status--absent', label: 'Absent' },
+                    late: { code: 'L', className: 'attendance-calendar__status--late', label: 'Late' },
+                    ncns: { code: 'NCNS', className: 'attendance-calendar__status--ncns', label: 'No Call No Show' },
+                    vacation: { code: 'V', className: 'attendance-calendar__status--vacation', label: 'Vacation' },
+                    sick: { code: 'S', className: 'attendance-calendar__status--sick', label: 'Sick Leave' },
+                    loa: { code: 'LOA', className: 'attendance-calendar__status--loa', label: 'Leave of Absence' },
+                    personal: { code: 'PL', className: 'attendance-calendar__status--personal', label: 'Personal Leave' },
+                    training: { code: 'T', className: 'attendance-calendar__status--training', label: 'Training' }
+                };
+                this.attendanceStatusBadgeIndex = new Map();
+                const attendanceStatusAliases = {
+                    present: ['P', 'Present', 'Punctual', 'On Time', 'On-Time', 'OnTime', 'Present On Time', 'Present On-Time'],
+                    bereavement: ['B', 'Bereavement', 'Bereavement Leave', 'Funeral Leave', 'Funeral'],
+                    absent: ['A', 'Absent', 'Absence', 'No Show', 'NoShow', 'Not Present'],
+                    late: ['L', 'Late', 'Tardy', 'Arrived Late', 'Running Late'],
+                    ncns: ['NCNS', 'No Call No Show', 'NoCallNoShow', 'No Call/No Show', 'No Call, No Show', 'No Call & No Show', 'No Call And No Show'],
+                    vacation: ['V', 'Vacation', 'Vacation Day', 'VacationDay', 'PTO', 'Paid Time Off', 'PaidTimeOff'],
+                    sick: ['S', 'Sick', 'Sick Leave', 'SickLeave', 'Sick Day', 'SickDay', 'Illness', 'Medical Leave', 'MedicalLeave'],
+                    loa: ['LOA', 'Leave Of Absence', 'Leave of Absence', 'LeaveOfAbsence', 'Leave Absence'],
+                    personal: ['PL', 'Personal Leave', 'PersonalLeave', 'Personal Day', 'PersonalDay', 'Personal Time', 'PersonalTime', 'Personal Time Off', 'PersonalTimeOff'],
+                    training: ['T', 'Training', 'Training Day', 'TrainingDay', 'Training Session', 'TrainingSession', 'Workshop', 'Class']
+                };
+                Object.entries(attendanceStatusAliases).forEach(([key, values]) => {
+                    const badge = this.attendanceStatusBadges[key];
+                    if (!badge || !Array.isArray(values)) {
+                        return;
+                    }
+                    values.forEach((alias) => {
+                        const normalizedAlias = this.normalizeAttendanceStatusKey(alias);
+                        if (normalizedAlias && !this.attendanceStatusBadgeIndex.has(normalizedAlias)) {
+                            this.attendanceStatusBadgeIndex.set(normalizedAlias, badge);
+                        }
+                    });
+                });
                 this.init();
             }
 
@@ -5098,10 +5136,19 @@
                         const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
                         const badgeLabel = badge ? this.escapeHtml(badge.label) : 'Unmarked';
                         const statusClass = badge ? `attendance-calendar__status ${badge.className}` : 'attendance-calendar__status attendance-calendar__status--empty';
-                        const statusContent = badge ? this.escapeHtml(badge.code) : '&#8211;';
+                        const badgeCode = badge && badge.code && badge.code !== '-' ? badge.code : '';
+                        const statusContent = badgeCode ? this.escapeHtml(badgeCode) : '&#8211;';
+                        const safeIdentifierAttr = this.escapeHtml(entry.identifier || entry.original || '');
+                        const safeDateAttr = this.escapeHtml(dateStr);
+                        const safeStatusAttr = badge ? this.escapeHtml(record?.status || '') : '';
+                        const statusCodeAttr = badgeCode ? this.escapeHtml(badgeCode) : '';
 
                         html += `
                                             <td class="${isWeekend ? 'attendance-calendar__cell attendance-calendar__cell--weekend' : 'attendance-calendar__cell'}"
+                                                data-attendance-user="${safeIdentifierAttr}"
+                                                data-attendance-date="${safeDateAttr}"
+                                                data-attendance-status="${safeStatusAttr}"
+                                                data-attendance-status-code="${statusCodeAttr}"
                                                 onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
                                                 oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
                                                 title="Right-click or tap to mark attendance for ${safeDisplay} on ${dateStr}">
@@ -5159,49 +5206,46 @@
             }
 
             getAttendanceStatusBadge(status) {
-                const normalized = (status || '').toString().trim();
-                const value = normalized.toLowerCase();
+                const normalizedOriginal = (status || '').toString().trim();
+                const normalizedKey = this.normalizeAttendanceStatusKey(normalizedOriginal);
 
-                if (!value) {
-                    return { code: '-', className: 'attendance-calendar__status--empty', label: 'Unmarked' };
-                }
-
-                if (value === 'present' || value === 'on time') {
-                    return { code: 'P', className: 'attendance-calendar__status--present', label: 'Present' };
-                }
-                if (value === 'absent' || value === 'no show') {
-                    return { code: 'A', className: 'attendance-calendar__status--absent', label: 'Absent' };
-                }
-                if (value === 'late' || value.includes('tardy')) {
-                    return { code: 'L', className: 'attendance-calendar__status--late', label: 'Late' };
-                }
-                if (value.includes('no call no show')) {
-                    return { code: 'NCNS', className: 'attendance-calendar__status--ncns', label: 'No Call No Show' };
-                }
-                if (value.includes('sick')) {
-                    return { code: 'S', className: 'attendance-calendar__status--sick', label: 'Sick Leave' };
-                }
-                if (value.includes('bereavement')) {
-                    return { code: 'B', className: 'attendance-calendar__status--bereavement', label: 'Bereavement' };
-                }
-                if (value.includes('vacation') || value.includes('pto')) {
-                    return { code: 'V', className: 'attendance-calendar__status--vacation', label: 'Vacation' };
-                }
-                if (value.includes('leave of absence') || value.includes('loa')) {
-                    return { code: 'LOA', className: 'attendance-calendar__status--loa', label: 'Leave of Absence' };
-                }
-                if (value.includes('personal')) {
-                    return { code: 'PL', className: 'attendance-calendar__status--personal', label: 'Personal Leave' };
-                }
-                if (value.includes('training')) {
-                    return { code: 'T', className: 'attendance-calendar__status--training', label: 'Training' };
+                if (!normalizedKey) {
+                    return this.attendanceStatusBadges.empty;
                 }
 
-                const fallbackCode = normalized ? normalized.substring(0, 3).toUpperCase() : '?';
+                if (this.attendanceStatusBadgeIndex && this.attendanceStatusBadgeIndex.has(normalizedKey)) {
+                    return this.attendanceStatusBadgeIndex.get(normalizedKey);
+                }
+
+                const keywordChecks = [
+                    { match: ['present', 'on time', 'punctual'], badge: this.attendanceStatusBadges.present },
+                    { match: ['bereavement'], badge: this.attendanceStatusBadges.bereavement },
+                    { match: ['absent', 'no show'], badge: this.attendanceStatusBadges.absent },
+                    { match: ['late', 'tardy'], badge: this.attendanceStatusBadges.late },
+                    { match: ['no call', 'no show'], badge: this.attendanceStatusBadges.ncns },
+                    { match: ['vacation', 'pto', 'paid time off'], badge: this.attendanceStatusBadges.vacation },
+                    { match: ['sick', 'illness', 'medical'], badge: this.attendanceStatusBadges.sick },
+                    { match: ['leave of absence', 'loa'], badge: this.attendanceStatusBadges.loa },
+                    { match: ['personal'], badge: this.attendanceStatusBadges.personal },
+                    { match: ['training', 'workshop', 'session', 'class'], badge: this.attendanceStatusBadges.training }
+                ];
+
+                for (const { match, badge } of keywordChecks) {
+                    if (!Array.isArray(match) || !badge) {
+                        continue;
+                    }
+
+                    const isMatch = match.some(keyword => normalizedKey.includes(this.normalizeAttendanceStatusKey(keyword)));
+                    if (isMatch) {
+                        return badge;
+                    }
+                }
+
+                const fallbackCode = normalizedOriginal ? normalizedOriginal.substring(0, 3).toUpperCase() : '?';
                 return {
                     code: fallbackCode,
                     className: 'attendance-calendar__status--other',
-                    label: normalized || 'Other'
+                    label: normalizedOriginal || 'Other'
                 };
             }
 
@@ -5248,7 +5292,7 @@
                     this.hideAttendanceContextMenu();
 
                     if (target) {
-                        this.setAttendanceStatus(target.userName, target.date, status, target.displayName);
+                        this.setAttendanceStatus(target.userName, target.date, status, target.displayName, target.cellElement);
                     }
                 });
 
@@ -5272,10 +5316,15 @@
                 this.hideAttendanceContextMenu();
 
                 const menu = this.ensureAttendanceContextMenu();
+                const cellElement = (event && event.currentTarget instanceof HTMLElement)
+                    ? event.currentTarget
+                    : (event?.target?.closest?.('td') || null);
+
                 this.attendanceContextMenuTarget = {
                     userName,
                     date,
-                    displayName: displayName || userName
+                    displayName: displayName || userName,
+                    cellElement: cellElement instanceof HTMLElement ? cellElement : null
                 };
 
                 menu.style.visibility = 'hidden';
@@ -5380,19 +5429,21 @@
                 }
             }
 
-            async setAttendanceStatus(userName, date, status, displayName = null) {
+            async setAttendanceStatus(userName, date, status, displayName = null, cellElement = null) {
                 const trimmedStatus = (status || '').toString().trim();
                 if (!trimmedStatus) {
                     return;
                 }
 
                 const displayValue = displayName || userName;
+                const resolvedCell = cellElement instanceof HTMLElement ? cellElement : null;
 
                 try {
                     const result = await this.callServerFunction('clientMarkAttendanceStatus', userName, date, trimmedStatus);
                     if (result && result.success) {
                         this.showToast(`Marked ${displayValue} as ${trimmedStatus} on ${date}`, 'success');
-                        await this.loadAttendanceCalendar();
+                        this.updateAttendanceRecordCache(userName, date, trimmedStatus);
+                        this.updateAttendanceCalendarCell(userName, date, trimmedStatus, resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to mark attendance');
                     }
@@ -5402,13 +5453,165 @@
                 }
             }
 
+            updateAttendanceRecordCache(userName, date, status) {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser) {
+                    return;
+                }
+
+                if (!Array.isArray(this.attendanceCalendarRecords)) {
+                    this.attendanceCalendarRecords = [];
+                }
+
+                let updated = false;
+                for (let i = 0; i < this.attendanceCalendarRecords.length; i++) {
+                    const record = this.attendanceCalendarRecords[i];
+                    const recordUser = record?.userName || record?.UserName || record?.user || record?.User || '';
+                    const recordDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp || '';
+                    const recordUserKey = this.normalizePersonKey(recordUser);
+                    const recordDateIso = this.normalizeAttendanceDateValue(recordDate);
+
+                    if (recordUserKey === normalizedUser && recordDateIso === isoDate) {
+                        this.attendanceCalendarRecords[i] = Object.assign({}, record, {
+                            status,
+                            Status: status,
+                            date: isoDate,
+                            Date: isoDate
+                        });
+                        updated = true;
+                        break;
+                    }
+                }
+
+                if (!updated) {
+                    this.attendanceCalendarRecords.push({
+                        userName,
+                        UserName: userName,
+                        date: isoDate,
+                        Date: isoDate,
+                        status,
+                        Status: status
+                    });
+                }
+            }
+
+            updateAttendanceCalendarCell(userName, date, status, cellElement = null) {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser) {
+                    return;
+                }
+
+                if (typeof document === 'undefined') {
+                    return;
+                }
+
+                let cell = null;
+
+                if (cellElement && cellElement instanceof HTMLElement) {
+                    cell = cellElement.closest('[data-attendance-user][data-attendance-date]');
+                }
+
+                if (!cell) {
+                    const candidateCells = document.querySelectorAll(`[data-attendance-date="${isoDate}"]`);
+                    cell = Array.from(candidateCells).find(candidate => {
+                        const rawUser = candidate.getAttribute('data-attendance-user') || '';
+                        return this.normalizePersonKey(rawUser) === normalizedUser;
+                    }) || null;
+                }
+
+                if (!cell) {
+                    return;
+                }
+
+                const badge = this.getAttendanceStatusBadge(status);
+                const statusSpan = cell.querySelector('.attendance-calendar__status');
+
+                if (!statusSpan || !badge) {
+                    return;
+                }
+
+                const trimmedStatus = (status || '').toString().trim();
+                const classes = ['attendance-calendar__status'];
+                if (badge.className) {
+                    classes.push(badge.className);
+                }
+
+                statusSpan.className = classes.join(' ');
+                const displayCode = badge.code && badge.code !== '-' ? badge.code : '–';
+                statusSpan.textContent = displayCode;
+                statusSpan.setAttribute('title', badge.label || '');
+
+                if (trimmedStatus) {
+                    cell.setAttribute('data-attendance-status', trimmedStatus);
+                    if (badge.code && badge.code !== '-') {
+                        cell.setAttribute('data-attendance-status-code', badge.code);
+                    } else {
+                        cell.removeAttribute('data-attendance-status-code');
+                    }
+                } else {
+                    cell.removeAttribute('data-attendance-status');
+                    cell.removeAttribute('data-attendance-status-code');
+                }
+            }
+
+            normalizeAttendanceDateValue(value) {
+                if (!value) {
+                    return '';
+                }
+
+                if (value instanceof Date) {
+                    return this.toIsoDateString(value);
+                }
+
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (!trimmed) {
+                        return '';
+                    }
+
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                        return trimmed;
+                    }
+
+                    const parsedStringDate = new Date(trimmed);
+                    if (!Number.isNaN(parsedStringDate.getTime())) {
+                        return this.toIsoDateString(parsedStringDate);
+                    }
+
+                    return '';
+                }
+
+                const parsedDate = new Date(value);
+                if (!Number.isNaN(parsedDate.getTime())) {
+                    return this.toIsoDateString(parsedDate);
+                }
+
+                return '';
+            }
+
+            normalizeAttendanceStatusKey(value) {
+                const raw = (value || '').toString().trim().toLowerCase();
+                if (!raw) {
+                    return '';
+                }
+
+                return raw
+                    .replace(/[^a-z0-9]+/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+
             async markAttendance(userName, date, displayName = null, status = null) {
                 if (!status) {
                     this.showAttendanceContextMenu(null, userName, date, displayName);
                     return;
                 }
 
-                await this.setAttendanceStatus(userName, date, status, displayName);
+                await this.setAttendanceStatus(userName, date, status, displayName, null);
             }
 
             async handleScheduleImport() {
