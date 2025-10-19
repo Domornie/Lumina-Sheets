@@ -15,10 +15,11 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 24px;
-        background: rgba(255, 255, 255, 0.96);
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(219, 235, 255, 0.88));
         border-radius: 26px;
         padding: 32px;
-        box-shadow: 0 20px 48px rgba(12, 32, 80, 0.2);
+        box-shadow: 0 20px 48px rgba(158, 198, 255, 0.24);
+        border: 1px solid rgba(158, 206, 255, 0.25);
       }
 
       .capability-card h3 {
@@ -55,13 +56,12 @@
       }
 
       .module-grid .card {
-        background: rgba(255, 255, 255, 0.94);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(224, 237, 255, 0.88));
+        border: 1px solid rgba(158, 206, 255, 0.2);
       }
 
-      .hero-floating-card ul {
-        margin: 0;
-        padding-left: 18px;
-        color: var(--slate-500);
+      .module-grid .card h3 {
+        color: var(--sky-900);
       }
     </style>
   </head>
@@ -95,20 +95,100 @@
                   <span>custom views powered by your data structure</span>
                 </div>
               </div>
-            </div>
+              </div>
             <div class="hero-visual">
-              <img
-                src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80"
-                alt="Digital dashboards"
-                loading="lazy"
-              />
-              <div class="hero-floating-card">
-                <h3>Platform pillars</h3>
-                <ul>
-                  <li>Unified data foundation that syncs quality, coaching, and staffing signals.</li>
-                  <li>Guided workflows designed by operations experts.</li>
-                  <li>Insight storytelling with shareable narratives.</li>
-                </ul>
+              <div class="hero-visual-frame">
+                <div class="hero-visual-main">
+                  <div class="chart-visual">
+                    <div class="chart-visual__header">
+                      <span>Capability coverage</span>
+                      <span class="chart-visual__period">Launch snapshot</span>
+                    </div>
+                    <div class="chart-visual__body">
+                      <div class="chart-visual__line" aria-hidden="true">
+                        <svg viewBox="0 0 220 120" role="presentation">
+                          <defs>
+                            <linearGradient id="chartLineFillCapabilities" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stop-color="rgba(111, 176, 255, 0.32)" />
+                              <stop offset="100%" stop-color="rgba(111, 176, 255, 0)" />
+                            </linearGradient>
+                            <linearGradient id="chartLineStrokeCapabilities" x1="0" x2="1" y1="0" y2="0">
+                              <stop offset="0%" stop-color="#8fc8ff" />
+                              <stop offset="100%" stop-color="#4d9dff" />
+                            </linearGradient>
+                          </defs>
+                          <polygon
+                            points="0,110 0,82 40,70 80,58 120,66 160,48 200,54 220,110"
+                            fill="url(#chartLineFillCapabilities)"
+                          ></polygon>
+                          <polyline
+                            points="0,82 40,70 80,58 120,66 160,48 200,54"
+                            fill="none"
+                            stroke="url(#chartLineStrokeCapabilities)"
+                            stroke-width="6"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></polyline>
+                          <g fill="#fff" stroke="#4d9dff" stroke-width="3">
+                            <circle cx="0" cy="82" r="6"></circle>
+                            <circle cx="40" cy="70" r="6"></circle>
+                            <circle cx="80" cy="58" r="6"></circle>
+                            <circle cx="120" cy="66" r="6"></circle>
+                            <circle cx="160" cy="48" r="6"></circle>
+                            <circle cx="200" cy="54" r="6"></circle>
+                          </g>
+                        </svg>
+                      </div>
+                      <div class="chart-visual__bars">
+                        <span style="--height: 78%"></span>
+                        <span style="--height: 64%"></span>
+                        <span style="--height: 88%"></span>
+                        <span style="--height: 72%"></span>
+                        <span style="--height: 60%"></span>
+                      </div>
+                    </div>
+                    <div class="chart-visual__footer">
+                      <span>QA</span>
+                      <span>Coaching</span>
+                      <span>Workforce</span>
+                      <span>Analytics</span>
+                      <span>Enablement</span>
+                    </div>
+                  </div>
+                  <div class="hero-insight-grid">
+                    <div class="hero-insight-card">
+                      <strong>25 playbooks</strong>
+                      <span>preconfigured for fast-tracked implementations</span>
+                    </div>
+                    <div class="hero-insight-card">
+                      <strong>9 automations</strong>
+                      <span>activate out of the box for launch teams</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="hero-widget hero-widget--top">
+                  <div class="hero-widget__meta">
+                    <span class="hero-widget__label">Platform pillars</span>
+                    <span class="hero-widget__value">Unified</span>
+                  </div>
+                  <ul>
+                    <li>Data foundation syncing quality, coaching, and staffing.</li>
+                    <li>Guided workflows designed by operations experts.</li>
+                    <li>Insight storytelling with shareable narratives.</li>
+                  </ul>
+                </div>
+                <div class="hero-widget hero-widget--bottom">
+                  <div class="hero-widget__meta">
+                    <span class="hero-widget__label">Launch focus</span>
+                    <span class="hero-widget__value">30 days</span>
+                  </div>
+                  <p>Template packs unlock immediate value with minimal configuration.</p>
+                  <div class="hero-chip-list">
+                    <span>Guided enablement</span>
+                    <span>Automation boosts</span>
+                    <span>Executive briefs</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
