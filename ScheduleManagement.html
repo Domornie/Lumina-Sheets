@@ -2515,9 +2515,85 @@
                     const currentUserId = this.getCurrentUserId();
                     const campaignId = this.resolvedCampaignId || this.getCurrentCampaignId();
                     console.log('🔐 Resolved manager context:', { managerId: currentUserId, campaignId: campaignId || '(all)' });
-                    const users = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
 
-                    this.availableUsers = Array.isArray(users) ? users : [];
+                    const scheduleUsers = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
+                    const rosterResponse = await this.callServerFunction('clientGetManagedUsers', currentUserId);
+
+                    const rosterUsers = (() => {
+                        if (!rosterResponse) {
+                            return [];
+                        }
+                        if (Array.isArray(rosterResponse)) {
+                            return rosterResponse;
+                        }
+                        if (typeof rosterResponse === 'object' && rosterResponse.success === false) {
+                            console.warn('⚠️ Unable to load managed roster:', rosterResponse.error);
+                            return [];
+                        }
+                        if (typeof rosterResponse === 'object' && Array.isArray(rosterResponse.users)) {
+                            return rosterResponse.users;
+                        }
+                        return [];
+                    })();
+
+                    const byId = new Map();
+                    const pushUserRecord = (user) => {
+                        if (!user || typeof user !== 'object') {
+                            return;
+                        }
+
+                        const normalizedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+                        if (!normalizedId) {
+                            return;
+                        }
+
+                        const existing = byId.get(normalizedId) || {};
+
+                        const normalized = {
+                            ID: normalizedId,
+                            UserName: user.UserName || user.username || existing.UserName || existing.username || normalizedId,
+                            FullName: user.FullName || user.fullName || existing.FullName || existing.fullName || user.UserName || existing.UserName || normalizedId,
+                            Email: user.Email || user.email || existing.Email || '',
+                            CampaignID: user.CampaignID || user.campaignID || user.campaignId || existing.CampaignID || '',
+                            campaignName: user.campaignName || existing.campaignName || '',
+                            EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
+                            HireDate: user.HireDate || existing.HireDate || '',
+                            isActive: typeof user.isActive === 'boolean' ? user.isActive : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
+                            roleNames: Array.isArray(user.roleNames) ? user.roleNames.slice() : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
+                        };
+
+                        byId.set(normalizedId, normalized);
+                    };
+
+                    (Array.isArray(scheduleUsers) ? scheduleUsers : []).forEach(pushUserRecord);
+                    rosterUsers.forEach(pushUserRecord);
+
+                    this.availableUsers = Array.from(byId.values())
+                        .filter(user => user && user.ID && (user.FullName || user.UserName))
+                        .sort((a, b) => {
+                            const nameA = (a.FullName || a.UserName || '').toLowerCase();
+                            const nameB = (b.FullName || b.UserName || '').toLowerCase();
+                            return nameA.localeCompare(nameB);
+                        });
+
+                    if (!(this.managedUserIdSet instanceof Set)) {
+                        this.managedUserIdSet = new Set();
+                    }
+
+                    rosterUsers.forEach(user => {
+                        const managedId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
+                        if (managedId && managedId !== currentUserId) {
+                            this.managedUserIdSet.add(managedId);
+                        }
+                    });
+
+                    if (this.resolvedManagerId) {
+                        const managerId = this.normalizeUserIdValue(this.resolvedManagerId);
+                        if (managerId && this.managedUserIdSet.has(managerId)) {
+                            this.managedUserIdSet.delete(managerId);
+                        }
+                    }
+
                     const managedSet = this.managedUserIdSet instanceof Set ? this.managedUserIdSet : new Set();
                     if (managedSet.size) {
                         const seen = new Set();
@@ -2529,9 +2605,13 @@
                         });
                         this.visibleManagedCount = seen.size;
                     } else {
-                        this.visibleManagedCount = this.availableUsers.length;
+                        this.visibleManagedCount = this.availableUsers.filter(user => {
+                            const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
+                            return userId && userId !== currentUserId;
+                        }).length || this.availableUsers.length;
                     }
-                    console.log(`✅ Loaded ${this.availableUsers.length} users`);
+
+                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries)`);
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
