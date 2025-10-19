@@ -5655,22 +5655,34 @@
                         attendanceMap
                     );
 
-                    container.innerHTML = calendar;
-                    console.log(`✅ Loaded attendance calendar with ${userEntries.length} users`);
+            buildEmploymentKeyLookup(users = []) {
+                const lookup = new Set();
 
-                } catch (error) {
-                    console.error('❌ Error loading attendance calendar:', error);
-                    document.getElementById('attendanceCalendarContainer').innerHTML = `
-                            <div class="text-center py-5 text-danger">
-                                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
-                                <h5>Error Loading Calendar</h5>
-                                <p>${error.message}</p>
-                                <button class="btn btn-primary-modern btn-modern" onclick="scheduleManager.loadAttendanceCalendar()">
-                                    <i class="fas fa-retry me-2"></i>Try Again
-                                </button>
-                            </div>
-                        `;
+                if (!Array.isArray(users) || !users.length) {
+                    return lookup;
                 }
+
+                users.forEach(user => {
+                    this.collectUserIdentityKeys(user).forEach(key => lookup.add(key));
+                });
+
+                return lookup;
+            }
+
+            collectUserIdentityKeys(user) {
+                if (!user) {
+                    return [];
+                }
+
+                const identityValues = [
+                    user.UserName,
+                    user.FullName,
+                    user.Email
+                ];
+
+                return identityValues
+                    .map(value => this.normalizePersonKey(value))
+                    .filter(Boolean);
             }
 
             resolveAttendanceMonthContext(monthValue, yearValue) {
@@ -5827,7 +5839,9 @@
                 }
 
                 const monthStart = new Date(normalizedYear, normalizedMonth - 1, 1);
+                monthStart.setHours(0, 0, 0, 0);
                 const monthEnd = new Date(normalizedYear, normalizedMonth, 0);
+                monthEnd.setHours(23, 59, 59, 999);
                 const monthStartTime = monthStart.getTime();
                 const monthEndTime = monthEnd.getTime();
 
@@ -5836,14 +5850,40 @@
                     'hireDate',
                     'EmploymentStart',
                     'employmentStart',
+                    'EmploymentStartDate',
+                    'employmentStartDate',
                     'StartDate',
-                    'startDate'
+                    'startDate',
+                    'Start_Date',
+                    'start_date',
+                    'DateHired',
+                    'dateHired',
+                    'Hire_Date',
+                    'hire_date',
+                    'OnboardDate',
+                    'onboardDate'
                 ]);
                 const terminationIso = this.resolveEmploymentIsoDate(user, [
                     'TerminationDate',
                     'terminationDate',
                     'EndDate',
-                    'endDate'
+                    'endDate',
+                    'End_Date',
+                    'end_date',
+                    'EmploymentEnd',
+                    'employmentEnd',
+                    'EmploymentEndDate',
+                    'employmentEndDate',
+                    'DateOfTermination',
+                    'dateOfTermination',
+                    'Termination',
+                    'termination',
+                    'Termination_Date',
+                    'termination_date',
+                    'SeparationDate',
+                    'separationDate',
+                    'LastWorkingDate',
+                    'lastWorkingDate'
                 ]);
 
                 const hireDate = this.parseIsoDateToLocal(hireIso);
@@ -6446,6 +6486,11 @@
 
                     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
                         return trimmed;
+                    }
+
+                    const isoWithTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+                    if (isoWithTimeMatch && isoWithTimeMatch[1]) {
+                        return isoWithTimeMatch[1];
                     }
 
                     const parsedStringDate = new Date(trimmed);
