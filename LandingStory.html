@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discover the LuminaHQ Story</title>
+    <link rel="stylesheet" href="LandingSharedStyles.css" />
+    <style>
+      .story-grid {
+        display: grid;
+        gap: 24px;
+      }
+
+      .story-card {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 28px;
+        border-radius: 26px;
+        box-shadow: 0 20px 48px rgba(15, 31, 69, 0.22);
+      }
+
+      .story-card h3 {
+        margin: 0 0 12px;
+        color: var(--sky-900);
+      }
+
+      .story-card p {
+        margin: 0;
+        color: var(--slate-500);
+        line-height: 1.7;
+      }
+
+      .testimonial {
+        background: rgba(15, 31, 69, 0.7);
+        color: rgba(226, 235, 255, 0.9);
+        padding: 28px;
+        border-radius: 26px;
+        box-shadow: 0 20px 42px rgba(15, 31, 69, 0.24);
+      }
+
+      .testimonial strong {
+        display: block;
+        color: var(--white);
+        margin-bottom: 12px;
+        font-size: 1.05rem;
+      }
+
+      .milestone-grid {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .milestone-card {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 22px;
+        padding: 20px;
+        box-shadow: 0 18px 36px rgba(15, 31, 69, 0.18);
+      }
+
+      .milestone-card span {
+        display: block;
+        font-weight: 600;
+        color: var(--sky-600);
+        margin-bottom: 8px;
+      }
+
+      .hero-floating-card blockquote {
+        margin: 0;
+        color: var(--slate-500);
+        font-style: italic;
+        line-height: 1.6;
+      }
+
+      .hero-floating-card cite {
+        display: block;
+        margin-top: 12px;
+        font-style: normal;
+        font-weight: 600;
+        color: var(--sky-600);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero-shell">
+        <div class="hero">
+          <div class="hero-grid">
+            <div class="hero-content">
+              <span class="hero-badge">Customer stories</span>
+              <h1>See how teams transform with LuminaHQ</h1>
+              <p>
+                Operations leaders across industries partner with LuminaHQ to modernize workflows, rally teams, and keep
+                customers delighted. Explore the stories behind their results.
+              </p>
+              <div class="hero-actions">
+                <a class="btn-primary" href="LandingCapabilitiesDetail.html">Review the blueprint</a>
+                <a class="btn-ghost" href="LandingAbout.html">Meet our team</a>
+              </div>
+              <div class="hero-metrics">
+                <div class="metric-card">
+                  <strong data-counter="40" data-suffix="%">40%</strong>
+                  <span>reduction in manual QA preparation</span>
+                </div>
+                <div class="metric-card">
+                  <strong data-counter="25" data-suffix="%">25%</strong>
+                  <span>lift in CSAT across partner programs</span>
+                </div>
+                <div class="metric-card">
+                  <strong data-counter="3" data-suffix="x">3x</strong>
+                  <span>faster rollout of new policy updates</span>
+                </div>
+              </div>
+            </div>
+            <div class="hero-visual">
+              <img
+                src="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80"
+                alt="Success metrics"
+                loading="lazy"
+              />
+              <div class="hero-floating-card">
+                <blockquote>
+                  “LuminaHQ has become the connective tissue for our global support teams. We make decisions faster, coach
+                  with confidence, and celebrate the wins we would have missed.”
+                </blockquote>
+                <cite>VP of Customer Care, Growth-stage SaaS</cite>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="partners">
+        <div class="partner-strip">
+          <span>Fintech</span>
+          <span>E-commerce</span>
+          <span>Healthcare</span>
+          <span>SaaS</span>
+          <span>Travel</span>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>Stories from the field</h2>
+            <p>
+              Discover how LuminaHQ helps teams tackle unique challenges—from rapid growth to complex regulatory
+              landscapes.
+            </p>
+          </div>
+          <div class="story-grid">
+            <article class="story-card">
+              <h3>Scaling quality in fintech</h3>
+              <p>
+                A digital bank unified QA and coaching across three regions, cutting calibration time in half while
+                maintaining compliance-ready documentation.
+              </p>
+            </article>
+            <article class="story-card">
+              <h3>Elevating retail support</h3>
+              <p>
+                A global retailer connected store, chat, and phone insights for a holistic view of customer experience,
+                boosting CSAT and reducing escalations.
+              </p>
+            </article>
+            <article class="story-card">
+              <h3>Reimagining healthcare operations</h3>
+              <p>
+                A telehealth provider linked coaching to patient outcomes, unlocking personalized development paths for
+                clinicians and agents alike.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-content dual-panel">
+          <div class="panel-copy">
+            <h3>What customers appreciate most</h3>
+            <p>
+              The LuminaHQ experience pairs powerful analytics with empathy for the humans delivering customer care. Our
+              partners cite faster insights, stronger accountability, and space to celebrate wins.
+            </p>
+            <div class="testimonial">
+              <strong>Director of CX, Enterprise Retail</strong>
+              “LuminaHQ bridged the gap between our QA analysts and coaches. We finally have a shared story that keeps the
+              entire org in sync.”
+            </div>
+            <div class="navigation-cta">
+              <a class="btn-ghost" href="LandingCapabilities.html">Explore capabilities</a>
+              <a class="btn-ghost" href="LandingCapabilitiesDetail.html">Dive into workflows</a>
+            </div>
+          </div>
+          <div class="panel-media">
+            <img
+              src="https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80"
+              alt="Team celebrating"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-content">
+          <div class="section-headline">
+            <h2>Milestones achieved together</h2>
+            <p>
+              Each partnership unlocks measurable impact. Here are a few milestones reached within the first six months
+              of adopting LuminaHQ.
+            </p>
+          </div>
+          <div class="milestone-grid">
+            <div class="milestone-card">
+              <span>+18 pts QA Accuracy</span>
+              Analysts calibrated faster and improved scoring consistency across programs.
+            </div>
+            <div class="milestone-card">
+              <span>-32% Escalations</span>
+              Coaching journeys targeted the right behaviors and reduced customer friction.
+            </div>
+            <div class="milestone-card">
+              <span>+22% Adherence</span>
+              Workforce precision tools aligned scheduling, attendance, and coaching commitments.
+            </div>
+            <div class="milestone-card">
+              <span>3 Week Launch</span>
+              Teams configured modules rapidly with LuminaHQ specialists guiding every step.
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-shell">
+      <div class="footer-card">
+        <h3>Ready to write your LuminaHQ story?</h3>
+        <p>
+          Partner with us to craft the next chapter of your operations excellence. We’ll tailor the journey to your
+          programs.
+        </p>
+        <div class="footer-links">
+          <a href="Landing.html">Return home</a>
+          <a href="LandingCapabilitiesDetail.html">Workflow details</a>
+          <a href="LandingAbout.html">Meet LuminaHQ</a>
+        </div>
+      </div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="LandingInteractions.js"></script>
+  </body>
+</html>
