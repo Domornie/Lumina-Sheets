@@ -5,219 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>About LuminaHQ</title>
     <?!= includeOnce('LandingSharedStyles'); ?>
-    <style>
-      .mission-grid {
-        display: grid;
-        gap: 24px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      }
-
-      .mission-card {
-        background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(219, 235, 255, 0.88));
-        border-radius: 24px;
-        padding: 26px;
-        box-shadow: 0 20px 44px rgba(158, 198, 255, 0.24);
-        border: 1px solid rgba(158, 206, 255, 0.25);
-      }
-
-      .mission-card h3 {
-        margin: 0 0 12px;
-        color: var(--sky-900);
-      }
-
-      .mission-card p {
-        margin: 0;
-        color: var(--slate-500);
-        line-height: 1.65;
-      }
-
-      .timeline {
-        display: grid;
-        gap: 18px;
-      }
-
-      .timeline-step {
-        background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(219, 235, 255, 0.9));
-        padding: 26px;
-        border-radius: 24px;
-        color: var(--slate-500);
-        box-shadow: 0 18px 36px rgba(158, 198, 255, 0.22);
-        border: 1px solid rgba(158, 206, 255, 0.25);
-      }
-
-      .timeline-step strong {
-        display: block;
-        font-size: 1.1rem;
-        margin-bottom: 8px;
-        color: var(--sky-600);
-      }
-
-      .values-grid {
-        display: grid;
-        gap: 18px;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      }
-
-      .values-grid .card {
-        background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(228, 240, 255, 0.85));
-        box-shadow: 0 18px 40px rgba(158, 198, 255, 0.2);
-        border: 1px solid rgba(158, 206, 255, 0.2);
-      }
-
-      .about-hero-chipset {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 8px;
-      }
-
-      .about-hero-chipset span {
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: rgba(111, 176, 255, 0.18);
-        color: var(--sky-600);
-        font-weight: 600;
-        font-size: 0.75rem;
-      }
-
-      .values-grid .card p {
-        line-height: 1.65;
-      }
-    </style>
   </head>
   <body>
+    <header class="site-header">
+      <nav class="site-nav">
+        <a class="logo" href="Landing.html">LuminaHQ</a>
+        <ul class="nav-links">
+          <li><a href="LandingCapabilities.html">Capabilities</a></li>
+          <li><a href="LandingAbout.html">About</a></li>
+          <li><a href="LandingStory.html">Stories</a></li>
+          <li><a class="nav-cta" href="LandingCapabilitiesDetail.html">Get Started</a></li>
+        </ul>
+      </nav>
+    </header>
+
     <main>
-      <section class="hero-shell">
-        <div class="hero">
-          <div class="hero-grid">
-            <div class="hero-content">
-              <span class="hero-badge">About LuminaHQ</span>
-              <h1>Building the modern nerve center for operations teams</h1>
-              <p>
-                LuminaHQ began with a simple belief: that quality, coaching, and workforce leaders deserve a single
-                workspace that reflects the pace of their teams. Our mission is to amplify every conversation,
-                evaluation, and schedule with intelligence.
-              </p>
-              <div class="hero-actions">
-                <a class="btn-primary" href="Landing.html">Return to landing</a>
-                <a class="btn-ghost" href="LandingStory.html">Read customer stories</a>
+      <section class="page-hero">
+        <div class="page-hero-content">
+          <div class="page-hero-text">
+            <span class="page-hero-badge">About LuminaHQ</span>
+            <h1>Building the modern nerve center for operations teams</h1>
+            <p>
+              LuminaHQ began with a simple belief: that quality, coaching, and workforce leaders deserve a single
+              workspace that reflects the pace of their teams. Our mission is to amplify every conversation, evaluation,
+              and schedule with intelligence.
+            </p>
+            <div class="cta-buttons">
+              <a class="btn btn-primary" href="Landing.html">Return to landing</a>
+              <a class="btn btn-ghost" href="LandingStory.html">Read customer stories</a>
+            </div>
+            <div class="hero-metrics">
+              <div class="metric-card">
+                <strong data-counter="50" data-suffix="+">50+</strong>
+                <span>specialists crafting LuminaHQ features</span>
               </div>
-              <div class="hero-metrics">
-                <div class="metric-card">
-                  <strong data-counter="50" data-suffix="+">50+</strong>
-                  <span>specialists crafting LuminaHQ features</span>
-                </div>
-                <div class="metric-card">
-                  <strong data-counter="8" data-suffix=" years">8 years</strong>
-                  <span>supporting global customer operations</span>
-                </div>
-                <div class="metric-card">
-                  <strong data-counter="24" data-suffix="/5">24/5</strong>
-                  <span>product and enablement partnership coverage</span>
-                </div>
+              <div class="metric-card">
+                <strong data-counter="8" data-suffix=" years">8 years</strong>
+                <span>supporting global customer operations</span>
               </div>
-              </div>
-            <div class="hero-visual">
-              <div class="hero-visual-frame">
-                <div class="hero-visual-main">
-                  <div class="chart-visual">
-                    <div class="chart-visual__header">
-                      <span>Team pulse</span>
-                      <span class="chart-visual__period">Culture index</span>
-                    </div>
-                    <div class="chart-visual__body">
-                      <div class="chart-visual__line" aria-hidden="true">
-                        <svg viewBox="0 0 220 120" role="presentation">
-                          <defs>
-                            <linearGradient id="chartLineFillAbout" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stop-color="rgba(143, 177, 255, 0.32)" />
-                              <stop offset="100%" stop-color="rgba(143, 177, 255, 0)" />
-                            </linearGradient>
-                            <linearGradient id="chartLineStrokeAbout" x1="0" x2="1" y1="0" y2="0">
-                              <stop offset="0%" stop-color="#a0c9ff" />
-                              <stop offset="100%" stop-color="#4d9dff" />
-                            </linearGradient>
-                          </defs>
-                          <polygon
-                            points="0,110 0,74 44,60 88,50 132,68 176,40 220,52 220,110"
-                            fill="url(#chartLineFillAbout)"
-                          ></polygon>
-                          <polyline
-                            points="0,74 44,60 88,50 132,68 176,40 220,52"
-                            fill="none"
-                            stroke="url(#chartLineStrokeAbout)"
-                            stroke-width="6"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          ></polyline>
-                          <g fill="#fff" stroke="#4d9dff" stroke-width="3">
-                            <circle cx="0" cy="74" r="6"></circle>
-                            <circle cx="44" cy="60" r="6"></circle>
-                            <circle cx="88" cy="50" r="6"></circle>
-                            <circle cx="132" cy="68" r="6"></circle>
-                            <circle cx="176" cy="40" r="6"></circle>
-                            <circle cx="220" cy="52" r="6"></circle>
-                          </g>
-                        </svg>
-                      </div>
-                      <div class="chart-visual__bars">
-                        <span style="--height: 76%"></span>
-                        <span style="--height: 62%"></span>
-                        <span style="--height: 84%"></span>
-                        <span style="--height: 58%"></span>
-                        <span style="--height: 90%"></span>
-                      </div>
-                    </div>
-                    <div class="chart-visual__footer">
-                      <span>Belonging</span>
-                      <span>Enablement</span>
-                      <span>Growth</span>
-                      <span>Alignment</span>
-                      <span>Trust</span>
-                    </div>
-                  </div>
-                  <div class="hero-insight-grid">
-                    <div class="hero-insight-card">
-                      <strong>92%</strong>
-                      <span>team feel empowered to act on insights</span>
-                    </div>
-                    <div class="hero-insight-card">
-                      <strong>38 countries</strong>
-                      <span>represented across our customer programs</span>
-                      <div class="hero-chip-list about-hero-chipset">
-                        <span>QA</span>
-                        <span>Coaching</span>
-                        <span>Staffing</span>
-                        <span>Analytics</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="hero-widget hero-widget--top">
-                  <div class="hero-widget__meta">
-                    <span class="hero-widget__label">What drives us</span>
-                    <span class="hero-widget__value">Human first</span>
-                  </div>
-                  <ul>
-                    <li>Elevate the craft of quality and coaching professionals.</li>
-                    <li>Create clarity for leaders navigating complex operations.</li>
-                    <li>Design tools that honor the people behind every metric.</li>
-                  </ul>
-                </div>
-                <div class="hero-widget hero-widget--bottom">
-                  <div class="hero-widget__meta">
-                    <span class="hero-widget__label">Team snapshots</span>
-                    <span class="hero-widget__value">Weekly</span>
-                  </div>
-                  <p>Dedicated guilds align on research, enablement, and implementation.</p>
-                  <div class="hero-chip-list">
-                    <span>Product studio</span>
-                    <span>Ops research</span>
-                    <span>Enablement crew</span>
-                  </div>
-                </div>
+              <div class="metric-card">
+                <strong data-counter="24" data-suffix="/5">24/5</strong>
+                <span>product and enablement partnership coverage</span>
               </div>
             </div>
+          </div>
+          <div class="hero-side-card">
+            <h3>What drives us</h3>
+            <p>Dedicated guilds align across research, enablement, and implementation to keep teams future ready.</p>
+            <ul class="detail-list">
+              <li>Elevate the craft of quality and coaching professionals.</li>
+              <li>Create clarity for leaders navigating complex operations.</li>
+              <li>Design tools that honor the people behind every metric.</li>
+            </ul>
           </div>
         </div>
       </section>
@@ -232,32 +71,32 @@
         </div>
       </div>
 
-      <section class="section">
-        <div class="section-content">
-          <div class="section-headline">
+      <section class="page-section">
+        <div class="page-section-content">
+          <div class="section-headline section-headline--left">
             <h2>Our mission and promise</h2>
             <p>
-              From the first calibration to enterprise-scale rollouts, LuminaHQ pairs attentive experts with a
-              product built for evolving customer experiences. We map workflows directly to your playbooks so your
-              teams can focus on the human moments.
+              From the first calibration to enterprise-scale rollouts, LuminaHQ pairs attentive experts with a product
+              built for evolving customer experiences. We map workflows directly to your playbooks so your teams can
+              focus on the human moments.
             </p>
           </div>
-          <div class="mission-grid">
-            <article class="mission-card">
+          <div class="feature-grid">
+            <article class="card">
               <h3>Human-centered design</h3>
               <p>
                 Every feature is crafted with direct input from analysts, coaches, and workforce leaders who depend on
                 LuminaHQ each day.
               </p>
             </article>
-            <article class="mission-card">
+            <article class="card">
               <h3>Operational empathy</h3>
               <p>
                 We embed alongside your teams to understand the nuance behind each metric and deliver playbooks that
                 reflect it.
               </p>
             </article>
-            <article class="mission-card">
+            <article class="card">
               <h3>Reliable partnership</h3>
               <p>
                 Dedicated onboarding, enablement, and success specialists ensure LuminaHQ evolves with your programs.
@@ -265,49 +104,48 @@
             </article>
           </div>
         </div>
-      </div>
+      </section>
 
-      <section class="section">
-        <div class="section-content">
-          <div class="section-headline">
+      <section class="page-section">
+        <div class="page-section-content">
+          <div class="section-headline section-headline--left">
             <h2>The journey so far</h2>
             <p>
               LuminaHQ has grown through close collaboration with support teams across industries. Together we have
               transformed manual spreadsheets into guided journeys that celebrate progress.
             </p>
           </div>
-          <div class="timeline">
-            <div class="timeline-step">
-              <strong>2016 – Foundations</strong>
-              Started as a small collective of QA specialists developing tooling to streamline evaluations and
-              calibrations.
-            </div>
-            <div class="timeline-step">
-              <strong>2018 – Coaching unlock</strong>
-              Introduced guided coaching workflows that connected QA results to personalized development paths.
-            </div>
-            <div class="timeline-step">
-              <strong>2021 – Workforce fusion</strong>
-              Unified staffing, attendance, and performance data to create a cohesive operations command center.
-            </div>
-            <div class="timeline-step">
-              <strong>Today – Continuous momentum</strong>
-              Expanding AI assistance, predictive insights, and integrations to keep teams future-ready.
-            </div>
+          <div class="timeline-grid">
+            <article class="card">
+              <h3>2016 – Foundations</h3>
+              <p>Started as a collective of QA specialists streamlining evaluations and calibrations.</p>
+            </article>
+            <article class="card">
+              <h3>2018 – Coaching unlock</h3>
+              <p>Introduced guided coaching workflows connecting QA results to personalized development paths.</p>
+            </article>
+            <article class="card">
+              <h3>2021 – Workforce fusion</h3>
+              <p>Unified staffing, attendance, and performance data into a cohesive operations command center.</p>
+            </article>
+            <article class="card">
+              <h3>Today – Continuous momentum</h3>
+              <p>Expanding AI assistance, predictive insights, and integrations to keep teams future-ready.</p>
+            </article>
           </div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-content">
-          <div class="section-headline">
+      <section class="page-section">
+        <div class="page-section-content">
+          <div class="section-headline section-headline--left">
             <h2>Values we live by</h2>
             <p>
-              Our values guide how we show up for each other and for our customers. They ensure LuminaHQ remains a
-              trusted partner as the landscape evolves.
+              Our values guide how we show up for each other and for our customers. They ensure LuminaHQ remains a trusted
+              partner as the landscape evolves.
             </p>
           </div>
-          <div class="values-grid">
+          <div class="feature-grid">
             <article class="card">
               <h3>Listen deeply</h3>
               <p>We start by understanding the people behind the process before proposing any change.</p>
@@ -328,33 +166,37 @@
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-content dual-panel">
-          <div class="panel-media">
-            <img
-              class="team-photo"
-              src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80"
-              alt="LuminaHQ team workshop"
-              loading="lazy"
-            />
-          </div>
-          <div class="panel-copy">
-            <h3>Meet the people behind the platform</h3>
-            <p>
-              Product strategists, data scientists, operations veterans, and service designers collaborate daily to
-              shape LuminaHQ. We carry the same passion for customer experience that defines your teams.
-            </p>
-            <p>
-              When you partner with LuminaHQ, you work with people invested in your success—from onboarding through
-              every new capability release.
-            </p>
-            <div class="navigation-cta">
-              <a class="btn-ghost" href="LandingCapabilities.html">See capabilities</a>
-              <a class="btn-ghost" href="LandingStory.html">Explore customer journey</a>
+      <section class="page-section">
+        <div class="page-section-content">
+          <div class="split-grid">
+            <div class="image-frame">
+              <img
+                src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80"
+                alt="LuminaHQ team workshop"
+                loading="lazy"
+              />
+            </div>
+            <div>
+              <div class="section-headline section-headline--left" style="margin-bottom: 1.5rem">
+                <h2>Meet the people behind the platform</h2>
+                <p>
+                  Product strategists, data scientists, operations veterans, and service designers collaborate daily to
+                  shape LuminaHQ. We carry the same passion for customer experience that defines your teams.
+                </p>
+              </div>
+              <p>
+                When you partner with LuminaHQ, you work with people invested in your success—from onboarding through
+                every new capability release.
+              </p>
+              <div class="navigation-cta" style="justify-content: flex-start; margin-top: 2rem">
+                <a class="btn btn-ghost" href="LandingCapabilities.html">See capabilities</a>
+                <a class="btn btn-ghost" href="LandingStory.html">Explore customer journey</a>
+              </div>
             </div>
           </div>
         </div>
       </section>
+    </main>
 
     <footer class="footer-shell">
       <div class="footer-card">
