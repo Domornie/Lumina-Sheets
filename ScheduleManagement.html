@@ -820,6 +820,23 @@
         color: #0f172a;
     }
 
+    .attendance-dashboard-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+    }
+
+    .attendance-dashboard-controls span {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+
+    .attendance-dashboard-controls select {
+        min-width: 180px;
+    }
+
     @media (max-width: 991px) {
         .attendance-panel-actions {
             flex-wrap: wrap;
@@ -1347,11 +1364,19 @@
         <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
             <div class="modern-card mb-4">
                 <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                    <div>
+                        <h5 class="modern-card-title">
+                            <i class="fas fa-chart-pie text-primary"></i>
+                            Attendance Dashboard
+                        </h5>
+                        <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                    </div>
+                    <div class="attendance-dashboard-controls">
+                        <span class="text-muted small">Filter by user:</span>
+                        <select id="attendanceDashboardUser" class="form-select form-select-sm" aria-label="Filter attendance dashboard by user">
+                            <option value="">All Users</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modern-card-body">
                     <div class="attendance-dashboard">
@@ -2437,6 +2462,7 @@
                 this.attendanceDashboardData = null;
                 this.attendanceDashboardYear = null;
                 this.attendanceDashboardRecords = [];
+                this.attendanceDashboardUserFilter = '';
                 this.attendanceCalendarRecords = [];
                 this.attendanceContextMenu = null;
                 this.attendanceContextMenuTarget = null;
@@ -2830,6 +2856,23 @@
                             return nameA.localeCompare(nameB);
                         });
 
+                    if (this.attendanceDashboardUserFilter) {
+                        const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                        const normalizedFilterName = this.normalizePersonKey(normalizedFilterId);
+                        const hasUser = this.availableUsers.some(user => {
+                            const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                            if (userId && userId === normalizedFilterId) {
+                                return true;
+                            }
+                            const nameKey = this.normalizePersonKey(user.FullName || user.UserName || '');
+                            return normalizedFilterName && nameKey === normalizedFilterName;
+                        });
+
+                        if (!hasUser) {
+                            this.attendanceDashboardUserFilter = '';
+                        }
+                    }
+
                     const manualManager = (this.manualShiftManager && typeof this.manualShiftManager.setUsers === 'function')
                         ? this.manualShiftManager
                         : (window.manualShiftManager && typeof window.manualShiftManager.setUsers === 'function'
@@ -2878,6 +2921,15 @@
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
+
+                    if (this.attendanceDashboardData && Number.isFinite(this.attendanceDashboardYear)) {
+                        const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, this.attendanceDashboardYear);
+                        if (this.attendanceDashboardInitialized) {
+                            this.initializeAttendanceDashboard();
+                        }
+                    }
+
                     this.updateUsersList();
 
                     // Update metrics
@@ -2891,22 +2943,53 @@
             }
 
             updateUserDropdowns() {
-                const dropdowns = ['scheduleUsers', 'filterUser'];
+                const dropdowns = ['scheduleUsers', 'filterUser', 'attendanceDashboardUser'];
+                const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
 
                 dropdowns.forEach(dropdownId => {
                     const dropdown = document.getElementById(dropdownId);
                     if (!dropdown) return;
 
                     if (dropdownId === 'scheduleUsers') {
-                        dropdown.innerHTML = this.availableUsers.map(user =>
-                            `<option value="${user.UserName}">${user.FullName || user.UserName} (${user.campaignName || 'No Campaign'})</option>`
-                        ).join('');
-                    } else {
-                        dropdown.innerHTML = '<option value="">All Users</option>' +
-                            this.availableUsers.map(user =>
-                                `<option value="${user.UserName}">${user.FullName || user.UserName}</option>`
-                            ).join('');
+                        dropdown.innerHTML = this.availableUsers.map(user => {
+                            const optionValue = user.UserName || user.FullName || user.ID || '';
+                            const labelName = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+                            const campaignLabel = this.escapeHtml(user.campaignName || 'No Campaign');
+                            return `<option value="${this.escapeHtml(optionValue)}">${labelName} (${campaignLabel})</option>`;
+                        }).join('');
+                        return;
                     }
+
+                    if (dropdownId === 'filterUser') {
+                        dropdown.innerHTML = '<option value="">All Users</option>' +
+                            this.availableUsers.map(user => {
+                                const optionValue = user.UserName || user.FullName || user.ID || '';
+                                return `<option value="${this.escapeHtml(optionValue)}">${this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent')}</option>`;
+                            }).join('');
+                        return;
+                    }
+
+                    const options = ['<option value="">All Users</option>'];
+                    this.availableUsers.forEach(user => {
+                        const resolvedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                        const fallbackKey = this.normalizePersonKey(user.UserName || user.FullName || '');
+                        const optionValue = resolvedId || fallbackKey;
+                        const label = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+
+                        if (!optionValue) {
+                            return;
+                        }
+
+                        const normalizedOptionValue = this.normalizeUserIdValue(optionValue);
+                        const isSelected = normalizedFilterId && normalizedOptionValue === normalizedFilterId;
+                        const dataUserName = this.escapeHtml(this.normalizePersonKey(user.UserName || ''));
+                        const dataFullName = this.escapeHtml(this.normalizePersonKey(user.FullName || ''));
+                        options.push(`
+                            <option value="${this.escapeHtml(optionValue)}" data-user-name="${dataUserName}" data-full-name="${dataFullName}"${isSelected ? ' selected' : ''}>${label}</option>
+                        `);
+                    });
+
+                    dropdown.innerHTML = options.join('');
                 });
             }
 
@@ -4381,7 +4464,8 @@
                     const records = Array.isArray(response.records) ? response.records : [];
                     this.attendanceDashboardRecords = records;
                     this.attendanceDashboardYear = year;
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(records, year);
+                    const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
+                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
                     this.destroyAttendanceDashboardCharts();
                 } catch (error) {
                     console.error('Error loading attendance dashboard data:', error);
@@ -4574,6 +4658,87 @@
                 };
             }
 
+            filterAttendanceDashboardRecords(records, filterValue = this.attendanceDashboardUserFilter) {
+                if (!Array.isArray(records)) {
+                    return [];
+                }
+
+                const normalizedFilterValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedFilterValue) {
+                    return records.slice();
+                }
+
+                const matchedUser = this.resolveAttendanceDashboardUser(normalizedFilterValue);
+                const keySet = new Set();
+
+                if (matchedUser) {
+                    [
+                        this.normalizePersonKey(matchedUser.UserName || matchedUser.username || ''),
+                        this.normalizePersonKey(matchedUser.FullName || matchedUser.fullName || ''),
+                        this.normalizePersonKey(matchedUser.Email || matchedUser.email || '')
+                    ]
+                        .filter(Boolean)
+                        .forEach(key => keySet.add(key));
+                } else {
+                    const fallbackKey = this.normalizePersonKey(normalizedFilterValue);
+                    if (fallbackKey) {
+                        keySet.add(fallbackKey);
+                    }
+                }
+
+                if (!keySet.size) {
+                    return [];
+                }
+
+                return records.filter(record => {
+                    const recordKeys = [
+                        record?.userName,
+                        record?.UserName,
+                        record?.user,
+                        record?.User,
+                        record?.fullName,
+                        record?.FullName
+                    ]
+                        .map(value => this.normalizePersonKey(value))
+                        .filter(Boolean);
+
+                    if (!recordKeys.length) {
+                        return false;
+                    }
+
+                    return recordKeys.some(key => keySet.has(key));
+                });
+            }
+
+            resolveAttendanceDashboardUser(filterValue) {
+                const normalizedValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedValue || !Array.isArray(this.availableUsers)) {
+                    return null;
+                }
+
+                const matchById = this.availableUsers.find(user => {
+                    const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                    return userId && userId === normalizedValue;
+                });
+
+                if (matchById) {
+                    return matchById;
+                }
+
+                const normalizedName = this.normalizePersonKey(normalizedValue);
+                if (!normalizedName) {
+                    return null;
+                }
+
+                return this.availableUsers.find(user => {
+                    const candidates = [
+                        this.normalizePersonKey(user.UserName || user.username || ''),
+                        this.normalizePersonKey(user.FullName || user.fullName || '')
+                    ];
+                    return candidates.some(key => key && key === normalizedName);
+                }) || null;
+            }
+
             mergeAttendanceDashboardRecords(records, year) {
                 const resolvedYear = Number.parseInt(year, 10);
                 if (!Array.isArray(records) || records.length === 0 || !Number.isFinite(resolvedYear)) {
@@ -4675,7 +4840,8 @@
                 }
 
                 if (this.attendanceDashboardYear === resolvedYear) {
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(this.attendanceDashboardRecords, resolvedYear);
+                    const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, resolvedYear);
                     this.initializeAttendanceDashboard();
                 }
 
@@ -4761,7 +4927,39 @@
                     return gradient;
                 };
 
-                const data = this.attendanceDashboardData;
+                let data = this.attendanceDashboardData;
+
+                const monthSelect = document.getElementById('attendanceDashboardMonth');
+                const userSelect = document.getElementById('attendanceDashboardUser');
+                let normalizedFilterValue = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                let shouldRecomputeDashboard = false;
+
+                if (userSelect) {
+                    const options = Array.from(userSelect.options || []);
+                    const hasOption = options.some(option => option.value === (normalizedFilterValue || ''));
+                    if (hasOption) {
+                        userSelect.value = normalizedFilterValue || '';
+                    } else {
+                        if (normalizedFilterValue) {
+                            this.attendanceDashboardUserFilter = '';
+                            normalizedFilterValue = '';
+                            shouldRecomputeDashboard = true;
+                        }
+                        userSelect.value = '';
+                    }
+                }
+
+                if (shouldRecomputeDashboard) {
+                    const yearForRecompute = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                    if (Number.isFinite(yearForRecompute)) {
+                        const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                        data = this.computeAttendanceDashboard(filteredRecords, yearForRecompute);
+                        this.attendanceDashboardData = data;
+                    } else {
+                        data = this.attendanceDashboardData;
+                    }
+                }
+
                 if (!data || !Array.isArray(data.months)) {
                     console.warn('Attendance dashboard has no data to render.');
                     return;
@@ -5119,22 +5317,37 @@
                         }
                     });
 
-                    const monthSelect = document.getElementById('attendanceDashboardMonth');
                     if (monthSelect) {
-                        monthSelect.addEventListener('change', (event) => {
-                            const value = parseInt(event.target.value, 10);
-                            this.updateAttendanceMonthlyPercentChart(Number.isNaN(value) ? 0 : value);
-                        });
-
-                        const defaultMonth = new Date().getMonth();
-                        if (defaultMonth >= 0 && defaultMonth < data.months.length) {
-                            monthSelect.value = String(defaultMonth);
-                            this.updateAttendanceMonthlyPercentChart(defaultMonth);
-                        } else {
-                            this.updateAttendanceMonthlyPercentChart(0);
+                        if (!monthSelect.dataset.luminaAttendanceMonthListener) {
+                            monthSelect.addEventListener('change', (event) => {
+                                const value = parseInt(event.target.value, 10);
+                                this.updateAttendanceMonthlyPercentChart(Number.isNaN(value) ? 0 : value);
+                            });
+                            monthSelect.dataset.luminaAttendanceMonthListener = 'true';
                         }
+
+                        let resolvedMonth;
+                        if (!monthSelect.dataset.luminaAttendanceMonthDefaultApplied) {
+                            const defaultMonth = new Date().getMonth();
+                            resolvedMonth = (defaultMonth >= 0 && defaultMonth < data.months.length) ? defaultMonth : 0;
+                            monthSelect.dataset.luminaAttendanceMonthDefaultApplied = 'true';
+                        } else {
+                            const parsed = parseInt(monthSelect.value, 10);
+                            resolvedMonth = Number.isNaN(parsed) ? 0 : parsed;
+                        }
+
+                        resolvedMonth = Math.min(Math.max(resolvedMonth, 0), data.months.length - 1);
+                        monthSelect.value = String(resolvedMonth);
+                        this.updateAttendanceMonthlyPercentChart(resolvedMonth);
                     } else {
                         this.updateAttendanceMonthlyPercentChart(0);
+                    }
+
+                    if (userSelect && !userSelect.dataset.luminaAttendanceUserListener) {
+                        userSelect.addEventListener('change', (event) => {
+                            this.handleAttendanceDashboardUserFilterChange(event.target.value);
+                        });
+                        userSelect.dataset.luminaAttendanceUserListener = 'true';
                     }
 
                     if (!this.attendanceDashboardResizeHandler) {
@@ -5180,7 +5393,6 @@
                         data.yearlyTotals.vacation
                     ];
 
-                    const monthSelect = document.getElementById('attendanceDashboardMonth');
                     const selectedMonth = monthSelect ? parseInt(monthSelect.value, 10) : 0;
                     this.updateAttendanceMonthlyPercentChart(Number.isNaN(selectedMonth) ? 0 : selectedMonth);
 
@@ -5208,6 +5420,30 @@
                 if (valueDisplay) {
                     valueDisplay.textContent = `${percentValue.toFixed(2)}%`;
                 }
+            }
+
+            handleAttendanceDashboardUserFilterChange(rawValue) {
+                const normalizedValue = this.normalizeUserIdValue(rawValue);
+                this.attendanceDashboardUserFilter = normalizedValue || '';
+
+                const userSelect = document.getElementById('attendanceDashboardUser');
+                if (userSelect) {
+                    const options = Array.from(userSelect.options || []);
+                    const hasOption = options.some(option => option.value === (this.attendanceDashboardUserFilter || ''));
+                    userSelect.value = hasOption ? (this.attendanceDashboardUserFilter || '') : '';
+                    if (!hasOption && this.attendanceDashboardUserFilter) {
+                        this.attendanceDashboardUserFilter = '';
+                    }
+                }
+
+                const year = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                if (!Number.isFinite(year)) {
+                    return;
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
+                this.initializeAttendanceDashboard();
             }
 
             refreshAttendanceDashboard() {
