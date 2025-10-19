@@ -1577,33 +1577,10 @@
                     </h5>
                 </div>
                 <div class="modern-card-body">
-                    <div class="row">
+                    <div class="row align-items-start g-3">
                         <div class="col-lg-8">
-                            <div class="row g-2">
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-success me-2">P</span> Present
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-danger me-2">A</span> Absent
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-warning me-2">L</span> Late
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-info me-2">S</span> Sick Leave
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-dark me-2">B</span> Bereavement
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-primary me-2">V</span> Vacation
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-secondary me-2">LOA</span> Leave of Absence
-                                </div>
-                                <div class="col-md-3 col-6">
-                                    <span class="badge bg-danger me-2">NCNS</span> No Call No Show
-                                </div>
+                            <div id="attendanceStatusLegendCard" class="attendance-calendar__legend">
+                                <div class="text-muted small">Attendance status legend will appear here.</div>
                             </div>
                         </div>
                         <div class="col-lg-4">
@@ -2219,6 +2196,7 @@
                         }
                     });
                 });
+                this.updateStatusLegendCard();
                 this.init();
             }
 
@@ -4906,6 +4884,7 @@
                     const year = document.getElementById('attendanceYear').value;
 
                     const container = document.getElementById('attendanceCalendarContainer');
+                    this.updateStatusLegendCard();
                     container.innerHTML = `
                             <div class="text-center py-5">
                                 <div class="loading-spinner mx-auto mb-3"></div>
@@ -5056,6 +5035,20 @@
                 }).join('');
             }
 
+            updateStatusLegendCard() {
+                const container = document.getElementById('attendanceStatusLegendCard');
+                if (!container) {
+                    return;
+                }
+
+                const legendHtml = this.renderAttendanceLegend();
+                if (legendHtml) {
+                    container.innerHTML = legendHtml;
+                } else {
+                    container.innerHTML = '<div class="text-muted small">No attendance statuses configured.</div>';
+                }
+            }
+
             resolveAttendanceRecord(recordKeys, dateStr, attendanceMap) {
                 if (!Array.isArray(recordKeys) || !dateStr || !attendanceMap) {
                     return null;
@@ -5086,9 +5079,6 @@
                                         <span class="attendance-calendar__period-label">${safeMonthLabel}</span>
                                         <span class="attendance-calendar__period-subtitle">${this.escapeHtml(participantLabel)}</span>
                                     </div>
-                                </div>
-                                <div class="attendance-calendar__legend">
-                                    ${this.renderAttendanceLegend()}
                                 </div>
                             </div>
                             <div class="attendance-calendar__table-wrapper">
