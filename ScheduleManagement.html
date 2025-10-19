@@ -5099,9 +5099,15 @@
                         const badgeLabel = badge ? this.escapeHtml(badge.label) : 'Unmarked';
                         const statusClass = badge ? `attendance-calendar__status ${badge.className}` : 'attendance-calendar__status attendance-calendar__status--empty';
                         const statusContent = badge ? this.escapeHtml(badge.code) : '&#8211;';
+                        const safeIdentifierAttr = this.escapeHtml(entry.identifier || entry.original || '');
+                        const safeDateAttr = this.escapeHtml(dateStr);
+                        const safeStatusAttr = badge ? this.escapeHtml(record?.status || '') : '';
 
                         html += `
                                             <td class="${isWeekend ? 'attendance-calendar__cell attendance-calendar__cell--weekend' : 'attendance-calendar__cell'}"
+                                                data-attendance-user="${safeIdentifierAttr}"
+                                                data-attendance-date="${safeDateAttr}"
+                                                data-attendance-status="${safeStatusAttr}"
                                                 onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
                                                 oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
                                                 title="Right-click or tap to mark attendance for ${safeDisplay} on ${dateStr}">
@@ -5248,7 +5254,7 @@
                     this.hideAttendanceContextMenu();
 
                     if (target) {
-                        this.setAttendanceStatus(target.userName, target.date, status, target.displayName);
+                        this.setAttendanceStatus(target.userName, target.date, status, target.displayName, target.cellElement);
                     }
                 });
 
@@ -5272,10 +5278,15 @@
                 this.hideAttendanceContextMenu();
 
                 const menu = this.ensureAttendanceContextMenu();
+                const cellElement = (event && event.currentTarget instanceof HTMLElement)
+                    ? event.currentTarget
+                    : (event?.target?.closest?.('td') || null);
+
                 this.attendanceContextMenuTarget = {
                     userName,
                     date,
-                    displayName: displayName || userName
+                    displayName: displayName || userName,
+                    cellElement: cellElement instanceof HTMLElement ? cellElement : null
                 };
 
                 menu.style.visibility = 'hidden';
@@ -5380,19 +5391,21 @@
                 }
             }
 
-            async setAttendanceStatus(userName, date, status, displayName = null) {
+            async setAttendanceStatus(userName, date, status, displayName = null, cellElement = null) {
                 const trimmedStatus = (status || '').toString().trim();
                 if (!trimmedStatus) {
                     return;
                 }
 
                 const displayValue = displayName || userName;
+                const resolvedCell = cellElement instanceof HTMLElement ? cellElement : null;
 
                 try {
                     const result = await this.callServerFunction('clientMarkAttendanceStatus', userName, date, trimmedStatus);
                     if (result && result.success) {
                         this.showToast(`Marked ${displayValue} as ${trimmedStatus} on ${date}`, 'success');
-                        await this.loadAttendanceCalendar();
+                        this.updateAttendanceRecordCache(userName, date, trimmedStatus);
+                        this.updateAttendanceCalendarCell(userName, date, trimmedStatus, resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to mark attendance');
                     }
@@ -5402,13 +5415,140 @@
                 }
             }
 
+            updateAttendanceRecordCache(userName, date, status) {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser) {
+                    return;
+                }
+
+                if (!Array.isArray(this.attendanceCalendarRecords)) {
+                    this.attendanceCalendarRecords = [];
+                }
+
+                let updated = false;
+                for (let i = 0; i < this.attendanceCalendarRecords.length; i++) {
+                    const record = this.attendanceCalendarRecords[i];
+                    const recordUser = record?.userName || record?.UserName || record?.user || record?.User || '';
+                    const recordDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp || '';
+                    const recordUserKey = this.normalizePersonKey(recordUser);
+                    const recordDateIso = this.normalizeAttendanceDateValue(recordDate);
+
+                    if (recordUserKey === normalizedUser && recordDateIso === isoDate) {
+                        this.attendanceCalendarRecords[i] = Object.assign({}, record, {
+                            status,
+                            Status: status,
+                            date: isoDate,
+                            Date: isoDate
+                        });
+                        updated = true;
+                        break;
+                    }
+                }
+
+                if (!updated) {
+                    this.attendanceCalendarRecords.push({
+                        userName,
+                        UserName: userName,
+                        date: isoDate,
+                        Date: isoDate,
+                        status,
+                        Status: status
+                    });
+                }
+            }
+
+            updateAttendanceCalendarCell(userName, date, status, cellElement = null) {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser) {
+                    return;
+                }
+
+                if (typeof document === 'undefined') {
+                    return;
+                }
+
+                let cell = null;
+
+                if (cellElement && cellElement instanceof HTMLElement) {
+                    cell = cellElement.closest('[data-attendance-user][data-attendance-date]');
+                }
+
+                if (!cell) {
+                    const candidateCells = document.querySelectorAll(`[data-attendance-date="${isoDate}"]`);
+                    cell = Array.from(candidateCells).find(candidate => {
+                        const rawUser = candidate.getAttribute('data-attendance-user') || '';
+                        return this.normalizePersonKey(rawUser) === normalizedUser;
+                    }) || null;
+                }
+
+                if (!cell) {
+                    return;
+                }
+
+                const badge = this.getAttendanceStatusBadge(status);
+                const statusSpan = cell.querySelector('.attendance-calendar__status');
+
+                if (!statusSpan || !badge) {
+                    return;
+                }
+
+                const classes = ['attendance-calendar__status'];
+                if (badge.className) {
+                    classes.push(badge.className);
+                }
+
+                statusSpan.className = classes.join(' ');
+                statusSpan.textContent = badge.code || '–';
+                statusSpan.setAttribute('title', badge.label || '');
+                cell.setAttribute('data-attendance-status', status);
+            }
+
+            normalizeAttendanceDateValue(value) {
+                if (!value) {
+                    return '';
+                }
+
+                if (value instanceof Date) {
+                    return this.toIsoDateString(value);
+                }
+
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (!trimmed) {
+                        return '';
+                    }
+
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                        return trimmed;
+                    }
+
+                    const parsedStringDate = new Date(trimmed);
+                    if (!Number.isNaN(parsedStringDate.getTime())) {
+                        return this.toIsoDateString(parsedStringDate);
+                    }
+
+                    return '';
+                }
+
+                const parsedDate = new Date(value);
+                if (!Number.isNaN(parsedDate.getTime())) {
+                    return this.toIsoDateString(parsedDate);
+                }
+
+                return '';
+            }
+
             async markAttendance(userName, date, displayName = null, status = null) {
                 if (!status) {
                     this.showAttendanceContextMenu(null, userName, date, displayName);
                     return;
                 }
 
-                await this.setAttendanceStatus(userName, date, status, displayName);
+                await this.setAttendanceStatus(userName, date, status, displayName, null);
             }
 
             async handleScheduleImport() {
