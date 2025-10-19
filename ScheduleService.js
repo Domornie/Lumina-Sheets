@@ -503,6 +503,7 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           campaignName: campaignName,
           EmploymentStatus: user.EmploymentStatus || 'Active',
           HireDate: user.HireDate || '',
+          TerminationDate: user.TerminationDate || user.terminationDate || '',
           isActive: isUserConsideredActive(user)
         };
       });
