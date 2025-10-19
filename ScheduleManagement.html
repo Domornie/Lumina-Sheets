@@ -820,6 +820,23 @@
         color: #0f172a;
     }
 
+    .attendance-dashboard-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+    }
+
+    .attendance-dashboard-controls span {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+
+    .attendance-dashboard-controls select {
+        min-width: 180px;
+    }
+
     @media (max-width: 991px) {
         .attendance-panel-actions {
             flex-wrap: wrap;
@@ -876,6 +893,251 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Manual Shift Assignment Tab */
+    .manual-shift-tab {
+        padding: var(--spacing-md);
+    }
+
+    .manual-shift-header {
+        max-width: 820px;
+        margin: 0 auto var(--spacing-lg);
+    }
+
+    .manual-shift-title {
+        font-size: 2.25rem;
+        font-weight: 800;
+        margin-bottom: 0.75rem;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--jamaica-green) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .manual-shift-subtitle {
+        font-size: 1rem;
+        color: var(--gray-600);
+        line-height: 1.6;
+    }
+
+    .manual-shift-tab .user-selection-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+    }
+
+    .manual-shift-tab .user-search-box {
+        position: relative;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .manual-shift-tab .user-search-box i {
+        position: absolute;
+        top: 50%;
+        left: 0.85rem;
+        transform: translateY(-50%);
+        color: var(--gray-500);
+    }
+
+    .manual-shift-tab .user-search-input {
+        padding-left: 2.5rem;
+    }
+
+    .manual-shift-tab .user-selection-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .manual-shift-tab .user-count-label {
+        font-weight: 600;
+        color: var(--gray-600);
+    }
+
+    .manual-shift-tab .user-list {
+        flex: 1;
+        border: 1px solid var(--outline);
+        border-radius: var(--border-radius);
+        background: rgba(255, 255, 255, 0.9);
+        max-height: 360px;
+        overflow-y: auto;
+        padding: 0.75rem;
+    }
+
+    .manual-shift-tab .user-loading-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 2.25rem 1rem;
+        color: var(--gray-600);
+    }
+
+    .manual-shift-tab .user-list-empty {
+        padding: 2.5rem 1rem;
+        text-align: center;
+        color: var(--gray-500);
+        font-size: 0.95rem;
+    }
+
+    .manual-shift-tab .user-list-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-radius: var(--border-radius-sm);
+        padding: 0.5rem 0.65rem;
+        transition: background-color 0.2s ease;
+    }
+
+    .manual-shift-tab .user-list-item:hover {
+        background: rgba(14, 165, 233, 0.08);
+    }
+
+    .manual-shift-tab .user-list-item + .user-list-item {
+        margin-top: 0.35rem;
+    }
+
+    .manual-shift-tab .user-name {
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .manual-shift-tab .user-meta {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+    }
+
+    .manual-shift-tab .form-footer-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .manual-shift-tab .form-footer-actions .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        border-radius: var(--border-radius);
+        padding: 0.6rem 1.1rem;
+    }
+
+    .manual-shift-tab .manual-help-list {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+    }
+
+    .manual-shift-tab .activity-entry {
+        border-left: 4px solid var(--primary);
+        padding-left: 1rem;
+        background: rgba(14, 165, 233, 0.06);
+        border-radius: 0 var(--border-radius) var(--border-radius) 0;
+        padding: 1rem 1.25rem;
+    }
+
+    .manual-shift-tab .activity-entry strong {
+        display: block;
+        font-weight: 700;
+        color: var(--dark);
+    }
+
+    .manual-shift-tab .activity-meta {
+        font-size: 0.85rem;
+        color: var(--gray-600);
+        margin-top: 0.35rem;
+    }
+
+    .manual-shift-tab .activity-log {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .manual-shift-tab .manual-activity-empty {
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--gray-600);
+        text-align: center;
+    }
+
+    .manual-shift-tab .alert-modern {
+        border-radius: var(--border-radius);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        border: 1px solid transparent;
+        display: flex;
+        gap: 0.85rem;
+        align-items: flex-start;
+        position: relative;
+    }
+
+    .manual-shift-tab .alert-modern i {
+        font-size: 1.15rem;
+    }
+
+    .manual-shift-tab .alert-modern p {
+        margin: 0;
+    }
+
+    .manual-shift-tab .alert-success-modern {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: rgba(16, 185, 129, 0.35);
+        color: #047857;
+    }
+
+    .manual-shift-tab .alert-danger-modern {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #b91c1c;
+    }
+
+    .manual-shift-tab .alert-warning-modern {
+        background: rgba(234, 179, 8, 0.15);
+        border-color: rgba(234, 179, 8, 0.35);
+        color: #92400e;
+    }
+
+    .manual-shift-tab .alert-info-modern {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.35);
+        color: #1d4ed8;
+    }
+
+    .manual-shift-tab .alert-close {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.75rem;
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+        .manual-shift-tab {
+            padding: var(--spacing-sm);
+        }
+
+        .manual-shift-title {
+            font-size: 1.85rem;
+        }
+
+        .manual-shift-tab .form-footer-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .manual-shift-tab .form-footer-actions .btn {
+            justify-content: center;
+            width: 100%;
+        }
     }
 </style>
 
@@ -1102,11 +1364,19 @@
         <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
             <div class="modern-card mb-4">
                 <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                    <div>
+                        <h5 class="modern-card-title">
+                            <i class="fas fa-chart-pie text-primary"></i>
+                            Attendance Dashboard
+                        </h5>
+                        <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                    </div>
+                    <div class="attendance-dashboard-controls">
+                        <span class="text-muted small">Filter by user:</span>
+                        <select id="attendanceDashboardUser" class="form-select form-select-sm" aria-label="Filter attendance dashboard by user">
+                            <option value="">All Users</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modern-card-body">
                     <div class="attendance-dashboard">
@@ -1410,116 +1680,179 @@
             </div>
         </div>
 
-        <!-- Import Schedules Tab -->
+        <!-- Manual Shift Assignment Tab -->
         <div class="tab-pane fade" id="import" role="tabpanel">
-            <div class="modern-card">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-file-import text-primary"></i>
-                        Import Existing Schedules
-                    </h5>
+            <div class="manual-shift-tab">
+                <div class="manual-shift-header text-center">
+                    <h2 class="manual-shift-title">Manual Shift Slot Assignment</h2>
+                    <p class="manual-shift-subtitle">
+                        Create and assign shift slots without relying on spreadsheet imports. Select a date, define the shift timing,
+                        and choose the agents who should receive the assignment. Add optional context about the source month or year to
+                        track where the schedule originated.
+                    </p>
                 </div>
-                <div class="modern-card-body">
-                    <form id="scheduleImportForm" class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label-modern" for="importStartDate">Start Date</label>
-                            <input type="date" class="form-control form-control-modern" id="importStartDate" required>
-                            <div class="form-text">Pick the first day covered by the schedule you are importing.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label-modern" for="importEndDate">End Date</label>
-                            <input type="date" class="form-control form-control-modern" id="importEndDate" required>
-                            <div class="form-text">Any date within the final week is fine—the importer will align the days automatically.</div>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label-modern" for="importMonth">Source Month</label>
-                            <select class="form-select form-control-modern" id="importMonth" required>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label-modern" for="importYear">Source Year</label>
-                            <input type="number" class="form-control form-control-modern" id="importYear" min="2000" max="2100" required>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="importReplace">
-                                <label class="form-check-label" for="importReplace">Replace existing</label>
+
+                <div id="feedbackArea"></div>
+
+                <form id="manualShiftForm" novalidate>
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <div class="modern-card h-100">
+                                <div class="modern-card-header">
+                                    <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                                        <i class="fas fa-calendar-plus text-primary"></i>
+                                        Shift Details
+                                    </h5>
+                                </div>
+                                <div class="modern-card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="assignmentDate">Assignment Date</label>
+                                            <input type="date" class="form-control-modern w-100" id="assignmentDate" min="2023-01-01" required>
+                                            <small class="text-muted">Schedule back to January 2023.</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-modern" for="startTime">Start Time</label>
+                                            <input type="time" class="form-control-modern w-100" id="startTime" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-modern" for="endTime">End Time</label>
+                                            <input type="time" class="form-control-modern w-100" id="endTime" required>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="sourceMonth">Source Month (optional)</label>
+                                            <select class="form-select form-select-modern" id="sourceMonth">
+                                                <option value="">Select month</option>
+                                                <option value="1">January</option>
+                                                <option value="2">February</option>
+                                                <option value="3">March</option>
+                                                <option value="4">April</option>
+                                                <option value="5">May</option>
+                                                <option value="6">June</option>
+                                                <option value="7">July</option>
+                                                <option value="8">August</option>
+                                                <option value="9">September</option>
+                                                <option value="10">October</option>
+                                                <option value="11">November</option>
+                                                <option value="12">December</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="sourceYear">Source Year (optional)</label>
+                                            <select class="form-select form-select-modern" id="sourceYear">
+                                                <option value="">Select year</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="form-label-modern" for="slotLabel">Slot Label (optional)</label>
+                                        <input type="text" class="form-control-modern w-100" id="slotLabel" placeholder="e.g., Manual Morning Shift">
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="form-label-modern" for="additionalNotes">Additional Notes</label>
+                                        <textarea class="form-textarea-modern w-100" id="additionalNotes" rows="4" placeholder="Add context for this assignment"></textarea>
+                                    </div>
+                                    <div class="form-check mt-3">
+                                        <input class="form-check-input" type="checkbox" id="replaceExisting">
+                                        <label class="form-check-label" for="replaceExisting">
+                                            Replace existing shift assignment on the selected date for chosen users
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <div class="col-12">
-                            <label class="form-label-modern" for="scheduleFile">Schedule File</label>
-                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt">
-                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents, or use the Google Sheets option below.</div>
+                        <div class="col-lg-6">
+                            <div class="modern-card user-selection-card h-100">
+                                <div class="modern-card-header">
+                                    <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                                        <i class="fas fa-user-clock text-success"></i>
+                                        Select Users
+                                    </h5>
+                                </div>
+                                <div class="modern-card-body d-flex flex-column">
+                                    <div class="user-search-box">
+                                        <i class="fas fa-search"></i>
+                                        <input type="search" class="form-control-modern user-search-input" id="userSearch" placeholder="Search by name or email" autocomplete="off">
+                                    </div>
+                                    <div class="user-selection-controls">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="selectAllUsers">
+                                            <label class="form-check-label" for="selectAllUsers">Select all filtered users</label>
+                                        </div>
+                                        <div class="user-count-label">
+                                            <span id="selectedUserCount">0</span> / <span id="totalUserCount">0</span> selected
+                                        </div>
+                                    </div>
+                                    <div class="user-list" id="userList">
+                                        <div class="user-loading-state" id="userLoadingState">
+                                            <span class="loading-spinner"></span>
+                                            <span>Loading available users...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-12">
-                            <label class="form-label-modern" for="googleSheetUrl">Google Sheets Link</label>
-                            <input type="url" class="form-control form-control-modern" id="googleSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-                            <div class="form-text">Paste a shared Google Sheets link to import directly without downloading a CSV export.</div>
-                            <div id="googleSheetStatus" class="form-text text-primary mt-1"></div>
+                    <div class="modern-card mt-4">
+                        <div class="modern-card-body form-footer-actions">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="fw-semibold text-dark">Assignment Summary</div>
+                                <ul class="manual-help-list text-muted small">
+                                    <li>Date and time are required to create the shift slot.</li>
+                                    <li>Select one or more agents to assign the shift.</li>
+                                    <li>Enable replace to overwrite existing shifts for selected agents on this date.</li>
+                                </ul>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-modern" id="clearSelection">
+                                    <i class="fas fa-user-slash"></i>
+                                    Clear Selection
+                                </button>
+                                <button type="submit" class="btn btn-success-modern btn-modern" id="submitManualShift">
+                                    <i class="fas fa-plus-circle"></i>
+                                    Add Shift Slots
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </form>
 
-                        <div class="col-md-6">
-                            <label class="form-label-modern" for="googleSheetTab">Sheet Name (optional)</label>
-                            <input type="text" class="form-control form-control-modern" id="googleSheetTab" placeholder="Schedule">
-                            <div class="form-text">Specify the tab to import if it is not the first sheet in the workbook.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label-modern" for="googleSheetRange">Range (optional)</label>
-                            <input type="text" class="form-control form-control-modern" id="googleSheetRange" placeholder="A1:Z200">
-                            <div class="form-text">Limit the import to a specific range. Leave blank to use the entire sheet.</div>
-                        </div>
-
-                        <div class="col-12 d-flex flex-wrap gap-2 mt-2">
-                            <button type="submit" class="btn btn-primary-modern btn-modern">
-                                <i class="fas fa-cloud-upload-alt me-2"></i>
-                                Import Schedules
-                            </button>
-                            <button type="button" class="btn btn-outline-modern" id="clearImportPreview">
-                                <i class="fas fa-eraser me-2"></i>
-                                Clear Preview
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="importPreview" class="mt-4"></div>
-                    <div id="importSummary" class="mt-3"></div>
+                <div class="modern-card mt-4">
+                    <div class="modern-card-header">
+                        <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                            <i class="fas fa-info-circle text-info"></i>
+                            Helpful Tips
+                        </h5>
+                    </div>
+                    <div class="modern-card-body">
+                        <ul class="manual-help-list text-muted">
+                            <li>Use Source Month and Year to document where the manual assignment originated.</li>
+                            <li>Replace existing will overwrite conflicting shifts for the selected users on that date.</li>
+                            <li>All assignments are logged below so you can confirm recent manual updates.</li>
+                        </ul>
+                    </div>
                 </div>
-            </div>
 
-            <div class="modern-card mt-4">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-info-circle text-info"></i>
-                        Expected File Format
-                    </h5>
-                </div>
-                <div class="modern-card-body">
-                    <p class="text-muted">Use the monthly slot matrix exported from your scheduling sheet:</p>
-                    <ul class="mb-3">
-                        <li>The first column lists each shift slot or time range (e.g., <code>8:00 AM - 5:00 PM</code>).</li>
-                        <li>Columns for Monday through Friday contain the agent names assigned to that slot for the week. Separate multiple names with line breaks, commas, or slashes.</li>
-                        <li>Optional weekend columns are supported and will be imported when present.</li>
-                        <li>Cells marked <code>OFF</code>, <code>N/A</code>, <code>PTO</code>, or left blank will be skipped.</li>
-                    </ul>
-                    <p class="mb-0 text-muted">Select the first and last Sundays for the month you are importing and the importer will generate individual daily schedules for every assigned agent across that span.</p>
+                <div class="modern-card mt-4">
+                    <div class="modern-card-header">
+                        <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                            <i class="fas fa-history text-primary"></i>
+                            Recent Manual Assignments
+                        </h5>
+                    </div>
+                    <div class="modern-card-body">
+                        <div id="activityLog" class="activity-log">
+                            <div id="activityEmptyState" class="manual-activity-empty">
+                                <i class="far fa-calendar-check me-2"></i>No manual assignments recorded yet.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-
         <!-- Attendance Calendar Tab -->
         <div class="tab-pane fade" id="attendance" role="tabpanel">
             <div class="modern-card mb-4">
@@ -2121,6 +2454,7 @@
                 this.identityResolved = false;
                 this.identitySummary = null;
                 this.contextLoadingPromise = null;
+                this.manualShiftManager = null;
                 this.visibleManagedCount = 0;
                 this.attendanceCharts = {};
                 this.attendanceDashboardInitialized = false;
@@ -2128,6 +2462,7 @@
                 this.attendanceDashboardData = null;
                 this.attendanceDashboardYear = null;
                 this.attendanceDashboardRecords = [];
+                this.attendanceDashboardUserFilter = '';
                 this.attendanceCalendarRecords = [];
                 this.attendanceContextMenu = null;
                 this.attendanceContextMenuTarget = null;
@@ -2294,26 +2629,9 @@
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
 
-                const importStartDate = document.getElementById('importStartDate');
-                const importEndDate = document.getElementById('importEndDate');
-                if (importStartDate && importEndDate) {
-                    importStartDate.valueAsDate = monthStart;
-                    importEndDate.valueAsDate = monthEnd >= monthStart ? monthEnd : monthStart;
-                }
-
-                const importMonth = document.getElementById('importMonth');
-                if (importMonth) {
-                    importMonth.value = today.getMonth() + 1;
-                }
-
-                const importYear = document.getElementById('importYear');
-                if (importYear) {
-                    importYear.value = today.getFullYear();
-                }
-
-                const importReplace = document.getElementById('importReplace');
-                if (importReplace) {
-                    importReplace.checked = false;
+                const manualDateInput = document.getElementById('assignmentDate');
+                if (manualDateInput) {
+                    manualDateInput.valueAsDate = today;
                 }
             }
 
@@ -2332,45 +2650,6 @@
                 document.getElementById('holidayImportForm')?.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.importHolidays();
-                });
-
-                document.getElementById('scheduleImportForm')?.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleScheduleImport();
-                });
-
-                document.getElementById('scheduleFile')?.addEventListener('change', (e) => {
-                    this.handleScheduleFileSelect(e);
-                });
-
-                document.getElementById('googleSheetUrl')?.addEventListener('input', (e) => {
-                    this.handleGoogleSheetUrlChange(e);
-                });
-
-                document.getElementById('clearImportPreview')?.addEventListener('click', () => {
-                    this.clearImportPreview();
-                    this.clearImportSummary();
-                    const fileInput = document.getElementById('scheduleFile');
-                    if (fileInput) {
-                        fileInput.value = '';
-                    }
-                    const googleSheetUrl = document.getElementById('googleSheetUrl');
-                    if (googleSheetUrl) {
-                        googleSheetUrl.value = '';
-                    }
-                    const googleSheetTab = document.getElementById('googleSheetTab');
-                    if (googleSheetTab) {
-                        googleSheetTab.value = '';
-                    }
-                    const googleSheetRange = document.getElementById('googleSheetRange');
-                    if (googleSheetRange) {
-                        googleSheetRange.value = '';
-                    }
-                    const googleSheetStatus = document.getElementById('googleSheetStatus');
-                    if (googleSheetStatus) {
-                        googleSheetStatus.textContent = '';
-                    }
-                    this.updateImportFileName();
                 });
 
                 document.getElementById('attendanceMonth')?.addEventListener('change', async () => {
@@ -2577,6 +2856,32 @@
                             return nameA.localeCompare(nameB);
                         });
 
+                    if (this.attendanceDashboardUserFilter) {
+                        const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                        const normalizedFilterName = this.normalizePersonKey(normalizedFilterId);
+                        const hasUser = this.availableUsers.some(user => {
+                            const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                            if (userId && userId === normalizedFilterId) {
+                                return true;
+                            }
+                            const nameKey = this.normalizePersonKey(user.FullName || user.UserName || '');
+                            return normalizedFilterName && nameKey === normalizedFilterName;
+                        });
+
+                        if (!hasUser) {
+                            this.attendanceDashboardUserFilter = '';
+                        }
+                    }
+
+                    const manualManager = (this.manualShiftManager && typeof this.manualShiftManager.setUsers === 'function')
+                        ? this.manualShiftManager
+                        : (window.manualShiftManager && typeof window.manualShiftManager.setUsers === 'function'
+                            ? window.manualShiftManager
+                            : null);
+                    if (manualManager) {
+                        manualManager.setUsers(this.availableUsers);
+                    }
+
                     if (!(this.managedUserIdSet instanceof Set)) {
                         this.managedUserIdSet = new Set();
                     }
@@ -2616,6 +2921,15 @@
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
+
+                    if (this.attendanceDashboardData && Number.isFinite(this.attendanceDashboardYear)) {
+                        const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, this.attendanceDashboardYear);
+                        if (this.attendanceDashboardInitialized) {
+                            this.initializeAttendanceDashboard();
+                        }
+                    }
+
                     this.updateUsersList();
 
                     // Update metrics
@@ -2629,22 +2943,53 @@
             }
 
             updateUserDropdowns() {
-                const dropdowns = ['scheduleUsers', 'filterUser'];
+                const dropdowns = ['scheduleUsers', 'filterUser', 'attendanceDashboardUser'];
+                const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
 
                 dropdowns.forEach(dropdownId => {
                     const dropdown = document.getElementById(dropdownId);
                     if (!dropdown) return;
 
                     if (dropdownId === 'scheduleUsers') {
-                        dropdown.innerHTML = this.availableUsers.map(user =>
-                            `<option value="${user.UserName}">${user.FullName || user.UserName} (${user.campaignName || 'No Campaign'})</option>`
-                        ).join('');
-                    } else {
-                        dropdown.innerHTML = '<option value="">All Users</option>' +
-                            this.availableUsers.map(user =>
-                                `<option value="${user.UserName}">${user.FullName || user.UserName}</option>`
-                            ).join('');
+                        dropdown.innerHTML = this.availableUsers.map(user => {
+                            const optionValue = user.UserName || user.FullName || user.ID || '';
+                            const labelName = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+                            const campaignLabel = this.escapeHtml(user.campaignName || 'No Campaign');
+                            return `<option value="${this.escapeHtml(optionValue)}">${labelName} (${campaignLabel})</option>`;
+                        }).join('');
+                        return;
                     }
+
+                    if (dropdownId === 'filterUser') {
+                        dropdown.innerHTML = '<option value="">All Users</option>' +
+                            this.availableUsers.map(user => {
+                                const optionValue = user.UserName || user.FullName || user.ID || '';
+                                return `<option value="${this.escapeHtml(optionValue)}">${this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent')}</option>`;
+                            }).join('');
+                        return;
+                    }
+
+                    const options = ['<option value="">All Users</option>'];
+                    this.availableUsers.forEach(user => {
+                        const resolvedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                        const fallbackKey = this.normalizePersonKey(user.UserName || user.FullName || '');
+                        const optionValue = resolvedId || fallbackKey;
+                        const label = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+
+                        if (!optionValue) {
+                            return;
+                        }
+
+                        const normalizedOptionValue = this.normalizeUserIdValue(optionValue);
+                        const isSelected = normalizedFilterId && normalizedOptionValue === normalizedFilterId;
+                        const dataUserName = this.escapeHtml(this.normalizePersonKey(user.UserName || ''));
+                        const dataFullName = this.escapeHtml(this.normalizePersonKey(user.FullName || ''));
+                        options.push(`
+                            <option value="${this.escapeHtml(optionValue)}" data-user-name="${dataUserName}" data-full-name="${dataFullName}"${isSelected ? ' selected' : ''}>${label}</option>
+                        `);
+                    });
+
+                    dropdown.innerHTML = options.join('');
                 });
             }
 
@@ -2786,19 +3131,21 @@
             async loadShiftSlots() {
                 try {
                     console.log('🕒 Loading shift slots...');
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const rawSlots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots, metadata } = this.normalizeShiftSlotListResponse(rawSlots);
 
-                    this.displayShiftSlots(Array.isArray(slots) ? slots : []);
+                    this.displayShiftSlots(slots);
+
                     const totalSlotsElement = document.getElementById('totalSlots');
                     if (totalSlotsElement) {
-                        totalSlotsElement.textContent = Array.isArray(slots) ? slots.length : 0;
+                        totalSlotsElement.textContent = metadata.totalCount;
                     }
 
-                    console.log(`✅ Loaded ${Array.isArray(slots) ? slots.length : 0} shift slots`);
+                    console.log(`✅ Loaded ${metadata.totalCount} shift slots`);
                 } catch (error) {
                     console.error('❌ Error loading shift slots:', error);
                     this.displayShiftSlots([]);
-                    this.showToast('Failed to load shift slots. You may need to create some first.', 'warning');
+                    this.showToast(error.message || 'Failed to load shift slots. You may need to create some first.', 'warning');
                 }
             }
 
@@ -2843,6 +3190,93 @@
                             </div>
                         </div>
                     `).join('');
+            }
+
+            normalizeShiftSlotListResponse(rawSlots) {
+                const emptyResult = { slots: [], metadata: { totalCount: 0 } };
+
+                const coerceArray = (value) => {
+                    if (Array.isArray(value)) {
+                        return value.filter(slot => slot && typeof slot === 'object');
+                    }
+
+                    if (value && typeof value === 'object' && (value.ID || value.Name)) {
+                        return [value];
+                    }
+
+                    return [];
+                };
+
+                const handleFailure = (message) => {
+                    throw new Error(message || 'Failed to load shift slots from the server.');
+                };
+
+                if (Array.isArray(rawSlots)) {
+                    const normalized = coerceArray(rawSlots);
+                    return {
+                        slots: normalized,
+                        metadata: { totalCount: normalized.length }
+                    };
+                }
+
+                if (!rawSlots) {
+                    return emptyResult;
+                }
+
+                if (typeof rawSlots === 'string') {
+                    handleFailure(rawSlots);
+                }
+
+                if (typeof rawSlots === 'object') {
+                    if (rawSlots.success === false) {
+                        handleFailure(rawSlots.error || rawSlots.message);
+                    }
+
+                    const candidateArrays = [
+                        rawSlots.slots,
+                        rawSlots.data?.slots,
+                        rawSlots.result?.slots,
+                        rawSlots.records,
+                        rawSlots.items
+                    ];
+
+                    for (const candidate of candidateArrays) {
+                        if (Array.isArray(candidate)) {
+                            const normalized = coerceArray(candidate);
+                            return {
+                                slots: normalized,
+                                metadata: {
+                                    totalCount: normalized.length,
+                                    source: rawSlots
+                                }
+                            };
+                        }
+                    }
+
+                    if (rawSlots.success === true && Array.isArray(rawSlots.data)) {
+                        const normalized = coerceArray(rawSlots.data);
+                        return {
+                            slots: normalized,
+                            metadata: {
+                                totalCount: normalized.length,
+                                source: rawSlots
+                            }
+                        };
+                    }
+
+                    const singleSlot = coerceArray(rawSlots);
+                    if (singleSlot.length) {
+                        return {
+                            slots: singleSlot,
+                            metadata: {
+                                totalCount: singleSlot.length,
+                                source: rawSlots
+                            }
+                        };
+                    }
+                }
+
+                return emptyResult;
             }
 
             async refreshDashboard() {
@@ -4119,7 +4553,8 @@
                     const records = Array.isArray(response.records) ? response.records : [];
                     this.attendanceDashboardRecords = records;
                     this.attendanceDashboardYear = year;
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(records, year);
+                    const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
+                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
                     this.destroyAttendanceDashboardCharts();
                 } catch (error) {
                     console.error('Error loading attendance dashboard data:', error);
@@ -4312,6 +4747,87 @@
                 };
             }
 
+            filterAttendanceDashboardRecords(records, filterValue = this.attendanceDashboardUserFilter) {
+                if (!Array.isArray(records)) {
+                    return [];
+                }
+
+                const normalizedFilterValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedFilterValue) {
+                    return records.slice();
+                }
+
+                const matchedUser = this.resolveAttendanceDashboardUser(normalizedFilterValue);
+                const keySet = new Set();
+
+                if (matchedUser) {
+                    [
+                        this.normalizePersonKey(matchedUser.UserName || matchedUser.username || ''),
+                        this.normalizePersonKey(matchedUser.FullName || matchedUser.fullName || ''),
+                        this.normalizePersonKey(matchedUser.Email || matchedUser.email || '')
+                    ]
+                        .filter(Boolean)
+                        .forEach(key => keySet.add(key));
+                } else {
+                    const fallbackKey = this.normalizePersonKey(normalizedFilterValue);
+                    if (fallbackKey) {
+                        keySet.add(fallbackKey);
+                    }
+                }
+
+                if (!keySet.size) {
+                    return [];
+                }
+
+                return records.filter(record => {
+                    const recordKeys = [
+                        record?.userName,
+                        record?.UserName,
+                        record?.user,
+                        record?.User,
+                        record?.fullName,
+                        record?.FullName
+                    ]
+                        .map(value => this.normalizePersonKey(value))
+                        .filter(Boolean);
+
+                    if (!recordKeys.length) {
+                        return false;
+                    }
+
+                    return recordKeys.some(key => keySet.has(key));
+                });
+            }
+
+            resolveAttendanceDashboardUser(filterValue) {
+                const normalizedValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedValue || !Array.isArray(this.availableUsers)) {
+                    return null;
+                }
+
+                const matchById = this.availableUsers.find(user => {
+                    const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                    return userId && userId === normalizedValue;
+                });
+
+                if (matchById) {
+                    return matchById;
+                }
+
+                const normalizedName = this.normalizePersonKey(normalizedValue);
+                if (!normalizedName) {
+                    return null;
+                }
+
+                return this.availableUsers.find(user => {
+                    const candidates = [
+                        this.normalizePersonKey(user.UserName || user.username || ''),
+                        this.normalizePersonKey(user.FullName || user.fullName || '')
+                    ];
+                    return candidates.some(key => key && key === normalizedName);
+                }) || null;
+            }
+
             mergeAttendanceDashboardRecords(records, year) {
                 const resolvedYear = Number.parseInt(year, 10);
                 if (!Array.isArray(records) || records.length === 0 || !Number.isFinite(resolvedYear)) {
@@ -4413,7 +4929,8 @@
                 }
 
                 if (this.attendanceDashboardYear === resolvedYear) {
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(this.attendanceDashboardRecords, resolvedYear);
+                    const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, resolvedYear);
                     this.initializeAttendanceDashboard();
                 }
 
@@ -4499,7 +5016,39 @@
                     return gradient;
                 };
 
-                const data = this.attendanceDashboardData;
+                let data = this.attendanceDashboardData;
+
+                const monthSelect = document.getElementById('attendanceDashboardMonth');
+                const userSelect = document.getElementById('attendanceDashboardUser');
+                let normalizedFilterValue = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                let shouldRecomputeDashboard = false;
+
+                if (userSelect) {
+                    const options = Array.from(userSelect.options || []);
+                    const hasOption = options.some(option => option.value === (normalizedFilterValue || ''));
+                    if (hasOption) {
+                        userSelect.value = normalizedFilterValue || '';
+                    } else {
+                        if (normalizedFilterValue) {
+                            this.attendanceDashboardUserFilter = '';
+                            normalizedFilterValue = '';
+                            shouldRecomputeDashboard = true;
+                        }
+                        userSelect.value = '';
+                    }
+                }
+
+                if (shouldRecomputeDashboard) {
+                    const yearForRecompute = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                    if (Number.isFinite(yearForRecompute)) {
+                        const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                        data = this.computeAttendanceDashboard(filteredRecords, yearForRecompute);
+                        this.attendanceDashboardData = data;
+                    } else {
+                        data = this.attendanceDashboardData;
+                    }
+                }
+
                 if (!data || !Array.isArray(data.months)) {
                     console.warn('Attendance dashboard has no data to render.');
                     return;
@@ -4857,22 +5406,37 @@
                         }
                     });
 
-                    const monthSelect = document.getElementById('attendanceDashboardMonth');
                     if (monthSelect) {
-                        monthSelect.addEventListener('change', (event) => {
-                            const value = parseInt(event.target.value, 10);
-                            this.updateAttendanceMonthlyPercentChart(Number.isNaN(value) ? 0 : value);
-                        });
-
-                        const defaultMonth = new Date().getMonth();
-                        if (defaultMonth >= 0 && defaultMonth < data.months.length) {
-                            monthSelect.value = String(defaultMonth);
-                            this.updateAttendanceMonthlyPercentChart(defaultMonth);
-                        } else {
-                            this.updateAttendanceMonthlyPercentChart(0);
+                        if (!monthSelect.dataset.luminaAttendanceMonthListener) {
+                            monthSelect.addEventListener('change', (event) => {
+                                const value = parseInt(event.target.value, 10);
+                                this.updateAttendanceMonthlyPercentChart(Number.isNaN(value) ? 0 : value);
+                            });
+                            monthSelect.dataset.luminaAttendanceMonthListener = 'true';
                         }
+
+                        let resolvedMonth;
+                        if (!monthSelect.dataset.luminaAttendanceMonthDefaultApplied) {
+                            const defaultMonth = new Date().getMonth();
+                            resolvedMonth = (defaultMonth >= 0 && defaultMonth < data.months.length) ? defaultMonth : 0;
+                            monthSelect.dataset.luminaAttendanceMonthDefaultApplied = 'true';
+                        } else {
+                            const parsed = parseInt(monthSelect.value, 10);
+                            resolvedMonth = Number.isNaN(parsed) ? 0 : parsed;
+                        }
+
+                        resolvedMonth = Math.min(Math.max(resolvedMonth, 0), data.months.length - 1);
+                        monthSelect.value = String(resolvedMonth);
+                        this.updateAttendanceMonthlyPercentChart(resolvedMonth);
                     } else {
                         this.updateAttendanceMonthlyPercentChart(0);
+                    }
+
+                    if (userSelect && !userSelect.dataset.luminaAttendanceUserListener) {
+                        userSelect.addEventListener('change', (event) => {
+                            this.handleAttendanceDashboardUserFilterChange(event.target.value);
+                        });
+                        userSelect.dataset.luminaAttendanceUserListener = 'true';
                     }
 
                     if (!this.attendanceDashboardResizeHandler) {
@@ -4918,7 +5482,6 @@
                         data.yearlyTotals.vacation
                     ];
 
-                    const monthSelect = document.getElementById('attendanceDashboardMonth');
                     const selectedMonth = monthSelect ? parseInt(monthSelect.value, 10) : 0;
                     this.updateAttendanceMonthlyPercentChart(Number.isNaN(selectedMonth) ? 0 : selectedMonth);
 
@@ -4946,6 +5509,30 @@
                 if (valueDisplay) {
                     valueDisplay.textContent = `${percentValue.toFixed(2)}%`;
                 }
+            }
+
+            handleAttendanceDashboardUserFilterChange(rawValue) {
+                const normalizedValue = this.normalizeUserIdValue(rawValue);
+                this.attendanceDashboardUserFilter = normalizedValue || '';
+
+                const userSelect = document.getElementById('attendanceDashboardUser');
+                if (userSelect) {
+                    const options = Array.from(userSelect.options || []);
+                    const hasOption = options.some(option => option.value === (this.attendanceDashboardUserFilter || ''));
+                    userSelect.value = hasOption ? (this.attendanceDashboardUserFilter || '') : '';
+                    if (!hasOption && this.attendanceDashboardUserFilter) {
+                        this.attendanceDashboardUserFilter = '';
+                    }
+                }
+
+                const year = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                if (!Number.isFinite(year)) {
+                    return;
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
+                this.initializeAttendanceDashboard();
             }
 
             refreshAttendanceDashboard() {
@@ -5068,22 +5655,34 @@
                         attendanceMap
                     );
 
-                    container.innerHTML = calendar;
-                    console.log(`✅ Loaded attendance calendar with ${userEntries.length} users`);
+            buildEmploymentKeyLookup(users = []) {
+                const lookup = new Set();
 
-                } catch (error) {
-                    console.error('❌ Error loading attendance calendar:', error);
-                    document.getElementById('attendanceCalendarContainer').innerHTML = `
-                            <div class="text-center py-5 text-danger">
-                                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
-                                <h5>Error Loading Calendar</h5>
-                                <p>${error.message}</p>
-                                <button class="btn btn-primary-modern btn-modern" onclick="scheduleManager.loadAttendanceCalendar()">
-                                    <i class="fas fa-retry me-2"></i>Try Again
-                                </button>
-                            </div>
-                        `;
+                if (!Array.isArray(users) || !users.length) {
+                    return lookup;
                 }
+
+                users.forEach(user => {
+                    this.collectUserIdentityKeys(user).forEach(key => lookup.add(key));
+                });
+
+                return lookup;
+            }
+
+            collectUserIdentityKeys(user) {
+                if (!user) {
+                    return [];
+                }
+
+                const identityValues = [
+                    user.UserName,
+                    user.FullName,
+                    user.Email
+                ];
+
+                return identityValues
+                    .map(value => this.normalizePersonKey(value))
+                    .filter(Boolean);
             }
 
             resolveAttendanceMonthContext(monthValue, yearValue) {
@@ -7019,7 +7618,11 @@
                         this.refreshHolidays();
                         break;
                     case '#import':
-                        this.updateImportFileName();
+                        const manualManager = this.manualShiftManager
+                            || (typeof window !== 'undefined' ? window.manualShiftManager : null);
+                        if (manualManager && typeof manualManager.renderUserList === 'function') {
+                            manualManager.renderUserList();
+                        }
                         break;
                 }
             }
@@ -7566,9 +8169,510 @@
             }
         }
 
+        // Manual shift assignment manager for the Schedule Management import tab
+        class ManualShiftAssignmentManager {
+            constructor(scheduleManager) {
+                this.scheduleManager = scheduleManager || null;
+
+                this.form = document.getElementById('manualShiftForm');
+                this.feedbackArea = document.getElementById('feedbackArea');
+                this.dateInput = document.getElementById('assignmentDate');
+                this.startTimeInput = document.getElementById('startTime');
+                this.endTimeInput = document.getElementById('endTime');
+                this.sourceMonthSelect = document.getElementById('sourceMonth');
+                this.sourceYearSelect = document.getElementById('sourceYear');
+                this.slotLabelInput = document.getElementById('slotLabel');
+                this.notesInput = document.getElementById('additionalNotes');
+                this.replaceExistingToggle = document.getElementById('replaceExisting');
+                this.userSearchInput = document.getElementById('userSearch');
+                this.selectAllToggle = document.getElementById('selectAllUsers');
+                this.userList = document.getElementById('userList');
+                this.userLoadingState = document.getElementById('userLoadingState');
+                this.selectedCountLabel = document.getElementById('selectedUserCount');
+                this.totalCountLabel = document.getElementById('totalUserCount');
+                this.clearSelectionBtn = document.getElementById('clearSelection');
+                this.submitButton = document.getElementById('submitManualShift');
+                this.activityLog = document.getElementById('activityLog');
+                this.activityEmptyState = document.getElementById('activityEmptyState');
+
+                this.users = [];
+                this.userMap = new Map();
+                this.selectedUserIds = new Set();
+
+                if (this.form) {
+                    this.form.addEventListener('submit', (event) => this.handleSubmit(event));
+                }
+                this.userSearchInput?.addEventListener('input', () => this.renderUserList());
+                this.selectAllToggle?.addEventListener('change', () => this.toggleSelectAll());
+                this.clearSelectionBtn?.addEventListener('click', () => this.clearSelection());
+
+                if (this.scheduleManager && typeof this.scheduleManager === 'object') {
+                    this.scheduleManager.manualShiftManager = this;
+                }
+
+                this.populateSourceYears();
+                this.setDefaultDate();
+
+                const initialUsers = this.scheduleManager && Array.isArray(this.scheduleManager.availableUsers)
+                    ? this.scheduleManager.availableUsers
+                    : [];
+                if (initialUsers.length) {
+                    this.setUsers(initialUsers);
+                } else {
+                    this.setUserLoading(true);
+                }
+            }
+
+            populateSourceYears() {
+                if (!this.sourceYearSelect) {
+                    return;
+                }
+
+                const currentYear = new Date().getFullYear();
+                const earliestYear = 2023;
+                const endYear = currentYear + 2;
+                const existingValues = new Set(Array.from(this.sourceYearSelect.options).map(option => option.value));
+
+                for (let year = currentYear; year >= earliestYear; year--) {
+                    if (!existingValues.has(String(year))) {
+                        this.appendYearOption(year);
+                    }
+                }
+                for (let year = currentYear + 1; year <= endYear; year++) {
+                    if (!existingValues.has(String(year))) {
+                        this.appendYearOption(year);
+                    }
+                }
+            }
+
+            appendYearOption(year) {
+                if (!this.sourceYearSelect) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = String(year);
+                option.textContent = String(year);
+                this.sourceYearSelect.appendChild(option);
+            }
+
+            setDefaultDate() {
+                if (!this.dateInput || this.dateInput.value) {
+                    return;
+                }
+                const today = new Date();
+                this.dateInput.value = today.toISOString().split('T')[0];
+            }
+
+            setUsers(users) {
+                if (!Array.isArray(users)) {
+                    users = [];
+                }
+
+                const normalized = users
+                    .filter(user => user && (user.ID || user.UserName || user.FullName))
+                    .map(user => {
+                        const id = this.normalizeUserId(user.ID || user.UserID || user.id || user.userId);
+                        return {
+                            ID: id,
+                            UserName: user.UserName || user.username || '',
+                            FullName: user.FullName || user.fullName || user.UserName || '',
+                            Email: user.Email || user.email || '',
+                            campaignName: user.campaignName || user.CampaignName || user.Campaign || ''
+                        };
+                    })
+                    .filter(user => user.ID);
+
+                this.users = normalized;
+                this.userMap.clear();
+                normalized.forEach(user => this.userMap.set(user.ID, user));
+
+                const retainedSelections = new Set();
+                this.selectedUserIds.forEach(id => {
+                    if (this.userMap.has(id)) {
+                        retainedSelections.add(id);
+                    }
+                });
+                this.selectedUserIds = retainedSelections;
+
+                if (this.totalCountLabel) {
+                    this.totalCountLabel.textContent = String(this.users.length);
+                }
+
+                this.setUserLoading(false);
+                this.renderUserList();
+            }
+
+            normalizeUserId(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+                if (typeof value === 'object') {
+                    if (value.ID || value.id) {
+                        return this.normalizeUserId(value.ID || value.id);
+                    }
+                    return '';
+                }
+                return String(value).trim();
+            }
+
+            setUserLoading(isLoading) {
+                if (this.userLoadingState) {
+                    this.userLoadingState.style.display = isLoading ? 'flex' : 'none';
+                }
+            }
+
+            getFilteredUsers() {
+                const term = this.userSearchInput?.value.trim().toLowerCase() || '';
+                if (!term) {
+                    return this.users;
+                }
+
+                return this.users.filter(user => {
+                    const name = (user.FullName || user.UserName || '').toLowerCase();
+                    const email = (user.Email || '').toLowerCase();
+                    const campaign = (user.campaignName || '').toLowerCase();
+                    return name.includes(term) || email.includes(term) || campaign.includes(term);
+                });
+            }
+
+            renderUserList() {
+                if (!this.userList) {
+                    return;
+                }
+
+                const filteredUsers = this.getFilteredUsers();
+                this.userList.innerHTML = '';
+
+                if (!filteredUsers.length) {
+                    const emptyState = document.createElement('div');
+                    emptyState.className = 'user-list-empty';
+                    emptyState.textContent = this.users.length
+                        ? 'No users match your search.'
+                        : 'No eligible users were found.';
+                    this.userList.appendChild(emptyState);
+                    this.updateSelectionCounters();
+                    if (this.selectAllToggle) {
+                        this.selectAllToggle.checked = false;
+                        this.selectAllToggle.disabled = this.users.length === 0;
+                    }
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                filteredUsers.forEach(user => {
+                    const userId = user.ID;
+                    const isChecked = this.selectedUserIds.has(userId);
+
+                    const item = document.createElement('label');
+                    item.className = 'user-list-item';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input';
+                    checkbox.checked = isChecked;
+                    checkbox.dataset.userId = userId;
+                    checkbox.addEventListener('change', (event) => this.toggleUser(event));
+
+                    const details = document.createElement('div');
+                    details.style.flex = '1';
+
+                    const name = document.createElement('div');
+                    name.className = 'user-name';
+                    name.textContent = user.FullName || user.UserName || 'Unnamed User';
+                    details.appendChild(name);
+
+                    const metaParts = [];
+                    if (user.UserName && user.FullName && user.UserName !== user.FullName) {
+                        metaParts.push(user.UserName);
+                    }
+                    if (user.Email) {
+                        metaParts.push(user.Email);
+                    }
+                    if (user.campaignName) {
+                        metaParts.push(user.campaignName);
+                    }
+                    if (metaParts.length) {
+                        const meta = document.createElement('div');
+                        meta.className = 'user-meta';
+                        meta.textContent = metaParts.join(' • ');
+                        details.appendChild(meta);
+                    }
+
+                    item.appendChild(checkbox);
+                    item.appendChild(details);
+                    fragment.appendChild(item);
+                });
+
+                this.userList.appendChild(fragment);
+                this.updateSelectionCounters();
+                this.syncSelectAllState(filteredUsers);
+                if (this.selectAllToggle) {
+                    this.selectAllToggle.disabled = false;
+                }
+            }
+
+            toggleUser(event) {
+                const checkbox = event.target;
+                const userId = checkbox?.dataset?.userId;
+                if (!userId) {
+                    return;
+                }
+
+                if (checkbox.checked) {
+                    this.selectedUserIds.add(userId);
+                } else {
+                    this.selectedUserIds.delete(userId);
+                }
+
+                this.updateSelectionCounters();
+                this.syncSelectAllState();
+            }
+
+            toggleSelectAll() {
+                const shouldSelectAll = this.selectAllToggle?.checked;
+                const filteredUsers = this.getFilteredUsers();
+                if (typeof shouldSelectAll !== 'boolean') {
+                    return;
+                }
+
+                filteredUsers.forEach(user => {
+                    if (!user || !user.ID) {
+                        return;
+                    }
+                    if (shouldSelectAll) {
+                        this.selectedUserIds.add(user.ID);
+                    } else {
+                        this.selectedUserIds.delete(user.ID);
+                    }
+                });
+
+                this.renderUserList();
+            }
+
+            syncSelectAllState(filteredUsers = this.getFilteredUsers()) {
+                if (!this.selectAllToggle) {
+                    return;
+                }
+
+                if (!filteredUsers.length) {
+                    this.selectAllToggle.checked = false;
+                    return;
+                }
+
+                const allSelected = filteredUsers.every(user => this.selectedUserIds.has(user.ID));
+                this.selectAllToggle.checked = allSelected && filteredUsers.length > 0;
+            }
+
+            clearSelection(options = {}) {
+                this.selectedUserIds.clear();
+                this.renderUserList();
+                if (!options.silent) {
+                    this.showFeedback('User selection cleared.', 'info');
+                }
+            }
+
+            updateSelectionCounters() {
+                if (this.selectedCountLabel) {
+                    this.selectedCountLabel.textContent = String(this.selectedUserIds.size);
+                }
+                if (this.totalCountLabel) {
+                    this.totalCountLabel.textContent = String(this.users.length);
+                }
+            }
+
+            async handleSubmit(event) {
+                event.preventDefault();
+
+                if (!this.form || !this.submitButton) {
+                    return;
+                }
+
+                const selectedIds = Array.from(this.selectedUserIds);
+                if (!selectedIds.length) {
+                    this.showFeedback('Select at least one user before adding shift slots.', 'warning');
+                    return;
+                }
+
+                const dateValue = this.dateInput?.value;
+                const startTimeValue = this.startTimeInput?.value;
+                const endTimeValue = this.endTimeInput?.value;
+
+                if (!dateValue || !startTimeValue || !endTimeValue) {
+                    this.showFeedback('Date, start time, and end time are required.', 'danger');
+                    return;
+                }
+
+                if (startTimeValue >= endTimeValue) {
+                    this.showFeedback('End time must be later than start time.', 'warning');
+                    return;
+                }
+
+                const slotLabelValue = this.slotLabelInput?.value.trim() || '';
+                const notesValue = this.notesInput?.value.trim() || '';
+                const sourceMonthValue = this.sourceMonthSelect?.value || '';
+                const sourceYearValue = this.sourceYearSelect?.value || '';
+                const sourceMonthNumber = sourceMonthValue ? Number(sourceMonthValue) : null;
+                const sourceYearNumber = sourceYearValue ? Number(sourceYearValue) : null;
+                const replaceExisting = !!this.replaceExistingToggle?.checked;
+
+                const payload = {
+                    date: dateValue,
+                    startTime: startTimeValue,
+                    endTime: endTimeValue,
+                    slotLabel: slotLabelValue,
+                    notes: notesValue,
+                    sourceMonth: Number.isFinite(sourceMonthNumber) ? sourceMonthNumber : null,
+                    sourceYear: Number.isFinite(sourceYearNumber) ? sourceYearNumber : null,
+                    replaceExisting,
+                    users: selectedIds
+                };
+
+                const originalButtonContent = this.submitButton.innerHTML;
+                this.submitButton.disabled = true;
+                this.submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...';
+
+                try {
+                    const result = await this.callServerFunction('clientAddManualShiftSlots', payload);
+                    if (result && result.success) {
+                        const message = result.message || 'Shift slots added successfully.';
+                        this.showFeedback(message, 'success');
+                        this.appendActivity(result);
+
+                        if (!replaceExisting) {
+                            this.clearSelection({ silent: true });
+                        }
+
+                        if (this.scheduleManager && typeof this.scheduleManager.loadSchedules === 'function') {
+                            this.scheduleManager.loadSchedules().catch(error => {
+                                console.warn('Unable to refresh schedules after manual assignment:', error);
+                            });
+                        }
+                    } else {
+                        const errorMessage = (result && result.error) || 'Unable to add shift slots.';
+                        this.showFeedback(errorMessage, 'danger');
+                    }
+
+                    if (result && Array.isArray(result.failed) && result.failed.length) {
+                        const skippedNames = result.failed.map(item => item.userName || item.userId || 'Unknown').join(', ');
+                        this.showFeedback(`Skipped ${result.failed.length} user(s): ${skippedNames}`, 'warning');
+                    }
+                } catch (error) {
+                    console.error('Manual shift slot assignment failed:', error);
+                    this.showFeedback(error.message || 'An unexpected error occurred while saving shift slots.', 'danger');
+                } finally {
+                    this.submitButton.disabled = false;
+                    this.submitButton.innerHTML = originalButtonContent;
+                }
+            }
+
+            appendActivity(result) {
+                if (!this.activityLog) {
+                    return;
+                }
+
+                if (this.activityEmptyState) {
+                    this.activityEmptyState.remove();
+                    this.activityEmptyState = null;
+                }
+
+                if (!result || !Array.isArray(result.details) || !result.details.length) {
+                    return;
+                }
+
+                const entry = document.createElement('div');
+                entry.className = 'activity-entry';
+
+                const userNames = result.details.map(detail => detail.userName || detail.userId || 'Unknown').join(', ');
+                const slotName = result.details[0]?.slotName || 'Manual Shift';
+                const dateLabel = result.details[0]?.date || this.dateInput?.value || '';
+                const timeLabel = `${result.details[0]?.startTime || this.startTimeInput?.value || ''} - ${result.details[0]?.endTime || this.endTimeInput?.value || ''}`;
+                const timestamp = new Date().toLocaleString();
+
+                entry.innerHTML = `
+                    <strong>${this.escapeHtml(slotName)}</strong>
+                    <div>${this.escapeHtml(userNames)}</div>
+                    <div class="activity-meta">
+                        <i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(dateLabel)}
+                        &nbsp;•&nbsp;
+                        <i class="far fa-clock me-1"></i>${this.escapeHtml(timeLabel)}
+                        &nbsp;•&nbsp;
+                        Recorded ${this.escapeHtml(timestamp)}
+                    </div>
+                `;
+
+                this.activityLog.prepend(entry);
+
+                const maxEntries = 8;
+                while (this.activityLog.children.length > maxEntries) {
+                    this.activityLog.removeChild(this.activityLog.lastElementChild);
+                }
+            }
+
+            showFeedback(message, type) {
+                if (!this.feedbackArea) {
+                    return;
+                }
+
+                const icons = {
+                    success: 'fas fa-check-circle',
+                    danger: 'fas fa-exclamation-triangle',
+                    warning: 'fas fa-exclamation-circle',
+                    info: 'fas fa-info-circle'
+                };
+
+                const alert = document.createElement('div');
+                alert.className = `alert-modern alert-${type}-modern`;
+                alert.innerHTML = `
+                    <i class="${icons[type] || icons.info}"></i>
+                    <div>
+                        <p>${this.escapeHtml(message)}</p>
+                    </div>
+                    <button type="button" class="alert-close" aria-label="Dismiss" title="Dismiss alert">&times;</button>
+                `;
+
+                alert.querySelector('.alert-close')?.addEventListener('click', () => alert.remove());
+
+                this.feedbackArea.prepend(alert);
+
+                const timeout = type === 'info' ? 3500 : 6000;
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-6px)';
+                    setTimeout(() => alert.remove(), 250);
+                }, timeout);
+            }
+
+            escapeHtml(value) {
+                const div = document.createElement('div');
+                div.textContent = value || '';
+                return div.innerHTML;
+            }
+
+            callServerFunction(functionName, ...args) {
+                if (this.scheduleManager && typeof this.scheduleManager.callServerFunction === 'function') {
+                    return this.scheduleManager.callServerFunction(functionName, ...args);
+                }
+
+                return new Promise((resolve, reject) => {
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(reject)
+                            [functionName](...args);
+                    } else {
+                        reject(new Error('Google Apps Script not available.'));
+                    }
+                });
+            }
+        }
+
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.scheduleManager = new LuminaScheduleManager();
+            window.manualShiftManager = new ManualShiftAssignmentManager(window.scheduleManager);
+            if (window.scheduleManager) {
+                window.scheduleManager.manualShiftManager = window.manualShiftManager;
+            }
             window.calculateWeekSpanCount = (startDate, endDate, minDate, maxDate) => {
                 if (window.scheduleManager && typeof window.scheduleManager.calculateWeekSpanCount === 'function') {
                     return window.scheduleManager.calculateWeekSpanCount(startDate, endDate, minDate, maxDate);

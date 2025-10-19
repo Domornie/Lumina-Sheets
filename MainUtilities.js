@@ -1347,7 +1347,7 @@ function getAllPagesFromActualRouting() {
 
     // DATA MGMT
     { key: 'import', title: 'Data Import', icon: 'fas fa-file-import', description: 'Import data from CSV and other sources', isSystem: true, requiresAdmin: true, category: 'Data Management' },
-    { key: 'importattendance', title: 'Manual Shift Slots', icon: 'fas fa-user-clock', description: 'Manually assign shift slots to agents for specific dates', isSystem: true, requiresAdmin: true, category: 'Scheduling & Time' },
+    { key: 'importattendance', title: 'Import Attendance', icon: 'fas fa-file-upload', description: 'Import attendance data from external sources', isSystem: true, requiresAdmin: true, category: 'Data Management' },
 
     // UTILITIES
     { key: 'ackform', title: 'Acknowledgment Form', icon: 'fas fa-signature', description: 'Employee acknowledgment and signature forms', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
@@ -1537,7 +1537,7 @@ function suggestIconForPageKey(key) {
       managecampaign: 'fa-bullhorn',
       settings: 'fa-cogs',
       import: 'fa-file-import',
-      importattendance: 'fa-user-clock',
+      importattendance: 'fa-file-upload',
       ackform: 'fa-signature',
       proxy: 'fa-exchange-alt',
       setpassword: 'fa-key',
