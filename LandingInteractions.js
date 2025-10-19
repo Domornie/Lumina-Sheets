@@ -11,7 +11,7 @@
     var revealSelector =
       '.metric-card, .card, .mission-card, .timeline-step, .values-grid .card, .workflow-card, ' +
       '.detail-card, .module-card, .story-card, .persona-card, .playbook-card, .stack-card, ' +
-      '.panel-copy, .panel-media, .phone-mockups img, .hero-floating-card';
+      '.panel-copy, .panel-media, .phone-mockups img, .hero-widget, .hero-insight-card';
 
     var $revealables = $(revealSelector);
 

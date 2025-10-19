@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dive Into LuminaHQ Capabilities</title>
-    <link rel="stylesheet" href="LandingSharedStyles.css" />
+    <?!= includeOnce('LandingSharedStyles'); ?>
     <style>
       .detail-grid {
         display: grid;
@@ -12,12 +12,13 @@
       }
 
       .detail-card {
-        background: rgba(255, 255, 255, 0.96);
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(219, 235, 255, 0.88));
         border-radius: 26px;
-        box-shadow: 0 20px 48px rgba(15, 31, 69, 0.2);
+        box-shadow: 0 20px 48px rgba(158, 198, 255, 0.24);
         padding: 32px;
         display: grid;
         gap: 18px;
+        border: 1px solid rgba(158, 206, 255, 0.25);
       }
 
       .detail-card h3 {
@@ -44,28 +45,23 @@
       }
 
       .workflow-step {
-        background: rgba(15, 31, 69, 0.7);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(219, 235, 255, 0.88));
         border-radius: 24px;
-        padding: 24px;
-        color: rgba(226, 235, 255, 0.92);
-        box-shadow: 0 18px 42px rgba(15, 31, 69, 0.22);
+        padding: 26px;
+        color: var(--slate-500);
+        box-shadow: 0 18px 42px rgba(158, 198, 255, 0.24);
+        border: 1px solid rgba(158, 206, 255, 0.25);
       }
 
       .workflow-step strong {
         display: block;
-        color: var(--white);
-        margin-bottom: 8px;
-        font-size: 1.1rem;
+        color: var(--sky-600);
+        margin-bottom: 10px;
+        font-size: 1.05rem;
       }
 
-      .hero-floating-card ol {
-        margin: 0;
-        padding-left: 18px;
-        color: var(--slate-500);
-      }
-
-      .hero-floating-card ol li {
-        margin-bottom: 6px;
+      .workflow-step:last-child {
+        border-style: dashed;
       }
     </style>
   </head>
@@ -99,20 +95,100 @@
                   <span>adoption among pilot supervisors</span>
                 </div>
               </div>
-            </div>
+              </div>
             <div class="hero-visual">
-              <img
-                src="https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=1200&q=80"
-                alt="Product dashboards"
-                loading="lazy"
-              />
-              <div class="hero-floating-card">
-                <h3>How teams ramp</h3>
-                <ol>
-                  <li>Discover key dashboards in day-one enablement.</li>
-                  <li>Configure workflows with guided onboarding.</li>
-                  <li>Monitor adoption through real-time health checks.</li>
-                </ol>
+              <div class="hero-visual-frame">
+                <div class="hero-visual-main">
+                  <div class="chart-visual">
+                    <div class="chart-visual__header">
+                      <span>Workflow health</span>
+                      <span class="chart-visual__period">Pilot readiness</span>
+                    </div>
+                    <div class="chart-visual__body">
+                      <div class="chart-visual__line" aria-hidden="true">
+                        <svg viewBox="0 0 220 120" role="presentation">
+                          <defs>
+                            <linearGradient id="chartLineFillCapDetail" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stop-color="rgba(111, 176, 255, 0.32)" />
+                              <stop offset="100%" stop-color="rgba(111, 176, 255, 0)" />
+                            </linearGradient>
+                            <linearGradient id="chartLineStrokeCapDetail" x1="0" x2="1" y1="0" y2="0">
+                              <stop offset="0%" stop-color="#9ecbff" />
+                              <stop offset="100%" stop-color="#4d9dff" />
+                            </linearGradient>
+                          </defs>
+                          <polygon
+                            points="0,110 0,88 44,74 88,64 132,50 176,58 220,46 220,110"
+                            fill="url(#chartLineFillCapDetail)"
+                          ></polygon>
+                          <polyline
+                            points="0,88 44,74 88,64 132,50 176,58 220,46"
+                            fill="none"
+                            stroke="url(#chartLineStrokeCapDetail)"
+                            stroke-width="6"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></polyline>
+                          <g fill="#fff" stroke="#4d9dff" stroke-width="3">
+                            <circle cx="0" cy="88" r="6"></circle>
+                            <circle cx="44" cy="74" r="6"></circle>
+                            <circle cx="88" cy="64" r="6"></circle>
+                            <circle cx="132" cy="50" r="6"></circle>
+                            <circle cx="176" cy="58" r="6"></circle>
+                            <circle cx="220" cy="46" r="6"></circle>
+                          </g>
+                        </svg>
+                      </div>
+                      <div class="chart-visual__bars">
+                        <span style="--height: 66%"></span>
+                        <span style="--height: 74%"></span>
+                        <span style="--height: 82%"></span>
+                        <span style="--height: 58%"></span>
+                        <span style="--height: 90%"></span>
+                      </div>
+                    </div>
+                    <div class="chart-visual__footer">
+                      <span>Enablement</span>
+                      <span>Configuration</span>
+                      <span>Adoption</span>
+                      <span>Feedback</span>
+                      <span>Outcomes</span>
+                    </div>
+                  </div>
+                  <div class="hero-insight-grid">
+                    <div class="hero-insight-card">
+                      <strong>Day 10</strong>
+                      <span>first executive story delivered to stakeholders</span>
+                    </div>
+                    <div class="hero-insight-card">
+                      <strong>Week 4</strong>
+                      <span>full automation review with success managers</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="hero-widget hero-widget--top">
+                  <div class="hero-widget__meta">
+                    <span class="hero-widget__label">How teams ramp</span>
+                    <span class="hero-widget__value">Guided</span>
+                  </div>
+                  <ol class="hero-ordered">
+                    <li>Discover key dashboards in day-one enablement.</li>
+                    <li>Configure workflows with guided onboarding.</li>
+                    <li>Monitor adoption through real-time health checks.</li>
+                  </ol>
+                </div>
+                <div class="hero-widget hero-widget--bottom">
+                  <div class="hero-widget__meta">
+                    <span class="hero-widget__label">Enablement squad</span>
+                    <span class="hero-widget__value">Always on</span>
+                  </div>
+                  <p>Specialists partner with supervisors to fine-tune schedules, QA rubrics, and playbooks.</p>
+                  <div class="hero-chip-list">
+                    <span>Implementation</span>
+                    <span>Change management</span>
+                    <span>Ongoing calibrations</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

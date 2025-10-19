@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>About LuminaHQ</title>
-    <link rel="stylesheet" href="LandingSharedStyles.css" />
+    <?!= includeOnce('LandingSharedStyles'); ?>
     <style>
       .mission-grid {
         display: grid;
@@ -13,15 +13,22 @@
       }
 
       .mission-card {
-        background: rgba(255, 255, 255, 0.96);
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(219, 235, 255, 0.88));
         border-radius: 24px;
-        padding: 24px;
-        box-shadow: 0 18px 38px rgba(16, 34, 84, 0.18);
+        padding: 26px;
+        box-shadow: 0 20px 44px rgba(158, 198, 255, 0.24);
+        border: 1px solid rgba(158, 206, 255, 0.25);
       }
 
       .mission-card h3 {
         margin: 0 0 12px;
         color: var(--sky-900);
+      }
+
+      .mission-card p {
+        margin: 0;
+        color: var(--slate-500);
+        line-height: 1.65;
       }
 
       .timeline {
@@ -30,18 +37,19 @@
       }
 
       .timeline-step {
-        background: rgba(15, 31, 69, 0.65);
-        padding: 24px;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(219, 235, 255, 0.9));
+        padding: 26px;
         border-radius: 24px;
-        color: rgba(226, 235, 255, 0.9);
-        box-shadow: 0 18px 36px rgba(15, 31, 69, 0.2);
+        color: var(--slate-500);
+        box-shadow: 0 18px 36px rgba(158, 198, 255, 0.22);
+        border: 1px solid rgba(158, 206, 255, 0.25);
       }
 
       .timeline-step strong {
         display: block;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         margin-bottom: 8px;
-        color: var(--white);
+        color: var(--sky-600);
       }
 
       .values-grid {
@@ -51,19 +59,29 @@
       }
 
       .values-grid .card {
-        background: rgba(255, 255, 255, 0.92);
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(228, 240, 255, 0.85));
+        box-shadow: 0 18px 40px rgba(158, 198, 255, 0.2);
+        border: 1px solid rgba(158, 206, 255, 0.2);
       }
 
-      .team-photo {
-        width: 100%;
-        border-radius: 30px;
-        box-shadow: 0 20px 44px rgba(12, 32, 80, 0.22);
+      .about-hero-chipset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
       }
 
-      .hero-floating-card ul {
-        margin: 0;
-        padding-left: 18px;
-        color: var(--slate-500);
+      .about-hero-chipset span {
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(111, 176, 255, 0.18);
+        color: var(--sky-600);
+        font-weight: 600;
+        font-size: 0.75rem;
+      }
+
+      .values-grid .card p {
+        line-height: 1.65;
       }
     </style>
   </head>
@@ -98,20 +116,106 @@
                   <span>product and enablement partnership coverage</span>
                 </div>
               </div>
-            </div>
+              </div>
             <div class="hero-visual">
-              <img
-                src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80"
-                alt="Team collaboration"
-                loading="lazy"
-              />
-              <div class="hero-floating-card">
-                <h3>What drives us</h3>
-                <ul>
-                  <li>Elevate the craft of quality and coaching professionals.</li>
-                  <li>Create clarity for leaders navigating complex operations.</li>
-                  <li>Design tools that honor the people behind every metric.</li>
-                </ul>
+              <div class="hero-visual-frame">
+                <div class="hero-visual-main">
+                  <div class="chart-visual">
+                    <div class="chart-visual__header">
+                      <span>Team pulse</span>
+                      <span class="chart-visual__period">Culture index</span>
+                    </div>
+                    <div class="chart-visual__body">
+                      <div class="chart-visual__line" aria-hidden="true">
+                        <svg viewBox="0 0 220 120" role="presentation">
+                          <defs>
+                            <linearGradient id="chartLineFillAbout" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stop-color="rgba(143, 177, 255, 0.32)" />
+                              <stop offset="100%" stop-color="rgba(143, 177, 255, 0)" />
+                            </linearGradient>
+                            <linearGradient id="chartLineStrokeAbout" x1="0" x2="1" y1="0" y2="0">
+                              <stop offset="0%" stop-color="#a0c9ff" />
+                              <stop offset="100%" stop-color="#4d9dff" />
+                            </linearGradient>
+                          </defs>
+                          <polygon
+                            points="0,110 0,74 44,60 88,50 132,68 176,40 220,52 220,110"
+                            fill="url(#chartLineFillAbout)"
+                          ></polygon>
+                          <polyline
+                            points="0,74 44,60 88,50 132,68 176,40 220,52"
+                            fill="none"
+                            stroke="url(#chartLineStrokeAbout)"
+                            stroke-width="6"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></polyline>
+                          <g fill="#fff" stroke="#4d9dff" stroke-width="3">
+                            <circle cx="0" cy="74" r="6"></circle>
+                            <circle cx="44" cy="60" r="6"></circle>
+                            <circle cx="88" cy="50" r="6"></circle>
+                            <circle cx="132" cy="68" r="6"></circle>
+                            <circle cx="176" cy="40" r="6"></circle>
+                            <circle cx="220" cy="52" r="6"></circle>
+                          </g>
+                        </svg>
+                      </div>
+                      <div class="chart-visual__bars">
+                        <span style="--height: 76%"></span>
+                        <span style="--height: 62%"></span>
+                        <span style="--height: 84%"></span>
+                        <span style="--height: 58%"></span>
+                        <span style="--height: 90%"></span>
+                      </div>
+                    </div>
+                    <div class="chart-visual__footer">
+                      <span>Belonging</span>
+                      <span>Enablement</span>
+                      <span>Growth</span>
+                      <span>Alignment</span>
+                      <span>Trust</span>
+                    </div>
+                  </div>
+                  <div class="hero-insight-grid">
+                    <div class="hero-insight-card">
+                      <strong>92%</strong>
+                      <span>team feel empowered to act on insights</span>
+                    </div>
+                    <div class="hero-insight-card">
+                      <strong>38 countries</strong>
+                      <span>represented across our customer programs</span>
+                      <div class="hero-chip-list about-hero-chipset">
+                        <span>QA</span>
+                        <span>Coaching</span>
+                        <span>Staffing</span>
+                        <span>Analytics</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="hero-widget hero-widget--top">
+                  <div class="hero-widget__meta">
+                    <span class="hero-widget__label">What drives us</span>
+                    <span class="hero-widget__value">Human first</span>
+                  </div>
+                  <ul>
+                    <li>Elevate the craft of quality and coaching professionals.</li>
+                    <li>Create clarity for leaders navigating complex operations.</li>
+                    <li>Design tools that honor the people behind every metric.</li>
+                  </ul>
+                </div>
+                <div class="hero-widget hero-widget--bottom">
+                  <div class="hero-widget__meta">
+                    <span class="hero-widget__label">Team snapshots</span>
+                    <span class="hero-widget__value">Weekly</span>
+                  </div>
+                  <p>Dedicated guilds align on research, enablement, and implementation.</p>
+                  <div class="hero-chip-list">
+                    <span>Product studio</span>
+                    <span>Ops research</span>
+                    <span>Enablement crew</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
