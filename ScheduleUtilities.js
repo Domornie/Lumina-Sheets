@@ -179,6 +179,45 @@ const ATTENDANCE_STATUS_SHEET = "AttendanceStatus";
 const USER_HOLIDAY_PAY_STATUS_SHEET = "UserHolidayPayStatus";
 const HOLIDAYS_SHEET = "Holidays";
 
+const SCHEDULE_SHEET_REGISTRY = Object.freeze({
+  SCHEDULES: 'Schedules',
+  SHIFTS: 'Shifts',
+  SCHEDULE_GENERATION: SCHEDULE_GENERATION_SHEET,
+  SHIFT_SLOTS: SHIFT_SLOTS_SHEET,
+  SHIFT_SWAPS: SHIFT_SWAPS_SHEET,
+  SCHEDULE_TEMPLATES: SCHEDULE_TEMPLATES_SHEET,
+  SCHEDULE_NOTIFICATIONS: SCHEDULE_NOTIFICATIONS_SHEET,
+  SCHEDULE_ADHERENCE: SCHEDULE_ADHERENCE_SHEET,
+  SCHEDULE_CONFLICTS: SCHEDULE_CONFLICTS_SHEET,
+  RECURRING_SCHEDULES: RECURRING_SCHEDULES_SHEET,
+  DEMAND: DEMAND_SHEET,
+  FTE_PLAN: FTE_PLAN_SHEET,
+  SCHEDULE_FORECAST_METADATA: SCHEDULE_FORECAST_METADATA_SHEET,
+  SCHEDULE_HEALTH: SCHEDULE_HEALTH_SHEET,
+  ATTENDANCE_STATUS: ATTENDANCE_STATUS_SHEET,
+  USER_HOLIDAY_PAY_STATUS: USER_HOLIDAY_PAY_STATUS_SHEET,
+  HOLIDAYS: HOLIDAYS_SHEET
+});
+
+function getScheduleSheetNames() {
+  return Object.assign({}, SCHEDULE_SHEET_REGISTRY);
+}
+
+function getScheduleSheetName(key) {
+  if (!key) {
+    return '';
+  }
+
+  const normalizedKey = String(key).trim().toUpperCase();
+  const names = SCHEDULE_SHEET_REGISTRY;
+
+  if (Object.prototype.hasOwnProperty.call(names, normalizedKey)) {
+    return names[normalizedKey];
+  }
+
+  return '';
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // SHEET HEADERS DEFINITIONS
 // ────────────────────────────────────────────────────────────────────────────
