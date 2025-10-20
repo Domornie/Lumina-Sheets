@@ -924,17 +924,25 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const lunchAdjustmentWeekend = stats.lunchAdjustmentWeekendSecs || 0;
       const availableWeekdaySecs = Math.max(0, weekdayBillable + breakCreditWeekday + lunchAdjustmentWeekday);
       const availableWeekendSecs = Math.max(0, weekendBillable + breakCreditWeekend + lunchAdjustmentWeekend);
+      const baseBillableSecs = Math.max(0, weekdayBillable + weekendBillable);
+      const breakCreditTotalSecs = Math.max(0, breakCreditWeekday + breakCreditWeekend);
+      const lunchAdjustmentTotalSecs = lunchAdjustmentWeekday + lunchAdjustmentWeekend;
+      const adjustedBillableSecs = Math.max(0, baseBillableSecs + breakCreditTotalSecs + lunchAdjustmentTotalSecs);
 
       return {
         user,
         availableSecsWeekday: availableWeekdaySecs,
         availableLabelWeekday: formatSecsAsHhMm(availableWeekdaySecs),
+        weekendSecs: availableWeekendSecs,
+        weekendLabel: formatSecsAsHhMm(availableWeekendSecs),
+        baseBillableSecs,
+        breakCreditSecs: breakCreditTotalSecs,
+        lunchAdjustmentSecs: lunchAdjustmentTotalSecs,
+        adjustedBillableSecs,
         breakSecs: stats.breakSecs,
         breakLabel: formatSecsAsHhMm(stats.breakSecs),
         lunchSecs: stats.lunchSecs,
         lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
-        weekendSecs: availableWeekendSecs,
-        weekendLabel: formatSecsAsHhMm(availableWeekendSecs),
         exceededLunchDays: Math.floor(stats.lunchSecs / DAILY_LUNCH_SECS),
         exceededBreakDays: Math.floor(stats.breakSecs / DAILY_BREAKS_SECS),
         exceededWeeklyCount: 0
@@ -1329,16 +1337,24 @@ function calculateUserCompliance(filtered) {
     return Array.from(userStats.entries()).map(([user, stats]) => {
         const availableWeekdaySecs = Math.max(0, stats.weekdayProdSecs + stats.breakCreditWeekdaySecs + stats.lunchAdjustmentWeekdaySecs);
         const availableWeekendSecs = Math.max(0, stats.weekendProdSecs + stats.breakCreditWeekendSecs + stats.lunchAdjustmentWeekendSecs);
+        const baseBillableSecs = Math.max(0, stats.weekdayProdSecs + stats.weekendProdSecs);
+        const breakCreditTotalSecs = Math.max(0, stats.breakCreditWeekdaySecs + stats.breakCreditWeekendSecs);
+        const lunchAdjustmentTotalSecs = stats.lunchAdjustmentWeekdaySecs + stats.lunchAdjustmentWeekendSecs;
+        const adjustedBillableSecs = Math.max(0, baseBillableSecs + breakCreditTotalSecs + lunchAdjustmentTotalSecs);
         return {
             user,
             availableSecsWeekday: availableWeekdaySecs,
             availableLabelWeekday: formatSecsAsHhMm(availableWeekdaySecs),
+            weekendSecs: availableWeekendSecs,
+            weekendLabel: formatSecsAsHhMm(availableWeekendSecs),
+            baseBillableSecs,
+            breakCreditSecs: breakCreditTotalSecs,
+            lunchAdjustmentSecs: lunchAdjustmentTotalSecs,
+            adjustedBillableSecs,
             breakSecs: stats.breakSecs,
             breakLabel: formatSecsAsHhMm(stats.breakSecs),
             lunchSecs: stats.lunchSecs,
             lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
-            weekendSecs: availableWeekendSecs,
-            weekendLabel: formatSecsAsHhMm(availableWeekendSecs),
             exceededLunchDays: Math.floor(stats.lunchSecs / DAILY_LUNCH_SECS), // Number of 30-min periods
             exceededBreakDays: Math.floor(stats.breakSecs / DAILY_BREAKS_SECS), // Number of 30-min periods
             exceededWeeklyCount: 0
@@ -2279,15 +2295,19 @@ function exportAttendanceCsv(granularity, periodId, agentFilter, policyOptions) 
   return rpc('exportAttendanceCsv', () => {
     const analytics = getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, policyOptions);
 
-    let csv = 'Employee,Productive Hours,Non-Productive Hours,Break Hours,Lunch Hours,Compliance Score\n';
+    let csv = 'Employee,Billable Hours,Break Hours,Lunch Hours,Compliance Score\n';
     csv += '# Note: All duration values converted from seconds to decimal hours\n';
 
     analytics.userCompliance.forEach(user => {
       const compliance = calculateComplianceScore(user);
-      csv += `${user.user},${(user.availableSecsWeekday / 3600).toFixed(2)},` +
-        `${((user.breakSecs + user.lunchSecs) / 3600).toFixed(2)},` +
-        `${(user.breakSecs / 3600).toFixed(2)},${(user.lunchSecs / 3600).toFixed(2)},` +
-        `${compliance}\n`;
+      const totalBillableSecs = Number.isFinite(user.adjustedBillableSecs)
+        ? user.adjustedBillableSecs
+        : (user.availableSecsWeekday || 0) + (user.weekendSecs || 0);
+      const billableHours = (totalBillableSecs / 3600).toFixed(2);
+      const breakHours = ((user.breakSecs || 0) / 3600).toFixed(2);
+      const lunchHours = ((user.lunchSecs || 0) / 3600).toFixed(2);
+
+      csv += `${user.user},${billableHours},${breakHours},${lunchHours},${compliance}\n`;
     });
 
     return csv;
