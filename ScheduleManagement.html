@@ -4016,7 +4016,68 @@
                     }
 
                     const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
-                    const normalizeTime = (value) => (value || '').toString().trim();
+                    const normalizeTime = (value) => {
+                        if (value === null || value === undefined) {
+                            return '';
+                        }
+
+                        const coerceToTimeTuple = (input) => {
+                            if (input instanceof Date) {
+                                return [input.getHours(), input.getMinutes()];
+                            }
+
+                            const stringValue = input.toString().trim();
+                            if (!stringValue) {
+                                return null;
+                            }
+
+                            const directMatch = stringValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                            if (directMatch) {
+                                return [parseInt(directMatch[1], 10), parseInt(directMatch[2], 10)];
+                            }
+
+                            const meridiemMatch = stringValue.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+                            if (meridiemMatch) {
+                                let hours = parseInt(meridiemMatch[1], 10) % 12;
+                                if (meridiemMatch[3].toUpperCase() === 'PM') {
+                                    hours += 12;
+                                }
+                                return [hours, parseInt(meridiemMatch[2], 10)];
+                            }
+
+                            const numericValue = Number(stringValue);
+                            if (!Number.isNaN(numericValue)) {
+                                if (numericValue >= 0 && numericValue < 1) {
+                                    const totalMinutes = Math.round(numericValue * 24 * 60);
+                                    return [Math.floor(totalMinutes / 60), totalMinutes % 60];
+                                }
+
+                                const millisDate = new Date(numericValue);
+                                if (!Number.isNaN(millisDate.getTime())) {
+                                    return [millisDate.getUTCHours(), millisDate.getUTCMinutes()];
+                                }
+                            }
+
+                            const parsedDate = new Date(stringValue);
+                            if (!Number.isNaN(parsedDate.getTime())) {
+                                return [parsedDate.getHours(), parsedDate.getMinutes()];
+                            }
+
+                            return null;
+                        };
+
+                        const timeTuple = coerceToTimeTuple(value);
+                        if (!timeTuple) {
+                            return value.toString().trim();
+                        }
+
+                        const [hours, minutes] = timeTuple;
+                        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+                            return value.toString().trim();
+                        }
+
+                        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    };
                     const normalizeDays = (days) => {
                         if (Array.isArray(days)) {
                             return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
