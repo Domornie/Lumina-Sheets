@@ -5547,6 +5547,9 @@
             }
 
             async loadAttendanceCalendar() {
+                const container = document.getElementById('attendanceCalendarContainer');
+                let monthContext = null;
+
                 try {
                     await this.ensureScheduleContext();
 
@@ -5554,11 +5557,12 @@
                     const yearInput = document.getElementById('attendanceYear');
                     const monthValue = monthInput ? monthInput.value : '';
                     const yearValue = yearInput ? yearInput.value : '';
-                    const monthContext = this.resolveAttendanceMonthContext(monthValue, yearValue);
+                    monthContext = this.resolveAttendanceMonthContext(monthValue, yearValue);
 
-                    const container = document.getElementById('attendanceCalendarContainer');
                     this.updateStatusLegendCard();
-                    container.innerHTML = this.renderAttendanceCalendarLoading(monthContext.label);
+                    if (container) {
+                        container.innerHTML = this.renderAttendanceCalendarLoading(monthContext.label);
+                    }
 
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
@@ -5590,7 +5594,9 @@
                     );
 
                     if (!employedScheduleUsers.length) {
-                        container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
+                        if (container) {
+                            container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
+                        }
                         return;
                     }
 
@@ -5620,7 +5626,9 @@
                     }
 
                     if (!combinedUsers.length) {
-                        container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
+                        if (container) {
+                            container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
+                        }
                         return;
                     }
 
@@ -5655,7 +5663,22 @@
                         attendanceMap
                     );
 
-                return lookup;
+                    if (container) {
+                        container.innerHTML = calendar;
+                    }
+
+                    this.hideAttendanceContextMenu();
+                    this.ensureAttendanceContextMenu();
+
+                    console.log('✅ Attendance calendar loaded with %d records', attendanceRecords.length);
+                } catch (error) {
+                    console.error('❌ Failed to load attendance calendar:', error);
+                    if (container) {
+                        const label = monthContext?.label || '';
+                        container.innerHTML = this.renderAttendanceCalendarErrorState(label);
+                    }
+                    this.showToast('Failed to load attendance calendar. Please try again.', 'danger');
+                }
             }
 
             collectUserIdentityKeys(user) {
@@ -5705,6 +5728,17 @@
                         <div class="text-center py-5">
                             <div class="loading-spinner mx-auto mb-3"></div>
                             <p>Loading attendance calendar for ${safeLabel}...</p>
+                        </div>
+                    `;
+            }
+
+            renderAttendanceCalendarErrorState(monthLabel) {
+                const safeLabel = this.escapeHtml(monthLabel || '');
+                const labelText = safeLabel ? ` for ${safeLabel}` : '';
+                return `
+                        <div class="text-center py-5 text-danger">
+                            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                            <p>We couldn't load the attendance calendar${labelText}. Please try again.</p>
                         </div>
                     `;
             }
