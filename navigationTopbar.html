@@ -232,6 +232,8 @@
       return presence || 'Auto';
     }
 
+    var pageLabelElement = document.querySelector('.current-page');
+    var currentPageValue = pageLabelElement ? safeText(pageLabelElement.textContent, 'Home') : 'Home';
     var normalizedPageKey = normalizePage(currentPageValue);
 
     var pageInsightsMap = {
