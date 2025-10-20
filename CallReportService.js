@@ -602,20 +602,38 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   // repMetrics
   const repMap = {};
   const answerSecondsList = [];
+  let qualifyingTalkMinutesTotal = 0;
+  let qualifyingTalkCallCount = 0;
   filtered.forEach(r => {
     const agent = r.ToSFUser || '—';
-    const talk  = parseFloat(r.TalkTimeMinutes) || 0;
+    const rawTalk = parseFloat(r.TalkTimeMinutes);
+    const talk = isFinite(rawTalk) ? Math.max(0, rawTalk) : 0;
     if (!repMap[agent]) {
       repMap[agent] = {
         totalCalls: 0,
         totalTalk: 0,
+        qualifyingTalkCalls: 0,
+        totalTalkWholeMinutes: 0,
         totalAnswerSeconds: 0,
         answeredCount: 0,
-        fastAnswerCount: 0
+        fastAnswerCount: 0,
+        csatYes: 0,
+        csatNo: 0,
+        csatTotal: 0
       };
     }
     repMap[agent].totalCalls += 1;
     repMap[agent].totalTalk  += talk;
+
+    if (talk >= 1) {
+      const wholeMinutes = Math.floor(talk);
+      if (wholeMinutes > 0) {
+        repMap[agent].qualifyingTalkCalls += 1;
+        repMap[agent].totalTalkWholeMinutes += wholeMinutes;
+        qualifyingTalkCallCount += 1;
+        qualifyingTalkMinutesTotal += wholeMinutes;
+      }
+    }
 
     const answerSeconds = __parseAnswerSeconds(__getAnswerFieldValue(r), r.CreatedDate);
     if (answerSeconds !== null) {
@@ -623,6 +641,15 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       repMap[agent].answeredCount += 1;
       if (answerSeconds <= 30) repMap[agent].fastAnswerCount += 1;
       answerSecondsList.push(answerSeconds);
+    }
+
+    const csatValue = (r.CSAT || '').toString().trim().toLowerCase();
+    if (csatValue === 'yes' || csatValue === 'true' || csatValue === '1') {
+      repMap[agent].csatYes += 1;
+      repMap[agent].csatTotal += 1;
+    } else if (csatValue === 'no' || csatValue === 'false' || csatValue === '0') {
+      repMap[agent].csatNo += 1;
+      repMap[agent].csatTotal += 1;
     }
   });
   const repMetrics = Object.entries(repMap).map(([agent, v]) => {
@@ -632,11 +659,20 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       agent,
       totalCalls: v.totalCalls,
       totalTalk: v.totalTalk,
+      qualifyingTalkCalls: v.qualifyingTalkCalls,
+      totalTalkWholeMinutes: v.totalTalkWholeMinutes,
+      qualifiedAvgTalkMinutes: v.qualifyingTalkCalls > 0
+        ? v.totalTalkWholeMinutes / v.qualifyingTalkCalls
+        : null,
       totalAnswerSeconds: v.totalAnswerSeconds,
       answeredCount: v.answeredCount,
       averageAnswerSeconds,
       fastAnswerRate,
-      fastAnswerCount: v.fastAnswerCount
+      fastAnswerCount: v.fastAnswerCount,
+      csatYes: v.csatYes,
+      csatNo: v.csatNo,
+      csatTotal: v.csatTotal,
+      csatYesRate: v.csatTotal > 0 ? (v.csatYes / v.csatTotal) * 100 : null
     };
   });
 
@@ -1048,7 +1084,14 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     peakTimeWindows,
     scheduleRecommendations,
     answerTimeStats,
-    callActivityWindow
+    callActivityWindow,
+    talkBenchmarks: {
+      qualifyingCallCount: qualifyingTalkCallCount,
+      totalMinutes: qualifyingTalkMinutesTotal,
+      averageMinutes: qualifyingTalkCallCount > 0
+        ? qualifyingTalkMinutesTotal / qualifyingTalkCallCount
+        : null
+    }
   };
 }
 
