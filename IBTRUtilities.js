@@ -51,8 +51,20 @@
   if (typeof G.ATTENDANCE_PREFIX === 'undefined') G.ATTENDANCE_PREFIX = 'AttendCal';
   // Additional sheets referenced by advanced functions
   if (typeof G.BOOKMARKS_SHEET === 'undefined') G.BOOKMARKS_SHEET = 'Bookmarks';
-  if (typeof G.SCHEDULE_GENERATION_SHEET === 'undefined') G.SCHEDULE_GENERATION_SHEET = 'ScheduleGeneration';
-  if (typeof G.SHIFT_SWAPS_SHEET === 'undefined') G.SHIFT_SWAPS_SHEET = 'ShiftSwaps';
+  if (typeof G.SCHEDULE_GENERATION_SHEET === 'undefined') {
+    if (typeof SCHEDULE_GENERATION_SHEET !== 'undefined' && SCHEDULE_GENERATION_SHEET) {
+      G.SCHEDULE_GENERATION_SHEET = SCHEDULE_GENERATION_SHEET;
+    } else {
+      G.SCHEDULE_GENERATION_SHEET = 'GeneratedSchedules';
+    }
+  }
+  if (typeof G.SHIFT_SWAPS_SHEET === 'undefined') {
+    if (typeof SHIFT_SWAPS_SHEET !== 'undefined' && SHIFT_SWAPS_SHEET) {
+      G.SHIFT_SWAPS_SHEET = SHIFT_SWAPS_SHEET;
+    } else {
+      G.SHIFT_SWAPS_SHEET = 'ShiftSwaps';
+    }
+  }
 
   // Headers (campaign)
   if (typeof G.CALL_REPORT_HEADERS === 'undefined') {
@@ -300,6 +312,51 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
         return [];
       }
     };
+  }
+
+  function readScheduleDataSheet(sheetName) {
+    if (!sheetName) return [];
+
+    if (typeof readScheduleSheet === 'function') {
+      try {
+        var rows = readScheduleSheet(sheetName) || [];
+        if (rows && rows.length) {
+          return rows;
+        }
+        return rows || [];
+      } catch (scheduleReadError) {
+        logError('readScheduleSheet:' + sheetName, scheduleReadError);
+      }
+    }
+
+    if (typeof getScheduleSpreadsheet === 'function') {
+      try {
+        var scheduleSs = getScheduleSpreadsheet();
+        if (scheduleSs && typeof scheduleSs.getSheetByName === 'function') {
+          var scheduleSheet = scheduleSs.getSheetByName(sheetName);
+          if (!scheduleSheet) return [];
+          var lastRow = scheduleSheet.getLastRow();
+          var lastColumn = scheduleSheet.getLastColumn();
+          if (lastRow < 2 || lastColumn < 1) return [];
+          var values = scheduleSheet.getRange(1, 1, lastRow, lastColumn).getValues();
+          var headers = values.shift();
+          var result = [];
+          for (var r = 0; r < values.length; r++) {
+            var rowValues = values[r];
+            var record = {};
+            for (var c = 0; c < headers.length; c++) {
+              record[headers[c]] = rowValues[c];
+            }
+            result.push(record);
+          }
+          return result;
+        }
+      } catch (scheduleSpreadsheetError) {
+        logError('openScheduleSpreadsheet:' + sheetName, scheduleSpreadsheetError);
+      }
+    }
+
+    return G.readCampaignSheet(sheetName);
   }
 
   if (typeof G.readCampaignSheetPaged !== 'function') {
@@ -914,7 +971,7 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
   if (typeof G.processAutoApprovals !== 'function') {
     G.processAutoApprovals = function processAutoApprovals() {
       try {
-        var pendingSchedules = readCampaignSheet(G.SCHEDULE_GENERATION_SHEET).filter(function(s){ return s.Status === 'PENDING'; });
+        var pendingSchedules = readScheduleDataSheet(G.SCHEDULE_GENERATION_SHEET).filter(function(s){ return s.Status === 'PENDING'; });
         var out = { autoApproved: 0, flaggedForReview: 0, errors: [] };
         for (var i=0;i<pendingSchedules.length;i++){
           var s = pendingSchedules[i];
@@ -1090,10 +1147,10 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
     G.getMobileScheduleData = function getMobileScheduleData(userId, dateRange) {
       try {
         var startDate = dateRange.startDate, endDate = dateRange.endDate;
-        var schedules = readCampaignSheet(G.SCHEDULE_GENERATION_SHEET).filter(function(s){
+        var schedules = readScheduleDataSheet(G.SCHEDULE_GENERATION_SHEET).filter(function(s){
           return s.UserID === userId && s.Date >= startDate && s.Date <= endDate && s.Status === 'APPROVED';
         });
-        var swapRequests = readCampaignSheet(G.SHIFT_SWAPS_SHEET).filter(function(s){
+        var swapRequests = readScheduleDataSheet(G.SHIFT_SWAPS_SHEET).filter(function(s){
           return (s.RequestorUserID === userId || s.TargetUserID === userId) && s.Status === 'PENDING';
         });
         var notifications = getUserNotifications(userId, 10);
@@ -1131,7 +1188,7 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
   if (typeof G.getSchedulesByIds !== 'function') {
     G.getSchedulesByIds = function getSchedulesByIds(ids) {
       try {
-        var rows = readCampaignSheet(G.SCHEDULE_GENERATION_SHEET);
+        var rows = readScheduleDataSheet(G.SCHEDULE_GENERATION_SHEET);
         var map = {};
         for (var i=0;i<rows.length;i++){ map[String(rows[i].ID)] = rows[i]; }
         var out = [];

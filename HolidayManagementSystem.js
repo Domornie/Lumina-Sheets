@@ -312,12 +312,12 @@ function clientApplyCountryHolidays(countryCode, year, holidaysToApply, applyPai
     try {
         console.log(`📅 Applying ${holidaysToApply.length} holidays for ${countryCode} ${year}`);
         
-        const holidaysSheet = ensureSheetWithHeaders(HOLIDAYS_SHEET, HOLIDAYS_HEADERS);
+        const holidaysSheet = ensureScheduleSheetWithHeaders(HOLIDAYS_SHEET, HOLIDAYS_HEADERS);
         const now = new Date();
         let appliedCount = 0;
         
         // Check for existing holidays to avoid duplicates
-        const existingHolidays = readSheet(HOLIDAYS_SHEET) || [];
+        const existingHolidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
         
         holidaysToApply.forEach(holiday => {
             // Check if holiday already exists
@@ -348,7 +348,12 @@ function clientApplyCountryHolidays(countryCode, year, holidaysToApply, applyPai
             usersUpdated = applyDefaultPaidStatusByCountry(countryCode, true);
         }
         
-        invalidateCache(HOLIDAYS_SHEET);
+        if (typeof removeFromCache === 'function') {
+            try { removeFromCache(`schedule_${HOLIDAYS_SHEET}`); } catch (_) {}
+        }
+        if (typeof invalidateCache === 'function') {
+            try { invalidateCache(HOLIDAYS_SHEET); } catch (_) { }
+        }
         
         console.log(`✅ Applied ${appliedCount} new holidays, updated ${usersUpdated} users`);
         
@@ -377,7 +382,7 @@ function clientApplyCountryHolidays(countryCode, year, holidaysToApply, applyPai
  */
 function clientGetCurrentHolidays(year = null) {
     try {
-        const holidays = readSheet(HOLIDAYS_SHEET) || [];
+        const holidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
         
         let filteredHolidays = holidays;
         
@@ -420,7 +425,7 @@ function clientSetUserHolidayPayStatus(userId, countryCode, isPaid, notes = '') 
     try {
         console.log(`💰 Setting holiday pay status for user ${userId} in ${countryCode}: ${isPaid ? 'PAID' : 'NOT PAID'}`);
         
-        const sheet = ensureSheetWithHeaders('UserHolidayPayStatus', [
+        const sheet = ensureScheduleSheetWithHeaders(USER_HOLIDAY_PAY_STATUS_SHEET, [
             'ID', 'UserID', 'UserName', 'CountryCode', 'CountryName', 'IsPaid', 'Notes', 'CreatedAt', 'UpdatedAt'
         ]);
         
@@ -429,7 +434,7 @@ function clientSetUserHolidayPayStatus(userId, countryCode, isPaid, notes = '') 
         const now = new Date();
         
         // Check if entry already exists
-        const existingData = readSheet('UserHolidayPayStatus') || [];
+        const existingData = readScheduleSheet(USER_HOLIDAY_PAY_STATUS_SHEET) || [];
         const existingEntry = existingData.find(entry => 
             entry.UserID === userId && entry.CountryCode === countryCode
         );
@@ -468,7 +473,12 @@ function clientSetUserHolidayPayStatus(userId, countryCode, isPaid, notes = '') 
             sheet.appendRow(entry);
         }
         
-        invalidateCache('UserHolidayPayStatus');
+        if (typeof removeFromCache === 'function') {
+            try { removeFromCache(`schedule_${USER_HOLIDAY_PAY_STATUS_SHEET}`); } catch (_) {}
+        }
+        if (typeof invalidateCache === 'function') {
+            try { invalidateCache(USER_HOLIDAY_PAY_STATUS_SHEET); } catch (_) {}
+        }
         
         return {
             success: true,
@@ -495,7 +505,7 @@ function clientSetUserHolidayPayStatus(userId, countryCode, isPaid, notes = '') 
  */
 function clientGetUserHolidayPayStatus(userId = null, countryCode = null) {
     try {
-        const payStatusData = readSheet('UserHolidayPayStatus') || [];
+        const payStatusData = readScheduleSheet(USER_HOLIDAY_PAY_STATUS_SHEET) || [];
         
         let filteredData = payStatusData;
         
@@ -625,8 +635,8 @@ function clientBulkUpdateHolidayPayStatus(updates) {
  */
 function clientGetHolidayAnalytics(year = null) {
     try {
-        const holidays = readSheet(HOLIDAYS_SHEET) || [];
-        const payStatuses = readSheet('UserHolidayPayStatus') || [];
+        const holidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
+        const payStatuses = readScheduleSheet(USER_HOLIDAY_PAY_STATUS_SHEET) || [];
         const users = readSheet(USERS_SHEET) || [];
         
         let analysisYear = year || new Date().getFullYear();
@@ -709,7 +719,7 @@ function getUpcomingHolidays(holidays, daysAhead = 30) {
  */
 function clientCheckIfHoliday(dateStr) {
     try {
-        const holidays = readSheet(HOLIDAYS_SHEET) || [];
+        const holidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
         const holiday = holidays.find(h => h.Date === dateStr);
         
         return {
@@ -768,7 +778,7 @@ function clientDeleteHoliday(holidayId) {
     try {
         console.log(`🗑️ Deleting holiday: ${holidayId}`);
         
-        const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOLIDAYS_SHEET);
+        const sheet = getScheduleSpreadsheet().getSheetByName(HOLIDAYS_SHEET);
         if (!sheet) {
             throw new Error('Holidays sheet not found');
         }
@@ -784,7 +794,12 @@ function clientDeleteHoliday(holidayId) {
         for (let i = data.length - 1; i >= 1; i--) {
             if (String(data[i][idIndex]) === String(holidayId)) {
                 sheet.deleteRow(i + 1);
-                invalidateCache(HOLIDAYS_SHEET);
+                if (typeof removeFromCache === 'function') {
+                    try { removeFromCache(`schedule_${HOLIDAYS_SHEET}`); } catch (_) {}
+                }
+                if (typeof invalidateCache === 'function') {
+                    try { invalidateCache(HOLIDAYS_SHEET); } catch (_) {}
+                }
                 console.log('✅ Holiday deleted successfully');
                 return {
                     success: true,

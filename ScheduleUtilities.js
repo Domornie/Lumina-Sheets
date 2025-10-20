@@ -271,6 +271,243 @@ const HOLIDAYS_HEADERS = [
 // BUSINESS LOGIC CONSTANTS
 // ────────────────────────────────────────────────────────────────────────────
 
+// Schedule configuration defaults and helpers
+const SCHEDULE_CONFIG = Object.freeze({
+  PRIMARY_COUNTRY: 'JM',
+  SUPPORTED_COUNTRIES: ['JM', 'US', 'DO', 'PH'],
+  DEFAULT_SHIFT_CAPACITY: 10,
+  DEFAULT_BREAK_MINUTES: 15,
+  DEFAULT_LUNCH_MINUTES: 60,
+  CACHE_DURATION: 300
+});
+
+function getScheduleConfig() {
+  return Object.assign({}, SCHEDULE_CONFIG);
+}
+
+function getScheduleConfigValue(key, fallback = null) {
+  if (SCHEDULE_CONFIG && Object.prototype.hasOwnProperty.call(SCHEDULE_CONFIG, key)) {
+    return SCHEDULE_CONFIG[key];
+  }
+  return fallback;
+}
+
+function scheduleFlagToBool(value) {
+  if (value === true) return true;
+  if (value === false || value === null || typeof value === 'undefined') return false;
+  if (typeof value === 'number') return value !== 0;
+
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return false;
+
+  switch (normalized) {
+    case 'TRUE':
+    case 'YES':
+    case 'Y':
+    case '1':
+    case 'ON':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function normalizeUserIdValue(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const str = typeof value === 'number' && Number.isFinite(value)
+    ? String(Math.trunc(value))
+    : String(value);
+
+  return str.trim();
+}
+
+function normalizeCampaignIdValue(value) {
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const normalized = normalizeCampaignIdValue(value[i]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    const objectCandidates = [
+      value.ID,
+      value.Id,
+      value.id,
+      value.CampaignID,
+      value.campaignID,
+      value.CampaignId,
+      value.campaignId,
+      value.value
+    ];
+
+    for (let i = 0; i < objectCandidates.length; i++) {
+      const normalized = normalizeCampaignIdValue(objectCandidates[i]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+    return '';
+  }
+
+  return text;
+}
+
+function doesUserBelongToCampaign(user, campaignId) {
+  const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
+  if (!normalizedCampaignId || !user) {
+    return false;
+  }
+
+  const candidateValues = [
+    user.CampaignID,
+    user.campaignID,
+    user.CampaignId,
+    user.campaignId,
+    user.Campaign,
+    user.campaign,
+    user.primaryCampaignId,
+    user.PrimaryCampaignId,
+    user.primaryCampaignID,
+    user.PrimaryCampaignID
+  ];
+
+  for (let i = 0; i < candidateValues.length; i++) {
+    const candidate = normalizeCampaignIdValue(candidateValues[i]);
+    if (candidate && candidate === normalizedCampaignId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function collectUserRoleCandidates(user) {
+  const roles = [];
+
+  const appendValue = (value) => {
+    if (value === null || typeof value === 'undefined') {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(appendValue);
+      return;
+    }
+
+    if (typeof value === 'object') {
+      appendValue(value.name || value.Name || value.roleName || value.RoleName);
+      appendValue(value.value);
+      return;
+    }
+
+    const text = String(value);
+    if (!text) {
+      return;
+    }
+
+    text.split(/[,;/|]+/).forEach((part) => {
+      const trimmed = part.trim();
+      if (trimmed) {
+        roles.push(trimmed);
+      }
+    });
+  };
+
+  appendValue(user && user.roleNames);
+  appendValue(user && user.RoleNames);
+  appendValue(user && user.roles);
+  appendValue(user && user.Roles);
+  appendValue(user && user.role);
+  appendValue(user && user.Role);
+  appendValue(user && user.primaryRole);
+  appendValue(user && user.PrimaryRole);
+  appendValue(user && user.primaryRoles);
+  appendValue(user && user.PrimaryRoles);
+  appendValue(user && user.csvRoles);
+  appendValue(user && user.CsvRoles);
+  appendValue(user && user.RoleName);
+  appendValue(user && user.roleName);
+
+  return roles;
+}
+
+function isScheduleRoleRestricted(user) {
+  const restrictedRoles = ['client', 'guest'];
+  const roleNames = collectUserRoleCandidates(user)
+    .map(role => String(role || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  return roleNames.some(role => restrictedRoles.includes(role));
+}
+
+function isScheduleNameRestricted(user) {
+  const restrictedNames = ['client', 'guest'];
+  const nameCandidates = [
+    user && user.UserName,
+    user && user.Username,
+    user && user.username,
+    user && user.FullName,
+    user && user.Name,
+    user && user.DisplayName
+  ];
+
+  return nameCandidates.some(name => {
+    if (!name) {
+      return false;
+    }
+    const normalized = String(name).trim().toLowerCase();
+    return normalized && restrictedNames.includes(normalized);
+  });
+}
+
+function filterUsersByCampaign(users, campaignId) {
+  const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
+  if (!normalizedCampaignId) {
+    return Array.isArray(users) ? users.slice() : [];
+  }
+
+  let filteredUsers = Array.isArray(users) ? users.filter(Boolean) : [];
+
+  try {
+    if (typeof getUsersByCampaign === 'function') {
+      const campaignUsers = getUsersByCampaign(normalizedCampaignId) || [];
+      if (Array.isArray(campaignUsers) && campaignUsers.length) {
+        const campaignUserIds = new Set(
+          campaignUsers
+            .map(user => normalizeUserIdValue(user && user.ID))
+            .filter(Boolean)
+        );
+
+        if (campaignUserIds.size) {
+          filteredUsers = filteredUsers.filter(user => campaignUserIds.has(normalizeUserIdValue(user && user.ID)));
+          return filteredUsers;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to resolve campaign membership via getUsersByCampaign:', normalizedCampaignId, error);
+  }
+
+  return filteredUsers.filter(user => doesUserBelongToCampaign(user, normalizedCampaignId));
+}
+
 const SCHEDULE_STATUS = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
