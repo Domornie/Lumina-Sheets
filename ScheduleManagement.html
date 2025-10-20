@@ -6917,21 +6917,53 @@
                 monthStart.setHours(0, 0, 0, 0);
                 const monthEnd = new Date(normalizedYear, normalizedMonth, 0);
                 monthEnd.setHours(23, 59, 59, 999);
-                const monthStartTime = monthStart.getTime();
-                const monthEndTime = monthEnd.getTime();
+                const viewStartTime = monthStart.getTime();
+                const viewEndTime = monthEnd.getTime();
 
                 const employment = this.getEmploymentPeriod(user);
-                const hireDate = employment.startDate instanceof Date ? employment.startDate : this.parseIsoDateToLocal(employment.startIso);
-                if (hireDate && hireDate.getTime() > monthEndTime) {
+
+                const statusCandidates = [
+                    employment && employment.status,
+                    employment && employment.statusRaw,
+                    user && user.employmentStatusCanonical,
+                    user && user.EmploymentStatusCanonical,
+                    user && user.employmentStatusNormalized,
+                    user && user.EmploymentStatusNormalized,
+                    user && user.employmentStatus,
+                    user && user.EmploymentStatus,
+                    user && user.Status,
+                    user && user.status
+                ];
+
+                let statusLabel = '';
+                for (let index = 0; index < statusCandidates.length; index++) {
+                    const candidate = statusCandidates[index];
+                    if (!candidate) {
+                        continue;
+                    }
+
+                    const normalized = this.normalizeEmploymentStatusLabel(candidate);
+                    if (normalized) {
+                        statusLabel = normalized;
+                        break;
+                    }
+                }
+
+                if ((statusLabel || '').toString().trim().toLowerCase() !== 'active') {
                     return false;
                 }
 
-                const terminationDate = employment.endDate instanceof Date ? employment.endDate : this.parseIsoDateToLocal(employment.endIso);
-                if (terminationDate && terminationDate.getTime() < monthStartTime) {
+                const hireDate = employment.startDate instanceof Date
+                    ? employment.startDate
+                    : this.parseIsoDateToLocal(employment.startIso);
+                if (hireDate && hireDate.getTime() > viewEndTime) {
                     return false;
                 }
 
-                if (employment.isStatusActive === false && !terminationDate) {
+                const terminationDate = employment.endDate instanceof Date
+                    ? employment.endDate
+                    : this.parseIsoDateToLocal(employment.endIso);
+                if (terminationDate && terminationDate.getTime() < viewStartTime) {
                     return false;
                 }
 
