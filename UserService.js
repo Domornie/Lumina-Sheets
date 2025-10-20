@@ -491,104 +491,24 @@ if (typeof invalidateCache !== 'function') {
 }
 if (typeof ensureSheetWithHeaders !== 'function') {
   function ensureSheetWithHeaders(name, headers) {
-    const sheetName = String(name || '').trim();
-    if (!sheetName) {
-      throw new Error('Sheet name is required');
-    }
-
-    const headerArray = Array.isArray(headers) ? headers : [];
-    const lowerName = sheetName.toLowerCase();
-
-    const scheduleSheetNames = {
-      'schedules': true,
-      'schedule': true,
-      'agentschedules': true,
-      'schedulegeneration': true,
-      'generatedschedules': true,
-      'scheduleadherence': true
-    };
-
-    const campaignSheetNames = {
-      'quality': true,
-      'attendancelog': true,
-      'coachingrecords': true
-    };
-
-    function ensureInSpreadsheet(ss) {
-      if (!ss) {
-        throw new Error('Spreadsheet handle is required');
-      }
-
-      let sh = ss.getSheetByName(sheetName);
-      if (!sh) {
-        sh = ss.insertSheet(sheetName);
-        if (headerArray.length) {
-          sh.getRange(1, 1, 1, headerArray.length).setValues([headerArray]);
-          sh.setFrozenRows(1);
-        }
-        return sh;
-      }
-
-      if (headerArray.length) {
-        const lastCol = sh.getLastColumn();
-        const row = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
-        const hdrs = row.map(String);
-        let changed = false;
-        headerArray.forEach(h => {
-          if (hdrs.indexOf(h) === -1) {
-            hdrs.push(h);
-            changed = true;
-          }
-        });
-        if (changed) {
-          sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
-        }
-        if (sh.getFrozenRows() < 1) {
-          sh.setFrozenRows(1);
-        }
-      }
-
-      return sh;
-    }
-
-    if (scheduleSheetNames[lowerName]) {
-      if (typeof ensureScheduleSheetWithHeaders === 'function') {
-        try {
-          return ensureScheduleSheetWithHeaders(sheetName, headerArray);
-        } catch (scheduleError) {
-          console.warn('ensureSheetWithHeaders: schedule delegation failed', scheduleError);
-        }
-      }
-
-      if (typeof getScheduleSpreadsheet === 'function') {
-        try {
-          return ensureInSpreadsheet(getScheduleSpreadsheet());
-        } catch (scheduleFallbackError) {
-          console.warn('ensureSheetWithHeaders: unable to ensure schedule sheet via schedule spreadsheet', scheduleFallbackError);
-        }
-      }
-    }
-
-    if (campaignSheetNames[lowerName]) {
-      if (typeof ensureCampaignSheetWithHeaders === 'function') {
-        try {
-          return ensureCampaignSheetWithHeaders(sheetName, headerArray);
-        } catch (campaignError) {
-          console.warn('ensureSheetWithHeaders: campaign delegation failed', campaignError);
-        }
-      }
-
-      if (typeof getIBTRSpreadsheet === 'function') {
-        try {
-          return ensureInSpreadsheet(getIBTRSpreadsheet());
-        } catch (campaignFallbackError) {
-          console.warn('ensureSheetWithHeaders: unable to ensure campaign sheet via campaign spreadsheet', campaignFallbackError);
-        }
-      }
-    }
-
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    return ensureInSpreadsheet(ss);
+    let sh = ss.getSheetByName(name);
+    if (!sh) {
+      sh = ss.insertSheet(name);
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sh.setFrozenRows(1);
+    } else {
+      const lastCol = sh.getLastColumn();
+      const row = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+      const hdrs = row.map(String);
+      // append any missing headers
+      let changed = false;
+      headers.forEach(h => {
+        if (hdrs.indexOf(h) === -1) { hdrs.push(h); changed = true; }
+      });
+      if (changed) sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
+    }
+    return sh;
   }
 }
 if (typeof readSheet !== 'function') {
