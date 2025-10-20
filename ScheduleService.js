@@ -19,6 +19,244 @@ const SCHEDULE_SETTINGS = (typeof getScheduleConfig === 'function')
       CACHE_DURATION: 300
     };
 
+const SCHEDULE_EMPLOYMENT_START_FIELDS = [
+  'HireDate', 'hireDate', 'Hire_Date', 'hire_date', 'Hire Date', 'hire date',
+  'DateHired', 'dateHired', 'Date Hired', 'date hired',
+  'OnboardDate', 'onboardDate', 'Onboard Date', 'onboard date',
+  'EmploymentStart', 'employmentStart', 'Employment Start', 'employment start',
+  'EmploymentStartDate', 'employmentStartDate', 'Employment Start Date', 'employment start date',
+  'StartDate', 'startDate', 'Start Date', 'start date', 'Start_Date', 'start_date',
+  'OriginalHireDate', 'originalHireDate', 'Original_Hire_Date', 'original_hire_date',
+  'Original Hire Date', 'original hire date',
+  'RehireDate', 'rehireDate', 'Rehire_Date', 'rehire_date', 'Rehire Date', 'rehire date',
+  'employmentStartIso', 'EmploymentStartIso'
+];
+
+const SCHEDULE_EMPLOYMENT_END_FIELDS = [
+  'TerminationDate', 'terminationDate', 'Termination_Date', 'termination_date',
+  'Termination Date', 'termination date',
+  'DateOfTermination', 'dateOfTermination', 'Date Of Termination', 'date of termination',
+  'EmploymentEnd', 'employmentEnd', 'Employment End', 'employment end',
+  'EmploymentEndDate', 'employmentEndDate', 'Employment End Date', 'employment end date',
+  'SeparationDate', 'separationDate', 'Separation Date', 'separation date',
+  'Separation_Date', 'separation_date',
+  'EndDate', 'endDate', 'End Date', 'end date', 'End_Date', 'end_date',
+  'LastWorkingDate', 'lastWorkingDate', 'Last Working Date', 'last working date',
+  'employmentEndIso', 'EmploymentEndIso'
+];
+
+const SCHEDULE_EMPLOYMENT_NESTED_KEYS = [
+  'Employment', 'employment',
+  'EmploymentDetails', 'employmentDetails',
+  'EmploymentInfo', 'employmentInfo',
+  'HRProfile', 'hrProfile', 'HrProfile'
+];
+
+const SCHEDULE_ACTIVE_EMPLOYMENT_STATUS_SET = new Set([
+  'active', 'activated', 'on leave', 'pending', 'probation', 'contract', 'contractor',
+  'full time', 'full-time', 'fulltime', 'part time', 'part-time', 'parttime',
+  'seasonal', 'temporary', 'temp', 'intern', 'consultant'
+]);
+
+const SCHEDULE_INACTIVE_EMPLOYMENT_STATUS_SET = new Set([
+  'inactive', 'terminated', 'suspended', 'retired', 'separated', 'disabled'
+]);
+
+function formatScheduleDateToIso(date) {
+  if (!(date instanceof Date) || isNaN(date)) {
+    return '';
+  }
+
+  if (typeof _toIsoDateOnly_ === 'function') {
+    try {
+      const iso = _toIsoDateOnly_(date);
+      if (iso) {
+        return iso;
+      }
+    } catch (err) {
+      console.warn('formatScheduleDateToIso: _toIsoDateOnly_ failed', err);
+    }
+  }
+
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())).toISOString().slice(0, 10);
+}
+
+function normalizeScheduleDateValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return formatScheduleDateToIso(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const candidate = normalizeScheduleDateValue(value[i]);
+      if (candidate) {
+        return candidate;
+      }
+    }
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    const objectCandidates = [
+      value.iso, value.ISO,
+      value.date, value.Date,
+      value.value, value.Value,
+      value.start, value.Start,
+      value.startDate, value.StartDate,
+      value.end, value.End,
+      value.endDate, value.EndDate,
+      value.timestamp, value.Timestamp,
+      value.time, value.Time
+    ];
+
+    for (let i = 0; i < objectCandidates.length; i++) {
+      const candidate = normalizeScheduleDateValue(objectCandidates[i]);
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    if (Number.isFinite(value.year) && Number.isFinite(value.month) && Number.isFinite(value.day)) {
+      const composed = new Date(value.year, value.month - 1, value.day);
+      if (!isNaN(composed)) {
+        return formatScheduleDateToIso(composed);
+      }
+    }
+
+    return '';
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return '';
+    }
+
+    const millisDate = new Date(value);
+    if (!isNaN(millisDate)) {
+      return formatScheduleDateToIso(millisDate);
+    }
+
+    const spreadsheetMillis = Math.round((Number(value) - 25569) * 86400 * 1000);
+    const spreadsheetDate = new Date(spreadsheetMillis);
+    if (!isNaN(spreadsheetDate)) {
+      return formatScheduleDateToIso(spreadsheetDate);
+    }
+
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const isoWithTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+    if (isoWithTimeMatch && isoWithTimeMatch[1]) {
+      return isoWithTimeMatch[1];
+    }
+
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) {
+      const numericDate = normalizeScheduleDateValue(numeric);
+      if (numericDate) {
+        return numericDate;
+      }
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed)) {
+      return formatScheduleDateToIso(parsed);
+    }
+  }
+
+  return '';
+}
+
+function resolveEmploymentIsoDateFromUser(user, fieldNames, visited) {
+  if (!user || typeof user !== 'object' || !Array.isArray(fieldNames) || !fieldNames.length) {
+    return '';
+  }
+
+  const seen = visited || new Set();
+  if (seen.has(user)) {
+    return '';
+  }
+  seen.add(user);
+
+  for (let i = 0; i < fieldNames.length; i++) {
+    const field = fieldNames[i];
+    if (!field) {
+      continue;
+    }
+    const rawValue = user[field];
+    const normalized = normalizeScheduleDateValue(rawValue);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  for (let i = 0; i < SCHEDULE_EMPLOYMENT_NESTED_KEYS.length; i++) {
+    const nested = user[SCHEDULE_EMPLOYMENT_NESTED_KEYS[i]];
+    if (!nested || typeof nested !== 'object') {
+      continue;
+    }
+
+    const normalized = resolveEmploymentIsoDateFromUser(nested, fieldNames, seen);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function normalizeEmploymentStatusForSchedules(status) {
+  const raw = status === null || typeof status === 'undefined' ? '' : String(status).trim();
+  if (!raw) {
+    return '';
+  }
+
+  if (typeof normalizeEmploymentStatus === 'function') {
+    try {
+      const normalized = normalizeEmploymentStatus(raw);
+      if (normalized) {
+        return normalized;
+      }
+    } catch (err) {
+      console.warn('normalizeEmploymentStatusForSchedules: normalization failed', err);
+    }
+  }
+
+  return raw;
+}
+
+function isEmploymentStatusActiveForSchedules(status) {
+  const normalized = normalizeEmploymentStatusForSchedules(status);
+  if (!normalized) {
+    return true;
+  }
+
+  const lower = normalized.toLowerCase();
+  if (SCHEDULE_INACTIVE_EMPLOYMENT_STATUS_SET.has(lower)) {
+    return false;
+  }
+
+  if (SCHEDULE_ACTIVE_EMPLOYMENT_STATUS_SET.has(lower)) {
+    return true;
+  }
+
+  return true;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -224,10 +462,24 @@ function clientGetScheduleContext(managerIdCandidate, campaignIdCandidate) {
  * Get users for schedule management with manager filtering
  * Uses MainUtilities user functions with campaign support
  */
-function clientGetScheduleUsers(requestingUserId, campaignId = null) {
+function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
   try {
     const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
     console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
+
+    const resolvedOptions = (function resolveScheduleUserOptions(value) {
+      if (value === true) {
+        return { includeInactive: true };
+      }
+      if (value && typeof value === 'object') {
+        return value;
+      }
+      return {};
+    })(options);
+
+    const includeInactive = resolvedOptions.includeInactive === true
+      || resolvedOptions.includeAllEmployment === true
+      || resolvedOptions.includeTerminated === true;
 
     // Use MainUtilities to get all users
     const allUsers = readSheet(USERS_SHEET) || [];
@@ -289,9 +541,15 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       .filter(user => user && user.ID && (user.UserName || user.FullName))
       .filter(user => !isScheduleNameRestricted(user))
       .filter(user => !isScheduleRoleRestricted(user))
-      .filter(user => isUserConsideredActive(user))
+      .filter(user => includeInactive ? true : isUserConsideredActive(user))
       .map(user => {
         const campaignName = getCampaignById(user.CampaignID)?.Name || '';
+        const employmentStatusRaw = user.EmploymentStatus || user.employmentStatus || user.Status || '';
+        const employmentStatusCanonical = normalizeEmploymentStatusForSchedules(employmentStatusRaw);
+        const employmentStatusActive = isEmploymentStatusActiveForSchedules(employmentStatusCanonical);
+        const hireIso = resolveEmploymentIsoDateFromUser(user, SCHEDULE_EMPLOYMENT_START_FIELDS);
+        const terminationIso = resolveEmploymentIsoDateFromUser(user, SCHEDULE_EMPLOYMENT_END_FIELDS);
+
         return {
           ID: user.ID,
           UserName: user.UserName || user.FullName,
@@ -299,10 +557,16 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
           Email: user.Email || '',
           CampaignID: user.CampaignID || '',
           campaignName: campaignName,
-          EmploymentStatus: user.EmploymentStatus || 'Active',
-          HireDate: user.HireDate || '',
-          TerminationDate: user.TerminationDate || user.terminationDate || '',
-          isActive: isUserConsideredActive(user)
+          EmploymentStatus: employmentStatusRaw || '',
+          EmploymentStatusCanonical: employmentStatusCanonical,
+          employmentStatusCanonical: employmentStatusCanonical,
+          employmentStatusRaw: employmentStatusRaw || '',
+          employmentStatusIsActive: employmentStatusActive,
+          HireDate: hireIso || user.HireDate || '',
+          TerminationDate: terminationIso || user.TerminationDate || user.terminationDate || '',
+          employmentStartIso: hireIso || '',
+          employmentEndIso: terminationIso || '',
+          isActive: employmentStatusActive
         };
       });
 
@@ -319,12 +583,12 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 /**
  * Get users for attendance (all active users)
  */
-function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
+function clientGetAttendanceUsers(requestingUserId, campaignId = null, options) {
   try {
     console.log('📋 Getting attendance users');
-    
+
     // Use the existing function but return just names for compatibility
-    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
+    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId, options);
     const userNames = scheduleUsers
       .map(user => user.UserName || user.FullName)
       .filter(name => name && name.trim())
@@ -644,23 +908,15 @@ function isUserConsideredActive(user) {
     return false;
   }
 
-  const status = typeof user.EmploymentStatus === 'string'
-    ? user.EmploymentStatus.trim().toLowerCase()
-    : '';
-
-  if (!status) {
-    return true;
+  if (typeof user.employmentStatusIsActive === 'boolean') {
+    return user.employmentStatusIsActive;
   }
 
-  if (['active', 'activated'].includes(status)) {
-    return true;
-  }
+  const status = normalizeEmploymentStatusForSchedules(
+    user.EmploymentStatus || user.employmentStatus || user.Status || user.status
+  );
 
-  if (['terminated', 'inactive', 'disabled', 'separated'].includes(status)) {
-    return false;
-  }
-
-  return true;
+  return isEmploymentStatusActiveForSchedules(status);
 }
 
 /**
