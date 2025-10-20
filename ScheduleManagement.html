@@ -227,6 +227,12 @@
         box-shadow: none;
     }
 
+    .attendance-calendar__status--inactive {
+        background: rgba(148, 163, 184, 0.5);
+        color: #0f172a;
+        box-shadow: none;
+    }
+
     .attendance-calendar__table-wrapper {
         overflow-x: auto;
         padding: var(--spacing-md);
@@ -325,6 +331,22 @@
 
     .attendance-calendar__cell--weekend {
         background: rgba(229, 231, 235, 0.6);
+    }
+
+    .attendance-calendar__cell--inactive {
+        background: rgba(226, 232, 240, 0.4);
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+
+    .attendance-calendar__cell--inactive:hover {
+        transform: none;
+        box-shadow: none;
+        background: rgba(226, 232, 240, 0.4);
+    }
+
+    .attendance-calendar__table tbody tr:hover td.attendance-calendar__cell--inactive {
+        background: rgba(226, 232, 240, 0.4);
     }
 
     .attendance-calendar__table tbody tr:nth-child(odd) td {
@@ -2470,6 +2492,88 @@
                 this.attendanceContextMenuOutsideHandler = null;
                 this.attendanceContextMenuKeyHandler = null;
                 this.attendanceContextMenuFocusTimer = null;
+                this.employmentStartFieldNames = [
+                    'HireDate',
+                    'hireDate',
+                    'Hire_Date',
+                    'hire_date',
+                    'Hire Date',
+                    'hire date',
+                    'DateHired',
+                    'dateHired',
+                    'Date Hired',
+                    'date hired',
+                    'OnboardDate',
+                    'onboardDate',
+                    'Onboard Date',
+                    'onboard date',
+                    'EmploymentStart',
+                    'employmentStart',
+                    'Employment Start',
+                    'employment start',
+                    'EmploymentStartDate',
+                    'employmentStartDate',
+                    'Employment Start Date',
+                    'employment start date',
+                    'StartDate',
+                    'startDate',
+                    'Start Date',
+                    'start date',
+                    'Start_Date',
+                    'start_date',
+                    'OriginalHireDate',
+                    'originalHireDate',
+                    'Original_Hire_Date',
+                    'original_hire_date',
+                    'Original Hire Date',
+                    'original hire date',
+                    'RehireDate',
+                    'rehireDate',
+                    'Rehire_Date',
+                    'rehire_date',
+                    'Rehire Date',
+                    'rehire date'
+                ];
+                this.employmentEndFieldNames = [
+                    'TerminationDate',
+                    'terminationDate',
+                    'Termination Date',
+                    'termination date',
+                    'EndDate',
+                    'endDate',
+                    'End Date',
+                    'end date',
+                    'End_Date',
+                    'end_date',
+                    'EmploymentEnd',
+                    'employmentEnd',
+                    'Employment End',
+                    'employment end',
+                    'EmploymentEndDate',
+                    'employmentEndDate',
+                    'Employment End Date',
+                    'employment end date',
+                    'DateOfTermination',
+                    'dateOfTermination',
+                    'Date Of Termination',
+                    'date of termination',
+                    'Termination',
+                    'termination',
+                    'Termination_Date',
+                    'termination_date',
+                    'Termination Date',
+                    'termination date',
+                    'SeparationDate',
+                    'separationDate',
+                    'Separation Date',
+                    'separation date',
+                    'Separation_Date',
+                    'separation_date',
+                    'LastWorkingDate',
+                    'lastWorkingDate',
+                    'Last Working Date',
+                    'last working date'
+                ];
                 this.attendanceStatusLegend = [
                     { code: 'P', label: 'Punctual', className: 'attendance-calendar__status--present' },
                     { code: 'B', label: 'Bereavement', className: 'attendance-calendar__status--bereavement' },
@@ -6188,11 +6292,13 @@
                     const userName = (user.UserName || '').toString().trim();
                     const fullName = (user.FullName || '').toString().trim();
                     const email = (user.Email || '').toString().trim();
+                    const employment = this.getEmploymentPeriod(user);
 
                     const metadata = {
                         userName,
                         fullName,
-                        email
+                        email,
+                        employment
                     };
 
                     [userName, fullName, email].forEach(value => {
@@ -6224,14 +6330,54 @@
                     const displayName = metadata && metadata.fullName
                         ? metadata.fullName
                         : (metadata && metadata.userName ? metadata.userName : name);
+                    const employment = metadata && metadata.employment
+                        ? metadata.employment
+                        : { startDate: null, endDate: null, startIso: '', endIso: '' };
 
                     return {
                         identifier,
                         displayName,
                         original: name,
-                        recordKeys: Array.from(recordKeySet)
+                        recordKeys: Array.from(recordKeySet),
+                        employmentStart: employment && employment.startDate ? new Date(employment.startDate.getTime()) : null,
+                        employmentEnd: employment && employment.endDate ? new Date(employment.endDate.getTime()) : null,
+                        employmentStartIso: employment && employment.startIso ? employment.startIso : '',
+                        employmentEndIso: employment && employment.endIso ? employment.endIso : ''
                     };
                 });
+            }
+
+            getEmploymentPeriod(user) {
+                if (!user) {
+                    return { startIso: '', endIso: '', startDate: null, endDate: null };
+                }
+
+                const startFieldNames = Array.isArray(this.employmentStartFieldNames)
+                    ? this.employmentStartFieldNames
+                    : [];
+                const endFieldNames = Array.isArray(this.employmentEndFieldNames)
+                    ? this.employmentEndFieldNames
+                    : [];
+
+                const startIso = this.resolveEmploymentIsoDate(user, startFieldNames);
+                const endIso = this.resolveEmploymentIsoDate(user, endFieldNames);
+
+                const startDate = this.parseIsoDateToLocal(startIso);
+                if (startDate instanceof Date && !Number.isNaN(startDate.getTime())) {
+                    startDate.setHours(0, 0, 0, 0);
+                }
+
+                const endDate = this.parseIsoDateToLocal(endIso);
+                if (endDate instanceof Date && !Number.isNaN(endDate.getTime())) {
+                    endDate.setHours(23, 59, 59, 999);
+                }
+
+                return {
+                    startIso: startIso || '',
+                    endIso: endIso || '',
+                    startDate: startDate instanceof Date && !Number.isNaN(startDate.getTime()) ? startDate : null,
+                    endDate: endDate instanceof Date && !Number.isNaN(endDate.getTime()) ? endDate : null
+                };
             }
 
             isUserEmployedDuringMonth(user, year, month) {
@@ -6252,95 +6398,13 @@
                 const monthStartTime = monthStart.getTime();
                 const monthEndTime = monthEnd.getTime();
 
-                const hireIso = this.resolveEmploymentIsoDate(user, [
-                    'HireDate',
-                    'hireDate',
-                    'Hire_Date',
-                    'hire_date',
-                    'Hire Date',
-                    'hire date',
-                    'DateHired',
-                    'dateHired',
-                    'Date Hired',
-                    'date hired',
-                    'OnboardDate',
-                    'onboardDate',
-                    'Onboard Date',
-                    'onboard date',
-                    'EmploymentStart',
-                    'employmentStart',
-                    'Employment Start',
-                    'employment start',
-                    'EmploymentStartDate',
-                    'employmentStartDate',
-                    'Employment Start Date',
-                    'employment start date',
-                    'StartDate',
-                    'startDate',
-                    'Start Date',
-                    'start date',
-                    'Start_Date',
-                    'start_date',
-                    'OriginalHireDate',
-                    'originalHireDate',
-                    'Original_Hire_Date',
-                    'original_hire_date',
-                    'Original Hire Date',
-                    'original hire date',
-                    'RehireDate',
-                    'rehireDate',
-                    'Rehire_Date',
-                    'rehire_date',
-                    'Rehire Date',
-                    'rehire date'
-                ]);
-                const terminationIso = this.resolveEmploymentIsoDate(user, [
-                    'TerminationDate',
-                    'terminationDate',
-                    'Termination Date',
-                    'termination date',
-                    'EndDate',
-                    'endDate',
-                    'End Date',
-                    'end date',
-                    'End_Date',
-                    'end_date',
-                    'EmploymentEnd',
-                    'employmentEnd',
-                    'Employment End',
-                    'employment end',
-                    'EmploymentEndDate',
-                    'employmentEndDate',
-                    'Employment End Date',
-                    'employment end date',
-                    'DateOfTermination',
-                    'dateOfTermination',
-                    'Date Of Termination',
-                    'date of termination',
-                    'Termination',
-                    'termination',
-                    'Termination_Date',
-                    'termination_date',
-                    'Termination Date',
-                    'termination date',
-                    'SeparationDate',
-                    'separationDate',
-                    'Separation Date',
-                    'separation date',
-                    'Separation_Date',
-                    'separation_date',
-                    'LastWorkingDate',
-                    'lastWorkingDate',
-                    'Last Working Date',
-                    'last working date'
-                ]);
-
-                const hireDate = this.parseIsoDateToLocal(hireIso);
+                const employment = this.getEmploymentPeriod(user);
+                const hireDate = employment.startDate instanceof Date ? employment.startDate : this.parseIsoDateToLocal(employment.startIso);
                 if (hireDate && hireDate.getTime() > monthEndTime) {
                     return false;
                 }
 
-                const terminationDate = this.parseIsoDateToLocal(terminationIso);
+                const terminationDate = employment.endDate instanceof Date ? employment.endDate : this.parseIsoDateToLocal(employment.endIso);
                 if (terminationDate && terminationDate.getTime() < monthStartTime) {
                     return false;
                 }
@@ -6521,26 +6585,55 @@
                         const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                         const date = new Date(year, month - 1, day);
                         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                        const record = this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap);
+                        const employmentStart = entry && entry.employmentStart instanceof Date ? entry.employmentStart : null;
+                        const employmentEnd = entry && entry.employmentEnd instanceof Date ? entry.employmentEnd : null;
+                        const cellTime = date.getTime();
+                        const employmentStartTime = employmentStart ? employmentStart.getTime() : null;
+                        const employmentEndTime = employmentEnd ? employmentEnd.getTime() : null;
+                        const isEmployedOnDay = (!employmentStartTime || cellTime >= employmentStartTime)
+                            && (!employmentEndTime || cellTime <= employmentEndTime);
+
+                        const cellClasses = ['attendance-calendar__cell'];
+                        if (isWeekend) {
+                            cellClasses.push('attendance-calendar__cell--weekend');
+                        }
+                        if (!isEmployedOnDay) {
+                            cellClasses.push('attendance-calendar__cell--inactive');
+                        }
+
+                        const record = isEmployedOnDay
+                            ? this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap)
+                            : null;
                         const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
-                        const badgeLabel = badge ? this.escapeHtml(badge.label) : 'Unmarked';
-                        const statusClass = badge ? `attendance-calendar__status ${badge.className}` : 'attendance-calendar__status attendance-calendar__status--empty';
+                        const badgeLabel = badge
+                            ? this.escapeHtml(badge.label)
+                            : this.escapeHtml(isEmployedOnDay ? 'Unmarked' : 'Not employed');
+                        const statusClass = badge
+                            ? `attendance-calendar__status ${badge.className}`
+                            : `attendance-calendar__status ${isEmployedOnDay ? 'attendance-calendar__status--empty' : 'attendance-calendar__status--inactive'}`;
                         const badgeCode = badge && badge.code && badge.code !== '-' ? badge.code : '';
                         const statusContent = badgeCode ? this.escapeHtml(badgeCode) : '&#8211;';
                         const safeIdentifierAttr = this.escapeHtml(entry.identifier || entry.original || '');
                         const safeDateAttr = this.escapeHtml(dateStr);
-                        const safeStatusAttr = badge ? this.escapeHtml(record?.status || '') : '';
+                        const safeStatusAttr = badge && isEmployedOnDay ? this.escapeHtml(record?.status || '') : '';
                         const statusCodeAttr = badgeCode ? this.escapeHtml(badgeCode) : '';
+                        const cellClassAttr = cellClasses.join(' ');
+                        const displayLabel = (entry.displayName || entry.identifier || '').toString();
+                        const cellTitle = this.escapeHtml(isEmployedOnDay
+                            ? `Right-click or tap to mark attendance for ${displayLabel} on ${dateStr}`
+                            : `${displayLabel} was not employed on ${dateStr}`);
+                        const employmentAttr = isEmployedOnDay ? '' : ' data-attendance-employment="inactive"';
+                        const interactionAttributes = isEmployedOnDay
+                            ? ` onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')" oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"`
+                            : '';
 
                         html += `
-                                            <td class="${isWeekend ? 'attendance-calendar__cell attendance-calendar__cell--weekend' : 'attendance-calendar__cell'}"
+                                            <td class="${cellClassAttr}"
                                                 data-attendance-user="${safeIdentifierAttr}"
                                                 data-attendance-date="${safeDateAttr}"
                                                 data-attendance-status="${safeStatusAttr}"
-                                                data-attendance-status-code="${statusCodeAttr}"
-                                                onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
-                                                oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
-                                                title="Right-click or tap to mark attendance for ${safeDisplay} on ${dateStr}">
+                                                data-attendance-status-code="${statusCodeAttr}"${employmentAttr}${interactionAttributes}
+                                                title="${cellTitle}">
                                                 <span class="${statusClass}" title="${badgeLabel}">${statusContent}</span>
                                             </td>
                         `;
