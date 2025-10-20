@@ -3092,11 +3092,18 @@
     }
 
     calculateComplianceScore(user) {
+      const breakDays = Number.isFinite(user?.exceededBreakDays) ? user.exceededBreakDays : 0;
+      const lunchDays = Number.isFinite(user?.exceededLunchDays) ? user.exceededLunchDays : 0;
+      const weeklyOverages = Number.isFinite(user?.exceededWeeklyCount) ? user.exceededWeeklyCount : 0;
+
       let score = 100;
-      score -= (user.exceededBreakDays || 0) * 5;
-      score -= (user.exceededLunchDays || 0) * 5;
-      score -= (user.exceededWeeklyCount || 0) * 10;
-      return Math.max(0, score);
+      score -= breakDays * 5;
+      score -= lunchDays * 5;
+      score -= weeklyOverages * 10;
+      if (!Number.isFinite(score)) {
+        score = 0;
+      }
+      return Math.max(0, Math.round(score));
     }
 
     getComplianceStatusBadge(score) {
