@@ -921,6 +921,34 @@
         box-shadow: var(--shadow);
     }
 
+    .slot-detail-table th {
+        width: 42%;
+        font-weight: 600;
+        color: var(--dark);
+        text-transform: none;
+        padding: 0.35rem 0.75rem;
+    }
+
+    .slot-detail-table td {
+        color: var(--dark);
+        padding: 0.35rem 0.75rem;
+        word-break: break-word;
+    }
+
+    .slot-detail-table code {
+        background-color: rgba(15, 23, 42, 0.08);
+        padding: 0.15rem 0.35rem;
+        border-radius: 6px;
+        display: inline-block;
+        font-size: 0.75rem;
+    }
+
+    .slot-detail-table .badge {
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+        padding: 0.35rem 0.6rem;
+    }
+
     /* Header Action Buttons */
     .header-actions {
         display: flex;
@@ -3357,7 +3385,11 @@
                 const container = document.getElementById('shiftSlotsContainer');
                 if (!container) return;
 
-                if (slots.length === 0) {
+                const resolvedSlots = Array.isArray(slots)
+                    ? slots
+                    : this.normalizeShiftSlotListResponse(slots || {}).slots;
+
+                if (!Array.isArray(resolvedSlots) || resolvedSlots.length === 0) {
                     container.innerHTML = `
                             <div class="text-center text-muted py-4">
                                 <i class="fas fa-clock fa-3x mb-3 opacity-50"></i>
@@ -3368,32 +3400,52 @@
                     return;
                 }
 
-                container.innerHTML = slots.map(slot => `
+                container.innerHTML = resolvedSlots.map(slot => {
+                    const rawSlotId = this.resolveShiftSlotId(slot) || this.buildShiftSlotFallbackValue(slot);
+                    const slotIdBadge = rawSlotId ? this.escapeHtml(rawSlotId) : '';
+                    const slotIdAttribute = JSON.stringify(rawSlotId || '');
+                    const slotName = this.escapeHtml(slot.Name || slot.SlotName || 'Shift Slot');
+                    const timeRange = [
+                        this.formatTimeValue(slot.StartTime),
+                        this.formatTimeValue(slot.EndTime)
+                    ].filter(Boolean).join(' - ') || 'Time not set';
+                    const days = Array.isArray(slot.DaysOfWeekArray)
+                        ? this.formatDaysOfWeek(slot.DaysOfWeekArray)
+                        : this.formatDaysOfWeek((slot.DaysOfWeek || '').split(',').map(value => parseInt(value, 10)).filter(day => !Number.isNaN(day)));
+                    const department = slot.Department || slot.Team || 'General';
+                    const capacity = slot.MaxCapacity || 'Unlimited';
+
+                    return `
                         <div class="border rounded p-3 mb-3 interactive-item">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">${slot.Name}</h6>
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 d-flex align-items-center gap-2">
+                                        <span>${slotName}</span>
+                                        ${slotIdBadge ? `<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">ID: ${slotIdBadge}</span>` : ''}
+                                    </h6>
                                     <p class="mb-2 small text-muted">
-                                        <strong>Time:</strong> ${this.formatTimeValue(slot.StartTime)} - ${this.formatTimeValue(slot.EndTime)}<br>
-                                        <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
-                                        <strong>Department:</strong> ${slot.Department || 'General'}<br>
-                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
+                                        <strong>Time:</strong> ${this.escapeHtml(timeRange)}<br>
+                                        <strong>Days:</strong> ${this.escapeHtml(days || 'Not specified')}<br>
+                                        <strong>Department:</strong> ${this.escapeHtml(department)}<br>
+                                        <strong>Capacity:</strong> ${this.escapeHtml(String(capacity))}
                                     </p>
-                                    <small class="text-muted">
-                                        Created: ${this.formatDateTime(slot.CreatedAt)}
+                                    <small class="text-muted d-block">
+                                        Created: ${this.escapeHtml(this.formatDateTime(slot.CreatedAt) || 'Not recorded')}
                                     </small>
+                                    ${this.buildShiftSlotDetailsTable(slot)}
                                 </div>
                                 <div class="btn-group-vertical btn-group-sm">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot('${slot.ID}')" title="Edit">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot(${slotIdAttribute})" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot('${slot.ID}')" title="Delete">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot(${slotIdAttribute})" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    `).join('');
+                    `;
+                }).join('');
             }
 
             updateShiftSlotSelectors(slots) {
@@ -3437,6 +3489,69 @@
                 });
 
                 select.appendChild(fragment);
+            }
+
+            buildShiftSlotDetailsTable(slot = {}) {
+                if (!slot || typeof slot !== 'object') {
+                    return '';
+                }
+
+                const excludedKeys = new Set(['DaysOfWeekArray', '__source']);
+                const preferredOrder = [
+                    'ID', 'Name', 'SlotName', 'Description',
+                    'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location',
+                    'MaxCapacity', 'MinCoverage', 'Priority',
+                    'BreakDuration', 'LunchDuration', 'Break1Duration', 'Break2Duration',
+                    'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
+                    'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
+                    'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
+                    'RestPeriod', 'NotificationLead', 'HandoverTime', 'OvertimePolicy',
+                    'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
+                ];
+                const orderMap = new Map(preferredOrder.map((key, index) => [key, index]));
+
+                const hasCanonicalName = typeof slot.Name === 'string' && slot.Name.trim() !== '';
+                const entries = Object.entries(slot)
+                    .filter(([key, value]) => {
+                        if (excludedKeys.has(key)) {
+                            return false;
+                        }
+                        if (key === 'SlotName' && hasCanonicalName) {
+                            return false;
+                        }
+                        if (typeof value === 'function') {
+                            return false;
+                        }
+                        return true;
+                    })
+                    .sort(([keyA], [keyB]) => {
+                        const orderA = orderMap.has(keyA) ? orderMap.get(keyA) : preferredOrder.length;
+                        const orderB = orderMap.has(keyB) ? orderMap.get(keyB) : preferredOrder.length;
+                        if (orderA !== orderB) {
+                            return orderA - orderB;
+                        }
+                        return keyA.localeCompare(keyB);
+                    });
+
+                if (!entries.length) {
+                    return '';
+                }
+
+                const rows = entries.map(([key, value]) => {
+                    const label = this.escapeHtml(this.formatSlotDetailLabel(key));
+                    const formattedValue = this.formatSlotDetailValue(value, key);
+                    return `<tr><th scope="row">${label}</th><td>${formattedValue}</td></tr>`;
+                }).join('');
+
+                return `
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless slot-detail-table mb-0">
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
             }
 
             normalizeShiftSlotListResponse(rawSlots) {
@@ -3505,10 +3620,45 @@
                         if (typeof source.count === 'number') {
                             base.count = source.count;
                         }
-                        base.source = source;
+
+                        const allowedKeys = [
+                            'sources',
+                            'generatedAt',
+                            'hasActiveSlots',
+                            'fallbackApplied',
+                            'error',
+                            'warning',
+                            'message'
+                        ];
+
+                        allowedKeys.forEach(key => {
+                            if (Object.prototype.hasOwnProperty.call(source, key)) {
+                                base[key] = source[key];
+                            }
+                        });
                     }
 
                     return base;
+                };
+
+                const mergeMetadata = (slots, rawMetadata, fallbackSource) => {
+                    const base = buildMetadata(slots, fallbackSource);
+                    if (!rawMetadata || typeof rawMetadata !== 'object') {
+                        return base;
+                    }
+
+                    const merged = { ...base };
+                    Object.entries(rawMetadata).forEach(([key, value]) => {
+                        if (value === undefined) {
+                            return;
+                        }
+                        if (key === 'totalCount' && typeof value === 'number') {
+                            merged.totalCount = value;
+                            return;
+                        }
+                        merged[key] = value;
+                    });
+                    return merged;
                 };
 
                 const handleFailure = (message) => {
@@ -3568,7 +3718,7 @@
                         if (normalized.length) {
                             return {
                                 slots: normalized,
-                                metadata: buildMetadata(normalized, rawSlots)
+                                metadata: mergeMetadata(normalized, rawSlots.metadata, rawSlots)
                             };
                         }
                     }
@@ -3578,7 +3728,7 @@
                         if (normalizedData.length) {
                             return {
                                 slots: normalizedData,
-                                metadata: buildMetadata(normalizedData, rawSlots)
+                                metadata: mergeMetadata(normalizedData, rawSlots.metadata, rawSlots)
                             };
                         }
                     }
@@ -3587,12 +3737,154 @@
                     if (singleSlot.length) {
                         return {
                             slots: singleSlot,
-                            metadata: buildMetadata(singleSlot, rawSlots)
+                            metadata: mergeMetadata(singleSlot, rawSlots.metadata, rawSlots)
                         };
                     }
                 }
 
                 return emptyResult;
+            }
+
+            formatSlotDetailLabel(key) {
+                if (!key) {
+                    return '';
+                }
+
+                const spaced = key
+                    .replace(/_/g, ' ')
+                    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                if (!spaced) {
+                    return '';
+                }
+
+                return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+            }
+
+            formatSlotDetailArray(values, key) {
+                if (!Array.isArray(values) || values.length === 0) {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                const lowerKey = (key || '').toString().toLowerCase();
+                const rendered = values.map(entry => {
+                    if (entry === null || typeof entry === 'undefined') {
+                        return '—';
+                    }
+
+                    if (entry instanceof Date) {
+                        return this.formatDateTime(entry);
+                    }
+
+                    if (Array.isArray(entry)) {
+                        return `[${entry.map(item => String(item)).join(', ')}]`;
+                    }
+
+                    if (typeof entry === 'object') {
+                        try {
+                            return JSON.stringify(entry);
+                        } catch (error) {
+                            return String(entry);
+                        }
+                    }
+
+                    if (typeof entry === 'boolean') {
+                        return entry ? 'Yes' : 'No';
+                    }
+
+                    if (typeof entry === 'number') {
+                        return entry.toLocaleString();
+                    }
+
+                    const text = String(entry).trim();
+                    if (!text) {
+                        return '—';
+                    }
+
+                    if (lowerKey.includes('days')) {
+                        const parsed = text.split(',')
+                            .map(part => parseInt(part, 10))
+                            .filter(day => !Number.isNaN(day));
+                        if (parsed.length) {
+                            return this.formatDaysOfWeek(parsed);
+                        }
+                    }
+
+                    return text;
+                }).filter(Boolean);
+
+                if (!rendered.length) {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                return rendered.map(item => this.escapeHtml(item)).join(', ');
+            }
+
+            renderBooleanBadge(value) {
+                const label = value ? 'Yes' : 'No';
+                const classes = value
+                    ? 'badge bg-success-subtle text-success-emphasis border border-success-subtle'
+                    : 'badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle';
+                return `<span class="${classes}">${label}</span>`;
+            }
+
+            formatSlotDetailValue(value, key) {
+                if (value === null || typeof value === 'undefined' || value === '') {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                if (Array.isArray(value)) {
+                    return this.formatSlotDetailArray(value, key);
+                }
+
+                if (value instanceof Date) {
+                    return this.escapeHtml(this.formatDateTime(value));
+                }
+
+                if (typeof value === 'object') {
+                    try {
+                        return `<code>${this.escapeHtml(JSON.stringify(value))}</code>`;
+                    } catch (error) {
+                        return `<code>${this.escapeHtml(String(value))}</code>`;
+                    }
+                }
+
+                if (typeof value === 'boolean') {
+                    return this.renderBooleanBadge(value);
+                }
+
+                if (typeof value === 'number') {
+                    return this.escapeHtml(value.toLocaleString());
+                }
+
+                const text = String(value).trim();
+                if (!text) {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                const lowerKey = (key || '').toString().toLowerCase();
+
+                if (lowerKey.includes('time')) {
+                    const formattedTime = this.formatTimeValue(value);
+                    return this.escapeHtml(formattedTime || text);
+                }
+
+                if (lowerKey.includes('date') || lowerKey.includes('created') || lowerKey.includes('updated')) {
+                    const formattedDate = this.formatDateTime(value);
+                    return this.escapeHtml(formattedDate || text);
+                }
+
+                if (lowerKey.includes('days')) {
+                    const parsed = text.split(',')
+                        .map(part => parseInt(part, 10))
+                        .filter(day => !Number.isNaN(day));
+                    const formattedDays = parsed.length ? this.formatDaysOfWeek(parsed) : '';
+                    return this.escapeHtml(formattedDays || text);
+                }
+
+                return this.escapeHtml(text);
             }
 
             resolveShiftSlotId(slot = {}) {
@@ -4606,7 +4898,8 @@
                 let lastError = null;
 
                 const performCheck = async () => {
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const response = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots } = this.normalizeShiftSlotListResponse(response);
                     if (!Array.isArray(slots)) {
                         return false;
                     }
