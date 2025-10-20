@@ -382,22 +382,6 @@
         background: rgba(226, 232, 240, 0.4);
     }
 
-    .attendance-calendar__cell--employment-gap {
-        background: transparent;
-        cursor: default;
-        pointer-events: none;
-    }
-
-    .attendance-calendar__cell--employment-gap:hover {
-        transform: none;
-        box-shadow: none;
-    }
-
-    .attendance-calendar__table tbody tr:hover td.attendance-calendar__cell--employment-gap {
-        transform: none;
-        box-shadow: none;
-    }
-
     .attendance-calendar__table tbody tr:nth-child(odd) td {
         background: rgba(248, 250, 252, 0.85);
     }
@@ -6542,17 +6526,7 @@
                         this.callServerFunction('clientGetScheduleUsers', managerId, campaignId, employmentOptions)
                     ]);
 
-                    const normalizedManagerId = this.normalizeUserIdValue(managerId);
-                    const scheduleUsers = (Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : []).filter(user => {
-                        if (!normalizedManagerId) {
-                            return true;
-                        }
-
-                        const userId = this.normalizeUserIdValue(
-                            user && (user.ID || user.UserID || user.id || user.userId || user.UserName || user.username)
-                        );
-                        return !userId || userId !== normalizedManagerId;
-                    });
+                    const scheduleUsers = Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : [];
 
                     if (!Array.isArray(this.availableUsers) || !this.availableUsers.length) {
                         this.availableUsers = scheduleUsers.slice();
@@ -6917,53 +6891,21 @@
                 monthStart.setHours(0, 0, 0, 0);
                 const monthEnd = new Date(normalizedYear, normalizedMonth, 0);
                 monthEnd.setHours(23, 59, 59, 999);
-                const viewStartTime = monthStart.getTime();
-                const viewEndTime = monthEnd.getTime();
+                const monthStartTime = monthStart.getTime();
+                const monthEndTime = monthEnd.getTime();
 
                 const employment = this.getEmploymentPeriod(user);
-
-                const statusCandidates = [
-                    employment && employment.status,
-                    employment && employment.statusRaw,
-                    user && user.employmentStatusCanonical,
-                    user && user.EmploymentStatusCanonical,
-                    user && user.employmentStatusNormalized,
-                    user && user.EmploymentStatusNormalized,
-                    user && user.employmentStatus,
-                    user && user.EmploymentStatus,
-                    user && user.Status,
-                    user && user.status
-                ];
-
-                let statusLabel = '';
-                for (let index = 0; index < statusCandidates.length; index++) {
-                    const candidate = statusCandidates[index];
-                    if (!candidate) {
-                        continue;
-                    }
-
-                    const normalized = this.normalizeEmploymentStatusLabel(candidate);
-                    if (normalized) {
-                        statusLabel = normalized;
-                        break;
-                    }
-                }
-
-                if ((statusLabel || '').toString().trim().toLowerCase() !== 'active') {
+                const hireDate = employment.startDate instanceof Date ? employment.startDate : this.parseIsoDateToLocal(employment.startIso);
+                if (hireDate && hireDate.getTime() > monthEndTime) {
                     return false;
                 }
 
-                const hireDate = employment.startDate instanceof Date
-                    ? employment.startDate
-                    : this.parseIsoDateToLocal(employment.startIso);
-                if (hireDate && hireDate.getTime() > viewEndTime) {
+                const terminationDate = employment.endDate instanceof Date ? employment.endDate : this.parseIsoDateToLocal(employment.endIso);
+                if (terminationDate && terminationDate.getTime() < monthStartTime) {
                     return false;
                 }
 
-                const terminationDate = employment.endDate instanceof Date
-                    ? employment.endDate
-                    : this.parseIsoDateToLocal(employment.endIso);
-                if (terminationDate && terminationDate.getTime() < viewStartTime) {
+                if (employment.isStatusActive === false && !terminationDate) {
                     return false;
                 }
 
@@ -7221,51 +7163,45 @@
                         if (isWeekend) {
                             cellClasses.push('attendance-calendar__cell--weekend');
                         }
-
-                        const safeIdentifierAttr = this.escapeHtml(entry.identifier || entry.original || '');
-                        const safeDateAttr = this.escapeHtml(dateStr);
-
                         if (!isEmployedOnDay) {
-                            cellClasses.push('attendance-calendar__cell--employment-gap');
-                            const cellClassAttr = cellClasses.join(' ');
-                            const inactiveReason = this.buildEmploymentInactiveLabel(entry, dateStr);
-                            const inactiveReasonAttr = inactiveReason ? this.escapeHtml(inactiveReason) : '';
-                            const employmentAttr = inactiveReasonAttr
-                                ? ` data-attendance-employment="inactive" data-attendance-employment-reason="${inactiveReasonAttr}"`
-                                : ' data-attendance-employment="inactive"';
-
-                            html += `
-                                            <td class="${cellClassAttr}"
-                                                data-attendance-user="${safeIdentifierAttr}"
-                                                data-attendance-date="${safeDateAttr}"${employmentAttr}>
-                                            </td>
-                            `;
-                            continue;
+                            cellClasses.push('attendance-calendar__cell--inactive');
                         }
 
-                        const record = this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap);
+                        const record = isEmployedOnDay
+                            ? this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap)
+                            : null;
                         const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
                         const badgeLabel = badge
                             ? this.escapeHtml(badge.label)
-                            : this.escapeHtml('Unmarked');
+                            : this.escapeHtml(isEmployedOnDay ? 'Unmarked' : this.buildEmploymentInactiveLabel(entry, dateStr));
                         const statusClass = badge
                             ? `attendance-calendar__status ${badge.className}`
-                            : 'attendance-calendar__status attendance-calendar__status--empty';
+                            : `attendance-calendar__status ${isEmployedOnDay ? 'attendance-calendar__status--empty' : 'attendance-calendar__status--inactive'}`;
                         const badgeCode = badge && badge.code && badge.code !== '-' ? badge.code : '';
                         const statusContent = badgeCode ? this.escapeHtml(badgeCode) : '&#8211;';
-                        const safeStatusAttr = badge ? this.escapeHtml(record?.status || '') : '';
+                        const safeIdentifierAttr = this.escapeHtml(entry.identifier || entry.original || '');
+                        const safeDateAttr = this.escapeHtml(dateStr);
+                        const safeStatusAttr = badge && isEmployedOnDay ? this.escapeHtml(record?.status || '') : '';
                         const statusCodeAttr = badgeCode ? this.escapeHtml(badgeCode) : '';
                         const cellClassAttr = cellClasses.join(' ');
                         const displayLabel = (entry.displayName || entry.identifier || '').toString();
-                        const cellTitle = this.escapeHtml(`Right-click or tap to mark attendance for ${displayLabel} on ${dateStr}`);
-                        const interactionAttributes = ` onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')" oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"`;
+                        const cellTitle = this.escapeHtml(isEmployedOnDay
+                            ? `Right-click or tap to mark attendance for ${displayLabel} on ${dateStr}`
+                            : `${displayLabel} • ${this.buildEmploymentInactiveLabel(entry, dateStr)}`);
+                        const inactiveReasonAttr = !isEmployedOnDay ? this.escapeHtml(this.buildEmploymentInactiveLabel(entry, dateStr)) : '';
+                        const employmentAttr = isEmployedOnDay
+                            ? ''
+                            : ` data-attendance-employment="inactive"${inactiveReasonAttr ? ` data-attendance-employment-reason="${inactiveReasonAttr}"` : ''}`;
+                        const interactionAttributes = isEmployedOnDay
+                            ? ` onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')" oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"`
+                            : '';
 
                         html += `
                                             <td class="${cellClassAttr}"
                                                 data-attendance-user="${safeIdentifierAttr}"
                                                 data-attendance-date="${safeDateAttr}"
                                                 data-attendance-status="${safeStatusAttr}"
-                                                data-attendance-status-code="${statusCodeAttr}"${interactionAttributes}
+                                                data-attendance-status-code="${statusCodeAttr}"${employmentAttr}${interactionAttributes}
                                                 title="${cellTitle}">
                                                 <span class="${statusClass}" title="${badgeLabel}">${statusContent}</span>
                                             </td>
