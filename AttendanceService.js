@@ -769,7 +769,10 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
             lunchAdjustmentWeekdaySecs: 0,
             lunchAdjustmentWeekendSecs: 0,
             adjustedWeekdaySecs: 0,
-            adjustedWeekendSecs: 0
+            adjustedWeekendSecs: 0,
+            breakOverageDays: 0,
+            lunchOverageDays: 0,
+            weeklyOverages: 0
           });
         }
         return userComplianceMap.get(row.user);
@@ -858,6 +861,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     let totalBreakCreditSecs = 0;
     let totalLunchAdjustmentSecs = 0;
 
+    const userWeeklyTotals = new Map();
+
     userDayMetrics.forEach(metrics => {
       const breakOver = calculateBreakOverageSecs(metrics.break);
       const breakCredit = calculateBreakCreditSecs(metrics.break);
@@ -866,6 +871,16 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
       if (breakOver > 0 || lunchOver > 0) {
         violationDays++;
+      }
+
+      const complianceStats = userComplianceMap.get(metrics.user);
+      if (complianceStats) {
+        if (breakOver > 0) {
+          complianceStats.breakOverageDays += 1;
+        }
+        if (lunchOver > 0) {
+          complianceStats.lunchOverageDays += 1;
+        }
       }
 
       const baseProd = Math.max(0, metrics.prod);
@@ -900,7 +915,34 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const userKey = metrics.user;
       userTotalAdjustedSecs.set(userKey, (userTotalAdjustedSecs.get(userKey) || 0) + adjustedTotal);
 
+      const dayDate = normalizeDateValue(metrics.dateKey);
+      if (dayDate instanceof Date && !isNaN(dayDate.getTime())) {
+        const weekStart = new Date(dayDate.getTime());
+        const jsDay = weekStart.getDay();
+        const offset = jsDay === 0 ? -6 : 1 - jsDay;
+        weekStart.setDate(weekStart.getDate() + offset);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekKey = `${metrics.user}|${weekStart.toISOString().slice(0, 10)}`;
+        const current = userWeeklyTotals.get(weekKey) || 0;
+        userWeeklyTotals.set(weekKey, current + adjustedTotal);
+      }
+
       dailyAdjustedTotals.set(metrics.dateKey, (dailyAdjustedTotals.get(metrics.dateKey) || 0) + adjustedTotal);
+    });
+
+    userWeeklyTotals.forEach((totalSecs, key) => {
+      if (!Number.isFinite(totalSecs)) {
+        return;
+      }
+      const [user] = key.split('|');
+      const compliance = userComplianceMap.get(user);
+      if (!compliance) {
+        return;
+      }
+      const weeklyCapSecs = hourPolicy.baseCapHours * 5 * 3600;
+      if (Number.isFinite(weeklyCapSecs) && weeklyCapSecs > 0 && totalSecs > weeklyCapSecs) {
+        compliance.weeklyOverages += 1;
+      }
     });
 
     dailyMap.forEach((metrics, dayKey) => {
@@ -947,9 +989,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         breakLabel: formatSecsAsHhMm(stats.breakSecs),
         lunchSecs: stats.lunchSecs,
         lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
-        exceededLunchDays: Math.floor(stats.lunchSecs / DAILY_LUNCH_SECS),
-        exceededBreakDays: Math.floor(stats.breakSecs / DAILY_BREAKS_SECS),
-        exceededWeeklyCount: 0
+        exceededLunchDays: stats.lunchOverageDays || 0,
+        exceededBreakDays: stats.breakOverageDays || 0,
+        exceededWeeklyCount: stats.weeklyOverages || 0
       };
     });
 
@@ -957,10 +999,18 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     const expectedCapacitySecs = weekdaysInPeriod * DAILY_SHIFT_SECS;
 
     const top5Attendance = Array.from(userTotalAdjustedSecs.entries())
-      .map(([user, secs]) => ({
-        user,
-        percentage: expectedCapacitySecs > 0 ? Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
-      }))
+      .map(([user, secs]) => {
+        const adherencePercent = expectedCapacitySecs > 0
+          ? (secs / expectedCapacitySecs) * 100
+          : 0;
+        const normalizedPercent = expectedCapacitySecs > 0
+          ? Math.min(Math.round(adherencePercent * 10) / 10, 100)
+          : 0;
+        return {
+          user,
+          percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
+        };
+      })
       .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
@@ -1709,11 +1759,18 @@ function generateTopPerformers(filtered, periodStart, periodEnd) {
   });
 
   return Array.from(userProdSecs.entries())
-    .map(([user, secs]) => ({
-      user,
-      percentage: expectedCapacitySecs > 0 ?
-        Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
-    }))
+    .map(([user, secs]) => {
+      const adherencePercent = expectedCapacitySecs > 0
+        ? (secs / expectedCapacitySecs) * 100
+        : 0;
+      const normalizedPercent = expectedCapacitySecs > 0
+        ? Math.min(Math.round(adherencePercent * 10) / 10, 100)
+        : 0;
+      return {
+        user,
+        percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
+      };
+    })
     .sort((a, b) => b.percentage - a.percentage)
     .slice(0, 5);
 }
@@ -2392,11 +2449,18 @@ function exportAttendanceCsv(granularity, periodId, agentFilter, policyOptions) 
 }
 
 function calculateComplianceScore(user) {
+  const breakDays = Number.isFinite(user?.exceededBreakDays) ? user.exceededBreakDays : 0;
+  const lunchDays = Number.isFinite(user?.exceededLunchDays) ? user.exceededLunchDays : 0;
+  const weeklyOverages = Number.isFinite(user?.exceededWeeklyCount) ? user.exceededWeeklyCount : 0;
+
   let score = 100;
-  score -= user.exceededBreakDays * 2.5;
-  score -= user.exceededLunchDays * 2.5;
-  score -= user.exceededWeeklyCount * 10;
-  return Math.max(0, score);
+  score -= breakDays * 2.5;
+  score -= lunchDays * 2.5;
+  score -= weeklyOverages * 10;
+  if (!Number.isFinite(score)) {
+    score = 0;
+  }
+  return Math.max(0, Math.round(score));
 }
 
 // ────────────────────────────────────────────────────────────────────────────
