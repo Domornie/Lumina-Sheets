@@ -421,6 +421,116 @@
         margin-bottom: 0.5rem;
     }
 
+    /* Recognition cards */
+    .recognition-card {
+        position: relative;
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: var(--radius-xl);
+        padding: 1.75rem 2rem;
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+        transition: var(--transition-normal);
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .recognition-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 55%);
+        pointer-events: none;
+    }
+
+    .recognition-card:hover {
+        transform: translateY(-6px);
+        box-shadow: var(--shadow-2xl);
+        border-color: rgba(37, 99, 235, 0.35);
+    }
+
+    .recognition-card.is-empty {
+        background: linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0%, rgba(226, 232, 240, 0.24) 100%);
+        color: var(--gray-500);
+    }
+
+    .recognition-badge {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-full);
+        background: rgba(37, 99, 235, 0.15);
+        color: var(--primary-dark);
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        margin-bottom: 1.25rem;
+        width: fit-content;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .recognition-card.is-empty .recognition-badge {
+        background: rgba(148, 163, 184, 0.18);
+        color: var(--gray-600);
+    }
+
+    .recognition-agent {
+        position: relative;
+        z-index: 1;
+        font-size: clamp(1.5rem, 3vw, 2.25rem);
+        font-weight: 800;
+        color: var(--gray-800);
+        margin-bottom: 0.25rem;
+        letter-spacing: -0.02em;
+    }
+
+    .recognition-card.is-empty .recognition-agent {
+        color: var(--gray-500);
+    }
+
+    .recognition-stat {
+        position: relative;
+        z-index: 1;
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .recognition-card.is-empty .recognition-stat {
+        color: var(--gray-500);
+    }
+
+    .recognition-meta {
+        position: relative;
+        z-index: 1;
+        color: var(--gray-600);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        max-width: 26rem;
+    }
+
+    .recognition-footer {
+        position: relative;
+        z-index: 1;
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--gray-500);
+        font-size: 0.85rem;
+    }
+
+    .recognition-footer i {
+        color: var(--accent);
+    }
+
     /* Enhanced Card Styles */
     .card {
         background: var(--gradient-surface);
@@ -780,6 +890,12 @@
         }
 
         .kpi-card {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .recognition-card {
+            min-height: 0;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
         }
@@ -1261,6 +1377,28 @@
     </div>
 </div>
 
+<!-- Recognition Highlights -->
+<div class="row gx-4 mb-5 animate-fade-in-up" style="animation-delay: 0.15s;" aria-live="polite">
+    <div class="col-lg-6">
+        <div class="recognition-card is-empty" id="csatRecognitionCard">
+            <div class="recognition-badge"><i class="fas fa-star"></i> CSAT Champion</div>
+            <div class="recognition-agent" id="csatChampionName">Awaiting feedback</div>
+            <div class="recognition-stat" id="csatChampionValue">—</div>
+            <div class="recognition-meta" id="csatChampionDetail">Capture CSAT responses to spotlight standout conversations.</div>
+            <div class="recognition-footer"><i class="fas fa-comments"></i><span id="csatChampionFooter">No qualifying responses yet</span></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="recognition-card is-empty" id="attRecognitionCard">
+            <div class="recognition-badge"><i class="fas fa-stopwatch"></i> ATT Ace</div>
+            <div class="recognition-agent" id="attChampionName">Awaiting data</div>
+            <div class="recognition-stat" id="attChampionValue">—</div>
+            <div class="recognition-meta" id="attChampionDetail">We will showcase the quickest average talk time once calls are logged.</div>
+            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls yet</span></div>
+        </div>
+    </div>
+</div>
+
 <!-- Enhanced Distribution Charts Row -->
 <div class="row gx-4 mb-5 animate-fade-in-up" style="animation-delay: 0.1s;">
     <!-- Call Distribution (Policy) -->
@@ -1665,6 +1803,7 @@
   function renderEverything(analytics) {
     renderAiInsights(analytics);
     renderKpiCards(analytics);
+    renderRecognitionHighlights(analytics);
     renderPolicyDistChart(analytics.policyDist);
     renderWrapupDistChart(analytics.wrapDist);
     renderCsatChart(analytics.csatDist);
@@ -2173,6 +2312,109 @@
         el.style.transform = 'scale(1)';
       }, 200);
     });
+  }
+
+  function renderRecognitionHighlights(analytics = {}) {
+    const csatCard = document.getElementById('csatRecognitionCard');
+    const attCard = document.getElementById('attRecognitionCard');
+    const csatNameEl = document.getElementById('csatChampionName');
+    const csatValueEl = document.getElementById('csatChampionValue');
+    const csatDetailEl = document.getElementById('csatChampionDetail');
+    const csatFooterEl = document.getElementById('csatChampionFooter');
+    const attNameEl = document.getElementById('attChampionName');
+    const attValueEl = document.getElementById('attChampionValue');
+    const attDetailEl = document.getElementById('attChampionDetail');
+    const attFooterEl = document.getElementById('attChampionFooter');
+
+    if (!csatCard || !attCard) {
+      return;
+    }
+
+    const repMetrics = Array.isArray(analytics.repMetrics) ? analytics.repMetrics : [];
+
+    const csatEligible = repMetrics
+      .map(item => {
+        const yes = Number(item.csatYes ?? 0);
+        const no = Number(item.csatNo ?? 0);
+        const total = Number(item.csatTotal ?? (yes + no));
+        const rate = total > 0 ? Number(item.csatYesRate ?? ((yes / total) * 100)) : null;
+        return {
+          agent: item.agent || '—',
+          yes,
+          no,
+          total,
+          rate
+        };
+      })
+      .filter(entry => entry.total > 0 && Number.isFinite(entry.rate));
+
+    if (!csatEligible.length) {
+      csatCard.classList.add('is-empty');
+      csatNameEl.textContent = 'Awaiting feedback';
+      csatValueEl.textContent = '—';
+      csatDetailEl.textContent = 'Capture CSAT responses to spotlight standout conversations.';
+      csatFooterEl.textContent = 'No qualifying responses yet';
+    } else {
+      const champion = csatEligible.reduce((best, entry) => {
+        if (!best) return entry;
+        if (entry.rate > best.rate) return entry;
+        if (entry.rate === best.rate) {
+          if (entry.total > best.total) return entry;
+          if (entry.total === best.total && entry.agent.localeCompare(best.agent) < 0) return entry;
+        }
+        return best;
+      }, null);
+
+      csatCard.classList.remove('is-empty');
+      const rateDisplay = champion.rate >= 100
+        ? '100% positive'
+        : `${champion.rate.toFixed(1)}% positive`;
+      csatNameEl.textContent = champion.agent;
+      csatValueEl.textContent = rateDisplay;
+      csatDetailEl.textContent = `${champion.yes.toLocaleString()} of ${champion.total.toLocaleString()} CSAT responses were Yes.`;
+      csatFooterEl.textContent = champion.total === 1
+        ? 'Based on 1 response'
+        : `Based on ${champion.total.toLocaleString()} responses`;
+    }
+
+    const attEligible = repMetrics
+      .map(item => {
+        const calls = Number(item.totalCalls || 0);
+        const talkMinutes = Number(item.totalTalk || 0);
+        const avgTalk = calls > 0 ? talkMinutes / calls : null;
+        return {
+          agent: item.agent || '—',
+          calls,
+          talkMinutes,
+          avgTalk
+        };
+      })
+      .filter(entry => entry.avgTalk !== null && Number.isFinite(entry.avgTalk) && entry.calls > 0);
+
+    if (!attEligible.length) {
+      attCard.classList.add('is-empty');
+      attNameEl.textContent = 'Awaiting data';
+      attValueEl.textContent = '—';
+      attDetailEl.textContent = 'We will showcase the quickest average talk time once calls are logged.';
+      attFooterEl.textContent = 'No qualifying calls yet';
+    } else {
+      const champion = attEligible.reduce((best, entry) => {
+        if (!best) return entry;
+        if (entry.avgTalk < best.avgTalk) return entry;
+        if (entry.avgTalk === best.avgTalk) {
+          if (entry.calls > best.calls) return entry;
+          if (entry.calls === best.calls && entry.agent.localeCompare(best.agent) < 0) return entry;
+        }
+        return best;
+      }, null);
+
+      attCard.classList.remove('is-empty');
+      attNameEl.textContent = champion.agent;
+      attValueEl.textContent = formatMinutesToReadable(champion.avgTalk);
+      attDetailEl.textContent = `Average talk time per call across ${champion.calls.toLocaleString()} calls.`;
+      const totalTalkReadable = formatMinutesToReadable(champion.talkMinutes);
+      attFooterEl.textContent = `${totalTalkReadable} total talk time`;
+    }
   }
 
   // Enhanced chart options function

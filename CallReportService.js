@@ -611,7 +611,10 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
         totalTalk: 0,
         totalAnswerSeconds: 0,
         answeredCount: 0,
-        fastAnswerCount: 0
+        fastAnswerCount: 0,
+        csatYes: 0,
+        csatNo: 0,
+        csatTotal: 0
       };
     }
     repMap[agent].totalCalls += 1;
@@ -623,6 +626,15 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       repMap[agent].answeredCount += 1;
       if (answerSeconds <= 30) repMap[agent].fastAnswerCount += 1;
       answerSecondsList.push(answerSeconds);
+    }
+
+    const csatValue = (r.CSAT || '').toString().trim().toLowerCase();
+    if (csatValue === 'yes' || csatValue === 'true' || csatValue === '1') {
+      repMap[agent].csatYes += 1;
+      repMap[agent].csatTotal += 1;
+    } else if (csatValue === 'no' || csatValue === 'false' || csatValue === '0') {
+      repMap[agent].csatNo += 1;
+      repMap[agent].csatTotal += 1;
     }
   });
   const repMetrics = Object.entries(repMap).map(([agent, v]) => {
@@ -636,7 +648,11 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       answeredCount: v.answeredCount,
       averageAnswerSeconds,
       fastAnswerRate,
-      fastAnswerCount: v.fastAnswerCount
+      fastAnswerCount: v.fastAnswerCount,
+      csatYes: v.csatYes,
+      csatNo: v.csatNo,
+      csatTotal: v.csatTotal,
+      csatYesRate: v.csatTotal > 0 ? (v.csatYes / v.csatTotal) * 100 : null
     };
   });
 
