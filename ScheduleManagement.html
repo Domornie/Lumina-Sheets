@@ -310,6 +310,39 @@
         white-space: nowrap;
     }
 
+    .attendance-calendar__participant-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        margin-top: 0.35rem;
+        font-size: 0.75rem;
+        color: rgba(15, 42, 86, 0.65);
+        letter-spacing: 0.01em;
+    }
+
+    .attendance-calendar__participant-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        line-height: 1.3;
+        white-space: normal;
+    }
+
+    .attendance-calendar__participant-meta i {
+        color: rgba(15, 42, 86, 0.5);
+    }
+
+    .attendance-calendar__participant-status {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(15, 42, 86, 0.75);
+    }
+
+    .attendance-calendar__participant-dates {
+        color: rgba(15, 42, 86, 0.6);
+    }
+
     .attendance-calendar__table td {
         text-align: center;
         padding: 0.4rem 0.35rem;
@@ -2560,7 +2593,9 @@
                     'Rehire_Date',
                     'rehire_date',
                     'Rehire Date',
-                    'rehire date'
+                    'rehire date',
+                    'EmploymentStartIso',
+                    'employmentStartIso'
                 ];
                 this.employmentEndFieldNames = [
                     'TerminationDate',
@@ -2600,8 +2635,68 @@
                     'LastWorkingDate',
                     'lastWorkingDate',
                     'Last Working Date',
-                    'last working date'
+                    'last working date',
+                    'EmploymentEndIso',
+                    'employmentEndIso'
                 ];
+                this.employmentStatusAliasMap = new Map([
+                    ['active', 'Active'],
+                    ['activated', 'Active'],
+                    ['inactive', 'Inactive'],
+                    ['terminated', 'Terminated'],
+                    ['leave', 'On Leave'],
+                    ['on leave', 'On Leave'],
+                    ['leave of absence', 'On Leave'],
+                    ['pending', 'Pending'],
+                    ['probation', 'Probation'],
+                    ['probationary', 'Probation'],
+                    ['probationary period', 'Probation'],
+                    ['contract', 'Contract'],
+                    ['contract employee', 'Contract'],
+                    ['contractor', 'Contractor'],
+                    ['consultant', 'Consultant'],
+                    ['consultant/contractor', 'Consultant'],
+                    ['full time', 'Full Time'],
+                    ['full-time', 'Full Time'],
+                    ['fulltime', 'Full Time'],
+                    ['part time', 'Part Time'],
+                    ['part-time', 'Part Time'],
+                    ['parttime', 'Part Time'],
+                    ['seasonal', 'Seasonal'],
+                    ['temporary', 'Temporary'],
+                    ['temp', 'Temporary'],
+                    ['suspended', 'Suspended'],
+                    ['retired', 'Retired'],
+                    ['intern', 'Intern']
+                ]);
+                this.employmentStatusActiveSet = new Set([
+                    'active',
+                    'activated',
+                    'on leave',
+                    'pending',
+                    'probation',
+                    'contract',
+                    'contractor',
+                    'consultant',
+                    'full time',
+                    'full-time',
+                    'fulltime',
+                    'part time',
+                    'part-time',
+                    'parttime',
+                    'seasonal',
+                    'temporary',
+                    'temp',
+                    'intern'
+                ]);
+                this.employmentStatusInactiveSet = new Set([
+                    'inactive',
+                    'terminated',
+                    'suspended',
+                    'retired',
+                    'separated',
+                    'disabled'
+                ]);
                 this.attendanceStatusLegend = [
                     { code: 'P', label: 'Punctual', className: 'attendance-calendar__status--present' },
                     { code: 'B', label: 'Bereavement', className: 'attendance-calendar__status--bereavement' },
@@ -6348,11 +6443,10 @@
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
 
+                    const employmentOptions = { includeInactive: true, includeAllEmployment: true };
                     const [attendanceUsersRaw, scheduleUsersRaw] = await Promise.all([
-                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId),
-                        Array.isArray(this.availableUsers) && this.availableUsers.length
-                            ? Promise.resolve(this.availableUsers)
-                            : this.callServerFunction('clientGetScheduleUsers', managerId, campaignId)
+                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId, employmentOptions),
+                        this.callServerFunction('clientGetScheduleUsers', managerId, campaignId, employmentOptions)
                     ]);
 
                     const scheduleUsers = Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : [];
@@ -6625,7 +6719,7 @@
                         : (metadata && metadata.userName ? metadata.userName : name);
                     const employment = metadata && metadata.employment
                         ? metadata.employment
-                        : { startDate: null, endDate: null, startIso: '', endIso: '' };
+                        : { startDate: null, endDate: null, startIso: '', endIso: '', status: '', statusRaw: '', isStatusActive: true };
 
                     return {
                         identifier,
@@ -6635,14 +6729,19 @@
                         employmentStart: employment && employment.startDate ? new Date(employment.startDate.getTime()) : null,
                         employmentEnd: employment && employment.endDate ? new Date(employment.endDate.getTime()) : null,
                         employmentStartIso: employment && employment.startIso ? employment.startIso : '',
-                        employmentEndIso: employment && employment.endIso ? employment.endIso : ''
+                        employmentEndIso: employment && employment.endIso ? employment.endIso : '',
+                        employmentStatus: employment && employment.status ? employment.status : '',
+                        employmentStatusRaw: employment && employment.statusRaw ? employment.statusRaw : '',
+                        employmentStatusIsActive: employment && typeof employment.isStatusActive === 'boolean'
+                            ? employment.isStatusActive
+                            : true
                     };
                 });
             }
 
             getEmploymentPeriod(user) {
                 if (!user) {
-                    return { startIso: '', endIso: '', startDate: null, endDate: null };
+                    return { startIso: '', endIso: '', startDate: null, endDate: null, status: '', statusRaw: '', isStatusActive: true };
                 }
 
                 const startFieldNames = Array.isArray(this.employmentStartFieldNames)
@@ -6665,11 +6764,38 @@
                     endDate.setHours(23, 59, 59, 999);
                 }
 
+                const statusCandidates = [
+                    user.employmentStatusCanonical,
+                    user.EmploymentStatusCanonical,
+                    user.employmentStatusNormalized,
+                    user.EmploymentStatusNormalized,
+                    user.employmentStatus,
+                    user.EmploymentStatus,
+                    user.Status,
+                    user.status
+                ];
+                let statusRaw = '';
+                for (let i = 0; i < statusCandidates.length; i++) {
+                    const candidate = statusCandidates[i];
+                    if (candidate) {
+                        statusRaw = candidate;
+                        break;
+                    }
+                }
+
+                const normalizedStatus = this.normalizeEmploymentStatusLabel(statusRaw);
+                const isStatusActive = typeof user.employmentStatusIsActive === 'boolean'
+                    ? user.employmentStatusIsActive
+                    : this.isEmploymentStatusActive(normalizedStatus || statusRaw);
+
                 return {
                     startIso: startIso || '',
                     endIso: endIso || '',
                     startDate: startDate instanceof Date && !Number.isNaN(startDate.getTime()) ? startDate : null,
-                    endDate: endDate instanceof Date && !Number.isNaN(endDate.getTime()) ? endDate : null
+                    endDate: endDate instanceof Date && !Number.isNaN(endDate.getTime()) ? endDate : null,
+                    status: normalizedStatus || this.normalizeEmploymentStatusLabel(statusRaw),
+                    statusRaw: statusRaw || '',
+                    isStatusActive
                 };
             }
 
@@ -6699,6 +6825,10 @@
 
                 const terminationDate = employment.endDate instanceof Date ? employment.endDate : this.parseIsoDateToLocal(employment.endIso);
                 if (terminationDate && terminationDate.getTime() < monthStartTime) {
+                    return false;
+                }
+
+                if (employment.isStatusActive === false && !terminationDate) {
                     return false;
                 }
 
@@ -6820,6 +6950,66 @@
                 return null;
             }
 
+            renderParticipantEmploymentMeta(entry) {
+                if (!entry) {
+                    return '';
+                }
+
+                const fragments = [];
+                const statusLabel = this.normalizeEmploymentStatusLabel(entry.employmentStatus || entry.employmentStatusRaw || '');
+                if (statusLabel) {
+                    fragments.push(`<span class="attendance-calendar__participant-status"><i class="fas fa-briefcase"></i>${this.escapeHtml(statusLabel)}</span>`);
+                }
+
+                const startLabel = entry.employmentStartIso ? this.formatDate(entry.employmentStartIso) : '';
+                const endLabel = entry.employmentEndIso ? this.formatDate(entry.employmentEndIso) : '';
+                let rangeLabel = '';
+                if (startLabel && endLabel) {
+                    rangeLabel = `${startLabel} – ${endLabel}`;
+                } else if (startLabel) {
+                    rangeLabel = `Since ${startLabel}`;
+                } else if (endLabel) {
+                    rangeLabel = `Ended ${endLabel}`;
+                }
+
+                if (rangeLabel) {
+                    fragments.push(`<span class="attendance-calendar__participant-dates"><i class="fas fa-calendar-alt"></i>${this.escapeHtml(rangeLabel)}</span>`);
+                }
+
+                if (!fragments.length) {
+                    return '';
+                }
+
+                return `<div class="attendance-calendar__participant-meta">${fragments.join('')}</div>`;
+            }
+
+            buildEmploymentInactiveLabel(entry, dateStr) {
+                const safeDate = dateStr || '';
+                const statusLabel = this.normalizeEmploymentStatusLabel(entry?.employmentStatus || entry?.employmentStatusRaw || '');
+                const startLabel = entry?.employmentStartIso ? this.formatDate(entry.employmentStartIso) : '';
+                const endLabel = entry?.employmentEndIso ? this.formatDate(entry.employmentEndIso) : '';
+
+                const detailParts = [];
+                if (statusLabel) {
+                    detailParts.push(`Status: ${statusLabel}`);
+                }
+
+                if (startLabel && endLabel) {
+                    detailParts.push(`${startLabel} – ${endLabel}`);
+                } else if (startLabel) {
+                    detailParts.push(`Start ${startLabel}`);
+                } else if (endLabel) {
+                    detailParts.push(`End ${endLabel}`);
+                }
+
+                const base = safeDate ? `Not employed on ${safeDate}` : 'Not employed';
+                if (!detailParts.length) {
+                    return base;
+                }
+
+                return `${base} (${detailParts.join(' • ')})`;
+            }
+
             generateAttendanceCalendarGrid(userEntries, year, month, daysInMonth, attendanceMap = new Map()) {
                 const monthDate = new Date(year, month - 1, 1);
                 const monthName = monthDate.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
@@ -6866,11 +7056,17 @@
                     const safeDisplay = this.escapeHtml(entry.displayName || entry.identifier || '');
                     const clickIdentifier = this.escapeForInlineEvent(entry.identifier || entry.original || '');
                     const clickDisplay = this.escapeForInlineEvent(entry.displayName || entry.identifier || '');
+                    const employmentMeta = this.renderParticipantEmploymentMeta(entry);
+                    const normalizedStatus = this.normalizeEmploymentStatusLabel(entry.employmentStatus || entry.employmentStatusRaw || '');
+                    const safeStatusAttr = normalizedStatus ? this.escapeHtml(normalizedStatus) : '';
+                    const employmentRowAttr = safeStatusAttr ? ` data-employment-status="${safeStatusAttr}"` : '';
+                    const employmentActiveAttr = entry.employmentStatusIsActive === false ? ' data-employment-active="false"' : '';
 
                     html += `
-                                        <tr>
+                                        <tr${employmentRowAttr}${employmentActiveAttr}>
                                             <th scope="row" class="attendance-calendar__participant-cell">
                                                 <span class="attendance-calendar__participant-name" title="${safeDisplay}">${safeDisplay}</span>
+                                                ${employmentMeta}
                                             </th>
                     `;
 
@@ -6900,7 +7096,7 @@
                         const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
                         const badgeLabel = badge
                             ? this.escapeHtml(badge.label)
-                            : this.escapeHtml(isEmployedOnDay ? 'Unmarked' : 'Not employed');
+                            : this.escapeHtml(isEmployedOnDay ? 'Unmarked' : this.buildEmploymentInactiveLabel(entry, dateStr));
                         const statusClass = badge
                             ? `attendance-calendar__status ${badge.className}`
                             : `attendance-calendar__status ${isEmployedOnDay ? 'attendance-calendar__status--empty' : 'attendance-calendar__status--inactive'}`;
@@ -6914,8 +7110,11 @@
                         const displayLabel = (entry.displayName || entry.identifier || '').toString();
                         const cellTitle = this.escapeHtml(isEmployedOnDay
                             ? `Right-click or tap to mark attendance for ${displayLabel} on ${dateStr}`
-                            : `${displayLabel} was not employed on ${dateStr}`);
-                        const employmentAttr = isEmployedOnDay ? '' : ' data-attendance-employment="inactive"';
+                            : `${displayLabel} • ${this.buildEmploymentInactiveLabel(entry, dateStr)}`);
+                        const inactiveReasonAttr = !isEmployedOnDay ? this.escapeHtml(this.buildEmploymentInactiveLabel(entry, dateStr)) : '';
+                        const employmentAttr = isEmployedOnDay
+                            ? ''
+                            : ` data-attendance-employment="inactive"${inactiveReasonAttr ? ` data-attendance-employment-reason="${inactiveReasonAttr}"` : ''}`;
                         const interactionAttributes = isEmployedOnDay
                             ? ` onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')" oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"`
                             : '';
@@ -7420,6 +7619,45 @@
                 }
 
                 return '';
+            }
+
+            normalizeEmploymentStatusLabel(status) {
+                const raw = (status === null || typeof status === 'undefined') ? '' : status.toString().trim();
+                if (!raw) {
+                    return '';
+                }
+
+                const lower = raw.toLowerCase();
+                if (this.employmentStatusAliasMap && this.employmentStatusAliasMap.has(lower)) {
+                    return this.employmentStatusAliasMap.get(lower);
+                }
+
+                if (this.employmentStatusAliasMap) {
+                    for (const value of this.employmentStatusAliasMap.values()) {
+                        if (typeof value === 'string' && value.toLowerCase() === lower) {
+                            return value;
+                        }
+                    }
+                }
+
+                return raw;
+            }
+
+            isEmploymentStatusActive(status) {
+                const normalized = (this.normalizeEmploymentStatusLabel(status) || '').toLowerCase();
+                if (!normalized) {
+                    return true;
+                }
+
+                if (this.employmentStatusInactiveSet && this.employmentStatusInactiveSet.has(normalized)) {
+                    return false;
+                }
+
+                if (this.employmentStatusActiveSet && this.employmentStatusActiveSet.has(normalized)) {
+                    return true;
+                }
+
+                return true;
             }
 
             normalizeAttendanceStatusKey(value) {
