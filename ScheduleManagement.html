@@ -3851,15 +3851,22 @@
                         await this.loadShiftSlots();
                     } else {
                         if (normalized.needsLegacyFallback) {
-                            const confirmed = await this.confirmShiftSlotCreation(slotData);
+                            const confirmed = await this.confirmShiftSlotCreation(slotData, { attempts: 4, delayMs: 450 });
                             if (confirmed) {
-                                const fallbackMessage = 'Shift slot created, but the server did not send a confirmation. The schedule has been refreshed.';
-                                console.warn('Shift slot creation confirmed via post-check despite missing server response.');
-                                this.showToast(fallbackMessage, 'warning');
+                                const fallbackMessage = 'Shift slot created successfully. Server confirmation was delayed, but we verified it and refreshed the schedule.';
+                                console.info('Shift slot creation confirmed via post-check despite missing server response.');
+                                this.showToast(fallbackMessage, 'success');
                                 this.resetShiftSlotForm();
                                 await this.loadShiftSlots();
                                 return;
                             }
+
+                            const fallbackMessage = 'The server did not confirm the shift slot creation. We refreshed the schedule so you can verify the new slot manually.';
+                            console.warn('Shift slot creation could not be confirmed due to missing server response.');
+                            this.showToast(fallbackMessage, 'warning');
+                            this.resetShiftSlotForm();
+                            await this.loadShiftSlots();
+                            return;
                         }
 
                         throw new Error(normalized.error || 'Failed to create shift slot');
@@ -3897,6 +3904,14 @@
                     }
                     return String(value).trim();
                 };
+                const successTokens = ['success', 'ok', 'created', 'done', 'completed', 'saved'];
+                const hasSuccessKeyword = (text) => {
+                    if (!text) {
+                        return false;
+                    }
+                    const normalized = text.toLowerCase();
+                    return successTokens.some(token => normalized.includes(token));
+                };
 
                 if (rawResult && typeof rawResult === 'object') {
                     if (rawResult.success === true) {
@@ -3904,6 +3919,15 @@
                             success: true,
                             message: coerceString(rawResult.message) || coerceString(rawResult.status),
                             data: rawResult,
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.result === true) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || 'Shift slot created successfully',
+                            data: Object.assign({ success: true }, rawResult),
                             needsLegacyFallback: false
                         };
                     }
@@ -3918,11 +3942,81 @@
                         };
                     }
 
-                    const potentialMessage = coerceString(rawResult.message || rawResult.status || rawResult.result);
-                    if (potentialMessage && potentialMessage.toLowerCase().includes('success')) {
+                    const nestedResult = rawResult.result;
+                    if (nestedResult && typeof nestedResult === 'object') {
+                        if (nestedResult.success === true) {
+                            return {
+                                success: true,
+                                message: coerceString(nestedResult.message) || coerceString(rawResult.message) || 'Shift slot created successfully',
+                                data: Object.assign({ success: true }, rawResult, nestedResult),
+                                needsLegacyFallback: false
+                            };
+                        }
+
+                        const nestedMessage = coerceString(nestedResult.message || nestedResult.status);
+                        if (hasSuccessKeyword(nestedMessage)) {
+                            return {
+                                success: true,
+                                message: nestedMessage,
+                                data: Object.assign({ success: true }, rawResult, { message: nestedMessage }),
+                                needsLegacyFallback: false
+                            };
+                        }
+                    }
+
+                    const candidateMessages = [
+                        rawResult.message,
+                        rawResult.status,
+                        rawResult.result,
+                        rawResult.state,
+                        rawResult.outcome,
+                        rawResult.statusText
+                    ].map(value => coerceString(value)).filter(Boolean);
+
+                    const successMessage = candidateMessages.find(hasSuccessKeyword);
+                    if (successMessage) {
                         return {
                             success: true,
-                            message: potentialMessage,
+                            message: successMessage,
+                            data: Object.assign({ success: true }, rawResult, { message: successMessage }),
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.slot && typeof rawResult.slot === 'object') {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || 'Shift slot created successfully',
+                            data: Object.assign({ success: true }, rawResult),
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.data && typeof rawResult.data === 'object') {
+                        if (rawResult.data.success === true) {
+                            return {
+                                success: true,
+                                message: coerceString(rawResult.data.message) || coerceString(rawResult.message) || 'Shift slot created successfully',
+                                data: Object.assign({ success: true }, rawResult, rawResult.data),
+                                needsLegacyFallback: false
+                            };
+                        }
+
+                        const dataMessage = coerceString(rawResult.data.message || rawResult.data.status);
+                        if (hasSuccessKeyword(dataMessage)) {
+                            return {
+                                success: true,
+                                message: dataMessage,
+                                data: Object.assign({ success: true }, rawResult, rawResult.data),
+                                needsLegacyFallback: false
+                            };
+                        }
+                    }
+
+                    if (typeof rawResult.statusCode === 'number' && rawResult.statusCode >= 200 && rawResult.statusCode < 300) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || `Shift slot created (status ${rawResult.statusCode})`,
                             data: Object.assign({ success: true }, rawResult),
                             needsLegacyFallback: false
                         };
@@ -3974,7 +4068,7 @@
                         };
                     }
 
-                    if (['success', 'ok', 'created', 'done', 'completed'].some(token => trimmed.toLowerCase().includes(token))) {
+                    if (['success', 'ok', 'created', 'done', 'completed', 'saved'].some(token => trimmed.toLowerCase().includes(token))) {
                         return {
                             success: true,
                             message: trimmed,
@@ -4008,49 +4102,158 @@
                 };
             }
 
-            async confirmShiftSlotCreation(slotData) {
-                try {
+            async confirmShiftSlotCreation(slotData, options = {}) {
+                const { attempts = 3, delayMs = 400 } = options || {};
+                const attemptLimit = Number.isFinite(attempts) && attempts > 0 ? Math.min(Math.floor(attempts), 10) : 1;
+                const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+                const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
+                const normalizeTime = (value) => {
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+
+                    const coerceToTimeTuple = (input) => {
+                        if (input instanceof Date) {
+                            return [input.getHours(), input.getMinutes()];
+                        }
+
+                        const stringValue = input.toString().trim();
+                        if (!stringValue) {
+                            return null;
+                        }
+
+                        const meridiemMatch = stringValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(AM|PM)$/i);
+                        if (meridiemMatch) {
+                            let hours = parseInt(meridiemMatch[1], 10) % 12;
+                            if (meridiemMatch[4].toUpperCase() === 'PM') {
+                                hours += 12;
+                            }
+                            const minutes = meridiemMatch[2] !== undefined ? parseInt(meridiemMatch[2], 10) : 0;
+                            return [hours, Number.isFinite(minutes) ? minutes : 0];
+                        }
+
+                        const directMatch = stringValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2})(?:\.(\d+))?)?$/);
+                        if (directMatch) {
+                            const hours = parseInt(directMatch[1], 10);
+                            const minutes = directMatch[2] !== undefined ? parseInt(directMatch[2], 10) : 0;
+                            return [hours, Number.isFinite(minutes) ? minutes : 0];
+                        }
+
+                        const compactMatch = stringValue.match(/^(\d{1,2})(\d{2})$/);
+                        if (compactMatch) {
+                            return [parseInt(compactMatch[1], 10), parseInt(compactMatch[2], 10)];
+                        }
+
+                        const meridiemShortMatch = stringValue.match(/^(\d{1,2})\s*(AM|PM)$/i);
+                        if (meridiemShortMatch) {
+                            let hours = parseInt(meridiemShortMatch[1], 10) % 12;
+                            if (meridiemShortMatch[2].toUpperCase() === 'PM') {
+                                hours += 12;
+                            }
+                            return [hours, 0];
+                        }
+
+                        const numericValue = Number(stringValue);
+                        if (!Number.isNaN(numericValue)) {
+                            if (numericValue >= 0 && numericValue < 1) {
+                                const totalMinutes = Math.round(numericValue * 24 * 60);
+                                return [Math.floor(totalMinutes / 60), totalMinutes % 60];
+                            }
+
+                            const millisDate = new Date(numericValue);
+                            if (!Number.isNaN(millisDate.getTime())) {
+                                return [millisDate.getUTCHours(), millisDate.getUTCMinutes()];
+                            }
+                        }
+
+                        const parsedDate = new Date(stringValue);
+                        if (!Number.isNaN(parsedDate.getTime())) {
+                            return [parsedDate.getHours(), parsedDate.getMinutes()];
+                        }
+
+                        return null;
+                    };
+
+                    const timeTuple = coerceToTimeTuple(value);
+                    if (!timeTuple) {
+                        return value.toString().trim();
+                    }
+
+                    const [hours, minutes] = timeTuple;
+                    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+                        return value.toString().trim();
+                    }
+
+                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                };
+                const normalizeDays = (days) => {
+                    if (Array.isArray(days)) {
+                        return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                    }
+                    if (typeof days === 'string') {
+                        return days
+                            .split(/[^0-9]+/)
+                            .map(day => parseInt(day, 10))
+                            .filter(Number.isFinite)
+                            .sort((a, b) => a - b)
+                            .join(',');
+                    }
+                    return '';
+                };
+
+                const expectedName = normalizeString(slotData.name);
+                const expectedStart = normalizeTime(slotData.startTime);
+                const expectedEnd = normalizeTime(slotData.endTime);
+                const expectedDays = normalizeDays(slotData.daysOfWeek);
+
+                const matchesSlot = (slot) => {
+                    if (!slot || typeof slot !== 'object') {
+                        return false;
+                    }
+
+                    const slotName = normalizeString(slot.Name || slot.name);
+                    const slotStart = normalizeTime(slot.StartTime || slot.startTime);
+                    const slotEnd = normalizeTime(slot.EndTime || slot.endTime);
+                    const slotDays = normalizeDays(slot.DaysOfWeekArray || slot.DaysOfWeek || slot.daysOfWeek);
+
+                    return slotName === expectedName &&
+                        slotStart === expectedStart &&
+                        slotEnd === expectedEnd &&
+                        (!!expectedDays ? slotDays === expectedDays : true);
+                };
+
+                let lastError = null;
+
+                const performCheck = async () => {
                     const slots = await this.callServerFunction('clientGetAllShiftSlots');
                     if (!Array.isArray(slots)) {
                         return false;
                     }
+                    return slots.some(matchesSlot);
+                };
 
-                    const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
-                    const normalizeTime = (value) => (value || '').toString().trim();
-                    const normalizeDays = (days) => {
-                        if (Array.isArray(days)) {
-                            return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                for (let attempt = 0; attempt < attemptLimit; attempt++) {
+                    try {
+                        const matched = await performCheck();
+                        if (matched) {
+                            return true;
                         }
-                        if (typeof days === 'string') {
-                            return days.split(',').map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
-                        }
-                        return '';
-                    };
+                    } catch (error) {
+                        lastError = error;
+                        break;
+                    }
 
-                    const expectedName = normalizeString(slotData.name);
-                    const expectedStart = normalizeTime(slotData.startTime);
-                    const expectedEnd = normalizeTime(slotData.endTime);
-                    const expectedDays = normalizeDays(slotData.daysOfWeek);
-
-                    return slots.some(slot => {
-                        if (!slot || typeof slot !== 'object') {
-                            return false;
-                        }
-
-                        const slotName = normalizeString(slot.Name || slot.name);
-                        const slotStart = normalizeTime(slot.StartTime || slot.startTime);
-                        const slotEnd = normalizeTime(slot.EndTime || slot.endTime);
-                        const slotDays = normalizeDays(slot.DaysOfWeekArray || slot.DaysOfWeek || slot.daysOfWeek);
-
-                        return slotName === expectedName &&
-                            slotStart === expectedStart &&
-                            slotEnd === expectedEnd &&
-                            (!!expectedDays ? slotDays === expectedDays : true);
-                    });
-                } catch (error) {
-                    console.warn('Unable to verify shift slot creation after missing response:', error);
-                    return false;
+                    if (attempt < attemptLimit - 1 && delayMs > 0) {
+                        await delay(delayMs);
+                    }
                 }
+
+                if (lastError) {
+                    console.warn('Unable to verify shift slot creation after missing response:', lastError);
+                }
+
+                return false;
             }
 
             validateEnhancedShiftSlot(slotData) {
