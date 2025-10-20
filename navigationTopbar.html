@@ -74,6 +74,8 @@
     <span class="current-page"><?= currentPageValue ?></span>
   </div>
 
+  <div class="topbar-insights" id="topbarInsights" role="list" aria-label="Workspace insights"></div>
+
   <div class="top-actions">
     <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
       <i class="fas fa-bell"></i>
@@ -102,3 +104,361 @@
     </button>
   </div>
 </div>
+
+<script>
+  (function () {
+    'use strict';
+
+    var insightsContainer = document.getElementById('topbarInsights');
+    if (!insightsContainer) {
+      return;
+    }
+
+    var locale = navigator.language || 'en-US';
+
+    function safeText(value, fallback) {
+      if (value === null || typeof value === 'undefined') {
+        return fallback;
+      }
+
+      var trimmed = String(value).trim();
+      return trimmed ? trimmed : fallback;
+    }
+
+    function formatDateLabel(date) {
+      try {
+        return new Intl.DateTimeFormat(locale, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        }).format(date);
+      } catch (error) {
+        return date.toDateString();
+      }
+    }
+
+    function formatTimeLabel(date) {
+      try {
+        return new Intl.DateTimeFormat(locale, {
+          hour: '2-digit',
+          minute: '2-digit'
+        }).format(date);
+      } catch (error) {
+        return date.toLocaleTimeString();
+      }
+    }
+
+    function isDaylightSavingActive(date) {
+      try {
+        var januaryOffset = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+        var julyOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+        return Math.min(januaryOffset, julyOffset) !== date.getTimezoneOffset();
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function minutesUntilQuarterHour(date) {
+      var minutes = date.getMinutes();
+      var remainder = minutes % 15;
+      if (remainder === 0) {
+        return 'Refreshing now';
+      }
+
+      return (15 - remainder) + 'm to refresh';
+    }
+
+    function addDays(date, days) {
+      var copy = new Date(date.getTime());
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    }
+
+    function nextSprintDate(date) {
+      var day = date.getDay();
+      var offset = (8 - day) % 7;
+      if (offset === 0) {
+        offset = 7;
+      }
+      return addDays(date, offset);
+    }
+
+    function formatShortDate(date) {
+      try {
+        return new Intl.DateTimeFormat(locale, {
+          month: 'short',
+          day: 'numeric'
+        }).format(date);
+      } catch (error) {
+        return date.toLocaleDateString();
+      }
+    }
+
+    function approximateLatency(date) {
+      var base = 120;
+      var jitter = (date.getSeconds() % 30) * 3;
+      return '~' + (base + jitter) + 'ms';
+    }
+
+    function availabilityLabel(date) {
+      var day = date.getDay();
+      if (day === 0 || day === 6) {
+        return 'Weekend';
+      }
+
+      var hour = date.getHours();
+      if (hour < 8 || hour >= 18) {
+        return 'After hours';
+      }
+
+      return 'Open slots';
+    }
+
+    function normalizePage(value) {
+      return safeText(value, 'home').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
+    function ensureNumber(value, fallback) {
+      var parsed = Number(value);
+      return Number.isFinite(parsed) ? String(parsed) : fallback;
+    }
+
+    function chatUnreadCount() {
+      return ensureNumber(window.__luminaChatUnread, '0');
+    }
+
+    function presenceLabel() {
+      var presence = safeText(window.__luminaPresence, 'Auto');
+      return presence || 'Auto';
+    }
+
+    var normalizedPageKey = normalizePage(currentPageValue);
+
+    var pageInsightsMap = {
+      'dashboard': function (now) {
+        return [
+          {
+            label: 'Pulse',
+            value: 'Live KPIs',
+            hint: 'Dashboard.html',
+            icon: 'fas fa-wave-square'
+          },
+          {
+            label: 'Next Sync',
+            value: minutesUntilQuarterHour(now),
+            hint: 'DashboardOKRService.js',
+            icon: 'fas fa-sync'
+          }
+        ];
+      },
+      'campaign management': function (now) {
+        return [
+          {
+            label: 'Service',
+            value: 'CampaignService.js',
+            hint: 'Workflow orchestrator',
+            icon: 'fas fa-bullseye'
+          },
+          {
+            label: 'Next Review',
+            value: formatShortDate(addDays(now, 2)),
+            hint: 'ScheduleUtilities.js',
+            icon: 'fas fa-calendar-check'
+          }
+        ];
+      },
+      'search': function (now) {
+        return [
+          {
+            label: 'Indexer',
+            value: 'SearchService.js',
+            hint: 'Realtime ingestion',
+            icon: 'fas fa-database'
+          },
+          {
+            label: 'Latency',
+            value: approximateLatency(now),
+            hint: 'SearchDeploymentService.js',
+            icon: 'fas fa-tachometer-alt'
+          }
+        ];
+      },
+      'quality view': function () {
+        return [
+          {
+            label: 'QA Engine',
+            value: 'QualityService.js',
+            hint: 'Evaluation hooks',
+            icon: 'fas fa-check-double'
+          },
+          {
+            label: 'Cycle',
+            value: 'Bi-weekly',
+            hint: 'QualityCollabView.html',
+            icon: 'fas fa-clipboard-list'
+          }
+        ];
+      },
+      'task board': function (now) {
+        return [
+          {
+            label: 'Workflow',
+            value: 'Kanban',
+            hint: 'TaskBoard.html',
+            icon: 'fas fa-columns'
+          },
+          {
+            label: 'Next Sprint',
+            value: formatShortDate(nextSprintDate(now)),
+            hint: 'TaskService.js',
+            icon: 'fas fa-flag-checkered'
+          }
+        ];
+      },
+      'calendar': function (now) {
+        return [
+          {
+            label: 'Sync',
+            value: 'ScheduleService.js',
+            hint: 'Auto-alignment',
+            icon: 'fas fa-stream'
+          },
+          {
+            label: 'Availability',
+            value: availabilityLabel(now),
+            hint: 'Calendar.html',
+            icon: 'fas fa-clock'
+          }
+        ];
+      },
+      'chat': function () {
+        return [
+          {
+            label: 'Presence',
+            value: presenceLabel(),
+            hint: 'ChatService.js',
+            icon: 'fas fa-signal'
+          },
+          {
+            label: 'Unread',
+            value: chatUnreadCount(),
+            hint: 'Chat.html',
+            icon: 'fas fa-envelope-open-text'
+          }
+        ];
+      },
+      'default': function () {
+        return [
+          {
+            label: 'Workspace',
+            value: 'Lumina Sheets',
+            hint: 'Unified operations',
+            icon: 'fas fa-layer-group'
+          }
+        ];
+      }
+    };
+
+    pageInsightsMap['campaignmanagement'] = pageInsightsMap['campaign management'];
+    pageInsightsMap['qualityview'] = pageInsightsMap['quality view'];
+    pageInsightsMap['taskboard'] = pageInsightsMap['task board'];
+
+    function buildInsightCards() {
+      var now = new Date();
+      var timezone;
+      try {
+        timezone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch (error) {
+        timezone = 'UTC';
+      }
+
+      var dstActive = isDaylightSavingActive(now);
+      var baseInsights = [
+        {
+          label: 'Today',
+          value: formatDateLabel(now),
+          hint: dstActive ? 'Daylight saving active' : 'Standard time',
+          icon: 'fas fa-sun'
+        },
+        {
+          label: 'Local Time',
+          value: formatTimeLabel(now),
+          hint: timezone || 'Local time zone',
+          icon: 'fas fa-clock'
+        },
+        {
+          label: 'Campaign',
+          value: safeText(campaignNameValue, 'No campaign'),
+          hint: 'CampaignService.js',
+          icon: 'fas fa-bullhorn'
+        }
+      ];
+
+      var builder = pageInsightsMap[normalizedPageKey] || pageInsightsMap.default;
+      var pageInsights = [];
+
+      try {
+        pageInsights = builder(now) || [];
+      } catch (error) {
+        pageInsights = pageInsightsMap.default(now);
+      }
+
+      var combined = baseInsights.concat(pageInsights);
+
+      insightsContainer.textContent = '';
+      insightsContainer.setAttribute('data-page', normalizedPageKey || 'home');
+
+      combined.forEach(function (insight) {
+        var card = document.createElement('div');
+        card.className = 'topbar-insight';
+        card.setAttribute('role', 'listitem');
+
+        var header = document.createElement('div');
+        header.className = 'topbar-insight-header';
+
+        if (insight.icon) {
+          var icon = document.createElement('i');
+          icon.className = insight.icon + ' topbar-insight-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          header.appendChild(icon);
+        }
+
+        var label = document.createElement('span');
+        label.className = 'topbar-insight-label';
+        label.textContent = safeText(insight.label, 'Insight');
+        header.appendChild(label);
+
+        card.appendChild(header);
+
+        var value = document.createElement('span');
+        value.className = 'topbar-insight-value';
+        value.textContent = safeText(insight.value, '--');
+        card.appendChild(value);
+
+        if (insight.hint) {
+          var hint = document.createElement('span');
+          hint.className = 'topbar-insight-hint';
+          hint.textContent = safeText(insight.hint, '');
+          card.appendChild(hint);
+        }
+
+        insightsContainer.appendChild(card);
+      });
+    }
+
+    buildInsightCards();
+    setInterval(buildInsightCards, 60000);
+
+    try {
+      var observer = new MutationObserver(function () {
+        buildInsightCards();
+      });
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme']
+      });
+    } catch (error) {
+      /* MutationObserver not supported */
+    }
+  })();
+</script>
