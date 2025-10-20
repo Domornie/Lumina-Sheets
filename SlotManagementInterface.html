@@ -582,8 +582,22 @@
             }
 
             normalizeShiftSlotResponse(rawResult) {
-                const success = (slots, message = '') => ({ success: true, slots, message });
-                const failure = (message = '') => ({ success: false, slots: [], message });
+                const success = (slots, message = '', metadata = {}) => ({ success: true, slots, message, metadata });
+                const failure = (message = '', metadata = {}) => ({ success: false, slots: [], message, metadata });
+
+                const mergeMetadata = (base, extra) => {
+                    if (!extra || typeof extra !== 'object') {
+                        return base;
+                    }
+                    const merged = { ...base };
+                    Object.entries(extra).forEach(([key, value]) => {
+                        if (value === undefined) {
+                            return;
+                        }
+                        merged[key] = value;
+                    });
+                    return merged;
+                };
 
                 const coerceArray = (value) => {
                     if (!value) {
@@ -634,68 +648,72 @@
                 };
 
                 if (Array.isArray(rawResult)) {
-                    return success(coerceArray(rawResult));
+                    const slots = coerceArray(rawResult);
+                    return success(slots, '', {});
                 }
 
                 if (!rawResult) {
-                    return success([]);
+                    return success([], '', {});
                 }
 
                 if (typeof rawResult === 'string') {
                     const trimmed = rawResult.trim();
                     if (!trimmed) {
-                        return success([]);
+                        return success([], '', {});
                     }
 
                     if (/no (shift\s*)?slots?/i.test(trimmed)) {
-                        return success([], trimmed);
+                        return success([], trimmed, {});
                     }
 
                     if (/(success|ok|done|created|completed)/i.test(trimmed)) {
-                        return success([], trimmed);
+                        return success([], trimmed, {});
                     }
 
                     return failure(trimmed);
                 }
 
                 if (typeof rawResult === 'object') {
+                    const rootMetadata = mergeMetadata({}, rawResult.metadata);
+
                     if (rawResult.success === false) {
                         const message = rawResult.error || rawResult.message || 'Server reported failure';
                         if (message && /no (shift\s*)?slots?/i.test(message)) {
-                            return success([], message);
+                            return success([], message, rootMetadata);
                         }
-                        return failure(message);
+                        return failure(message, rootMetadata);
                     }
 
                     const candidateArrays = [
-                        rawResult.slots,
-                        rawResult.data?.slots,
-                        rawResult.result?.slots,
-                        rawResult.records,
-                        rawResult.items,
-                        rawResult.values
+                        { data: rawResult.slots, metadata: rootMetadata },
+                        { data: rawResult.data?.slots, metadata: mergeMetadata(rootMetadata, rawResult.data?.metadata) },
+                        { data: rawResult.result?.slots, metadata: mergeMetadata(rootMetadata, rawResult.result?.metadata) },
+                        { data: rawResult.records, metadata: rootMetadata },
+                        { data: rawResult.items, metadata: rootMetadata },
+                        { data: rawResult.values, metadata: rootMetadata }
                     ];
 
                     for (const candidate of candidateArrays) {
-                        const normalized = coerceArray(candidate);
+                        const normalized = coerceArray(candidate.data);
                         if (normalized.length) {
-                            return success(normalized, rawResult.message || rawResult.status);
+                            return success(normalized, rawResult.message || rawResult.status || '', candidate.metadata);
                         }
                     }
 
                     if (rawResult.success === true) {
                         const normalizedData = coerceArray(rawResult.data);
                         if (normalizedData.length) {
-                            return success(normalizedData, rawResult.message || '');
+                            const dataMetadata = mergeMetadata(rootMetadata, rawResult.data?.metadata);
+                            return success(normalizedData, rawResult.message || '', dataMetadata);
                         }
                     }
 
                     const singleSlot = coerceArray(rawResult);
                     if (singleSlot.length) {
-                        return success(singleSlot, rawResult.message || '');
+                        return success(singleSlot, rawResult.message || '', rootMetadata);
                     }
 
-                    return success([], rawResult.message || '');
+                    return success([], rawResult.message || '', rootMetadata);
                 }
 
                 return failure('Unexpected response from server');
