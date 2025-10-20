@@ -5655,17 +5655,6 @@
                         attendanceMap
                     );
 
-            buildEmploymentKeyLookup(users = []) {
-                const lookup = new Set();
-
-                if (!Array.isArray(users) || !users.length) {
-                    return lookup;
-                }
-
-                users.forEach(user => {
-                    this.collectUserIdentityKeys(user).forEach(key => lookup.add(key));
-                });
-
                 return lookup;
             }
 
@@ -5848,42 +5837,84 @@
                 const hireIso = this.resolveEmploymentIsoDate(user, [
                     'HireDate',
                     'hireDate',
-                    'EmploymentStart',
-                    'employmentStart',
-                    'EmploymentStartDate',
-                    'employmentStartDate',
-                    'StartDate',
-                    'startDate',
-                    'Start_Date',
-                    'start_date',
-                    'DateHired',
-                    'dateHired',
                     'Hire_Date',
                     'hire_date',
+                    'Hire Date',
+                    'hire date',
+                    'DateHired',
+                    'dateHired',
+                    'Date Hired',
+                    'date hired',
                     'OnboardDate',
-                    'onboardDate'
+                    'onboardDate',
+                    'Onboard Date',
+                    'onboard date',
+                    'EmploymentStart',
+                    'employmentStart',
+                    'Employment Start',
+                    'employment start',
+                    'EmploymentStartDate',
+                    'employmentStartDate',
+                    'Employment Start Date',
+                    'employment start date',
+                    'StartDate',
+                    'startDate',
+                    'Start Date',
+                    'start date',
+                    'Start_Date',
+                    'start_date',
+                    'OriginalHireDate',
+                    'originalHireDate',
+                    'Original_Hire_Date',
+                    'original_hire_date',
+                    'Original Hire Date',
+                    'original hire date',
+                    'RehireDate',
+                    'rehireDate',
+                    'Rehire_Date',
+                    'rehire_date',
+                    'Rehire Date',
+                    'rehire date'
                 ]);
                 const terminationIso = this.resolveEmploymentIsoDate(user, [
                     'TerminationDate',
                     'terminationDate',
+                    'Termination Date',
+                    'termination date',
                     'EndDate',
                     'endDate',
+                    'End Date',
+                    'end date',
                     'End_Date',
                     'end_date',
                     'EmploymentEnd',
                     'employmentEnd',
+                    'Employment End',
+                    'employment end',
                     'EmploymentEndDate',
                     'employmentEndDate',
+                    'Employment End Date',
+                    'employment end date',
                     'DateOfTermination',
                     'dateOfTermination',
+                    'Date Of Termination',
+                    'date of termination',
                     'Termination',
                     'termination',
                     'Termination_Date',
                     'termination_date',
+                    'Termination Date',
+                    'termination date',
                     'SeparationDate',
                     'separationDate',
+                    'Separation Date',
+                    'separation date',
+                    'Separation_Date',
+                    'separation_date',
                     'LastWorkingDate',
-                    'lastWorkingDate'
+                    'lastWorkingDate',
+                    'Last Working Date',
+                    'last working date'
                 ]);
 
                 const hireDate = this.parseIsoDateToLocal(hireIso);
@@ -5917,10 +5948,15 @@
                 return Number.isNaN(date.getTime()) ? null : date;
             }
 
-            resolveEmploymentIsoDate(user, fieldNames = []) {
+            resolveEmploymentIsoDate(user, fieldNames = [], visited = new Set()) {
                 if (!user || !Array.isArray(fieldNames) || !fieldNames.length) {
                     return '';
                 }
+
+                if (visited.has(user)) {
+                    return '';
+                }
+                visited.add(user);
 
                 for (let index = 0; index < fieldNames.length; index++) {
                     const fieldName = fieldNames[index];
@@ -5930,6 +5966,30 @@
 
                     const rawValue = user[fieldName];
                     const normalized = this.normalizeAttendanceDateValue(rawValue);
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                const nestedSources = [
+                    user.Employment,
+                    user.employment,
+                    user.EmploymentDetails,
+                    user.employmentDetails,
+                    user.EmploymentInfo,
+                    user.employmentInfo,
+                    user.HRProfile,
+                    user.hrProfile,
+                    user.HrProfile
+                ];
+
+                for (let index = 0; index < nestedSources.length; index++) {
+                    const nested = nestedSources[index];
+                    if (!nested || typeof nested !== 'object') {
+                        continue;
+                    }
+
+                    const normalized = this.resolveEmploymentIsoDate(nested, fieldNames, visited);
                     if (normalized) {
                         return normalized;
                     }
@@ -6478,6 +6538,55 @@
                     return this.toIsoDateString(value);
                 }
 
+                if (Array.isArray(value)) {
+                    for (let index = 0; index < value.length; index++) {
+                        const candidate = this.normalizeAttendanceDateValue(value[index]);
+                        if (candidate) {
+                            return candidate;
+                        }
+                    }
+                    return '';
+                }
+
+                if (value && typeof value === 'object') {
+                    const objectCandidates = [
+                        value.iso,
+                        value.ISO,
+                        value.date,
+                        value.Date,
+                        value.value,
+                        value.Value,
+                        value.start,
+                        value.Start,
+                        value.startDate,
+                        value.StartDate,
+                        value.end,
+                        value.End,
+                        value.endDate,
+                        value.EndDate,
+                        value.timestamp,
+                        value.Timestamp,
+                        value.time,
+                        value.Time
+                    ];
+
+                    for (let index = 0; index < objectCandidates.length; index++) {
+                        const candidate = this.normalizeAttendanceDateValue(objectCandidates[index]);
+                        if (candidate) {
+                            return candidate;
+                        }
+                    }
+
+                    if (Number.isFinite(value.year) && Number.isFinite(value.month) && Number.isFinite(value.day)) {
+                        const composed = new Date(value.year, value.month - 1, value.day);
+                        if (!Number.isNaN(composed.getTime())) {
+                            return this.toIsoDateString(composed);
+                        }
+                    }
+
+                    return '';
+                }
+
                 if (typeof value === 'string') {
                     const trimmed = value.trim();
                     if (!trimmed) {
@@ -6603,9 +6712,12 @@
                         this.pendingImportSummary = parseResult.summary;
                     }
 
-                    const { schedules, summary } = parseResult;
+                    const schedules = parseResult && Array.isArray(parseResult.schedules)
+                        ? parseResult.schedules
+                        : [];
+                    const summary = parseResult ? parseResult.summary : null;
 
-                    if (!schedules || schedules.length === 0) {
+                    if (!schedules.length) {
                         this.renderImportPreview([], options, summary);
                         this.showToast('No schedules were detected in the provided data.', 'warning');
                         return;
