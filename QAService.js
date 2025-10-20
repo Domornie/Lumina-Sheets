@@ -30,7 +30,7 @@ function clientGetQualityDetail(id, context) {
 
 function qaWeights_() {
   return {
-    q1: 3, q2: 5, q3: 7, q4: 10, q5: 5,
+    q1: 3, q2: 5, q3: 7, q4: 10, q5: 5, q19: 5,
     q6: 8, q7: 8, q8: 15, q9: 9,
     q10: 8, q11: 6, q12: 6, q13: 7, q14: 3,
     q15: 10, q16: 5, q17: 4, q18: 5
@@ -56,7 +56,8 @@ function qaQuestionText_() {
     q15: 'Did the agent offer the survey at the end of the call?',
     q16: 'Did the agent create the call case correctly/Wrap-Up the call?',
     q17: 'Did the agent modify case fields to avoid survey going to the customer?',
-    q18: 'Did the customer respond positively to the survey?'
+    q18: 'Did the customer respond positively to the survey?',
+    q19: 'Was the call free of unnecessary dead air?'
   };
 }
 
@@ -302,7 +303,7 @@ function validateRequiredFields_(data) {
   
   // Validate at least some QA questions are answered
   const qaAnswers = [];
-  for (let i = 1; i <= 18; i++) {
+  for (let i = 1; i <= 19; i++) {
     const answer = data['q' + i];
     if (answer && answer !== 'na') {
       qaAnswers.push(answer);
@@ -428,7 +429,7 @@ function calculateQAScore_(data) {
     // Use existing scoring function if available
     if (typeof computeEnhancedQaScore === 'function') {
       const answers = {};
-      for (let i = 1; i <= 18; i++) {
+      for (let i = 1; i <= 19; i++) {
         answers['q' + i] = data['q' + i] || '';
       }
       return computeEnhancedQaScore(answers);
@@ -510,7 +511,7 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'Notes': return data.notes || '';
         case 'AgentFeedback': return data.agentFeedback || '';
         default:
-          // Handle Q1-Q18 answers and their note columns
+          // Handle Q1-Q19 answers and their note columns
           const questionMatch = col.match(/^Q(\d+)$/i);
           if (questionMatch) {
             const qKey = ('q' + questionMatch[1]).toLowerCase();
@@ -2329,7 +2330,7 @@ function formatPeriodLabel_(granularity, period) {
 
 function qaCategories_() {
   return {
-    'Courtesy & Communication': ['q1', 'q2', 'q3', 'q4', 'q5'],
+    'Courtesy & Communication': ['q1', 'q2', 'q3', 'q4', 'q5', 'q19'],
     'Resolution': ['q6', 'q7', 'q8', 'q9'],
     'Case Documentation': ['q10', 'q11', 'q12', 'q13', 'q14'],
     'Process Compliance': ['q15', 'q16', 'q17', 'q18']
@@ -2538,7 +2539,7 @@ function testPdfGeneration() {
       Q1: 'Yes', Q2: 'Yes', Q3: 'Yes', Q4: 'Yes', Q5: 'Yes',
       Q6: 'Yes', Q7: 'Yes', Q8: 'Yes', Q9: 'Yes',
       Q10: 'Yes', Q11: 'Yes', Q12: 'No', Q13: 'Yes', Q14: 'N/A',
-      Q15: 'Yes', Q16: 'Yes', Q17: 'No', Q18: 'Yes',
+      Q15: 'Yes', Q16: 'Yes', Q17: 'No', Q18: 'Yes', Q19: 'Yes',
       'Q1 Note': 'Great opening', 'Q2 Note': 'Good closing',
       OverallFeedback: '<p>Overall <strong>excellent</strong> performance with minor areas for improvement.</p>',
       TotalScore: 85,

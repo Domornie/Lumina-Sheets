@@ -1484,10 +1484,10 @@ function sendQAResultsEmail(emailData) {
  */
 function generateCategoryBreakdown(scoreResult) {
   const categories = {
-    'Courtesy & Communication': { questions: ['q1', 'q2', 'q3', 'q4', 'q5'], maxPoints: 30 },
+    'Courtesy & Communication': { questions: ['q1', 'q2', 'q3', 'q4', 'q5', 'q19'], maxPoints: 35 },
     'Resolution': { questions: ['q6', 'q7', 'q8', 'q9'], maxPoints: 40 },
     'Case Documentation': { questions: ['q10', 'q11', 'q12', 'q13', 'q14'], maxPoints: 30 },
-    'Process Compliance': { questions: ['q15', 'q16', 'q17', 'q18'], maxPoints: 20 }
+    'Process Compliance': { questions: ['q15', 'q16', 'q17', 'q18'], maxPoints: 24 }
   };
 
   let html = '';

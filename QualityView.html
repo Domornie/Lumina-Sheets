@@ -96,16 +96,17 @@
     q15:'Did the agent offer the survey at the end of the call?',
     q16:'Did the agent create the call case correctly?',
     q17:'Did the agent modify case fields to avoid survey going to the customer?',
-    q18:'Did the customer respond positively to the survey?'
+    q18:'Did the customer respond positively to the survey?',
+    q19:'Was the call free of unnecessary dead air?'
   };
   const categories = {
-    'Courtesy & Communication': ['q1','q2','q3','q4','q5'],
+    'Courtesy & Communication': ['q1','q2','q3','q4','q5','q19'],
     'Resolution':                ['q6','q7','q8','q9'],
     'Case Documentation':        ['q10','q11','q12','q13','q14'],
     'Process Compliance':        ['q15','q16','q17','q18']
   };
   const weights = {
-    q1:5,  q2:5,  q3:8,  q4:10, q5:5,
+    q1:5,  q2:5,  q3:8,  q4:10, q5:5, q19:5,
     q6:5,  q7:5,  q8:10, q9:10,
     q10:5, q11:5, q12:5, q13:8, q14:5,
     q15:2, q16:1, q17:1, q18:5
