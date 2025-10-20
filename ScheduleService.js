@@ -670,25 +670,123 @@ function clientGetAllShiftSlots() {
   try {
     console.log('📊 Getting all shift slots');
 
-    // Use ScheduleUtilities to read from schedule sheet
-    let slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    
-    // If no slots exist, create defaults using ScheduleUtilities function
-    if (slots.length === 0) {
-      console.log('No shift slots found, creating defaults');
-      createDefaultShiftSlots();
-      slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    }
+    const aggregatedSlots = [];
+    const seenIds = new Set();
+    const seenComposite = new Set();
 
-    if (!slots.length) {
-      const legacySlotSheets = ['Shift Slots', 'Shifts', 'ShiftTemplates'];
-      for (let i = 0; i < legacySlotSheets.length && !slots.length; i++) {
-        const legacyRows = readSheet(legacySlotSheets[i]);
-        if (Array.isArray(legacyRows) && legacyRows.length) {
-          console.log(`Found legacy shift slot data in ${legacySlotSheets[i]}`);
-          slots = legacyRows.map(convertLegacyShiftSlotRecord).filter(Boolean);
+    const resolveSlotId = slot => {
+      const candidates = [
+        slot.ID, slot.Id, slot.id,
+        slot.SlotID, slot.SlotId, slot.slotId,
+        slot.Guid, slot.UUID, slot.Uuid
+      ];
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        if (candidate === undefined || candidate === null) {
+          continue;
+        }
+        const normalized = String(candidate).trim();
+        if (normalized) {
+          return normalized;
         }
       }
+      return '';
+    };
+
+    const registerSlot = (slot, source) => {
+      if (!slot || typeof slot !== 'object') {
+        return;
+      }
+
+      const normalizedSlot = { ...slot };
+      const slotId = resolveSlotId(normalizedSlot);
+      if (slotId) {
+        if (seenIds.has(slotId)) {
+          // Merge any additional properties from the new slot into the existing one
+          const existingIndex = aggregatedSlots.findIndex(item => resolveSlotId(item) === slotId);
+          if (existingIndex >= 0) {
+            aggregatedSlots[existingIndex] = Object.assign({}, aggregatedSlots[existingIndex], normalizedSlot);
+          }
+          return;
+        }
+        normalizedSlot.ID = slotId;
+        seenIds.add(slotId);
+      } else {
+        const compositeKey = [
+          normalizedSlot.Name || normalizedSlot.SlotName || '',
+          normalizedSlot.StartTime || normalizedSlot.Start || '',
+          normalizedSlot.EndTime || normalizedSlot.End || ''
+        ].map(value => String(value || '').trim().toLowerCase()).join('|');
+
+        if (compositeKey && seenComposite.has(compositeKey)) {
+          return;
+        }
+
+        if (compositeKey) {
+          seenComposite.add(compositeKey);
+        }
+      }
+
+      normalizedSlot.__source = source;
+      aggregatedSlots.push(normalizedSlot);
+    };
+
+    const candidateSheets = [
+      { name: SHIFT_SLOTS_SHEET, legacy: false },
+      { name: 'Shift Slots', legacy: true },
+      { name: 'Shift Slot', legacy: true },
+      { name: 'ShiftTemplates', legacy: true },
+      { name: 'Shift Templates', legacy: true },
+      { name: 'Shifts', legacy: true }
+    ];
+
+    candidateSheets.forEach(candidate => {
+      try {
+        const rows = readScheduleSheet(candidate.name) || [];
+        if (!Array.isArray(rows) || !rows.length) {
+          return;
+        }
+
+        console.log(`✅ Loaded ${rows.length} potential shift slots from ${candidate.name}`);
+
+        rows.forEach(row => {
+          if (!row || typeof row !== 'object') {
+            return;
+          }
+          const slot = candidate.legacy ? convertLegacyShiftSlotRecord(row) || row : row;
+          registerSlot(slot, candidate.name);
+        });
+      } catch (sheetError) {
+        console.warn(`Unable to read shift slots from ${candidate.name}:`, sheetError);
+      }
+    });
+
+    if (!aggregatedSlots.length) {
+      console.log('No shift slots found in any schedule sheet, checking main workbook for legacy data');
+      const legacySheets = ['Shift Slots', 'ShiftTemplates', 'Shifts'];
+      legacySheets.forEach(legacyName => {
+        try {
+          const legacyRows = readSheet(legacyName);
+          if (!Array.isArray(legacyRows) || !legacyRows.length) {
+            return;
+          }
+
+          console.log(`📄 Found ${legacyRows.length} legacy shift slots in ${legacyName}`);
+          legacyRows
+            .map(convertLegacyShiftSlotRecord)
+            .filter(Boolean)
+            .forEach(slot => registerSlot(slot, legacyName));
+        } catch (legacyError) {
+          console.warn(`Unable to read legacy shift slots from ${legacyName}:`, legacyError);
+        }
+      });
+    }
+
+    if (!aggregatedSlots.length) {
+      console.log('No shift slots detected, creating defaults');
+      createDefaultShiftSlots();
+      const defaultSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      defaultSlots.forEach(slot => registerSlot(slot, 'default'));
     }
 
     const normalizeBoolean = value => {
@@ -707,19 +805,40 @@ function clientGetAllShiftSlots() {
         return '';
       }
       if (typeof value === 'number') return value;
+      if (value instanceof Date) return value;
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : value;
     };
 
-    return slots.map(slot => {
-      const normalizedSlot = {
-        ...slot,
-        DaysOfWeekArray: Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length
-          ? slot.DaysOfWeekArray
-          : slot.DaysOfWeek
-            ? String(slot.DaysOfWeek).split(',').map(d => parseInt(String(d).trim(), 10)).filter(d => !isNaN(d))
-            : [1, 2, 3, 4, 5]
-      };
+    const normalizeDaysOfWeek = slot => {
+      if (Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length) {
+        return slot.DaysOfWeekArray;
+      }
+
+      if (Array.isArray(slot.DaysOfWeek) && slot.DaysOfWeek.length) {
+        return slot.DaysOfWeek.map(day => parseInt(String(day).trim(), 10)).filter(day => !isNaN(day));
+      }
+
+      if (typeof slot.Days === 'string') {
+        return slot.Days.split(/[;,]/)
+          .map(day => parseInt(String(day).trim(), 10))
+          .filter(day => !isNaN(day));
+      }
+
+      if (typeof slot.DaysOfWeek === 'string') {
+        return slot.DaysOfWeek.split(/[;,]/)
+          .map(day => parseInt(String(day).trim(), 10))
+          .filter(day => !isNaN(day));
+      }
+
+      return [1, 2, 3, 4, 5];
+    };
+
+    const normalizedSlots = aggregatedSlots.map(slot => {
+      const normalizedSlot = { ...slot };
+
+      normalizedSlot.DaysOfWeekArray = normalizeDaysOfWeek(slot);
+      normalizedSlot.DaysOfWeek = normalizedSlot.DaysOfWeekArray.join(',');
 
       normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
       normalizedSlot.EnableOvertime = normalizeBoolean(slot.EnableOvertime);
@@ -747,24 +866,38 @@ function clientGetAllShiftSlots() {
       normalizedSlot.NotificationLead = normalizeNumber(slot.NotificationLead);
       normalizedSlot.HandoverTime = normalizeNumber(slot.HandoverTime);
 
-      if (slot.CreatedAt) {
-        const createdDate = new Date(slot.CreatedAt);
-        normalizedSlot.CreatedAt = isNaN(createdDate.getTime()) ? slot.CreatedAt : createdDate;
+      const normalizeDate = (value) => {
+        if (!value) {
+          return value;
+        }
+        if (value instanceof Date) {
+          return value;
+        }
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? value : parsed;
+      };
+
+      normalizedSlot.CreatedAt = normalizeDate(slot.CreatedAt);
+      normalizedSlot.UpdatedAt = normalizeDate(slot.UpdatedAt);
+
+      if (!normalizedSlot.Name && normalizedSlot.SlotName) {
+        normalizedSlot.Name = normalizedSlot.SlotName;
       }
 
-      if (slot.UpdatedAt) {
-        const updatedDate = new Date(slot.UpdatedAt);
-        normalizedSlot.UpdatedAt = isNaN(updatedDate.getTime()) ? slot.UpdatedAt : updatedDate;
+      if (Object.prototype.hasOwnProperty.call(normalizedSlot, '__source')) {
+        delete normalizedSlot.__source;
       }
 
       return normalizedSlot;
     });
 
+    console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
+    return normalizedSlots;
+
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
     safeWriteError('clientGetAllShiftSlots', error);
-    
-    // Fallback: ensure at least default slots exist
+
     try {
       createDefaultShiftSlots();
       return readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
