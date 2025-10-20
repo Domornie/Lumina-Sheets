@@ -8,7 +8,7 @@ function submitQA(auditObj) {
   const ts = new Date().toISOString();
 
   const weights = {
-    q1:3, q2:5, q3:7,  q4:10, q5:5,
+    q1:3, q2:5, q3:7,  q4:10, q5:5, q19:5,
     q6:8, q7:8, q8:15, q9:9,
     q10:8, q11:6, q12:6, q13:7, q14:3,
     q15:10, q16:5, q17:4, q18:5
@@ -149,7 +149,7 @@ function getCollabQARecordById(id) {
 /**
  * Updates a QA record matching the given ID with the provided data object.
  * @param {string} id
- * @param {Object} data  // keys: callerName, agentName, … q1…q18, overallFeedback, etc.
+ * @param {Object} data  // keys: callerName, agentName, … q1…q19, overallFeedback, etc.
  */
 function updateQARecord(id, data) {
   const ss = getIBTRSpreadsheet();
@@ -203,13 +203,13 @@ function filterQAByPeriodAndAgent(granularity, period, agentFilter) {
  */
 function computeCategoryMetrics(records) {
   const weights = {
-    q1:3, q2:5, q3:7,  q4:10, q5:5,
+    q1:3, q2:5, q3:7,  q4:10, q5:5, q19:5,
     q6:8, q7:8, q8:15, q9:9,
     q10:8, q11:6, q12:6, q13:7, q14:3,
     q15:10, q16:5, q17:4, q18:5
   };
   const categories = {
-    'Courtesy & Communication': ['q1','q2','q3','q4','q5'],
+    'Courtesy & Communication': ['q1','q2','q3','q4','q5','q19'],
     'Resolution':               ['q6','q7','q8','q9'],
     'Documentation':            ['q10','q11','q12','q13','q14'],
     'Compliance':               ['q15','q16','q17','q18']
