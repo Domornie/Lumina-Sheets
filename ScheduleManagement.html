@@ -3133,16 +3133,10 @@
                             Email: user.Email || user.email || existing.Email || '',
                             CampaignID: user.CampaignID || user.campaignID || user.campaignId || existing.CampaignID || '',
                             campaignName: user.campaignName || existing.campaignName || '',
-                            EmploymentStatus: employmentStatusRaw || existing.EmploymentStatus || 'Active',
-                            EmploymentStatusCanonical: employmentStatusCanonical || existing.EmploymentStatusCanonical || '',
-                            employmentStatusCanonical: employmentStatusCanonical || existing.employmentStatusCanonical || '',
-                            employmentStatusRaw: employmentStatusRaw || existing.employmentStatusRaw || '',
-                            employmentStatusIsActive,
-                            HireDate: employmentStartIso || existing.HireDate || '',
-                            TerminationDate: employmentEndIso || existing.TerminationDate || '',
-                            employmentStartIso: employmentStartIso || existing.employmentStartIso || '',
-                            employmentEndIso: employmentEndIso || existing.employmentEndIso || '',
-                            isActive: typeof user.isActive === 'boolean' ? user.isActive : employmentStatusIsActive,
+                            EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
+                            HireDate: user.HireDate || existing.HireDate || '',
+                            TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || '',
+                            isActive: typeof user.isActive === 'boolean' ? user.isActive : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
                             roleNames: Array.isArray(user.roleNames) ? user.roleNames.slice() : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
                         };
 
@@ -6521,12 +6515,16 @@
                     const yearInput = document.getElementById('attendanceYear');
                     const monthValue = monthInput ? monthInput.value : '';
                     const yearValue = yearInput ? yearInput.value : '';
-                    monthContext = this.resolveAttendanceMonthContext(monthValue, yearValue);
+                    const monthContext = this.resolveAttendanceMonthContext(monthValue, yearValue);
+
+                    const container = document.getElementById('attendanceCalendarContainer');
+                    if (!container) {
+                        console.error('Attendance calendar container element not found in DOM.');
+                        return;
+                    }
 
                     this.updateStatusLegendCard();
-                    if (container) {
-                        container.innerHTML = this.renderAttendanceCalendarLoading(monthContext.label);
-                    }
+                    container.innerHTML = this.renderAttendanceCalendarLoading(monthContext.label);
 
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
@@ -6553,11 +6551,19 @@
                         this.availableUsers = scheduleUsers.slice();
                     }
 
-                    const employedScheduleUsers = this.filterScheduleUsersByEmployment(
+                    let employedScheduleUsers = this.filterScheduleUsersByEmployment(
                         scheduleUsers,
                         monthContext.year,
                         monthContext.month
                     );
+
+                    if (!employedScheduleUsers.length && scheduleUsers.length) {
+                        console.warn(
+                            'No schedule users matched the employment window for %s. Falling back to full roster to render the calendar.',
+                            monthContext.label
+                        );
+                        employedScheduleUsers = scheduleUsers.slice();
+                    }
 
                     console.log(
                         '📅 Filtering attendance calendar to %d/%d employed users for %s',
@@ -6567,9 +6573,7 @@
                     );
 
                     if (!employedScheduleUsers.length) {
-                        if (container) {
-                            container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
-                        }
+                        container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
                         return;
                     }
 
@@ -6578,9 +6582,13 @@
                     const combinedUsers = [];
                     const seenUserKeys = new Set();
 
+                    const employmentKeyLookupSize = employmentKeyLookup.size;
                     const appendUserName = (name) => {
                         const normalized = this.normalizePersonKey(name);
                         if (!normalized || seenUserKeys.has(normalized) || !employmentKeyLookup.has(normalized)) {
+                            return;
+                        }
+                        if (employmentKeyLookupSize > 0 && !employmentKeyLookup.has(normalized)) {
                             return;
                         }
                         combinedUsers.push(name);
@@ -6599,9 +6607,7 @@
                     }
 
                     if (!combinedUsers.length) {
-                        if (container) {
-                            container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
-                        }
+                        container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
                         return;
                     }
 
@@ -6636,22 +6642,33 @@
                         attendanceMap
                     );
 
-                    if (container) {
-                        container.innerHTML = calendar;
-                    }
-
                     this.hideAttendanceContextMenu();
                     this.ensureAttendanceContextMenu();
 
                     console.log('✅ Attendance calendar loaded with %d records', attendanceRecords.length);
                 } catch (error) {
-                    console.error('❌ Failed to load attendance calendar:', error);
-                    if (container) {
-                        const label = monthContext?.label || '';
-                        container.innerHTML = this.renderAttendanceCalendarErrorState(label);
+                    console.error('❌ Error loading attendance calendar:', error);
+                    const errorContainer = document.getElementById('attendanceCalendarContainer');
+                    if (!errorContainer) {
+                        return;
                     }
-                    this.showToast('Failed to load attendance calendar. Please try again.', 'danger');
+                    errorContainer.innerHTML = `
+                            <div class="text-center py-5 text-danger">
+                                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                                <h5>Error Loading Calendar</h5>
+                                <p>${error.message}</p>
+                                <button class="btn btn-primary-modern btn-modern" onclick="scheduleManager.loadAttendanceCalendar()">
+                                    <i class="fas fa-retry me-2"></i>Try Again
+                                </button>
+                            </div>
+                        `;
                 }
+
+                users.forEach(user => {
+                    this.collectUserIdentityKeys(user).forEach(key => lookup.add(key));
+                });
+
+                return lookup;
             }
 
             collectUserIdentityKeys(user) {
@@ -6705,17 +6722,6 @@
                     `;
             }
 
-            renderAttendanceCalendarErrorState(monthLabel) {
-                const safeLabel = this.escapeHtml(monthLabel || '');
-                const labelText = safeLabel ? ` for ${safeLabel}` : '';
-                return `
-                        <div class="text-center py-5 text-danger">
-                            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
-                            <p>We couldn't load the attendance calendar${labelText}. Please try again.</p>
-                        </div>
-                    `;
-            }
-
             renderNoEligibleAttendanceUsersState(monthLabel) {
                 const safeLabel = this.escapeHtml(monthLabel || '');
                 return `
@@ -6733,10 +6739,7 @@
                     return [];
                 }
 
-                // Employment-date filtering has been disabled so that managers always
-                // see their assigned users regardless of start/end date metadata.
-                // Return a shallow copy to avoid mutating the source array.
-                return users.slice();
+                return users.filter(user => this.isUserEmployedDuringMonth(user, year, month));
             }
 
             buildEmploymentKeyLookup(users = []) {
@@ -6840,66 +6843,6 @@
                 });
             }
 
-            getEmploymentPeriod(user) {
-                if (!user) {
-                    return { startIso: '', endIso: '', startDate: null, endDate: null, status: '', statusRaw: '', isStatusActive: true };
-                }
-
-                const startFieldNames = Array.isArray(this.employmentStartFieldNames)
-                    ? this.employmentStartFieldNames
-                    : [];
-                const endFieldNames = Array.isArray(this.employmentEndFieldNames)
-                    ? this.employmentEndFieldNames
-                    : [];
-
-                const startIso = this.resolveEmploymentIsoDate(user, startFieldNames);
-                const endIso = this.resolveEmploymentIsoDate(user, endFieldNames);
-
-                const startDate = this.parseIsoDateToLocal(startIso);
-                if (startDate instanceof Date && !Number.isNaN(startDate.getTime())) {
-                    startDate.setHours(0, 0, 0, 0);
-                }
-
-                const endDate = this.parseIsoDateToLocal(endIso);
-                if (endDate instanceof Date && !Number.isNaN(endDate.getTime())) {
-                    endDate.setHours(23, 59, 59, 999);
-                }
-
-                const statusCandidates = [
-                    user.employmentStatusCanonical,
-                    user.EmploymentStatusCanonical,
-                    user.employmentStatusNormalized,
-                    user.EmploymentStatusNormalized,
-                    user.employmentStatus,
-                    user.EmploymentStatus,
-                    user.Status,
-                    user.status
-                ];
-                let statusRaw = '';
-                for (let i = 0; i < statusCandidates.length; i++) {
-                    const candidate = statusCandidates[i];
-                    if (candidate) {
-                        statusRaw = candidate;
-                        break;
-                    }
-                }
-
-                const normalizedStatus = this.normalizeEmploymentStatusLabel(statusRaw);
-                const isStatusActive = typeof user.employmentStatusIsActive === 'boolean'
-                    ? user.employmentStatusIsActive
-                    : this.isEmploymentStatusActive(normalizedStatus || statusRaw);
-
-                return {
-                    startIso: startIso || '',
-                    endIso: endIso || '',
-                    startDate: startDate instanceof Date && !Number.isNaN(startDate.getTime()) ? startDate : null,
-                    endDate: endDate instanceof Date && !Number.isNaN(endDate.getTime()) ? endDate : null,
-                    status: normalizedStatus || this.normalizeEmploymentStatusLabel(statusRaw),
-                    statusRaw: statusRaw || '',
-                    isStatusActive
-                };
-            }
-
             isUserEmployedDuringMonth(user, year, month) {
                 if (!user) {
                     return false;
@@ -6915,53 +6858,127 @@
                 monthStart.setHours(0, 0, 0, 0);
                 const monthEnd = new Date(normalizedYear, normalizedMonth, 0);
                 monthEnd.setHours(23, 59, 59, 999);
-                const viewStartTime = monthStart.getTime();
-                const viewEndTime = monthEnd.getTime();
+                const monthStartTime = monthStart.getTime();
+                const monthEndTime = monthEnd.getTime();
 
-                const employment = this.getEmploymentPeriod(user);
+                const hireIso = this.resolveEmploymentIsoDate(user, [
+                    'HireDate',
+                    'hireDate',
+                    'Hire_Date',
+                    'hire_date',
+                    'Hire Date',
+                    'hire date',
+                    'DateHired',
+                    'dateHired',
+                    'Date Hired',
+                    'date hired',
+                    'OnboardDate',
+                    'onboardDate',
+                    'Onboard Date',
+                    'onboard date',
+                    'EmploymentStart',
+                    'employmentStart',
+                    'Employment Start',
+                    'employment start',
+                    'EmploymentStartDate',
+                    'employmentStartDate',
+                    'Employment Start Date',
+                    'employment start date',
+                    'StartDate',
+                    'startDate',
+                    'Start Date',
+                    'start date',
+                    'Start_Date',
+                    'start_date',
+                    'OriginalHireDate',
+                    'originalHireDate',
+                    'Original_Hire_Date',
+                    'original_hire_date',
+                    'Original Hire Date',
+                    'original hire date',
+                    'RehireDate',
+                    'rehireDate',
+                    'Rehire_Date',
+                    'rehire_date',
+                    'Rehire Date',
+                    'rehire date',
+                    'DateOfHire',
+                    'dateOfHire',
+                    'Date Of Hire',
+                    'date of hire',
+                    'DateOfEmployment',
+                    'dateOfEmployment',
+                    'Date Of Employment',
+                    'date of employment',
+                    'EmploymentDate',
+                    'employmentDate',
+                    'Employment Date',
+                    'employment date'
+                ]);
+                const terminationIso = this.resolveEmploymentIsoDate(user, [
+                    'TerminationDate',
+                    'terminationDate',
+                    'Termination Date',
+                    'termination date',
+                    'EndDate',
+                    'endDate',
+                    'End Date',
+                    'end date',
+                    'End_Date',
+                    'end_date',
+                    'EmploymentEnd',
+                    'employmentEnd',
+                    'Employment End',
+                    'employment end',
+                    'EmploymentEndDate',
+                    'employmentEndDate',
+                    'Employment End Date',
+                    'employment end date',
+                    'DateOfTermination',
+                    'dateOfTermination',
+                    'Date Of Termination',
+                    'date of termination',
+                    'Termination',
+                    'termination',
+                    'Termination_Date',
+                    'termination_date',
+                    'Termination Date',
+                    'termination date',
+                    'SeparationDate',
+                    'separationDate',
+                    'Separation Date',
+                    'separation date',
+                    'Separation_Date',
+                    'separation_date',
+                    'DateOfSeparation',
+                    'dateOfSeparation',
+                    'Date Of Separation',
+                    'date of separation',
+                    'LastWorkingDate',
+                    'lastWorkingDate',
+                    'Last Working Date',
+                    'last working date',
+                    'LastDayWorked',
+                    'lastDayWorked',
+                    'Last Day Worked',
+                    'last day worked',
+                    'TermDate',
+                    'termDate',
+                    'Term Date',
+                    'term date',
+                    'DateTerminated',
+                    'dateTerminated',
+                    'Date Terminated',
+                    'date terminated'
+                ]);
 
-                const statusCandidates = [
-                    employment && employment.status,
-                    employment && employment.statusRaw,
-                    user && user.employmentStatusCanonical,
-                    user && user.EmploymentStatusCanonical,
-                    user && user.employmentStatusNormalized,
-                    user && user.EmploymentStatusNormalized,
-                    user && user.employmentStatus,
-                    user && user.EmploymentStatus,
-                    user && user.Status,
-                    user && user.status
-                ];
-
-                let statusLabel = '';
-                for (let index = 0; index < statusCandidates.length; index++) {
-                    const candidate = statusCandidates[index];
-                    if (!candidate) {
-                        continue;
-                    }
-
-                    const normalized = this.normalizeEmploymentStatusLabel(candidate);
-                    if (normalized) {
-                        statusLabel = normalized;
-                        break;
-                    }
-                }
-
-                if ((statusLabel || '').toString().trim().toLowerCase() !== 'active') {
+                const hireDate = this.parseIsoDateToLocal(hireIso);
+                if (hireDate && hireDate.getTime() > monthEndTime) {
                     return false;
                 }
 
-                const hireDate = employment.startDate instanceof Date
-                    ? employment.startDate
-                    : this.parseIsoDateToLocal(employment.startIso);
-                if (hireDate && hireDate.getTime() > viewEndTime) {
-                    return false;
-                }
-
-                const terminationDate = employment.endDate instanceof Date
-                    ? employment.endDate
-                    : this.parseIsoDateToLocal(employment.endIso);
-                if (terminationDate && terminationDate.getTime() < viewStartTime) {
+                const terminationDate = this.parseIsoDateToLocal(terminationIso);
+                if (terminationDate && terminationDate.getTime() < monthStartTime) {
                     return false;
                 }
 
@@ -6996,6 +7013,12 @@
                 }
                 visited.add(user);
 
+                const normalizedFieldKeys = new Set(
+                    fieldNames
+                        .map(name => this.normalizeEmploymentFieldKey(name))
+                        .filter(Boolean)
+                );
+
                 for (let index = 0; index < fieldNames.length; index++) {
                     const fieldName = fieldNames[index];
                     if (!fieldName) {
@@ -7006,6 +7029,23 @@
                     const normalized = this.normalizeAttendanceDateValue(rawValue);
                     if (normalized) {
                         return normalized;
+                    }
+                }
+
+                if (normalizedFieldKeys.size > 0) {
+                    const dynamicKeys = Object.keys(user);
+                    for (let index = 0; index < dynamicKeys.length; index++) {
+                        const dynamicKey = dynamicKeys[index];
+                        const normalizedDynamicKey = this.normalizeEmploymentFieldKey(dynamicKey);
+                        if (!normalizedDynamicKey || !normalizedFieldKeys.has(normalizedDynamicKey)) {
+                            continue;
+                        }
+
+                        const rawValue = user[dynamicKey];
+                        const normalized = this.normalizeAttendanceDateValue(rawValue);
+                        if (normalized) {
+                            return normalized;
+                        }
                     }
                 }
 
@@ -7760,43 +7800,12 @@
                 return '';
             }
 
-            normalizeEmploymentStatusLabel(status) {
-                const raw = (status === null || typeof status === 'undefined') ? '' : status.toString().trim();
-                if (!raw) {
+            normalizeEmploymentFieldKey(field) {
+                if (field === null || typeof field === 'undefined') {
                     return '';
                 }
 
-                const lower = raw.toLowerCase();
-                if (this.employmentStatusAliasMap && this.employmentStatusAliasMap.has(lower)) {
-                    return this.employmentStatusAliasMap.get(lower);
-                }
-
-                if (this.employmentStatusAliasMap) {
-                    for (const value of this.employmentStatusAliasMap.values()) {
-                        if (typeof value === 'string' && value.toLowerCase() === lower) {
-                            return value;
-                        }
-                    }
-                }
-
-                return raw;
-            }
-
-            isEmploymentStatusActive(status) {
-                const normalized = (this.normalizeEmploymentStatusLabel(status) || '').toLowerCase();
-                if (!normalized) {
-                    return true;
-                }
-
-                if (this.employmentStatusInactiveSet && this.employmentStatusInactiveSet.has(normalized)) {
-                    return false;
-                }
-
-                if (this.employmentStatusActiveSet && this.employmentStatusActiveSet.has(normalized)) {
-                    return true;
-                }
-
-                return true;
+                return field.toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
             }
 
             normalizeAttendanceStatusKey(value) {
