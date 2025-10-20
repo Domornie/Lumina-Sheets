@@ -3244,15 +3244,72 @@
                 const emptyResult = { slots: [], metadata: { totalCount: 0 } };
 
                 const coerceArray = (value) => {
+                    if (!value) {
+                        return [];
+                    }
+
                     if (Array.isArray(value)) {
                         return value.filter(slot => slot && typeof slot === 'object');
                     }
 
-                    if (value && typeof value === 'object' && (value.ID || value.Name)) {
-                        return [value];
+                    if (typeof value === 'object') {
+                        if (Array.isArray(value.values)) {
+                            return coerceArray(value.values);
+                        }
+
+                        if (Array.isArray(value.items)) {
+                            return coerceArray(value.items);
+                        }
+
+                        if (Array.isArray(value.records)) {
+                            return coerceArray(value.records);
+                        }
+
+                        if (Array.isArray(value.data)) {
+                            return coerceArray(value.data);
+                        }
+
+                        const numericKeys = Object.keys(value).filter(key => /^\d+$/.test(key));
+                        if (numericKeys.length) {
+                            return numericKeys
+                                .sort((a, b) => Number(a) - Number(b))
+                                .map(key => value[key])
+                                .filter(slot => slot && typeof slot === 'object');
+                        }
+
+                        const objectValues = Object.values(value)
+                            .filter(entry => entry && typeof entry === 'object');
+                        if (objectValues.length && objectValues.every(entry => entry.ID || entry.Name || entry.SlotName || entry.StartTime)) {
+                            return objectValues;
+                        }
+
+                        if (value.ID || value.Name) {
+                            return [value];
+                        }
                     }
 
                     return [];
+                };
+
+                const buildMetadata = (slots, source) => {
+                    const base = {
+                        totalCount: slots.length
+                    };
+
+                    if (source && typeof source === 'object') {
+                        if (typeof source.total === 'number') {
+                            base.total = source.total;
+                        }
+                        if (typeof source.totalCount === 'number') {
+                            base.totalCount = source.totalCount;
+                        }
+                        if (typeof source.count === 'number') {
+                            base.count = source.count;
+                        }
+                        base.source = source;
+                    }
+
+                    return base;
                 };
 
                 const handleFailure = (message) => {
@@ -3263,7 +3320,7 @@
                     const normalized = coerceArray(rawSlots);
                     return {
                         slots: normalized,
-                        metadata: { totalCount: normalized.length }
+                        metadata: buildMetadata(normalized)
                     };
                 }
 
@@ -3272,12 +3329,30 @@
                 }
 
                 if (typeof rawSlots === 'string') {
-                    handleFailure(rawSlots);
+                    const trimmed = rawSlots.trim();
+                    if (!trimmed) {
+                        return emptyResult;
+                    }
+
+                    const lower = trimmed.toLowerCase();
+                    if (lower.includes('no shift slots') || lower.includes('no slots found')) {
+                        return emptyResult;
+                    }
+
+                    if (['success', 'ok', 'done', 'created', 'completed'].some(token => lower.includes(token))) {
+                        return emptyResult;
+                    }
+
+                    handleFailure(trimmed);
                 }
 
                 if (typeof rawSlots === 'object') {
                     if (rawSlots.success === false) {
-                        handleFailure(rawSlots.error || rawSlots.message);
+                        const message = rawSlots.error || rawSlots.message;
+                        if (message && /no (shift\s*)?slots?/i.test(message)) {
+                            return emptyResult;
+                        }
+                        handleFailure(message);
                     }
 
                     const candidateArrays = [
@@ -3285,41 +3360,35 @@
                         rawSlots.data?.slots,
                         rawSlots.result?.slots,
                         rawSlots.records,
-                        rawSlots.items
+                        rawSlots.items,
+                        rawSlots.values
                     ];
 
                     for (const candidate of candidateArrays) {
-                        if (Array.isArray(candidate)) {
-                            const normalized = coerceArray(candidate);
+                        const normalized = coerceArray(candidate);
+                        if (normalized.length) {
                             return {
                                 slots: normalized,
-                                metadata: {
-                                    totalCount: normalized.length,
-                                    source: rawSlots
-                                }
+                                metadata: buildMetadata(normalized, rawSlots)
                             };
                         }
                     }
 
-                    if (rawSlots.success === true && Array.isArray(rawSlots.data)) {
-                        const normalized = coerceArray(rawSlots.data);
-                        return {
-                            slots: normalized,
-                            metadata: {
-                                totalCount: normalized.length,
-                                source: rawSlots
-                            }
-                        };
+                    if (rawSlots.success === true) {
+                        const normalizedData = coerceArray(rawSlots.data);
+                        if (normalizedData.length) {
+                            return {
+                                slots: normalizedData,
+                                metadata: buildMetadata(normalizedData, rawSlots)
+                            };
+                        }
                     }
 
                     const singleSlot = coerceArray(rawSlots);
                     if (singleSlot.length) {
                         return {
                             slots: singleSlot,
-                            metadata: {
-                                totalCount: singleSlot.length,
-                                source: rawSlots
-                            }
+                            metadata: buildMetadata(singleSlot, rawSlots)
                         };
                     }
                 }
@@ -4129,8 +4198,9 @@
 
             async confirmShiftSlotCreation(slotData) {
                 try {
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
-                    if (!Array.isArray(slots)) {
+                    const rawSlots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots } = this.normalizeShiftSlotListResponse(rawSlots);
+                    if (!Array.isArray(slots) || slots.length === 0) {
                         return false;
                     }
 
