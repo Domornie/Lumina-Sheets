@@ -957,10 +957,18 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     const expectedCapacitySecs = weekdaysInPeriod * DAILY_SHIFT_SECS;
 
     const top5Attendance = Array.from(userTotalAdjustedSecs.entries())
-      .map(([user, secs]) => ({
-        user,
-        percentage: expectedCapacitySecs > 0 ? Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
-      }))
+      .map(([user, secs]) => {
+        const adherencePercent = expectedCapacitySecs > 0
+          ? (secs / expectedCapacitySecs) * 100
+          : 0;
+        const normalizedPercent = expectedCapacitySecs > 0
+          ? Math.min(Math.round(adherencePercent * 10) / 10, 100)
+          : 0;
+        return {
+          user,
+          percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
+        };
+      })
       .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
@@ -1709,11 +1717,18 @@ function generateTopPerformers(filtered, periodStart, periodEnd) {
   });
 
   return Array.from(userProdSecs.entries())
-    .map(([user, secs]) => ({
-      user,
-      percentage: expectedCapacitySecs > 0 ?
-        Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
-    }))
+    .map(([user, secs]) => {
+      const adherencePercent = expectedCapacitySecs > 0
+        ? (secs / expectedCapacitySecs) * 100
+        : 0;
+      const normalizedPercent = expectedCapacitySecs > 0
+        ? Math.min(Math.round(adherencePercent * 10) / 10, 100)
+        : 0;
+      return {
+        user,
+        percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
+      };
+    })
     .sort((a, b) => b.percentage - a.percentage)
     .slice(0, 5);
 }
