@@ -554,19 +554,20 @@
                 try {
                     this.showLoading(true);
                     this.log('Loading slots...');
-                    
-                    const result = await this.callServerFunction('clientGetAllShiftSlots');
-                    this.log('Server response:', result);
-                    
-                    if (result && result.success) {
-                        this.slots = result.slots || [];
+
+                    const rawResult = await this.callServerFunction('clientGetAllShiftSlots');
+                    this.log('Server response:', rawResult);
+
+                    const normalized = this.normalizeShiftSlotResponse(rawResult);
+                    if (normalized.success) {
+                        this.slots = normalized.slots;
                         this.log(`Loaded ${this.slots.length} slots`);
                     } else {
-                        this.log('Failed to load slots:', result);
+                        this.log('Failed to load slots:', normalized.message || rawResult);
                         this.slots = [];
-                        this.showNotification('Failed to load slots: ' + (result?.error || 'Unknown error'), 'error');
+                        this.showNotification('Failed to load slots: ' + (normalized.message || 'Unknown error'), 'error');
                     }
-                    
+
                     this.renderSlotsTable();
                     this.updateStats();
                 } catch (error) {
@@ -578,6 +579,126 @@
                 } finally {
                     this.showLoading(false);
                 }
+            }
+
+            normalizeShiftSlotResponse(rawResult) {
+                const success = (slots, message = '') => ({ success: true, slots, message });
+                const failure = (message = '') => ({ success: false, slots: [], message });
+
+                const coerceArray = (value) => {
+                    if (!value) {
+                        return [];
+                    }
+
+                    if (Array.isArray(value)) {
+                        return value.filter(slot => slot && typeof slot === 'object');
+                    }
+
+                    if (typeof value === 'object') {
+                        if (Array.isArray(value.values)) {
+                            return coerceArray(value.values);
+                        }
+
+                        if (Array.isArray(value.items)) {
+                            return coerceArray(value.items);
+                        }
+
+                        if (Array.isArray(value.records)) {
+                            return coerceArray(value.records);
+                        }
+
+                        if (Array.isArray(value.data)) {
+                            return coerceArray(value.data);
+                        }
+
+                        const numericKeys = Object.keys(value).filter(key => /^\d+$/.test(key));
+                        if (numericKeys.length) {
+                            return numericKeys
+                                .sort((a, b) => Number(a) - Number(b))
+                                .map(key => value[key])
+                                .filter(slot => slot && typeof slot === 'object');
+                        }
+
+                        const objectValues = Object.values(value)
+                            .filter(entry => entry && typeof entry === 'object');
+                        if (objectValues.length && objectValues.every(entry => entry.ID || entry.Name || entry.SlotName || entry.StartTime)) {
+                            return objectValues;
+                        }
+
+                        if (value.ID || value.Name) {
+                            return [value];
+                        }
+                    }
+
+                    return [];
+                };
+
+                if (Array.isArray(rawResult)) {
+                    return success(coerceArray(rawResult));
+                }
+
+                if (!rawResult) {
+                    return success([]);
+                }
+
+                if (typeof rawResult === 'string') {
+                    const trimmed = rawResult.trim();
+                    if (!trimmed) {
+                        return success([]);
+                    }
+
+                    if (/no (shift\s*)?slots?/i.test(trimmed)) {
+                        return success([], trimmed);
+                    }
+
+                    if (/(success|ok|done|created|completed)/i.test(trimmed)) {
+                        return success([], trimmed);
+                    }
+
+                    return failure(trimmed);
+                }
+
+                if (typeof rawResult === 'object') {
+                    if (rawResult.success === false) {
+                        const message = rawResult.error || rawResult.message || 'Server reported failure';
+                        if (message && /no (shift\s*)?slots?/i.test(message)) {
+                            return success([], message);
+                        }
+                        return failure(message);
+                    }
+
+                    const candidateArrays = [
+                        rawResult.slots,
+                        rawResult.data?.slots,
+                        rawResult.result?.slots,
+                        rawResult.records,
+                        rawResult.items,
+                        rawResult.values
+                    ];
+
+                    for (const candidate of candidateArrays) {
+                        const normalized = coerceArray(candidate);
+                        if (normalized.length) {
+                            return success(normalized, rawResult.message || rawResult.status);
+                        }
+                    }
+
+                    if (rawResult.success === true) {
+                        const normalizedData = coerceArray(rawResult.data);
+                        if (normalizedData.length) {
+                            return success(normalizedData, rawResult.message || '');
+                        }
+                    }
+
+                    const singleSlot = coerceArray(rawResult);
+                    if (singleSlot.length) {
+                        return success(singleSlot, rawResult.message || '');
+                    }
+
+                    return success([], rawResult.message || '');
+                }
+
+                return failure('Unexpected response from server');
             }
 
             renderSlotsTable() {

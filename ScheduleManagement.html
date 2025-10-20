@@ -2447,6 +2447,7 @@
                 this.pendingImportSummary = null;
                 this.lastImportResult = null;
                 this.cachedSchedules = [];
+                this.cachedShiftSlots = [];
                 this.resolvedManagerId = '';
                 this.resolvedCampaignId = '';
                 this.managedUserIds = [];
@@ -3134,6 +3135,8 @@
                     const rawSlots = await this.callServerFunction('clientGetAllShiftSlots');
                     const { slots, metadata } = this.normalizeShiftSlotListResponse(rawSlots);
 
+                    this.cachedShiftSlots = slots;
+                    this.updateShiftSlotSelectors(slots);
                     this.displayShiftSlots(slots);
 
                     const totalSlotsElement = document.getElementById('totalSlots');
@@ -3144,6 +3147,8 @@
                     console.log(`✅ Loaded ${metadata.totalCount} shift slots`);
                 } catch (error) {
                     console.error('❌ Error loading shift slots:', error);
+                    this.cachedShiftSlots = [];
+                    this.updateShiftSlotSelectors([]);
                     this.displayShiftSlots([]);
                     this.showToast(error.message || 'Failed to load shift slots. You may need to create some first.', 'warning');
                 }
@@ -3192,19 +3197,119 @@
                     `).join('');
             }
 
+            updateShiftSlotSelectors(slots) {
+                if (typeof document === 'undefined') {
+                    return;
+                }
+
+                const select = document.getElementById('scheduleShiftSlots');
+                if (!select) {
+                    return;
+                }
+
+                const previouslySelected = Array.from(select.selectedOptions || []).map(option => option.value);
+                select.innerHTML = '';
+
+                if (!Array.isArray(slots) || slots.length === 0) {
+                    const emptyOption = document.createElement('option');
+                    emptyOption.disabled = true;
+                    emptyOption.selected = true;
+                    emptyOption.textContent = 'No shift slots available';
+                    select.appendChild(emptyOption);
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                slots.forEach(slot => {
+                    const option = document.createElement('option');
+                    const slotId = this.resolveShiftSlotId(slot);
+                    option.value = slotId || this.buildShiftSlotFallbackValue(slot);
+                    option.textContent = this.buildShiftSlotOptionLabel(slot);
+
+                    if (!option.value) {
+                        option.disabled = true;
+                    }
+
+                    if (previouslySelected.includes(option.value)) {
+                        option.selected = true;
+                    }
+
+                    fragment.appendChild(option);
+                });
+
+                select.appendChild(fragment);
+            }
+
             normalizeShiftSlotListResponse(rawSlots) {
                 const emptyResult = { slots: [], metadata: { totalCount: 0 } };
 
                 const coerceArray = (value) => {
+                    if (!value) {
+                        return [];
+                    }
+
                     if (Array.isArray(value)) {
                         return value.filter(slot => slot && typeof slot === 'object');
                     }
 
-                    if (value && typeof value === 'object' && (value.ID || value.Name)) {
-                        return [value];
+                    if (typeof value === 'object') {
+                        if (Array.isArray(value.values)) {
+                            return coerceArray(value.values);
+                        }
+
+                        if (Array.isArray(value.items)) {
+                            return coerceArray(value.items);
+                        }
+
+                        if (Array.isArray(value.records)) {
+                            return coerceArray(value.records);
+                        }
+
+                        if (Array.isArray(value.data)) {
+                            return coerceArray(value.data);
+                        }
+
+                        const numericKeys = Object.keys(value).filter(key => /^\d+$/.test(key));
+                        if (numericKeys.length) {
+                            return numericKeys
+                                .sort((a, b) => Number(a) - Number(b))
+                                .map(key => value[key])
+                                .filter(slot => slot && typeof slot === 'object');
+                        }
+
+                        const objectValues = Object.values(value)
+                            .filter(entry => entry && typeof entry === 'object');
+                        if (objectValues.length && objectValues.every(entry => entry.ID || entry.Name || entry.SlotName || entry.StartTime)) {
+                            return objectValues;
+                        }
+
+                        if (value.ID || value.Name) {
+                            return [value];
+                        }
                     }
 
                     return [];
+                };
+
+                const buildMetadata = (slots, source) => {
+                    const base = {
+                        totalCount: slots.length
+                    };
+
+                    if (source && typeof source === 'object') {
+                        if (typeof source.total === 'number') {
+                            base.total = source.total;
+                        }
+                        if (typeof source.totalCount === 'number') {
+                            base.totalCount = source.totalCount;
+                        }
+                        if (typeof source.count === 'number') {
+                            base.count = source.count;
+                        }
+                        base.source = source;
+                    }
+
+                    return base;
                 };
 
                 const handleFailure = (message) => {
@@ -3215,7 +3320,7 @@
                     const normalized = coerceArray(rawSlots);
                     return {
                         slots: normalized,
-                        metadata: { totalCount: normalized.length }
+                        metadata: buildMetadata(normalized)
                     };
                 }
 
@@ -3224,12 +3329,30 @@
                 }
 
                 if (typeof rawSlots === 'string') {
-                    handleFailure(rawSlots);
+                    const trimmed = rawSlots.trim();
+                    if (!trimmed) {
+                        return emptyResult;
+                    }
+
+                    const lower = trimmed.toLowerCase();
+                    if (lower.includes('no shift slots') || lower.includes('no slots found')) {
+                        return emptyResult;
+                    }
+
+                    if (['success', 'ok', 'done', 'created', 'completed'].some(token => lower.includes(token))) {
+                        return emptyResult;
+                    }
+
+                    handleFailure(trimmed);
                 }
 
                 if (typeof rawSlots === 'object') {
                     if (rawSlots.success === false) {
-                        handleFailure(rawSlots.error || rawSlots.message);
+                        const message = rawSlots.error || rawSlots.message;
+                        if (message && /no (shift\s*)?slots?/i.test(message)) {
+                            return emptyResult;
+                        }
+                        handleFailure(message);
                     }
 
                     const candidateArrays = [
@@ -3237,46 +3360,104 @@
                         rawSlots.data?.slots,
                         rawSlots.result?.slots,
                         rawSlots.records,
-                        rawSlots.items
+                        rawSlots.items,
+                        rawSlots.values
                     ];
 
                     for (const candidate of candidateArrays) {
-                        if (Array.isArray(candidate)) {
-                            const normalized = coerceArray(candidate);
+                        const normalized = coerceArray(candidate);
+                        if (normalized.length) {
                             return {
                                 slots: normalized,
-                                metadata: {
-                                    totalCount: normalized.length,
-                                    source: rawSlots
-                                }
+                                metadata: buildMetadata(normalized, rawSlots)
                             };
                         }
                     }
 
-                    if (rawSlots.success === true && Array.isArray(rawSlots.data)) {
-                        const normalized = coerceArray(rawSlots.data);
-                        return {
-                            slots: normalized,
-                            metadata: {
-                                totalCount: normalized.length,
-                                source: rawSlots
-                            }
-                        };
+                    if (rawSlots.success === true) {
+                        const normalizedData = coerceArray(rawSlots.data);
+                        if (normalizedData.length) {
+                            return {
+                                slots: normalizedData,
+                                metadata: buildMetadata(normalizedData, rawSlots)
+                            };
+                        }
                     }
 
                     const singleSlot = coerceArray(rawSlots);
                     if (singleSlot.length) {
                         return {
                             slots: singleSlot,
-                            metadata: {
-                                totalCount: singleSlot.length,
-                                source: rawSlots
-                            }
+                            metadata: buildMetadata(singleSlot, rawSlots)
                         };
                     }
                 }
 
                 return emptyResult;
+            }
+
+            resolveShiftSlotId(slot = {}) {
+                const candidates = [
+                    slot.ID, slot.Id, slot.id,
+                    slot.SlotID, slot.SlotId, slot.slotId,
+                    slot.Guid, slot.UUID, slot.Uuid
+                ];
+
+                for (let index = 0; index < candidates.length; index++) {
+                    const candidate = candidates[index];
+                    if (candidate === null || candidate === undefined) {
+                        continue;
+                    }
+
+                    const normalized = String(candidate).trim();
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                return '';
+            }
+
+            buildShiftSlotFallbackValue(slot = {}) {
+                const name = (slot.Name || slot.SlotName || '').toString().trim();
+                const timeRange = [
+                    this.formatTimeValue(slot.StartTime),
+                    this.formatTimeValue(slot.EndTime)
+                ].filter(Boolean).join('-');
+
+                const descriptor = [name, timeRange].filter(Boolean).join('|');
+                return descriptor;
+            }
+
+            buildShiftSlotOptionLabel(slot = {}) {
+                const parts = [];
+                const name = (slot.Name || slot.SlotName || 'Shift Slot').toString().trim();
+                if (name) {
+                    parts.push(name);
+                }
+
+                const startTime = this.formatTimeValue(slot.StartTime);
+                const endTime = this.formatTimeValue(slot.EndTime);
+                const timeRange = [startTime, endTime].filter(Boolean).join(' - ');
+                if (timeRange) {
+                    parts.push(`(${timeRange})`);
+                }
+
+                const days = Array.isArray(slot.DaysOfWeekArray)
+                    ? this.formatDaysOfWeek(slot.DaysOfWeekArray)
+                    : (typeof slot.DaysOfWeek === 'string'
+                        ? this.formatDaysOfWeek(slot.DaysOfWeek.split(',').map(value => parseInt(value, 10)).filter(day => !isNaN(day)))
+                        : '');
+                if (days) {
+                    parts.push(`• ${days}`);
+                }
+
+                const department = (slot.Department || slot.Team || '').toString().trim();
+                if (department) {
+                    parts.push(`• ${department}`);
+                }
+
+                return parts.join(' ');
             }
 
             async refreshDashboard() {
@@ -4017,8 +4198,9 @@
 
             async confirmShiftSlotCreation(slotData) {
                 try {
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
-                    if (!Array.isArray(slots)) {
+                    const rawSlots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots } = this.normalizeShiftSlotListResponse(rawSlots);
+                    if (!Array.isArray(slots) || slots.length === 0) {
                         return false;
                     }
 
