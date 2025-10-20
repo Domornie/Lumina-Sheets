@@ -2524,6 +2524,7 @@
             constructor() {
                 this.currentUser = window.user || window.currentUser || window.CURRENT_USER || {};
                 this.availableUsers = [];
+                this.availableUsersMonthContext = null;
                 this.availableCampaigns = [];
                 this.coverageChart = null;
                 this.pendingImportSchedules = [];
@@ -3044,6 +3045,27 @@
                     })();
 
                     const byId = new Map();
+                    let monthContext = null;
+                    let targetMonth = null;
+                    let targetYear = null;
+
+                    try {
+                        const monthInput = document.getElementById('attendanceMonth');
+                        const yearInput = document.getElementById('attendanceYear');
+                        monthContext = this.resolveAttendanceMonthContext(
+                            monthInput ? monthInput.value : '',
+                            yearInput ? yearInput.value : ''
+                        );
+                        if (monthContext && Number.isFinite(monthContext.month) && Number.isFinite(monthContext.year)) {
+                            targetMonth = monthContext.month;
+                            targetYear = monthContext.year;
+                        }
+                    } catch (contextError) {
+                        console.warn('⚠️ Unable to resolve month context for user filtering:', contextError);
+                    }
+
+                    this.availableUsersMonthContext = monthContext;
+
                     const pushUserRecord = (user) => {
                         if (!user || typeof user !== 'object') {
                             return;
@@ -3056,6 +3078,38 @@
 
                         const existing = byId.get(normalizedId) || {};
 
+                        const employmentPeriod = this.getEmploymentPeriod(user);
+                        const employmentStatusRaw = user.EmploymentStatus || user.employmentStatus || existing.EmploymentStatus || existing.employmentStatusRaw || '';
+                        const employmentStatusCanonical = employmentPeriod.status
+                            || this.normalizeEmploymentStatusLabel(employmentStatusRaw)
+                            || existing.EmploymentStatusCanonical
+                            || existing.employmentStatusCanonical
+                            || '';
+                        const employmentStatusIsActive = typeof employmentPeriod.isStatusActive === 'boolean'
+                            ? employmentPeriod.isStatusActive
+                            : (typeof user.employmentStatusIsActive === 'boolean'
+                                ? user.employmentStatusIsActive
+                                : (typeof existing.employmentStatusIsActive === 'boolean'
+                                    ? existing.employmentStatusIsActive
+                                    : this.isEmploymentStatusActive(employmentStatusCanonical || employmentStatusRaw)));
+                        const employmentStartIso = employmentPeriod.startIso
+                            || user.employmentStartIso
+                            || user.employmentStartISO
+                            || existing.employmentStartIso
+                            || existing.employmentStartISO
+                            || user.HireDate
+                            || existing.HireDate
+                            || '';
+                        const employmentEndIso = employmentPeriod.endIso
+                            || user.employmentEndIso
+                            || user.employmentEndISO
+                            || existing.employmentEndIso
+                            || existing.employmentEndISO
+                            || user.TerminationDate
+                            || user.terminationDate
+                            || existing.TerminationDate
+                            || '';
+
                         const normalized = {
                             ID: normalizedId,
                             UserName: user.UserName || user.username || existing.UserName || existing.username || normalizedId,
@@ -3063,10 +3117,16 @@
                             Email: user.Email || user.email || existing.Email || '',
                             CampaignID: user.CampaignID || user.campaignID || user.campaignId || existing.CampaignID || '',
                             campaignName: user.campaignName || existing.campaignName || '',
-                            EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
-                            HireDate: user.HireDate || existing.HireDate || '',
-                            TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || '',
-                            isActive: typeof user.isActive === 'boolean' ? user.isActive : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
+                            EmploymentStatus: employmentStatusRaw || existing.EmploymentStatus || 'Active',
+                            EmploymentStatusCanonical: employmentStatusCanonical || existing.EmploymentStatusCanonical || '',
+                            employmentStatusCanonical: employmentStatusCanonical || existing.employmentStatusCanonical || '',
+                            employmentStatusRaw: employmentStatusRaw || existing.employmentStatusRaw || '',
+                            employmentStatusIsActive,
+                            HireDate: employmentStartIso || existing.HireDate || '',
+                            TerminationDate: employmentEndIso || existing.TerminationDate || '',
+                            employmentStartIso: employmentStartIso || existing.employmentStartIso || '',
+                            employmentEndIso: employmentEndIso || existing.employmentEndIso || '',
+                            isActive: typeof user.isActive === 'boolean' ? user.isActive : employmentStatusIsActive,
                             roleNames: Array.isArray(user.roleNames) ? user.roleNames.slice() : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
                         };
 
@@ -3076,13 +3136,22 @@
                     (Array.isArray(scheduleUsers) ? scheduleUsers : []).forEach(pushUserRecord);
                     rosterUsers.forEach(pushUserRecord);
 
-                    this.availableUsers = Array.from(byId.values())
+                    const combinedUsers = Array.from(byId.values())
                         .filter(user => user && user.ID && (user.FullName || user.UserName))
                         .sort((a, b) => {
                             const nameA = (a.FullName || a.UserName || '').toLowerCase();
                             const nameB = (b.FullName || b.UserName || '').toLowerCase();
                             return nameA.localeCompare(nameB);
                         });
+
+                    const preFilterCount = combinedUsers.length;
+                    let filteredUsers = combinedUsers;
+
+                    if (Number.isFinite(targetYear) && Number.isFinite(targetMonth)) {
+                        filteredUsers = combinedUsers.filter(user => this.isUserEmployedDuringMonth(user, targetYear, targetMonth));
+                    }
+
+                    this.availableUsers = filteredUsers;
 
                     if (this.attendanceDashboardUserFilter) {
                         const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
@@ -3145,7 +3214,8 @@
                         }).length || this.availableUsers.length;
                     }
 
-                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries)`);
+                    const monthLabel = monthContext && monthContext.label ? monthContext.label : 'current period';
+                    console.log(`✅ Loaded ${this.availableUsers.length} users (filtered from ${preFilterCount}) for ${monthLabel} (including ${rosterUsers.length} managed roster entries)`);
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
@@ -3166,6 +3236,7 @@
                 } catch (error) {
                     console.error('❌ Error loading users:', error);
                     this.availableUsers = [];
+                    this.availableUsersMonthContext = null;
                     this.showToast('Failed to load users: ' + error.message, 'danger');
                 }
             }
@@ -3227,10 +3298,13 @@
 
                 if (this.availableUsers.length === 0) {
                     const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your team');
+                    const periodLabel = this.availableUsersMonthContext && this.availableUsersMonthContext.label
+                        ? ` for ${this.escapeHtml(this.availableUsersMonthContext.label)}`
+                        : '';
                     container.innerHTML = `
                         <div class="text-muted text-center py-4">
                             <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
-                            <p class="mb-1">No managed agents found for ${managerName}.</p>
+                            <p class="mb-1">No managed agents found for ${managerName}${periodLabel}.</p>
                             <p class="mb-0 small">Verify your manager assignments in the MANAGER_USERS sheet.</p>
                         </div>
                     `;
@@ -3239,13 +3313,16 @@
                 }
 
                 const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your roster');
+                const periodLabel = this.availableUsersMonthContext && this.availableUsersMonthContext.label
+                    ? ` for ${this.escapeHtml(this.availableUsersMonthContext.label)}`
+                    : '';
                 const identityBadge = this.identityResolved
                     ? '<span class="badge bg-success">Lumina Identity</span>'
                     : '<span class="badge bg-secondary">Limited Identity</span>';
 
                 const summary = `
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 small text-muted">
-                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}</span>
+                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}${periodLabel}</span>
                         ${identityBadge}
                     </div>
                 `;
