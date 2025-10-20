@@ -247,6 +247,52 @@
       display: block;
     }
 
+    /* RECOGNITION */
+    .recognition-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .recognition-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: var(--border-radius-full);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gradient-success);
+      color: #fff;
+      font-size: 1.75rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    .recognition-score .display-6 {
+      font-size: 2.75rem;
+    }
+
+    .recognition-mentions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .recognition-mentions .badge {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--gray-700);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      font-weight: 600;
+      padding: 0.5rem 0.75rem;
+    }
+
+    @media (min-width: 992px) {
+      .recognition-banner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
     .kpi-card .value {
       font-size: 2.5rem;
       font-weight: 800;
@@ -993,6 +1039,20 @@
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="stateSummaryRow"></div>
 </div>
 
+<!-- RECOGNITION SECTION -->
+<div id="recognitionSection" class="mb-4">
+  <div class="card ai-enhanced">
+    <div class="card-header">
+      <h5><i class="fas fa-medal"></i>Adherence Recognition</h5>
+    </div>
+    <div class="card-body" id="adherenceRecognition">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i> Calculating adherence leaders...
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- KPI CARDS ROW -->
 <div id="billableSummarySection" class="mb-4">
   <div class="row gx-4">
@@ -1538,6 +1598,12 @@
     return seconds + 's';
   }
 
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
   function readHourPolicyFromControls() {
     const toggle = document.getElementById('overtimeToggle');
     const select = document.getElementById('overtimeAmount');
@@ -2023,6 +2089,7 @@
         this.renderExecutiveMetrics();
         this.renderKPICards();
         this.renderProductivityGauges();
+        this.renderAdherenceRecognition();
         this.renderCharts();
         this.renderAttendanceTable();
         this.renderDailyBreakdownBars();
@@ -2107,6 +2174,75 @@
         document.getElementById('kpi-productive').textContent = billableValue.toFixed(2) + 'h';
         document.getElementById('kpi-nonproductive').textContent = nonProdValue.toFixed(2) + 'h';
       } catch (error) { console.error('Error rendering productivity gauges:', error); }
+    }
+
+    renderAdherenceRecognition() {
+      try {
+        const section = document.getElementById('recognitionSection');
+        const container = document.getElementById('adherenceRecognition');
+        if (!section || !container) {
+          return;
+        }
+
+        const topEntries = Array.isArray(this.currentData.top5Attendance)
+          ? this.currentData.top5Attendance.filter(entry => entry && entry.user)
+          : [];
+
+        if (!topEntries.length) {
+          container.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No adherence recognition available yet. Import more schedule data to spotlight champions.</div>';
+          section.dataset.hasRecognition = '0';
+          return;
+        }
+
+        section.dataset.hasRecognition = '1';
+
+        const champion = topEntries[0];
+        const workingDays = Number(this.currentData?.periodInfo?.workingDays) || null;
+        const formatPercent = (value) => {
+          const num = Number(value);
+          if (!Number.isFinite(num)) return '—';
+          if (Math.abs(num - Math.round(num)) < 0.05) {
+            return `${Math.round(num)}%`;
+          }
+          return `${num.toFixed(1)}%`;
+        };
+
+        const championPercent = formatPercent(champion.percentage);
+        const periodSummary = workingDays
+          ? `across ${workingDays} working day${workingDays === 1 ? '' : 's'}`
+          : 'this period';
+
+        const mentionBadges = topEntries.slice(1, 3)
+          .map(entry => `<span class="badge rounded-pill"><i class="fas fa-thumbs-up text-success me-1"></i>${escapeHtml(entry.user)} · ${formatPercent(entry.percentage)}</span>`)
+          .join('');
+
+        container.innerHTML = `
+          <div class="recognition-banner">
+            <div class="d-flex align-items-center gap-3 recognition-main">
+              <div class="recognition-icon">
+                <i class="fas fa-user-check"></i>
+              </div>
+              <div>
+                <p class="text-uppercase text-muted small mb-1">Adherence Champion</p>
+                <h3 class="mb-1">${escapeHtml(champion.user)}</h3>
+                <p class="mb-0 text-muted">Maintained ${championPercent} adherence ${periodSummary}.</p>
+              </div>
+            </div>
+            <div class="text-center text-lg-end recognition-score">
+              <div class="display-6 fw-bold text-success">${championPercent}</div>
+              <div class="text-muted small">Schedule adherence</div>
+            </div>
+          </div>
+          ${mentionBadges ? `
+            <div class="recognition-mentions mt-4">
+              <div class="text-uppercase text-muted small fw-semibold mb-2">Additional shout-outs</div>
+              <div class="d-flex flex-wrap gap-2">${mentionBadges}</div>
+            </div>
+          ` : ''}
+        `;
+      } catch (error) {
+        console.error('Error rendering adherence recognition:', error);
+      }
     }
 
     renderCharts() {
@@ -3033,6 +3169,7 @@
       const sections = {
         executivePanel: document.getElementById('executivePanel'),
         stateSummary: document.getElementById('stateSummarySection'),
+        recognition: document.getElementById('recognitionSection'),
         billableSummary: document.getElementById('billableSummarySection'),
         dailyBreakdown: document.getElementById('dailyBreakdownSection'),
         charts: document.getElementById('chartsSection'),
@@ -3042,9 +3179,9 @@
 
       const viewConfig = {
         executive: ['executivePanel'],
-        summary: ['executivePanel', 'billableSummary', 'stateSummary', 'dailyBreakdown'],
+        summary: ['executivePanel', 'billableSummary', 'stateSummary', 'recognition', 'dailyBreakdown'],
         detailed: Object.keys(sections),
-        standard: ['executivePanel', 'stateSummary', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
+        standard: ['executivePanel', 'stateSummary', 'recognition', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
       };
 
       const activeKeys = new Set(viewConfig[this.viewMode] || viewConfig.standard);
@@ -3070,6 +3207,11 @@
       document.getElementById('kpi-nonproductive').textContent = 'No Data';
 
       document.getElementById('stateSummaryRow').innerHTML = '<div class="col-12"><div class="alert alert-modern alert-info text-center" role="alert"><i class="fas fa-info-circle me-2"></i>No attendance data available for the selected period.</div></div>';
+
+      const recognitionContainer = document.getElementById('adherenceRecognition');
+      if (recognitionContainer) {
+        recognitionContainer.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No adherence recognition available.</div>';
+      }
 
       const tableContainer = document.getElementById('attendanceTableContainer');
       if (tableContainer) {
