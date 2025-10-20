@@ -541,9 +541,15 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
       .filter(user => user && user.ID && (user.UserName || user.FullName))
       .filter(user => !isScheduleNameRestricted(user))
       .filter(user => !isScheduleRoleRestricted(user))
-      .filter(user => isUserConsideredActive(user))
+      .filter(user => includeInactive ? true : isUserConsideredActive(user))
       .map(user => {
         const campaignName = getCampaignById(user.CampaignID)?.Name || '';
+        const employmentStatusRaw = user.EmploymentStatus || user.employmentStatus || user.Status || '';
+        const employmentStatusCanonical = normalizeEmploymentStatusForSchedules(employmentStatusRaw);
+        const employmentStatusActive = isEmploymentStatusActiveForSchedules(employmentStatusCanonical);
+        const hireIso = resolveEmploymentIsoDateFromUser(user, SCHEDULE_EMPLOYMENT_START_FIELDS);
+        const terminationIso = resolveEmploymentIsoDateFromUser(user, SCHEDULE_EMPLOYMENT_END_FIELDS);
+
         return {
           ID: user.ID,
           UserName: user.UserName || user.FullName,
@@ -551,10 +557,16 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
           Email: user.Email || '',
           CampaignID: user.CampaignID || '',
           campaignName: campaignName,
-          EmploymentStatus: user.EmploymentStatus || 'Active',
-          HireDate: user.HireDate || '',
-          TerminationDate: user.TerminationDate || user.terminationDate || '',
-          isActive: isUserConsideredActive(user)
+          EmploymentStatus: employmentStatusRaw || '',
+          EmploymentStatusCanonical: employmentStatusCanonical,
+          employmentStatusCanonical: employmentStatusCanonical,
+          employmentStatusRaw: employmentStatusRaw || '',
+          employmentStatusIsActive: employmentStatusActive,
+          HireDate: hireIso || user.HireDate || '',
+          TerminationDate: terminationIso || user.TerminationDate || user.terminationDate || '',
+          employmentStartIso: hireIso || '',
+          employmentEndIso: terminationIso || '',
+          isActive: employmentStatusActive
         };
       });
 
