@@ -93,6 +93,136 @@
     return out;
   }
 
+  function resolveScheduleSheetName(globalProperty, constantValue, fallback) {
+    if (global && typeof global[globalProperty] === 'string' && global[globalProperty]) {
+      return global[globalProperty];
+    }
+    if (typeof constantValue === 'string' && constantValue) {
+      return constantValue;
+    }
+    return fallback;
+  }
+
+  function getScheduleSheetNames() {
+    var names = [];
+    if (typeof SCHEDULE_GENERATION_SHEET !== 'undefined' && SCHEDULE_GENERATION_SHEET) names.push(SCHEDULE_GENERATION_SHEET);
+    if (typeof SHIFT_SLOTS_SHEET !== 'undefined' && SHIFT_SLOTS_SHEET) names.push(SHIFT_SLOTS_SHEET);
+    if (typeof SHIFT_SWAPS_SHEET !== 'undefined' && SHIFT_SWAPS_SHEET) names.push(SHIFT_SWAPS_SHEET);
+    if (typeof SCHEDULE_TEMPLATES_SHEET !== 'undefined' && SCHEDULE_TEMPLATES_SHEET) names.push(SCHEDULE_TEMPLATES_SHEET);
+    if (typeof SCHEDULE_NOTIFICATIONS_SHEET !== 'undefined' && SCHEDULE_NOTIFICATIONS_SHEET) names.push(SCHEDULE_NOTIFICATIONS_SHEET);
+    if (typeof SCHEDULE_ADHERENCE_SHEET !== 'undefined' && SCHEDULE_ADHERENCE_SHEET) names.push(SCHEDULE_ADHERENCE_SHEET);
+    if (typeof SCHEDULE_CONFLICTS_SHEET !== 'undefined' && SCHEDULE_CONFLICTS_SHEET) names.push(SCHEDULE_CONFLICTS_SHEET);
+    if (typeof RECURRING_SCHEDULES_SHEET !== 'undefined' && RECURRING_SCHEDULES_SHEET) names.push(RECURRING_SCHEDULES_SHEET);
+    if (typeof DEMAND_SHEET !== 'undefined' && DEMAND_SHEET) names.push(DEMAND_SHEET);
+    if (typeof FTE_PLAN_SHEET !== 'undefined' && FTE_PLAN_SHEET) names.push(FTE_PLAN_SHEET);
+    if (typeof SCHEDULE_FORECAST_METADATA_SHEET !== 'undefined' && SCHEDULE_FORECAST_METADATA_SHEET) names.push(SCHEDULE_FORECAST_METADATA_SHEET);
+    if (typeof SCHEDULE_HEALTH_SHEET !== 'undefined' && SCHEDULE_HEALTH_SHEET) names.push(SCHEDULE_HEALTH_SHEET);
+    if (typeof ATTENDANCE_STATUS_SHEET !== 'undefined' && ATTENDANCE_STATUS_SHEET) names.push(ATTENDANCE_STATUS_SHEET);
+    if (typeof USER_HOLIDAY_PAY_STATUS_SHEET !== 'undefined' && USER_HOLIDAY_PAY_STATUS_SHEET) names.push(USER_HOLIDAY_PAY_STATUS_SHEET);
+    if (typeof HOLIDAYS_SHEET !== 'undefined' && HOLIDAYS_SHEET) names.push(HOLIDAYS_SHEET);
+    return dedupeList(names);
+  }
+
+  var scheduleSheetLookup = (function () {
+    var lookup = {};
+    var names = getScheduleSheetNames();
+    for (var i = 0; i < names.length; i++) {
+      var key = toStr(names[i]);
+      if (key) lookup[key] = true;
+    }
+    return lookup;
+  })();
+
+  function isScheduleSheetName(name) {
+    var key = toStr(name);
+    return !!(key && scheduleSheetLookup[key]);
+  }
+
+  function getScheduleHeadersForTable(table) {
+    if (table && Array.isArray(table.headers) && table.headers.length) {
+      return table.headers.slice();
+    }
+    if (typeof getHeadersForSheet === 'function') {
+      var headers = getHeadersForSheet(table ? table.name : null);
+      if (headers && headers.length) {
+        return headers.slice();
+      }
+    }
+    return null;
+  }
+
+  function clearScheduleCacheFor(name) {
+    if (typeof removeFromCache === 'function') {
+      try { removeFromCache('schedule_' + name); } catch (err) { }
+    }
+  }
+
+  function appendScheduleRecord(table, record) {
+    if (!table || !table.name) return record;
+    if (typeof ensureScheduleSheetWithHeaders !== 'function') {
+      throw new Error('ScheduleUtilities not loaded: ensureScheduleSheetWithHeaders unavailable');
+    }
+    var headers = getScheduleHeadersForTable(table);
+    if (!headers || !headers.length) {
+      throw new Error('Schedule headers not defined for ' + table.name);
+    }
+    var sheet = ensureScheduleSheetWithHeaders(table.name, headers);
+    var row = [];
+    for (var i = 0; i < headers.length; i++) {
+      var header = headers[i];
+      row.push(Object.prototype.hasOwnProperty.call(record, header) ? record[header] : '');
+    }
+    sheet.appendRow(row);
+    clearScheduleCacheFor(table.name);
+    return record;
+  }
+
+  function extractAllowedTenants(context) {
+    var values = [];
+    if (!context || typeof context !== 'object') return values;
+    var singleKeys = ['tenantId', 'campaignId'];
+    for (var i = 0; i < singleKeys.length; i++) {
+      var single = toStr(context[singleKeys[i]]);
+      if (single) values.push(single);
+    }
+    var multiKeys = ['tenantIds', 'campaignIds', 'allowedTenants', 'allowedTenantIds'];
+    for (var j = 0; j < multiKeys.length; j++) {
+      var arr = context[multiKeys[j]];
+      if (Array.isArray(arr)) {
+        arr.forEach(function (value) {
+          var normalized = toStr(value);
+          if (normalized) values.push(normalized);
+        });
+      }
+    }
+    return dedupeList(values);
+  }
+
+  function selectScheduleRows(table, context) {
+    if (typeof readScheduleSheet !== 'function') {
+      return [];
+    }
+    var rows = readScheduleSheet(table.name) || [];
+    if (!table.tenantColumn) {
+      return rows;
+    }
+    var allowed = extractAllowedTenants(context || {});
+    if (!allowed.length) {
+      return table.requireTenant ? [] : rows;
+    }
+    var allowedMap = {};
+    for (var i = 0; i < allowed.length; i++) {
+      allowedMap[toStr(allowed[i])] = true;
+    }
+    return rows.filter(function (row) {
+      var tenantValue = toStr(row[table.tenantColumn]);
+      if (!tenantValue) {
+        return !table.requireTenant;
+      }
+      return !!allowedMap[tenantValue];
+    });
+  }
+
   function pickFirst(values) {
     if (!values || !values.length) return null;
     for (var i = 0; i < values.length; i++) {
@@ -146,11 +276,11 @@
       { key: 'userCampaigns', name: global.USER_CAMPAIGNS_SHEET || 'UserCampaigns', headerVar: 'USER_CAMPAIGNS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignId', 'CampaignID'], requireTenant: true, cacheTTL: 1800 },
       { key: 'userManagers', name: global.USER_MANAGERS_SHEET || 'UserManagers', headerVar: 'USER_MANAGERS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: true, cacheTTL: 2700 },
       { key: 'notifications', name: global.NOTIFICATIONS_SHEET || 'Notifications', headerVar: 'NOTIFICATIONS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 1800 },
-      { key: 'schedules', name: typeof global.SCHEDULE_GENERATION_SHEET === 'string' ? global.SCHEDULE_GENERATION_SHEET : 'GeneratedSchedules', headerVar: 'SCHEDULE_GENERATION_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
-      { key: 'shiftSlots', name: typeof global.SHIFT_SLOTS_SHEET === 'string' ? global.SHIFT_SLOTS_SHEET : 'ShiftSlots', headerVar: 'SHIFT_SLOTS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
-      { key: 'adherence', name: typeof global.SCHEDULE_ADHERENCE_SHEET === 'string' ? global.SCHEDULE_ADHERENCE_SHEET : 'ScheduleAdherence', headerVar: 'SCHEDULE_ADHERENCE_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'schedules', name: resolveScheduleSheetName('SCHEDULE_GENERATION_SHEET', (typeof SCHEDULE_GENERATION_SHEET !== 'undefined' ? SCHEDULE_GENERATION_SHEET : null), 'GeneratedSchedules'), headerVar: 'SCHEDULE_GENERATION_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'shiftSlots', name: resolveScheduleSheetName('SHIFT_SLOTS_SHEET', (typeof SHIFT_SLOTS_SHEET !== 'undefined' ? SHIFT_SLOTS_SHEET : null), 'ShiftSlots'), headerVar: 'SHIFT_SLOTS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'adherence', name: resolveScheduleSheetName('SCHEDULE_ADHERENCE_SHEET', (typeof SCHEDULE_ADHERENCE_SHEET !== 'undefined' ? SCHEDULE_ADHERENCE_SHEET : null), 'ScheduleAdherence'), headerVar: 'SCHEDULE_ADHERENCE_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'attendanceLog', name: typeof global.ATTENDANCE_LOG_SHEET === 'string' ? global.ATTENDANCE_LOG_SHEET : (global.ATTENDANCE_SHEET || 'AttendanceLog'), headerVar: 'ATTENDANCE_LOG_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
-      { key: 'attendanceStatus', name: typeof global.ATTENDANCE_STATUS_SHEET === 'string' ? global.ATTENDANCE_STATUS_SHEET : 'AttendanceStatus', headerVar: 'ATTENDANCE_STATUS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
+      { key: 'attendanceStatus', name: resolveScheduleSheetName('ATTENDANCE_STATUS_SHEET', (typeof ATTENDANCE_STATUS_SHEET !== 'undefined' ? ATTENDANCE_STATUS_SHEET : null), 'AttendanceStatus'), headerVar: 'ATTENDANCE_STATUS_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
       { key: 'qaRecords', name: typeof global.QA_RECORDS === 'string' ? global.QA_RECORDS : 'QA Records', headerVar: 'QA_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 2700 },
       { key: 'coaching', name: typeof global.COACHING_SHEET === 'string' ? global.COACHING_SHEET : 'CoachingRecords', headerVar: 'COACHING_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false, cacheTTL: 2700 },
       { key: 'chatMessages', name: global.CHAT_MESSAGES_SHEET || 'ChatMessages', headerVar: 'CHAT_MESSAGES_HEADERS', idColumn: 'ID', preferTenantColumns: ['CampaignID', 'CampaignId'], requireTenant: false },
@@ -255,6 +385,14 @@
     ensureInitialized();
     var table = getTable(key);
     if (!table) return [];
+    if (isScheduleSheetName(table.name) && typeof readScheduleSheet === 'function') {
+      try {
+        return selectScheduleRows(table, context || null) || [];
+      } catch (scheduleSelectError) {
+        logError('selectSchedule:' + key, scheduleSelectError);
+        return [];
+      }
+    }
     var funcs = crudFunctions();
     try {
       return funcs.select(table.name, context || null, options || {}) || [];
@@ -268,6 +406,14 @@
     ensureInitialized();
     var table = getTable(key);
     if (!table) throw new Error('Table not registered: ' + key);
+    if (isScheduleSheetName(table.name) && typeof ensureScheduleSheetWithHeaders === 'function') {
+      try {
+        return appendScheduleRecord(table, record);
+      } catch (scheduleCreateError) {
+        logError('createSchedule:' + key, scheduleCreateError);
+        throw scheduleCreateError;
+      }
+    }
     var funcs = crudFunctions();
     try {
       return funcs.create(table.name, context || null, record);
