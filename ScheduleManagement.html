@@ -2558,6 +2558,7 @@
                             campaignName: user.campaignName || existing.campaignName || '',
                             EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
                             HireDate: user.HireDate || existing.HireDate || '',
+                            TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || '',
                             isActive: typeof user.isActive === 'boolean' ? user.isActive : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
                             roleNames: Array.isArray(user.roleNames) ? user.roleNames.slice() : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
                         };
@@ -4962,17 +4963,15 @@
                 try {
                     await this.ensureScheduleContext();
 
-                    const month = document.getElementById('attendanceMonth').value;
-                    const year = document.getElementById('attendanceYear').value;
+                    const monthInput = document.getElementById('attendanceMonth');
+                    const yearInput = document.getElementById('attendanceYear');
+                    const monthValue = monthInput ? monthInput.value : '';
+                    const yearValue = yearInput ? yearInput.value : '';
+                    const monthContext = this.resolveAttendanceMonthContext(monthValue, yearValue);
 
                     const container = document.getElementById('attendanceCalendarContainer');
                     this.updateStatusLegendCard();
-                    container.innerHTML = `
-                            <div class="text-center py-5">
-                                <div class="loading-spinner mx-auto mb-3"></div>
-                                <p>Loading attendance calendar for ${month}/${year}...</p>
-                            </div>
-                        `;
+                    container.innerHTML = this.renderAttendanceCalendarLoading(monthContext.label);
 
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
@@ -4990,19 +4989,39 @@
                         this.availableUsers = scheduleUsers.slice();
                     }
 
+                    const employedScheduleUsers = this.filterScheduleUsersByEmployment(
+                        scheduleUsers,
+                        monthContext.year,
+                        monthContext.month
+                    );
+
+                    console.log(
+                        '📅 Filtering attendance calendar to %d/%d employed users for %s',
+                        employedScheduleUsers.length,
+                        scheduleUsers.length,
+                        monthContext.label
+                    );
+
+                    if (!employedScheduleUsers.length) {
+                        container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
+                        return;
+                    }
+
+                    const employmentKeyLookup = this.buildEmploymentKeyLookup(employedScheduleUsers);
+
                     const combinedUsers = [];
                     const seenUserKeys = new Set();
 
                     const appendUserName = (name) => {
                         const normalized = this.normalizePersonKey(name);
-                        if (!normalized || seenUserKeys.has(normalized)) {
+                        if (!normalized || seenUserKeys.has(normalized) || !employmentKeyLookup.has(normalized)) {
                             return;
                         }
                         combinedUsers.push(name);
                         seenUserKeys.add(normalized);
                     };
 
-                    scheduleUsers.forEach(user => {
+                    employedScheduleUsers.forEach(user => {
                         if (!user) {
                             return;
                         }
@@ -5013,31 +5032,21 @@
                         attendanceUsersRaw.forEach(name => appendUserName(name));
                     }
 
-                    if (combinedUsers.length === 0) {
-                        container.innerHTML = `
-                                <div class="text-center py-5 text-muted">
-                                    <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
-                                    <h5>No Users Found</h5>
-                                    <p>No users are available for attendance tracking.</p>
-                                    <p>Please review user assignments and permissions in your management tools.</p>
-                                </div>
-                            `;
+                    if (!combinedUsers.length) {
+                        container.innerHTML = this.renderNoEligibleAttendanceUsersState(monthContext.label);
                         return;
                     }
 
-                    const userEntries = this.buildAttendanceUserEntries(combinedUsers, scheduleUsers);
-
-                    const resolvedMonth = parseInt(month, 10);
-                    const resolvedYear = parseInt(year, 10);
-                    const safeMonth = Number.isFinite(resolvedMonth) ? resolvedMonth : (new Date().getMonth() + 1);
-                    const safeYear = Number.isFinite(resolvedYear) ? resolvedYear : new Date().getFullYear();
-                    const daysInMonth = new Date(safeYear, safeMonth, 0).getDate();
-                    const startDate = `${safeYear}-${String(safeMonth).padStart(2, '0')}-01`;
-                    const endDate = `${safeYear}-${String(safeMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+                    const userEntries = this.buildAttendanceUserEntries(combinedUsers, employedScheduleUsers);
 
                     let attendanceRecords = [];
                     try {
-                        const attendanceResponse = await this.callServerFunction('clientGetAttendanceDataRange', startDate, endDate, this.getCurrentCampaignId() || null);
+                        const attendanceResponse = await this.callServerFunction(
+                            'clientGetAttendanceDataRange',
+                            monthContext.startDate,
+                            monthContext.endDate,
+                            campaignId
+                        );
                         if (attendanceResponse && attendanceResponse.success) {
                             attendanceRecords = Array.isArray(attendanceResponse.records) ? attendanceResponse.records : [];
                         } else {
@@ -5048,10 +5057,16 @@
                     }
 
                     this.attendanceCalendarRecords = attendanceRecords;
-                    this.mergeAttendanceDashboardRecords(attendanceRecords, safeYear);
+                    this.mergeAttendanceDashboardRecords(attendanceRecords, monthContext.year);
                     const attendanceMap = this.buildAttendanceRecordMap(attendanceRecords);
 
-                    const calendar = this.generateAttendanceCalendarGrid(userEntries, safeYear, safeMonth, daysInMonth, attendanceMap);
+                    const calendar = this.generateAttendanceCalendarGrid(
+                        userEntries,
+                        monthContext.year,
+                        monthContext.month,
+                        monthContext.daysInMonth,
+                        attendanceMap
+                    );
 
                     container.innerHTML = calendar;
                     console.log(`✅ Loaded attendance calendar with ${userEntries.length} users`);
@@ -5069,6 +5084,91 @@
                             </div>
                         `;
                 }
+            }
+
+            resolveAttendanceMonthContext(monthValue, yearValue) {
+                const now = new Date();
+                const parsedMonth = parseInt(monthValue, 10);
+                const parsedYear = parseInt(yearValue, 10);
+
+                const month = Number.isFinite(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+                    ? parsedMonth
+                    : now.getMonth() + 1;
+                const year = Number.isFinite(parsedYear) ? parsedYear : now.getFullYear();
+                const daysInMonth = new Date(year, month, 0).getDate();
+                const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+                const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+                const monthName = this.getMonthName(month) || `Month ${month}`;
+                const label = `${monthName} ${year}`.trim();
+
+                return {
+                    month,
+                    year,
+                    daysInMonth,
+                    startDate,
+                    endDate,
+                    label
+                };
+            }
+
+            renderAttendanceCalendarLoading(monthLabel) {
+                const safeLabel = this.escapeHtml(monthLabel || '');
+                return `
+                        <div class="text-center py-5">
+                            <div class="loading-spinner mx-auto mb-3"></div>
+                            <p>Loading attendance calendar for ${safeLabel}...</p>
+                        </div>
+                    `;
+            }
+
+            renderNoEligibleAttendanceUsersState(monthLabel) {
+                const safeLabel = this.escapeHtml(monthLabel || '');
+                return `
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-user-clock fa-3x mb-3 opacity-50"></i>
+                            <h5>No Eligible Users</h5>
+                            <p>No users were employed during ${safeLabel}.</p>
+                            <p>Adjust the selected month or review employment dates.</p>
+                        </div>
+                    `;
+            }
+
+            filterScheduleUsersByEmployment(users, year, month) {
+                if (!Array.isArray(users) || !users.length) {
+                    return [];
+                }
+
+                return users.filter(user => this.isUserEmployedDuringMonth(user, year, month));
+            }
+
+            buildEmploymentKeyLookup(users = []) {
+                const lookup = new Set();
+
+                if (!Array.isArray(users) || !users.length) {
+                    return lookup;
+                }
+
+                users.forEach(user => {
+                    this.collectUserIdentityKeys(user).forEach(key => lookup.add(key));
+                });
+
+                return lookup;
+            }
+
+            collectUserIdentityKeys(user) {
+                if (!user) {
+                    return [];
+                }
+
+                const identityValues = [
+                    user.UserName,
+                    user.FullName,
+                    user.Email
+                ];
+
+                return identityValues
+                    .map(value => this.normalizePersonKey(value))
+                    .filter(Boolean);
             }
 
             buildAttendanceUserEntries(userNames = [], scheduleUsers = []) {
@@ -5126,6 +5226,188 @@
                         recordKeys: Array.from(recordKeySet)
                     };
                 });
+            }
+
+            isUserEmployedDuringMonth(user, year, month) {
+                if (!user) {
+                    return false;
+                }
+
+                const normalizedMonth = Number(month);
+                const normalizedYear = Number(year);
+                if (!Number.isFinite(normalizedMonth) || !Number.isFinite(normalizedYear)) {
+                    return false;
+                }
+
+                const monthStart = new Date(normalizedYear, normalizedMonth - 1, 1);
+                monthStart.setHours(0, 0, 0, 0);
+                const monthEnd = new Date(normalizedYear, normalizedMonth, 0);
+                monthEnd.setHours(23, 59, 59, 999);
+                const monthStartTime = monthStart.getTime();
+                const monthEndTime = monthEnd.getTime();
+
+                const hireIso = this.resolveEmploymentIsoDate(user, [
+                    'HireDate',
+                    'hireDate',
+                    'Hire_Date',
+                    'hire_date',
+                    'Hire Date',
+                    'hire date',
+                    'DateHired',
+                    'dateHired',
+                    'Date Hired',
+                    'date hired',
+                    'OnboardDate',
+                    'onboardDate',
+                    'Onboard Date',
+                    'onboard date',
+                    'EmploymentStart',
+                    'employmentStart',
+                    'Employment Start',
+                    'employment start',
+                    'EmploymentStartDate',
+                    'employmentStartDate',
+                    'Employment Start Date',
+                    'employment start date',
+                    'StartDate',
+                    'startDate',
+                    'Start Date',
+                    'start date',
+                    'Start_Date',
+                    'start_date',
+                    'OriginalHireDate',
+                    'originalHireDate',
+                    'Original_Hire_Date',
+                    'original_hire_date',
+                    'Original Hire Date',
+                    'original hire date',
+                    'RehireDate',
+                    'rehireDate',
+                    'Rehire_Date',
+                    'rehire_date',
+                    'Rehire Date',
+                    'rehire date'
+                ]);
+                const terminationIso = this.resolveEmploymentIsoDate(user, [
+                    'TerminationDate',
+                    'terminationDate',
+                    'Termination Date',
+                    'termination date',
+                    'EndDate',
+                    'endDate',
+                    'End Date',
+                    'end date',
+                    'End_Date',
+                    'end_date',
+                    'EmploymentEnd',
+                    'employmentEnd',
+                    'Employment End',
+                    'employment end',
+                    'EmploymentEndDate',
+                    'employmentEndDate',
+                    'Employment End Date',
+                    'employment end date',
+                    'DateOfTermination',
+                    'dateOfTermination',
+                    'Date Of Termination',
+                    'date of termination',
+                    'Termination',
+                    'termination',
+                    'Termination_Date',
+                    'termination_date',
+                    'Termination Date',
+                    'termination date',
+                    'SeparationDate',
+                    'separationDate',
+                    'Separation Date',
+                    'separation date',
+                    'Separation_Date',
+                    'separation_date',
+                    'LastWorkingDate',
+                    'lastWorkingDate',
+                    'Last Working Date',
+                    'last working date'
+                ]);
+
+                const hireDate = this.parseIsoDateToLocal(hireIso);
+                if (hireDate && hireDate.getTime() > monthEndTime) {
+                    return false;
+                }
+
+                const terminationDate = this.parseIsoDateToLocal(terminationIso);
+                if (terminationDate && terminationDate.getTime() < monthStartTime) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            parseIsoDateToLocal(isoDate) {
+                if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+                    return null;
+                }
+
+                const [yearStr, monthStr, dayStr] = isoDate.split('-');
+                const year = parseInt(yearStr, 10);
+                const month = parseInt(monthStr, 10);
+                const day = parseInt(dayStr, 10);
+
+                if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+                    return null;
+                }
+
+                const date = new Date(year, month - 1, day);
+                return Number.isNaN(date.getTime()) ? null : date;
+            }
+
+            resolveEmploymentIsoDate(user, fieldNames = [], visited = new Set()) {
+                if (!user || !Array.isArray(fieldNames) || !fieldNames.length) {
+                    return '';
+                }
+
+                if (visited.has(user)) {
+                    return '';
+                }
+                visited.add(user);
+
+                for (let index = 0; index < fieldNames.length; index++) {
+                    const fieldName = fieldNames[index];
+                    if (!fieldName) {
+                        continue;
+                    }
+
+                    const rawValue = user[fieldName];
+                    const normalized = this.normalizeAttendanceDateValue(rawValue);
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                const nestedSources = [
+                    user.Employment,
+                    user.employment,
+                    user.EmploymentDetails,
+                    user.employmentDetails,
+                    user.EmploymentInfo,
+                    user.employmentInfo,
+                    user.HRProfile,
+                    user.hrProfile,
+                    user.HrProfile
+                ];
+
+                for (let index = 0; index < nestedSources.length; index++) {
+                    const nested = nestedSources[index];
+                    if (!nested || typeof nested !== 'object') {
+                        continue;
+                    }
+
+                    const normalized = this.resolveEmploymentIsoDate(nested, fieldNames, visited);
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                return '';
             }
 
             renderAttendanceLegend() {
@@ -5668,6 +5950,55 @@
                     return this.toIsoDateString(value);
                 }
 
+                if (Array.isArray(value)) {
+                    for (let index = 0; index < value.length; index++) {
+                        const candidate = this.normalizeAttendanceDateValue(value[index]);
+                        if (candidate) {
+                            return candidate;
+                        }
+                    }
+                    return '';
+                }
+
+                if (value && typeof value === 'object') {
+                    const objectCandidates = [
+                        value.iso,
+                        value.ISO,
+                        value.date,
+                        value.Date,
+                        value.value,
+                        value.Value,
+                        value.start,
+                        value.Start,
+                        value.startDate,
+                        value.StartDate,
+                        value.end,
+                        value.End,
+                        value.endDate,
+                        value.EndDate,
+                        value.timestamp,
+                        value.Timestamp,
+                        value.time,
+                        value.Time
+                    ];
+
+                    for (let index = 0; index < objectCandidates.length; index++) {
+                        const candidate = this.normalizeAttendanceDateValue(objectCandidates[index]);
+                        if (candidate) {
+                            return candidate;
+                        }
+                    }
+
+                    if (Number.isFinite(value.year) && Number.isFinite(value.month) && Number.isFinite(value.day)) {
+                        const composed = new Date(value.year, value.month - 1, value.day);
+                        if (!Number.isNaN(composed.getTime())) {
+                            return this.toIsoDateString(composed);
+                        }
+                    }
+
+                    return '';
+                }
+
                 if (typeof value === 'string') {
                     const trimmed = value.trim();
                     if (!trimmed) {
@@ -5676,6 +6007,11 @@
 
                     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
                         return trimmed;
+                    }
+
+                    const isoWithTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+                    if (isoWithTimeMatch && isoWithTimeMatch[1]) {
+                        return isoWithTimeMatch[1];
                     }
 
                     const parsedStringDate = new Date(trimmed);
@@ -5788,9 +6124,12 @@
                         this.pendingImportSummary = parseResult.summary;
                     }
 
-                    const { schedules, summary } = parseResult;
+                    const schedules = parseResult && Array.isArray(parseResult.schedules)
+                        ? parseResult.schedules
+                        : [];
+                    const summary = parseResult ? parseResult.summary : null;
 
-                    if (!schedules || schedules.length === 0) {
+                    if (!schedules.length) {
                         this.renderImportPreview([], options, summary);
                         this.showToast('No schedules were detected in the provided data.', 'warning');
                         return;
