@@ -578,7 +578,7 @@ function ensureComparableMs(row) {
 // ANALYTICS ENGINE
 // ────────────────────────────────────────────────────────────────────────────
 
-function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
+function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, policyOptions) {
   return rpc('getAttendanceAnalyticsByPeriod', () => {
     const startTime = Date.now();
     const TIME_BUDGET_MS = Math.min(MAX_PROCESSING_TIME - 2000, 20000);
@@ -588,7 +588,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       throw new Error('Period ID is required');
     }
 
-    const CACHE_KEY = `ANALYTICS_FINAL_${granularity}_${periodId}_${agentFilter || 'all'}`;
+    const hourPolicy = normalizeHourPolicy(policyOptions);
+    const CACHE_KEY = `ANALYTICS_FINAL_${granularity}_${periodId}_${agentFilter || 'all'}_${hourPolicy.cacheKey}`;
 
     // Try cache first
     try {
@@ -755,9 +756,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       const compliance = (() => {
         if (!userComplianceMap.has(row.user)) {
           userComplianceMap.set(row.user, {
-            weekdayProdSecs: 0,
-            weekendProdSecs: 0,
+            weekdayBillableSecs: 0,
+            weekendBillableSecs: 0,
             breakSecs: 0,
+            breakWeekdaySecs: 0,
+            breakWeekendSecs: 0,
             lunchSecs: 0
           });
         }
@@ -766,16 +769,21 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
       if (state === 'Break') {
         compliance.breakSecs += durationSec;
+        if (isWeekend) {
+          compliance.breakWeekendSecs += durationSec;
+        } else {
+          compliance.breakWeekdaySecs += durationSec;
+        }
       } else if (state === 'Lunch') {
         compliance.lunchSecs += durationSec;
       }
 
       if (BILLABLE_STATES.includes(state)) {
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-          compliance.weekdayProdSecs += durationSec;
+          compliance.weekdayBillableSecs += durationSec;
           topSeconds.set(row.user, (topSeconds.get(row.user) || 0) + durationSec);
         } else {
-          compliance.weekendProdSecs += durationSec;
+          compliance.weekendBillableSecs += durationSec;
         }
 
         totalBillableSecs += durationSec;
@@ -788,10 +796,20 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
 
       const userDayKey = `${row.user || ''}|${dateKey}`;
       if (!userDayMetrics.has(userDayKey)) {
-        userDayMetrics.set(userDayKey, { prod: 0, break: 0, lunch: 0 });
+        userDayMetrics.set(userDayKey, {
+          user: row.user,
+          dateKey,
+          prod: 0,
+          break: 0,
+          lunch: 0,
+          isWeekend
+        });
       }
 
       const metrics = userDayMetrics.get(userDayKey);
+      if (metrics && typeof metrics.isWeekend !== 'boolean') {
+        metrics.isWeekend = isWeekend;
+      }
       if (BILLABLE_STATES.includes(state)) {
         metrics.prod += durationSec;
       } else if (state === 'Break') {
@@ -827,6 +845,12 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
     }
 
     let violationDays = 0;
+    const userWeekdayCapped = new Map();
+    const userWeekendCapped = new Map();
+    const userTotalCapped = new Map();
+    const dailyCappedTotals = new Map();
+    let cappedBillableSecs = 0;
+    let totalOvertimeSecs = 0;
 
     userDayMetrics.forEach(metrics => {
       const paidBreak = Math.min(metrics.break, DAILY_BREAKS_SECS);
@@ -836,36 +860,62 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       if (breakExcess > 0 || lunchExcess > 0) {
         violationDays++;
       }
+
+      const effectiveProd = Math.min(metrics.prod, hourPolicy.effectiveCapSeconds);
+      const overtime = Math.max(0, effectiveProd - (hourPolicy.baseCapHours * 3600));
+
+      cappedBillableSecs += effectiveProd;
+      totalOvertimeSecs += overtime;
+
+      const userKey = metrics.user;
+      const targetMap = metrics.isWeekend ? userWeekendCapped : userWeekdayCapped;
+      targetMap.set(userKey, (targetMap.get(userKey) || 0) + effectiveProd);
+      userTotalCapped.set(userKey, (userTotalCapped.get(userKey) || 0) + effectiveProd);
+
+      dailyCappedTotals.set(metrics.dateKey, (dailyCappedTotals.get(metrics.dateKey) || 0) + effectiveProd);
+    });
+
+    dailyMap.forEach((metrics, dayKey) => {
+      metrics.onWorkSecs = dailyCappedTotals.get(dayKey) || 0;
     });
 
     const breakSecs = stateDuration['Break'] || 0;
     const lunchSecs = stateDuration['Lunch'] || 0;
-    const billableWithBreakSecs = totalBillableSecs + breakSecs;
+    const rawBillableSecs = totalBillableSecs;
+    const effectiveBillableSecs = Math.min(cappedBillableSecs, rawBillableSecs);
+    const billableWithBreakSecs = effectiveBillableSecs + breakSecs;
     const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
     const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
 
     const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
     const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
 
-    const userCompliance = Array.from(userComplianceMap.entries()).map(([user, stats]) => ({
-      user,
-      availableSecsWeekday: stats.weekdayProdSecs,
-      availableLabelWeekday: formatSecsAsHhMm(stats.weekdayProdSecs),
-      breakSecs: stats.breakSecs,
-      breakLabel: formatSecsAsHhMm(stats.breakSecs),
-      lunchSecs: stats.lunchSecs,
-      lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
-      weekendSecs: stats.weekendProdSecs,
-      weekendLabel: formatSecsAsHhMm(stats.weekendProdSecs),
-      exceededLunchDays: Math.floor(stats.lunchSecs / DAILY_LUNCH_SECS),
-      exceededBreakDays: Math.floor(stats.breakSecs / DAILY_BREAKS_SECS),
-      exceededWeeklyCount: 0
-    }));
+    const userCompliance = Array.from(userComplianceMap.entries()).map(([user, stats]) => {
+      const weekdayBillable = userWeekdayCapped.get(user) || 0;
+      const weekendBillable = userWeekendCapped.get(user) || 0;
+      const availableWeekdaySecs = weekdayBillable + (stats.breakWeekdaySecs || 0);
+      const availableWeekendSecs = weekendBillable + (stats.breakWeekendSecs || 0);
+
+      return {
+        user,
+        availableSecsWeekday: availableWeekdaySecs,
+        availableLabelWeekday: formatSecsAsHhMm(availableWeekdaySecs),
+        breakSecs: stats.breakSecs,
+        breakLabel: formatSecsAsHhMm(stats.breakSecs),
+        lunchSecs: stats.lunchSecs,
+        lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
+        weekendSecs: availableWeekendSecs,
+        weekendLabel: formatSecsAsHhMm(availableWeekendSecs),
+        exceededLunchDays: Math.floor(stats.lunchSecs / DAILY_LUNCH_SECS),
+        exceededBreakDays: Math.floor(stats.breakSecs / DAILY_BREAKS_SECS),
+        exceededWeeklyCount: 0
+      };
+    });
 
     const weekdaysInPeriod = countWeekdaysInclusive(periodStart, periodEnd);
     const expectedCapacitySecs = weekdaysInPeriod * DAILY_SHIFT_SECS;
 
-    const top5Attendance = Array.from(topSeconds.entries())
+    const top5Attendance = Array.from(userTotalCapped.entries())
       .map(([user, secs]) => ({
         user,
         percentage: expectedCapacitySecs > 0 ? Math.min(Math.round((secs / expectedCapacitySecs) * 100), 100) : 0
@@ -874,10 +924,12 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
 
+    const totalOvertimeHours = Math.round((totalOvertimeSecs / 3600) * 100) / 100;
+
     const attendanceStats = [{
       periodLabel: periodId,
       OnWork: Math.round((billableWithBreakSecs / 3600) * 100) / 100,
-      OverTime: 0,
+      OverTime: totalOvertimeHours,
       Leave: 0,
       EarlyEntry: 0,
       Late: 0,
@@ -951,6 +1003,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter) {
       totalNonProductiveHours,
       billableHoursBreakdown: billableBreakdown,
       nonProductiveHoursBreakdown: nonProductiveBreakdown,
+      rawBillableHours: Math.round(((rawBillableSecs + breakSecs) / 3600) * 100) / 100,
+      totalOvertimeHours,
+      hourPolicy,
+      rawBillableSecs,
+      effectiveBillableSecs,
       filteredRows,
       filteredRowCount: filteredRows.length,
       userCompliance,
@@ -1192,6 +1249,43 @@ function formatSecsAsHhMm(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
   return `${hours}h ${minutes}m`;
+}
+
+function normalizeHourPolicy(options) {
+  const baseCapHours = 8;
+  const maxAllowanceHours = 5;
+  const parsedOptions = (options && typeof options === 'object') ? options : {};
+
+  const overtimeEnabled = Boolean(
+    parsedOptions.overtimeEnabled === true ||
+    parsedOptions.overtimeEnabled === 'true' ||
+    parsedOptions.overtimeEnabled === 1 ||
+    parsedOptions.overtimeEnabled === '1'
+  );
+
+  let allowance = 0;
+  if (overtimeEnabled) {
+    const rawAllowance = parseFloat(parsedOptions.overtimeAllowanceHours);
+    if (Number.isFinite(rawAllowance)) {
+      allowance = Math.round(Math.max(0, Math.min(rawAllowance, maxAllowanceHours)) * 2) / 2;
+    }
+    if (allowance <= 0) {
+      allowance = 0.5;
+    }
+  }
+
+  const effectiveCapHours = baseCapHours + (overtimeEnabled ? allowance : 0);
+  const effectiveCapSeconds = effectiveCapHours * 3600;
+  const cacheKey = overtimeEnabled ? `OT_${allowance.toFixed(1)}` : 'NO_OT';
+
+  return {
+    baseCapHours,
+    overtimeEnabled,
+    overtimeAllowanceHours: overtimeEnabled ? allowance : 0,
+    effectiveCapHours,
+    effectiveCapSeconds,
+    cacheKey
+  };
 }
 
 function buildHourBreakdown(stateList, durationMap) {
@@ -1566,6 +1660,7 @@ function clientExecuteDailyPivotExport(params) {
 function generateEnhancedDailyPivotMatrix(params) {
   try {
     const { period, users, userSelection, dailyPivotOptions } = params;
+    const hourPolicyOptions = params.hourPolicy || (dailyPivotOptions && dailyPivotOptions.hourPolicy) || {};
     let granularity, periodValue;
 
     // Determine period
@@ -1583,7 +1678,7 @@ function generateEnhancedDailyPivotMatrix(params) {
       agentFilter = users[0];
     }
     
-    const analytics = getAttendanceAnalyticsByPeriod(granularity, periodValue, agentFilter);
+    const analytics = getAttendanceAnalyticsByPeriod(granularity, periodValue, agentFilter, hourPolicyOptions);
     
     // Filter users if multiple selection
     let filteredRows = analytics.filteredRows;
@@ -1592,7 +1687,10 @@ function generateEnhancedDailyPivotMatrix(params) {
     }
     
     // Generate enhanced daily pivot matrix
-    const pivotMatrix = generateDailyPivotMatrix(filteredRows, granularity, periodValue, dailyPivotOptions);
+    const pivotMatrix = generateDailyPivotMatrix(filteredRows, granularity, periodValue, {
+      ...dailyPivotOptions,
+      hourPolicy: hourPolicyOptions
+    });
     
     // Generate CSV in enhanced matrix format
     const csv = generateEnhancedDailyPivotCSV(pivotMatrix, params);
@@ -1680,7 +1778,10 @@ function determineDailyPerformanceStatus(hours, isWeekend) {
 function generateDailyPivotMatrix(filteredRows, granularity, periodValue, options = {}) {
   // Generate date range for the period with proper configured timezone handling
   const dateRange = generateDateRangeForPeriod(granularity, periodValue);
-  
+  const hourPolicy = normalizeHourPolicy(options.hourPolicy);
+  const capHours = hourPolicy.effectiveCapHours;
+  const baseTargetHours = hourPolicy.baseCapHours;
+
   // Create user-date-hours mapping
   const userDateHours = new Map();
   const userDateBreakMinutes = new Map();
@@ -1750,13 +1851,16 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     let violationDays = 0;
     
     const dailyData = dateRange.map(dateInfo => {
-      const hours = userHours.get(dateInfo.date) || 0;
+      const rawHours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
       const lunchMin = userLunchMin.get(dateInfo.date) || 0;
-      const performanceStatus = determineDailyPerformanceStatus(hours, dateInfo.isWeekend);
+      const cappedHours = Math.min(rawHours, capHours);
+      const performanceStatus = determineDailyPerformanceStatus(cappedHours, dateInfo.isWeekend);
+      const effectiveHoursForOvertime = Math.min(rawHours, capHours);
+      const capApplied = rawHours - cappedHours > 0.001;
 
       if (dateInfo.isWeekend) {
-        weekendHours += hours;
+        weekendHours += cappedHours;
         if (!options.includeWeekends) {
           return {
             date: dateInfo.date,
@@ -1765,22 +1869,23 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
             isWeekend: true,
             performanceStatus: performanceStatus,
             breakMin: 0,
-            lunchMin: 0
+            lunchMin: 0,
+            rawValue: rawHours,
+            numericValue: 0,
+            hadCapApplied: false
           };
         }
       } else {
         // Weekday processing
-        weekdayHours += hours;
-        totalHours += hours;
+        weekdayHours += cappedHours;
+        totalHours += cappedHours;
 
         if (performanceStatus === 'under') {
           discrepancyDays++;
         }
 
-        if (performanceStatus === 'over') {
-          const hoursOverTarget = Math.max(0, hours - 8.0);
-          overtimeHours += hoursOverTarget;
-        }
+        const hoursOverTarget = Math.max(0, effectiveHoursForOvertime - baseTargetHours);
+        overtimeHours += hoursOverTarget;
 
         if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 60) {
           perfectAttendanceDays++;
@@ -1791,20 +1896,22 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         }
       }
 
-      const formattedHours = hours.toFixed(2);
+      const formattedHours = cappedHours.toFixed(2);
       const isLow = performanceStatus === 'under';
 
       return {
         date: dateInfo.date,
         value: formattedHours,
-        numericValue: hours,
+        numericValue: cappedHours,
+        rawValue: rawHours,
         isStatus: false,
         isLow: isLow,
         isWeekend: dateInfo.isWeekend,
         performanceStatus: performanceStatus,
         breakMin: Math.round(breakMin),
         lunchMin: Math.round(lunchMin),
-        hasViolations: (breakMin > 30 || lunchMin > 60)
+        hasViolations: (breakMin > 30 || lunchMin > 60),
+        hadCapApplied: capApplied
       };
     });
     
@@ -2043,9 +2150,9 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
 // STANDARD EXPORT FUNCTIONS
 // ────────────────────────────────────────────────────────────────────────────
 
-function exportAttendanceCsv(granularity, periodId, agentFilter) {
+function exportAttendanceCsv(granularity, periodId, agentFilter, policyOptions) {
   return rpc('exportAttendanceCsv', () => {
-    const analytics = getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter);
+    const analytics = getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, policyOptions);
 
     let csv = 'Employee,Productive Hours,Non-Productive Hours,Break Hours,Lunch Hours,Compliance Score\n';
     csv += '# Note: All duration values converted from seconds to decimal hours\n';
@@ -2550,6 +2657,11 @@ function createEmptyAnalytics() {
     totalBillableHours: 0,
     totalProductiveHours: 0,
     totalNonProductiveHours: 0,
+    rawBillableHours: 0,
+    totalOvertimeHours: 0,
+    hourPolicy: normalizeHourPolicy({}),
+    rawBillableSecs: 0,
+    effectiveBillableSecs: 0,
     billableHoursBreakdown: {},
     nonProductiveHoursBreakdown: {},
     top5Attendance: [],

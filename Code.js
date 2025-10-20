@@ -2023,7 +2023,7 @@ function doGet(e) {
       const gran = e.parameter.granularity || 'Week';
       const period = e.parameter.period || weekStringFromDate(new Date());
       const agent = e.parameter.agent || '';
-      const csv = exportAttendanceCsv(gran, period, agent);
+      const csv = exportAttendanceCsv(gran, period, agent, {});
       return ContentService.createTextOutput(csv)
         .setMimeType(ContentService.MimeType.CSV)
         .downloadAsFile(`attendance_${period}.csv`);
