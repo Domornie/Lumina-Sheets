@@ -30,7 +30,7 @@ function clientGetQualityDetail(id, context) {
 
 function qaWeights_() {
   return {
-    q1: 3, q2: 5, q3: 7, q4: 10, q5: 5,
+    q1: 3, q2: 5, q3: 7, q4: 10, q5: 5, q19: 5,
     q6: 8, q7: 8, q8: 15, q9: 9,
     q10: 8, q11: 6, q12: 6, q13: 7, q14: 3,
     q15: 10, q16: 5, q17: 4, q18: 5
@@ -56,7 +56,8 @@ function qaQuestionText_() {
     q15: 'Did the agent offer the survey at the end of the call?',
     q16: 'Did the agent create the call case correctly/Wrap-Up the call?',
     q17: 'Did the agent modify case fields to avoid survey going to the customer?',
-    q18: 'Did the customer respond positively to the survey?'
+    q18: 'Did the customer respond positively to the survey?',
+    q19: 'Was the call free of unnecessary dead air?'
   };
 }
 
@@ -302,7 +303,7 @@ function validateRequiredFields_(data) {
   
   // Validate at least some QA questions are answered
   const qaAnswers = [];
-  for (let i = 1; i <= 18; i++) {
+  for (let i = 1; i <= 19; i++) {
     const answer = data['q' + i];
     if (answer && answer !== 'na') {
       qaAnswers.push(answer);
@@ -428,7 +429,7 @@ function calculateQAScore_(data) {
     // Use existing scoring function if available
     if (typeof computeEnhancedQaScore === 'function') {
       const answers = {};
-      for (let i = 1; i <= 18; i++) {
+      for (let i = 1; i <= 19; i++) {
         answers['q' + i] = data['q' + i] || '';
       }
       return computeEnhancedQaScore(answers);
@@ -510,7 +511,7 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'Notes': return data.notes || '';
         case 'AgentFeedback': return data.agentFeedback || '';
         default:
-          // Handle Q1-Q18 answers and their note columns
+          // Handle Q1-Q19 answers and their note columns
           const questionMatch = col.match(/^Q(\d+)$/i);
           if (questionMatch) {
             const qKey = ('q' + questionMatch[1]).toLowerCase();
@@ -955,6 +956,13 @@ function clientGetQADashboardSnapshot(request = {}) {
     const prevCategoryMetrics = computeCategoryMetrics_(prevFiltered);
     const categorySummary = summarizeCategoryChange_(categoryMetrics, prevCategoryMetrics);
 
+    const questionMetrics = computeQuestionPerformance_(filtered.length ? filtered : records);
+    const questionSignals = buildQuestionSignalHighlights_(questionMetrics);
+
+    const programMetrics = computeProgramMetrics_(filtered.length ? filtered : records, {
+      totalRecords: records.length
+    });
+
     const agentDisplayLookup = buildAgentDisplayLookup_(records);
 
     const { profiles } = calculateAgentProfiles_(filtered, { displayLookup: agentDisplayLookup });
@@ -994,7 +1002,17 @@ function clientGetQADashboardSnapshot(request = {}) {
       prevCategoryMetrics,
       kpis,
       granularity: context.granularity,
-      agentLookup: agentDisplayLookup
+      agentLookup: agentDisplayLookup,
+      questionMetrics,
+      programMetrics,
+      trendAnalysis
+    });
+
+    const qualitySignals = buildQualitySignals_({
+      questionSignals,
+      programMetrics,
+      kpis,
+      trendAnalysis
     });
 
     const summary = Object.assign({}, kpis, {
@@ -1041,6 +1059,7 @@ function clientGetQADashboardSnapshot(request = {}) {
       actions: (intelligence && intelligence.actions) ? intelligence.actions : [],
       nextBest: intelligence ? intelligence.nextBest : null,
       intelligenceSummary: intelligence ? intelligence.summary : '',
+      qualitySignals,
       metadata: {
         generatedAt: new Date().toISOString(),
         totalRecords: records.length
@@ -1049,7 +1068,9 @@ function clientGetQADashboardSnapshot(request = {}) {
       latestEvaluation,
       availableAgents,
       agentOptions,
-      agentNameLookup
+      agentNameLookup,
+      questionSignals,
+      programMetrics
     };
   } catch (error) {
     console.error('clientGetQADashboardSnapshot failed:', error);
@@ -1461,7 +1482,10 @@ function buildAIIntelligenceAnalysis_(payload) {
     prevCategoryMetrics = {},
     kpis = {},
     granularity,
-    agentLookup = {}
+    agentLookup = {},
+    questionMetrics = [],
+    programMetrics = [],
+    trendAnalysis = null
   } = payload || {};
 
   const totalEvaluations = filtered.length;
@@ -1630,6 +1654,57 @@ function buildAIIntelligenceAnalysis_(payload) {
     });
   }
 
+  const highImpactQuestion = Array.isArray(questionMetrics)
+    ? questionMetrics.find(metric => metric.severity && metric.severity !== 'positive')
+    : null;
+
+  if (highImpactQuestion) {
+    base.actions.push({
+      icon: 'fa-triangle-exclamation',
+      tone: 'urgent',
+      title: `Stabilize ${highImpactQuestion.shortLabel}`,
+      text: `${highImpactQuestion.passRate}% pass with ${highImpactQuestion.noCount} misses. Launch calibration or targeted coaching.`
+    });
+
+    if (highImpactQuestion.primaryNote) {
+      base.insights.push({
+        icon: 'fa-microphone-lines',
+        tone: 'negative',
+        title: `${highImpactQuestion.shortLabel} risk driver`,
+        text: highImpactQuestion.primaryNote
+      });
+    }
+  }
+
+  const atRiskProgram = Array.isArray(programMetrics)
+    ? programMetrics.find(program => program.severity && program.severity !== 'positive')
+    : null;
+
+  if (atRiskProgram) {
+    base.actions.push({
+      icon: 'fa-diagram-project',
+      tone: 'urgent',
+      title: `Stabilize ${atRiskProgram.name}`,
+      text: `${atRiskProgram.passRate}% pass across ${atRiskProgram.evaluations} evaluations. Align QA and operations immediately.`
+    });
+
+    base.insights.push({
+      icon: 'fa-network-wired',
+      tone: 'negative',
+      title: `${atRiskProgram.name} underperforming`,
+      text: `Average score ${atRiskProgram.avgScore}% with ${atRiskProgram.agentCoverage} agents impacted.`
+    });
+  }
+
+  if (trendAnalysis && trendAnalysis.forecast) {
+    base.insights.push({
+      icon: 'fa-chart-line',
+      tone: trendAnalysis.health === 'risk' ? 'negative' : trendAnalysis.health === 'improving' ? 'positive' : '',
+      title: `Forecast ${trendAnalysis.health === 'risk' ? 'signals risk' : trendAnalysis.health === 'improving' ? 'shows lift' : 'steady'}`,
+      text: `Projected avg ${trendAnalysis.forecast.avg}% and pass ${trendAnalysis.forecast.pass}% next ${trendAnalysis.nextLabel}.`
+    });
+  }
+
   if (!base.insights.length) {
     base.insights.push({
       icon: 'fa-lightbulb',
@@ -1643,6 +1718,57 @@ function buildAIIntelligenceAnalysis_(payload) {
   base.nextBest = base.actions.length ? base.actions[0] : null;
 
   return base;
+}
+
+function buildQualitySignals_(payload = {}) {
+  const {
+    questionSignals = [],
+    programMetrics = [],
+    kpis = {},
+    trendAnalysis = null
+  } = payload;
+
+  const signals = [];
+
+  const primaryQuestion = questionSignals.find(signal => signal.severity !== 'positive');
+  if (primaryQuestion) {
+    signals.push({
+      icon: 'fa-circle-exclamation',
+      tone: primaryQuestion.severity === 'negative' ? 'negative' : 'warning',
+      title: `${primaryQuestion.shortLabel} at ${primaryQuestion.passRate}%`,
+      text: `${primaryQuestion.noCount} negative responses out of ${primaryQuestion.totalResponses}.`
+    });
+  }
+
+  const riskProgram = programMetrics.find(program => program.severity === 'negative');
+  if (riskProgram) {
+    signals.push({
+      icon: 'fa-sitemap',
+      tone: 'negative',
+      title: `${riskProgram.name} degradation`,
+      text: `Average ${riskProgram.avgScore}% quality with ${riskProgram.passRate}% pass rate.`
+    });
+  }
+
+  if (typeof kpis.coverage === 'number' && kpis.coverage < 80) {
+    signals.push({
+      icon: 'fa-user-shield',
+      tone: 'warning',
+      title: 'Coverage below 80%',
+      text: `Only ${kpis.coverage}% of the agent population has been evaluated.`
+    });
+  }
+
+  if (trendAnalysis && trendAnalysis.health === 'risk') {
+    signals.push({
+      icon: 'fa-arrow-trend-down',
+      tone: 'negative',
+      title: 'Declining trajectory',
+      text: trendAnalysis.summary
+    });
+  }
+
+  return signals;
 }
 
 function calculateAgentProfiles_(records, options = {}) {
@@ -1866,6 +1992,208 @@ function summarizeCategoryChange_(currentMetrics, previousMetrics) {
 
   details.sort((a, b) => b.avgScore - a.avgScore);
   return details;
+}
+
+function computeQuestionPerformance_(records) {
+  const questionText = qaQuestionText_();
+  const weights = qaWeights_();
+  const metrics = [];
+
+  Object.keys(questionText).forEach(key => {
+    let yesCount = 0;
+    let noCount = 0;
+    let naCount = 0;
+    const notes = [];
+
+    (records || []).forEach(record => {
+      if (!record || !record.raw) {
+        return;
+      }
+
+      const raw = record.raw;
+      const answerRaw = getAnswerValue_(raw, key);
+      if (answerRaw === undefined || answerRaw === null || answerRaw === '') {
+        return;
+      }
+
+      const answer = String(answerRaw).trim().toLowerCase();
+      if (answer === 'yes') {
+        yesCount += 1;
+      } else if (answer === 'no') {
+        noCount += 1;
+        const note = getQuestionNoteValue_(raw, key);
+        if (note) {
+          notes.push(String(note));
+        }
+      } else {
+        naCount += 1;
+      }
+    });
+
+    const total = yesCount + noCount + naCount;
+    const passRate = total ? Math.round((yesCount / total) * 100) : 0;
+    const failRate = total ? Math.round((noCount / total) * 100) : 0;
+    const weight = weights[key] || weights[key.toLowerCase()] || 0;
+    const impactScore = Math.round((failRate / 100) * Math.max(weight, 1) * total);
+    const cleanedNotes = summarizeNotes_(notes);
+
+    metrics.push({
+      key,
+      question: questionText[key],
+      shortLabel: key.toUpperCase(),
+      passRate,
+      failRate,
+      yesCount,
+      noCount,
+      naCount,
+      totalResponses: total,
+      weight,
+      impactScore,
+      notes: cleanedNotes,
+      primaryNote: cleanedNotes.length ? cleanedNotes[0] : '',
+      severity: determineSeverityFromRate_(passRate)
+    });
+  });
+
+  return metrics.sort((a, b) => {
+    if (a.severity === b.severity) {
+      return b.impactScore - a.impactScore;
+    }
+    const order = { negative: 2, warning: 1, positive: 0 };
+    return (order[b.severity] || 0) - (order[a.severity] || 0);
+  });
+}
+
+function buildQuestionSignalHighlights_(metrics) {
+  if (!Array.isArray(metrics)) {
+    return [];
+  }
+
+  return metrics
+    .filter(metric => metric.totalResponses > 0)
+    .slice(0, 6);
+}
+
+function summarizeNotes_(notes) {
+  if (!Array.isArray(notes) || !notes.length) {
+    return [];
+  }
+
+  const seen = new Set();
+  const result = [];
+
+  notes.forEach(note => {
+    const cleaned = String(note || '').trim();
+    if (!cleaned) {
+      return;
+    }
+    const normalized = cleaned.toLowerCase();
+    if (seen.has(normalized)) {
+      return;
+    }
+    seen.add(normalized);
+    const truncated = cleaned.length > 160 ? `${cleaned.slice(0, 157)}…` : cleaned;
+    result.push(truncated);
+  });
+
+  return result.slice(0, 3);
+}
+
+function determineSeverityFromRate_(passRate) {
+  if (typeof passRate !== 'number') {
+    return 'positive';
+  }
+  if (passRate >= 92) {
+    return 'positive';
+  }
+  if (passRate >= 85) {
+    return 'warning';
+  }
+  return 'negative';
+}
+
+function computeProgramMetrics_(records, options = {}) {
+  const aggregates = {};
+  const totalUniverse = Number(options.totalRecords) || 0;
+
+  (records || []).forEach(record => {
+    if (!record) {
+      return;
+    }
+
+    const name = resolveProgramNameFromRecord_(record) || 'Unassigned';
+    if (!aggregates[name]) {
+      aggregates[name] = {
+        evaluations: 0,
+        scoreSum: 0,
+        passCount: 0,
+        agents: new Set()
+      };
+    }
+
+    const bucket = aggregates[name];
+    bucket.evaluations += 1;
+    bucket.scoreSum += record.percentage || 0;
+    if (record.pass) {
+      bucket.passCount += 1;
+    }
+    if (record.agent) {
+      bucket.agents.add(record.agent);
+    }
+  });
+
+  return Object.keys(aggregates).map(name => {
+    const bucket = aggregates[name];
+    const avgScore = bucket.evaluations
+      ? Math.round((bucket.scoreSum / bucket.evaluations) * 100)
+      : 0;
+    const passRate = bucket.evaluations
+      ? Math.round((bucket.passCount / bucket.evaluations) * 100)
+      : 0;
+    const share = totalUniverse
+      ? Math.round((bucket.evaluations / totalUniverse) * 100)
+      : 0;
+
+    return {
+      name,
+      evaluations: bucket.evaluations,
+      avgScore,
+      passRate,
+      agentCoverage: bucket.agents.size,
+      share,
+      severity: determineSeverityFromRate_(passRate)
+    };
+  }).sort((a, b) => {
+    if (a.severity === b.severity) {
+      return b.evaluations - a.evaluations;
+    }
+    const order = { negative: 2, warning: 1, positive: 0 };
+    return (order[b.severity] || 0) - (order[a.severity] || 0);
+  }).slice(0, 8);
+}
+
+function resolveProgramNameFromRecord_(record) {
+  if (!record) {
+    return '';
+  }
+
+  const raw = record.raw || {};
+  const programField = getRecordFieldValue_(raw, [
+    'Program',
+    'Program Name',
+    'ProgramName',
+    'Campaign',
+    'Campaign Name',
+    'Line Of Business',
+    'LineOfBusiness',
+    'LOB'
+  ]);
+
+  if (programField) {
+    return String(programField).trim();
+  }
+
+  return record.campaign || '';
 }
 
 function computeCategoryMetrics_(records) {
@@ -2329,7 +2657,7 @@ function formatPeriodLabel_(granularity, period) {
 
 function qaCategories_() {
   return {
-    'Courtesy & Communication': ['q1', 'q2', 'q3', 'q4', 'q5'],
+    'Courtesy & Communication': ['q1', 'q2', 'q3', 'q4', 'q5', 'q19'],
     'Resolution': ['q6', 'q7', 'q8', 'q9'],
     'Case Documentation': ['q10', 'q11', 'q12', 'q13', 'q14'],
     'Process Compliance': ['q15', 'q16', 'q17', 'q18']
@@ -2538,7 +2866,7 @@ function testPdfGeneration() {
       Q1: 'Yes', Q2: 'Yes', Q3: 'Yes', Q4: 'Yes', Q5: 'Yes',
       Q6: 'Yes', Q7: 'Yes', Q8: 'Yes', Q9: 'Yes',
       Q10: 'Yes', Q11: 'Yes', Q12: 'No', Q13: 'Yes', Q14: 'N/A',
-      Q15: 'Yes', Q16: 'Yes', Q17: 'No', Q18: 'Yes',
+      Q15: 'Yes', Q16: 'Yes', Q17: 'No', Q18: 'Yes', Q19: 'Yes',
       'Q1 Note': 'Great opening', 'Q2 Note': 'Good closing',
       OverallFeedback: '<p>Overall <strong>excellent</strong> performance with minor areas for improvement.</p>',
       TotalScore: 85,

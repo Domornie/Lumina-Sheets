@@ -51,20 +51,85 @@ if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
 // HR/Benefits config
 if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTHS_AFTER_PROBATION = 3;
 
+// Canonical Users sheet column order (must remain in sync with sheet format)
+var USER_SHEET_COLUMN_ORDER = (function resolveUserSheetColumnOrder_() {
+  if (Array.isArray(G.USER_SHEET_COLUMN_ORDER) && G.USER_SHEET_COLUMN_ORDER.length) {
+    return G.USER_SHEET_COLUMN_ORDER.slice();
+  }
+  const canonical = [
+    'ID',
+    'UserName',
+    'FullName',
+    'Email',
+    'CampaignID',
+    'PasswordHash',
+    'ResetRequired',
+    'EmailConfirmation',
+    'EmailConfirmed',
+    'PhoneNumber',
+    'EmploymentStatus',
+    'HireDate',
+    'Country',
+    'LockoutEnd',
+    'TwoFactorEnabled',
+    'CanLogin',
+    'Roles',
+    'Pages',
+    'CreatedAt',
+    'UpdatedAt',
+    'IsAdmin',
+    'DeletedAt',
+    'IsAdmin',
+    'ProbationMonths',
+    'ProbationEnd',
+    'InsuranceEligibleDate',
+    'InsuranceQualified',
+    'InsuranceEnrolled',
+    'InsuranceCardReceivedDate',
+    'ProbationEndDate',
+    'InsuranceQualifiedDate',
+    'InsuranceEligible',
+    'InsuranceSignedUp',
+    'TerminationDate',
+    'MFASecret',
+    'MFABackupCodes',
+    'MFADeliveryPreference',
+    'MFAEnabled',
+    'NormalizedUserName',
+    'NormalizedEmail',
+    'PhoneNumberConfirmed',
+    'LockoutEnabled',
+    'AccessFailedCount',
+    'TwoFactorDelivery',
+    'TwoFactorSecret',
+    'TwoFactorRecoveryCodes',
+    'SecurityStamp',
+    'ConcurrencyStamp',
+    'EmailConfirmationTokenHash',
+    'EmailConfirmationSentAt',
+    'EmailConfirmationExpiresAt',
+    'ResetPasswordToken',
+    'ResetPasswordTokenHash',
+    'ResetPasswordSentAt',
+    'ResetPasswordExpiresAt',
+    'LastLoginAt',
+    'LastLoginIp',
+    'LastLoginUserAgent'
+  ];
+  G.USER_SHEET_COLUMN_ORDER = canonical.slice();
+  return canonical;
+})();
+if (!Array.isArray(G.USER_SHEET_COLUMN_ORDER) || G.USER_SHEET_COLUMN_ORDER.length !== USER_SHEET_COLUMN_ORDER.length ||
+  G.USER_SHEET_COLUMN_ORDER.some((val, idx) => val !== USER_SHEET_COLUMN_ORDER[idx])) {
+  G.USER_SHEET_COLUMN_ORDER = USER_SHEET_COLUMN_ORDER.slice();
+}
+if (!Array.isArray(G.USERS_HEADERS) || G.USERS_HEADERS.length !== USER_SHEET_COLUMN_ORDER.length ||
+  G.USERS_HEADERS.some((val, idx) => val !== USER_SHEET_COLUMN_ORDER[idx])) {
+  G.USERS_HEADERS = USER_SHEET_COLUMN_ORDER.slice();
+}
+
 // Optional extra columns we’ll ensure on Users sheet if missing
-const OPTIONAL_USER_COLUMNS = [
-  'TerminationDate',
-  'ProbationMonths',
-  'ProbationEnd',
-  'InsuranceEligibleDate',
-  'InsuranceQualified',
-  'InsuranceEnrolled',
-  'InsuranceCardReceivedDate',
-  'MFASecret',
-  'MFABackupCodes',
-  'MFADeliveryPreference',
-  'MFAEnabled'
-];
+const OPTIONAL_USER_COLUMNS = USER_SHEET_COLUMN_ORDER.slice(21);
 
 const USER_LOG_MAX_DEPTH = 4;
 const USER_LOG_MAX_KEYS = 40;
@@ -1601,11 +1666,7 @@ function ensureOptionalUserColumns_(sh, headers, idx) {
 }
 
 // Base required columns we always expect on Users sheet
-const REQUIRED_USER_COLUMNS = [
-  'ID', 'UserName', 'FullName', 'Email', 'CampaignID', 'PasswordHash', 'ResetRequired',
-  'EmailConfirmation', 'EmailConfirmed', 'PhoneNumber', 'EmploymentStatus', 'HireDate', 'Country',
-  'LockoutEnd', 'TwoFactorEnabled', 'CanLogin', 'Roles', 'Pages', 'CreatedAt', 'UpdatedAt', 'IsAdmin'
-];
+const REQUIRED_USER_COLUMNS = USER_SHEET_COLUMN_ORDER.slice(0, 21);
 
 function _ensureUserHeaders_(idx) {
   // Throw only for the base minimal set; optional benefits columns are handled separately
@@ -2177,6 +2238,26 @@ function createSafeUserObject(user) {
       assignField(col, typeof safe[col] !== 'undefined' ? safe[col] : '');
     }
   });
+
+  const canonicalOrder = Array.isArray(USER_SHEET_COLUMN_ORDER) ? USER_SHEET_COLUMN_ORDER : [];
+  if (canonicalOrder.length) {
+    const seen = new Set();
+    const ordered = [];
+    canonicalOrder.forEach(col => {
+      if (!Object.prototype.hasOwnProperty.call(sheetFieldMap, col)) return;
+      if (seen.has(col)) return;
+      ordered.push(col);
+      seen.add(col);
+    });
+    for (let i = 0; i < sheetFieldOrder.length; i++) {
+      const key = sheetFieldOrder[i];
+      if (seen.has(key)) continue;
+      ordered.push(key);
+      seen.add(key);
+    }
+    sheetFieldOrder.length = 0;
+    Array.prototype.push.apply(sheetFieldOrder, ordered);
+  }
 
   safe.sheetFieldMap = {};
   for (let i = 0; i < sheetFieldOrder.length; i++) {

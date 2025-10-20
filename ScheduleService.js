@@ -8,45 +8,93 @@
 // CONFIGURATION - Uses ScheduleUtilities constants
 // ────────────────────────────────────────────────────────────────────────────
 
-const SCHEDULE_CONFIG = {
-  PRIMARY_COUNTRY: 'JM', // Jamaica takes priority
-  SUPPORTED_COUNTRIES: ['JM', 'US', 'DO', 'PH'], // Jamaica, US, Dominican Republic, Philippines
-  DEFAULT_SHIFT_CAPACITY: 10,
-  DEFAULT_BREAK_MINUTES: 15,
-  DEFAULT_LUNCH_MINUTES: 60,
-  CACHE_DURATION: 300 // 5 minutes
-};
+const SCHEDULE_SETTINGS = (typeof getScheduleConfig === 'function')
+  ? getScheduleConfig()
+  : {
+      PRIMARY_COUNTRY: 'JM',
+      SUPPORTED_COUNTRIES: ['JM', 'US', 'DO', 'PH'],
+      DEFAULT_SHIFT_CAPACITY: 10,
+      DEFAULT_BREAK_MINUTES: 15,
+      DEFAULT_LUNCH_MINUTES: 60,
+      CACHE_DURATION: 300
+    };
 
-function scheduleFlagToBool(value) {
-  if (value === true) return true;
-  if (value === false || value === null || typeof value === 'undefined') return false;
-  if (typeof value === 'number') return value !== 0;
+const SCHEDULE_EMPLOYMENT_START_FIELDS = [
+  'HireDate', 'hireDate', 'Hire_Date', 'hire_date', 'Hire Date', 'hire date',
+  'DateHired', 'dateHired', 'Date Hired', 'date hired',
+  'OnboardDate', 'onboardDate', 'Onboard Date', 'onboard date',
+  'EmploymentStart', 'employmentStart', 'Employment Start', 'employment start',
+  'EmploymentStartDate', 'employmentStartDate', 'Employment Start Date', 'employment start date',
+  'StartDate', 'startDate', 'Start Date', 'start date', 'Start_Date', 'start_date',
+  'OriginalHireDate', 'originalHireDate', 'Original_Hire_Date', 'original_hire_date',
+  'Original Hire Date', 'original hire date',
+  'RehireDate', 'rehireDate', 'Rehire_Date', 'rehire_date', 'Rehire Date', 'rehire date',
+  'employmentStartIso', 'EmploymentStartIso'
+];
 
-  const normalized = String(value).trim().toUpperCase();
-  if (!normalized) return false;
+const SCHEDULE_EMPLOYMENT_END_FIELDS = [
+  'TerminationDate', 'terminationDate', 'Termination_Date', 'termination_date',
+  'Termination Date', 'termination date',
+  'DateOfTermination', 'dateOfTermination', 'Date Of Termination', 'date of termination',
+  'EmploymentEnd', 'employmentEnd', 'Employment End', 'employment end',
+  'EmploymentEndDate', 'employmentEndDate', 'Employment End Date', 'employment end date',
+  'SeparationDate', 'separationDate', 'Separation Date', 'separation date',
+  'Separation_Date', 'separation_date',
+  'EndDate', 'endDate', 'End Date', 'end date', 'End_Date', 'end_date',
+  'LastWorkingDate', 'lastWorkingDate', 'Last Working Date', 'last working date',
+  'employmentEndIso', 'EmploymentEndIso'
+];
 
-  switch (normalized) {
-    case 'TRUE':
-    case 'YES':
-    case 'Y':
-    case '1':
-    case 'ON':
-      return true;
-    default:
-      return false;
+const SCHEDULE_EMPLOYMENT_NESTED_KEYS = [
+  'Employment', 'employment',
+  'EmploymentDetails', 'employmentDetails',
+  'EmploymentInfo', 'employmentInfo',
+  'HRProfile', 'hrProfile', 'HrProfile'
+];
+
+const SCHEDULE_ACTIVE_EMPLOYMENT_STATUS_SET = new Set([
+  'active', 'activated', 'on leave', 'pending', 'probation', 'contract', 'contractor',
+  'full time', 'full-time', 'fulltime', 'part time', 'part-time', 'parttime',
+  'seasonal', 'temporary', 'temp', 'intern', 'consultant'
+]);
+
+const SCHEDULE_INACTIVE_EMPLOYMENT_STATUS_SET = new Set([
+  'inactive', 'terminated', 'suspended', 'retired', 'separated', 'disabled'
+]);
+
+function formatScheduleDateToIso(date) {
+  if (!(date instanceof Date) || isNaN(date)) {
+    return '';
   }
+
+  if (typeof _toIsoDateOnly_ === 'function') {
+    try {
+      const iso = _toIsoDateOnly_(date);
+      if (iso) {
+        return iso;
+      }
+    } catch (err) {
+      console.warn('formatScheduleDateToIso: _toIsoDateOnly_ failed', err);
+    }
+  }
+
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())).toISOString().slice(0, 10);
 }
 
-function normalizeCampaignIdValue(value) {
-  if (value === null || typeof value === 'undefined') {
+function normalizeScheduleDateValue(value) {
+  if (value === null || value === undefined || value === '') {
     return '';
+  }
+
+  if (value instanceof Date) {
+    return formatScheduleDateToIso(value);
   }
 
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      const normalized = normalizeCampaignIdValue(value[i]);
-      if (normalized) {
-        return normalized;
+      const candidate = normalizeScheduleDateValue(value[i]);
+      if (candidate) {
+        return candidate;
       }
     }
     return '';
@@ -54,171 +102,159 @@ function normalizeCampaignIdValue(value) {
 
   if (typeof value === 'object') {
     const objectCandidates = [
-      value.ID,
-      value.Id,
-      value.id,
-      value.CampaignID,
-      value.campaignID,
-      value.CampaignId,
-      value.campaignId,
-      value.value
+      value.iso, value.ISO,
+      value.date, value.Date,
+      value.value, value.Value,
+      value.start, value.Start,
+      value.startDate, value.StartDate,
+      value.end, value.End,
+      value.endDate, value.EndDate,
+      value.timestamp, value.Timestamp,
+      value.time, value.Time
     ];
 
     for (let i = 0; i < objectCandidates.length; i++) {
-      const normalized = normalizeCampaignIdValue(objectCandidates[i]);
+      const candidate = normalizeScheduleDateValue(objectCandidates[i]);
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    if (Number.isFinite(value.year) && Number.isFinite(value.month) && Number.isFinite(value.day)) {
+      const composed = new Date(value.year, value.month - 1, value.day);
+      if (!isNaN(composed)) {
+        return formatScheduleDateToIso(composed);
+      }
+    }
+
+    return '';
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return '';
+    }
+
+    const millisDate = new Date(value);
+    if (!isNaN(millisDate)) {
+      return formatScheduleDateToIso(millisDate);
+    }
+
+    const spreadsheetMillis = Math.round((Number(value) - 25569) * 86400 * 1000);
+    const spreadsheetDate = new Date(spreadsheetMillis);
+    if (!isNaN(spreadsheetDate)) {
+      return formatScheduleDateToIso(spreadsheetDate);
+    }
+
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const isoWithTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+    if (isoWithTimeMatch && isoWithTimeMatch[1]) {
+      return isoWithTimeMatch[1];
+    }
+
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) {
+      const numericDate = normalizeScheduleDateValue(numeric);
+      if (numericDate) {
+        return numericDate;
+      }
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed)) {
+      return formatScheduleDateToIso(parsed);
+    }
+  }
+
+  return '';
+}
+
+function resolveEmploymentIsoDateFromUser(user, fieldNames, visited) {
+  if (!user || typeof user !== 'object' || !Array.isArray(fieldNames) || !fieldNames.length) {
+    return '';
+  }
+
+  const seen = visited || new Set();
+  if (seen.has(user)) {
+    return '';
+  }
+  seen.add(user);
+
+  for (let i = 0; i < fieldNames.length; i++) {
+    const field = fieldNames[i];
+    if (!field) {
+      continue;
+    }
+    const rawValue = user[field];
+    const normalized = normalizeScheduleDateValue(rawValue);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  for (let i = 0; i < SCHEDULE_EMPLOYMENT_NESTED_KEYS.length; i++) {
+    const nested = user[SCHEDULE_EMPLOYMENT_NESTED_KEYS[i]];
+    if (!nested || typeof nested !== 'object') {
+      continue;
+    }
+
+    const normalized = resolveEmploymentIsoDateFromUser(nested, fieldNames, seen);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function normalizeEmploymentStatusForSchedules(status) {
+  const raw = status === null || typeof status === 'undefined' ? '' : String(status).trim();
+  if (!raw) {
+    return '';
+  }
+
+  if (typeof normalizeEmploymentStatus === 'function') {
+    try {
+      const normalized = normalizeEmploymentStatus(raw);
       if (normalized) {
         return normalized;
       }
+    } catch (err) {
+      console.warn('normalizeEmploymentStatusForSchedules: normalization failed', err);
     }
-
-    return '';
   }
 
-  const text = String(value).trim();
-  if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
-    return '';
-  }
-
-  return text;
+  return raw;
 }
 
-function doesUserBelongToCampaign(user, campaignId) {
-  const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
-  if (!normalizedCampaignId || !user) {
+function isEmploymentStatusActiveForSchedules(status) {
+  const normalized = normalizeEmploymentStatusForSchedules(status);
+  if (!normalized) {
+    return true;
+  }
+
+  const lower = normalized.toLowerCase();
+  if (SCHEDULE_INACTIVE_EMPLOYMENT_STATUS_SET.has(lower)) {
     return false;
   }
 
-  const candidateValues = [
-    user.CampaignID,
-    user.campaignID,
-    user.CampaignId,
-    user.campaignId,
-    user.Campaign,
-    user.campaign,
-    user.primaryCampaignId,
-    user.PrimaryCampaignId,
-    user.primaryCampaignID,
-    user.PrimaryCampaignID
-  ];
-
-  for (let i = 0; i < candidateValues.length; i++) {
-    const candidate = normalizeCampaignIdValue(candidateValues[i]);
-    if (candidate && candidate === normalizedCampaignId) {
-      return true;
-    }
+  if (SCHEDULE_ACTIVE_EMPLOYMENT_STATUS_SET.has(lower)) {
+    return true;
   }
 
-  return false;
-}
-
-function collectUserRoleCandidates(user) {
-  const roles = [];
-
-  const appendValue = (value) => {
-    if (value === null || typeof value === 'undefined') {
-      return;
-    }
-
-    if (Array.isArray(value)) {
-      value.forEach(appendValue);
-      return;
-    }
-
-    if (typeof value === 'object') {
-      appendValue(value.name || value.Name || value.roleName || value.RoleName);
-      appendValue(value.value);
-      return;
-    }
-
-    const text = String(value);
-    if (!text) {
-      return;
-    }
-
-    text.split(/[,;/|]+/).forEach((part) => {
-      const trimmed = part.trim();
-      if (trimmed) {
-        roles.push(trimmed);
-      }
-    });
-  };
-
-  appendValue(user && user.roleNames);
-  appendValue(user && user.RoleNames);
-  appendValue(user && user.roles);
-  appendValue(user && user.Roles);
-  appendValue(user && user.role);
-  appendValue(user && user.Role);
-  appendValue(user && user.primaryRole);
-  appendValue(user && user.PrimaryRole);
-  appendValue(user && user.primaryRoles);
-  appendValue(user && user.PrimaryRoles);
-  appendValue(user && user.csvRoles);
-  appendValue(user && user.CsvRoles);
-  appendValue(user && user.RoleName);
-  appendValue(user && user.roleName);
-
-  return roles;
-}
-
-function isScheduleRoleRestricted(user) {
-  const restrictedRoles = ['client', 'guest'];
-  const roleNames = collectUserRoleCandidates(user)
-    .map(role => String(role || '').trim().toLowerCase())
-    .filter(Boolean);
-
-  return roleNames.some(role => restrictedRoles.includes(role));
-}
-
-function isScheduleNameRestricted(user) {
-  const restrictedNames = ['client', 'guest'];
-  const nameCandidates = [
-    user && user.UserName,
-    user && user.Username,
-    user && user.username,
-    user && user.FullName,
-    user && user.Name,
-    user && user.DisplayName
-  ];
-
-  return nameCandidates.some(name => {
-    if (!name) {
-      return false;
-    }
-    const normalized = String(name).trim().toLowerCase();
-    return normalized && restrictedNames.includes(normalized);
-  });
-}
-
-function filterUsersByCampaign(users, campaignId) {
-  const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
-  if (!normalizedCampaignId) {
-    return Array.isArray(users) ? users.slice() : [];
-  }
-
-  let filteredUsers = Array.isArray(users) ? users.filter(Boolean) : [];
-
-  try {
-    if (typeof getUsersByCampaign === 'function') {
-      const campaignUsers = getUsersByCampaign(normalizedCampaignId) || [];
-      if (Array.isArray(campaignUsers) && campaignUsers.length) {
-        const campaignUserIds = new Set(
-          campaignUsers
-            .map(user => normalizeUserIdValue(user && user.ID))
-            .filter(Boolean)
-        );
-
-        if (campaignUserIds.size) {
-          filteredUsers = filteredUsers.filter(user => campaignUserIds.has(normalizeUserIdValue(user && user.ID)));
-          return filteredUsers;
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Unable to resolve campaign membership via getUsersByCampaign:', normalizedCampaignId, error);
-  }
-
-  return filteredUsers.filter(user => doesUserBelongToCampaign(user, normalizedCampaignId));
+  return true;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -426,10 +462,24 @@ function clientGetScheduleContext(managerIdCandidate, campaignIdCandidate) {
  * Get users for schedule management with manager filtering
  * Uses MainUtilities user functions with campaign support
  */
-function clientGetScheduleUsers(requestingUserId, campaignId = null) {
+function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
   try {
     const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
     console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
+
+    const resolvedOptions = (function resolveScheduleUserOptions(value) {
+      if (value === true) {
+        return { includeInactive: true };
+      }
+      if (value && typeof value === 'object') {
+        return value;
+      }
+      return {};
+    })(options);
+
+    const includeInactive = resolvedOptions.includeInactive === true
+      || resolvedOptions.includeAllEmployment === true
+      || resolvedOptions.includeTerminated === true;
 
     // Use MainUtilities to get all users
     const allUsers = readSheet(USERS_SHEET) || [];
@@ -521,12 +571,12 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 /**
  * Get users for attendance (all active users)
  */
-function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
+function clientGetAttendanceUsers(requestingUserId, campaignId = null, options) {
   try {
     console.log('📋 Getting attendance users');
-    
+
     // Use the existing function but return just names for compatibility
-    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
+    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId, options);
     const userNames = scheduleUsers
       .map(user => user.UserName || user.FullName)
       .filter(name => name && name.trim())
@@ -640,15 +690,15 @@ function clientCreateShiftSlot(slotData) {
 
     const maxCapacity = toNumber(
       slotData.maxCapacity,
-      SCHEDULE_CONFIG.DEFAULT_SHIFT_CAPACITY
+      SCHEDULE_SETTINGS.DEFAULT_SHIFT_CAPACITY
     );
     const breakDuration = toNumber(
       slotData.breakDuration !== undefined ? slotData.breakDuration : slotData.break1Duration,
-      SCHEDULE_CONFIG.DEFAULT_BREAK_MINUTES
+      SCHEDULE_SETTINGS.DEFAULT_BREAK_MINUTES
     );
     const lunchDuration = toNumber(
       slotData.lunchDuration,
-      SCHEDULE_CONFIG.DEFAULT_LUNCH_MINUTES
+      SCHEDULE_SETTINGS.DEFAULT_LUNCH_MINUTES
     );
 
     const slot = {
@@ -721,18 +771,6 @@ function clientCreateShiftSlot(slotData) {
       error: error && error.message ? error.message : String(error || 'Unknown error')
     };
   }
-}
-
-function normalizeUserIdValue(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  const str = typeof value === 'number' && Number.isFinite(value)
-    ? String(Math.trunc(value))
-    : String(value);
-
-  return str.trim();
 }
 
 function getDirectManagedUserIds(managerId) {
@@ -858,23 +896,15 @@ function isUserConsideredActive(user) {
     return false;
   }
 
-  const status = typeof user.EmploymentStatus === 'string'
-    ? user.EmploymentStatus.trim().toLowerCase()
-    : '';
-
-  if (!status) {
-    return true;
+  if (typeof user.employmentStatusIsActive === 'boolean') {
+    return user.employmentStatusIsActive;
   }
 
-  if (['active', 'activated'].includes(status)) {
-    return true;
-  }
+  const status = normalizeEmploymentStatusForSchedules(
+    user.EmploymentStatus || user.employmentStatus || user.Status || user.status
+  );
 
-  if (['terminated', 'inactive', 'disabled', 'separated'].includes(status)) {
-    return false;
-  }
-
-  return true;
+  return isEmploymentStatusActiveForSchedules(status);
 }
 
 /**
@@ -884,25 +914,128 @@ function clientGetAllShiftSlots() {
   try {
     console.log('📊 Getting all shift slots');
 
-    // Use ScheduleUtilities to read from schedule sheet
-    let slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    
-    // If no slots exist, create defaults using ScheduleUtilities function
-    if (slots.length === 0) {
-      console.log('No shift slots found, creating defaults');
-      createDefaultShiftSlots();
-      slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    }
+    const aggregatedSlots = [];
+    const seenIds = new Set();
+    const seenComposite = new Set();
+    const sourceSheets = new Set();
 
-    if (!slots.length) {
-      const legacySlotSheets = ['Shift Slots', 'Shifts', 'ShiftTemplates'];
-      for (let i = 0; i < legacySlotSheets.length && !slots.length; i++) {
-        const legacyRows = readSheet(legacySlotSheets[i]);
-        if (Array.isArray(legacyRows) && legacyRows.length) {
-          console.log(`Found legacy shift slot data in ${legacySlotSheets[i]}`);
-          slots = legacyRows.map(convertLegacyShiftSlotRecord).filter(Boolean);
+    const resolveSlotId = slot => {
+      const candidates = [
+        slot.ID, slot.Id, slot.id,
+        slot.SlotID, slot.SlotId, slot.slotId,
+        slot.Guid, slot.UUID, slot.Uuid
+      ];
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        if (candidate === undefined || candidate === null) {
+          continue;
+        }
+        const normalized = String(candidate).trim();
+        if (normalized) {
+          return normalized;
         }
       }
+      return '';
+    };
+
+    const registerSlot = (slot, source) => {
+      if (!slot || typeof slot !== 'object') {
+        return;
+      }
+
+      const normalizedSlot = { ...slot };
+      const slotId = resolveSlotId(normalizedSlot);
+      if (slotId) {
+        if (seenIds.has(slotId)) {
+          // Merge any additional properties from the new slot into the existing one
+          const existingIndex = aggregatedSlots.findIndex(item => resolveSlotId(item) === slotId);
+          if (existingIndex >= 0) {
+            aggregatedSlots[existingIndex] = Object.assign({}, aggregatedSlots[existingIndex], normalizedSlot);
+          }
+          return;
+        }
+        normalizedSlot.ID = slotId;
+        seenIds.add(slotId);
+      } else {
+        const compositeKey = [
+          normalizedSlot.Name || normalizedSlot.SlotName || '',
+          normalizedSlot.StartTime || normalizedSlot.Start || '',
+          normalizedSlot.EndTime || normalizedSlot.End || ''
+        ].map(value => String(value || '').trim().toLowerCase()).join('|');
+
+        if (compositeKey && seenComposite.has(compositeKey)) {
+          return;
+        }
+
+        if (compositeKey) {
+          seenComposite.add(compositeKey);
+        }
+      }
+
+      if (source) {
+        sourceSheets.add(source);
+      }
+
+      normalizedSlot.__source = source || 'unknown';
+      aggregatedSlots.push(normalizedSlot);
+    };
+
+    const candidateSheets = [
+      { name: SHIFT_SLOTS_SHEET, legacy: false },
+      { name: 'Shift Slots', legacy: true },
+      { name: 'Shift Slot', legacy: true },
+      { name: 'ShiftTemplates', legacy: true },
+      { name: 'Shift Templates', legacy: true },
+      { name: 'Shifts', legacy: true }
+    ];
+
+    candidateSheets.forEach(candidate => {
+      try {
+        const rows = readScheduleSheet(candidate.name) || [];
+        if (!Array.isArray(rows) || !rows.length) {
+          return;
+        }
+
+        console.log(`✅ Loaded ${rows.length} potential shift slots from ${candidate.name}`);
+
+        rows.forEach(row => {
+          if (!row || typeof row !== 'object') {
+            return;
+          }
+          const slot = candidate.legacy ? convertLegacyShiftSlotRecord(row) || row : row;
+          registerSlot(slot, candidate.name);
+        });
+      } catch (sheetError) {
+        console.warn(`Unable to read shift slots from ${candidate.name}:`, sheetError);
+      }
+    });
+
+    if (!aggregatedSlots.length) {
+      console.log('No shift slots found in any schedule sheet, checking main workbook for legacy data');
+      const legacySheets = ['Shift Slots', 'ShiftTemplates', 'Shifts'];
+      legacySheets.forEach(legacyName => {
+        try {
+          const legacyRows = readSheet(legacyName);
+          if (!Array.isArray(legacyRows) || !legacyRows.length) {
+            return;
+          }
+
+          console.log(`📄 Found ${legacyRows.length} legacy shift slots in ${legacyName}`);
+          legacyRows
+            .map(convertLegacyShiftSlotRecord)
+            .filter(Boolean)
+            .forEach(slot => registerSlot(slot, legacyName));
+        } catch (legacyError) {
+          console.warn(`Unable to read legacy shift slots from ${legacyName}:`, legacyError);
+        }
+      });
+    }
+
+    if (!aggregatedSlots.length) {
+      console.log('No shift slots detected, creating defaults');
+      createDefaultShiftSlots();
+      const defaultSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      defaultSlots.forEach(slot => registerSlot(slot, 'default'));
     }
 
     const normalizeBoolean = value => {
@@ -921,19 +1054,40 @@ function clientGetAllShiftSlots() {
         return '';
       }
       if (typeof value === 'number') return value;
+      if (value instanceof Date) return value;
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : value;
     };
 
-    return slots.map(slot => {
-      const normalizedSlot = {
-        ...slot,
-        DaysOfWeekArray: Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length
-          ? slot.DaysOfWeekArray
-          : slot.DaysOfWeek
-            ? String(slot.DaysOfWeek).split(',').map(d => parseInt(String(d).trim(), 10)).filter(d => !isNaN(d))
-            : [1, 2, 3, 4, 5]
-      };
+    const normalizeDaysOfWeek = slot => {
+      if (Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length) {
+        return slot.DaysOfWeekArray;
+      }
+
+      if (Array.isArray(slot.DaysOfWeek) && slot.DaysOfWeek.length) {
+        return slot.DaysOfWeek.map(day => parseInt(String(day).trim(), 10)).filter(day => !isNaN(day));
+      }
+
+      if (typeof slot.Days === 'string') {
+        return slot.Days.split(/[;,]/)
+          .map(day => parseInt(String(day).trim(), 10))
+          .filter(day => !isNaN(day));
+      }
+
+      if (typeof slot.DaysOfWeek === 'string') {
+        return slot.DaysOfWeek.split(/[;,]/)
+          .map(day => parseInt(String(day).trim(), 10))
+          .filter(day => !isNaN(day));
+      }
+
+      return [1, 2, 3, 4, 5];
+    };
+
+    const normalizedSlots = aggregatedSlots.map(slot => {
+      const normalizedSlot = { ...slot };
+
+      normalizedSlot.DaysOfWeekArray = normalizeDaysOfWeek(slot);
+      normalizedSlot.DaysOfWeek = normalizedSlot.DaysOfWeekArray.join(',');
 
       normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
       normalizedSlot.EnableOvertime = normalizeBoolean(slot.EnableOvertime);
@@ -961,29 +1115,79 @@ function clientGetAllShiftSlots() {
       normalizedSlot.NotificationLead = normalizeNumber(slot.NotificationLead);
       normalizedSlot.HandoverTime = normalizeNumber(slot.HandoverTime);
 
-      if (slot.CreatedAt) {
-        const createdDate = new Date(slot.CreatedAt);
-        normalizedSlot.CreatedAt = isNaN(createdDate.getTime()) ? slot.CreatedAt : createdDate;
+      const normalizeDate = (value) => {
+        if (!value) {
+          return value;
+        }
+        if (value instanceof Date) {
+          return value;
+        }
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? value : parsed;
+      };
+
+      normalizedSlot.CreatedAt = normalizeDate(slot.CreatedAt);
+      normalizedSlot.UpdatedAt = normalizeDate(slot.UpdatedAt);
+
+      if (!normalizedSlot.Name && normalizedSlot.SlotName) {
+        normalizedSlot.Name = normalizedSlot.SlotName;
       }
 
-      if (slot.UpdatedAt) {
-        const updatedDate = new Date(slot.UpdatedAt);
-        normalizedSlot.UpdatedAt = isNaN(updatedDate.getTime()) ? slot.UpdatedAt : updatedDate;
+      if (Object.prototype.hasOwnProperty.call(normalizedSlot, '__source')) {
+        delete normalizedSlot.__source;
       }
 
       return normalizedSlot;
     });
 
+    const metadata = {
+      totalCount: normalizedSlots.length,
+      sources: Array.from(sourceSheets),
+      generatedAt: new Date().toISOString(),
+      hasActiveSlots: normalizedSlots.some(slot => slot && slot.IsActive !== false)
+    };
+
+    console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
+    return {
+      success: true,
+      slots: normalizedSlots,
+      metadata
+    };
+
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
     safeWriteError('clientGetAllShiftSlots', error);
-    
-    // Fallback: ensure at least default slots exist
+
     try {
       createDefaultShiftSlots();
-      return readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      const fallbackSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      const normalizedFallback = Array.isArray(fallbackSlots)
+        ? fallbackSlots.map(slot => (slot && typeof slot === 'object' ? { ...slot } : slot))
+        : [];
+
+      return {
+        success: true,
+        slots: normalizedFallback,
+        metadata: {
+          totalCount: normalizedFallback.length,
+          sources: [SHIFT_SLOTS_SHEET],
+          generatedAt: new Date().toISOString(),
+          fallbackApplied: true,
+          error: error && error.message ? error.message : String(error)
+        }
+      };
     } catch (fallbackError) {
-      return [];
+      return {
+        success: false,
+        slots: [],
+        metadata: {
+          totalCount: 0,
+          sources: [],
+          generatedAt: new Date().toISOString(),
+          error: error && error.message ? error.message : String(error),
+          fallbackError: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
+        }
+      };
     }
   }
 }
@@ -1033,21 +1237,30 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     // Get shift slots - either selected ones or all available
     let shiftSlots = [];
+    let shiftSlotMetadata = { totalCount: 0 };
     if (shiftSlotIds && shiftSlotIds.length > 0) {
       // Get only the selected shift slots
       console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
-      const allSlots = clientGetAllShiftSlots();
+      const slotResponse = clientGetAllShiftSlots();
+      const allSlots = Array.isArray(slotResponse?.slots)
+        ? slotResponse.slots
+        : (Array.isArray(slotResponse) ? slotResponse : []);
+      shiftSlotMetadata = slotResponse && slotResponse.metadata ? slotResponse.metadata : { totalCount: allSlots.length };
       shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
-      
+
       if (shiftSlots.length === 0) {
         throw new Error('None of the selected shift slots were found. Please refresh and try again.');
       }
-      
+
       console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
     } else {
       // Use all available shift slots
-      shiftSlots = clientGetAllShiftSlots();
-      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
+      const slotResponse = clientGetAllShiftSlots();
+      shiftSlots = Array.isArray(slotResponse?.slots)
+        ? slotResponse.slots
+        : (Array.isArray(slotResponse) ? slotResponse : []);
+      shiftSlotMetadata = slotResponse && slotResponse.metadata ? slotResponse.metadata : { totalCount: shiftSlots.length };
+      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`, shiftSlotMetadata);
     }
 
     if (!shiftSlots || shiftSlots.length === 0) {
@@ -2355,16 +2568,16 @@ function clientGetCountryHolidays(countryCode, year) {
   try {
     console.log('🎉 Getting holidays for:', countryCode, year);
 
-    if (!SCHEDULE_CONFIG.SUPPORTED_COUNTRIES.includes(countryCode)) {
+    if (!SCHEDULE_SETTINGS.SUPPORTED_COUNTRIES.includes(countryCode)) {
       return {
         success: false,
-        error: `Country ${countryCode} not supported. Supported countries: ${SCHEDULE_CONFIG.SUPPORTED_COUNTRIES.join(', ')}`,
+        error: `Country ${countryCode} not supported. Supported countries: ${SCHEDULE_SETTINGS.SUPPORTED_COUNTRIES.join(', ')}`,
         holidays: []
       };
     }
 
     const holidays = getUpdatedHolidays(countryCode, year);
-    const isPrimary = countryCode === SCHEDULE_CONFIG.PRIMARY_COUNTRY;
+    const isPrimary = countryCode === SCHEDULE_SETTINGS.PRIMARY_COUNTRY;
 
     return {
       success: true,
@@ -2876,11 +3089,15 @@ function clientRunSystemDiagnostics() {
 
     // Test shift slots using ScheduleUtilities
     try {
-      const slots = clientGetAllShiftSlots();
+      const slotResponse = clientGetAllShiftSlots();
+      const slots = Array.isArray(slotResponse?.slots)
+        ? slotResponse.slots
+        : (Array.isArray(slotResponse) ? slotResponse : []);
       diagnostics.shiftSlots = {
         count: slots.length,
         working: slots.length > 0,
-        scheduleUtilitiesIntegration: true
+        scheduleUtilitiesIntegration: true,
+        metadata: slotResponse && slotResponse.metadata ? slotResponse.metadata : null
       };
 
       if (slots.length === 0) {
@@ -2908,9 +3125,9 @@ function clientRunSystemDiagnostics() {
       const holidays = clientGetCountryHolidays('JM', 2025);
       diagnostics.holidays = {
         jamaicaHolidays: holidays.success ? holidays.holidays.length : 0,
-        supportedCountries: SCHEDULE_CONFIG.SUPPORTED_COUNTRIES,
+        supportedCountries: SCHEDULE_SETTINGS.SUPPORTED_COUNTRIES,
         working: holidays.success,
-        primaryCountry: SCHEDULE_CONFIG.PRIMARY_COUNTRY
+        primaryCountry: SCHEDULE_SETTINGS.PRIMARY_COUNTRY
       };
     } catch (error) {
       diagnostics.holidays = {

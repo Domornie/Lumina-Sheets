@@ -879,7 +879,7 @@
       <i class="fas fa-sync me-2"></i>Refresh
     </button>
     <a class="btn btn-warning text-dark" href="<?= __importAttendanceUrl ?>">
-      <i class="fas fa-user-clock me-2"></i>Manual Shift Slots
+      <i class="fas fa-file-upload me-2"></i>Import Attendance
     </a>
   </div>
 </div>
@@ -916,6 +916,34 @@
           <option value="summary">Summary View</option>
           <option value="detailed">Detailed Analysis</option>
         </select>
+      </div>
+    </div>
+    <div class="row align-items-center mt-3 gy-3">
+      <div class="col-lg-4 col-md-6">
+        <label class="form-label fw-bold">Overtime</label>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="overtimeToggle">
+          <label class="form-check-label" for="overtimeToggle">Enable overtime allowance</label>
+        </div>
+        <small class="text-muted">When disabled, billable hours are capped at 8.0 hours per day.</small>
+      </div>
+      <div class="col-lg-4 col-md-6">
+        <label class="form-label fw-bold">Overtime Allowance</label>
+        <select class="form-select" id="overtimeAmount" disabled>
+          <option value="0.5">+0.5 hours</option>
+          <option value="1">+1.0 hours</option>
+          <option value="2">+2.0 hours</option>
+          <option value="3">+3.0 hours</option>
+          <option value="4">+4.0 hours</option>
+          <option value="5">+5.0 hours</option>
+        </select>
+        <small class="text-muted">Select the maximum overtime allowed beyond the 8 hour baseline.</small>
+      </div>
+      <div class="col-lg-4">
+        <label class="form-label fw-bold d-block">Quick Action</label>
+        <button class="btn btn-outline-danger w-100" id="capHoursBtn" type="button">
+          <i class="fas fa-compress-arrows-alt me-2"></i>Cap Billable Hours at 8h
+        </button>
       </div>
     </div>
   </div>
@@ -1497,6 +1525,29 @@
     return seconds + 's';
   }
 
+  function readHourPolicyFromControls() {
+    const toggle = document.getElementById('overtimeToggle');
+    const select = document.getElementById('overtimeAmount');
+    const enabled = !!(toggle && toggle.checked);
+
+    let allowance = 0;
+    if (enabled && select) {
+      const parsed = parseFloat(select.value);
+      if (Number.isFinite(parsed)) {
+        allowance = Math.max(0, Math.min(parsed, 5));
+      }
+      if (allowance <= 0) {
+        allowance = 0.5;
+      }
+    }
+
+    return {
+      overtimeEnabled: enabled,
+      overtimeAllowanceHours: enabled ? allowance : 0,
+      baseCapHours: 8
+    };
+  }
+
   // MAIN ATTENDANCE DASHBOARD CLASS
   class AttendanceDashboard {
     constructor() {
@@ -1514,6 +1565,8 @@
         totalItems: 0,
         totalPages: 0
       };
+
+      this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
 
       this.loadDataDebounced = debounce(() => this.loadData(), 250);
       this._reqSeq = 0;
@@ -1560,6 +1613,40 @@
         this.currentPeriod = e.target.value;
         this.loadDataDebounced();
       });
+
+      const overtimeToggle = document.getElementById('overtimeToggle');
+      if (overtimeToggle) {
+        overtimeToggle.addEventListener('change', () => {
+          const policy = readHourPolicyFromControls();
+          this.hourPolicy = {
+            overtimeEnabled: policy.overtimeEnabled,
+            overtimeAllowanceHours: policy.overtimeAllowanceHours
+          };
+          this.syncHourPolicyControls();
+          this.loadDataDebounced();
+        });
+      }
+
+      const overtimeAmount = document.getElementById('overtimeAmount');
+      if (overtimeAmount) {
+        overtimeAmount.addEventListener('change', () => {
+          const policy = readHourPolicyFromControls();
+          this.hourPolicy.overtimeAllowanceHours = policy.overtimeAllowanceHours;
+          if (this.hourPolicy.overtimeEnabled) {
+            this.loadDataDebounced();
+          }
+        });
+      }
+
+      const capButton = document.getElementById('capHoursBtn');
+      if (capButton) {
+        capButton.addEventListener('click', () => {
+          this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
+          this.syncHourPolicyControls();
+          this.showToast('Billable hours capped at 8.0 hours per day', 'info');
+          this.loadDataDebounced();
+        });
+      }
     }
 
     initializeControls() {
@@ -1579,6 +1666,55 @@
 
       this.loadUserList();
       this.updateViewMode();
+      this.syncHourPolicyControls();
+    }
+
+    syncHourPolicyControls() {
+      const toggle = document.getElementById('overtimeToggle');
+      const select = document.getElementById('overtimeAmount');
+      const capButton = document.getElementById('capHoursBtn');
+
+      const enabled = !!this.hourPolicy.overtimeEnabled;
+      const allowance = this.hourPolicy.overtimeAllowanceHours && this.hourPolicy.overtimeAllowanceHours > 0
+        ? this.hourPolicy.overtimeAllowanceHours
+        : 0.5;
+
+      if (toggle) {
+        toggle.checked = enabled;
+      }
+
+      if (select) {
+        const valueToSet = enabled ? allowance : allowance;
+        const valueString = valueToSet.toString();
+        const optionValues = Array.from(select.options).map(opt => opt.value);
+        select.value = optionValues.includes(valueString) ? valueString : '0.5';
+        select.disabled = !enabled;
+      }
+
+      if (capButton) {
+        capButton.disabled = false;
+      }
+    }
+
+    applyHourPolicyFromData(policy) {
+      if (!policy) return;
+      this.hourPolicy = {
+        overtimeEnabled: !!policy.overtimeEnabled,
+        overtimeAllowanceHours: policy.overtimeAllowanceHours || 0
+      };
+      this.syncHourPolicyControls();
+    }
+
+    getHourPolicyOptions() {
+      const enabled = !!this.hourPolicy.overtimeEnabled;
+      const allowance = this.hourPolicy.overtimeAllowanceHours && this.hourPolicy.overtimeAllowanceHours > 0
+        ? this.hourPolicy.overtimeAllowanceHours
+        : 0.5;
+      return {
+        overtimeEnabled: enabled,
+        overtimeAllowanceHours: enabled ? allowance : 0,
+        baseCapHours: 8
+      };
     }
 
     showToast(message, type) {
@@ -1767,7 +1903,7 @@
         try {
           console.log('Attempting to call getAttendanceAnalyticsByPeriod...');
           data = await this.callServerFunction('getAttendanceAnalyticsByPeriod',
-            [this.currentGranularity, this.currentPeriod, this.currentAgent],
+            [this.currentGranularity, this.currentPeriod, this.currentAgent, this.getHourPolicyOptions()],
             { timeoutMs: 25000 }
           );
 
@@ -1843,6 +1979,10 @@
     renderDashboard() {
       if (!this.currentData) return;
       try {
+        if (this.currentData.hourPolicy) {
+          this.applyHourPolicyFromData(this.currentData.hourPolicy);
+        }
+
         const info = this.currentData.periodInfo || {};
         if (info.timezone) {
           window.COMPANY_TIMEZONE = info.timezone;
@@ -2202,7 +2342,7 @@
               <thead>
                 <tr>
                   <th><i class="fas fa-user me-2"></i>Employee</th>
-                  <th><i class="fas fa-clock me-2"></i>Work Hours</th>
+                  <th><i class="fas fa-clock me-2"></i>Available Hours</th>
                   <th><i class="fas fa-coffee me-2"></i>Break Hours</th>
                   <th><i class="fas fa-utensils me-2"></i>Lunch Hours</th>
                   <th><i class="fas fa-calendar-weekend me-2"></i>Weekend Hours</th>
@@ -2216,7 +2356,7 @@
           const complianceScore = this.calculateComplianceScore(user);
           const statusBadge = this.getComplianceStatusBadge(complianceScore);
           
-          const workHours = convertSecondsToDecimalHours(user.availableSecsWeekday || 0);
+          const availableHours = convertSecondsToDecimalHours(user.availableSecsWeekday || 0);
           const breakHours = convertSecondsToDecimalHours(user.breakSecs || 0);
           const lunchHours = convertSecondsToDecimalHours(user.lunchSecs || 0);
           const weekendHours = convertSecondsToDecimalHours(user.weekendSecs || 0);
@@ -2232,7 +2372,7 @@
                 </div>
               </td>
               <td>
-                <span class="badge bg-success">${workHours.toFixed(2)}h</span>
+                <span class="badge bg-success">${availableHours.toFixed(2)}h</span>
                 <small class="text-muted d-block">from ${(user.availableSecsWeekday || 0)}s</small>
               </td>
               <td>
@@ -3065,6 +3205,13 @@
         }
       });
 
+      ['overtimeToggle', 'overtimeAmount'].forEach(id => {
+        const control = document.getElementById(id);
+        if (control) {
+          control.addEventListener('change', () => this.updatePreview());
+        }
+      });
+
       ['periodSelect', 'startDate', 'endDate', 'singleUserSelect'].forEach(id => {
         const element = document.getElementById(id);
         if (element) {
@@ -3294,13 +3441,16 @@
       const activeTimezone = (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.periodInfo && window.dashboard.currentData.periodInfo.timezone)
         || COMPANY_TIMEZONE;
 
+      const hourPolicy = readHourPolicyFromControls();
+
       const dailyPivotOptions = {
         highlightLowHours: document.getElementById('highlightLowHours')?.checked || false,
         includeWeekends: document.getElementById('includeWeekends')?.checked || false,
         includeTotalHours: document.getElementById('includeTotalHours')?.checked || false,
         includeDiscrepancy: document.getElementById('includeDiscrepancy')?.checked || false,
         includeOvertime: document.getElementById('includeOvertime')?.checked || false,
-        includeTotalsRow: document.getElementById('includeTotalsRow')?.checked || false
+        includeTotalsRow: document.getElementById('includeTotalsRow')?.checked || false,
+        hourPolicy: hourPolicy
       };
 
       return {
@@ -3309,10 +3459,12 @@
         userSelection,
         format: format,
         dailyPivotOptions: dailyPivotOptions,
+        hourPolicy: hourPolicy,
         options: {
           ...dailyPivotOptions,
           timeZone: activeTimezone,
-          correctedFormat: true
+          correctedFormat: true,
+          hourPolicy: hourPolicy
         }
       };
     }
@@ -3342,9 +3494,10 @@
           } else {
             this.updateExportProgress(50, 'Generating standard export...');
             result = await safeServerCall('exportAttendanceCsv', [
-              params.period.type || 'Week', 
-              params.period.value || this.getCurrentWeek(), 
-              params.users.length === 1 ? params.users[0] : ''
+              params.period.type || 'Week',
+              params.period.value || this.getCurrentWeek(),
+              params.users.length === 1 ? params.users[0] : '',
+              params.hourPolicy
             ], { timeoutMs: 30000 });
             
             if (result && typeof result === 'string') {
@@ -3360,9 +3513,10 @@
           console.error('Server call failed:', serverError);
           this.updateExportProgress(50, 'Falling back to basic export...');
           result = await safeServerCall('exportAttendanceCsv', [
-            params.period.type || 'Week', 
-            params.period.value || this.getCurrentWeek(), 
-            params.users.length === 1 ? params.users[0] : ''
+            params.period.type || 'Week',
+            params.period.value || this.getCurrentWeek(),
+            params.users.length === 1 ? params.users[0] : '',
+            params.hourPolicy
           ], { timeoutMs: 30000 });
           
           if (result && typeof result === 'string') {

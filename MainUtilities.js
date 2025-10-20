@@ -53,33 +53,53 @@ if (typeof CHAT_CHANNEL_MEMBERS_SHEET === 'undefined') var CHAT_CHANNEL_MEMBERS_
 // ────────────────────────────────────────────────────────────────────────────
 // Headers (guarded)
 // ────────────────────────────────────────────────────────────────────────────
-if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
+if (typeof USER_SHEET_COLUMN_ORDER === 'undefined') var USER_SHEET_COLUMN_ORDER = [
   "ID",
   "UserName",
-  "NormalizedUserName",
   "FullName",
   "Email",
-  "NormalizedEmail",
   "CampaignID",
   "PasswordHash",
   "ResetRequired",
   "EmailConfirmation",
   "EmailConfirmed",
   "PhoneNumber",
-  "PhoneNumberConfirmed",
   "EmploymentStatus",
   "HireDate",
   "Country",
-  "LockoutEnabled",
   "LockoutEnd",
-  "AccessFailedCount",
   "TwoFactorEnabled",
-  "TwoFactorDelivery",
-  "TwoFactorSecret",
-  "TwoFactorRecoveryCodes",
   "CanLogin",
   "Roles",
   "Pages",
+  "CreatedAt",
+  "UpdatedAt",
+  "IsAdmin",
+  "DeletedAt",
+  "IsAdmin",
+  "ProbationMonths",
+  "ProbationEnd",
+  "InsuranceEligibleDate",
+  "InsuranceQualified",
+  "InsuranceEnrolled",
+  "InsuranceCardReceivedDate",
+  "ProbationEndDate",
+  "InsuranceQualifiedDate",
+  "InsuranceEligible",
+  "InsuranceSignedUp",
+  "TerminationDate",
+  "MFASecret",
+  "MFABackupCodes",
+  "MFADeliveryPreference",
+  "MFAEnabled",
+  "NormalizedUserName",
+  "NormalizedEmail",
+  "PhoneNumberConfirmed",
+  "LockoutEnabled",
+  "AccessFailedCount",
+  "TwoFactorDelivery",
+  "TwoFactorSecret",
+  "TwoFactorRecoveryCodes",
   "SecurityStamp",
   "ConcurrencyStamp",
   "EmailConfirmationTokenHash",
@@ -91,11 +111,9 @@ if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = [
   "ResetPasswordExpiresAt",
   "LastLoginAt",
   "LastLoginIp",
-  "LastLoginUserAgent",
-  "CreatedAt",
-  "UpdatedAt",
-  "IsAdmin"
+  "LastLoginUserAgent"
 ];
+if (typeof USERS_HEADERS === 'undefined') var USERS_HEADERS = USER_SHEET_COLUMN_ORDER.slice();
 
 if (typeof ROLES_HEADER === 'undefined') var ROLES_HEADER = [
   "ID",
@@ -1347,7 +1365,7 @@ function getAllPagesFromActualRouting() {
 
     // DATA MGMT
     { key: 'import', title: 'Data Import', icon: 'fas fa-file-import', description: 'Import data from CSV and other sources', isSystem: true, requiresAdmin: true, category: 'Data Management' },
-    { key: 'importattendance', title: 'Manual Shift Slots', icon: 'fas fa-user-clock', description: 'Manually assign shift slots to agents for specific dates', isSystem: true, requiresAdmin: true, category: 'Scheduling & Time' },
+    { key: 'importattendance', title: 'Import Attendance', icon: 'fas fa-file-upload', description: 'Import attendance data from external sources', isSystem: true, requiresAdmin: true, category: 'Data Management' },
 
     // UTILITIES
     { key: 'ackform', title: 'Acknowledgment Form', icon: 'fas fa-signature', description: 'Employee acknowledgment and signature forms', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
@@ -1537,7 +1555,7 @@ function suggestIconForPageKey(key) {
       managecampaign: 'fa-bullhorn',
       settings: 'fa-cogs',
       import: 'fa-file-import',
-      importattendance: 'fa-user-clock',
+      importattendance: 'fa-file-upload',
       ackform: 'fa-signature',
       proxy: 'fa-exchange-alt',
       setpassword: 'fa-key',

@@ -1664,7 +1664,7 @@
               </div>
             </div>
             <div class="category-meta">
-              <div class="category-points">30 Points</div>
+              <div class="category-points">35 Points</div>
             </div>
           </div>
 
@@ -1789,6 +1789,31 @@
             <div class="question-note">
               <label for="q5Note">Notes</label>
               <textarea class="comment-input" id="q5Note" name="q5Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q5 Note']||recObj['C5']||recObj.c5||'' ?></textarea>
+            </div>
+          </div>
+
+          <!-- Q19 -->
+          <div class="question-row">
+            <div class="question-text"><strong>Was the call free of unnecessary dead air?</strong>
+            </div>
+            <div class="max-points">
+              <div style="display:flex;align-items:center;gap:0.25rem;"><i class="fas fa-star"></i><span>5 pts</span>
+              </div>
+            </div>
+            <div class="points-selector">
+              <div class="points-option yes">
+                <input type="radio" name="q19" value="yes" id="q19_yes"><label for="q19_yes">Yes</label>
+              </div>
+              <div class="points-option no">
+                <input type="radio" name="q19" value="no" id="q19_no"><label for="q19_no">No</label>
+              </div>
+              <div class="points-option na">
+                <input type="radio" name="q19" value="na" id="q19_na"><label for="q19_na">N/A</label>
+              </div>
+            </div>
+            <div class="question-note">
+              <label for="q19Note">Notes</label>
+              <textarea class="comment-input" id="q19Note" name="q19Note" placeholder="Add specific comments, observations, or recommendations..."><?= recObj['Q19 Note']||recObj['C19']||recObj.c19||'' ?></textarea>
             </div>
           </div>
 
@@ -2204,7 +2229,7 @@
         <div class="score-breakdown">
           <div class="category-score courtesy-score">
             <div class="category-name">Courtesy & Communication</div>
-            <span class="category-points-display" id="category_courtesy_score">0/30</span>
+            <span class="category-points-display" id="category_courtesy_score">0/35</span>
           </div>
           <div class="category-score resolution-score">
             <div class="category-name">Resolution</div>
@@ -2227,7 +2252,7 @@
             <div class="insight-item">
               <div class="insight-icon progress"><i class="fas fa-tasks"></i></div>
               <div style="flex: 1;">
-                <span id="completionStatus">0/18 Questions Answered</span>
+                <span id="completionStatus">0/19 Questions Answered</span>
                 <div class="progress-bar-container">
                   <div class="progress-bar-fill" id="progressBarFill"></div>
                 </div>
@@ -2416,6 +2441,7 @@
     q3: {w: 7, c: 'courtesy'},
     q4: {w: 10, c: 'courtesy'},
     q5: {w: 5, c: 'courtesy'},
+    q19: {w: 5, c: 'courtesy'},
     q6: {w: 8, c: 'resolution'},
     q7: {w: 8, c: 'resolution'},
     q8: {w: 15, c: 'resolution'},
@@ -2776,10 +2802,10 @@
     }, 200);
 
     // Progress
-    const progressPct = (answeredQuestions / 18) * 100;
+    const progressPct = (answeredQuestions / 19) * 100;
     const fill = document.getElementById('progressBarFill');
     if (fill) fill.style.width = progressPct + '%';
-    document.getElementById('completionStatus').textContent = `${answeredQuestions}/18 Questions Answered`;
+    document.getElementById('completionStatus').textContent = `${answeredQuestions}/19 Questions Answered`;
 
     updatePerformanceInsights(categoryTotals, overallPct, answeredQuestions);
   }
@@ -2874,17 +2900,17 @@
     formData.feedbackShared = feedbackShared;
     formData.feedbackSharedAt = feedbackDate;
     
-    // QA Questions (Q1-Q18)
+    // QA Questions (Q1-Q19)
     let answeredQuestions = 0;
-    for (let i = 1; i <= 18; i++) {
+    for (let i = 1; i <= 19; i++) {
       const questionKey = 'q' + i;
       const radio = document.querySelector(`input[name="${questionKey}"]:checked`);
       formData[questionKey] = radio ? radio.value : '';
       if (radio && radio.value) answeredQuestions++;
     }
     
-    // Notes (Q1-Q18)
-    for (let i = 1; i <= 18; i++) {
+    // Notes (Q1-Q19)
+    for (let i = 1; i <= 19; i++) {
       const noteKey = `q${i}Note`;
       const textarea = document.querySelector(`textarea[name="${noteKey}"]`) ||
         document.querySelector(`textarea[name="c${i}"]`);
@@ -2920,7 +2946,7 @@
     }
     
     console.log('📊 COLLECTION SUMMARY:');
-    console.log('  Questions answered:', answeredQuestions + '/18');
+    console.log('  Questions answered:', answeredQuestions + '/19');
     console.log('  Has audio file:', !!(formData.audioFile));
     console.log('  Has call link:', !!(formData.callLink));
     
@@ -2963,7 +2989,7 @@
     
     // At least one QA question validation
     let questionsAnswered = 0;
-    for (let i = 1; i <= 18; i++) {
+    for (let i = 1; i <= 19; i++) {
       if (formData['q' + i] && formData['q' + i] !== 'na') {
         questionsAnswered++;
       }
@@ -3046,7 +3072,7 @@
     
     // At least one QA question validation
     let questionsAnswered = 0;
-    for (let i = 1; i <= 18; i++) {
+    for (let i = 1; i <= 19; i++) {
       const radio = document.querySelector(`input[name="q${i}"]:checked`);
       if (radio && radio.value && radio.value !== 'na') {
         questionsAnswered++;
@@ -3121,17 +3147,17 @@
       formData.feedbackShared = feedbackShared;
       formData.feedbackSharedAt = feedbackDate;
       
-      // QA Questions (Q1-Q18)
+      // QA Questions (Q1-Q19)
       let answeredQuestions = 0;
-      for (let i = 1; i <= 18; i++) {
+      for (let i = 1; i <= 19; i++) {
         const questionKey = 'q' + i;
         const radio = document.querySelector(`input[name="${questionKey}"]:checked`);
         formData[questionKey] = radio ? radio.value : '';
         if (radio && radio.value) answeredQuestions++;
       }
       
-      // Notes (Q1-Q18)
-      for (let i = 1; i <= 18; i++) {
+      // Notes (Q1-Q19)
+      for (let i = 1; i <= 19; i++) {
         const noteKey = `q${i}Note`;
         const textarea = document.querySelector(`textarea[name="${noteKey}"]`) ||
           document.querySelector(`textarea[name="c${i}"]`);
@@ -3171,7 +3197,7 @@
             const base64 = arrayBufferToBase64(arrayBuffer);
             formData.audioFileData = base64;
             console.log('📊 COLLECTION COMPLETE - Audio file converted to base64');
-            console.log('  Questions answered:', answeredQuestions + '/18');
+            console.log('  Questions answered:', answeredQuestions + '/19');
             resolve(formData);
           };
           reader.onerror = reject;
@@ -3186,7 +3212,7 @@
       }
       
       console.log('📊 COLLECTION COMPLETE');
-      console.log('  Questions answered:', answeredQuestions + '/18');
+      console.log('  Questions answered:', answeredQuestions + '/19');
       console.log('  Has call link:', !!callLink);
       console.log('  Form data keys:', Object.keys(formData));
       
@@ -3544,8 +3570,8 @@
     if (feedbackFlag) feedbackFlag.checked = shared;
     if (feedbackDate && r.FeedbackSharedAt) feedbackDate.value = r.FeedbackSharedAt;
 
-    // Q1..Q18 prefilling
-    for (let i = 1; i <= 18; i++) {
+    // Q1..Q19 prefilling
+    for (let i = 1; i <= 19; i++) {
       const keySheet = 'Q' + i;       // Sheet format
       const keyForm = 'q' + i;        // Form format
       const v = normAns(r[keySheet] || r[keyForm]);
@@ -3555,7 +3581,7 @@
     }
 
     // Notes prefilling
-    for (let i = 1; i <= 18; i++) {
+    for (let i = 1; i <= 19; i++) {
       const noteValue = r['Q' + i + ' Note'] || r['Q' + i + ' note'] || r['C' + i] ||
         r['c' + i] || r['q' + i + 'Note'] || r['q' + i + 'note'] || '';
       const noteField = document.querySelector(`textarea[name="q${i}Note"]`) ||
@@ -3677,7 +3703,7 @@
     }
 
     // QA questions -> real-time scoring
-    for (let i = 1; i <= 18; i++) {
+    for (let i = 1; i <= 19; i++) {
       const radios = document.querySelectorAll(`input[name="q${i}"]`);
       radios.forEach(radio => {
         radio.addEventListener('change', recalcSummary);

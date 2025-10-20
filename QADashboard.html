@@ -63,9 +63,10 @@
   }
 
   .qa-shell {
-    max-width: min(1380px, 100%);
-    margin: 0 auto;
-    padding: 1.5rem 1.5rem 3rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 1.5rem clamp(1.5rem, 3vw, 2.5rem) 3rem;
   }
 
   .qa-dashboard {
@@ -400,6 +401,80 @@
     border-radius: 999px;
     padding: 0.55rem 1.2rem;
     font-weight: 600;
+  }
+
+  .qa-signal-list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .qa-signal-item {
+    border-radius: var(--qa-radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    padding: 1rem 1.2rem;
+    background: rgba(255, 255, 255, 0.96);
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .qa-signal-item[data-tone="negative"] {
+    border-color: rgba(239, 68, 68, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.08);
+  }
+
+  .qa-signal-item[data-tone="warning"] {
+    border-color: rgba(245, 158, 11, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.08);
+  }
+
+  .qa-signal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .qa-signal-title {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .qa-signal-badge {
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--qa-primary);
+  }
+
+  .qa-signal-badge.negative {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--qa-danger);
+  }
+
+  .qa-signal-badge.warning {
+    background: rgba(245, 158, 11, 0.16);
+    color: var(--qa-warning);
+  }
+
+  .qa-signal-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #475569;
+  }
+
+  .qa-signal-note {
+    font-size: 0.85rem;
+    color: #475569;
+  }
+
+  .qa-signal-empty {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #64748b;
   }
 
   .qa-insight-count {
@@ -753,6 +828,50 @@
     </div>
   </div>
 
+  <div class="row g-4 mt-1" id="qa-signal-row">
+    <div class="col-12 col-xl-5">
+      <div class="card h-100">
+        <div class="card-header">Critical Question Signals</div>
+        <div class="card-body">
+          <div id="qa-question-empty" class="qa-signal-empty">Need more evaluations to surface question-level risk.</div>
+          <div class="qa-signal-list" id="qa-question-signals"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-4">
+      <div class="card h-100">
+        <div class="card-header">Program Performance</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-borderless align-middle qa-table">
+              <thead>
+                <tr>
+                  <th>Program</th>
+                  <th class="text-center">Avg Score</th>
+                  <th class="text-center">Pass Rate</th>
+                  <th class="text-center">Evals</th>
+                </tr>
+              </thead>
+              <tbody id="qa-program-body">
+                <tr>
+                  <td colspan="4" class="text-center text-muted py-4">Awaiting data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-3">
+      <div class="card h-100">
+        <div class="card-header">Quality Signal Radar</div>
+        <div class="card-body">
+          <div class="qa-signal-list" id="qa-signal-radar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-4 mt-1" id="qa-lower-section">
     <div class="col-12 col-lg-6">
       <div class="card h-100">
@@ -926,6 +1045,10 @@
       openActions: document.getElementById('qa-open-actions'),
       insightsModal: document.getElementById('qaInsightsModal'),
       actionsModal: document.getElementById('qaActionsModal'),
+      questionSignals: document.getElementById('qa-question-signals'),
+      questionEmpty: document.getElementById('qa-question-empty'),
+      programBody: document.getElementById('qa-program-body'),
+      signalRadar: document.getElementById('qa-signal-radar'),
       notesBody: document.getElementById('qa-notes-body'),
       notesMeta: document.getElementById('qa-notes-meta'),
       notesCard: document.getElementById('qa-notes-card')
@@ -1591,6 +1714,141 @@
       });
     }
 
+    function renderQuestionSignals(signals) {
+      if (!dom.questionSignals) return;
+
+      const items = Array.isArray(signals) ? signals : [];
+      dom.questionSignals.innerHTML = '';
+
+      if (dom.questionEmpty) {
+        dom.questionEmpty.classList.toggle('d-none', items.length > 0);
+      }
+
+      if (!items.length) {
+        return;
+      }
+
+      items.forEach(signal => {
+        const container = document.createElement('div');
+        container.className = 'qa-signal-item';
+
+        const tone = signal.severity === 'negative'
+          ? 'negative'
+          : (signal.severity === 'warning' ? 'warning' : '');
+        if (tone) {
+          container.dataset.tone = tone;
+        }
+
+        const header = document.createElement('div');
+        header.className = 'qa-signal-header';
+
+        const title = document.createElement('div');
+        title.className = 'qa-signal-title';
+        title.textContent = `${signal.shortLabel || ''} · ${signal.question || ''}`;
+
+        const badge = document.createElement('span');
+        badge.className = `qa-signal-badge ${tone}`.trim();
+        badge.textContent = `${typeof signal.passRate === 'number' ? signal.passRate : '--'}% pass`;
+
+        header.appendChild(title);
+        header.appendChild(badge);
+        container.appendChild(header);
+
+        const meta = document.createElement('div');
+        meta.className = 'qa-signal-meta';
+        meta.innerHTML = `
+          <span><i class="fa-solid fa-circle-check text-success me-1"></i>${signal.yesCount || 0} yes</span>
+          <span><i class="fa-solid fa-circle-xmark text-danger me-1"></i>${signal.noCount || 0} no</span>
+          <span><i class="fa-solid fa-circle-minus text-muted me-1"></i>${signal.naCount || 0} n/a</span>`;
+        container.appendChild(meta);
+
+        if (signal.primaryNote) {
+          const note = document.createElement('div');
+          note.className = 'qa-signal-note';
+          note.innerHTML = `<i class="fa-solid fa-quote-left me-2 text-primary"></i>${escapeHtml(signal.primaryNote)}`;
+          container.appendChild(note);
+        }
+
+        dom.questionSignals.appendChild(container);
+      });
+    }
+
+    function renderProgramMetrics(programs) {
+      if (!dom.programBody) return;
+
+      const items = Array.isArray(programs) ? programs : [];
+      dom.programBody.innerHTML = '';
+
+      if (!items.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="4" class="text-center text-muted py-4">No program performance metrics yet.</td>';
+        dom.programBody.appendChild(row);
+        return;
+      }
+
+      items.slice(0, 6).forEach(program => {
+        const tone = program.severity === 'negative'
+          ? 'negative'
+          : (program.severity === 'warning' ? 'warning' : '');
+        const badgeClass = tone;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>
+            <div class="fw-semibold">${escapeHtml(program.name || 'Unassigned')}</div>
+            <div class="text-muted small">${program.share ? program.share + '% of volume' : ''}</div>
+          </td>
+          <td class="text-center fw-semibold">${program.avgScore || 0}%</td>
+          <td class="text-center">
+            <span class="qa-signal-badge ${badgeClass}">${program.passRate || 0}%</span>
+          </td>
+          <td class="text-center fw-semibold">${program.evaluations || 0}</td>`;
+        dom.programBody.appendChild(row);
+      });
+    }
+
+    function renderSignalHighlights(signals) {
+      if (!dom.signalRadar) return;
+
+      const items = Array.isArray(signals) ? signals : [];
+      dom.signalRadar.innerHTML = '';
+
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'qa-signal-item';
+        empty.innerHTML = '<div class="qa-signal-title">AI monitoring</div><div class="qa-signal-note text-muted">No anomalies detected for the selected filters.</div>';
+        dom.signalRadar.appendChild(empty);
+        return;
+      }
+
+      items.forEach(signal => {
+        const item = document.createElement('div');
+        item.className = 'qa-signal-item';
+        if (signal.tone === 'negative' || signal.tone === 'urgent') {
+          item.dataset.tone = 'negative';
+        } else if (signal.tone === 'warning') {
+          item.dataset.tone = 'warning';
+        }
+
+        const header = document.createElement('div');
+        header.className = 'qa-signal-header';
+        const title = document.createElement('div');
+        title.className = 'qa-signal-title';
+        const icon = signal.icon || 'fa-signal';
+        title.innerHTML = `<i class="fa-solid ${icon} me-2"></i>${escapeHtml(signal.title || '')}`;
+        header.appendChild(title);
+        item.appendChild(header);
+
+        if (signal.text) {
+          const note = document.createElement('div');
+          note.className = 'qa-signal-note';
+          note.textContent = signal.text;
+          item.appendChild(note);
+        }
+
+        dom.signalRadar.appendChild(item);
+      });
+    }
+
     function createDeltaBadge(delta) {
       if (delta === null || delta === undefined || Number.isNaN(delta)) {
         return '<span class="qa-delta-badge neutral">--</span>';
@@ -1783,6 +2041,10 @@
       renderDistributionChart(agents);
       renderAgents(agents.slice(0, 8));
       renderLatestEvaluation(response.latestEvaluation || null);
+
+      renderQuestionSignals(response.questionSignals || []);
+      renderProgramMetrics(response.programMetrics || []);
+      renderSignalHighlights(response.qualitySignals || []);
 
       if (dom.intelSummary) {
         dom.intelSummary.textContent = response.intelligenceSummary

@@ -227,6 +227,12 @@
         box-shadow: none;
     }
 
+    .attendance-calendar__status--inactive {
+        background: rgba(148, 163, 184, 0.5);
+        color: #0f172a;
+        box-shadow: none;
+    }
+
     .attendance-calendar__table-wrapper {
         overflow-x: auto;
         padding: var(--spacing-md);
@@ -304,6 +310,39 @@
         white-space: nowrap;
     }
 
+    .attendance-calendar__participant-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        margin-top: 0.35rem;
+        font-size: 0.75rem;
+        color: rgba(15, 42, 86, 0.65);
+        letter-spacing: 0.01em;
+    }
+
+    .attendance-calendar__participant-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        line-height: 1.3;
+        white-space: normal;
+    }
+
+    .attendance-calendar__participant-meta i {
+        color: rgba(15, 42, 86, 0.5);
+    }
+
+    .attendance-calendar__participant-status {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(15, 42, 86, 0.75);
+    }
+
+    .attendance-calendar__participant-dates {
+        color: rgba(15, 42, 86, 0.6);
+    }
+
     .attendance-calendar__table td {
         text-align: center;
         padding: 0.4rem 0.35rem;
@@ -325,6 +364,38 @@
 
     .attendance-calendar__cell--weekend {
         background: rgba(229, 231, 235, 0.6);
+    }
+
+    .attendance-calendar__cell--inactive {
+        background: rgba(226, 232, 240, 0.4);
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+
+    .attendance-calendar__cell--inactive:hover {
+        transform: none;
+        box-shadow: none;
+        background: rgba(226, 232, 240, 0.4);
+    }
+
+    .attendance-calendar__table tbody tr:hover td.attendance-calendar__cell--inactive {
+        background: rgba(226, 232, 240, 0.4);
+    }
+
+    .attendance-calendar__cell--employment-gap {
+        background: transparent;
+        cursor: default;
+        pointer-events: none;
+    }
+
+    .attendance-calendar__cell--employment-gap:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .attendance-calendar__table tbody tr:hover td.attendance-calendar__cell--employment-gap {
+        transform: none;
+        box-shadow: none;
     }
 
     .attendance-calendar__table tbody tr:nth-child(odd) td {
@@ -820,6 +891,23 @@
         color: #0f172a;
     }
 
+    .attendance-dashboard-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--spacing-xs);
+        flex-wrap: wrap;
+    }
+
+    .attendance-dashboard-controls span {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+
+    .attendance-dashboard-controls select {
+        min-width: 180px;
+    }
+
     @media (max-width: 991px) {
         .attendance-panel-actions {
             flex-wrap: wrap;
@@ -849,6 +937,34 @@
         box-shadow: var(--shadow);
     }
 
+    .slot-detail-table th {
+        width: 42%;
+        font-weight: 600;
+        color: var(--dark);
+        text-transform: none;
+        padding: 0.35rem 0.75rem;
+    }
+
+    .slot-detail-table td {
+        color: var(--dark);
+        padding: 0.35rem 0.75rem;
+        word-break: break-word;
+    }
+
+    .slot-detail-table code {
+        background-color: rgba(15, 23, 42, 0.08);
+        padding: 0.15rem 0.35rem;
+        border-radius: 6px;
+        display: inline-block;
+        font-size: 0.75rem;
+    }
+
+    .slot-detail-table .badge {
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+        padding: 0.35rem 0.6rem;
+    }
+
     /* Header Action Buttons */
     .header-actions {
         display: flex;
@@ -876,6 +992,251 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Manual Shift Assignment Tab */
+    .manual-shift-tab {
+        padding: var(--spacing-md);
+    }
+
+    .manual-shift-header {
+        max-width: 820px;
+        margin: 0 auto var(--spacing-lg);
+    }
+
+    .manual-shift-title {
+        font-size: 2.25rem;
+        font-weight: 800;
+        margin-bottom: 0.75rem;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--jamaica-green) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .manual-shift-subtitle {
+        font-size: 1rem;
+        color: var(--gray-600);
+        line-height: 1.6;
+    }
+
+    .manual-shift-tab .user-selection-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+    }
+
+    .manual-shift-tab .user-search-box {
+        position: relative;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .manual-shift-tab .user-search-box i {
+        position: absolute;
+        top: 50%;
+        left: 0.85rem;
+        transform: translateY(-50%);
+        color: var(--gray-500);
+    }
+
+    .manual-shift-tab .user-search-input {
+        padding-left: 2.5rem;
+    }
+
+    .manual-shift-tab .user-selection-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .manual-shift-tab .user-count-label {
+        font-weight: 600;
+        color: var(--gray-600);
+    }
+
+    .manual-shift-tab .user-list {
+        flex: 1;
+        border: 1px solid var(--outline);
+        border-radius: var(--border-radius);
+        background: rgba(255, 255, 255, 0.9);
+        max-height: 360px;
+        overflow-y: auto;
+        padding: 0.75rem;
+    }
+
+    .manual-shift-tab .user-loading-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 2.25rem 1rem;
+        color: var(--gray-600);
+    }
+
+    .manual-shift-tab .user-list-empty {
+        padding: 2.5rem 1rem;
+        text-align: center;
+        color: var(--gray-500);
+        font-size: 0.95rem;
+    }
+
+    .manual-shift-tab .user-list-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-radius: var(--border-radius-sm);
+        padding: 0.5rem 0.65rem;
+        transition: background-color 0.2s ease;
+    }
+
+    .manual-shift-tab .user-list-item:hover {
+        background: rgba(14, 165, 233, 0.08);
+    }
+
+    .manual-shift-tab .user-list-item + .user-list-item {
+        margin-top: 0.35rem;
+    }
+
+    .manual-shift-tab .user-name {
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .manual-shift-tab .user-meta {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+    }
+
+    .manual-shift-tab .form-footer-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .manual-shift-tab .form-footer-actions .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        border-radius: var(--border-radius);
+        padding: 0.6rem 1.1rem;
+    }
+
+    .manual-shift-tab .manual-help-list {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+    }
+
+    .manual-shift-tab .activity-entry {
+        border-left: 4px solid var(--primary);
+        padding-left: 1rem;
+        background: rgba(14, 165, 233, 0.06);
+        border-radius: 0 var(--border-radius) var(--border-radius) 0;
+        padding: 1rem 1.25rem;
+    }
+
+    .manual-shift-tab .activity-entry strong {
+        display: block;
+        font-weight: 700;
+        color: var(--dark);
+    }
+
+    .manual-shift-tab .activity-meta {
+        font-size: 0.85rem;
+        color: var(--gray-600);
+        margin-top: 0.35rem;
+    }
+
+    .manual-shift-tab .activity-log {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .manual-shift-tab .manual-activity-empty {
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--gray-600);
+        text-align: center;
+    }
+
+    .manual-shift-tab .alert-modern {
+        border-radius: var(--border-radius);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        border: 1px solid transparent;
+        display: flex;
+        gap: 0.85rem;
+        align-items: flex-start;
+        position: relative;
+    }
+
+    .manual-shift-tab .alert-modern i {
+        font-size: 1.15rem;
+    }
+
+    .manual-shift-tab .alert-modern p {
+        margin: 0;
+    }
+
+    .manual-shift-tab .alert-success-modern {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: rgba(16, 185, 129, 0.35);
+        color: #047857;
+    }
+
+    .manual-shift-tab .alert-danger-modern {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #b91c1c;
+    }
+
+    .manual-shift-tab .alert-warning-modern {
+        background: rgba(234, 179, 8, 0.15);
+        border-color: rgba(234, 179, 8, 0.35);
+        color: #92400e;
+    }
+
+    .manual-shift-tab .alert-info-modern {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.35);
+        color: #1d4ed8;
+    }
+
+    .manual-shift-tab .alert-close {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.75rem;
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+        .manual-shift-tab {
+            padding: var(--spacing-sm);
+        }
+
+        .manual-shift-title {
+            font-size: 1.85rem;
+        }
+
+        .manual-shift-tab .form-footer-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .manual-shift-tab .form-footer-actions .btn {
+            justify-content: center;
+            width: 100%;
+        }
     }
 </style>
 
@@ -1102,11 +1463,19 @@
         <div class="tab-pane fade" id="attendance-dashboard" role="tabpanel">
             <div class="modern-card mb-4">
                 <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-chart-pie text-primary"></i>
-                        Attendance Dashboard
-                    </h5>
-                    <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                    <div>
+                        <h5 class="modern-card-title">
+                            <i class="fas fa-chart-pie text-primary"></i>
+                            Attendance Dashboard
+                        </h5>
+                        <div class="text-muted small">Real-time attendance intelligence for managers</div>
+                    </div>
+                    <div class="attendance-dashboard-controls">
+                        <span class="text-muted small">Filter by user:</span>
+                        <select id="attendanceDashboardUser" class="form-select form-select-sm" aria-label="Filter attendance dashboard by user">
+                            <option value="">All Users</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modern-card-body">
                     <div class="attendance-dashboard">
@@ -1410,116 +1779,179 @@
             </div>
         </div>
 
-        <!-- Import Schedules Tab -->
+        <!-- Manual Shift Assignment Tab -->
         <div class="tab-pane fade" id="import" role="tabpanel">
-            <div class="modern-card">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-file-import text-primary"></i>
-                        Import Existing Schedules
-                    </h5>
+            <div class="manual-shift-tab">
+                <div class="manual-shift-header text-center">
+                    <h2 class="manual-shift-title">Manual Shift Slot Assignment</h2>
+                    <p class="manual-shift-subtitle">
+                        Create and assign shift slots without relying on spreadsheet imports. Select a date, define the shift timing,
+                        and choose the agents who should receive the assignment. Add optional context about the source month or year to
+                        track where the schedule originated.
+                    </p>
                 </div>
-                <div class="modern-card-body">
-                    <form id="scheduleImportForm" class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label-modern" for="importStartDate">Start Date</label>
-                            <input type="date" class="form-control form-control-modern" id="importStartDate" required>
-                            <div class="form-text">Pick the first day covered by the schedule you are importing.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label-modern" for="importEndDate">End Date</label>
-                            <input type="date" class="form-control form-control-modern" id="importEndDate" required>
-                            <div class="form-text">Any date within the final week is fine—the importer will align the days automatically.</div>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label-modern" for="importMonth">Source Month</label>
-                            <select class="form-select form-control-modern" id="importMonth" required>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label-modern" for="importYear">Source Year</label>
-                            <input type="number" class="form-control form-control-modern" id="importYear" min="2000" max="2100" required>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="importReplace">
-                                <label class="form-check-label" for="importReplace">Replace existing</label>
+
+                <div id="feedbackArea"></div>
+
+                <form id="manualShiftForm" novalidate>
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <div class="modern-card h-100">
+                                <div class="modern-card-header">
+                                    <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                                        <i class="fas fa-calendar-plus text-primary"></i>
+                                        Shift Details
+                                    </h5>
+                                </div>
+                                <div class="modern-card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="assignmentDate">Assignment Date</label>
+                                            <input type="date" class="form-control-modern w-100" id="assignmentDate" min="2023-01-01" required>
+                                            <small class="text-muted">Schedule back to January 2023.</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-modern" for="startTime">Start Time</label>
+                                            <input type="time" class="form-control-modern w-100" id="startTime" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-modern" for="endTime">End Time</label>
+                                            <input type="time" class="form-control-modern w-100" id="endTime" required>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="sourceMonth">Source Month (optional)</label>
+                                            <select class="form-select form-select-modern" id="sourceMonth">
+                                                <option value="">Select month</option>
+                                                <option value="1">January</option>
+                                                <option value="2">February</option>
+                                                <option value="3">March</option>
+                                                <option value="4">April</option>
+                                                <option value="5">May</option>
+                                                <option value="6">June</option>
+                                                <option value="7">July</option>
+                                                <option value="8">August</option>
+                                                <option value="9">September</option>
+                                                <option value="10">October</option>
+                                                <option value="11">November</option>
+                                                <option value="12">December</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="sourceYear">Source Year (optional)</label>
+                                            <select class="form-select form-select-modern" id="sourceYear">
+                                                <option value="">Select year</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="form-label-modern" for="slotLabel">Slot Label (optional)</label>
+                                        <input type="text" class="form-control-modern w-100" id="slotLabel" placeholder="e.g., Manual Morning Shift">
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="form-label-modern" for="additionalNotes">Additional Notes</label>
+                                        <textarea class="form-textarea-modern w-100" id="additionalNotes" rows="4" placeholder="Add context for this assignment"></textarea>
+                                    </div>
+                                    <div class="form-check mt-3">
+                                        <input class="form-check-input" type="checkbox" id="replaceExisting">
+                                        <label class="form-check-label" for="replaceExisting">
+                                            Replace existing shift assignment on the selected date for chosen users
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <div class="col-12">
-                            <label class="form-label-modern" for="scheduleFile">Schedule File</label>
-                            <input type="file" class="form-control form-control-modern" id="scheduleFile" accept=".csv,.tsv,.txt">
-                            <div id="importFileName" class="form-text">Upload the monthly schedule CSV that lists each shift slot with assigned agents, or use the Google Sheets option below.</div>
+                        <div class="col-lg-6">
+                            <div class="modern-card user-selection-card h-100">
+                                <div class="modern-card-header">
+                                    <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                                        <i class="fas fa-user-clock text-success"></i>
+                                        Select Users
+                                    </h5>
+                                </div>
+                                <div class="modern-card-body d-flex flex-column">
+                                    <div class="user-search-box">
+                                        <i class="fas fa-search"></i>
+                                        <input type="search" class="form-control-modern user-search-input" id="userSearch" placeholder="Search by name or email" autocomplete="off">
+                                    </div>
+                                    <div class="user-selection-controls">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="selectAllUsers">
+                                            <label class="form-check-label" for="selectAllUsers">Select all filtered users</label>
+                                        </div>
+                                        <div class="user-count-label">
+                                            <span id="selectedUserCount">0</span> / <span id="totalUserCount">0</span> selected
+                                        </div>
+                                    </div>
+                                    <div class="user-list" id="userList">
+                                        <div class="user-loading-state" id="userLoadingState">
+                                            <span class="loading-spinner"></span>
+                                            <span>Loading available users...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-12">
-                            <label class="form-label-modern" for="googleSheetUrl">Google Sheets Link</label>
-                            <input type="url" class="form-control form-control-modern" id="googleSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-                            <div class="form-text">Paste a shared Google Sheets link to import directly without downloading a CSV export.</div>
-                            <div id="googleSheetStatus" class="form-text text-primary mt-1"></div>
+                    <div class="modern-card mt-4">
+                        <div class="modern-card-body form-footer-actions">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="fw-semibold text-dark">Assignment Summary</div>
+                                <ul class="manual-help-list text-muted small">
+                                    <li>Date and time are required to create the shift slot.</li>
+                                    <li>Select one or more agents to assign the shift.</li>
+                                    <li>Enable replace to overwrite existing shifts for selected agents on this date.</li>
+                                </ul>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-modern" id="clearSelection">
+                                    <i class="fas fa-user-slash"></i>
+                                    Clear Selection
+                                </button>
+                                <button type="submit" class="btn btn-success-modern btn-modern" id="submitManualShift">
+                                    <i class="fas fa-plus-circle"></i>
+                                    Add Shift Slots
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </form>
 
-                        <div class="col-md-6">
-                            <label class="form-label-modern" for="googleSheetTab">Sheet Name (optional)</label>
-                            <input type="text" class="form-control form-control-modern" id="googleSheetTab" placeholder="Schedule">
-                            <div class="form-text">Specify the tab to import if it is not the first sheet in the workbook.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label-modern" for="googleSheetRange">Range (optional)</label>
-                            <input type="text" class="form-control form-control-modern" id="googleSheetRange" placeholder="A1:Z200">
-                            <div class="form-text">Limit the import to a specific range. Leave blank to use the entire sheet.</div>
-                        </div>
-
-                        <div class="col-12 d-flex flex-wrap gap-2 mt-2">
-                            <button type="submit" class="btn btn-primary-modern btn-modern">
-                                <i class="fas fa-cloud-upload-alt me-2"></i>
-                                Import Schedules
-                            </button>
-                            <button type="button" class="btn btn-outline-modern" id="clearImportPreview">
-                                <i class="fas fa-eraser me-2"></i>
-                                Clear Preview
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="importPreview" class="mt-4"></div>
-                    <div id="importSummary" class="mt-3"></div>
+                <div class="modern-card mt-4">
+                    <div class="modern-card-header">
+                        <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                            <i class="fas fa-info-circle text-info"></i>
+                            Helpful Tips
+                        </h5>
+                    </div>
+                    <div class="modern-card-body">
+                        <ul class="manual-help-list text-muted">
+                            <li>Use Source Month and Year to document where the manual assignment originated.</li>
+                            <li>Replace existing will overwrite conflicting shifts for the selected users on that date.</li>
+                            <li>All assignments are logged below so you can confirm recent manual updates.</li>
+                        </ul>
+                    </div>
                 </div>
-            </div>
 
-            <div class="modern-card mt-4">
-                <div class="modern-card-header">
-                    <h5 class="modern-card-title">
-                        <i class="fas fa-info-circle text-info"></i>
-                        Expected File Format
-                    </h5>
-                </div>
-                <div class="modern-card-body">
-                    <p class="text-muted">Use the monthly slot matrix exported from your scheduling sheet:</p>
-                    <ul class="mb-3">
-                        <li>The first column lists each shift slot or time range (e.g., <code>8:00 AM - 5:00 PM</code>).</li>
-                        <li>Columns for Monday through Friday contain the agent names assigned to that slot for the week. Separate multiple names with line breaks, commas, or slashes.</li>
-                        <li>Optional weekend columns are supported and will be imported when present.</li>
-                        <li>Cells marked <code>OFF</code>, <code>N/A</code>, <code>PTO</code>, or left blank will be skipped.</li>
-                    </ul>
-                    <p class="mb-0 text-muted">Select the first and last Sundays for the month you are importing and the importer will generate individual daily schedules for every assigned agent across that span.</p>
+                <div class="modern-card mt-4">
+                    <div class="modern-card-header">
+                        <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                            <i class="fas fa-history text-primary"></i>
+                            Recent Manual Assignments
+                        </h5>
+                    </div>
+                    <div class="modern-card-body">
+                        <div id="activityLog" class="activity-log">
+                            <div id="activityEmptyState" class="manual-activity-empty">
+                                <i class="far fa-calendar-check me-2"></i>No manual assignments recorded yet.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-
         <!-- Attendance Calendar Tab -->
         <div class="tab-pane fade" id="attendance" role="tabpanel">
             <div class="modern-card mb-4">
@@ -2108,12 +2540,14 @@
             constructor() {
                 this.currentUser = window.user || window.currentUser || window.CURRENT_USER || {};
                 this.availableUsers = [];
+                this.availableUsersMonthContext = null;
                 this.availableCampaigns = [];
                 this.coverageChart = null;
                 this.pendingImportSchedules = [];
                 this.pendingImportSummary = null;
                 this.lastImportResult = null;
                 this.cachedSchedules = [];
+                this.cachedShiftSlots = [];
                 this.resolvedManagerId = '';
                 this.resolvedCampaignId = '';
                 this.managedUserIds = [];
@@ -2121,6 +2555,7 @@
                 this.identityResolved = false;
                 this.identitySummary = null;
                 this.contextLoadingPromise = null;
+                this.manualShiftManager = null;
                 this.visibleManagedCount = 0;
                 this.attendanceCharts = {};
                 this.attendanceDashboardInitialized = false;
@@ -2128,12 +2563,157 @@
                 this.attendanceDashboardData = null;
                 this.attendanceDashboardYear = null;
                 this.attendanceDashboardRecords = [];
+                this.attendanceDashboardUserFilter = '';
                 this.attendanceCalendarRecords = [];
                 this.attendanceContextMenu = null;
                 this.attendanceContextMenuTarget = null;
                 this.attendanceContextMenuOutsideHandler = null;
                 this.attendanceContextMenuKeyHandler = null;
                 this.attendanceContextMenuFocusTimer = null;
+                this.employmentStartFieldNames = [
+                    'HireDate',
+                    'hireDate',
+                    'Hire_Date',
+                    'hire_date',
+                    'Hire Date',
+                    'hire date',
+                    'DateHired',
+                    'dateHired',
+                    'Date Hired',
+                    'date hired',
+                    'OnboardDate',
+                    'onboardDate',
+                    'Onboard Date',
+                    'onboard date',
+                    'EmploymentStart',
+                    'employmentStart',
+                    'Employment Start',
+                    'employment start',
+                    'EmploymentStartDate',
+                    'employmentStartDate',
+                    'Employment Start Date',
+                    'employment start date',
+                    'StartDate',
+                    'startDate',
+                    'Start Date',
+                    'start date',
+                    'Start_Date',
+                    'start_date',
+                    'OriginalHireDate',
+                    'originalHireDate',
+                    'Original_Hire_Date',
+                    'original_hire_date',
+                    'Original Hire Date',
+                    'original hire date',
+                    'RehireDate',
+                    'rehireDate',
+                    'Rehire_Date',
+                    'rehire_date',
+                    'Rehire Date',
+                    'rehire date',
+                    'EmploymentStartIso',
+                    'employmentStartIso'
+                ];
+                this.employmentEndFieldNames = [
+                    'TerminationDate',
+                    'terminationDate',
+                    'Termination Date',
+                    'termination date',
+                    'EndDate',
+                    'endDate',
+                    'End Date',
+                    'end date',
+                    'End_Date',
+                    'end_date',
+                    'EmploymentEnd',
+                    'employmentEnd',
+                    'Employment End',
+                    'employment end',
+                    'EmploymentEndDate',
+                    'employmentEndDate',
+                    'Employment End Date',
+                    'employment end date',
+                    'DateOfTermination',
+                    'dateOfTermination',
+                    'Date Of Termination',
+                    'date of termination',
+                    'Termination',
+                    'termination',
+                    'Termination_Date',
+                    'termination_date',
+                    'Termination Date',
+                    'termination date',
+                    'SeparationDate',
+                    'separationDate',
+                    'Separation Date',
+                    'separation date',
+                    'Separation_Date',
+                    'separation_date',
+                    'LastWorkingDate',
+                    'lastWorkingDate',
+                    'Last Working Date',
+                    'last working date',
+                    'EmploymentEndIso',
+                    'employmentEndIso'
+                ];
+                this.employmentStatusAliasMap = new Map([
+                    ['active', 'Active'],
+                    ['activated', 'Active'],
+                    ['inactive', 'Inactive'],
+                    ['terminated', 'Terminated'],
+                    ['leave', 'On Leave'],
+                    ['on leave', 'On Leave'],
+                    ['leave of absence', 'On Leave'],
+                    ['pending', 'Pending'],
+                    ['probation', 'Probation'],
+                    ['probationary', 'Probation'],
+                    ['probationary period', 'Probation'],
+                    ['contract', 'Contract'],
+                    ['contract employee', 'Contract'],
+                    ['contractor', 'Contractor'],
+                    ['consultant', 'Consultant'],
+                    ['consultant/contractor', 'Consultant'],
+                    ['full time', 'Full Time'],
+                    ['full-time', 'Full Time'],
+                    ['fulltime', 'Full Time'],
+                    ['part time', 'Part Time'],
+                    ['part-time', 'Part Time'],
+                    ['parttime', 'Part Time'],
+                    ['seasonal', 'Seasonal'],
+                    ['temporary', 'Temporary'],
+                    ['temp', 'Temporary'],
+                    ['suspended', 'Suspended'],
+                    ['retired', 'Retired'],
+                    ['intern', 'Intern']
+                ]);
+                this.employmentStatusActiveSet = new Set([
+                    'active',
+                    'activated',
+                    'on leave',
+                    'pending',
+                    'probation',
+                    'contract',
+                    'contractor',
+                    'consultant',
+                    'full time',
+                    'full-time',
+                    'fulltime',
+                    'part time',
+                    'part-time',
+                    'parttime',
+                    'seasonal',
+                    'temporary',
+                    'temp',
+                    'intern'
+                ]);
+                this.employmentStatusInactiveSet = new Set([
+                    'inactive',
+                    'terminated',
+                    'suspended',
+                    'retired',
+                    'separated',
+                    'disabled'
+                ]);
                 this.attendanceStatusLegend = [
                     { code: 'P', label: 'Punctual', className: 'attendance-calendar__status--present' },
                     { code: 'B', label: 'Bereavement', className: 'attendance-calendar__status--bereavement' },
@@ -2294,26 +2874,9 @@
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
 
-                const importStartDate = document.getElementById('importStartDate');
-                const importEndDate = document.getElementById('importEndDate');
-                if (importStartDate && importEndDate) {
-                    importStartDate.valueAsDate = monthStart;
-                    importEndDate.valueAsDate = monthEnd >= monthStart ? monthEnd : monthStart;
-                }
-
-                const importMonth = document.getElementById('importMonth');
-                if (importMonth) {
-                    importMonth.value = today.getMonth() + 1;
-                }
-
-                const importYear = document.getElementById('importYear');
-                if (importYear) {
-                    importYear.value = today.getFullYear();
-                }
-
-                const importReplace = document.getElementById('importReplace');
-                if (importReplace) {
-                    importReplace.checked = false;
+                const manualDateInput = document.getElementById('assignmentDate');
+                if (manualDateInput) {
+                    manualDateInput.valueAsDate = today;
                 }
             }
 
@@ -2332,45 +2895,6 @@
                 document.getElementById('holidayImportForm')?.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.importHolidays();
-                });
-
-                document.getElementById('scheduleImportForm')?.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleScheduleImport();
-                });
-
-                document.getElementById('scheduleFile')?.addEventListener('change', (e) => {
-                    this.handleScheduleFileSelect(e);
-                });
-
-                document.getElementById('googleSheetUrl')?.addEventListener('input', (e) => {
-                    this.handleGoogleSheetUrlChange(e);
-                });
-
-                document.getElementById('clearImportPreview')?.addEventListener('click', () => {
-                    this.clearImportPreview();
-                    this.clearImportSummary();
-                    const fileInput = document.getElementById('scheduleFile');
-                    if (fileInput) {
-                        fileInput.value = '';
-                    }
-                    const googleSheetUrl = document.getElementById('googleSheetUrl');
-                    if (googleSheetUrl) {
-                        googleSheetUrl.value = '';
-                    }
-                    const googleSheetTab = document.getElementById('googleSheetTab');
-                    if (googleSheetTab) {
-                        googleSheetTab.value = '';
-                    }
-                    const googleSheetRange = document.getElementById('googleSheetRange');
-                    if (googleSheetRange) {
-                        googleSheetRange.value = '';
-                    }
-                    const googleSheetStatus = document.getElementById('googleSheetStatus');
-                    if (googleSheetStatus) {
-                        googleSheetStatus.textContent = '';
-                    }
-                    this.updateImportFileName();
                 });
 
                 document.getElementById('attendanceMonth')?.addEventListener('change', async () => {
@@ -2537,6 +3061,27 @@
                     })();
 
                     const byId = new Map();
+                    let monthContext = null;
+                    let targetMonth = null;
+                    let targetYear = null;
+
+                    try {
+                        const monthInput = document.getElementById('attendanceMonth');
+                        const yearInput = document.getElementById('attendanceYear');
+                        monthContext = this.resolveAttendanceMonthContext(
+                            monthInput ? monthInput.value : '',
+                            yearInput ? yearInput.value : ''
+                        );
+                        if (monthContext && Number.isFinite(monthContext.month) && Number.isFinite(monthContext.year)) {
+                            targetMonth = monthContext.month;
+                            targetYear = monthContext.year;
+                        }
+                    } catch (contextError) {
+                        console.warn('⚠️ Unable to resolve month context for user filtering:', contextError);
+                    }
+
+                    this.availableUsersMonthContext = monthContext;
+
                     const pushUserRecord = (user) => {
                         if (!user || typeof user !== 'object') {
                             return;
@@ -2548,6 +3093,38 @@
                         }
 
                         const existing = byId.get(normalizedId) || {};
+
+                        const employmentPeriod = this.getEmploymentPeriod(user);
+                        const employmentStatusRaw = user.EmploymentStatus || user.employmentStatus || existing.EmploymentStatus || existing.employmentStatusRaw || '';
+                        const employmentStatusCanonical = employmentPeriod.status
+                            || this.normalizeEmploymentStatusLabel(employmentStatusRaw)
+                            || existing.EmploymentStatusCanonical
+                            || existing.employmentStatusCanonical
+                            || '';
+                        const employmentStatusIsActive = typeof employmentPeriod.isStatusActive === 'boolean'
+                            ? employmentPeriod.isStatusActive
+                            : (typeof user.employmentStatusIsActive === 'boolean'
+                                ? user.employmentStatusIsActive
+                                : (typeof existing.employmentStatusIsActive === 'boolean'
+                                    ? existing.employmentStatusIsActive
+                                    : this.isEmploymentStatusActive(employmentStatusCanonical || employmentStatusRaw)));
+                        const employmentStartIso = employmentPeriod.startIso
+                            || user.employmentStartIso
+                            || user.employmentStartISO
+                            || existing.employmentStartIso
+                            || existing.employmentStartISO
+                            || user.HireDate
+                            || existing.HireDate
+                            || '';
+                        const employmentEndIso = employmentPeriod.endIso
+                            || user.employmentEndIso
+                            || user.employmentEndISO
+                            || existing.employmentEndIso
+                            || existing.employmentEndISO
+                            || user.TerminationDate
+                            || user.terminationDate
+                            || existing.TerminationDate
+                            || '';
 
                         const normalized = {
                             ID: normalizedId,
@@ -2569,13 +3146,43 @@
                     (Array.isArray(scheduleUsers) ? scheduleUsers : []).forEach(pushUserRecord);
                     rosterUsers.forEach(pushUserRecord);
 
-                    this.availableUsers = Array.from(byId.values())
+                    const combinedUsers = Array.from(byId.values())
                         .filter(user => user && user.ID && (user.FullName || user.UserName))
                         .sort((a, b) => {
                             const nameA = (a.FullName || a.UserName || '').toLowerCase();
                             const nameB = (b.FullName || b.UserName || '').toLowerCase();
                             return nameA.localeCompare(nameB);
                         });
+
+                    const filteredUsers = combinedUsers;
+
+                    this.availableUsers = filteredUsers;
+
+                    if (this.attendanceDashboardUserFilter) {
+                        const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                        const normalizedFilterName = this.normalizePersonKey(normalizedFilterId);
+                        const hasUser = this.availableUsers.some(user => {
+                            const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                            if (userId && userId === normalizedFilterId) {
+                                return true;
+                            }
+                            const nameKey = this.normalizePersonKey(user.FullName || user.UserName || '');
+                            return normalizedFilterName && nameKey === normalizedFilterName;
+                        });
+
+                        if (!hasUser) {
+                            this.attendanceDashboardUserFilter = '';
+                        }
+                    }
+
+                    const manualManager = (this.manualShiftManager && typeof this.manualShiftManager.setUsers === 'function')
+                        ? this.manualShiftManager
+                        : (window.manualShiftManager && typeof window.manualShiftManager.setUsers === 'function'
+                            ? window.manualShiftManager
+                            : null);
+                    if (manualManager) {
+                        manualManager.setUsers(this.availableUsers);
+                    }
 
                     if (!(this.managedUserIdSet instanceof Set)) {
                         this.managedUserIdSet = new Set();
@@ -2612,10 +3219,20 @@
                         }).length || this.availableUsers.length;
                     }
 
-                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries)`);
+                    const monthLabel = monthContext && monthContext.label ? monthContext.label : 'current period';
+                    console.log(`✅ Loaded ${this.availableUsers.length} users for ${monthLabel} (including ${rosterUsers.length} managed roster entries)`);
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
+
+                    if (this.attendanceDashboardData && Number.isFinite(this.attendanceDashboardYear)) {
+                        const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, this.attendanceDashboardYear);
+                        if (this.attendanceDashboardInitialized) {
+                            this.initializeAttendanceDashboard();
+                        }
+                    }
+
                     this.updateUsersList();
 
                     // Update metrics
@@ -2624,27 +3241,59 @@
                 } catch (error) {
                     console.error('❌ Error loading users:', error);
                     this.availableUsers = [];
+                    this.availableUsersMonthContext = null;
                     this.showToast('Failed to load users: ' + error.message, 'danger');
                 }
             }
 
             updateUserDropdowns() {
-                const dropdowns = ['scheduleUsers', 'filterUser'];
+                const dropdowns = ['scheduleUsers', 'filterUser', 'attendanceDashboardUser'];
+                const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
 
                 dropdowns.forEach(dropdownId => {
                     const dropdown = document.getElementById(dropdownId);
                     if (!dropdown) return;
 
                     if (dropdownId === 'scheduleUsers') {
-                        dropdown.innerHTML = this.availableUsers.map(user =>
-                            `<option value="${user.UserName}">${user.FullName || user.UserName} (${user.campaignName || 'No Campaign'})</option>`
-                        ).join('');
-                    } else {
-                        dropdown.innerHTML = '<option value="">All Users</option>' +
-                            this.availableUsers.map(user =>
-                                `<option value="${user.UserName}">${user.FullName || user.UserName}</option>`
-                            ).join('');
+                        dropdown.innerHTML = this.availableUsers.map(user => {
+                            const optionValue = user.UserName || user.FullName || user.ID || '';
+                            const labelName = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+                            const campaignLabel = this.escapeHtml(user.campaignName || 'No Campaign');
+                            return `<option value="${this.escapeHtml(optionValue)}">${labelName} (${campaignLabel})</option>`;
+                        }).join('');
+                        return;
                     }
+
+                    if (dropdownId === 'filterUser') {
+                        dropdown.innerHTML = '<option value="">All Users</option>' +
+                            this.availableUsers.map(user => {
+                                const optionValue = user.UserName || user.FullName || user.ID || '';
+                                return `<option value="${this.escapeHtml(optionValue)}">${this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent')}</option>`;
+                            }).join('');
+                        return;
+                    }
+
+                    const options = ['<option value="">All Users</option>'];
+                    this.availableUsers.forEach(user => {
+                        const resolvedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                        const fallbackKey = this.normalizePersonKey(user.UserName || user.FullName || '');
+                        const optionValue = resolvedId || fallbackKey;
+                        const label = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+
+                        if (!optionValue) {
+                            return;
+                        }
+
+                        const normalizedOptionValue = this.normalizeUserIdValue(optionValue);
+                        const isSelected = normalizedFilterId && normalizedOptionValue === normalizedFilterId;
+                        const dataUserName = this.escapeHtml(this.normalizePersonKey(user.UserName || ''));
+                        const dataFullName = this.escapeHtml(this.normalizePersonKey(user.FullName || ''));
+                        options.push(`
+                            <option value="${this.escapeHtml(optionValue)}" data-user-name="${dataUserName}" data-full-name="${dataFullName}"${isSelected ? ' selected' : ''}>${label}</option>
+                        `);
+                    });
+
+                    dropdown.innerHTML = options.join('');
                 });
             }
 
@@ -2654,10 +3303,13 @@
 
                 if (this.availableUsers.length === 0) {
                     const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your team');
+                    const periodLabel = this.availableUsersMonthContext && this.availableUsersMonthContext.label
+                        ? ` for ${this.escapeHtml(this.availableUsersMonthContext.label)}`
+                        : '';
                     container.innerHTML = `
                         <div class="text-muted text-center py-4">
                             <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
-                            <p class="mb-1">No managed agents found for ${managerName}.</p>
+                            <p class="mb-1">No managed agents found for ${managerName}${periodLabel}.</p>
                             <p class="mb-0 small">Verify your manager assignments in the MANAGER_USERS sheet.</p>
                         </div>
                     `;
@@ -2666,13 +3318,16 @@
                 }
 
                 const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your roster');
+                const periodLabel = this.availableUsersMonthContext && this.availableUsersMonthContext.label
+                    ? ` for ${this.escapeHtml(this.availableUsersMonthContext.label)}`
+                    : '';
                 const identityBadge = this.identityResolved
                     ? '<span class="badge bg-success">Lumina Identity</span>'
                     : '<span class="badge bg-secondary">Limited Identity</span>';
 
                 const summary = `
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 small text-muted">
-                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}</span>
+                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}${periodLabel}</span>
                         ${identityBadge}
                     </div>
                 `;
@@ -2786,19 +3441,25 @@
             async loadShiftSlots() {
                 try {
                     console.log('🕒 Loading shift slots...');
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const rawSlots = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots, metadata } = this.normalizeShiftSlotListResponse(rawSlots);
 
-                    this.displayShiftSlots(Array.isArray(slots) ? slots : []);
+                    this.cachedShiftSlots = slots;
+                    this.updateShiftSlotSelectors(slots);
+                    this.displayShiftSlots(slots);
+
                     const totalSlotsElement = document.getElementById('totalSlots');
                     if (totalSlotsElement) {
-                        totalSlotsElement.textContent = Array.isArray(slots) ? slots.length : 0;
+                        totalSlotsElement.textContent = metadata.totalCount;
                     }
 
-                    console.log(`✅ Loaded ${Array.isArray(slots) ? slots.length : 0} shift slots`);
+                    console.log(`✅ Loaded ${metadata.totalCount} shift slots`);
                 } catch (error) {
                     console.error('❌ Error loading shift slots:', error);
+                    this.cachedShiftSlots = [];
+                    this.updateShiftSlotSelectors([]);
                     this.displayShiftSlots([]);
-                    this.showToast('Failed to load shift slots. You may need to create some first.', 'warning');
+                    this.showToast(error.message || 'Failed to load shift slots. You may need to create some first.', 'warning');
                 }
             }
 
@@ -2806,7 +3467,11 @@
                 const container = document.getElementById('shiftSlotsContainer');
                 if (!container) return;
 
-                if (slots.length === 0) {
+                const resolvedSlots = Array.isArray(slots)
+                    ? slots
+                    : this.normalizeShiftSlotListResponse(slots || {}).slots;
+
+                if (!Array.isArray(resolvedSlots) || resolvedSlots.length === 0) {
                     container.innerHTML = `
                             <div class="text-center text-muted py-4">
                                 <i class="fas fa-clock fa-3x mb-3 opacity-50"></i>
@@ -2817,32 +3482,555 @@
                     return;
                 }
 
-                container.innerHTML = slots.map(slot => `
+                container.innerHTML = resolvedSlots.map(slot => {
+                    const rawSlotId = this.resolveShiftSlotId(slot) || this.buildShiftSlotFallbackValue(slot);
+                    const slotIdBadge = rawSlotId ? this.escapeHtml(rawSlotId) : '';
+                    const slotIdAttribute = JSON.stringify(rawSlotId || '');
+                    const slotName = this.escapeHtml(slot.Name || slot.SlotName || 'Shift Slot');
+                    const timeRange = [
+                        this.formatTimeValue(slot.StartTime),
+                        this.formatTimeValue(slot.EndTime)
+                    ].filter(Boolean).join(' - ') || 'Time not set';
+                    const days = Array.isArray(slot.DaysOfWeekArray)
+                        ? this.formatDaysOfWeek(slot.DaysOfWeekArray)
+                        : this.formatDaysOfWeek((slot.DaysOfWeek || '').split(',').map(value => parseInt(value, 10)).filter(day => !Number.isNaN(day)));
+                    const department = slot.Department || slot.Team || 'General';
+                    const capacity = slot.MaxCapacity || 'Unlimited';
+
+                    return `
                         <div class="border rounded p-3 mb-3 interactive-item">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">${slot.Name}</h6>
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 d-flex align-items-center gap-2">
+                                        <span>${slotName}</span>
+                                        ${slotIdBadge ? `<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">ID: ${slotIdBadge}</span>` : ''}
+                                    </h6>
                                     <p class="mb-2 small text-muted">
-                                        <strong>Time:</strong> ${this.formatTimeValue(slot.StartTime)} - ${this.formatTimeValue(slot.EndTime)}<br>
-                                        <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
-                                        <strong>Department:</strong> ${slot.Department || 'General'}<br>
-                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
+                                        <strong>Time:</strong> ${this.escapeHtml(timeRange)}<br>
+                                        <strong>Days:</strong> ${this.escapeHtml(days || 'Not specified')}<br>
+                                        <strong>Department:</strong> ${this.escapeHtml(department)}<br>
+                                        <strong>Capacity:</strong> ${this.escapeHtml(String(capacity))}
                                     </p>
-                                    <small class="text-muted">
-                                        Created: ${this.formatDateTime(slot.CreatedAt)}
+                                    <small class="text-muted d-block">
+                                        Created: ${this.escapeHtml(this.formatDateTime(slot.CreatedAt) || 'Not recorded')}
                                     </small>
+                                    ${this.buildShiftSlotDetailsTable(slot)}
                                 </div>
                                 <div class="btn-group-vertical btn-group-sm">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot('${slot.ID}')" title="Edit">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot(${slotIdAttribute})" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot('${slot.ID}')" title="Delete">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot(${slotIdAttribute})" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    `).join('');
+                    `;
+                }).join('');
+            }
+
+            updateShiftSlotSelectors(slots) {
+                if (typeof document === 'undefined') {
+                    return;
+                }
+
+                const select = document.getElementById('scheduleShiftSlots');
+                if (!select) {
+                    return;
+                }
+
+                const previouslySelected = Array.from(select.selectedOptions || []).map(option => option.value);
+                select.innerHTML = '';
+
+                if (!Array.isArray(slots) || slots.length === 0) {
+                    const emptyOption = document.createElement('option');
+                    emptyOption.disabled = true;
+                    emptyOption.selected = true;
+                    emptyOption.textContent = 'No shift slots available';
+                    select.appendChild(emptyOption);
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                slots.forEach(slot => {
+                    const option = document.createElement('option');
+                    const slotId = this.resolveShiftSlotId(slot);
+                    option.value = slotId || this.buildShiftSlotFallbackValue(slot);
+                    option.textContent = this.buildShiftSlotOptionLabel(slot);
+
+                    if (!option.value) {
+                        option.disabled = true;
+                    }
+
+                    if (previouslySelected.includes(option.value)) {
+                        option.selected = true;
+                    }
+
+                    fragment.appendChild(option);
+                });
+
+                select.appendChild(fragment);
+            }
+
+            buildShiftSlotDetailsTable(slot = {}) {
+                if (!slot || typeof slot !== 'object') {
+                    return '';
+                }
+
+                const excludedKeys = new Set(['DaysOfWeekArray', '__source']);
+                const preferredOrder = [
+                    'ID', 'Name', 'SlotName', 'Description',
+                    'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location',
+                    'MaxCapacity', 'MinCoverage', 'Priority',
+                    'BreakDuration', 'LunchDuration', 'Break1Duration', 'Break2Duration',
+                    'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
+                    'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
+                    'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
+                    'RestPeriod', 'NotificationLead', 'HandoverTime', 'OvertimePolicy',
+                    'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
+                ];
+                const orderMap = new Map(preferredOrder.map((key, index) => [key, index]));
+
+                const hasCanonicalName = typeof slot.Name === 'string' && slot.Name.trim() !== '';
+                const entries = Object.entries(slot)
+                    .filter(([key, value]) => {
+                        if (excludedKeys.has(key)) {
+                            return false;
+                        }
+                        if (key === 'SlotName' && hasCanonicalName) {
+                            return false;
+                        }
+                        if (typeof value === 'function') {
+                            return false;
+                        }
+                        return true;
+                    })
+                    .sort(([keyA], [keyB]) => {
+                        const orderA = orderMap.has(keyA) ? orderMap.get(keyA) : preferredOrder.length;
+                        const orderB = orderMap.has(keyB) ? orderMap.get(keyB) : preferredOrder.length;
+                        if (orderA !== orderB) {
+                            return orderA - orderB;
+                        }
+                        return keyA.localeCompare(keyB);
+                    });
+
+                if (!entries.length) {
+                    return '';
+                }
+
+                const rows = entries.map(([key, value]) => {
+                    const label = this.escapeHtml(this.formatSlotDetailLabel(key));
+                    const formattedValue = this.formatSlotDetailValue(value, key);
+                    return `<tr><th scope="row">${label}</th><td>${formattedValue}</td></tr>`;
+                }).join('');
+
+                return `
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless slot-detail-table mb-0">
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            normalizeShiftSlotListResponse(rawSlots) {
+                const emptyResult = { slots: [], metadata: { totalCount: 0 } };
+
+                const coerceArray = (value) => {
+                    if (!value) {
+                        return [];
+                    }
+
+                    if (Array.isArray(value)) {
+                        return value.filter(slot => slot && typeof slot === 'object');
+                    }
+
+                    if (typeof value === 'object') {
+                        if (Array.isArray(value.values)) {
+                            return coerceArray(value.values);
+                        }
+
+                        if (Array.isArray(value.items)) {
+                            return coerceArray(value.items);
+                        }
+
+                        if (Array.isArray(value.records)) {
+                            return coerceArray(value.records);
+                        }
+
+                        if (Array.isArray(value.data)) {
+                            return coerceArray(value.data);
+                        }
+
+                        const numericKeys = Object.keys(value).filter(key => /^\d+$/.test(key));
+                        if (numericKeys.length) {
+                            return numericKeys
+                                .sort((a, b) => Number(a) - Number(b))
+                                .map(key => value[key])
+                                .filter(slot => slot && typeof slot === 'object');
+                        }
+
+                        const objectValues = Object.values(value)
+                            .filter(entry => entry && typeof entry === 'object');
+                        if (objectValues.length && objectValues.every(entry => entry.ID || entry.Name || entry.SlotName || entry.StartTime)) {
+                            return objectValues;
+                        }
+
+                        if (value.ID || value.Name) {
+                            return [value];
+                        }
+                    }
+
+                    return [];
+                };
+
+                const buildMetadata = (slots, source) => {
+                    const base = {
+                        totalCount: slots.length
+                    };
+
+                    if (source && typeof source === 'object') {
+                        if (typeof source.total === 'number') {
+                            base.total = source.total;
+                        }
+                        if (typeof source.totalCount === 'number') {
+                            base.totalCount = source.totalCount;
+                        }
+                        if (typeof source.count === 'number') {
+                            base.count = source.count;
+                        }
+
+                        const allowedKeys = [
+                            'sources',
+                            'generatedAt',
+                            'hasActiveSlots',
+                            'fallbackApplied',
+                            'error',
+                            'warning',
+                            'message'
+                        ];
+
+                        allowedKeys.forEach(key => {
+                            if (Object.prototype.hasOwnProperty.call(source, key)) {
+                                base[key] = source[key];
+                            }
+                        });
+                    }
+
+                    return base;
+                };
+
+                const mergeMetadata = (slots, rawMetadata, fallbackSource) => {
+                    const base = buildMetadata(slots, fallbackSource);
+                    if (!rawMetadata || typeof rawMetadata !== 'object') {
+                        return base;
+                    }
+
+                    const merged = { ...base };
+                    Object.entries(rawMetadata).forEach(([key, value]) => {
+                        if (value === undefined) {
+                            return;
+                        }
+                        if (key === 'totalCount' && typeof value === 'number') {
+                            merged.totalCount = value;
+                            return;
+                        }
+                        merged[key] = value;
+                    });
+                    return merged;
+                };
+
+                const handleFailure = (message) => {
+                    throw new Error(message || 'Failed to load shift slots from the server.');
+                };
+
+                if (Array.isArray(rawSlots)) {
+                    const normalized = coerceArray(rawSlots);
+                    return {
+                        slots: normalized,
+                        metadata: buildMetadata(normalized)
+                    };
+                }
+
+                if (!rawSlots) {
+                    return emptyResult;
+                }
+
+                if (typeof rawSlots === 'string') {
+                    const trimmed = rawSlots.trim();
+                    if (!trimmed) {
+                        return emptyResult;
+                    }
+
+                    const lower = trimmed.toLowerCase();
+                    if (lower.includes('no shift slots') || lower.includes('no slots found')) {
+                        return emptyResult;
+                    }
+
+                    if (['success', 'ok', 'done', 'created', 'completed'].some(token => lower.includes(token))) {
+                        return emptyResult;
+                    }
+
+                    handleFailure(trimmed);
+                }
+
+                if (typeof rawSlots === 'object') {
+                    if (rawSlots.success === false) {
+                        const message = rawSlots.error || rawSlots.message;
+                        if (message && /no (shift\s*)?slots?/i.test(message)) {
+                            return emptyResult;
+                        }
+                        handleFailure(message);
+                    }
+
+                    const candidateArrays = [
+                        rawSlots.slots,
+                        rawSlots.data?.slots,
+                        rawSlots.result?.slots,
+                        rawSlots.records,
+                        rawSlots.items,
+                        rawSlots.values
+                    ];
+
+                    for (const candidate of candidateArrays) {
+                        const normalized = coerceArray(candidate);
+                        if (normalized.length) {
+                            return {
+                                slots: normalized,
+                                metadata: mergeMetadata(normalized, rawSlots.metadata, rawSlots)
+                            };
+                        }
+                    }
+
+                    if (rawSlots.success === true) {
+                        const normalizedData = coerceArray(rawSlots.data);
+                        if (normalizedData.length) {
+                            return {
+                                slots: normalizedData,
+                                metadata: mergeMetadata(normalizedData, rawSlots.metadata, rawSlots)
+                            };
+                        }
+                    }
+
+                    const singleSlot = coerceArray(rawSlots);
+                    if (singleSlot.length) {
+                        return {
+                            slots: singleSlot,
+                            metadata: mergeMetadata(singleSlot, rawSlots.metadata, rawSlots)
+                        };
+                    }
+                }
+
+                return emptyResult;
+            }
+
+            formatSlotDetailLabel(key) {
+                if (!key) {
+                    return '';
+                }
+
+                const spaced = key
+                    .replace(/_/g, ' ')
+                    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                if (!spaced) {
+                    return '';
+                }
+
+                return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+            }
+
+            formatSlotDetailArray(values, key) {
+                if (!Array.isArray(values) || values.length === 0) {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                const lowerKey = (key || '').toString().toLowerCase();
+                const rendered = values.map(entry => {
+                    if (entry === null || typeof entry === 'undefined') {
+                        return '—';
+                    }
+
+                    if (entry instanceof Date) {
+                        return this.formatDateTime(entry);
+                    }
+
+                    if (Array.isArray(entry)) {
+                        return `[${entry.map(item => String(item)).join(', ')}]`;
+                    }
+
+                    if (typeof entry === 'object') {
+                        try {
+                            return JSON.stringify(entry);
+                        } catch (error) {
+                            return String(entry);
+                        }
+                    }
+
+                    if (typeof entry === 'boolean') {
+                        return entry ? 'Yes' : 'No';
+                    }
+
+                    if (typeof entry === 'number') {
+                        return entry.toLocaleString();
+                    }
+
+                    const text = String(entry).trim();
+                    if (!text) {
+                        return '—';
+                    }
+
+                    if (lowerKey.includes('days')) {
+                        const parsed = text.split(',')
+                            .map(part => parseInt(part, 10))
+                            .filter(day => !Number.isNaN(day));
+                        if (parsed.length) {
+                            return this.formatDaysOfWeek(parsed);
+                        }
+                    }
+
+                    return text;
+                }).filter(Boolean);
+
+                if (!rendered.length) {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                return rendered.map(item => this.escapeHtml(item)).join(', ');
+            }
+
+            renderBooleanBadge(value) {
+                const label = value ? 'Yes' : 'No';
+                const classes = value
+                    ? 'badge bg-success-subtle text-success-emphasis border border-success-subtle'
+                    : 'badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle';
+                return `<span class="${classes}">${label}</span>`;
+            }
+
+            formatSlotDetailValue(value, key) {
+                if (value === null || typeof value === 'undefined' || value === '') {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                if (Array.isArray(value)) {
+                    return this.formatSlotDetailArray(value, key);
+                }
+
+                if (value instanceof Date) {
+                    return this.escapeHtml(this.formatDateTime(value));
+                }
+
+                if (typeof value === 'object') {
+                    try {
+                        return `<code>${this.escapeHtml(JSON.stringify(value))}</code>`;
+                    } catch (error) {
+                        return `<code>${this.escapeHtml(String(value))}</code>`;
+                    }
+                }
+
+                if (typeof value === 'boolean') {
+                    return this.renderBooleanBadge(value);
+                }
+
+                if (typeof value === 'number') {
+                    return this.escapeHtml(value.toLocaleString());
+                }
+
+                const text = String(value).trim();
+                if (!text) {
+                    return '<span class="text-muted">—</span>';
+                }
+
+                const lowerKey = (key || '').toString().toLowerCase();
+
+                if (lowerKey.includes('time')) {
+                    const formattedTime = this.formatTimeValue(value);
+                    return this.escapeHtml(formattedTime || text);
+                }
+
+                if (lowerKey.includes('date') || lowerKey.includes('created') || lowerKey.includes('updated')) {
+                    const formattedDate = this.formatDateTime(value);
+                    return this.escapeHtml(formattedDate || text);
+                }
+
+                if (lowerKey.includes('days')) {
+                    const parsed = text.split(',')
+                        .map(part => parseInt(part, 10))
+                        .filter(day => !Number.isNaN(day));
+                    const formattedDays = parsed.length ? this.formatDaysOfWeek(parsed) : '';
+                    return this.escapeHtml(formattedDays || text);
+                }
+
+                return this.escapeHtml(text);
+            }
+
+            resolveShiftSlotId(slot = {}) {
+                const candidates = [
+                    slot.ID, slot.Id, slot.id,
+                    slot.SlotID, slot.SlotId, slot.slotId,
+                    slot.Guid, slot.UUID, slot.Uuid
+                ];
+
+                for (let index = 0; index < candidates.length; index++) {
+                    const candidate = candidates[index];
+                    if (candidate === null || candidate === undefined) {
+                        continue;
+                    }
+
+                    const normalized = String(candidate).trim();
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                return '';
+            }
+
+            buildShiftSlotFallbackValue(slot = {}) {
+                const name = (slot.Name || slot.SlotName || '').toString().trim();
+                const timeRange = [
+                    this.formatTimeValue(slot.StartTime),
+                    this.formatTimeValue(slot.EndTime)
+                ].filter(Boolean).join('-');
+
+                const descriptor = [name, timeRange].filter(Boolean).join('|');
+                return descriptor;
+            }
+
+            buildShiftSlotOptionLabel(slot = {}) {
+                const parts = [];
+                const name = (slot.Name || slot.SlotName || 'Shift Slot').toString().trim();
+                if (name) {
+                    parts.push(name);
+                }
+
+                const startTime = this.formatTimeValue(slot.StartTime);
+                const endTime = this.formatTimeValue(slot.EndTime);
+                const timeRange = [startTime, endTime].filter(Boolean).join(' - ');
+                if (timeRange) {
+                    parts.push(`(${timeRange})`);
+                }
+
+                const days = Array.isArray(slot.DaysOfWeekArray)
+                    ? this.formatDaysOfWeek(slot.DaysOfWeekArray)
+                    : (typeof slot.DaysOfWeek === 'string'
+                        ? this.formatDaysOfWeek(slot.DaysOfWeek.split(',').map(value => parseInt(value, 10)).filter(day => !isNaN(day)))
+                        : '');
+                if (days) {
+                    parts.push(`• ${days}`);
+                }
+
+                const department = (slot.Department || slot.Team || '').toString().trim();
+                if (department) {
+                    parts.push(`• ${department}`);
+                }
+
+                return parts.join(' ');
             }
 
             async refreshDashboard() {
@@ -3417,15 +4605,22 @@
                         await this.loadShiftSlots();
                     } else {
                         if (normalized.needsLegacyFallback) {
-                            const confirmed = await this.confirmShiftSlotCreation(slotData);
+                            const confirmed = await this.confirmShiftSlotCreation(slotData, { attempts: 4, delayMs: 450 });
                             if (confirmed) {
-                                const fallbackMessage = 'Shift slot created, but the server did not send a confirmation. The schedule has been refreshed.';
-                                console.warn('Shift slot creation confirmed via post-check despite missing server response.');
-                                this.showToast(fallbackMessage, 'warning');
+                                const fallbackMessage = 'Shift slot created successfully. Server confirmation was delayed, but we verified it and refreshed the schedule.';
+                                console.info('Shift slot creation confirmed via post-check despite missing server response.');
+                                this.showToast(fallbackMessage, 'success');
                                 this.resetShiftSlotForm();
                                 await this.loadShiftSlots();
                                 return;
                             }
+
+                            const fallbackMessage = 'The server did not confirm the shift slot creation. We refreshed the schedule so you can verify the new slot manually.';
+                            console.warn('Shift slot creation could not be confirmed due to missing server response.');
+                            this.showToast(fallbackMessage, 'warning');
+                            this.resetShiftSlotForm();
+                            await this.loadShiftSlots();
+                            return;
                         }
 
                         throw new Error(normalized.error || 'Failed to create shift slot');
@@ -3463,6 +4658,14 @@
                     }
                     return String(value).trim();
                 };
+                const successTokens = ['success', 'ok', 'created', 'done', 'completed', 'saved'];
+                const hasSuccessKeyword = (text) => {
+                    if (!text) {
+                        return false;
+                    }
+                    const normalized = text.toLowerCase();
+                    return successTokens.some(token => normalized.includes(token));
+                };
 
                 if (rawResult && typeof rawResult === 'object') {
                     if (rawResult.success === true) {
@@ -3470,6 +4673,15 @@
                             success: true,
                             message: coerceString(rawResult.message) || coerceString(rawResult.status),
                             data: rawResult,
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.result === true) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || 'Shift slot created successfully',
+                            data: Object.assign({ success: true }, rawResult),
                             needsLegacyFallback: false
                         };
                     }
@@ -3484,11 +4696,81 @@
                         };
                     }
 
-                    const potentialMessage = coerceString(rawResult.message || rawResult.status || rawResult.result);
-                    if (potentialMessage && potentialMessage.toLowerCase().includes('success')) {
+                    const nestedResult = rawResult.result;
+                    if (nestedResult && typeof nestedResult === 'object') {
+                        if (nestedResult.success === true) {
+                            return {
+                                success: true,
+                                message: coerceString(nestedResult.message) || coerceString(rawResult.message) || 'Shift slot created successfully',
+                                data: Object.assign({ success: true }, rawResult, nestedResult),
+                                needsLegacyFallback: false
+                            };
+                        }
+
+                        const nestedMessage = coerceString(nestedResult.message || nestedResult.status);
+                        if (hasSuccessKeyword(nestedMessage)) {
+                            return {
+                                success: true,
+                                message: nestedMessage,
+                                data: Object.assign({ success: true }, rawResult, { message: nestedMessage }),
+                                needsLegacyFallback: false
+                            };
+                        }
+                    }
+
+                    const candidateMessages = [
+                        rawResult.message,
+                        rawResult.status,
+                        rawResult.result,
+                        rawResult.state,
+                        rawResult.outcome,
+                        rawResult.statusText
+                    ].map(value => coerceString(value)).filter(Boolean);
+
+                    const successMessage = candidateMessages.find(hasSuccessKeyword);
+                    if (successMessage) {
                         return {
                             success: true,
-                            message: potentialMessage,
+                            message: successMessage,
+                            data: Object.assign({ success: true }, rawResult, { message: successMessage }),
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.slot && typeof rawResult.slot === 'object') {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || 'Shift slot created successfully',
+                            data: Object.assign({ success: true }, rawResult),
+                            needsLegacyFallback: false
+                        };
+                    }
+
+                    if (rawResult.data && typeof rawResult.data === 'object') {
+                        if (rawResult.data.success === true) {
+                            return {
+                                success: true,
+                                message: coerceString(rawResult.data.message) || coerceString(rawResult.message) || 'Shift slot created successfully',
+                                data: Object.assign({ success: true }, rawResult, rawResult.data),
+                                needsLegacyFallback: false
+                            };
+                        }
+
+                        const dataMessage = coerceString(rawResult.data.message || rawResult.data.status);
+                        if (hasSuccessKeyword(dataMessage)) {
+                            return {
+                                success: true,
+                                message: dataMessage,
+                                data: Object.assign({ success: true }, rawResult, rawResult.data),
+                                needsLegacyFallback: false
+                            };
+                        }
+                    }
+
+                    if (typeof rawResult.statusCode === 'number' && rawResult.statusCode >= 200 && rawResult.statusCode < 300) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || `Shift slot created (status ${rawResult.statusCode})`,
                             data: Object.assign({ success: true }, rawResult),
                             needsLegacyFallback: false
                         };
@@ -3540,7 +4822,7 @@
                         };
                     }
 
-                    if (['success', 'ok', 'created', 'done', 'completed'].some(token => trimmed.toLowerCase().includes(token))) {
+                    if (['success', 'ok', 'created', 'done', 'completed', 'saved'].some(token => trimmed.toLowerCase().includes(token))) {
                         return {
                             success: true,
                             message: trimmed,
@@ -3574,49 +4856,159 @@
                 };
             }
 
-            async confirmShiftSlotCreation(slotData) {
-                try {
-                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
-                    if (!Array.isArray(slots)) {
+            async confirmShiftSlotCreation(slotData, options = {}) {
+                const { attempts = 3, delayMs = 400 } = options || {};
+                const attemptLimit = Number.isFinite(attempts) && attempts > 0 ? Math.min(Math.floor(attempts), 10) : 1;
+                const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+                const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
+                const normalizeTime = (value) => {
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+
+                    const coerceToTimeTuple = (input) => {
+                        if (input instanceof Date) {
+                            return [input.getHours(), input.getMinutes()];
+                        }
+
+                        const stringValue = input.toString().trim();
+                        if (!stringValue) {
+                            return null;
+                        }
+
+                        const meridiemMatch = stringValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(AM|PM)$/i);
+                        if (meridiemMatch) {
+                            let hours = parseInt(meridiemMatch[1], 10) % 12;
+                            if (meridiemMatch[4].toUpperCase() === 'PM') {
+                                hours += 12;
+                            }
+                            const minutes = meridiemMatch[2] !== undefined ? parseInt(meridiemMatch[2], 10) : 0;
+                            return [hours, Number.isFinite(minutes) ? minutes : 0];
+                        }
+
+                        const directMatch = stringValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2})(?:\.(\d+))?)?$/);
+                        if (directMatch) {
+                            const hours = parseInt(directMatch[1], 10);
+                            const minutes = directMatch[2] !== undefined ? parseInt(directMatch[2], 10) : 0;
+                            return [hours, Number.isFinite(minutes) ? minutes : 0];
+                        }
+
+                        const compactMatch = stringValue.match(/^(\d{1,2})(\d{2})$/);
+                        if (compactMatch) {
+                            return [parseInt(compactMatch[1], 10), parseInt(compactMatch[2], 10)];
+                        }
+
+                        const meridiemShortMatch = stringValue.match(/^(\d{1,2})\s*(AM|PM)$/i);
+                        if (meridiemShortMatch) {
+                            let hours = parseInt(meridiemShortMatch[1], 10) % 12;
+                            if (meridiemShortMatch[2].toUpperCase() === 'PM') {
+                                hours += 12;
+                            }
+                            return [hours, 0];
+                        }
+
+                        const numericValue = Number(stringValue);
+                        if (!Number.isNaN(numericValue)) {
+                            if (numericValue >= 0 && numericValue < 1) {
+                                const totalMinutes = Math.round(numericValue * 24 * 60);
+                                return [Math.floor(totalMinutes / 60), totalMinutes % 60];
+                            }
+
+                            const millisDate = new Date(numericValue);
+                            if (!Number.isNaN(millisDate.getTime())) {
+                                return [millisDate.getUTCHours(), millisDate.getUTCMinutes()];
+                            }
+                        }
+
+                        const parsedDate = new Date(stringValue);
+                        if (!Number.isNaN(parsedDate.getTime())) {
+                            return [parsedDate.getHours(), parsedDate.getMinutes()];
+                        }
+
+                        return null;
+                    };
+
+                    const timeTuple = coerceToTimeTuple(value);
+                    if (!timeTuple) {
+                        return value.toString().trim();
+                    }
+
+                    const [hours, minutes] = timeTuple;
+                    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+                        return value.toString().trim();
+                    }
+
+                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                };
+                const normalizeDays = (days) => {
+                    if (Array.isArray(days)) {
+                        return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                    }
+                    if (typeof days === 'string') {
+                        return days
+                            .split(/[^0-9]+/)
+                            .map(day => parseInt(day, 10))
+                            .filter(Number.isFinite)
+                            .sort((a, b) => a - b)
+                            .join(',');
+                    }
+                    return '';
+                };
+
+                const expectedName = normalizeString(slotData.name);
+                const expectedStart = normalizeTime(slotData.startTime);
+                const expectedEnd = normalizeTime(slotData.endTime);
+                const expectedDays = normalizeDays(slotData.daysOfWeek);
+
+                const matchesSlot = (slot) => {
+                    if (!slot || typeof slot !== 'object') {
                         return false;
                     }
 
-                    const normalizeString = (value) => (value || '').toString().trim().toLowerCase();
-                    const normalizeTime = (value) => (value || '').toString().trim();
-                    const normalizeDays = (days) => {
-                        if (Array.isArray(days)) {
-                            return days.map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
+                    const slotName = normalizeString(slot.Name || slot.name);
+                    const slotStart = normalizeTime(slot.StartTime || slot.startTime);
+                    const slotEnd = normalizeTime(slot.EndTime || slot.endTime);
+                    const slotDays = normalizeDays(slot.DaysOfWeekArray || slot.DaysOfWeek || slot.daysOfWeek);
+
+                    return slotName === expectedName &&
+                        slotStart === expectedStart &&
+                        slotEnd === expectedEnd &&
+                        (!!expectedDays ? slotDays === expectedDays : true);
+                };
+
+                let lastError = null;
+
+                const performCheck = async () => {
+                    const response = await this.callServerFunction('clientGetAllShiftSlots');
+                    const { slots } = this.normalizeShiftSlotListResponse(response);
+                    if (!Array.isArray(slots)) {
+                        return false;
+                    }
+                    return slots.some(matchesSlot);
+                };
+
+                for (let attempt = 0; attempt < attemptLimit; attempt++) {
+                    try {
+                        const matched = await performCheck();
+                        if (matched) {
+                            return true;
                         }
-                        if (typeof days === 'string') {
-                            return days.split(',').map(day => parseInt(day, 10)).filter(Number.isFinite).sort((a, b) => a - b).join(',');
-                        }
-                        return '';
-                    };
+                    } catch (error) {
+                        lastError = error;
+                        break;
+                    }
 
-                    const expectedName = normalizeString(slotData.name);
-                    const expectedStart = normalizeTime(slotData.startTime);
-                    const expectedEnd = normalizeTime(slotData.endTime);
-                    const expectedDays = normalizeDays(slotData.daysOfWeek);
-
-                    return slots.some(slot => {
-                        if (!slot || typeof slot !== 'object') {
-                            return false;
-                        }
-
-                        const slotName = normalizeString(slot.Name || slot.name);
-                        const slotStart = normalizeTime(slot.StartTime || slot.startTime);
-                        const slotEnd = normalizeTime(slot.EndTime || slot.endTime);
-                        const slotDays = normalizeDays(slot.DaysOfWeekArray || slot.DaysOfWeek || slot.daysOfWeek);
-
-                        return slotName === expectedName &&
-                            slotStart === expectedStart &&
-                            slotEnd === expectedEnd &&
-                            (!!expectedDays ? slotDays === expectedDays : true);
-                    });
-                } catch (error) {
-                    console.warn('Unable to verify shift slot creation after missing response:', error);
-                    return false;
+                    if (attempt < attemptLimit - 1 && delayMs > 0) {
+                        await delay(delayMs);
+                    }
                 }
+
+                if (lastError) {
+                    console.warn('Unable to verify shift slot creation after missing response:', lastError);
+                }
+
+                return false;
             }
 
             validateEnhancedShiftSlot(slotData) {
@@ -4119,7 +5511,8 @@
                     const records = Array.isArray(response.records) ? response.records : [];
                     this.attendanceDashboardRecords = records;
                     this.attendanceDashboardYear = year;
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(records, year);
+                    const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
+                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
                     this.destroyAttendanceDashboardCharts();
                 } catch (error) {
                     console.error('Error loading attendance dashboard data:', error);
@@ -4312,6 +5705,87 @@
                 };
             }
 
+            filterAttendanceDashboardRecords(records, filterValue = this.attendanceDashboardUserFilter) {
+                if (!Array.isArray(records)) {
+                    return [];
+                }
+
+                const normalizedFilterValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedFilterValue) {
+                    return records.slice();
+                }
+
+                const matchedUser = this.resolveAttendanceDashboardUser(normalizedFilterValue);
+                const keySet = new Set();
+
+                if (matchedUser) {
+                    [
+                        this.normalizePersonKey(matchedUser.UserName || matchedUser.username || ''),
+                        this.normalizePersonKey(matchedUser.FullName || matchedUser.fullName || ''),
+                        this.normalizePersonKey(matchedUser.Email || matchedUser.email || '')
+                    ]
+                        .filter(Boolean)
+                        .forEach(key => keySet.add(key));
+                } else {
+                    const fallbackKey = this.normalizePersonKey(normalizedFilterValue);
+                    if (fallbackKey) {
+                        keySet.add(fallbackKey);
+                    }
+                }
+
+                if (!keySet.size) {
+                    return [];
+                }
+
+                return records.filter(record => {
+                    const recordKeys = [
+                        record?.userName,
+                        record?.UserName,
+                        record?.user,
+                        record?.User,
+                        record?.fullName,
+                        record?.FullName
+                    ]
+                        .map(value => this.normalizePersonKey(value))
+                        .filter(Boolean);
+
+                    if (!recordKeys.length) {
+                        return false;
+                    }
+
+                    return recordKeys.some(key => keySet.has(key));
+                });
+            }
+
+            resolveAttendanceDashboardUser(filterValue) {
+                const normalizedValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedValue || !Array.isArray(this.availableUsers)) {
+                    return null;
+                }
+
+                const matchById = this.availableUsers.find(user => {
+                    const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                    return userId && userId === normalizedValue;
+                });
+
+                if (matchById) {
+                    return matchById;
+                }
+
+                const normalizedName = this.normalizePersonKey(normalizedValue);
+                if (!normalizedName) {
+                    return null;
+                }
+
+                return this.availableUsers.find(user => {
+                    const candidates = [
+                        this.normalizePersonKey(user.UserName || user.username || ''),
+                        this.normalizePersonKey(user.FullName || user.fullName || '')
+                    ];
+                    return candidates.some(key => key && key === normalizedName);
+                }) || null;
+            }
+
             mergeAttendanceDashboardRecords(records, year) {
                 const resolvedYear = Number.parseInt(year, 10);
                 if (!Array.isArray(records) || records.length === 0 || !Number.isFinite(resolvedYear)) {
@@ -4413,7 +5887,8 @@
                 }
 
                 if (this.attendanceDashboardYear === resolvedYear) {
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(this.attendanceDashboardRecords, resolvedYear);
+                    const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, resolvedYear);
                     this.initializeAttendanceDashboard();
                 }
 
@@ -4499,7 +5974,39 @@
                     return gradient;
                 };
 
-                const data = this.attendanceDashboardData;
+                let data = this.attendanceDashboardData;
+
+                const monthSelect = document.getElementById('attendanceDashboardMonth');
+                const userSelect = document.getElementById('attendanceDashboardUser');
+                let normalizedFilterValue = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                let shouldRecomputeDashboard = false;
+
+                if (userSelect) {
+                    const options = Array.from(userSelect.options || []);
+                    const hasOption = options.some(option => option.value === (normalizedFilterValue || ''));
+                    if (hasOption) {
+                        userSelect.value = normalizedFilterValue || '';
+                    } else {
+                        if (normalizedFilterValue) {
+                            this.attendanceDashboardUserFilter = '';
+                            normalizedFilterValue = '';
+                            shouldRecomputeDashboard = true;
+                        }
+                        userSelect.value = '';
+                    }
+                }
+
+                if (shouldRecomputeDashboard) {
+                    const yearForRecompute = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                    if (Number.isFinite(yearForRecompute)) {
+                        const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                        data = this.computeAttendanceDashboard(filteredRecords, yearForRecompute);
+                        this.attendanceDashboardData = data;
+                    } else {
+                        data = this.attendanceDashboardData;
+                    }
+                }
+
                 if (!data || !Array.isArray(data.months)) {
                     console.warn('Attendance dashboard has no data to render.');
                     return;
@@ -4857,22 +6364,37 @@
                         }
                     });
 
-                    const monthSelect = document.getElementById('attendanceDashboardMonth');
                     if (monthSelect) {
-                        monthSelect.addEventListener('change', (event) => {
-                            const value = parseInt(event.target.value, 10);
-                            this.updateAttendanceMonthlyPercentChart(Number.isNaN(value) ? 0 : value);
-                        });
-
-                        const defaultMonth = new Date().getMonth();
-                        if (defaultMonth >= 0 && defaultMonth < data.months.length) {
-                            monthSelect.value = String(defaultMonth);
-                            this.updateAttendanceMonthlyPercentChart(defaultMonth);
-                        } else {
-                            this.updateAttendanceMonthlyPercentChart(0);
+                        if (!monthSelect.dataset.luminaAttendanceMonthListener) {
+                            monthSelect.addEventListener('change', (event) => {
+                                const value = parseInt(event.target.value, 10);
+                                this.updateAttendanceMonthlyPercentChart(Number.isNaN(value) ? 0 : value);
+                            });
+                            monthSelect.dataset.luminaAttendanceMonthListener = 'true';
                         }
+
+                        let resolvedMonth;
+                        if (!monthSelect.dataset.luminaAttendanceMonthDefaultApplied) {
+                            const defaultMonth = new Date().getMonth();
+                            resolvedMonth = (defaultMonth >= 0 && defaultMonth < data.months.length) ? defaultMonth : 0;
+                            monthSelect.dataset.luminaAttendanceMonthDefaultApplied = 'true';
+                        } else {
+                            const parsed = parseInt(monthSelect.value, 10);
+                            resolvedMonth = Number.isNaN(parsed) ? 0 : parsed;
+                        }
+
+                        resolvedMonth = Math.min(Math.max(resolvedMonth, 0), data.months.length - 1);
+                        monthSelect.value = String(resolvedMonth);
+                        this.updateAttendanceMonthlyPercentChart(resolvedMonth);
                     } else {
                         this.updateAttendanceMonthlyPercentChart(0);
+                    }
+
+                    if (userSelect && !userSelect.dataset.luminaAttendanceUserListener) {
+                        userSelect.addEventListener('change', (event) => {
+                            this.handleAttendanceDashboardUserFilterChange(event.target.value);
+                        });
+                        userSelect.dataset.luminaAttendanceUserListener = 'true';
                     }
 
                     if (!this.attendanceDashboardResizeHandler) {
@@ -4918,7 +6440,6 @@
                         data.yearlyTotals.vacation
                     ];
 
-                    const monthSelect = document.getElementById('attendanceDashboardMonth');
                     const selectedMonth = monthSelect ? parseInt(monthSelect.value, 10) : 0;
                     this.updateAttendanceMonthlyPercentChart(Number.isNaN(selectedMonth) ? 0 : selectedMonth);
 
@@ -4948,6 +6469,30 @@
                 }
             }
 
+            handleAttendanceDashboardUserFilterChange(rawValue) {
+                const normalizedValue = this.normalizeUserIdValue(rawValue);
+                this.attendanceDashboardUserFilter = normalizedValue || '';
+
+                const userSelect = document.getElementById('attendanceDashboardUser');
+                if (userSelect) {
+                    const options = Array.from(userSelect.options || []);
+                    const hasOption = options.some(option => option.value === (this.attendanceDashboardUserFilter || ''));
+                    userSelect.value = hasOption ? (this.attendanceDashboardUserFilter || '') : '';
+                    if (!hasOption && this.attendanceDashboardUserFilter) {
+                        this.attendanceDashboardUserFilter = '';
+                    }
+                }
+
+                const year = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                if (!Number.isFinite(year)) {
+                    return;
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
+                this.initializeAttendanceDashboard();
+            }
+
             refreshAttendanceDashboard() {
                 Object.values(this.attendanceCharts).forEach(chart => {
                     if (chart && typeof chart.resize === 'function') {
@@ -4960,6 +6505,9 @@
             }
 
             async loadAttendanceCalendar() {
+                const container = document.getElementById('attendanceCalendarContainer');
+                let monthContext = null;
+
                 try {
                     await this.ensureScheduleContext();
 
@@ -4981,14 +6529,23 @@
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
 
+                    const employmentOptions = { includeInactive: true, includeAllEmployment: true };
                     const [attendanceUsersRaw, scheduleUsersRaw] = await Promise.all([
-                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId),
-                        Array.isArray(this.availableUsers) && this.availableUsers.length
-                            ? Promise.resolve(this.availableUsers)
-                            : this.callServerFunction('clientGetScheduleUsers', managerId, campaignId)
+                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId, employmentOptions),
+                        this.callServerFunction('clientGetScheduleUsers', managerId, campaignId, employmentOptions)
                     ]);
 
-                    const scheduleUsers = Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : [];
+                    const normalizedManagerId = this.normalizeUserIdValue(managerId);
+                    const scheduleUsers = (Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : []).filter(user => {
+                        if (!normalizedManagerId) {
+                            return true;
+                        }
+
+                        const userId = this.normalizeUserIdValue(
+                            user && (user.ID || user.UserID || user.id || user.userId || user.UserName || user.username)
+                        );
+                        return !userId || userId !== normalizedManagerId;
+                    });
 
                     if (!Array.isArray(this.availableUsers) || !this.availableUsers.length) {
                         this.availableUsers = scheduleUsers.slice();
@@ -5028,7 +6585,7 @@
                     const employmentKeyLookupSize = employmentKeyLookup.size;
                     const appendUserName = (name) => {
                         const normalized = this.normalizePersonKey(name);
-                        if (!normalized || seenUserKeys.has(normalized)) {
+                        if (!normalized || seenUserKeys.has(normalized) || !employmentKeyLookup.has(normalized)) {
                             return;
                         }
                         if (employmentKeyLookupSize > 0 && !employmentKeyLookup.has(normalized)) {
@@ -5085,9 +6642,10 @@
                         attendanceMap
                     );
 
-                    container.innerHTML = calendar;
-                    console.log(`✅ Loaded attendance calendar with ${userEntries.length} users`);
+                    this.hideAttendanceContextMenu();
+                    this.ensureAttendanceContextMenu();
 
+                    console.log('✅ Attendance calendar loaded with %d records', attendanceRecords.length);
                 } catch (error) {
                     console.error('❌ Error loading attendance calendar:', error);
                     const errorContainer = document.getElementById('attendanceCalendarContainer');
@@ -5105,6 +6663,28 @@
                             </div>
                         `;
                 }
+
+                users.forEach(user => {
+                    this.collectUserIdentityKeys(user).forEach(key => lookup.add(key));
+                });
+
+                return lookup;
+            }
+
+            collectUserIdentityKeys(user) {
+                if (!user) {
+                    return [];
+                }
+
+                const identityValues = [
+                    user.UserName,
+                    user.FullName,
+                    user.Email
+                ];
+
+                return identityValues
+                    .map(value => this.normalizePersonKey(value))
+                    .filter(Boolean);
             }
 
             resolveAttendanceMonthContext(monthValue, yearValue) {
@@ -5203,11 +6783,13 @@
                     const userName = (user.UserName || '').toString().trim();
                     const fullName = (user.FullName || '').toString().trim();
                     const email = (user.Email || '').toString().trim();
+                    const employment = this.getEmploymentPeriod(user);
 
                     const metadata = {
                         userName,
                         fullName,
-                        email
+                        email,
+                        employment
                     };
 
                     [userName, fullName, email].forEach(value => {
@@ -5239,12 +6821,24 @@
                     const displayName = metadata && metadata.fullName
                         ? metadata.fullName
                         : (metadata && metadata.userName ? metadata.userName : name);
+                    const employment = metadata && metadata.employment
+                        ? metadata.employment
+                        : { startDate: null, endDate: null, startIso: '', endIso: '', status: '', statusRaw: '', isStatusActive: true };
 
                     return {
                         identifier,
                         displayName,
                         original: name,
-                        recordKeys: Array.from(recordKeySet)
+                        recordKeys: Array.from(recordKeySet),
+                        employmentStart: employment && employment.startDate ? new Date(employment.startDate.getTime()) : null,
+                        employmentEnd: employment && employment.endDate ? new Date(employment.endDate.getTime()) : null,
+                        employmentStartIso: employment && employment.startIso ? employment.startIso : '',
+                        employmentEndIso: employment && employment.endIso ? employment.endIso : '',
+                        employmentStatus: employment && employment.status ? employment.status : '',
+                        employmentStatusRaw: employment && employment.statusRaw ? employment.statusRaw : '',
+                        employmentStatusIsActive: employment && typeof employment.isStatusActive === 'boolean'
+                            ? employment.isStatusActive
+                            : true
                     };
                 });
             }
@@ -5529,6 +7123,66 @@
                 return null;
             }
 
+            renderParticipantEmploymentMeta(entry) {
+                if (!entry) {
+                    return '';
+                }
+
+                const fragments = [];
+                const statusLabel = this.normalizeEmploymentStatusLabel(entry.employmentStatus || entry.employmentStatusRaw || '');
+                if (statusLabel) {
+                    fragments.push(`<span class="attendance-calendar__participant-status"><i class="fas fa-briefcase"></i>${this.escapeHtml(statusLabel)}</span>`);
+                }
+
+                const startLabel = entry.employmentStartIso ? this.formatDate(entry.employmentStartIso) : '';
+                const endLabel = entry.employmentEndIso ? this.formatDate(entry.employmentEndIso) : '';
+                let rangeLabel = '';
+                if (startLabel && endLabel) {
+                    rangeLabel = `${startLabel} – ${endLabel}`;
+                } else if (startLabel) {
+                    rangeLabel = `Since ${startLabel}`;
+                } else if (endLabel) {
+                    rangeLabel = `Ended ${endLabel}`;
+                }
+
+                if (rangeLabel) {
+                    fragments.push(`<span class="attendance-calendar__participant-dates"><i class="fas fa-calendar-alt"></i>${this.escapeHtml(rangeLabel)}</span>`);
+                }
+
+                if (!fragments.length) {
+                    return '';
+                }
+
+                return `<div class="attendance-calendar__participant-meta">${fragments.join('')}</div>`;
+            }
+
+            buildEmploymentInactiveLabel(entry, dateStr) {
+                const safeDate = dateStr || '';
+                const statusLabel = this.normalizeEmploymentStatusLabel(entry?.employmentStatus || entry?.employmentStatusRaw || '');
+                const startLabel = entry?.employmentStartIso ? this.formatDate(entry.employmentStartIso) : '';
+                const endLabel = entry?.employmentEndIso ? this.formatDate(entry.employmentEndIso) : '';
+
+                const detailParts = [];
+                if (statusLabel) {
+                    detailParts.push(`Status: ${statusLabel}`);
+                }
+
+                if (startLabel && endLabel) {
+                    detailParts.push(`${startLabel} – ${endLabel}`);
+                } else if (startLabel) {
+                    detailParts.push(`Start ${startLabel}`);
+                } else if (endLabel) {
+                    detailParts.push(`End ${endLabel}`);
+                }
+
+                const base = safeDate ? `Not employed on ${safeDate}` : 'Not employed';
+                if (!detailParts.length) {
+                    return base;
+                }
+
+                return `${base} (${detailParts.join(' • ')})`;
+            }
+
             generateAttendanceCalendarGrid(userEntries, year, month, daysInMonth, attendanceMap = new Map()) {
                 const monthDate = new Date(year, month - 1, 1);
                 const monthName = monthDate.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
@@ -5575,11 +7229,17 @@
                     const safeDisplay = this.escapeHtml(entry.displayName || entry.identifier || '');
                     const clickIdentifier = this.escapeForInlineEvent(entry.identifier || entry.original || '');
                     const clickDisplay = this.escapeForInlineEvent(entry.displayName || entry.identifier || '');
+                    const employmentMeta = this.renderParticipantEmploymentMeta(entry);
+                    const normalizedStatus = this.normalizeEmploymentStatusLabel(entry.employmentStatus || entry.employmentStatusRaw || '');
+                    const safeStatusAttr = normalizedStatus ? this.escapeHtml(normalizedStatus) : '';
+                    const employmentRowAttr = safeStatusAttr ? ` data-employment-status="${safeStatusAttr}"` : '';
+                    const employmentActiveAttr = entry.employmentStatusIsActive === false ? ' data-employment-active="false"' : '';
 
                     html += `
-                                        <tr>
+                                        <tr${employmentRowAttr}${employmentActiveAttr}>
                                             <th scope="row" class="attendance-calendar__participant-cell">
                                                 <span class="attendance-calendar__participant-name" title="${safeDisplay}">${safeDisplay}</span>
+                                                ${employmentMeta}
                                             </th>
                     `;
 
@@ -5587,26 +7247,64 @@
                         const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                         const date = new Date(year, month - 1, day);
                         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                        const record = this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap);
-                        const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
-                        const badgeLabel = badge ? this.escapeHtml(badge.label) : 'Unmarked';
-                        const statusClass = badge ? `attendance-calendar__status ${badge.className}` : 'attendance-calendar__status attendance-calendar__status--empty';
-                        const badgeCode = badge && badge.code && badge.code !== '-' ? badge.code : '';
-                        const statusContent = badgeCode ? this.escapeHtml(badgeCode) : '&#8211;';
+                        const employmentStart = entry && entry.employmentStart instanceof Date ? entry.employmentStart : null;
+                        const employmentEnd = entry && entry.employmentEnd instanceof Date ? entry.employmentEnd : null;
+                        const cellTime = date.getTime();
+                        const employmentStartTime = employmentStart ? employmentStart.getTime() : null;
+                        const employmentEndTime = employmentEnd ? employmentEnd.getTime() : null;
+                        const isEmployedOnDay = (!employmentStartTime || cellTime >= employmentStartTime)
+                            && (!employmentEndTime || cellTime <= employmentEndTime);
+
+                        const cellClasses = ['attendance-calendar__cell'];
+                        if (isWeekend) {
+                            cellClasses.push('attendance-calendar__cell--weekend');
+                        }
+
                         const safeIdentifierAttr = this.escapeHtml(entry.identifier || entry.original || '');
                         const safeDateAttr = this.escapeHtml(dateStr);
+
+                        if (!isEmployedOnDay) {
+                            cellClasses.push('attendance-calendar__cell--employment-gap');
+                            const cellClassAttr = cellClasses.join(' ');
+                            const inactiveReason = this.buildEmploymentInactiveLabel(entry, dateStr);
+                            const inactiveReasonAttr = inactiveReason ? this.escapeHtml(inactiveReason) : '';
+                            const employmentAttr = inactiveReasonAttr
+                                ? ` data-attendance-employment="inactive" data-attendance-employment-reason="${inactiveReasonAttr}"`
+                                : ' data-attendance-employment="inactive"';
+
+                            html += `
+                                            <td class="${cellClassAttr}"
+                                                data-attendance-user="${safeIdentifierAttr}"
+                                                data-attendance-date="${safeDateAttr}"${employmentAttr}>
+                                            </td>
+                            `;
+                            continue;
+                        }
+
+                        const record = this.resolveAttendanceRecord(entry.recordKeys, dateStr, attendanceMap);
+                        const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
+                        const badgeLabel = badge
+                            ? this.escapeHtml(badge.label)
+                            : this.escapeHtml('Unmarked');
+                        const statusClass = badge
+                            ? `attendance-calendar__status ${badge.className}`
+                            : 'attendance-calendar__status attendance-calendar__status--empty';
+                        const badgeCode = badge && badge.code && badge.code !== '-' ? badge.code : '';
+                        const statusContent = badgeCode ? this.escapeHtml(badgeCode) : '&#8211;';
                         const safeStatusAttr = badge ? this.escapeHtml(record?.status || '') : '';
                         const statusCodeAttr = badgeCode ? this.escapeHtml(badgeCode) : '';
+                        const cellClassAttr = cellClasses.join(' ');
+                        const displayLabel = (entry.displayName || entry.identifier || '').toString();
+                        const cellTitle = this.escapeHtml(`Right-click or tap to mark attendance for ${displayLabel} on ${dateStr}`);
+                        const interactionAttributes = ` onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')" oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"`;
 
                         html += `
-                                            <td class="${isWeekend ? 'attendance-calendar__cell attendance-calendar__cell--weekend' : 'attendance-calendar__cell'}"
+                                            <td class="${cellClassAttr}"
                                                 data-attendance-user="${safeIdentifierAttr}"
                                                 data-attendance-date="${safeDateAttr}"
                                                 data-attendance-status="${safeStatusAttr}"
-                                                data-attendance-status-code="${statusCodeAttr}"
-                                                onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
-                                                oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"
-                                                title="Right-click or tap to mark attendance for ${safeDisplay} on ${dateStr}">
+                                                data-attendance-status-code="${statusCodeAttr}"${interactionAttributes}
+                                                title="${cellTitle}">
                                                 <span class="${statusClass}" title="${badgeLabel}">${statusContent}</span>
                                             </td>
                         `;
@@ -7222,7 +8920,11 @@
                         this.refreshHolidays();
                         break;
                     case '#import':
-                        this.updateImportFileName();
+                        const manualManager = this.manualShiftManager
+                            || (typeof window !== 'undefined' ? window.manualShiftManager : null);
+                        if (manualManager && typeof manualManager.renderUserList === 'function') {
+                            manualManager.renderUserList();
+                        }
                         break;
                 }
             }
@@ -7769,9 +9471,510 @@
             }
         }
 
+        // Manual shift assignment manager for the Schedule Management import tab
+        class ManualShiftAssignmentManager {
+            constructor(scheduleManager) {
+                this.scheduleManager = scheduleManager || null;
+
+                this.form = document.getElementById('manualShiftForm');
+                this.feedbackArea = document.getElementById('feedbackArea');
+                this.dateInput = document.getElementById('assignmentDate');
+                this.startTimeInput = document.getElementById('startTime');
+                this.endTimeInput = document.getElementById('endTime');
+                this.sourceMonthSelect = document.getElementById('sourceMonth');
+                this.sourceYearSelect = document.getElementById('sourceYear');
+                this.slotLabelInput = document.getElementById('slotLabel');
+                this.notesInput = document.getElementById('additionalNotes');
+                this.replaceExistingToggle = document.getElementById('replaceExisting');
+                this.userSearchInput = document.getElementById('userSearch');
+                this.selectAllToggle = document.getElementById('selectAllUsers');
+                this.userList = document.getElementById('userList');
+                this.userLoadingState = document.getElementById('userLoadingState');
+                this.selectedCountLabel = document.getElementById('selectedUserCount');
+                this.totalCountLabel = document.getElementById('totalUserCount');
+                this.clearSelectionBtn = document.getElementById('clearSelection');
+                this.submitButton = document.getElementById('submitManualShift');
+                this.activityLog = document.getElementById('activityLog');
+                this.activityEmptyState = document.getElementById('activityEmptyState');
+
+                this.users = [];
+                this.userMap = new Map();
+                this.selectedUserIds = new Set();
+
+                if (this.form) {
+                    this.form.addEventListener('submit', (event) => this.handleSubmit(event));
+                }
+                this.userSearchInput?.addEventListener('input', () => this.renderUserList());
+                this.selectAllToggle?.addEventListener('change', () => this.toggleSelectAll());
+                this.clearSelectionBtn?.addEventListener('click', () => this.clearSelection());
+
+                if (this.scheduleManager && typeof this.scheduleManager === 'object') {
+                    this.scheduleManager.manualShiftManager = this;
+                }
+
+                this.populateSourceYears();
+                this.setDefaultDate();
+
+                const initialUsers = this.scheduleManager && Array.isArray(this.scheduleManager.availableUsers)
+                    ? this.scheduleManager.availableUsers
+                    : [];
+                if (initialUsers.length) {
+                    this.setUsers(initialUsers);
+                } else {
+                    this.setUserLoading(true);
+                }
+            }
+
+            populateSourceYears() {
+                if (!this.sourceYearSelect) {
+                    return;
+                }
+
+                const currentYear = new Date().getFullYear();
+                const earliestYear = 2023;
+                const endYear = currentYear + 2;
+                const existingValues = new Set(Array.from(this.sourceYearSelect.options).map(option => option.value));
+
+                for (let year = currentYear; year >= earliestYear; year--) {
+                    if (!existingValues.has(String(year))) {
+                        this.appendYearOption(year);
+                    }
+                }
+                for (let year = currentYear + 1; year <= endYear; year++) {
+                    if (!existingValues.has(String(year))) {
+                        this.appendYearOption(year);
+                    }
+                }
+            }
+
+            appendYearOption(year) {
+                if (!this.sourceYearSelect) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = String(year);
+                option.textContent = String(year);
+                this.sourceYearSelect.appendChild(option);
+            }
+
+            setDefaultDate() {
+                if (!this.dateInput || this.dateInput.value) {
+                    return;
+                }
+                const today = new Date();
+                this.dateInput.value = today.toISOString().split('T')[0];
+            }
+
+            setUsers(users) {
+                if (!Array.isArray(users)) {
+                    users = [];
+                }
+
+                const normalized = users
+                    .filter(user => user && (user.ID || user.UserName || user.FullName))
+                    .map(user => {
+                        const id = this.normalizeUserId(user.ID || user.UserID || user.id || user.userId);
+                        return {
+                            ID: id,
+                            UserName: user.UserName || user.username || '',
+                            FullName: user.FullName || user.fullName || user.UserName || '',
+                            Email: user.Email || user.email || '',
+                            campaignName: user.campaignName || user.CampaignName || user.Campaign || ''
+                        };
+                    })
+                    .filter(user => user.ID);
+
+                this.users = normalized;
+                this.userMap.clear();
+                normalized.forEach(user => this.userMap.set(user.ID, user));
+
+                const retainedSelections = new Set();
+                this.selectedUserIds.forEach(id => {
+                    if (this.userMap.has(id)) {
+                        retainedSelections.add(id);
+                    }
+                });
+                this.selectedUserIds = retainedSelections;
+
+                if (this.totalCountLabel) {
+                    this.totalCountLabel.textContent = String(this.users.length);
+                }
+
+                this.setUserLoading(false);
+                this.renderUserList();
+            }
+
+            normalizeUserId(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+                if (typeof value === 'object') {
+                    if (value.ID || value.id) {
+                        return this.normalizeUserId(value.ID || value.id);
+                    }
+                    return '';
+                }
+                return String(value).trim();
+            }
+
+            setUserLoading(isLoading) {
+                if (this.userLoadingState) {
+                    this.userLoadingState.style.display = isLoading ? 'flex' : 'none';
+                }
+            }
+
+            getFilteredUsers() {
+                const term = this.userSearchInput?.value.trim().toLowerCase() || '';
+                if (!term) {
+                    return this.users;
+                }
+
+                return this.users.filter(user => {
+                    const name = (user.FullName || user.UserName || '').toLowerCase();
+                    const email = (user.Email || '').toLowerCase();
+                    const campaign = (user.campaignName || '').toLowerCase();
+                    return name.includes(term) || email.includes(term) || campaign.includes(term);
+                });
+            }
+
+            renderUserList() {
+                if (!this.userList) {
+                    return;
+                }
+
+                const filteredUsers = this.getFilteredUsers();
+                this.userList.innerHTML = '';
+
+                if (!filteredUsers.length) {
+                    const emptyState = document.createElement('div');
+                    emptyState.className = 'user-list-empty';
+                    emptyState.textContent = this.users.length
+                        ? 'No users match your search.'
+                        : 'No eligible users were found.';
+                    this.userList.appendChild(emptyState);
+                    this.updateSelectionCounters();
+                    if (this.selectAllToggle) {
+                        this.selectAllToggle.checked = false;
+                        this.selectAllToggle.disabled = this.users.length === 0;
+                    }
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                filteredUsers.forEach(user => {
+                    const userId = user.ID;
+                    const isChecked = this.selectedUserIds.has(userId);
+
+                    const item = document.createElement('label');
+                    item.className = 'user-list-item';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input';
+                    checkbox.checked = isChecked;
+                    checkbox.dataset.userId = userId;
+                    checkbox.addEventListener('change', (event) => this.toggleUser(event));
+
+                    const details = document.createElement('div');
+                    details.style.flex = '1';
+
+                    const name = document.createElement('div');
+                    name.className = 'user-name';
+                    name.textContent = user.FullName || user.UserName || 'Unnamed User';
+                    details.appendChild(name);
+
+                    const metaParts = [];
+                    if (user.UserName && user.FullName && user.UserName !== user.FullName) {
+                        metaParts.push(user.UserName);
+                    }
+                    if (user.Email) {
+                        metaParts.push(user.Email);
+                    }
+                    if (user.campaignName) {
+                        metaParts.push(user.campaignName);
+                    }
+                    if (metaParts.length) {
+                        const meta = document.createElement('div');
+                        meta.className = 'user-meta';
+                        meta.textContent = metaParts.join(' • ');
+                        details.appendChild(meta);
+                    }
+
+                    item.appendChild(checkbox);
+                    item.appendChild(details);
+                    fragment.appendChild(item);
+                });
+
+                this.userList.appendChild(fragment);
+                this.updateSelectionCounters();
+                this.syncSelectAllState(filteredUsers);
+                if (this.selectAllToggle) {
+                    this.selectAllToggle.disabled = false;
+                }
+            }
+
+            toggleUser(event) {
+                const checkbox = event.target;
+                const userId = checkbox?.dataset?.userId;
+                if (!userId) {
+                    return;
+                }
+
+                if (checkbox.checked) {
+                    this.selectedUserIds.add(userId);
+                } else {
+                    this.selectedUserIds.delete(userId);
+                }
+
+                this.updateSelectionCounters();
+                this.syncSelectAllState();
+            }
+
+            toggleSelectAll() {
+                const shouldSelectAll = this.selectAllToggle?.checked;
+                const filteredUsers = this.getFilteredUsers();
+                if (typeof shouldSelectAll !== 'boolean') {
+                    return;
+                }
+
+                filteredUsers.forEach(user => {
+                    if (!user || !user.ID) {
+                        return;
+                    }
+                    if (shouldSelectAll) {
+                        this.selectedUserIds.add(user.ID);
+                    } else {
+                        this.selectedUserIds.delete(user.ID);
+                    }
+                });
+
+                this.renderUserList();
+            }
+
+            syncSelectAllState(filteredUsers = this.getFilteredUsers()) {
+                if (!this.selectAllToggle) {
+                    return;
+                }
+
+                if (!filteredUsers.length) {
+                    this.selectAllToggle.checked = false;
+                    return;
+                }
+
+                const allSelected = filteredUsers.every(user => this.selectedUserIds.has(user.ID));
+                this.selectAllToggle.checked = allSelected && filteredUsers.length > 0;
+            }
+
+            clearSelection(options = {}) {
+                this.selectedUserIds.clear();
+                this.renderUserList();
+                if (!options.silent) {
+                    this.showFeedback('User selection cleared.', 'info');
+                }
+            }
+
+            updateSelectionCounters() {
+                if (this.selectedCountLabel) {
+                    this.selectedCountLabel.textContent = String(this.selectedUserIds.size);
+                }
+                if (this.totalCountLabel) {
+                    this.totalCountLabel.textContent = String(this.users.length);
+                }
+            }
+
+            async handleSubmit(event) {
+                event.preventDefault();
+
+                if (!this.form || !this.submitButton) {
+                    return;
+                }
+
+                const selectedIds = Array.from(this.selectedUserIds);
+                if (!selectedIds.length) {
+                    this.showFeedback('Select at least one user before adding shift slots.', 'warning');
+                    return;
+                }
+
+                const dateValue = this.dateInput?.value;
+                const startTimeValue = this.startTimeInput?.value;
+                const endTimeValue = this.endTimeInput?.value;
+
+                if (!dateValue || !startTimeValue || !endTimeValue) {
+                    this.showFeedback('Date, start time, and end time are required.', 'danger');
+                    return;
+                }
+
+                if (startTimeValue >= endTimeValue) {
+                    this.showFeedback('End time must be later than start time.', 'warning');
+                    return;
+                }
+
+                const slotLabelValue = this.slotLabelInput?.value.trim() || '';
+                const notesValue = this.notesInput?.value.trim() || '';
+                const sourceMonthValue = this.sourceMonthSelect?.value || '';
+                const sourceYearValue = this.sourceYearSelect?.value || '';
+                const sourceMonthNumber = sourceMonthValue ? Number(sourceMonthValue) : null;
+                const sourceYearNumber = sourceYearValue ? Number(sourceYearValue) : null;
+                const replaceExisting = !!this.replaceExistingToggle?.checked;
+
+                const payload = {
+                    date: dateValue,
+                    startTime: startTimeValue,
+                    endTime: endTimeValue,
+                    slotLabel: slotLabelValue,
+                    notes: notesValue,
+                    sourceMonth: Number.isFinite(sourceMonthNumber) ? sourceMonthNumber : null,
+                    sourceYear: Number.isFinite(sourceYearNumber) ? sourceYearNumber : null,
+                    replaceExisting,
+                    users: selectedIds
+                };
+
+                const originalButtonContent = this.submitButton.innerHTML;
+                this.submitButton.disabled = true;
+                this.submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...';
+
+                try {
+                    const result = await this.callServerFunction('clientAddManualShiftSlots', payload);
+                    if (result && result.success) {
+                        const message = result.message || 'Shift slots added successfully.';
+                        this.showFeedback(message, 'success');
+                        this.appendActivity(result);
+
+                        if (!replaceExisting) {
+                            this.clearSelection({ silent: true });
+                        }
+
+                        if (this.scheduleManager && typeof this.scheduleManager.loadSchedules === 'function') {
+                            this.scheduleManager.loadSchedules().catch(error => {
+                                console.warn('Unable to refresh schedules after manual assignment:', error);
+                            });
+                        }
+                    } else {
+                        const errorMessage = (result && result.error) || 'Unable to add shift slots.';
+                        this.showFeedback(errorMessage, 'danger');
+                    }
+
+                    if (result && Array.isArray(result.failed) && result.failed.length) {
+                        const skippedNames = result.failed.map(item => item.userName || item.userId || 'Unknown').join(', ');
+                        this.showFeedback(`Skipped ${result.failed.length} user(s): ${skippedNames}`, 'warning');
+                    }
+                } catch (error) {
+                    console.error('Manual shift slot assignment failed:', error);
+                    this.showFeedback(error.message || 'An unexpected error occurred while saving shift slots.', 'danger');
+                } finally {
+                    this.submitButton.disabled = false;
+                    this.submitButton.innerHTML = originalButtonContent;
+                }
+            }
+
+            appendActivity(result) {
+                if (!this.activityLog) {
+                    return;
+                }
+
+                if (this.activityEmptyState) {
+                    this.activityEmptyState.remove();
+                    this.activityEmptyState = null;
+                }
+
+                if (!result || !Array.isArray(result.details) || !result.details.length) {
+                    return;
+                }
+
+                const entry = document.createElement('div');
+                entry.className = 'activity-entry';
+
+                const userNames = result.details.map(detail => detail.userName || detail.userId || 'Unknown').join(', ');
+                const slotName = result.details[0]?.slotName || 'Manual Shift';
+                const dateLabel = result.details[0]?.date || this.dateInput?.value || '';
+                const timeLabel = `${result.details[0]?.startTime || this.startTimeInput?.value || ''} - ${result.details[0]?.endTime || this.endTimeInput?.value || ''}`;
+                const timestamp = new Date().toLocaleString();
+
+                entry.innerHTML = `
+                    <strong>${this.escapeHtml(slotName)}</strong>
+                    <div>${this.escapeHtml(userNames)}</div>
+                    <div class="activity-meta">
+                        <i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(dateLabel)}
+                        &nbsp;•&nbsp;
+                        <i class="far fa-clock me-1"></i>${this.escapeHtml(timeLabel)}
+                        &nbsp;•&nbsp;
+                        Recorded ${this.escapeHtml(timestamp)}
+                    </div>
+                `;
+
+                this.activityLog.prepend(entry);
+
+                const maxEntries = 8;
+                while (this.activityLog.children.length > maxEntries) {
+                    this.activityLog.removeChild(this.activityLog.lastElementChild);
+                }
+            }
+
+            showFeedback(message, type) {
+                if (!this.feedbackArea) {
+                    return;
+                }
+
+                const icons = {
+                    success: 'fas fa-check-circle',
+                    danger: 'fas fa-exclamation-triangle',
+                    warning: 'fas fa-exclamation-circle',
+                    info: 'fas fa-info-circle'
+                };
+
+                const alert = document.createElement('div');
+                alert.className = `alert-modern alert-${type}-modern`;
+                alert.innerHTML = `
+                    <i class="${icons[type] || icons.info}"></i>
+                    <div>
+                        <p>${this.escapeHtml(message)}</p>
+                    </div>
+                    <button type="button" class="alert-close" aria-label="Dismiss" title="Dismiss alert">&times;</button>
+                `;
+
+                alert.querySelector('.alert-close')?.addEventListener('click', () => alert.remove());
+
+                this.feedbackArea.prepend(alert);
+
+                const timeout = type === 'info' ? 3500 : 6000;
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-6px)';
+                    setTimeout(() => alert.remove(), 250);
+                }, timeout);
+            }
+
+            escapeHtml(value) {
+                const div = document.createElement('div');
+                div.textContent = value || '';
+                return div.innerHTML;
+            }
+
+            callServerFunction(functionName, ...args) {
+                if (this.scheduleManager && typeof this.scheduleManager.callServerFunction === 'function') {
+                    return this.scheduleManager.callServerFunction(functionName, ...args);
+                }
+
+                return new Promise((resolve, reject) => {
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(reject)
+                            [functionName](...args);
+                    } else {
+                        reject(new Error('Google Apps Script not available.'));
+                    }
+                });
+            }
+        }
+
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.scheduleManager = new LuminaScheduleManager();
+            window.manualShiftManager = new ManualShiftAssignmentManager(window.scheduleManager);
+            if (window.scheduleManager) {
+                window.scheduleManager.manualShiftManager = window.manualShiftManager;
+            }
             window.calculateWeekSpanCount = (startDate, endDate, minDate, maxDate) => {
                 if (window.scheduleManager && typeof window.scheduleManager.calculateWeekSpanCount === 'function') {
                     return window.scheduleManager.calculateWeekSpanCount(startDate, endDate, minDate, maxDate);
