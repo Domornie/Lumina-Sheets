@@ -52,7 +52,7 @@ if (typeof G.CAMPAIGN_USER_PERMISSIONS_HEADERS === 'undefined') {
 if (typeof G.INSURANCE_MONTHS_AFTER_PROBATION === 'undefined') G.INSURANCE_MONTHS_AFTER_PROBATION = 3;
 
 // Canonical Users sheet column order (must remain in sync with sheet format)
-const USER_SHEET_COLUMN_ORDER = (function resolveUserSheetColumnOrder_() {
+var USER_SHEET_COLUMN_ORDER = (function resolveUserSheetColumnOrder_() {
   if (Array.isArray(G.USER_SHEET_COLUMN_ORDER) && G.USER_SHEET_COLUMN_ORDER.length) {
     return G.USER_SHEET_COLUMN_ORDER.slice();
   }
