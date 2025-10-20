@@ -673,6 +673,7 @@ function clientGetAllShiftSlots() {
     const aggregatedSlots = [];
     const seenIds = new Set();
     const seenComposite = new Set();
+    const sourceSheets = new Set();
 
     const resolveSlotId = slot => {
       const candidates = [
@@ -727,7 +728,11 @@ function clientGetAllShiftSlots() {
         }
       }
 
-      normalizedSlot.__source = source;
+      if (source) {
+        sourceSheets.add(source);
+      }
+
+      normalizedSlot.__source = source || 'unknown';
       aggregatedSlots.push(normalizedSlot);
     };
 
@@ -891,8 +896,19 @@ function clientGetAllShiftSlots() {
       return normalizedSlot;
     });
 
+    const metadata = {
+      totalCount: normalizedSlots.length,
+      sources: Array.from(sourceSheets),
+      generatedAt: new Date().toISOString(),
+      hasActiveSlots: normalizedSlots.some(slot => slot && slot.IsActive !== false)
+    };
+
     console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
-    return normalizedSlots;
+    return {
+      success: true,
+      slots: normalizedSlots,
+      metadata
+    };
 
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
@@ -900,9 +916,34 @@ function clientGetAllShiftSlots() {
 
     try {
       createDefaultShiftSlots();
-      return readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      const fallbackSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      const normalizedFallback = Array.isArray(fallbackSlots)
+        ? fallbackSlots.map(slot => (slot && typeof slot === 'object' ? { ...slot } : slot))
+        : [];
+
+      return {
+        success: true,
+        slots: normalizedFallback,
+        metadata: {
+          totalCount: normalizedFallback.length,
+          sources: [SHIFT_SLOTS_SHEET],
+          generatedAt: new Date().toISOString(),
+          fallbackApplied: true,
+          error: error && error.message ? error.message : String(error)
+        }
+      };
     } catch (fallbackError) {
-      return [];
+      return {
+        success: false,
+        slots: [],
+        metadata: {
+          totalCount: 0,
+          sources: [],
+          generatedAt: new Date().toISOString(),
+          error: error && error.message ? error.message : String(error),
+          fallbackError: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
+        }
+      };
     }
   }
 }
@@ -952,21 +993,30 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     // Get shift slots - either selected ones or all available
     let shiftSlots = [];
+    let shiftSlotMetadata = { totalCount: 0 };
     if (shiftSlotIds && shiftSlotIds.length > 0) {
       // Get only the selected shift slots
       console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
-      const allSlots = clientGetAllShiftSlots();
+      const slotResponse = clientGetAllShiftSlots();
+      const allSlots = Array.isArray(slotResponse?.slots)
+        ? slotResponse.slots
+        : (Array.isArray(slotResponse) ? slotResponse : []);
+      shiftSlotMetadata = slotResponse && slotResponse.metadata ? slotResponse.metadata : { totalCount: allSlots.length };
       shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
-      
+
       if (shiftSlots.length === 0) {
         throw new Error('None of the selected shift slots were found. Please refresh and try again.');
       }
-      
+
       console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
     } else {
       // Use all available shift slots
-      shiftSlots = clientGetAllShiftSlots();
-      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
+      const slotResponse = clientGetAllShiftSlots();
+      shiftSlots = Array.isArray(slotResponse?.slots)
+        ? slotResponse.slots
+        : (Array.isArray(slotResponse) ? slotResponse : []);
+      shiftSlotMetadata = slotResponse && slotResponse.metadata ? slotResponse.metadata : { totalCount: shiftSlots.length };
+      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`, shiftSlotMetadata);
     }
 
     if (!shiftSlots || shiftSlots.length === 0) {
@@ -2795,11 +2845,15 @@ function clientRunSystemDiagnostics() {
 
     // Test shift slots using ScheduleUtilities
     try {
-      const slots = clientGetAllShiftSlots();
+      const slotResponse = clientGetAllShiftSlots();
+      const slots = Array.isArray(slotResponse?.slots)
+        ? slotResponse.slots
+        : (Array.isArray(slotResponse) ? slotResponse : []);
       diagnostics.shiftSlots = {
         count: slots.length,
         working: slots.length > 0,
-        scheduleUtilitiesIntegration: true
+        scheduleUtilitiesIntegration: true,
+        metadata: slotResponse && slotResponse.metadata ? slotResponse.metadata : null
       };
 
       if (slots.length === 0) {
