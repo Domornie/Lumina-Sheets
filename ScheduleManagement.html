@@ -310,39 +310,6 @@
         white-space: nowrap;
     }
 
-    .attendance-calendar__participant-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-        margin-top: 0.35rem;
-        font-size: 0.75rem;
-        color: rgba(15, 42, 86, 0.65);
-        letter-spacing: 0.01em;
-    }
-
-    .attendance-calendar__participant-meta span {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        line-height: 1.3;
-        white-space: normal;
-    }
-
-    .attendance-calendar__participant-meta i {
-        color: rgba(15, 42, 86, 0.5);
-    }
-
-    .attendance-calendar__participant-status {
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: rgba(15, 42, 86, 0.75);
-    }
-
-    .attendance-calendar__participant-dates {
-        color: rgba(15, 42, 86, 0.6);
-    }
-
     .attendance-calendar__table td {
         text-align: center;
         padding: 0.4rem 0.35rem;
@@ -919,34 +886,6 @@
     .interactive-item:hover {
         transform: translateY(-1px);
         box-shadow: var(--shadow);
-    }
-
-    .slot-detail-table th {
-        width: 42%;
-        font-weight: 600;
-        color: var(--dark);
-        text-transform: none;
-        padding: 0.35rem 0.75rem;
-    }
-
-    .slot-detail-table td {
-        color: var(--dark);
-        padding: 0.35rem 0.75rem;
-        word-break: break-word;
-    }
-
-    .slot-detail-table code {
-        background-color: rgba(15, 23, 42, 0.08);
-        padding: 0.15rem 0.35rem;
-        border-radius: 6px;
-        display: inline-block;
-        font-size: 0.75rem;
-    }
-
-    .slot-detail-table .badge {
-        font-size: 0.75rem;
-        letter-spacing: 0.02em;
-        padding: 0.35rem 0.6rem;
     }
 
     /* Header Action Buttons */
@@ -2524,7 +2463,6 @@
             constructor() {
                 this.currentUser = window.user || window.currentUser || window.CURRENT_USER || {};
                 this.availableUsers = [];
-                this.availableUsersMonthContext = null;
                 this.availableCampaigns = [];
                 this.coverageChart = null;
                 this.pendingImportSchedules = [];
@@ -2594,9 +2532,7 @@
                     'Rehire_Date',
                     'rehire_date',
                     'Rehire Date',
-                    'rehire date',
-                    'EmploymentStartIso',
-                    'employmentStartIso'
+                    'rehire date'
                 ];
                 this.employmentEndFieldNames = [
                     'TerminationDate',
@@ -2636,68 +2572,8 @@
                     'LastWorkingDate',
                     'lastWorkingDate',
                     'Last Working Date',
-                    'last working date',
-                    'EmploymentEndIso',
-                    'employmentEndIso'
+                    'last working date'
                 ];
-                this.employmentStatusAliasMap = new Map([
-                    ['active', 'Active'],
-                    ['activated', 'Active'],
-                    ['inactive', 'Inactive'],
-                    ['terminated', 'Terminated'],
-                    ['leave', 'On Leave'],
-                    ['on leave', 'On Leave'],
-                    ['leave of absence', 'On Leave'],
-                    ['pending', 'Pending'],
-                    ['probation', 'Probation'],
-                    ['probationary', 'Probation'],
-                    ['probationary period', 'Probation'],
-                    ['contract', 'Contract'],
-                    ['contract employee', 'Contract'],
-                    ['contractor', 'Contractor'],
-                    ['consultant', 'Consultant'],
-                    ['consultant/contractor', 'Consultant'],
-                    ['full time', 'Full Time'],
-                    ['full-time', 'Full Time'],
-                    ['fulltime', 'Full Time'],
-                    ['part time', 'Part Time'],
-                    ['part-time', 'Part Time'],
-                    ['parttime', 'Part Time'],
-                    ['seasonal', 'Seasonal'],
-                    ['temporary', 'Temporary'],
-                    ['temp', 'Temporary'],
-                    ['suspended', 'Suspended'],
-                    ['retired', 'Retired'],
-                    ['intern', 'Intern']
-                ]);
-                this.employmentStatusActiveSet = new Set([
-                    'active',
-                    'activated',
-                    'on leave',
-                    'pending',
-                    'probation',
-                    'contract',
-                    'contractor',
-                    'consultant',
-                    'full time',
-                    'full-time',
-                    'fulltime',
-                    'part time',
-                    'part-time',
-                    'parttime',
-                    'seasonal',
-                    'temporary',
-                    'temp',
-                    'intern'
-                ]);
-                this.employmentStatusInactiveSet = new Set([
-                    'inactive',
-                    'terminated',
-                    'suspended',
-                    'retired',
-                    'separated',
-                    'disabled'
-                ]);
                 this.attendanceStatusLegend = [
                     { code: 'P', label: 'Punctual', className: 'attendance-calendar__status--present' },
                     { code: 'B', label: 'Bereavement', className: 'attendance-calendar__status--bereavement' },
@@ -3045,27 +2921,6 @@
                     })();
 
                     const byId = new Map();
-                    let monthContext = null;
-                    let targetMonth = null;
-                    let targetYear = null;
-
-                    try {
-                        const monthInput = document.getElementById('attendanceMonth');
-                        const yearInput = document.getElementById('attendanceYear');
-                        monthContext = this.resolveAttendanceMonthContext(
-                            monthInput ? monthInput.value : '',
-                            yearInput ? yearInput.value : ''
-                        );
-                        if (monthContext && Number.isFinite(monthContext.month) && Number.isFinite(monthContext.year)) {
-                            targetMonth = monthContext.month;
-                            targetYear = monthContext.year;
-                        }
-                    } catch (contextError) {
-                        console.warn('⚠️ Unable to resolve month context for user filtering:', contextError);
-                    }
-
-                    this.availableUsersMonthContext = monthContext;
-
                     const pushUserRecord = (user) => {
                         if (!user || typeof user !== 'object') {
                             return;
@@ -3078,38 +2933,6 @@
 
                         const existing = byId.get(normalizedId) || {};
 
-                        const employmentPeriod = this.getEmploymentPeriod(user);
-                        const employmentStatusRaw = user.EmploymentStatus || user.employmentStatus || existing.EmploymentStatus || existing.employmentStatusRaw || '';
-                        const employmentStatusCanonical = employmentPeriod.status
-                            || this.normalizeEmploymentStatusLabel(employmentStatusRaw)
-                            || existing.EmploymentStatusCanonical
-                            || existing.employmentStatusCanonical
-                            || '';
-                        const employmentStatusIsActive = typeof employmentPeriod.isStatusActive === 'boolean'
-                            ? employmentPeriod.isStatusActive
-                            : (typeof user.employmentStatusIsActive === 'boolean'
-                                ? user.employmentStatusIsActive
-                                : (typeof existing.employmentStatusIsActive === 'boolean'
-                                    ? existing.employmentStatusIsActive
-                                    : this.isEmploymentStatusActive(employmentStatusCanonical || employmentStatusRaw)));
-                        const employmentStartIso = employmentPeriod.startIso
-                            || user.employmentStartIso
-                            || user.employmentStartISO
-                            || existing.employmentStartIso
-                            || existing.employmentStartISO
-                            || user.HireDate
-                            || existing.HireDate
-                            || '';
-                        const employmentEndIso = employmentPeriod.endIso
-                            || user.employmentEndIso
-                            || user.employmentEndISO
-                            || existing.employmentEndIso
-                            || existing.employmentEndISO
-                            || user.TerminationDate
-                            || user.terminationDate
-                            || existing.TerminationDate
-                            || '';
-
                         const normalized = {
                             ID: normalizedId,
                             UserName: user.UserName || user.username || existing.UserName || existing.username || normalizedId,
@@ -3117,16 +2940,10 @@
                             Email: user.Email || user.email || existing.Email || '',
                             CampaignID: user.CampaignID || user.campaignID || user.campaignId || existing.CampaignID || '',
                             campaignName: user.campaignName || existing.campaignName || '',
-                            EmploymentStatus: employmentStatusRaw || existing.EmploymentStatus || 'Active',
-                            EmploymentStatusCanonical: employmentStatusCanonical || existing.EmploymentStatusCanonical || '',
-                            employmentStatusCanonical: employmentStatusCanonical || existing.employmentStatusCanonical || '',
-                            employmentStatusRaw: employmentStatusRaw || existing.employmentStatusRaw || '',
-                            employmentStatusIsActive,
-                            HireDate: employmentStartIso || existing.HireDate || '',
-                            TerminationDate: employmentEndIso || existing.TerminationDate || '',
-                            employmentStartIso: employmentStartIso || existing.employmentStartIso || '',
-                            employmentEndIso: employmentEndIso || existing.employmentEndIso || '',
-                            isActive: typeof user.isActive === 'boolean' ? user.isActive : employmentStatusIsActive,
+                            EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
+                            HireDate: user.HireDate || existing.HireDate || '',
+                            TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || '',
+                            isActive: typeof user.isActive === 'boolean' ? user.isActive : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
                             roleNames: Array.isArray(user.roleNames) ? user.roleNames.slice() : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
                         };
 
@@ -3136,22 +2953,13 @@
                     (Array.isArray(scheduleUsers) ? scheduleUsers : []).forEach(pushUserRecord);
                     rosterUsers.forEach(pushUserRecord);
 
-                    const combinedUsers = Array.from(byId.values())
+                    this.availableUsers = Array.from(byId.values())
                         .filter(user => user && user.ID && (user.FullName || user.UserName))
                         .sort((a, b) => {
                             const nameA = (a.FullName || a.UserName || '').toLowerCase();
                             const nameB = (b.FullName || b.UserName || '').toLowerCase();
                             return nameA.localeCompare(nameB);
                         });
-
-                    const preFilterCount = combinedUsers.length;
-                    let filteredUsers = combinedUsers;
-
-                    if (Number.isFinite(targetYear) && Number.isFinite(targetMonth)) {
-                        filteredUsers = combinedUsers.filter(user => this.isUserEmployedDuringMonth(user, targetYear, targetMonth));
-                    }
-
-                    this.availableUsers = filteredUsers;
 
                     if (this.attendanceDashboardUserFilter) {
                         const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
@@ -3214,8 +3022,7 @@
                         }).length || this.availableUsers.length;
                     }
 
-                    const monthLabel = monthContext && monthContext.label ? monthContext.label : 'current period';
-                    console.log(`✅ Loaded ${this.availableUsers.length} users (filtered from ${preFilterCount}) for ${monthLabel} (including ${rosterUsers.length} managed roster entries)`);
+                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries)`);
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
@@ -3236,7 +3043,6 @@
                 } catch (error) {
                     console.error('❌ Error loading users:', error);
                     this.availableUsers = [];
-                    this.availableUsersMonthContext = null;
                     this.showToast('Failed to load users: ' + error.message, 'danger');
                 }
             }
@@ -3298,13 +3104,10 @@
 
                 if (this.availableUsers.length === 0) {
                     const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your team');
-                    const periodLabel = this.availableUsersMonthContext && this.availableUsersMonthContext.label
-                        ? ` for ${this.escapeHtml(this.availableUsersMonthContext.label)}`
-                        : '';
                     container.innerHTML = `
                         <div class="text-muted text-center py-4">
                             <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
-                            <p class="mb-1">No managed agents found for ${managerName}${periodLabel}.</p>
+                            <p class="mb-1">No managed agents found for ${managerName}.</p>
                             <p class="mb-0 small">Verify your manager assignments in the MANAGER_USERS sheet.</p>
                         </div>
                     `;
@@ -3313,16 +3116,13 @@
                 }
 
                 const managerName = this.escapeHtml(this.currentUser?.FullName || this.currentUser?.UserName || 'your roster');
-                const periodLabel = this.availableUsersMonthContext && this.availableUsersMonthContext.label
-                    ? ` for ${this.escapeHtml(this.availableUsersMonthContext.label)}`
-                    : '';
                 const identityBadge = this.identityResolved
                     ? '<span class="badge bg-success">Lumina Identity</span>'
                     : '<span class="badge bg-secondary">Limited Identity</span>';
 
                 const summary = `
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 small text-muted">
-                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}${periodLabel}</span>
+                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}</span>
                         ${identityBadge}
                     </div>
                 `;
@@ -3462,11 +3262,7 @@
                 const container = document.getElementById('shiftSlotsContainer');
                 if (!container) return;
 
-                const resolvedSlots = Array.isArray(slots)
-                    ? slots
-                    : this.normalizeShiftSlotListResponse(slots || {}).slots;
-
-                if (!Array.isArray(resolvedSlots) || resolvedSlots.length === 0) {
+                if (slots.length === 0) {
                     container.innerHTML = `
                             <div class="text-center text-muted py-4">
                                 <i class="fas fa-clock fa-3x mb-3 opacity-50"></i>
@@ -3477,52 +3273,32 @@
                     return;
                 }
 
-                container.innerHTML = resolvedSlots.map(slot => {
-                    const rawSlotId = this.resolveShiftSlotId(slot) || this.buildShiftSlotFallbackValue(slot);
-                    const slotIdBadge = rawSlotId ? this.escapeHtml(rawSlotId) : '';
-                    const slotIdAttribute = JSON.stringify(rawSlotId || '');
-                    const slotName = this.escapeHtml(slot.Name || slot.SlotName || 'Shift Slot');
-                    const timeRange = [
-                        this.formatTimeValue(slot.StartTime),
-                        this.formatTimeValue(slot.EndTime)
-                    ].filter(Boolean).join(' - ') || 'Time not set';
-                    const days = Array.isArray(slot.DaysOfWeekArray)
-                        ? this.formatDaysOfWeek(slot.DaysOfWeekArray)
-                        : this.formatDaysOfWeek((slot.DaysOfWeek || '').split(',').map(value => parseInt(value, 10)).filter(day => !Number.isNaN(day)));
-                    const department = slot.Department || slot.Team || 'General';
-                    const capacity = slot.MaxCapacity || 'Unlimited';
-
-                    return `
+                container.innerHTML = slots.map(slot => `
                         <div class="border rounded p-3 mb-3 interactive-item">
-                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1 d-flex align-items-center gap-2">
-                                        <span>${slotName}</span>
-                                        ${slotIdBadge ? `<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">ID: ${slotIdBadge}</span>` : ''}
-                                    </h6>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">${slot.Name}</h6>
                                     <p class="mb-2 small text-muted">
-                                        <strong>Time:</strong> ${this.escapeHtml(timeRange)}<br>
-                                        <strong>Days:</strong> ${this.escapeHtml(days || 'Not specified')}<br>
-                                        <strong>Department:</strong> ${this.escapeHtml(department)}<br>
-                                        <strong>Capacity:</strong> ${this.escapeHtml(String(capacity))}
+                                        <strong>Time:</strong> ${this.formatTimeValue(slot.StartTime)} - ${this.formatTimeValue(slot.EndTime)}<br>
+                                        <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
+                                        <strong>Department:</strong> ${slot.Department || 'General'}<br>
+                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
                                     </p>
-                                    <small class="text-muted d-block">
-                                        Created: ${this.escapeHtml(this.formatDateTime(slot.CreatedAt) || 'Not recorded')}
+                                    <small class="text-muted">
+                                        Created: ${this.formatDateTime(slot.CreatedAt)}
                                     </small>
-                                    ${this.buildShiftSlotDetailsTable(slot)}
                                 </div>
                                 <div class="btn-group-vertical btn-group-sm">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot(${slotIdAttribute})" title="Edit">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot('${slot.ID}')" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot(${slotIdAttribute})" title="Delete">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteShiftSlot('${slot.ID}')" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    `;
-                }).join('');
+                    `).join('');
             }
 
             updateShiftSlotSelectors(slots) {
@@ -3566,69 +3342,6 @@
                 });
 
                 select.appendChild(fragment);
-            }
-
-            buildShiftSlotDetailsTable(slot = {}) {
-                if (!slot || typeof slot !== 'object') {
-                    return '';
-                }
-
-                const excludedKeys = new Set(['DaysOfWeekArray', '__source']);
-                const preferredOrder = [
-                    'ID', 'Name', 'SlotName', 'Description',
-                    'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location',
-                    'MaxCapacity', 'MinCoverage', 'Priority',
-                    'BreakDuration', 'LunchDuration', 'Break1Duration', 'Break2Duration',
-                    'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
-                    'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
-                    'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
-                    'RestPeriod', 'NotificationLead', 'HandoverTime', 'OvertimePolicy',
-                    'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
-                ];
-                const orderMap = new Map(preferredOrder.map((key, index) => [key, index]));
-
-                const hasCanonicalName = typeof slot.Name === 'string' && slot.Name.trim() !== '';
-                const entries = Object.entries(slot)
-                    .filter(([key, value]) => {
-                        if (excludedKeys.has(key)) {
-                            return false;
-                        }
-                        if (key === 'SlotName' && hasCanonicalName) {
-                            return false;
-                        }
-                        if (typeof value === 'function') {
-                            return false;
-                        }
-                        return true;
-                    })
-                    .sort(([keyA], [keyB]) => {
-                        const orderA = orderMap.has(keyA) ? orderMap.get(keyA) : preferredOrder.length;
-                        const orderB = orderMap.has(keyB) ? orderMap.get(keyB) : preferredOrder.length;
-                        if (orderA !== orderB) {
-                            return orderA - orderB;
-                        }
-                        return keyA.localeCompare(keyB);
-                    });
-
-                if (!entries.length) {
-                    return '';
-                }
-
-                const rows = entries.map(([key, value]) => {
-                    const label = this.escapeHtml(this.formatSlotDetailLabel(key));
-                    const formattedValue = this.formatSlotDetailValue(value, key);
-                    return `<tr><th scope="row">${label}</th><td>${formattedValue}</td></tr>`;
-                }).join('');
-
-                return `
-                    <div class="mt-3">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-borderless slot-detail-table mb-0">
-                                <tbody>${rows}</tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
             }
 
             normalizeShiftSlotListResponse(rawSlots) {
@@ -3697,45 +3410,10 @@
                         if (typeof source.count === 'number') {
                             base.count = source.count;
                         }
-
-                        const allowedKeys = [
-                            'sources',
-                            'generatedAt',
-                            'hasActiveSlots',
-                            'fallbackApplied',
-                            'error',
-                            'warning',
-                            'message'
-                        ];
-
-                        allowedKeys.forEach(key => {
-                            if (Object.prototype.hasOwnProperty.call(source, key)) {
-                                base[key] = source[key];
-                            }
-                        });
+                        base.source = source;
                     }
 
                     return base;
-                };
-
-                const mergeMetadata = (slots, rawMetadata, fallbackSource) => {
-                    const base = buildMetadata(slots, fallbackSource);
-                    if (!rawMetadata || typeof rawMetadata !== 'object') {
-                        return base;
-                    }
-
-                    const merged = { ...base };
-                    Object.entries(rawMetadata).forEach(([key, value]) => {
-                        if (value === undefined) {
-                            return;
-                        }
-                        if (key === 'totalCount' && typeof value === 'number') {
-                            merged.totalCount = value;
-                            return;
-                        }
-                        merged[key] = value;
-                    });
-                    return merged;
                 };
 
                 const handleFailure = (message) => {
@@ -3795,7 +3473,7 @@
                         if (normalized.length) {
                             return {
                                 slots: normalized,
-                                metadata: mergeMetadata(normalized, rawSlots.metadata, rawSlots)
+                                metadata: buildMetadata(normalized, rawSlots)
                             };
                         }
                     }
@@ -3805,7 +3483,7 @@
                         if (normalizedData.length) {
                             return {
                                 slots: normalizedData,
-                                metadata: mergeMetadata(normalizedData, rawSlots.metadata, rawSlots)
+                                metadata: buildMetadata(normalizedData, rawSlots)
                             };
                         }
                     }
@@ -3814,154 +3492,12 @@
                     if (singleSlot.length) {
                         return {
                             slots: singleSlot,
-                            metadata: mergeMetadata(singleSlot, rawSlots.metadata, rawSlots)
+                            metadata: buildMetadata(singleSlot, rawSlots)
                         };
                     }
                 }
 
                 return emptyResult;
-            }
-
-            formatSlotDetailLabel(key) {
-                if (!key) {
-                    return '';
-                }
-
-                const spaced = key
-                    .replace(/_/g, ' ')
-                    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
-                if (!spaced) {
-                    return '';
-                }
-
-                return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-            }
-
-            formatSlotDetailArray(values, key) {
-                if (!Array.isArray(values) || values.length === 0) {
-                    return '<span class="text-muted">—</span>';
-                }
-
-                const lowerKey = (key || '').toString().toLowerCase();
-                const rendered = values.map(entry => {
-                    if (entry === null || typeof entry === 'undefined') {
-                        return '—';
-                    }
-
-                    if (entry instanceof Date) {
-                        return this.formatDateTime(entry);
-                    }
-
-                    if (Array.isArray(entry)) {
-                        return `[${entry.map(item => String(item)).join(', ')}]`;
-                    }
-
-                    if (typeof entry === 'object') {
-                        try {
-                            return JSON.stringify(entry);
-                        } catch (error) {
-                            return String(entry);
-                        }
-                    }
-
-                    if (typeof entry === 'boolean') {
-                        return entry ? 'Yes' : 'No';
-                    }
-
-                    if (typeof entry === 'number') {
-                        return entry.toLocaleString();
-                    }
-
-                    const text = String(entry).trim();
-                    if (!text) {
-                        return '—';
-                    }
-
-                    if (lowerKey.includes('days')) {
-                        const parsed = text.split(',')
-                            .map(part => parseInt(part, 10))
-                            .filter(day => !Number.isNaN(day));
-                        if (parsed.length) {
-                            return this.formatDaysOfWeek(parsed);
-                        }
-                    }
-
-                    return text;
-                }).filter(Boolean);
-
-                if (!rendered.length) {
-                    return '<span class="text-muted">—</span>';
-                }
-
-                return rendered.map(item => this.escapeHtml(item)).join(', ');
-            }
-
-            renderBooleanBadge(value) {
-                const label = value ? 'Yes' : 'No';
-                const classes = value
-                    ? 'badge bg-success-subtle text-success-emphasis border border-success-subtle'
-                    : 'badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle';
-                return `<span class="${classes}">${label}</span>`;
-            }
-
-            formatSlotDetailValue(value, key) {
-                if (value === null || typeof value === 'undefined' || value === '') {
-                    return '<span class="text-muted">—</span>';
-                }
-
-                if (Array.isArray(value)) {
-                    return this.formatSlotDetailArray(value, key);
-                }
-
-                if (value instanceof Date) {
-                    return this.escapeHtml(this.formatDateTime(value));
-                }
-
-                if (typeof value === 'object') {
-                    try {
-                        return `<code>${this.escapeHtml(JSON.stringify(value))}</code>`;
-                    } catch (error) {
-                        return `<code>${this.escapeHtml(String(value))}</code>`;
-                    }
-                }
-
-                if (typeof value === 'boolean') {
-                    return this.renderBooleanBadge(value);
-                }
-
-                if (typeof value === 'number') {
-                    return this.escapeHtml(value.toLocaleString());
-                }
-
-                const text = String(value).trim();
-                if (!text) {
-                    return '<span class="text-muted">—</span>';
-                }
-
-                const lowerKey = (key || '').toString().toLowerCase();
-
-                if (lowerKey.includes('time')) {
-                    const formattedTime = this.formatTimeValue(value);
-                    return this.escapeHtml(formattedTime || text);
-                }
-
-                if (lowerKey.includes('date') || lowerKey.includes('created') || lowerKey.includes('updated')) {
-                    const formattedDate = this.formatDateTime(value);
-                    return this.escapeHtml(formattedDate || text);
-                }
-
-                if (lowerKey.includes('days')) {
-                    const parsed = text.split(',')
-                        .map(part => parseInt(part, 10))
-                        .filter(day => !Number.isNaN(day));
-                    const formattedDays = parsed.length ? this.formatDaysOfWeek(parsed) : '';
-                    return this.escapeHtml(formattedDays || text);
-                }
-
-                return this.escapeHtml(text);
             }
 
             resolveShiftSlotId(slot = {}) {
@@ -4975,8 +4511,7 @@
                 let lastError = null;
 
                 const performCheck = async () => {
-                    const response = await this.callServerFunction('clientGetAllShiftSlots');
-                    const { slots } = this.normalizeShiftSlotListResponse(response);
+                    const slots = await this.callServerFunction('clientGetAllShiftSlots');
                     if (!Array.isArray(slots)) {
                         return false;
                     }
@@ -6520,10 +6055,11 @@
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
 
-                    const employmentOptions = { includeInactive: true, includeAllEmployment: true };
                     const [attendanceUsersRaw, scheduleUsersRaw] = await Promise.all([
-                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId, employmentOptions),
-                        this.callServerFunction('clientGetScheduleUsers', managerId, campaignId, employmentOptions)
+                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId),
+                        Array.isArray(this.availableUsers) && this.availableUsers.length
+                            ? Promise.resolve(this.availableUsers)
+                            : this.callServerFunction('clientGetScheduleUsers', managerId, campaignId)
                     ]);
 
                     const scheduleUsers = Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : [];
@@ -6796,7 +6332,7 @@
                         : (metadata && metadata.userName ? metadata.userName : name);
                     const employment = metadata && metadata.employment
                         ? metadata.employment
-                        : { startDate: null, endDate: null, startIso: '', endIso: '', status: '', statusRaw: '', isStatusActive: true };
+                        : { startDate: null, endDate: null, startIso: '', endIso: '' };
 
                     return {
                         identifier,
@@ -6806,19 +6342,14 @@
                         employmentStart: employment && employment.startDate ? new Date(employment.startDate.getTime()) : null,
                         employmentEnd: employment && employment.endDate ? new Date(employment.endDate.getTime()) : null,
                         employmentStartIso: employment && employment.startIso ? employment.startIso : '',
-                        employmentEndIso: employment && employment.endIso ? employment.endIso : '',
-                        employmentStatus: employment && employment.status ? employment.status : '',
-                        employmentStatusRaw: employment && employment.statusRaw ? employment.statusRaw : '',
-                        employmentStatusIsActive: employment && typeof employment.isStatusActive === 'boolean'
-                            ? employment.isStatusActive
-                            : true
+                        employmentEndIso: employment && employment.endIso ? employment.endIso : ''
                     };
                 });
             }
 
             getEmploymentPeriod(user) {
                 if (!user) {
-                    return { startIso: '', endIso: '', startDate: null, endDate: null, status: '', statusRaw: '', isStatusActive: true };
+                    return { startIso: '', endIso: '', startDate: null, endDate: null };
                 }
 
                 const startFieldNames = Array.isArray(this.employmentStartFieldNames)
@@ -6841,38 +6372,11 @@
                     endDate.setHours(23, 59, 59, 999);
                 }
 
-                const statusCandidates = [
-                    user.employmentStatusCanonical,
-                    user.EmploymentStatusCanonical,
-                    user.employmentStatusNormalized,
-                    user.EmploymentStatusNormalized,
-                    user.employmentStatus,
-                    user.EmploymentStatus,
-                    user.Status,
-                    user.status
-                ];
-                let statusRaw = '';
-                for (let i = 0; i < statusCandidates.length; i++) {
-                    const candidate = statusCandidates[i];
-                    if (candidate) {
-                        statusRaw = candidate;
-                        break;
-                    }
-                }
-
-                const normalizedStatus = this.normalizeEmploymentStatusLabel(statusRaw);
-                const isStatusActive = typeof user.employmentStatusIsActive === 'boolean'
-                    ? user.employmentStatusIsActive
-                    : this.isEmploymentStatusActive(normalizedStatus || statusRaw);
-
                 return {
                     startIso: startIso || '',
                     endIso: endIso || '',
                     startDate: startDate instanceof Date && !Number.isNaN(startDate.getTime()) ? startDate : null,
-                    endDate: endDate instanceof Date && !Number.isNaN(endDate.getTime()) ? endDate : null,
-                    status: normalizedStatus || this.normalizeEmploymentStatusLabel(statusRaw),
-                    statusRaw: statusRaw || '',
-                    isStatusActive
+                    endDate: endDate instanceof Date && !Number.isNaN(endDate.getTime()) ? endDate : null
                 };
             }
 
@@ -6902,10 +6406,6 @@
 
                 const terminationDate = employment.endDate instanceof Date ? employment.endDate : this.parseIsoDateToLocal(employment.endIso);
                 if (terminationDate && terminationDate.getTime() < monthStartTime) {
-                    return false;
-                }
-
-                if (employment.isStatusActive === false && !terminationDate) {
                     return false;
                 }
 
@@ -7027,66 +6527,6 @@
                 return null;
             }
 
-            renderParticipantEmploymentMeta(entry) {
-                if (!entry) {
-                    return '';
-                }
-
-                const fragments = [];
-                const statusLabel = this.normalizeEmploymentStatusLabel(entry.employmentStatus || entry.employmentStatusRaw || '');
-                if (statusLabel) {
-                    fragments.push(`<span class="attendance-calendar__participant-status"><i class="fas fa-briefcase"></i>${this.escapeHtml(statusLabel)}</span>`);
-                }
-
-                const startLabel = entry.employmentStartIso ? this.formatDate(entry.employmentStartIso) : '';
-                const endLabel = entry.employmentEndIso ? this.formatDate(entry.employmentEndIso) : '';
-                let rangeLabel = '';
-                if (startLabel && endLabel) {
-                    rangeLabel = `${startLabel} – ${endLabel}`;
-                } else if (startLabel) {
-                    rangeLabel = `Since ${startLabel}`;
-                } else if (endLabel) {
-                    rangeLabel = `Ended ${endLabel}`;
-                }
-
-                if (rangeLabel) {
-                    fragments.push(`<span class="attendance-calendar__participant-dates"><i class="fas fa-calendar-alt"></i>${this.escapeHtml(rangeLabel)}</span>`);
-                }
-
-                if (!fragments.length) {
-                    return '';
-                }
-
-                return `<div class="attendance-calendar__participant-meta">${fragments.join('')}</div>`;
-            }
-
-            buildEmploymentInactiveLabel(entry, dateStr) {
-                const safeDate = dateStr || '';
-                const statusLabel = this.normalizeEmploymentStatusLabel(entry?.employmentStatus || entry?.employmentStatusRaw || '');
-                const startLabel = entry?.employmentStartIso ? this.formatDate(entry.employmentStartIso) : '';
-                const endLabel = entry?.employmentEndIso ? this.formatDate(entry.employmentEndIso) : '';
-
-                const detailParts = [];
-                if (statusLabel) {
-                    detailParts.push(`Status: ${statusLabel}`);
-                }
-
-                if (startLabel && endLabel) {
-                    detailParts.push(`${startLabel} – ${endLabel}`);
-                } else if (startLabel) {
-                    detailParts.push(`Start ${startLabel}`);
-                } else if (endLabel) {
-                    detailParts.push(`End ${endLabel}`);
-                }
-
-                const base = safeDate ? `Not employed on ${safeDate}` : 'Not employed';
-                if (!detailParts.length) {
-                    return base;
-                }
-
-                return `${base} (${detailParts.join(' • ')})`;
-            }
-
             generateAttendanceCalendarGrid(userEntries, year, month, daysInMonth, attendanceMap = new Map()) {
                 const monthDate = new Date(year, month - 1, 1);
                 const monthName = monthDate.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
@@ -7133,17 +6573,11 @@
                     const safeDisplay = this.escapeHtml(entry.displayName || entry.identifier || '');
                     const clickIdentifier = this.escapeForInlineEvent(entry.identifier || entry.original || '');
                     const clickDisplay = this.escapeForInlineEvent(entry.displayName || entry.identifier || '');
-                    const employmentMeta = this.renderParticipantEmploymentMeta(entry);
-                    const normalizedStatus = this.normalizeEmploymentStatusLabel(entry.employmentStatus || entry.employmentStatusRaw || '');
-                    const safeStatusAttr = normalizedStatus ? this.escapeHtml(normalizedStatus) : '';
-                    const employmentRowAttr = safeStatusAttr ? ` data-employment-status="${safeStatusAttr}"` : '';
-                    const employmentActiveAttr = entry.employmentStatusIsActive === false ? ' data-employment-active="false"' : '';
 
                     html += `
-                                        <tr${employmentRowAttr}${employmentActiveAttr}>
+                                        <tr>
                                             <th scope="row" class="attendance-calendar__participant-cell">
                                                 <span class="attendance-calendar__participant-name" title="${safeDisplay}">${safeDisplay}</span>
-                                                ${employmentMeta}
                                             </th>
                     `;
 
@@ -7173,7 +6607,7 @@
                         const badge = record ? this.getAttendanceStatusBadge(record.status) : null;
                         const badgeLabel = badge
                             ? this.escapeHtml(badge.label)
-                            : this.escapeHtml(isEmployedOnDay ? 'Unmarked' : this.buildEmploymentInactiveLabel(entry, dateStr));
+                            : this.escapeHtml(isEmployedOnDay ? 'Unmarked' : 'Not employed');
                         const statusClass = badge
                             ? `attendance-calendar__status ${badge.className}`
                             : `attendance-calendar__status ${isEmployedOnDay ? 'attendance-calendar__status--empty' : 'attendance-calendar__status--inactive'}`;
@@ -7187,11 +6621,8 @@
                         const displayLabel = (entry.displayName || entry.identifier || '').toString();
                         const cellTitle = this.escapeHtml(isEmployedOnDay
                             ? `Right-click or tap to mark attendance for ${displayLabel} on ${dateStr}`
-                            : `${displayLabel} • ${this.buildEmploymentInactiveLabel(entry, dateStr)}`);
-                        const inactiveReasonAttr = !isEmployedOnDay ? this.escapeHtml(this.buildEmploymentInactiveLabel(entry, dateStr)) : '';
-                        const employmentAttr = isEmployedOnDay
-                            ? ''
-                            : ` data-attendance-employment="inactive"${inactiveReasonAttr ? ` data-attendance-employment-reason="${inactiveReasonAttr}"` : ''}`;
+                            : `${displayLabel} was not employed on ${dateStr}`);
+                        const employmentAttr = isEmployedOnDay ? '' : ' data-attendance-employment="inactive"';
                         const interactionAttributes = isEmployedOnDay
                             ? ` onclick="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')" oncontextmenu="scheduleManager.showAttendanceContextMenu(event, '${clickIdentifier}', '${dateStr}', '${clickDisplay}')"`
                             : '';
@@ -7696,45 +7127,6 @@
                 }
 
                 return '';
-            }
-
-            normalizeEmploymentStatusLabel(status) {
-                const raw = (status === null || typeof status === 'undefined') ? '' : status.toString().trim();
-                if (!raw) {
-                    return '';
-                }
-
-                const lower = raw.toLowerCase();
-                if (this.employmentStatusAliasMap && this.employmentStatusAliasMap.has(lower)) {
-                    return this.employmentStatusAliasMap.get(lower);
-                }
-
-                if (this.employmentStatusAliasMap) {
-                    for (const value of this.employmentStatusAliasMap.values()) {
-                        if (typeof value === 'string' && value.toLowerCase() === lower) {
-                            return value;
-                        }
-                    }
-                }
-
-                return raw;
-            }
-
-            isEmploymentStatusActive(status) {
-                const normalized = (this.normalizeEmploymentStatusLabel(status) || '').toLowerCase();
-                if (!normalized) {
-                    return true;
-                }
-
-                if (this.employmentStatusInactiveSet && this.employmentStatusInactiveSet.has(normalized)) {
-                    return false;
-                }
-
-                if (this.employmentStatusActiveSet && this.employmentStatusActiveSet.has(normalized)) {
-                    return true;
-                }
-
-                return true;
             }
 
             normalizeAttendanceStatusKey(value) {

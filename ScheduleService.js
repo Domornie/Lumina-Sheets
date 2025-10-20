@@ -19,244 +19,6 @@ const SCHEDULE_SETTINGS = (typeof getScheduleConfig === 'function')
       CACHE_DURATION: 300
     };
 
-const SCHEDULE_EMPLOYMENT_START_FIELDS = [
-  'HireDate', 'hireDate', 'Hire_Date', 'hire_date', 'Hire Date', 'hire date',
-  'DateHired', 'dateHired', 'Date Hired', 'date hired',
-  'OnboardDate', 'onboardDate', 'Onboard Date', 'onboard date',
-  'EmploymentStart', 'employmentStart', 'Employment Start', 'employment start',
-  'EmploymentStartDate', 'employmentStartDate', 'Employment Start Date', 'employment start date',
-  'StartDate', 'startDate', 'Start Date', 'start date', 'Start_Date', 'start_date',
-  'OriginalHireDate', 'originalHireDate', 'Original_Hire_Date', 'original_hire_date',
-  'Original Hire Date', 'original hire date',
-  'RehireDate', 'rehireDate', 'Rehire_Date', 'rehire_date', 'Rehire Date', 'rehire date',
-  'employmentStartIso', 'EmploymentStartIso'
-];
-
-const SCHEDULE_EMPLOYMENT_END_FIELDS = [
-  'TerminationDate', 'terminationDate', 'Termination_Date', 'termination_date',
-  'Termination Date', 'termination date',
-  'DateOfTermination', 'dateOfTermination', 'Date Of Termination', 'date of termination',
-  'EmploymentEnd', 'employmentEnd', 'Employment End', 'employment end',
-  'EmploymentEndDate', 'employmentEndDate', 'Employment End Date', 'employment end date',
-  'SeparationDate', 'separationDate', 'Separation Date', 'separation date',
-  'Separation_Date', 'separation_date',
-  'EndDate', 'endDate', 'End Date', 'end date', 'End_Date', 'end_date',
-  'LastWorkingDate', 'lastWorkingDate', 'Last Working Date', 'last working date',
-  'employmentEndIso', 'EmploymentEndIso'
-];
-
-const SCHEDULE_EMPLOYMENT_NESTED_KEYS = [
-  'Employment', 'employment',
-  'EmploymentDetails', 'employmentDetails',
-  'EmploymentInfo', 'employmentInfo',
-  'HRProfile', 'hrProfile', 'HrProfile'
-];
-
-const SCHEDULE_ACTIVE_EMPLOYMENT_STATUS_SET = new Set([
-  'active', 'activated', 'on leave', 'pending', 'probation', 'contract', 'contractor',
-  'full time', 'full-time', 'fulltime', 'part time', 'part-time', 'parttime',
-  'seasonal', 'temporary', 'temp', 'intern', 'consultant'
-]);
-
-const SCHEDULE_INACTIVE_EMPLOYMENT_STATUS_SET = new Set([
-  'inactive', 'terminated', 'suspended', 'retired', 'separated', 'disabled'
-]);
-
-function formatScheduleDateToIso(date) {
-  if (!(date instanceof Date) || isNaN(date)) {
-    return '';
-  }
-
-  if (typeof _toIsoDateOnly_ === 'function') {
-    try {
-      const iso = _toIsoDateOnly_(date);
-      if (iso) {
-        return iso;
-      }
-    } catch (err) {
-      console.warn('formatScheduleDateToIso: _toIsoDateOnly_ failed', err);
-    }
-  }
-
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())).toISOString().slice(0, 10);
-}
-
-function normalizeScheduleDateValue(value) {
-  if (value === null || value === undefined || value === '') {
-    return '';
-  }
-
-  if (value instanceof Date) {
-    return formatScheduleDateToIso(value);
-  }
-
-  if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) {
-      const candidate = normalizeScheduleDateValue(value[i]);
-      if (candidate) {
-        return candidate;
-      }
-    }
-    return '';
-  }
-
-  if (typeof value === 'object') {
-    const objectCandidates = [
-      value.iso, value.ISO,
-      value.date, value.Date,
-      value.value, value.Value,
-      value.start, value.Start,
-      value.startDate, value.StartDate,
-      value.end, value.End,
-      value.endDate, value.EndDate,
-      value.timestamp, value.Timestamp,
-      value.time, value.Time
-    ];
-
-    for (let i = 0; i < objectCandidates.length; i++) {
-      const candidate = normalizeScheduleDateValue(objectCandidates[i]);
-      if (candidate) {
-        return candidate;
-      }
-    }
-
-    if (Number.isFinite(value.year) && Number.isFinite(value.month) && Number.isFinite(value.day)) {
-      const composed = new Date(value.year, value.month - 1, value.day);
-      if (!isNaN(composed)) {
-        return formatScheduleDateToIso(composed);
-      }
-    }
-
-    return '';
-  }
-
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      return '';
-    }
-
-    const millisDate = new Date(value);
-    if (!isNaN(millisDate)) {
-      return formatScheduleDateToIso(millisDate);
-    }
-
-    const spreadsheetMillis = Math.round((Number(value) - 25569) * 86400 * 1000);
-    const spreadsheetDate = new Date(spreadsheetMillis);
-    if (!isNaN(spreadsheetDate)) {
-      return formatScheduleDateToIso(spreadsheetDate);
-    }
-
-    return '';
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return '';
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      return trimmed;
-    }
-
-    const isoWithTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
-    if (isoWithTimeMatch && isoWithTimeMatch[1]) {
-      return isoWithTimeMatch[1];
-    }
-
-    const numeric = Number(trimmed);
-    if (!Number.isNaN(numeric)) {
-      const numericDate = normalizeScheduleDateValue(numeric);
-      if (numericDate) {
-        return numericDate;
-      }
-    }
-
-    const parsed = new Date(trimmed);
-    if (!isNaN(parsed)) {
-      return formatScheduleDateToIso(parsed);
-    }
-  }
-
-  return '';
-}
-
-function resolveEmploymentIsoDateFromUser(user, fieldNames, visited) {
-  if (!user || typeof user !== 'object' || !Array.isArray(fieldNames) || !fieldNames.length) {
-    return '';
-  }
-
-  const seen = visited || new Set();
-  if (seen.has(user)) {
-    return '';
-  }
-  seen.add(user);
-
-  for (let i = 0; i < fieldNames.length; i++) {
-    const field = fieldNames[i];
-    if (!field) {
-      continue;
-    }
-    const rawValue = user[field];
-    const normalized = normalizeScheduleDateValue(rawValue);
-    if (normalized) {
-      return normalized;
-    }
-  }
-
-  for (let i = 0; i < SCHEDULE_EMPLOYMENT_NESTED_KEYS.length; i++) {
-    const nested = user[SCHEDULE_EMPLOYMENT_NESTED_KEYS[i]];
-    if (!nested || typeof nested !== 'object') {
-      continue;
-    }
-
-    const normalized = resolveEmploymentIsoDateFromUser(nested, fieldNames, seen);
-    if (normalized) {
-      return normalized;
-    }
-  }
-
-  return '';
-}
-
-function normalizeEmploymentStatusForSchedules(status) {
-  const raw = status === null || typeof status === 'undefined' ? '' : String(status).trim();
-  if (!raw) {
-    return '';
-  }
-
-  if (typeof normalizeEmploymentStatus === 'function') {
-    try {
-      const normalized = normalizeEmploymentStatus(raw);
-      if (normalized) {
-        return normalized;
-      }
-    } catch (err) {
-      console.warn('normalizeEmploymentStatusForSchedules: normalization failed', err);
-    }
-  }
-
-  return raw;
-}
-
-function isEmploymentStatusActiveForSchedules(status) {
-  const normalized = normalizeEmploymentStatusForSchedules(status);
-  if (!normalized) {
-    return true;
-  }
-
-  const lower = normalized.toLowerCase();
-  if (SCHEDULE_INACTIVE_EMPLOYMENT_STATUS_SET.has(lower)) {
-    return false;
-  }
-
-  if (SCHEDULE_ACTIVE_EMPLOYMENT_STATUS_SET.has(lower)) {
-    return true;
-  }
-
-  return true;
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -462,24 +224,10 @@ function clientGetScheduleContext(managerIdCandidate, campaignIdCandidate) {
  * Get users for schedule management with manager filtering
  * Uses MainUtilities user functions with campaign support
  */
-function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
+function clientGetScheduleUsers(requestingUserId, campaignId = null) {
   try {
     const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
     console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
-
-    const resolvedOptions = (function resolveScheduleUserOptions(value) {
-      if (value === true) {
-        return { includeInactive: true };
-      }
-      if (value && typeof value === 'object') {
-        return value;
-      }
-      return {};
-    })(options);
-
-    const includeInactive = resolvedOptions.includeInactive === true
-      || resolvedOptions.includeAllEmployment === true
-      || resolvedOptions.includeTerminated === true;
 
     // Use MainUtilities to get all users
     const allUsers = readSheet(USERS_SHEET) || [];
@@ -541,15 +289,9 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
       .filter(user => user && user.ID && (user.UserName || user.FullName))
       .filter(user => !isScheduleNameRestricted(user))
       .filter(user => !isScheduleRoleRestricted(user))
-      .filter(user => includeInactive ? true : isUserConsideredActive(user))
+      .filter(user => isUserConsideredActive(user))
       .map(user => {
         const campaignName = getCampaignById(user.CampaignID)?.Name || '';
-        const employmentStatusRaw = user.EmploymentStatus || user.employmentStatus || user.Status || '';
-        const employmentStatusCanonical = normalizeEmploymentStatusForSchedules(employmentStatusRaw);
-        const employmentStatusActive = isEmploymentStatusActiveForSchedules(employmentStatusCanonical);
-        const hireIso = resolveEmploymentIsoDateFromUser(user, SCHEDULE_EMPLOYMENT_START_FIELDS);
-        const terminationIso = resolveEmploymentIsoDateFromUser(user, SCHEDULE_EMPLOYMENT_END_FIELDS);
-
         return {
           ID: user.ID,
           UserName: user.UserName || user.FullName,
@@ -557,16 +299,10 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
           Email: user.Email || '',
           CampaignID: user.CampaignID || '',
           campaignName: campaignName,
-          EmploymentStatus: employmentStatusRaw || '',
-          EmploymentStatusCanonical: employmentStatusCanonical,
-          employmentStatusCanonical: employmentStatusCanonical,
-          employmentStatusRaw: employmentStatusRaw || '',
-          employmentStatusIsActive: employmentStatusActive,
-          HireDate: hireIso || user.HireDate || '',
-          TerminationDate: terminationIso || user.TerminationDate || user.terminationDate || '',
-          employmentStartIso: hireIso || '',
-          employmentEndIso: terminationIso || '',
-          isActive: employmentStatusActive
+          EmploymentStatus: user.EmploymentStatus || 'Active',
+          HireDate: user.HireDate || '',
+          TerminationDate: user.TerminationDate || user.terminationDate || '',
+          isActive: isUserConsideredActive(user)
         };
       });
 
@@ -583,12 +319,12 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null, options) {
 /**
  * Get users for attendance (all active users)
  */
-function clientGetAttendanceUsers(requestingUserId, campaignId = null, options) {
+function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
   try {
     console.log('📋 Getting attendance users');
-
+    
     // Use the existing function but return just names for compatibility
-    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId, options);
+    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
     const userNames = scheduleUsers
       .map(user => user.UserName || user.FullName)
       .filter(name => name && name.trim())
@@ -908,15 +644,23 @@ function isUserConsideredActive(user) {
     return false;
   }
 
-  if (typeof user.employmentStatusIsActive === 'boolean') {
-    return user.employmentStatusIsActive;
+  const status = typeof user.EmploymentStatus === 'string'
+    ? user.EmploymentStatus.trim().toLowerCase()
+    : '';
+
+  if (!status) {
+    return true;
   }
 
-  const status = normalizeEmploymentStatusForSchedules(
-    user.EmploymentStatus || user.employmentStatus || user.Status || user.status
-  );
+  if (['active', 'activated'].includes(status)) {
+    return true;
+  }
 
-  return isEmploymentStatusActiveForSchedules(status);
+  if (['terminated', 'inactive', 'disabled', 'separated'].includes(status)) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -929,7 +673,6 @@ function clientGetAllShiftSlots() {
     const aggregatedSlots = [];
     const seenIds = new Set();
     const seenComposite = new Set();
-    const sourceSheets = new Set();
 
     const resolveSlotId = slot => {
       const candidates = [
@@ -984,11 +727,7 @@ function clientGetAllShiftSlots() {
         }
       }
 
-      if (source) {
-        sourceSheets.add(source);
-      }
-
-      normalizedSlot.__source = source || 'unknown';
+      normalizedSlot.__source = source;
       aggregatedSlots.push(normalizedSlot);
     };
 
@@ -1152,19 +891,8 @@ function clientGetAllShiftSlots() {
       return normalizedSlot;
     });
 
-    const metadata = {
-      totalCount: normalizedSlots.length,
-      sources: Array.from(sourceSheets),
-      generatedAt: new Date().toISOString(),
-      hasActiveSlots: normalizedSlots.some(slot => slot && slot.IsActive !== false)
-    };
-
     console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
-    return {
-      success: true,
-      slots: normalizedSlots,
-      metadata
-    };
+    return normalizedSlots;
 
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
@@ -1172,34 +900,9 @@ function clientGetAllShiftSlots() {
 
     try {
       createDefaultShiftSlots();
-      const fallbackSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-      const normalizedFallback = Array.isArray(fallbackSlots)
-        ? fallbackSlots.map(slot => (slot && typeof slot === 'object' ? { ...slot } : slot))
-        : [];
-
-      return {
-        success: true,
-        slots: normalizedFallback,
-        metadata: {
-          totalCount: normalizedFallback.length,
-          sources: [SHIFT_SLOTS_SHEET],
-          generatedAt: new Date().toISOString(),
-          fallbackApplied: true,
-          error: error && error.message ? error.message : String(error)
-        }
-      };
+      return readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
     } catch (fallbackError) {
-      return {
-        success: false,
-        slots: [],
-        metadata: {
-          totalCount: 0,
-          sources: [],
-          generatedAt: new Date().toISOString(),
-          error: error && error.message ? error.message : String(error),
-          fallbackError: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
-        }
-      };
+      return [];
     }
   }
 }
@@ -1249,30 +952,21 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     // Get shift slots - either selected ones or all available
     let shiftSlots = [];
-    let shiftSlotMetadata = { totalCount: 0 };
     if (shiftSlotIds && shiftSlotIds.length > 0) {
       // Get only the selected shift slots
       console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
-      const slotResponse = clientGetAllShiftSlots();
-      const allSlots = Array.isArray(slotResponse?.slots)
-        ? slotResponse.slots
-        : (Array.isArray(slotResponse) ? slotResponse : []);
-      shiftSlotMetadata = slotResponse && slotResponse.metadata ? slotResponse.metadata : { totalCount: allSlots.length };
+      const allSlots = clientGetAllShiftSlots();
       shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
-
+      
       if (shiftSlots.length === 0) {
         throw new Error('None of the selected shift slots were found. Please refresh and try again.');
       }
-
+      
       console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
     } else {
       // Use all available shift slots
-      const slotResponse = clientGetAllShiftSlots();
-      shiftSlots = Array.isArray(slotResponse?.slots)
-        ? slotResponse.slots
-        : (Array.isArray(slotResponse) ? slotResponse : []);
-      shiftSlotMetadata = slotResponse && slotResponse.metadata ? slotResponse.metadata : { totalCount: shiftSlots.length };
-      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`, shiftSlotMetadata);
+      shiftSlots = clientGetAllShiftSlots();
+      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
     }
 
     if (!shiftSlots || shiftSlots.length === 0) {
@@ -3101,15 +2795,11 @@ function clientRunSystemDiagnostics() {
 
     // Test shift slots using ScheduleUtilities
     try {
-      const slotResponse = clientGetAllShiftSlots();
-      const slots = Array.isArray(slotResponse?.slots)
-        ? slotResponse.slots
-        : (Array.isArray(slotResponse) ? slotResponse : []);
+      const slots = clientGetAllShiftSlots();
       diagnostics.shiftSlots = {
         count: slots.length,
         working: slots.length > 0,
-        scheduleUtilitiesIntegration: true,
-        metadata: slotResponse && slotResponse.metadata ? slotResponse.metadata : null
+        scheduleUtilitiesIntegration: true
       };
 
       if (slots.length === 0) {
