@@ -610,9 +610,9 @@ getThemeStyles(theme = 'professional') {
   }
 
   generateQuestionSections(qaRecord, scoreResult) {
-    const categories = qaCategories_();
-    const questionText = qaQuestionText_();
-    const weights = qaWeights_();
+    const categories = this.getQaCategories();
+    const questionText = this.getQaQuestionText();
+    const weights = this.getQaWeights();
 
     let html = '<div class="questions-section">';
 
@@ -662,6 +662,81 @@ getThemeStyles(theme = 'professional') {
 
     html += '</div>';
     return html;
+  }
+
+  getQaCategories() {
+    try {
+      if (typeof qaCategories_ === 'function') {
+        const categories = qaCategories_();
+        if (categories && Array.isArray(categories['Courtesy & Communication']) && categories['Courtesy & Communication'].includes('q19')) {
+          return categories;
+        }
+      }
+    } catch (error) {
+      console.warn('Falling back to default QA categories in QAPdfService:', error);
+    }
+
+    return {
+      'Courtesy & Communication': ['q1', 'q2', 'q3', 'q4', 'q5', 'q19'],
+      'Resolution': ['q6', 'q7', 'q8', 'q9'],
+      'Case Documentation': ['q10', 'q11', 'q12', 'q13', 'q14'],
+      'Process Compliance': ['q15', 'q16', 'q17', 'q18']
+    };
+  }
+
+  getQaQuestionText() {
+    try {
+      if (typeof qaQuestionText_ === 'function') {
+        const questionMap = qaQuestionText_();
+        if (questionMap && questionMap.q19) {
+          return questionMap;
+        }
+      }
+    } catch (error) {
+      console.warn('Falling back to default QA question text in QAPdfService:', error);
+    }
+
+    return {
+      q1: 'Did the agent say thank you for calling and brand the call with the client name?',
+      q2: 'Did the agent offer further assistance before closing the call?',
+      q3: 'Did the agent sound polite and courteous on the call?',
+      q4: 'Did the agent empathize with callers issue?',
+      q5: 'Did the agent modulate pitch and volume according to caller?',
+      q6: 'Did the agent follow the call transfer protocol?',
+      q7: 'Did the agent follow the correct HOLD procedure?',
+      q8: 'Did the agent authenticate caller and confirm the issue?',
+      q9: 'Did the agent do effective probing on the call?',
+      q10: 'Did the agent provide accurate and complete resolution using tools?',
+      q11: 'Did the agent provide clear understanding of the issue to the caller?',
+      q12: 'Did the agent process the request as promised to the caller?',
+      q13: 'Did the agent document the case/Wrapup up with Wrap-Up notes correctly?',
+      q14: 'Did the agent escalate the case to the right department with all relevant details?',
+      q15: 'Did the agent offer the survey at the end of the call?',
+      q16: 'Did the agent create the call case correctly/Wrap-Up the call?',
+      q17: 'Did the agent modify case fields to avoid survey going to the customer?',
+      q18: 'Did the customer respond positively to the survey?',
+      q19: 'Was the call free of unnecessary dead air?'
+    };
+  }
+
+  getQaWeights() {
+    try {
+      if (typeof qaWeights_ === 'function') {
+        const weights = qaWeights_();
+        if (weights && typeof weights.q19 !== 'undefined') {
+          return weights;
+        }
+      }
+    } catch (error) {
+      console.warn('Falling back to default QA weights in QAPdfService:', error);
+    }
+
+    return {
+      q1: 3, q2: 5, q3: 7, q4: 10, q5: 5, q19: 5,
+      q6: 8, q7: 8, q8: 15, q9: 9,
+      q10: 8, q11: 6, q12: 6, q13: 7, q14: 3,
+      q15: 10, q16: 5, q17: 4, q18: 5
+    };
   }
 
   generateAnswerChip(answer) {
@@ -1204,6 +1279,10 @@ generateDetailedTemplate(qaRecord, scoreResult, config) {
  * Generate detailed analysis section
  */
 generateDetailedAnalysis(scoreResult) {
+  const successRate = scoreResult && scoreResult.applicable
+    ? Math.round((scoreResult.earned / scoreResult.applicable) * 100)
+    : 0;
+
   return `
     <div class="detailed-analysis">
         <h3>Performance Analysis</h3>
@@ -1211,7 +1290,7 @@ generateDetailedAnalysis(scoreResult) {
             <div class="analysis-section">
                 <h4>Score Breakdown</h4>
                 <p>Points Earned: ${scoreResult.earned} out of ${scoreResult.applicable}</p>
-                <p>Success Rate: ${Math.round((scoreResult.earned / scoreResult.applicable) * 100)}%</p>
+                <p>Success Rate: ${successRate}%</p>
             </div>
             ${scoreResult.penalties && scoreResult.penalties.length > 0 ? `
             <div class="analysis-section penalties">
@@ -1271,7 +1350,7 @@ function generateQaPdfById(qaRecordId, options = {}) {
 
     // Extract answers and compute score using enhanced function
     const answers = {};
-    const weights = qaWeights_();
+    const weights = qaPdfService.getQaWeights();
     Object.keys(weights).forEach(k => {
       const qNum = k.replace(/^q/i, '');
       answers[k] = qaRecord[`Q${qNum}`];

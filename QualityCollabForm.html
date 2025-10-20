@@ -235,7 +235,7 @@
             <tbody>
               <tr data-category="courtesy">
                 <td>Courtesy &amp; Communication</td>
-                <td class="weightage">30</td>
+                <td class="weightage">35</td>
                 <td class="applicable">0</td>
                 <td class="earned">0</td>
                 <td class="percent">0%</td>
@@ -263,7 +263,7 @@
               </tr>
               <tr data-category="overall" style="font-weight:600; background:#e3e6f0;">
                 <td>Overall</td>
-                <td class="weightage">120</td>
+                <td class="weightage">125</td>
                 <td class="applicable">N/A</td>
                 <td class="earned">0</td>
                 <td class="percent">N/A</td>
@@ -349,6 +349,16 @@
                 <label><input type="radio" name="q5" value="na"  <?= !recObj.Q5|| (recObj.Q5||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
               </td>
               <td><input name="c5" value="<?= recObj.c5||'' ?>" placeholder="Comments"></td>
+            </tr>
+            <tr data-category="courtesy" data-weight="5">
+              <td></td><td>5</td>
+              <td>Was the call free of unnecessary dead air?</td>
+              <td class="radio-cell">
+                <label><input type="radio" name="q19" value="yes" <?= (recObj.Q19||'').toLowerCase()==='yes'?'checked':'' ?>>Yes</label>
+                <label><input type="radio" name="q19" value="no"  <?= (recObj.Q19||'').toLowerCase()==='no'?'checked':'' ?>>No</label>
+                <label><input type="radio" name="q19" value="na"  <?= !recObj.Q19|| (recObj.Q19||'').toLowerCase()==='na'?'checked':'' ?>>N/A</label>
+              </td>
+              <td><input name="c19" value="<?= recObj.c19||'' ?>" placeholder="Comments"></td>
             </tr>
 
             <!-- Resolution -->
@@ -534,6 +544,7 @@
       q3:  { w: 7,  c: 'courtesy' },
       q4:  { w:10,  c: 'courtesy' },
       q5:  { w: 5,  c: 'courtesy' },
+      q19: { w: 5,  c: 'courtesy' },
 
       q6:  { w: 8,  c: 'resolution' },
       q7:  { w: 8,  c: 'resolution' },
