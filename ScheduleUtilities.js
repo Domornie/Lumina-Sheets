@@ -311,7 +311,7 @@ const HOLIDAYS_HEADERS = [
 // ────────────────────────────────────────────────────────────────────────────
 
 // Schedule configuration defaults and helpers
-const SCHEDULE_CONFIG = Object.freeze({
+var SCHEDULE_CONFIG = typeof SCHEDULE_CONFIG !== 'undefined' ? SCHEDULE_CONFIG : Object.freeze({
   PRIMARY_COUNTRY: 'JM',
   SUPPORTED_COUNTRIES: ['JM', 'US', 'DO', 'PH'],
   DEFAULT_SHIFT_CAPACITY: 10,
