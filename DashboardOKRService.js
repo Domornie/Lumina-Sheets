@@ -2507,7 +2507,13 @@ function extractAgentList(data) {
     const sources = ['callReports', 'attendanceRecords', 'qaRecords'];
     
     sources.forEach(source => {
-      const records = data[source] || [];
+      const sourceData = data[source];
+      const records = Array.isArray(sourceData)
+        ? sourceData
+        : (sourceData && Array.isArray(sourceData.records))
+          ? sourceData.records
+          : [];
+
       records.forEach(record => {
         const agentFields = ['ToSFUser', 'Agent', 'AgentName', 'user', 'UserName'];
         agentFields.forEach(field => {
