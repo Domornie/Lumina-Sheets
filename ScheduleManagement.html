@@ -3860,6 +3860,13 @@
                                 await this.loadShiftSlots();
                                 return;
                             }
+
+                            const fallbackMessage = 'The server did not confirm the shift slot creation. We refreshed the schedule so you can verify the new slot manually.';
+                            console.warn('Shift slot creation could not be confirmed due to missing server response.');
+                            this.showToast(fallbackMessage, 'warning');
+                            this.resetShiftSlotForm();
+                            await this.loadShiftSlots();
+                            return;
                         }
 
                         throw new Error(normalized.error || 'Failed to create shift slot');
@@ -4031,18 +4038,35 @@
                                 return null;
                             }
 
-                            const directMatch = stringValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-                            if (directMatch) {
-                                return [parseInt(directMatch[1], 10), parseInt(directMatch[2], 10)];
-                            }
-
-                            const meridiemMatch = stringValue.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+                            const meridiemMatch = stringValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(AM|PM)$/i);
                             if (meridiemMatch) {
                                 let hours = parseInt(meridiemMatch[1], 10) % 12;
-                                if (meridiemMatch[3].toUpperCase() === 'PM') {
+                                if (meridiemMatch[4].toUpperCase() === 'PM') {
                                     hours += 12;
                                 }
-                                return [hours, parseInt(meridiemMatch[2], 10)];
+                                const minutes = meridiemMatch[2] !== undefined ? parseInt(meridiemMatch[2], 10) : 0;
+                                return [hours, Number.isFinite(minutes) ? minutes : 0];
+                            }
+
+                            const directMatch = stringValue.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?$/);
+                            if (directMatch) {
+                                const hours = parseInt(directMatch[1], 10);
+                                const minutes = directMatch[2] !== undefined ? parseInt(directMatch[2], 10) : 0;
+                                return [hours, Number.isFinite(minutes) ? minutes : 0];
+                            }
+
+                            const compactMatch = stringValue.match(/^(\d{1,2})(\d{2})$/);
+                            if (compactMatch) {
+                                return [parseInt(compactMatch[1], 10), parseInt(compactMatch[2], 10)];
+                            }
+
+                            const meridiemShortMatch = stringValue.match(/^(\d{1,2})\s*(AM|PM)$/i);
+                            if (meridiemShortMatch) {
+                                let hours = parseInt(meridiemShortMatch[1], 10) % 12;
+                                if (meridiemShortMatch[2].toUpperCase() === 'PM') {
+                                    hours += 12;
+                                }
+                                return [hours, 0];
                             }
 
                             const numericValue = Number(stringValue);
