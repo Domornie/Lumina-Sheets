@@ -3160,12 +3160,7 @@
                             return nameA.localeCompare(nameB);
                         });
 
-                    const preFilterCount = combinedUsers.length;
-                    let filteredUsers = combinedUsers;
-
-                    if (Number.isFinite(targetYear) && Number.isFinite(targetMonth)) {
-                        filteredUsers = combinedUsers.filter(user => this.isUserEmployedDuringMonth(user, targetYear, targetMonth));
-                    }
+                    const filteredUsers = combinedUsers;
 
                     this.availableUsers = filteredUsers;
 
@@ -3231,7 +3226,7 @@
                     }
 
                     const monthLabel = monthContext && monthContext.label ? monthContext.label : 'current period';
-                    console.log(`✅ Loaded ${this.availableUsers.length} users (filtered from ${preFilterCount}) for ${monthLabel} (including ${rosterUsers.length} managed roster entries)`);
+                    console.log(`✅ Loaded ${this.availableUsers.length} users for ${monthLabel} (including ${rosterUsers.length} managed roster entries)`);
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
@@ -6738,7 +6733,10 @@
                     return [];
                 }
 
-                return users.filter(user => this.isUserEmployedDuringMonth(user, year, month));
+                // Employment-date filtering has been disabled so that managers always
+                // see their assigned users regardless of start/end date metadata.
+                // Return a shallow copy to avoid mutating the source array.
+                return users.slice();
             }
 
             buildEmploymentKeyLookup(users = []) {
