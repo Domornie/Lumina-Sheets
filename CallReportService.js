@@ -6,6 +6,8 @@
  */
 
 const __PAGE_SIZE_FALLBACK = 50;
+const __QUALIFYING_TALK_MIN_MINUTES = 1;
+const __QUALIFYING_TALK_MAX_MINUTES = 20000;
 
 function __ensureDate(value) {
   if (value instanceof Date && !isNaN(value)) return value;
@@ -625,9 +627,9 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     repMap[agent].totalCalls += 1;
     repMap[agent].totalTalk  += talk;
 
-    if (talk >= 1) {
+    if (talk >= __QUALIFYING_TALK_MIN_MINUTES && talk <= __QUALIFYING_TALK_MAX_MINUTES) {
       const wholeMinutes = Math.floor(talk);
-      if (wholeMinutes > 0) {
+      if (wholeMinutes >= __QUALIFYING_TALK_MIN_MINUTES && wholeMinutes <= __QUALIFYING_TALK_MAX_MINUTES) {
         repMap[agent].qualifyingTalkCalls += 1;
         repMap[agent].totalTalkWholeMinutes += wholeMinutes;
         qualifyingTalkCallCount += 1;
