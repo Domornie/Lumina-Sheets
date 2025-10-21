@@ -1921,7 +1921,7 @@ function generateEnhancedDailyPivotMatrix(params) {
     return {
       success: true,
       csvData: csv,
-      filename: `daily_matrix_${granularity}_${periodValue}_company.csv`,
+      filename: `daily_matrix_${granularity}_${periodValue}_company.html`,
       type: 'daily_pivot_matrix',
       users: pivotMatrix.users.length,
       days: pivotMatrix.dateRange.length,
@@ -2064,7 +2064,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     const userHours = userDateHours.get(user);
     const userBreakMin = userDateBreakMinutes.get(user);
     const userLunchMin = userDateLunchMinutes.get(user);
-    
+
     let totalHours = 0;
     let weekdayHours = 0;
     let weekendHours = 0;
@@ -2072,7 +2072,11 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     let overtimeHours = 0;
     let perfectAttendanceDays = 0;
     let violationDays = 0;
-    
+    let totalBreakMinutes = 0;
+    let totalLunchMinutes = 0;
+    let breakViolationDays = 0;
+    let lunchViolationDays = 0;
+
     const dailyData = dateRange.map(dateInfo => {
       const rawHours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
@@ -2081,6 +2085,15 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       const performanceStatus = determineDailyPerformanceStatus(cappedHours, dateInfo.isWeekend);
       const effectiveHoursForOvertime = Math.min(rawHours, capHours);
       const capApplied = rawHours - cappedHours > 0.001;
+
+      totalBreakMinutes += breakMin;
+      totalLunchMinutes += lunchMin;
+      if (breakMin > 30) {
+        breakViolationDays++;
+      }
+      if (lunchMin > 60) {
+        lunchViolationDays++;
+      }
 
       if (dateInfo.isWeekend) {
         weekendHours += cappedHours;
@@ -2141,7 +2154,10 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     // Calculate efficiency and compliance metrics
     const expectedWeekdayHours = dateRange.filter(d => !d.isWeekend).length * 8;
     const efficiency = expectedWeekdayHours > 0 ? (weekdayHours / expectedWeekdayHours * 100) : 0;
-    
+    const workedDays = dailyData.filter(d => !d.isStatus && d.numericValue > 0).length;
+    const averageBreakMinutes = workedDays > 0 ? Math.round(totalBreakMinutes / workedDays) : 0;
+    const averageLunchMinutes = workedDays > 0 ? Math.round(totalLunchMinutes / workedDays) : 0;
+
     return {
       user: user,
       dailyData: dailyData,
@@ -2154,7 +2170,15 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         perfectDays: perfectAttendanceDays,
         violationDays: violationDays,
         efficiency: efficiency.toFixed(1),
-        daysWorked: dailyData.filter(d => !d.isStatus && d.numericValue > 0).length
+        daysWorked: workedDays,
+        breakSummary: {
+          totalBreakMinutes: Math.round(totalBreakMinutes),
+          totalLunchMinutes: Math.round(totalLunchMinutes),
+          averageBreakMinutes: averageBreakMinutes,
+          averageLunchMinutes: averageLunchMinutes,
+          breakViolationDays: breakViolationDays,
+          lunchViolationDays: lunchViolationDays
+        }
       }
     };
   });
@@ -2205,168 +2229,430 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
   const now = new Date();
   const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
   const options = params.dailyPivotOptions || {};
-  const performanceIcons = {
-    under: '🔴',
-    target: '🟢',
-    over: '🟣'
+  const includeWeekends = !!options.includeWeekends;
+  const highlightHours = options.highlightLowHours !== false;
+
+  const escapeHtml = value => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const formatMinutes = minutes => {
+    const total = Math.round(Number(minutes) || 0);
+    const hours = Math.floor(total / 60);
+    const mins = Math.max(0, total - (hours * 60));
+    const parts = [];
+    if (hours) parts.push(`${hours}h`);
+    parts.push(`${mins}m`);
+    return parts.join(' ');
   };
 
-  let csv = '';
-  
-  // Header section
-  csv += `Daily Attendance Matrix (Users × Days)\n`;
-  csv += `Generated: ${timestamp} (${ATTENDANCE_TIMEZONE_LABEL})\n`;
-  csv += `Period: ${params.period.type} ${params.period.value || 'Custom'}\n`;
-  csv += `Users: ${pivotMatrix.metadata.totalUsers}, Days: ${pivotMatrix.metadata.totalDays} (${pivotMatrix.metadata.weekdays} weekdays, ${pivotMatrix.metadata.weekends} weekends)\n`;
-  csv += `Data Format: Productive hours converted from seconds to decimal hours\n\n`;
-  
-  // Column headers - First row with day names
-  csv += `User Name`;
-  pivotMatrix.dateRange.forEach(dateInfo => {
-    if (!dateInfo.isWeekend || options.includeWeekends) {
-      csv += `,${dateInfo.dayName}`;
+  const activeDates = pivotMatrix.dateRange
+    .map((dateInfo, index) => ({ ...dateInfo, index }))
+    .filter(dateInfo => includeWeekends || !dateInfo.isWeekend);
+
+  const style = `
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background: #0f172a;
+      color: #0f172a;
     }
-  });
-  
-  // Summary columns
-  if (options.includeTotalHours) csv += `,Total Hours`;
-  if (options.includeDiscrepancy) csv += `,Low Days`;
-  if (options.includeOvertime) csv += `,Overtime`;
-  csv += `,Efficiency %,Days Worked`;
-  csv += `\n`;
-  
-  // Second header row with dates
-  csv += ``;
-  pivotMatrix.dateRange.forEach(dateInfo => {
-    if (!dateInfo.isWeekend || options.includeWeekends) {
-      csv += `,${dateInfo.formattedDate}`;
+    h1, h2, h3, h4 {
+      margin-top: 0;
+      color: #0f172a;
     }
+    .export-card {
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+      padding: 2.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .export-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .meta-item {
+      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+      border-radius: 14px;
+      padding: 1.25rem;
+      border: 1px solid #dbeafe;
+    }
+    .meta-item strong {
+      display: block;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #1d4ed8;
+      margin-bottom: 0.4rem;
+    }
+    .meta-item span {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      margin-bottom: 2rem;
+    }
+    thead th {
+      text-align: center;
+      padding: 0.9rem 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      color: #ffffff;
+      border-right: 1px solid rgba(255,255,255,0.2);
+    }
+    thead th.day-weekend {
+      background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+    }
+    thead th.subhead {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+    }
+    tbody th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 0.85rem 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+    }
+    tbody td {
+      padding: 0.75rem;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 500;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    tbody tr:nth-child(odd) td {
+      background: #f8fafc;
+    }
+    tbody tr:nth-child(even) td {
+      background: #ffffff;
+    }
+    .cell-status-under {
+      background: #fee2e2 !important;
+      color: #b91c1c;
+      font-weight: 600;
+    }
+    .cell-status-target {
+      background: #dcfce7 !important;
+      color: #047857;
+      font-weight: 600;
+    }
+    .cell-status-over {
+      background: #ede9fe !important;
+      color: #5b21b6;
+      font-weight: 600;
+    }
+    .cell-status-weekend {
+      background: #f1f5f9 !important;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .cell-status-empty {
+      background: #fef2f2 !important;
+      color: #b91c1c;
+    }
+    .summary-cell {
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .summary-total { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
+    .summary-low { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+    .summary-overtime { background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); }
+    .summary-efficiency { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .summary-days { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); }
+    tfoot th {
+      text-align: left;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.85rem 0.75rem;
+    }
+    tfoot td {
+      padding: 0.75rem;
+      text-align: center;
+      background: #e2e8f0;
+      font-weight: 600;
+    }
+    .averages-row td {
+      background: #cbd5f5;
+      color: #1e1b4b;
+    }
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin: 1rem 0 2.5rem;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      border: 1px solid #cbd5e1;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .legend-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+    }
+    .notes {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #475569;
+    }
+    .notes strong {
+      color: #0f172a;
+    }
+    .break-table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .break-table thead th {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+    .break-table tbody tr:nth-child(odd) td {
+      background: #f1f5f9;
+    }
+    .break-table tbody tr:nth-child(even) td {
+      background: #ffffff;
+    }
+    .break-table td, .break-table th {
+      padding: 0.75rem;
+      text-align: center;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .break-table th {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.85rem;
+      color: #f8fafc;
+    }
+    .break-name {
+      text-align: left;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .break-violation {
+      color: #b91c1c;
+      font-weight: 600;
+    }
+    .break-summary-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 0.75rem;
+    }
+  `;
+
+  const breakTotals = pivotMatrix.users.reduce((acc, user) => {
+    const summary = user.metrics && user.metrics.breakSummary ? user.metrics.breakSummary : {};
+    acc.breakMinutes += summary.totalBreakMinutes || 0;
+    acc.lunchMinutes += summary.totalLunchMinutes || 0;
+    acc.breakViolations += summary.breakViolationDays || 0;
+    acc.lunchViolations += summary.lunchViolationDays || 0;
+    acc.avgBreakMinutes += summary.averageBreakMinutes || 0;
+    acc.avgLunchMinutes += summary.averageLunchMinutes || 0;
+    return acc;
+  }, { breakMinutes: 0, lunchMinutes: 0, breakViolations: 0, lunchViolations: 0, avgBreakMinutes: 0, avgLunchMinutes: 0 });
+
+  let html = '';
+  html += '<!DOCTYPE html>';
+  html += '<html lang="en">';
+  html += '<head>';
+  html += '<meta charset="utf-8" />';
+  html += `<title>Daily Attendance Matrix Export</title>`;
+  html += `<style>${style}</style>`;
+  html += '</head>';
+  html += '<body>';
+  html += '<div class="export-card">';
+  html += '<h1>Daily Attendance Matrix</h1>';
+  html += '<div class="export-meta">';
+  html += `<div class="meta-item"><strong>Generated</strong><span>${escapeHtml(timestamp)} (${escapeHtml(ATTENDANCE_TIMEZONE_LABEL)})</span></div>`;
+  html += `<div class="meta-item"><strong>Period</strong><span>${escapeHtml(params.period.type)} ${escapeHtml(params.period.value || 'Custom')}</span></div>`;
+  html += `<div class="meta-item"><strong>Matrix Size</strong><span>${escapeHtml(pivotMatrix.metadata.totalUsers)} users • ${escapeHtml(pivotMatrix.metadata.totalDays)} days</span></div>`;
+  html += `<div class="meta-item"><strong>Composition</strong><span>${escapeHtml(pivotMatrix.metadata.weekdays)} weekdays • ${escapeHtml(pivotMatrix.metadata.weekends)} weekends</span></div>`;
+  html += '</div>';
+
+  html += '<table class="matrix-table">';
+  html += '<thead>';
+  html += '<tr>';
+  html += '<th rowspan="2">Agent</th>';
+  activeDates.forEach(dateInfo => {
+    const weekendClass = dateInfo.isWeekend ? ' day-weekend' : '';
+    html += `<th class="day${weekendClass}" scope="col">${escapeHtml(dateInfo.dayName)}</th>`;
   });
-  
-  // Summary column headers
-  if (options.includeTotalHours) csv += `,`;
-  if (options.includeDiscrepancy) csv += `,`;
-  if (options.includeOvertime) csv += `,`;
-  csv += `,,`;
-  csv += `\n`;
-  
-  // User data rows
+  if (options.includeTotalHours) html += '<th rowspan="2" class="summary-cell summary-total">Total Hours</th>';
+  if (options.includeDiscrepancy) html += '<th rowspan="2" class="summary-cell summary-low">Low Days</th>';
+  if (options.includeOvertime) html += '<th rowspan="2" class="summary-cell summary-overtime">Overtime</th>';
+  html += '<th rowspan="2" class="summary-cell summary-efficiency">Efficiency %</th>';
+  html += '<th rowspan="2" class="summary-cell summary-days">Days Worked</th>';
+  html += '</tr>';
+
+  html += '<tr>';
+  activeDates.forEach(dateInfo => {
+    html += `<th class="subhead">${escapeHtml(dateInfo.formattedDate)}</th>`;
+  });
+  html += '</tr>';
+  html += '</thead>';
+
+  html += '<tbody>';
   pivotMatrix.users.forEach(userData => {
-    csv += `"${userData.user}"`;
-    
-    // Daily hours columns
-    userData.dailyData.forEach(dayData => {
-      if (!dayData.isWeekend || options.includeWeekends) {
-        let cellValue = dayData.value;
-
-        // Add markers for special conditions
-        if (options.highlightLowHours && !dayData.isStatus) {
-          const icon = performanceIcons[dayData.performanceStatus];
-          if (icon) {
-            cellValue = `${icon} ${cellValue}`;
-          }
-        }
-
-        // Show violations in parentheses if requested
-        if (dayData.hasViolations && !dayData.isStatus) {
-          cellValue += ` (B${dayData.breakMin}m L${dayData.lunchMin}m)`;
-        }
-        
-        csv += `,${cellValue}`;
+    html += '<tr>';
+    html += `<th scope="row">${escapeHtml(userData.user)}</th>`;
+    activeDates.forEach(dateInfo => {
+      const dayData = userData.dailyData.find(d => d.date === dateInfo.date) || { value: '', isStatus: false };
+      let cellClass = '';
+      if (dayData.isWeekend || dateInfo.isWeekend) {
+        cellClass = 'cell-status-weekend';
+      } else if (highlightHours && !dayData.isStatus) {
+        cellClass = `cell-status-${dayData.performanceStatus || 'neutral'}`;
+      } else if (!dayData.isStatus && Number(dayData.numericValue || 0) === 0) {
+        cellClass = 'cell-status-empty';
       }
+      const displayValue = escapeHtml(dayData.value);
+      html += `<td class="${cellClass}">${displayValue}</td>`;
     });
-    
-    // Summary columns
+
     if (options.includeTotalHours) {
-      csv += `,${userData.metrics.totalHours}`;
+      html += `<td class="summary-cell summary-total">${escapeHtml(userData.metrics.totalHours)}</td>`;
     }
     if (options.includeDiscrepancy) {
-      csv += `,${userData.metrics.discrepancy}`;
+      html += `<td class="summary-cell summary-low">${escapeHtml(userData.metrics.discrepancy)}</td>`;
     }
     if (options.includeOvertime) {
-      csv += `,${userData.metrics.overtime}`;
+      html += `<td class="summary-cell summary-overtime">${escapeHtml(userData.metrics.overtime)}</td>`;
     }
-    
-    csv += `,${userData.metrics.efficiency}%,${userData.metrics.daysWorked}`;
-    csv += `\n`;
+    html += `<td class="summary-cell summary-efficiency">${escapeHtml(userData.metrics.efficiency)}%</td>`;
+    html += `<td class="summary-cell summary-days">${escapeHtml(userData.metrics.daysWorked)}</td>`;
+    html += '</tr>';
   });
-  
-  // Totals row
+  html += '</tbody>';
+
   if (options.includeTotalsRow) {
-    csv += `\nTOTALS`;
-    
-    // Daily totals
-    pivotMatrix.dailyTotals.forEach((dayTotal, index) => {
-      const dateInfo = pivotMatrix.dateRange[index];
-      if (!dateInfo.isWeekend || options.includeWeekends) {
-        csv += `,${dayTotal.total}`;
-      }
+    html += '<tfoot>';
+    html += '<tr>';
+    html += '<th scope="row">Totals</th>';
+    activeDates.forEach(dateInfo => {
+      const totalInfo = pivotMatrix.dailyTotals[dateInfo.index] || { total: '0.00' };
+      html += `<td>${escapeHtml(totalInfo.total)}</td>`;
     });
-    
-    // Summary totals
-    if (options.includeTotalHours) {
-      csv += `,${pivotMatrix.grandTotals.totalHours}`;
-    }
-    if (options.includeDiscrepancy) {
-      csv += `,${pivotMatrix.grandTotals.totalDiscrepancies}`;
-    }
-    if (options.includeOvertime) {
-      csv += `,${pivotMatrix.grandTotals.totalOvertime}`;
-    }
-    
-    csv += `,${pivotMatrix.grandTotals.averageEfficiency}%,`;
-    csv += `\n`;
-    
-    // Average row
-    csv += `AVERAGES`;
-    
-    // Daily averages
-    pivotMatrix.dailyTotals.forEach((dayTotal, index) => {
-      const dateInfo = pivotMatrix.dateRange[index];
-      if (!dateInfo.isWeekend || options.includeWeekends) {
-        csv += `,${dayTotal.average}`;
-      }
+    if (options.includeTotalHours) html += `<td>${escapeHtml(pivotMatrix.grandTotals.totalHours)}</td>`;
+    if (options.includeDiscrepancy) html += `<td>${escapeHtml(pivotMatrix.grandTotals.totalDiscrepancies)}</td>`;
+    if (options.includeOvertime) html += `<td>${escapeHtml(pivotMatrix.grandTotals.totalOvertime)}</td>`;
+    html += `<td>${escapeHtml(pivotMatrix.grandTotals.averageEfficiency)}%</td>`;
+    html += '<td></td>';
+    html += '</tr>';
+
+    html += '<tr class="averages-row">';
+    html += '<th scope="row">Averages</th>';
+    activeDates.forEach(dateInfo => {
+      const totalInfo = pivotMatrix.dailyTotals[dateInfo.index] || { average: '0.00' };
+      html += `<td>${escapeHtml(totalInfo.average || '0.00')}</td>`;
     });
-    
-    // Summary averages
     if (options.includeTotalHours) {
       const avgTotal = pivotMatrix.users.length > 0 ? (parseFloat(pivotMatrix.grandTotals.totalHours) / pivotMatrix.users.length).toFixed(2) : '0.00';
-      csv += `,${avgTotal}`;
+      html += `<td>${escapeHtml(avgTotal)}</td>`;
     }
     if (options.includeDiscrepancy) {
       const avgDiscrepancy = pivotMatrix.users.length > 0 ? (pivotMatrix.grandTotals.totalDiscrepancies / pivotMatrix.users.length).toFixed(1) : '0.0';
-      csv += `,${avgDiscrepancy}`;
+      html += `<td>${escapeHtml(avgDiscrepancy)}</td>`;
     }
     if (options.includeOvertime) {
       const avgOvertime = pivotMatrix.users.length > 0 ? (parseFloat(pivotMatrix.grandTotals.totalOvertime) / pivotMatrix.users.length).toFixed(2) : '0.00';
-      csv += `,${avgOvertime}`;
+      html += `<td>${escapeHtml(avgOvertime)}</td>`;
     }
-    
-    csv += `,${pivotMatrix.grandTotals.averageEfficiency}%,`;
-    csv += `\n`;
+    html += `<td>${escapeHtml(pivotMatrix.grandTotals.averageEfficiency)}%</td>`;
+    html += '<td></td>';
+    html += '</tr>';
+    html += '</tfoot>';
   }
-  
-  // Footer with legend and notes
-  csv += `\n\nLEGEND AND NOTES:`;
-  csv += `\n"OFF" = Weekend or non-working day`;
-  csv += `\n"0.00" = No productive hours recorded`;
-  if (options.highlightLowHours) {
-    csv += `\n"🔴" = Weekday hours below 8.00 (attention)`;
-    csv += `\n"🟢" = Weekday hours meeting the 8.00 target`;
-    csv += `\n"🟣" = Weekday overtime above 8.00`;
-  }
-  csv += `\n"(B##m L##m)" = Break and lunch minutes if violations detected`;
-  csv += `\n"Low Days" = Number of weekdays with less than 8 hours`;
-  csv += `\n"Overtime" = Total hours over 8.00 per day`;
-  csv += `\n"Efficiency %" = Weekday hours / Expected hours (weekdays × 8)`;
-  csv += `\n\nDATA QUALITY NOTES:`;
-  csv += `\n- All duration values converted from seconds to decimal hours`;
-  csv += `\n- Times calculated in ${ATTENDANCE_TIMEZONE_LABEL} (${ATTENDANCE_TIMEZONE})`;
-  csv += `\n- Only productive states counted: ${BILLABLE_STATES.join(', ')}`;
-  csv += `\n- Break/lunch times tracked separately for violations`;
-  csv += `\n- Source: DurationMin column (contains seconds despite name)`;
-  
-  return csv;
+
+  html += '</table>';
+
+  html += '<div class="legend">';
+  html += '<div class="legend-item"><span class="legend-swatch" style="background:#dcfce7"></span><span>On target (8.0 hours)</span></div>';
+  html += '<div class="legend-item"><span class="legend-swatch" style="background:#fee2e2"></span><span>Below target</span></div>';
+  html += '<div class="legend-item"><span class="legend-swatch" style="background:#ede9fe"></span><span>Overtime</span></div>';
+  html += '<div class="legend-item"><span class="legend-swatch" style="background:#f1f5f9"></span><span>Weekend/Off day</span></div>';
+  html += '</div>';
+
+  html += '<h2 class="break-summary-title">Break &amp; Lunch Summary</h2>';
+  html += '<table class="break-table">';
+  html += '<thead><tr>';
+  html += '<th>Agent</th>';
+  html += '<th>Total Break</th>';
+  html += '<th>Avg Break</th>';
+  html += '<th>Break Violations</th>';
+  html += '<th>Total Lunch</th>';
+  html += '<th>Avg Lunch</th>';
+  html += '<th>Lunch Violations</th>';
+  html += '</tr></thead>';
+  html += '<tbody>';
+  pivotMatrix.users.forEach(userData => {
+    const summary = userData.metrics && userData.metrics.breakSummary ? userData.metrics.breakSummary : {};
+    html += '<tr>';
+    html += `<td class="break-name">${escapeHtml(userData.user)}</td>`;
+    html += `<td>${escapeHtml(formatMinutes(summary.totalBreakMinutes || 0))}</td>`;
+    html += `<td>${escapeHtml(formatMinutes(summary.averageBreakMinutes || 0))}</td>`;
+    html += `<td class="${(summary.breakViolationDays || 0) > 0 ? 'break-violation' : ''}">${escapeHtml(summary.breakViolationDays || 0)}</td>`;
+    html += `<td>${escapeHtml(formatMinutes(summary.totalLunchMinutes || 0))}</td>`;
+    html += `<td>${escapeHtml(formatMinutes(summary.averageLunchMinutes || 0))}</td>`;
+    html += `<td class="${(summary.lunchViolationDays || 0) > 0 ? 'break-violation' : ''}">${escapeHtml(summary.lunchViolationDays || 0)}</td>`;
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  html += '<tfoot>';
+  html += '<tr>';
+  html += '<th scope="row">Team Total</th>';
+  html += `<td>${escapeHtml(formatMinutes(breakTotals.breakMinutes))}</td>`;
+  const avgBreakAcross = pivotMatrix.users.length > 0 ? Math.round(breakTotals.avgBreakMinutes / pivotMatrix.users.length) : 0;
+  html += `<td>${escapeHtml(formatMinutes(avgBreakAcross))}</td>`;
+  html += `<td class="${breakTotals.breakViolations > 0 ? 'break-violation' : ''}">${escapeHtml(breakTotals.breakViolations)}</td>`;
+  html += `<td>${escapeHtml(formatMinutes(breakTotals.lunchMinutes))}</td>`;
+  const avgLunchAcross = pivotMatrix.users.length > 0 ? Math.round(breakTotals.avgLunchMinutes / pivotMatrix.users.length) : 0;
+  html += `<td>${escapeHtml(formatMinutes(avgLunchAcross))}</td>`;
+  html += `<td class="${breakTotals.lunchViolations > 0 ? 'break-violation' : ''}">${escapeHtml(breakTotals.lunchViolations)}</td>`;
+  html += '</tr>';
+  html += '</tfoot>';
+  html += '</table>';
+
+  html += '<div class="notes">';
+  html += '<p><strong>Data Quality Notes</strong></p>';
+  html += `<p>All productive durations are converted from seconds (DurationMin column) into decimal hours and evaluated against the configured hour policy in ${escapeHtml(ATTENDANCE_TIMEZONE_LABEL)} (${escapeHtml(ATTENDANCE_TIMEZONE)}).</p>`;
+  html += `<p>Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes. Violations represent days where totals exceeded policy limits.</p>`;
+  html += `<p>Only productive attendance states contribute to billable hours: ${escapeHtml(BILLABLE_STATES.join(', '))}.</p>`;
+  html += '</div>';
+
+  html += '</div>';
+  html += '</body></html>';
+
+  return html;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

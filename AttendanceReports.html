@@ -3953,11 +3953,18 @@
     }
 
     downloadCSV(csvData, filename) {
-      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const isHtmlExport = typeof csvData === 'string' && csvData.trim().startsWith('<!DOCTYPE html');
+      let downloadName = filename || `attendance_export_${new Date().toISOString().split('T')[0]}.${isHtmlExport ? 'html' : 'csv'}`;
+      if (isHtmlExport && downloadName.toLowerCase().endsWith('.csv')) {
+        downloadName = downloadName.replace(/\.csv$/i, '.html');
+      }
+
+      const mimeType = isHtmlExport ? 'text/html;charset=utf-8;' : 'text/csv;charset=utf-8;';
+      const blob = new Blob([csvData], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
