@@ -367,6 +367,10 @@
     height: 300px;
   }
 
+  .qa-chart-wrapper--bubble {
+    height: 340px;
+  }
+
   .qa-chart-wrapper canvas {
     width: 100% !important;
     height: 100% !important;
@@ -469,6 +473,12 @@
     gap: 0.85rem;
     align-items: stretch;
     flex-wrap: wrap;
+  }
+
+  .qa-recognition-note {
+    color: #475569;
+    font-size: 0.9rem;
+    margin-bottom: 1.1rem;
   }
 
   .qa-recognition-item {
@@ -1029,6 +1039,9 @@
           <span>Quality Recognition</span>
         </div>
         <div class="card-body">
+          <p class="qa-recognition-note" id="qa-recognition-note">
+            The top three agents each period will be highlighted here once evaluations are available.
+          </p>
           <div class="qa-recognition-empty" id="qa-quality-recognition-empty">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
             <span>Quality champions will appear here once evaluations are available.</span>
@@ -1150,6 +1163,41 @@
           <div class="qa-chart-wrapper">
             <canvas id="qa-distribution-chart"></canvas>
             <div class="qa-chart-empty d-none" id="qa-distribution-empty">Distribution requires agent scoring data.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row g-4 mt-1" id="qa-advanced-analytics-row">
+    <div class="col-12 col-xl-6 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Category Performance Radar</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper qa-chart-wrapper--compact">
+            <canvas id="qa-category-radar"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-category-radar-empty">Radar insights activate once category metrics load.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Program Mix Polar View</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper qa-chart-wrapper--compact">
+            <canvas id="qa-program-polar"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-program-polar-empty">Program mix will display once evaluation data is captured.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Agent Impact Matrix</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper qa-chart-wrapper--bubble">
+            <canvas id="qa-agent-impact"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-agent-impact-empty">Impact bubbles appear once agent score, pass rate, and evaluation volume are available.</div>
           </div>
         </div>
       </div>
@@ -1328,7 +1376,10 @@
         outcomes: null,
         categories: null,
         agents: null,
-        distribution: null
+        distribution: null,
+        categoryRadar: null,
+        programPolar: null,
+        agentImpact: null
       },
       modals: {
         insights: null,
@@ -1366,11 +1417,18 @@
       distributionCanvas: document.getElementById('qa-distribution-chart'),
       recognitionRow: document.getElementById('qa-recognition-row'),
       recognitionList: document.getElementById('qa-quality-recognition'),
+      recognitionNotice: document.getElementById('qa-recognition-note'),
       recognitionEmpty: document.getElementById('qa-quality-recognition-empty'),
       outcomeEmpty: document.getElementById('qa-outcome-empty'),
       categoryEmpty: document.getElementById('qa-category-empty'),
       agentEmpty: document.getElementById('qa-agent-empty'),
       distributionEmpty: document.getElementById('qa-distribution-empty'),
+      categoryRadarCanvas: document.getElementById('qa-category-radar'),
+      categoryRadarEmpty: document.getElementById('qa-category-radar-empty'),
+      programPolarCanvas: document.getElementById('qa-program-polar'),
+      programPolarEmpty: document.getElementById('qa-program-polar-empty'),
+      agentImpactCanvas: document.getElementById('qa-agent-impact'),
+      agentImpactEmpty: document.getElementById('qa-agent-impact-empty'),
       aiSignal: document.getElementById('qa-ai-signal'),
       aiConfidence: document.getElementById('qa-ai-confidence'),
       aiProjection: document.getElementById('qa-ai-projection'),
@@ -1439,6 +1497,28 @@
       return `${label}: ${Math.round(value)}`;
     }
 
+    function tooltipBubbleLabel(context) {
+      if (!context || !context.raw) {
+        return '';
+      }
+
+      const raw = context.raw;
+      const name = raw.name || context.label || (context.dataset && context.dataset.label) || 'Agent';
+      const lines = [name];
+
+      if (typeof raw.x === 'number' && !Number.isNaN(raw.x)) {
+        lines.push(`Avg Score: ${Math.round(raw.x)}%`);
+      }
+      if (typeof raw.y === 'number' && !Number.isNaN(raw.y)) {
+        lines.push(`Pass Rate: ${Math.round(raw.y)}%`);
+      }
+      if (typeof raw.count === 'number' && !Number.isNaN(raw.count)) {
+        lines.push(`Evaluations: ${formatNumber(raw.count)}`);
+      }
+
+      return lines;
+    }
+
     function percentTickFormatter(value) {
       return `${value}%`;
     }
@@ -1475,6 +1555,27 @@
         return '--';
       }
       return new Intl.NumberFormat().format(value);
+    }
+
+    function normalizePercent(value) {
+      if (value === null || value === undefined || Number.isNaN(value)) {
+        return 0;
+      }
+      return Math.min(100, Math.max(0, Number(value)));
+    }
+
+    function formatNameList(values) {
+      const names = Array.isArray(values) ? values.filter(Boolean) : [];
+      if (!names.length) {
+        return '';
+      }
+      if (names.length === 1) {
+        return names[0];
+      }
+      if (names.length === 2) {
+        return `${names[0]} and ${names[1]}`;
+      }
+      return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
     }
 
     function updateAiSignal(summary) {
@@ -2079,11 +2180,257 @@
       });
     }
 
+    function renderCategoryRadar(categories) {
+      if (!dom.categoryRadarCanvas) return;
+      const ctx = dom.categoryRadarCanvas.getContext('2d');
+      const items = Array.isArray(categories) ? categories.slice(0, 8) : [];
+      const labels = items.map(item => item.category || 'Category');
+      const avgScores = items.map(item => normalizePercent(item.avgScore));
+      const passRates = items.map(item => normalizePercent(item.passPct));
+      const hasData = labels.length > 1;
+
+      if (dom.categoryRadarEmpty) {
+        dom.categoryRadarEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('categoryRadar');
+        return;
+      }
+
+      destroyChart('categoryRadar');
+      state.charts.categoryRadar = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Avg Score',
+              data: avgScores,
+              backgroundColor: 'rgba(37, 99, 235, 0.18)',
+              borderColor: 'rgba(37, 99, 235, 0.6)',
+              pointBackgroundColor: '#2563eb'
+            },
+            {
+              label: 'Pass Rate',
+              data: passRates,
+              backgroundColor: 'rgba(16, 185, 129, 0.18)',
+              borderColor: 'rgba(16, 185, 129, 0.6)',
+              pointBackgroundColor: '#10b981'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { usePointStyle: true }
+            },
+            tooltip: {
+              callbacks: { label: tooltipPercentLabel }
+            }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              suggestedMax: 100,
+              ticks: { display: false },
+              angleLines: { color: 'rgba(148, 163, 184, 0.25)' },
+              grid: { color: 'rgba(148, 163, 184, 0.18)' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderProgramPolar(programs) {
+      if (!dom.programPolarCanvas) return;
+      const ctx = dom.programPolarCanvas.getContext('2d');
+      const items = Array.isArray(programs)
+        ? programs
+            .filter(program => program && (Number.isFinite(program.evaluations) || Number.isFinite(program.share)))
+            .sort((a, b) => (Number(b.evaluations) || Number(b.share) || 0) - (Number(a.evaluations) || Number(a.share) || 0))
+            .slice(0, 6)
+        : [];
+      const labels = items.map(item => item.name || 'Program');
+      const hasShare = items.some(item => Number.isFinite(Number(item.share)) && Number(item.share) > 0);
+      const values = items.map(item => {
+        const share = Number(item.share);
+        if (hasShare && Number.isFinite(share) && share >= 0) {
+          return share;
+        }
+        const evaluations = Number(item.evaluations);
+        return Number.isFinite(evaluations) && evaluations >= 0 ? evaluations : 0;
+      });
+      const hasData = labels.length > 0 && values.some(value => value > 0);
+
+      if (dom.programPolarEmpty) {
+        dom.programPolarEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('programPolar');
+        return;
+      }
+
+      const tooltipDetails = items.map(item => ({
+        share: Number.isFinite(Number(item.share)) ? Number(item.share) : null,
+        evaluations: Number.isFinite(Number(item.evaluations)) ? Number(item.evaluations) : null
+      }));
+
+      const palette = ['#2563eb', '#0ea5e9', '#10b981', '#f97316', '#a855f7', '#ec4899'];
+
+      destroyChart('programPolar');
+      state.charts.programPolar = new Chart(ctx, {
+        type: 'polarArea',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Program Mix',
+              data: values,
+              backgroundColor: labels.map((_, index) => palette[index % palette.length]),
+              borderWidth: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  const detail = tooltipDetails[context.dataIndex] || {};
+                  const parts = [context.label || 'Program'];
+                  if (detail.share !== null && !Number.isNaN(detail.share)) {
+                    parts.push(`Share: ${Math.round(detail.share)}%`);
+                  }
+                  if (detail.evaluations !== null && !Number.isNaN(detail.evaluations)) {
+                    parts.push(`Evaluations: ${formatNumber(detail.evaluations)}`);
+                  }
+                  return parts;
+                }
+              }
+            }
+          },
+          scales: {
+            r: {
+              ticks: { display: false },
+              grid: { color: 'rgba(148, 163, 184, 0.2)' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAgentImpact(agents) {
+      if (!dom.agentImpactCanvas) return;
+      const ctx = dom.agentImpactCanvas.getContext('2d');
+      const items = Array.isArray(agents)
+        ? agents.filter(agent => Number.isFinite(Number(agent.avgScore)) || Number.isFinite(Number(agent.passRate)))
+        : [];
+      const sample = items.slice(0, 12);
+      const maxEvaluations = sample.reduce((max, agent) => {
+        const evals = Number(agent.evaluations);
+        return Number.isFinite(evals) && evals > max ? evals : max;
+      }, 0);
+
+      const bubbles = sample.map(agent => {
+        const score = normalizePercent(agent.avgScore);
+        const passRate = normalizePercent(agent.passRate);
+        const evaluations = Number(agent.evaluations);
+        const baseRadius = maxEvaluations > 0 && Number.isFinite(evaluations)
+          ? 6 + (evaluations / maxEvaluations) * 12
+          : 8;
+        return {
+          x: score,
+          y: passRate,
+          r: Math.max(6, Math.min(22, baseRadius)),
+          name: agent.displayName || agent.name || 'Agent',
+          count: Number.isFinite(evaluations) ? evaluations : null
+        };
+      });
+
+      const hasData = bubbles.length > 0 && bubbles.some(point => point.x > 0 || point.y > 0);
+
+      if (dom.agentImpactEmpty) {
+        dom.agentImpactEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('agentImpact');
+        return;
+      }
+
+      destroyChart('agentImpact');
+      state.charts.agentImpact = new Chart(ctx, {
+        type: 'bubble',
+        data: {
+          datasets: [
+            {
+              label: 'Agent Impact',
+              data: bubbles,
+              backgroundColor: 'rgba(37, 99, 235, 0.3)',
+              borderColor: 'rgba(37, 99, 235, 0.6)',
+              borderWidth: 1,
+              hoverBackgroundColor: 'rgba(37, 99, 235, 0.45)'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: tooltipBubbleLabel }
+            }
+          },
+          scales: {
+            x: {
+              suggestedMin: 50,
+              suggestedMax: 100,
+              ticks: { callback: percentTickFormatter },
+              title: { display: true, text: 'Average Score' },
+              grid: { color: 'rgba(148, 163, 184, 0.2)' }
+            },
+            y: {
+              suggestedMin: 50,
+              suggestedMax: 100,
+              ticks: { callback: percentTickFormatter },
+              title: { display: true, text: 'Pass Rate' },
+              grid: { color: 'rgba(148, 163, 184, 0.25)' }
+            }
+          }
+        }
+      });
+    }
+
     function renderQualityRecognition(entries) {
       if (!dom.recognitionList) return;
 
       const champions = Array.isArray(entries)
-        ? entries.filter(entry => entry && (entry.agent || Number.isFinite(entry.avgScore)))
+        ? entries
+            .filter(entry => {
+              if (!entry) {
+                return false;
+              }
+              const hasAgent = Boolean(entry.agent);
+              const hasScore = Number.isFinite(Number(entry.avgScore));
+              return hasAgent || hasScore;
+            })
+            .sort((a, b) => {
+              const rankA = Number(a.rank);
+              const rankB = Number(b.rank);
+              const safeA = Number.isFinite(rankA) ? rankA : Number.MAX_SAFE_INTEGER;
+              const safeB = Number.isFinite(rankB) ? rankB : Number.MAX_SAFE_INTEGER;
+              return safeA - safeB;
+            })
+            .slice(0, 3)
         : [];
 
       dom.recognitionList.innerHTML = '';
@@ -2092,6 +2439,19 @@
       dom.recognitionList.classList.toggle('d-none', !hasData);
       if (dom.recognitionEmpty) {
         dom.recognitionEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (dom.recognitionNotice) {
+        if (hasData) {
+          const names = champions.map(entry => entry.agent).filter(Boolean);
+          if (names.length) {
+            dom.recognitionNotice.textContent = `Top performers this period: ${formatNameList(names)}.`;
+          } else {
+            dom.recognitionNotice.textContent = 'Top performers for the current period are spotlighted below.';
+          }
+        } else {
+          dom.recognitionNotice.textContent = 'The top three agents each period will be highlighted here once evaluations are available.';
+        }
       }
 
       if (!hasData) {
@@ -2142,8 +2502,9 @@
 
         const scoreEl = document.createElement('div');
         scoreEl.className = 'qa-recognition-score';
-        if (typeof entry.avgScore === 'number' && !Number.isNaN(entry.avgScore)) {
-          scoreEl.textContent = `${Math.round(entry.avgScore)}%`;
+        const avgScore = Number(entry.avgScore);
+        if (Number.isFinite(avgScore)) {
+          scoreEl.textContent = `${Math.round(avgScore)}%`;
         } else {
           scoreEl.textContent = '--';
         }
@@ -2155,18 +2516,18 @@
         metaEl.className = 'qa-recognition-meta';
 
         const metaParts = [];
-        if (typeof entry.evaluations === 'number' && !Number.isNaN(entry.evaluations)) {
-          const count = Math.round(entry.evaluations);
+        if (Number.isFinite(Number(entry.evaluations))) {
+          const count = Math.round(Number(entry.evaluations));
           metaParts.push(`${formatNumber(count)} evaluation${count === 1 ? '' : 's'}`);
         }
-        if (typeof entry.passRate === 'number' && !Number.isNaN(entry.passRate)) {
-          metaParts.push(`${Math.round(entry.passRate)}% pass`);
+        if (Number.isFinite(Number(entry.passRate))) {
+          metaParts.push(`${Math.round(Number(entry.passRate))}% pass`);
         }
         if (entry.lastEvaluation) {
           metaParts.push(`Last eval ${entry.lastEvaluation}`);
         }
-        if (typeof entry.deltaFromPass === 'number' && !Number.isNaN(entry.deltaFromPass)) {
-          const delta = Math.round(entry.deltaFromPass);
+        if (Number.isFinite(Number(entry.deltaFromPass))) {
+          const delta = Math.round(Number(entry.deltaFromPass));
           const prefix = delta > 0 ? '+' : '';
           metaParts.push(`${prefix}${delta} vs pass mark`);
         }
@@ -2184,8 +2545,8 @@
           const accessibleRank = `${rank}${suffix || ''}`;
           const labelParts = [
             `${accessibleRank} place: ${entry.agent || 'Agent'}`,
-            (typeof entry.avgScore === 'number' && !Number.isNaN(entry.avgScore))
-              ? `${Math.round(entry.avgScore)}% score`
+            Number.isFinite(avgScore)
+              ? `${Math.round(avgScore)}% score`
               : null,
             metaEl.textContent || null
           ].filter(Boolean);
@@ -2657,17 +3018,21 @@
 
       const categories = response.categories || [];
       renderCategoryChart(categories);
+      renderCategoryRadar(categories);
       renderCategories(categories);
 
       const agents = response.agents || [];
       renderAgentChart(agents);
       renderDistributionChart(agents);
+      renderAgentImpact(agents);
       renderAgents(agents.slice(0, 8));
       renderQualityRecognition(response.qualityRecognition || []);
       renderLatestEvaluation(response.latestEvaluation || null);
 
       renderQuestionSignals(response.questionSignals || []);
-      renderProgramMetrics(response.programMetrics || []);
+      const programs = response.programMetrics || [];
+      renderProgramMetrics(programs);
+      renderProgramPolar(programs);
       renderSignalHighlights(response.qualitySignals || []);
 
       if (dom.intelSummary) {
