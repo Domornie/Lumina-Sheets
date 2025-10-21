@@ -995,6 +995,11 @@ function clientGetQADashboardSnapshot(request = {}) {
       };
     });
 
+    const qualityRecognition = buildQualityRecognitionHighlights_(profiles, {
+      timezone,
+      passMark: context.passMark
+    });
+
     const intelligence = buildAIIntelligenceAnalysis_({
       filtered,
       prevFiltered,
@@ -1070,7 +1075,8 @@ function clientGetQADashboardSnapshot(request = {}) {
       agentOptions,
       agentNameLookup,
       questionSignals,
-      programMetrics
+      programMetrics,
+      qualityRecognition
     };
   } catch (error) {
     console.error('clientGetQADashboardSnapshot failed:', error);
@@ -1769,6 +1775,82 @@ function buildQualitySignals_(payload = {}) {
   }
 
   return signals;
+}
+
+function buildQualityRecognitionHighlights_(profiles = [], options = {}) {
+  if (!Array.isArray(profiles) || !profiles.length) {
+    return [];
+  }
+
+  const timezone = options.timezone || Session.getScriptTimeZone();
+  const passMarkValue = typeof options.passMark === 'number' ? options.passMark : QA_INTEL_PASS_MARK;
+  const passThreshold = passMarkValue > 1
+    ? Math.round(passMarkValue)
+    : Math.round(passMarkValue * 100);
+
+  const eligible = profiles.filter(profile => {
+    return typeof profile.avgScore === 'number'
+      && Number.isFinite(profile.avgScore)
+      && Number(profile.evaluations) > 0;
+  });
+
+  if (!eligible.length) {
+    return [];
+  }
+
+  const sorted = eligible.slice().sort((a, b) => {
+    const scoreDiff = (b.avgScore || 0) - (a.avgScore || 0);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+
+    const evalDiff = (Number(b.evaluations) || 0) - (Number(a.evaluations) || 0);
+    if (evalDiff !== 0) {
+      return evalDiff;
+    }
+
+    const passDiff = (b.passRate || 0) - (a.passRate || 0);
+    if (passDiff !== 0) {
+      return passDiff;
+    }
+
+    const recentA = a.recentDate instanceof Date ? a.recentDate.getTime() : 0;
+    const recentB = b.recentDate instanceof Date ? b.recentDate.getTime() : 0;
+    if (recentB !== recentA) {
+      return recentB - recentA;
+    }
+
+    const nameA = (a.displayName || a.name || a.rawName || '').toString().toLowerCase();
+    const nameB = (b.displayName || b.name || b.rawName || '').toString().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  return sorted.slice(0, 3).map((profile, index) => {
+    const avgScore = Math.round(profile.avgScore);
+    const passRate = typeof profile.passRate === 'number' && Number.isFinite(profile.passRate)
+      ? Math.round(profile.passRate)
+      : null;
+
+    const recognition = {
+      rank: index + 1,
+      agent: profile.displayName || profile.name || profile.rawName || 'Agent',
+      avgScore,
+      passRate,
+      evaluations: Number(profile.evaluations) || 0
+    };
+
+    if (profile.recentDate instanceof Date) {
+      recognition.lastEvaluation = Utilities.formatDate(profile.recentDate, timezone, 'MMM d, yyyy');
+    } else if (profile.recentDate) {
+      recognition.lastEvaluation = String(profile.recentDate);
+    }
+
+    if (Number.isFinite(avgScore) && Number.isFinite(passThreshold)) {
+      recognition.deltaFromPass = avgScore - passThreshold;
+    }
+
+    return recognition;
+  });
 }
 
 function calculateAgentProfiles_(records, options = {}) {
