@@ -80,6 +80,135 @@
         z-index: 2;
     }
 
+    .modern-page-header .header-grid {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .header-title p {
+        max-width: 520px;
+    }
+
+    .headline-metric {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 1.25rem 1.5rem;
+        border-radius: 16px;
+        text-align: right;
+        min-width: 200px;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+    }
+
+    .headline-metric span {
+        display: block;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        opacity: 0.8;
+    }
+
+    .headline-metric strong {
+        font-size: 2.5rem;
+        display: block;
+        margin-top: 0.35rem;
+    }
+
+    .headline-change {
+        font-size: 0.85rem;
+        margin-top: 0.75rem;
+        font-weight: 600;
+    }
+
+    .headline-change.positive {
+        color: #10b981;
+    }
+
+    .headline-change.negative {
+        color: var(--fire-red);
+    }
+
+    .header-subgrid {
+        margin-top: 2rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+
+    .headline-stat {
+        background: rgba(255, 255, 255, 0.12);
+        padding: 1rem 1.25rem;
+        border-radius: 14px;
+        backdrop-filter: blur(6px);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+    }
+
+    .headline-stat span {
+        display: block;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        opacity: 0.75;
+    }
+
+    .headline-stat strong {
+        font-size: 1.4rem;
+        margin-top: 0.35rem;
+        display: block;
+    }
+
+    .top-agent-banner {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: white;
+        border-radius: var(--border-radius-lg);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+
+    .banner-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.4rem;
+    }
+
+    .banner-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--navy-primary);
+    }
+
+    .banner-body {
+        font-size: 0.85rem;
+        color: #334155;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+    }
+
+    .banner-body .agent-pill {
+        background: rgba(0,49,119,0.08);
+        color: var(--navy-primary);
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
     /* Campaign Switcher */
     .campaign-switcher {
         background: white;
@@ -377,6 +506,8 @@
         box-shadow: var(--card-shadow);
         border: 1px solid rgba(255,255,255,0.2);
         transition: var(--transition-smooth);
+        position: relative;
+        overflow: hidden;
     }
 
     .modern-chart-card:hover {
@@ -407,6 +538,197 @@
         height: 300px;
         width: 100%;
         margin-bottom: 1rem;
+    }
+
+    .chart-container.tall {
+        height: 420px;
+    }
+
+    .chart-container.gauge {
+        height: 260px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .gauge-wrapper {
+        position: relative;
+        width: 220px;
+        height: 220px;
+    }
+
+    .gauge-wrapper canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .gauge-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--navy-primary);
+    }
+
+    .gauge-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .gauge-meta span {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.75rem;
+        color: #94a3b8;
+    }
+
+    .quality-intelligence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .quality-column {
+        display: grid;
+        gap: 2rem;
+        align-content: start;
+    }
+
+    .top-agents-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .top-agent-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        background: rgba(0, 49, 119, 0.05);
+    }
+
+    .rank-badge {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+
+    .top-agent-meta {
+        display: grid;
+        grid-template-columns: repeat(4, auto);
+        gap: 1rem;
+        align-items: center;
+        font-size: 0.85rem;
+    }
+
+    .top-agent-meta .name {
+        font-weight: 700;
+        color: var(--navy-primary);
+    }
+
+    .top-agent-meta .score {
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .top-agent-meta .change {
+        font-weight: 600;
+    }
+
+    .top-agent-meta .change.positive {
+        color: #10b981;
+    }
+
+    .top-agent-meta .change.negative {
+        color: var(--fire-red);
+    }
+
+    .top-agent-meta .count {
+        color: #64748b;
+    }
+
+    .ai-insights-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+    }
+
+    .ai-insights-list li {
+        display: flex;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+        color: #1e293b;
+        align-items: flex-start;
+        line-height: 1.4;
+    }
+
+    .ai-insights-list li i {
+        color: var(--cyan-accent);
+        margin-top: 0.15rem;
+    }
+
+    .category-row {
+        margin-bottom: 1rem;
+    }
+
+    .category-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .category-row-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 600;
+        color: #0f172a;
+        font-size: 0.85rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .category-progress {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.25);
+        overflow: hidden;
+    }
+
+    .category-progress-bar {
+        height: 100%;
+        background: var(--primary-gradient);
+        border-radius: 999px;
+    }
+
+    .quality-secondary-grid,
+    .quality-agent-grid {
+        margin-top: 2rem;
+    }
+
+    .empty-state {
+        color: #94a3b8;
+        font-size: 0.85rem;
+        margin: 0;
     }
 
     .chart-container canvas {
@@ -470,6 +792,14 @@
             font-size: 2rem;
         }
 
+        .modern-page-header .header-grid {
+            justify-content: center;
+        }
+
+        .headline-metric {
+            text-align: center;
+        }
+
         .campaign-switcher {
             flex-direction: column;
         }
@@ -479,12 +809,31 @@
             align-items: stretch;
         }
 
+        .top-agent-banner {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
         .modern-chart-grid {
             grid-template-columns: 1fr;
         }
 
         .modern-kpi-grid {
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .quality-intelligence-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .top-agent-meta {
+            grid-template-columns: repeat(2, auto);
+            row-gap: 0.4rem;
+        }
+
+        .gauge-wrapper {
+            width: 180px;
+            height: 180px;
         }
     }
 
@@ -515,11 +864,56 @@
     .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
     .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
     .stagger-animation > *:nth-child(6) { animation-delay: 0.6s; }
-</style>
+    </style>
+
+<div class="modern-page-header fade-in">
+    <div class="header-grid">
+        <div class="header-title">
+            <h1>Quality Intelligence Dashboard</h1>
+            <p>Visualize agent performance, quality trends, and opportunities for targeted coaching.</p>
+        </div>
+        <div class="headline-metric">
+            <span>Current Average</span>
+            <strong id="headlineAvgScore">0%</strong>
+            <div class="headline-change" id="headlineAvgChange">0% vs last period</div>
+        </div>
+    </div>
+    <div class="header-subgrid">
+        <div class="headline-stat">
+            <span>Pass Rate</span>
+            <strong id="headlinePassRate">0%</strong>
+        </div>
+        <div class="headline-stat">
+            <span>Evaluations</span>
+            <strong id="headlineEvaluations">0</strong>
+        </div>
+        <div class="headline-stat">
+            <span>Agents Covered</span>
+            <strong id="headlineAgents">0</strong>
+        </div>
+    </div>
+</div>
+
+<div class="top-agent-banner fade-in" id="topAgentsBanner">
+    <div class="banner-icon">
+        <i class="fas fa-trophy"></i>
+    </div>
+    <div>
+        <p class="banner-title">Top Performing Agents</p>
+        <div class="banner-body" id="topAgentsBannerList">Insights will appear once data is loaded.</div>
+    </div>
+</div>
 
 <!-- Campaign Switcher -->
 <div class="campaign-switcher fade-in">
-
+    <div class="switcher-container">
+        <div class="switcher-option active" data-campaign="independence">
+            <i class="fas fa-phone-alt me-2"></i>Independence Insurance
+        </div>
+        <div class="switcher-option" data-campaign="credit-suite">
+            <i class="fas fa-credit-card me-2"></i>Credit Suite
+        </div>
+    </div>
 </div>
 
 <!-- Modern Control Panel (REPLACED) -->
@@ -582,14 +976,6 @@
           <label>Year</label>
           <input class="form-select" type="number" id="yearInput" min="2000" max="2100" step="1">
         </div>
-        <div class="switcher-container">
-            <div class="switcher-option active" data-campaign="independence">
-                <i class="fas fa-phone-alt me-2"></i>Independence Insurance
-            </div>
-            <div class="switcher-option" data-campaign="credit-suite">
-                <i class="fas fa-credit-card me-2"></i>Credit Suite
-            </div>
-        </div>        
       </div>
     </div>
   </div>
@@ -667,20 +1053,99 @@
 </div>
 
 <!-- Modern Charts -->
-<div class="modern-chart-grid stagger-animation">
-    <div class="modern-chart-card">
-        <div class="campaign-indicator" id="trendsIndicator">Independence</div>
-        <h6><i class="fas fa-calendar-day me-2"></i>Score Trends</h6>
-        <div class="chart-container">
-            <canvas id="trendsChart"></canvas>
+<div class="quality-intelligence-grid">
+    <div class="quality-column">
+        <div class="modern-chart-card fade-in">
+            <div class="campaign-indicator" id="gaugeIndicator">Independence</div>
+            <h6><i class="fas fa-tachometer-alt me-2"></i>Quality Score Gauge</h6>
+            <div class="chart-container gauge">
+                <div class="gauge-wrapper">
+                    <canvas id="scoreGaugeChart"></canvas>
+                    <div class="gauge-value" id="scoreGaugeValue">0%</div>
+                </div>
+            </div>
+            <div class="gauge-meta">
+                <div>
+                    <span>Pass Rate</span>
+                    <strong id="gaugePassRate">0%</strong>
+                </div>
+                <div>
+                    <span>Target</span>
+                    <strong>85%</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="modern-chart-card fade-in">
+            <div class="campaign-indicator" id="topAgentsIndicator">Independence</div>
+            <h6><i class="fas fa-star me-2"></i>Top Agents Spotlight</h6>
+            <div class="top-agents-list" id="topAgentsList">
+                <p class="empty-state">Top agents will appear once data is loaded.</p>
+            </div>
+        </div>
+
+        <div class="modern-chart-card fade-in ai-card">
+            <h6><i class="fas fa-robot me-2"></i>AI Recommendations &amp; Insights</h6>
+            <ul class="ai-insights-list" id="aiInsightsList">
+                <li><i class="fas fa-lightbulb"></i><span>Load data to unlock contextual recommendations for your team.</span></li>
+            </ul>
+        </div>
+
+        <div class="modern-chart-card fade-in category-summary-card">
+            <h6><i class="fas fa-layer-group me-2"></i>Category Breakdown</h6>
+            <div id="categoryBreakdown">
+                <p class="empty-state">Category performance details will populate here.</p>
+            </div>
         </div>
     </div>
 
-    <div class="modern-chart-card">
+    <div class="quality-column">
+        <div class="modern-chart-card fade-in">
+            <div class="campaign-indicator" id="trendsIndicator">Independence</div>
+            <h6><i class="fas fa-calendar-day me-2"></i>Score Trends</h6>
+            <div class="chart-container">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="modern-chart-card fade-in">
+            <div class="campaign-indicator" id="passTrendIndicator">Independence</div>
+            <h6><i class="fas fa-wave-square me-2"></i>Pass Rate Trend</h6>
+            <div class="chart-container">
+                <canvas id="passTrendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="modern-chart-card fade-in">
+            <div class="campaign-indicator" id="volumeIndicator">Independence</div>
+            <h6><i class="fas fa-chart-bar me-2"></i>Evaluation Volume</h6>
+            <div class="chart-container">
+                <canvas id="volumeChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modern-chart-grid quality-secondary-grid">
+    <div class="modern-chart-card fade-in">
         <div class="campaign-indicator" id="categoryIndicator">Independence</div>
-        <h6><i class="fas fa-chart-pie me-2"></i>Category Performance</h6>
+        <h6><i class="fas fa-bullseye me-2"></i>Category Performance</h6>
         <div class="chart-container">
             <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+    <div class="modern-chart-card fade-in">
+        <div class="campaign-indicator" id="distributionIndicator">Independence</div>
+        <h6><i class="fas fa-chart-area me-2"></i>Score Distribution</h6>
+        <div class="chart-container">
+            <canvas id="distributionChart"></canvas>
+        </div>
+    </div>
+    <div class="modern-chart-card fade-in">
+        <div class="campaign-indicator" id="callTypeIndicator">Independence</div>
+        <h6><i class="fas fa-headset me-2"></i>Call Type Quality</h6>
+        <div class="chart-container">
+            <canvas id="callTypeChart"></canvas>
         </div>
     </div>
 </div>
@@ -688,8 +1153,25 @@
 <div class="modern-chart-card fade-in">
     <div class="campaign-indicator" id="comparisonIndicator">Independence</div>
     <h6><i class="fas fa-balance-scale me-2"></i>Agent Performance Comparison</h6>
-    <div class="chart-container" style="height: 400px;">
+    <div class="chart-container tall">
         <canvas id="comparisonChart"></canvas>
+    </div>
+</div>
+
+<div class="modern-chart-grid quality-agent-grid">
+    <div class="modern-chart-card fade-in">
+        <div class="campaign-indicator" id="momentumIndicator">Independence</div>
+        <h6><i class="fas fa-bolt me-2"></i>Agent Momentum</h6>
+        <div class="chart-container">
+            <canvas id="momentumChart"></canvas>
+        </div>
+    </div>
+    <div class="modern-chart-card fade-in">
+        <div class="campaign-indicator" id="impactIndicator">Independence</div>
+        <h6><i class="fas fa-bullseye me-2"></i>Agent Impact Bubble</h6>
+        <div class="chart-container">
+            <canvas id="impactChart"></canvas>
+        </div>
     </div>
 </div>
 
@@ -707,7 +1189,7 @@
     let creditSuiteAgents = [];
     
     // Chart instances
-    let trendsChart, categoryChart, comparisonChart;
+    let trendsChart, categoryChart, comparisonChart, scoreGaugeChart, passTrendChart, volumeChart, distributionChart, callTypeChart, momentumChart, impactChart;
     
     // Fixed baseUrl construction - get it from the template variables
     const scriptUrl = '<?= scriptUrl ?>';
@@ -722,6 +1204,61 @@
     // Helpers
     function pad(n){ return String(n).padStart(2,'0'); }
     function quarterOf(d){ return Math.floor(d.getMonth()/3)+1; }
+
+    function cloneChartConfig() {
+        return JSON.parse(JSON.stringify(chartConfig));
+    }
+
+    function formatPercent(value, decimals = 1) {
+        const num = Number(value);
+        if (isNaN(num)) return '0%';
+        return `${num.toFixed(decimals)}%`;
+    }
+
+    function formatNumber(value) {
+        const num = Number(value);
+        if (isNaN(num)) return '0';
+        return num.toLocaleString();
+    }
+
+    function formatChange(value, decimals = 1, suffix = '%') {
+        const num = Number(value);
+        if (isNaN(num) || num === 0) {
+            return `0${suffix}`;
+        }
+        const sign = num > 0 ? '+' : '';
+        return `${sign}${num.toFixed(decimals)}${suffix}`;
+    }
+
+    function sanitizeSeries(series, options = {}) {
+        const safeLabels = Array.isArray(series?.labels) ? series.labels : [];
+        const safeValues = Array.isArray(series?.values) ? series.values : [];
+        const sanitized = { labels: safeLabels, values: safeValues };
+        if (options.includeCounts) {
+            sanitized.counts = Array.isArray(series?.counts) ? series.counts : [];
+        }
+        if (options.includeAverages) {
+            sanitized.averages = Array.isArray(series?.averages) ? series.averages : [];
+        }
+        if (options.includeBaselines) {
+            sanitized.baselines = Array.isArray(series?.baselines) ? series.baselines : [];
+        }
+        return sanitized;
+    }
+
+    function getLatestChange(values) {
+        if (!Array.isArray(values) || values.length < 2) return 0;
+        const last = Number(values[values.length - 1]);
+        const prev = Number(values[values.length - 2]);
+        if (isNaN(last) || isNaN(prev)) return 0;
+        return last - prev;
+    }
+
+    function getLastValue(values) {
+        if (!Array.isArray(values) || !values.length) return 0;
+        const val = Number(values[values.length - 1]);
+        return isNaN(val) ? 0 : val;
+    }
 
     // Set defaults for all pickers
     function setDefaultPickerValues(){
@@ -858,15 +1395,36 @@
     const campaignColors = {
         independence: {
             primary: '#00BFFF',
-            gradient: 'rgba(0, 191, 255, 0.1)',
-            border: '#00BFFF'
+            gradient: 'rgba(0, 191, 255, 0.15)',
+            border: '#00BFFF',
+            background: 'rgba(0, 191, 255, 0.08)'
         },
         'credit-suite': {
             primary: '#FFB800',
-            gradient: 'rgba(255, 184, 0, 0.1)', 
-            border: '#FFB800'
+            gradient: 'rgba(255, 184, 0, 0.15)',
+            border: '#FFB800',
+            background: 'rgba(255, 184, 0, 0.08)'
         }
     };
+
+    const accentPalette = ['#00BFFF', '#2563eb', '#22d3ee', '#14b8a6', '#a855f7', '#f97316', '#ef4444'];
+
+    function getPaletteColor(index) {
+        return accentPalette[index % accentPalette.length];
+    }
+
+    function withAlpha(hex, alpha) {
+        if (!hex) return `rgba(0,0,0,${alpha})`;
+        let value = hex.replace('#', '');
+        if (value.length === 3) {
+            value = value.split('').map(ch => ch + ch).join('');
+        }
+        const intVal = parseInt(value, 16);
+        const r = (intVal >> 16) & 255;
+        const g = (intVal >> 8) & 255;
+        const b = intVal & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
 
     // Initialize dashboard
     document.addEventListener('DOMContentLoaded', function() {
@@ -884,7 +1442,14 @@
         initializeCharts();
         loadCampaignUsers();
         loadDashboardData();
-            
+
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                loadDashboardData();
+            });
+        }
+
         // Initialize animations
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -1080,8 +1645,10 @@
         const campaignClass = currentCampaign;
         
         const indicators = [
-            'avgScoreIndicator', 'passRateIndicator', 'evaluationsIndicator', 
-            'agentsIndicator', 'trendsIndicator', 'categoryIndicator', 'comparisonIndicator'
+            'avgScoreIndicator', 'passRateIndicator', 'evaluationsIndicator',
+            'agentsIndicator', 'trendsIndicator', 'categoryIndicator', 'comparisonIndicator',
+            'gaugeIndicator', 'topAgentsIndicator', 'passTrendIndicator', 'volumeIndicator',
+            'distributionIndicator', 'callTypeIndicator', 'momentumIndicator', 'impactIndicator'
         ];
         
         indicators.forEach(id => {
@@ -1116,10 +1683,36 @@
 
     function initializeCharts() {
         const colors = campaignColors[currentCampaign];
-        
-        // Trends Chart
+
+        const gaugeCtx = document.getElementById('scoreGaugeChart');
+        if (gaugeCtx) {
+            scoreGaugeChart = new Chart(gaugeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Achieved', 'Remaining'],
+                    datasets: [{
+                        data: [0, 100],
+                        backgroundColor: [colors.primary, 'rgba(148, 163, 184, 0.25)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    cutout: '70%',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    }
+                }
+            });
+        }
+
         const trendsCtx = document.getElementById('trendsChart');
         if (trendsCtx) {
+            const options = cloneChartConfig();
+            options.plugins.legend.display = false;
+            options.scales.y.suggestedMax = 100;
             trendsChart = new Chart(trendsCtx, {
                 type: 'line',
                 data: {
@@ -1130,46 +1723,157 @@
                         borderColor: colors.primary,
                         backgroundColor: colors.gradient,
                         tension: 0.4,
-                        fill: true
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#fff'
                     }]
                 },
-                options: chartConfig
+                options
             });
         }
 
-        // Category Chart
-        const categoryCtx = document.getElementById('categoryChart');
-        if (categoryCtx) {
-            categoryChart = new Chart(categoryCtx, {
-                type: 'doughnut',
+        const passCtx = document.getElementById('passTrendChart');
+        if (passCtx) {
+            const options = cloneChartConfig();
+            options.plugins.legend.display = false;
+            options.scales.y.suggestedMax = 100;
+            options.scales.y.title = { display: true, text: 'Pass Rate %' };
+            passTrendChart = new Chart(passCtx, {
+                type: 'line',
                 data: {
                     labels: [],
                     datasets: [{
+                        label: 'Pass Rate',
                         data: [],
-                        backgroundColor: [
-                            '#003177',   // Navy - Call Opening
-                            '#00BFFF',   // Cyan - Needs Discovery
-                            '#10b981',   // Green - Appointment Setting
-                            '#9333ea',   // Purple - End of Call
-                            '#FF4000'    // Red - Soft Skills & Compliance
-                        ]
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#fff'
+                    }]
+                },
+                options
+            });
+        }
+
+        const volumeCtx = document.getElementById('volumeChart');
+        if (volumeCtx) {
+            const options = cloneChartConfig();
+            options.plugins.legend.display = false;
+            options.scales.y.title = { display: true, text: 'Evaluations' };
+            volumeChart = new Chart(volumeCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Evaluations',
+                        data: [],
+                        backgroundColor: colors.background,
+                        borderColor: colors.primary,
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options
+            });
+        }
+
+        const categoryCtx = document.getElementById('categoryChart');
+        if (categoryCtx) {
+            categoryChart = new Chart(categoryCtx, {
+                type: 'radar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Category Score',
+                        data: [],
+                        backgroundColor: colors.gradient,
+                        borderColor: colors.primary,
+                        borderWidth: 2,
+                        pointBackgroundColor: colors.primary
                     }]
                 },
                 options: {
-                    ...chartConfig,
+                    responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
-                        ...chartConfig.plugins,
-                        legend: {
-                            position: 'bottom'
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        r: {
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            angleLines: { color: 'rgba(148,163,184,0.2)' },
+                            grid: { color: 'rgba(148,163,184,0.2)' },
+                            ticks: { display: false },
+                            pointLabels: {
+                                font: { family: "'Google Sans', sans-serif", size: 12 }
+                            }
                         }
                     }
                 }
             });
         }
 
-        // Comparison Chart
+        const distributionCtx = document.getElementById('distributionChart');
+        if (distributionCtx) {
+            const options = cloneChartConfig();
+            options.plugins.legend.display = false;
+            options.indexAxis = 'y';
+            options.scales.x.title = { display: true, text: 'Evaluations' };
+            distributionChart = new Chart(distributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Evaluations',
+                        data: [],
+                        backgroundColor: colors.gradient,
+                        borderColor: colors.border,
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options
+            });
+        }
+
+        const callTypeCtx = document.getElementById('callTypeChart');
+        if (callTypeCtx) {
+            callTypeChart = new Chart(callTypeCtx, {
+                type: 'polarArea',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Score',
+                        data: [],
+                        backgroundColor: []
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        r: {
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            grid: { color: 'rgba(148,163,184,0.2)' }
+                        }
+                    }
+                }
+            });
+        }
+
         const comparisonCtx = document.getElementById('comparisonChart');
         if (comparisonCtx) {
+            const options = cloneChartConfig();
+            options.indexAxis = 'y';
+            options.plugins.legend.display = false;
+            options.scales.x.suggestedMax = 100;
             comparisonChart = new Chart(comparisonCtx, {
                 type: 'bar',
                 data: {
@@ -1179,10 +1883,67 @@
                         data: [],
                         backgroundColor: colors.gradient,
                         borderColor: colors.border,
-                        borderWidth: 2
+                        borderWidth: 2,
+                        borderRadius: 6
                     }]
                 },
-                options: chartConfig
+                options
+            });
+        }
+
+        const momentumCtx = document.getElementById('momentumChart');
+        if (momentumCtx) {
+            const options = cloneChartConfig();
+            options.indexAxis = 'y';
+            options.plugins.legend.display = false;
+            options.scales.x.title = { display: true, text: 'Score Change' };
+            momentumChart = new Chart(momentumCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Change vs Last Period',
+                        data: [],
+                        backgroundColor: [],
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options
+            });
+        }
+
+        const impactCtx = document.getElementById('impactChart');
+        if (impactCtx) {
+            impactChart = new Chart(impactCtx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Agent Impact',
+                        data: [],
+                        backgroundColor: withAlpha(colors.primary, 0.25),
+                        borderColor: colors.border,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Evaluations' },
+                            beginAtZero: true
+                        },
+                        y: {
+                            title: { display: true, text: 'Average Score' },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    }
+                }
             });
         }
     }
@@ -1273,29 +2034,110 @@
 
         // Trends (last N periods up to current)
         const trendPeriods = getLastNPeriods(8, currentPeriod, granularity); // array oldest -> newest
-        const trendLabels = trendPeriods;
-        const trendValues = trendPeriods.map(p => {
+        const trendStats = trendPeriods.map(p => {
           const subset = records.filter(r =>
             r.periodKey === p &&
             (!agentFilter || r.agent === agentFilter) &&
             (!callTypeFilter || r.callType === callTypeFilter)
           );
-          return subset.length ? round2(average(subset.map(s => s.score))) : 0;
+          if (!subset.length) {
+            return { period: p, average: 0, passRate: 0, volume: 0 };
+          }
+          return {
+            period: p,
+            average: round2(average(subset.map(s => s.score))),
+            passRate: round2(calcPassRate(subset)),
+            volume: subset.length
+          };
         });
+        const trendLabels = trendPeriods;
+        const trendValues = trendStats.map(s => s.average);
+        const passTrendValues = trendStats.map(s => s.passRate);
+        const volumeTrendValues = trendStats.map(s => s.volume);
 
         // Category performance (for current period)
         const categorySummary = computeCategoryPerformance(currentSet, headers, questionToCategory);
 
-        // Agent comparison (for current period)
+        // Agent comparison and advanced stats (for current period)
         const byAgentMap = new Map();
         currentSet.forEach(r => {
-          if (!byAgentMap.has(r.agent)) byAgentMap.set(r.agent, []);
-          byAgentMap.get(r.agent).push(r.score);
+          const key = r.agent || 'Unknown';
+          if (!byAgentMap.has(key)) byAgentMap.set(key, []);
+          byAgentMap.get(key).push(r);
         });
-        const agentAverages = Array.from(byAgentMap.entries())
-          .map(([agent, scores]) => ({ agent, score: round2(average(scores)) }))
-          .sort((a,b) => b.score - a.score)
-          .slice(0, 20); // cap for cleanliness
+
+        const prevByAgentMap = new Map();
+        prevSet.forEach(r => {
+          const key = r.agent || 'Unknown';
+          if (!prevByAgentMap.has(key)) prevByAgentMap.set(key, []);
+          prevByAgentMap.get(key).push(r);
+        });
+
+        const prevAverageMap = new Map();
+        prevByAgentMap.forEach((agentRecords, agent) => {
+          prevAverageMap.set(agent, average(agentRecords.map(rec => rec.score)));
+        });
+
+        const agentStats = Array.from(byAgentMap.entries())
+          .map(([agent, recs]) => ({
+            agent: agent || 'Unknown',
+            score: round2(average(recs.map(s => s.score))),
+            evaluations: recs.length,
+            passRate: round2(calcPassRate(recs))
+          }))
+          .sort((a,b) => b.score - a.score);
+
+        const topAgentStats = agentStats.slice(0, 20);
+        const topAgentsDetailed = agentStats.slice(0, 3).map(stat => {
+          const previousAverage = prevAverageMap.has(stat.agent) ? prevAverageMap.get(stat.agent) : stat.score;
+          return {
+            agent: stat.agent,
+            score: stat.score,
+            change: round2(stat.score - previousAverage),
+            evaluations: stat.evaluations,
+            passRate: stat.passRate
+          };
+        });
+
+        const agentMomentum = agentStats
+          .map(stat => {
+            const previousAverage = prevAverageMap.has(stat.agent) ? prevAverageMap.get(stat.agent) : stat.score;
+            return {
+              agent: stat.agent,
+              change: round2(stat.score - previousAverage),
+              baseline: stat.score
+            };
+          })
+          .sort((a,b) => b.change - a.change)
+          .slice(0, 6);
+
+        const agentImpact = agentStats.slice(0, 8).map(stat => ({
+          agent: stat.agent,
+          average: stat.score,
+          evaluations: stat.evaluations,
+          passRate: stat.passRate
+        }));
+
+        const callTypeMap = new Map();
+        currentSet.forEach(r => {
+          const key = r.callType || 'Unspecified';
+          if (!callTypeMap.has(key)) callTypeMap.set(key, []);
+          callTypeMap.get(key).push(r);
+        });
+        const callTypeLabels = Array.from(callTypeMap.keys());
+        const callTypeValues = callTypeLabels.map(label => round2(average(callTypeMap.get(label).map(rec => rec.score))));
+        const callTypeCounts = callTypeLabels.map(label => callTypeMap.get(label).length);
+
+        const distributionBuckets = [
+          { label: '0-59%', min: 0, max: 59.999 },
+          { label: '60-69%', min: 60, max: 69.999 },
+          { label: '70-79%', min: 70, max: 79.999 },
+          { label: '80-89%', min: 80, max: 89.999 },
+          { label: '90-100%', min: 90, max: 1000 }
+        ];
+        const distributionValues = distributionBuckets.map(bucket =>
+          currentSet.filter(rec => rec.score >= bucket.min && rec.score <= bucket.max).length
+        );
 
         return {
           avgScore: round2(avgScore),
@@ -1310,14 +2152,38 @@
             labels: trendLabels,
             values: trendValues
           },
+          passTrend: {
+            labels: trendLabels,
+            values: passTrendValues
+          },
+          volumeTrend: {
+            labels: trendLabels,
+            values: volumeTrendValues
+          },
           categories: {
             labels: categorySummary.labels,
             values: categorySummary.values
           },
           agents: {
-            labels: agentAverages.map(a => a.agent || 'Unknown'),
-            values: agentAverages.map(a => a.score)
-          }
+            labels: topAgentStats.map(a => a.agent || 'Unknown'),
+            values: topAgentStats.map(a => a.score)
+          },
+          callTypes: {
+            labels: callTypeLabels,
+            values: callTypeValues,
+            counts: callTypeCounts
+          },
+          distribution: {
+            labels: distributionBuckets.map(b => b.label),
+            values: distributionValues
+          },
+          topAgents: topAgentsDetailed,
+          momentum: {
+            labels: agentMomentum.map(a => a.agent),
+            values: agentMomentum.map(a => a.change),
+            baselines: agentMomentum.map(a => a.baseline)
+          },
+          agentImpact
         };
       } catch (err) {
         safeWriteError('clientGetIndependenceQAAnalytics', err);
@@ -1342,144 +2208,6 @@
     /************************************************************
      * UnifiedQADashboard Server Endpoints (Independence + stubs)
      ************************************************************/
-
-    /**
-     * MAIN ANALYTICS ENDPOINT for Independence Insurance
-     * @param {'Week'|'Month'|'Quarter'|'Year'} granularity
-     * @param {string} period - e.g. '2025-W03', '2025-01', 'Q1-2025', '2025'
-     * @param {string} agentFilter - exact AgentName or ''
-     * @param {string} callTypeFilter - exact CallType or ''
-     */
-    function clientGetIndependenceQAAnalytics(granularity, period, agentFilter, callTypeFilter) {
-      try {
-        const sh = SpreadsheetApp.openById(INDEPENDENCE_SHEET_ID).getSheetByName(INDEPENDENCE_QA_SHEET);
-        if (!sh || sh.getLastRow() < 2) return getEmptyAnalyticsPayload();
-
-        // Pull all data
-        const headers = INDEPENDENCE_QA_HEADERS;
-        const data = sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getValues();
-
-        // Index helpers
-        const idx = (name) => headers.indexOf(name);
-        const iAudit = idx('AuditDate');
-        const iScore = idx('PercentageScore');
-        const iStatus = idx('PassStatus');
-        const iAgent = idx('AgentName');
-        const iCall  = idx('CallType');
-        const iTs    = idx('Timestamp');
-
-        // Map question -> category using config
-        const questionToCategory = {};
-        if (INDEPENDENCE_QA_CONFIG?.categories) {
-          Object.entries(INDEPENDENCE_QA_CONFIG.categories).forEach(([catName, cat]) => {
-            (cat.questions || []).forEach(q => { questionToCategory[q.id] = catName; });
-          });
-        }
-
-        // Build records (lightweight)
-        const records = [];
-        for (const row of data) {
-          // Parse date (AuditDate preferred, then Timestamp)
-          const d = parseDateCell(row[iAudit]) || parseDateCell(row[iTs]);
-          if (!d) continue;
-
-          const rec = {
-            date: d,
-            periodKey: getPeriodKey(d, granularity),
-            score: toNumber(row[iScore]),
-            status: String(row[iStatus] || ''),
-            agent: String(row[iAgent] || ''),
-            callType: String(row[iCall] || ''),
-            row // keep the raw row for category math
-          };
-          records.push(rec);
-        }
-
-        // Current + previous periods
-        const currentPeriod = period || getPeriodKey(new Date(), granularity);
-        const previousPeriod = getPreviousPeriodKey(currentPeriod, granularity);
-
-        // Apply static filters builder
-        const rowMatchesFilters = (rec, periodKey) =>
-          rec.periodKey === periodKey &&
-          (!agentFilter || rec.agent === agentFilter) &&
-          (!callTypeFilter || rec.callType === callTypeFilter);
-
-        // Current subset
-        const currentSet = records.filter(r => rowMatchesFilters(r, currentPeriod));
-        // Previous subset
-        const prevSet = records.filter(r => rowMatchesFilters(r, previousPeriod));
-
-        // KPIs
-        const avgScore = average(currentSet.map(r => r.score));
-        const passRate = calcPassRate(currentSet);
-        const totalEvaluations = currentSet.length;
-        const agentsEvaluated = unique(currentSet.map(r => r.agent)).length;
-
-        const prevAvgScore = average(prevSet.map(r => r.score));
-        const prevPassRate = calcPassRate(prevSet);
-        const prevTotalEvaluations = prevSet.length;
-        const prevAgentsEvaluated = unique(prevSet.map(r => r.agent)).length;
-
-        // Changes vs last period (percentage points for rates/averages; absolute for counts)
-        const avgScoreChange = prevAvgScore === 0 ? (avgScore ? 100 : 0) : ((avgScore - prevAvgScore));
-        const passRateChange = prevPassRate === 0 ? (passRate ? 100 : 0) : ((passRate - prevPassRate));
-        const evaluationsChange = totalEvaluations - prevTotalEvaluations;
-        const agentsChange = agentsEvaluated - prevAgentsEvaluated;
-
-        // Trends (last N periods up to current)
-        const trendPeriods = getLastNPeriods(8, currentPeriod, granularity); // array oldest -> newest
-        const trendLabels = trendPeriods;
-        const trendValues = trendPeriods.map(p => {
-          const subset = records.filter(r =>
-            r.periodKey === p &&
-            (!agentFilter || r.agent === agentFilter) &&
-            (!callTypeFilter || r.callType === callTypeFilter)
-          );
-          return subset.length ? round2(average(subset.map(s => s.score))) : 0;
-        });
-
-        // Category performance (for current period)
-        const categorySummary = computeCategoryPerformance(currentSet, headers, questionToCategory);
-
-        // Agent comparison (for current period)
-        const byAgentMap = new Map();
-        currentSet.forEach(r => {
-          if (!byAgentMap.has(r.agent)) byAgentMap.set(r.agent, []);
-          byAgentMap.get(r.agent).push(r.score);
-        });
-        const agentAverages = Array.from(byAgentMap.entries())
-          .map(([agent, scores]) => ({ agent, score: round2(average(scores)) }))
-          .sort((a,b) => b.score - a.score)
-          .slice(0, 20); // cap for cleanliness
-
-        return {
-          avgScore: round2(avgScore),
-          passRate: round2(passRate),
-          totalEvaluations,
-          agentsEvaluated,
-          avgScoreChange: round2(avgScoreChange),
-          passRateChange: round2(passRateChange),
-          evaluationsChange,
-          agentsChange,
-          trends: {
-            labels: trendLabels,
-            values: trendValues
-          },
-          categories: {
-            labels: categorySummary.labels,
-            values: categorySummary.values
-          },
-          agents: {
-            labels: agentAverages.map(a => a.agent || 'Unknown'),
-            values: agentAverages.map(a => a.score)
-          }
-        };
-      } catch (err) {
-        safeWriteError('clientGetIndependenceQAAnalytics', err);
-        return getEmptyAnalyticsPayload();
-      }
-    }
 
     /**
      * EXPORT endpoint for Independence Insurance
@@ -1572,7 +2300,14 @@
         agentsChange: 0,
         trends: { labels: ['No Data'], values: [0] },
         categories: { labels: ['No Data'], values: [0] },
-        agents: { labels: ['No Data'], values: [0] }
+        agents: { labels: ['No Data'], values: [0] },
+        passTrend: { labels: ['No Data'], values: [0] },
+        volumeTrend: { labels: ['No Data'], values: [0] },
+        callTypes: { labels: ['No Data'], values: [0], counts: [0] },
+        distribution: { labels: ['No Data'], values: [0] },
+        topAgents: [],
+        momentum: { labels: [], values: [], baselines: [] },
+        agentImpact: []
       };
     }
 
@@ -1828,7 +2563,14 @@
             agents: {
                 labels: ['No Data'],
                 values: [0]
-            }
+            },
+            passTrend: { labels: ['No Data'], values: [0] },
+            volumeTrend: { labels: ['No Data'], values: [0] },
+            callTypes: { labels: ['No Data'], values: [0], counts: [0] },
+            distribution: { labels: ['No Data'], values: [0] },
+            topAgents: [],
+            momentum: { labels: [], values: [], baselines: [] },
+            agentImpact: []
         };
     }
 
@@ -1891,29 +2633,37 @@
     }
 
     function updateDashboard(data) {
-        // Validate data structure
         if (!data || typeof data !== 'object') {
             console.warn('Invalid data received:', data);
             data = getEmptyAnalytics();
         }
-        
-        // Ensure all required properties exist
+
         const validatedData = {
-            avgScore: data.avgScore || 0,
-            passRate: data.passRate || 0,
-            totalEvaluations: data.totalEvaluations || 0,
-            agentsEvaluated: data.agentsEvaluated || 0,
-            avgScoreChange: data.avgScoreChange || 0,
-            passRateChange: data.passRateChange || 0,
-            evaluationsChange: data.evaluationsChange || 0,
-            agentsChange: data.agentsChange || 0,
-            trends: data.trends || { labels: [], values: [] },
-            categories: data.categories || { labels: [], values: [] },
-            agents: data.agents || { labels: [], values: [] }
+            avgScore: Number(data.avgScore) || 0,
+            passRate: Number(data.passRate) || 0,
+            totalEvaluations: Number(data.totalEvaluations) || 0,
+            agentsEvaluated: Number(data.agentsEvaluated) || 0,
+            avgScoreChange: Number(data.avgScoreChange) || 0,
+            passRateChange: Number(data.passRateChange) || 0,
+            evaluationsChange: Number(data.evaluationsChange) || 0,
+            agentsChange: Number(data.agentsChange) || 0,
+            trends: sanitizeSeries(data.trends),
+            categories: sanitizeSeries(data.categories),
+            agents: sanitizeSeries(data.agents),
+            passTrend: sanitizeSeries(data.passTrend),
+            volumeTrend: sanitizeSeries(data.volumeTrend),
+            callTypes: sanitizeSeries(data.callTypes, { includeCounts: true, includeAverages: true }),
+            distribution: sanitizeSeries(data.distribution),
+            topAgents: Array.isArray(data.topAgents) ? data.topAgents : [],
+            momentum: sanitizeSeries(data.momentum, { includeBaselines: true }),
+            agentImpact: Array.isArray(data.agentImpact) ? data.agentImpact : []
         };
-        
+
         updateKPIs(validatedData);
         updateCharts(validatedData);
+        renderTopAgents(validatedData);
+        renderCategoryBreakdown(validatedData.categories);
+        renderAIInsights(validatedData);
     }
 
     function updateKPIs(data) {
@@ -1936,8 +2686,48 @@
             }
         });
 
+        const gaugePass = document.getElementById('gaugePassRate');
+        if (gaugePass) {
+            gaugePass.textContent = formatPercent(data.passRate);
+        }
+
+        updateHeadline(data);
+
         // Update trends
         updateTrends(data);
+    }
+
+    function updateHeadline(data) {
+        const avgScoreEl = document.getElementById('headlineAvgScore');
+        if (avgScoreEl) {
+            avgScoreEl.textContent = formatPercent(data.avgScore);
+        }
+
+        const avgChangeEl = document.getElementById('headlineAvgChange');
+        if (avgChangeEl) {
+            avgChangeEl.textContent = `${formatChange(data.avgScoreChange)} vs last period`;
+            avgChangeEl.classList.remove('positive', 'negative');
+            if (data.avgScoreChange > 0) {
+                avgChangeEl.classList.add('positive');
+            } else if (data.avgScoreChange < 0) {
+                avgChangeEl.classList.add('negative');
+            }
+        }
+
+        const passRateEl = document.getElementById('headlinePassRate');
+        if (passRateEl) {
+            passRateEl.textContent = formatPercent(data.passRate);
+        }
+
+        const evalsEl = document.getElementById('headlineEvaluations');
+        if (evalsEl) {
+            evalsEl.textContent = formatNumber(data.totalEvaluations);
+        }
+
+        const agentsEl = document.getElementById('headlineAgents');
+        if (agentsEl) {
+            agentsEl.textContent = formatNumber(data.agentsEvaluated);
+        }
     }
 
     function updateTrends(data) {
@@ -1964,45 +2754,241 @@
 
     function updateCharts(data) {
         const colors = campaignColors[currentCampaign];
-        
+
         try {
-            // Update trends chart
-            if (trendsChart && data.trends) {
-                const labels = Array.isArray(data.trends.labels) ? data.trends.labels : [];
-                const values = Array.isArray(data.trends.values) ? data.trends.values : [];
-                
+            if (scoreGaugeChart) {
+                const score = Math.max(0, Math.min(100, Number(data.avgScore) || 0));
+                scoreGaugeChart.data.datasets[0].data = [score, Math.max(0, 100 - score)];
+                scoreGaugeChart.data.datasets[0].backgroundColor[0] = colors.primary;
+                scoreGaugeChart.update('none');
+
+                const gaugeValue = document.getElementById('scoreGaugeValue');
+                if (gaugeValue) {
+                    gaugeValue.textContent = formatPercent(score);
+                }
+            }
+
+            if (trendsChart) {
+                const labels = data.trends.labels;
+                const values = data.trends.values.map(v => Number(v) || 0);
                 trendsChart.data.labels = labels;
                 trendsChart.data.datasets[0].data = values;
                 trendsChart.data.datasets[0].borderColor = colors.primary;
                 trendsChart.data.datasets[0].backgroundColor = colors.gradient;
-                trendsChart.update('none'); // Disable animation for better performance
+                trendsChart.update('none');
             }
 
-            // Update category chart
-            if (categoryChart && data.categories) {
-                const labels = Array.isArray(data.categories.labels) ? data.categories.labels : [];
-                const values = Array.isArray(data.categories.values) ? data.categories.values : [];
-                
-                categoryChart.data.labels = labels;
-                categoryChart.data.datasets[0].data = values;
+            if (passTrendChart) {
+                passTrendChart.data.labels = data.passTrend.labels;
+                passTrendChart.data.datasets[0].data = data.passTrend.values.map(v => Number(v) || 0);
+                passTrendChart.update('none');
+            }
+
+            if (volumeChart) {
+                volumeChart.data.labels = data.volumeTrend.labels;
+                volumeChart.data.datasets[0].data = data.volumeTrend.values.map(v => Number(v) || 0);
+                volumeChart.data.datasets[0].backgroundColor = colors.background;
+                volumeChart.data.datasets[0].borderColor = colors.primary;
+                volumeChart.update('none');
+            }
+
+            if (categoryChart) {
+                categoryChart.data.labels = data.categories.labels;
+                categoryChart.data.datasets[0].data = data.categories.values.map(v => Number(v) || 0);
+                categoryChart.data.datasets[0].backgroundColor = colors.gradient;
+                categoryChart.data.datasets[0].borderColor = colors.primary;
                 categoryChart.update('none');
             }
 
-            // Update comparison chart
-            if (comparisonChart && data.agents) {
-                const labels = Array.isArray(data.agents.labels) ? data.agents.labels : [];
-                const values = Array.isArray(data.agents.values) ? data.agents.values : [];
-                
-                comparisonChart.data.labels = labels;
-                comparisonChart.data.datasets[0].data = values;
-                comparisonChart.data.datasets[0].backgroundColor = colors.gradient;
+            if (distributionChart) {
+                distributionChart.data.labels = data.distribution.labels;
+                distributionChart.data.datasets[0].data = data.distribution.values.map(v => Number(v) || 0);
+                distributionChart.data.datasets[0].backgroundColor = data.distribution.labels.map((_, idx) => getPaletteColor(idx));
+                distributionChart.update('none');
+            }
+
+            if (callTypeChart) {
+                callTypeChart.data.labels = data.callTypes.labels;
+                const callTypeDataRaw = (data.callTypes.averages && data.callTypes.averages.length)
+                    ? data.callTypes.averages
+                    : data.callTypes.values;
+                const callTypeData = Array.isArray(callTypeDataRaw) ? callTypeDataRaw : [];
+                callTypeChart.data.datasets[0].data = callTypeData.map(v => Number(v) || 0);
+                callTypeChart.data.datasets[0].backgroundColor = data.callTypes.labels.map((_, idx) => getPaletteColor(idx));
+                callTypeChart.update('none');
+            }
+
+            if (comparisonChart) {
+                comparisonChart.data.labels = data.agents.labels;
+                comparisonChart.data.datasets[0].data = data.agents.values.map(v => Number(v) || 0);
+                comparisonChart.data.datasets[0].backgroundColor = data.agents.labels.map((_, idx) => getPaletteColor(idx));
                 comparisonChart.data.datasets[0].borderColor = colors.border;
                 comparisonChart.update('none');
+            }
+
+            if (momentumChart) {
+                momentumChart.data.labels = data.momentum.labels;
+                momentumChart.data.datasets[0].data = data.momentum.values.map(v => Number(v) || 0);
+                momentumChart.data.datasets[0].backgroundColor = data.momentum.values.map(v => (v >= 0 ? colors.primary : 'rgba(239, 68, 68, 0.4)'));
+                momentumChart.update('none');
+            }
+
+            if (impactChart) {
+                const points = data.agentImpact.map(item => ({
+                    x: Number(item.evaluations) || 0,
+                    y: Number(item.average) || 0,
+                    r: Math.max(6, Math.min(24, (Number(item.passRate) || 0) / 4))
+                }));
+                impactChart.data.datasets[0].data = points;
+                impactChart.data.datasets[0].backgroundColor = points.map(() => withAlpha(colors.primary, 0.25));
+                impactChart.data.datasets[0].borderColor = colors.border;
+                const maxEval = Math.max(10, ...points.map(p => p.x));
+                impactChart.options.scales.x.max = maxEval * 1.1;
+                impactChart.update('none');
             }
         } catch (error) {
             console.error('Error updating charts:', error);
             showMessage('Charts could not be updated', 'warning');
         }
+    }
+
+    function renderTopAgents(data) {
+        const list = document.getElementById('topAgentsList');
+        const banner = document.getElementById('topAgentsBannerList');
+        if (!list || !banner) return;
+
+        const detailedAgents = Array.isArray(data.topAgents) && data.topAgents.length
+            ? data.topAgents
+            : (data.agents.labels || []).slice(0, 3).map((name, idx) => ({
+                agent: name,
+                score: Number(data.agents.values?.[idx]) || 0,
+                change: 0,
+                evaluations: (data.agentImpact || []).find(item => item.agent === name)?.evaluations || 0
+            }));
+
+        const topAgents = detailedAgents.filter(agent => agent && agent.agent);
+
+        if (!topAgents.length) {
+            list.innerHTML = '<p class="empty-state">No agent data available for this period.</p>';
+            banner.textContent = 'No agent insights available for the selected filters.';
+            return;
+        }
+
+        list.innerHTML = topAgents.map((agent, index) => {
+            const changeValue = Number(agent.change) || 0;
+            const changeClass = changeValue > 0 ? 'positive' : changeValue < 0 ? 'negative' : '';
+            const changeText = formatChange(changeValue);
+            const evals = typeof agent.evaluations === 'number' ? `${formatNumber(agent.evaluations)} evals` : '—';
+            return `
+                <div class="top-agent-item">
+                    <div class="rank-badge">#${index + 1}</div>
+                    <div class="top-agent-meta">
+                        <span class="name">${agent.agent || 'Unknown'}</span>
+                        <span class="score">${formatPercent(agent.score)}</span>
+                        <span class="change ${changeClass}">${changeText}</span>
+                        <span class="count">${evals}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        banner.innerHTML = topAgents.map(agent => `<span class="agent-pill">${agent.agent || 'Unknown'} <strong>${formatPercent(agent.score)}</strong></span>`).join('');
+    }
+
+    function renderCategoryBreakdown(categories) {
+        const container = document.getElementById('categoryBreakdown');
+        if (!container) return;
+
+        if (!categories.labels.length) {
+            container.innerHTML = '<p class="empty-state">Category performance details will populate here.</p>';
+            return;
+        }
+
+        container.innerHTML = categories.labels.map((label, idx) => {
+            const value = Number(categories.values[idx]) || 0;
+            return `
+                <div class="category-row">
+                    <div class="category-row-header">
+                        <span>${label}</span>
+                        <span>${formatPercent(value)}</span>
+                    </div>
+                    <div class="category-progress">
+                        <div class="category-progress-bar" style="width: ${Math.max(0, Math.min(100, value))}%;"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderAIInsights(data) {
+        const container = document.getElementById('aiInsightsList');
+        if (!container) return;
+
+        const insights = [];
+
+        const avgChange = Number(data.avgScoreChange) || 0;
+        if (avgChange !== 0) {
+            insights.push(avgChange > 0
+                ? `Average quality improved by ${formatChange(avgChange)}. Keep reinforcing the behaviors that are working.`
+                : `Average quality dipped by ${formatChange(avgChange)}. Investigate recent coaching or process changes.`);
+        }
+
+        const passChange = Number(data.passRateChange) || 0;
+        if (passChange !== 0) {
+            insights.push(passChange > 0
+                ? `Pass rate increased by ${formatChange(passChange)} indicating stronger compliance.`
+                : `Pass rate fell by ${formatChange(passChange)}. Review common miss categories to recover.`);
+        }
+
+        const trendShift = getLatestChange(data.trends.values);
+        if (trendShift !== 0) {
+            insights.push(trendShift > 0
+                ? `Scores rose ${formatChange(trendShift)} vs the previous period. Capture and share wins from this uplift.`
+                : `Scores declined ${formatChange(trendShift)} period-over-period. Consider targeted coaching to stabilize performance.`);
+        }
+
+        if (data.momentum.labels.length) {
+            const leader = {
+                name: data.momentum.labels[0],
+                change: Number(data.momentum.values[0]) || 0,
+                baseline: Number(data.momentum.baselines?.[0]) || 0
+            };
+            if (leader.change !== 0) {
+                insights.push(leader.change > 0
+                    ? `${leader.name} gained ${formatChange(leader.change)} this period and is now averaging ${formatPercent(leader.baseline)}.`
+                    : `${leader.name} slipped ${formatChange(leader.change)} and now averages ${formatPercent(leader.baseline)}. Offer fast feedback.`);
+            }
+        }
+
+        if (data.categories.labels.length) {
+            let weakestIdx = 0;
+            data.categories.values.forEach((val, idx) => {
+                if ((Number(val) || 0) < (Number(data.categories.values[weakestIdx]) || 0)) {
+                    weakestIdx = idx;
+                }
+            });
+            const weakestScore = Number(data.categories.values[weakestIdx]) || 0;
+            if (weakestScore > 0) {
+                insights.push(`Focus on ${data.categories.labels[weakestIdx]} (${formatPercent(weakestScore)}) to lift overall quality.`);
+            }
+        }
+
+        if (data.callTypes.labels.length && data.callTypes.counts?.length) {
+            let busiestIdx = 0;
+            data.callTypes.counts.forEach((count, idx) => {
+                if ((Number(count) || 0) > (Number(data.callTypes.counts[busiestIdx]) || 0)) {
+                    busiestIdx = idx;
+                }
+            });
+            const busiestAvg = Number(data.callTypes.values?.[busiestIdx] ?? data.callTypes.averages?.[busiestIdx]) || 0;
+            insights.push(`${data.callTypes.labels[busiestIdx]} calls dominate volume at ${formatNumber(data.callTypes.counts[busiestIdx])} evaluations with an average of ${formatPercent(busiestAvg)}.`);
+        }
+
+        if (!insights.length) {
+            insights.push('Load more data or adjust filters to generate AI-powered quality recommendations.');
+        }
+
+        container.innerHTML = insights.slice(0, 4).map(text => `<li><i class="fas fa-lightbulb"></i><span>${text}</span></li>`).join('');
     }
 
     /**
