@@ -835,6 +835,138 @@ function _csvToSet(csv) {
   return set;
 }
 
+function _collectUserPageKeys(user) {
+  const keys = new Set();
+
+  function addKey(raw) {
+    if (raw === null || typeof raw === 'undefined') {
+      return;
+    }
+
+    if (raw instanceof Set) {
+      raw.forEach(addKey);
+      return;
+    }
+
+    if (Array.isArray(raw)) {
+      raw.forEach(addKey);
+      return;
+    }
+
+    if (typeof raw === 'object') {
+      if (raw.PageKey || raw.pageKey) {
+        addKey(raw.PageKey || raw.pageKey);
+        return;
+      }
+      if (raw.Key || raw.key) {
+        addKey(raw.Key || raw.key);
+        return;
+      }
+      if (raw.Slug || raw.slug) {
+        addKey(raw.Slug || raw.slug);
+        return;
+      }
+      if (typeof raw.forEach === 'function') {
+        try {
+          raw.forEach(addKey);
+          return;
+        } catch (iterErr) {
+          console.warn('_collectUserPageKeys: unable to iterate value', iterErr);
+        }
+      }
+      return;
+    }
+
+    let text = String(raw || '').trim();
+    if (!text) {
+      return;
+    }
+
+    if (text.indexOf(',') >= 0) {
+      text.split(',').forEach(addKey);
+      return;
+    }
+
+    const lowered = text.toLowerCase();
+    if (lowered === '*' || lowered === 'all' || lowered === 'all-pages' || lowered === 'any') {
+      keys.add('*');
+      return;
+    }
+
+    const canonical = canonicalizePageKey(text) || '';
+    if (canonical) {
+      keys.add(_normalizePageKey(canonical));
+    }
+
+    const normalized = _normalizePageKey(text);
+    if (normalized) {
+      keys.add(normalized);
+    }
+  }
+
+  try {
+    if (!user) {
+      return keys;
+    }
+
+    if (typeof user.PagesCsv === 'string' && user.PagesCsv) {
+      user.PagesCsv.split(',').forEach(addKey);
+    }
+
+    addKey(user.Pages);
+    addKey(user.pages);
+    addKey(user.PageKeys);
+    addKey(user.pageKeys);
+    addKey(user.PageAssignments);
+    addKey(user.pageAssignments);
+
+    if (user.Authorization && typeof user.Authorization === 'object') {
+      addKey(user.Authorization.pages);
+      addKey(user.Authorization.pageKeys);
+      addKey(user.Authorization.allowedPages);
+      addKey(user.Authorization.allowedPageKeys);
+      addKey(user.Authorization.assignedPages);
+      addKey(user.Authorization.assignedPageKeys);
+      addKey(user.Authorization.pageAssignments);
+    }
+
+    if (user.AuthorizationContext && typeof user.AuthorizationContext === 'object') {
+      addKey(user.AuthorizationContext.pages);
+      addKey(user.AuthorizationContext.allowedPages);
+      addKey(user.AuthorizationContext.pageKeys);
+    }
+
+    if (Array.isArray(user.Claims)) {
+      user.Claims.forEach(function (claim) {
+        if (typeof claim !== 'string') {
+          return;
+        }
+        const match = /page[:/](.+)$/i.exec(claim);
+        if (match && match[1]) {
+          addKey(match[1]);
+        }
+      });
+    }
+
+    if (Array.isArray(user.AuthorizationClaims)) {
+      user.AuthorizationClaims.forEach(function (claim) {
+        if (typeof claim !== 'string') {
+          return;
+        }
+        const match = /page[:/](.+)$/i.exec(claim);
+        if (match && match[1]) {
+          addKey(match[1]);
+        }
+      });
+    }
+
+  } catch (collectionError) {
+    console.warn('_collectUserPageKeys: failed to collect keys', collectionError);
+  }
+
+  return keys;
+}
+
 function _stringifyForTemplate_(obj) {
   try {
     return JSON.stringify(obj || {}).replace(/<\/script>/g, '<\\/script>');
@@ -1248,6 +1380,39 @@ function _normalizeUser(user) {
   out.ID = _normalizeId(out.ID || out.id);
   out.CampaignID = _normalizeId(out.CampaignID || out.campaignId);
   out.PagesCsv = String(out.Pages || out.pages || '');
+  out.CanManagePages = (function resolveManagePagesFlag(candidate) {
+    function flagFromClaims(list) {
+      if (!Array.isArray(list)) return false;
+      for (var idx = 0; idx < list.length; idx++) {
+        var claim = list[idx];
+        if (typeof claim !== 'string') continue;
+        if (/manage[-:]?pages/i.test(claim)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (_truthy(candidate)) return true;
+    if (_truthy(out.canManagePages)) return true;
+    if (out.RoleCapabilities && _truthy(out.RoleCapabilities.canManagePages)) return true;
+    if (out.PermissionFlags) {
+      if (_truthy(out.PermissionFlags.canManagePages)) return true;
+      if (_truthy(out.PermissionFlags.managePages)) return true;
+      if (_truthy(out.PermissionFlags.managepages)) return true;
+    }
+    if (out.Authorization && out.Authorization.flags && _truthy(out.Authorization.flags.canManagePages)) {
+      return true;
+    }
+    if (out.Authorization && out.Authorization.permissionFlags) {
+      if (_truthy(out.Authorization.permissionFlags.canManagePages)) return true;
+      if (_truthy(out.Authorization.permissionFlags.managePages)) return true;
+      if (_truthy(out.Authorization.permissionFlags.managepages)) return true;
+    }
+    if (flagFromClaims(out.Claims)) return true;
+    if (flagFromClaims(out.AuthorizationClaims)) return true;
+    return false;
+  })(out.CanManagePages);
   return out;
 }
 
@@ -1267,6 +1432,8 @@ function evaluatePageAccess(user, pageKey, campaignId) {
     const u = _normalizeUser(user);
     const page = _normalizePageKey(pageKey || '');
     const cid = _normalizeId(campaignId || '');
+    const canonicalPage = canonicalizePageKey(page) || page;
+    const normalizedPageKey = _normalizePageKey(canonicalPage);
 
     // Basic account checks
     if (!u || !u.ID) return { allow: false, reason: 'No session', trace };
@@ -1298,9 +1465,32 @@ function evaluatePageAccess(user, pageKey, campaignId) {
       return { allow: true, reason: 'admin', trace };
     }
 
+    // Page managers can bypass assignment checks
+    if (_truthy(u.CanManagePages)) {
+      trace.push('Manage pages privilege');
+      return { allow: true, reason: 'manage-pages', trace };
+    }
+
     // For regular users, check if they have campaign access
     if (cid && !hasCampaignAccess(u, cid)) {
       return { allow: false, reason: 'No campaign access', trace };
+    }
+
+    // Enforce explicit page assignments
+    const assignedPages = _collectUserPageKeys(u);
+    if (!assignedPages || assignedPages.size === 0) {
+      trace.push('No page assignments');
+      return { allow: false, reason: 'No pages assigned', trace };
+    }
+
+    if (!assignedPages.has('*')) {
+      if (!assignedPages.has(normalizedPageKey) && !assignedPages.has(page)) {
+        trace.push('Page not assigned: ' + normalizedPageKey);
+        return { allow: false, reason: 'Page not assigned', trace };
+      }
+      trace.push('Page assignment matched');
+    } else {
+      trace.push('Wildcard page assignment');
     }
 
     // Default allow for authenticated users
