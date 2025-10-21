@@ -1031,6 +1031,271 @@ function clientGetAllShiftSlots() {
 // SCHEDULE GENERATION - Enhanced with ScheduleUtilities integration
 // ────────────────────────────────────────────────────────────────────────────
 
+function normalizeGenerationOptions(options = {}) {
+  const coerceNumber = (value, fallback, { min = null, max = null } = {}) => {
+    const fallbackNumber = Number(fallback);
+    let resolved = Number(value);
+
+    if (!Number.isFinite(resolved)) {
+      resolved = Number.isFinite(fallbackNumber) ? fallbackNumber : 0;
+    }
+
+    if (typeof min === 'number' && resolved < min) {
+      resolved = min;
+    }
+
+    if (typeof max === 'number' && resolved > max) {
+      resolved = max;
+    }
+
+    return resolved;
+  };
+
+  const coerceBoolean = (value, fallback = false) => {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (!normalized) {
+        return fallback;
+      }
+
+      if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+        return true;
+      }
+
+      if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return fallback;
+  };
+
+  const capacityOptions = options && typeof options === 'object' ? options.capacity || {} : {};
+  const breaksOptions = options && typeof options === 'object' ? options.breaks || {} : {};
+  const overtimeOptions = options && typeof options === 'object' ? options.overtime || {} : {};
+  const advancedOptions = options && typeof options === 'object' ? options.advanced || {} : {};
+
+  const maxCapacity = coerceNumber(capacityOptions.max ?? options.maxCapacity, 10, { min: 1 });
+  const minCoverage = coerceNumber(capacityOptions.min ?? options.minCoverage, 3, { min: 0 });
+
+  const break1Duration = coerceNumber(breaksOptions.first ?? options.break1Duration ?? options.breakDuration, 15, { min: 0 });
+  const lunchDuration = coerceNumber(breaksOptions.lunch ?? options.lunchDuration, 30, { min: 0 });
+  const break2Duration = coerceNumber(breaksOptions.second ?? options.break2Duration, 15, { min: 0 });
+  const enableStaggered = coerceBoolean(breaksOptions.enableStaggered ?? options.enableStaggeredBreaks, true);
+  const breakGroups = coerceNumber(breaksOptions.groups ?? options.breakGroups, 3, { min: 1 });
+  const staggerInterval = coerceNumber(breaksOptions.interval ?? options.staggerInterval, 15, { min: 1 });
+  const minCoveragePct = coerceNumber(breaksOptions.minCoveragePct ?? options.minCoveragePct, 70, { min: 0, max: 100 });
+
+  const overtimeEnabled = coerceBoolean(overtimeOptions.enabled ?? options.overtimeEnabled, false);
+  const maxDailyOT = coerceNumber(overtimeOptions.maxDaily ?? options.maxDailyOT, overtimeEnabled ? 2 : 0, { min: 0 });
+  const maxWeeklyOT = coerceNumber(overtimeOptions.maxWeekly ?? options.maxWeeklyOT, overtimeEnabled ? 10 : 0, { min: 0 });
+  const otApproval = (overtimeOptions.approval ?? options.otApproval ?? 'supervisor') || 'supervisor';
+  const otRate = coerceNumber(overtimeOptions.rate ?? options.otRate, 1.5, { min: 1 });
+  const otPolicy = (overtimeOptions.policy ?? options.otPolicy ?? 'MANDATORY') || 'MANDATORY';
+
+  const allowSwaps = coerceBoolean(advancedOptions.allowSwaps ?? options.allowSwaps, true);
+  const weekendPremium = coerceBoolean(advancedOptions.weekendPremium ?? options.weekendPremium, false);
+  const holidayPremium = coerceBoolean(advancedOptions.holidayPremium ?? options.holidayPremium, true);
+  const autoAssignment = coerceBoolean(advancedOptions.autoAssignment ?? options.autoAssignment, false);
+  const restPeriod = coerceNumber(advancedOptions.restPeriod ?? options.restPeriod, 8, { min: 0 });
+  const notificationLead = coerceNumber(advancedOptions.notificationLead ?? options.notificationLead, 24, { min: 0 });
+  const handoverTime = coerceNumber(advancedOptions.handoverTime ?? options.handoverTime, 15, { min: 0 });
+
+  const normalized = {
+    capacity: {
+      max: maxCapacity,
+      min: minCoverage
+    },
+    breaks: {
+      first: break1Duration,
+      lunch: lunchDuration,
+      second: break2Duration,
+      enableStaggered,
+      groups: breakGroups,
+      interval: staggerInterval,
+      minCoveragePct
+    },
+    overtime: {
+      enabled: overtimeEnabled,
+      maxDaily: maxDailyOT,
+      maxWeekly: maxWeeklyOT,
+      approval: otApproval,
+      rate: otRate,
+      policy: otPolicy
+    },
+    advanced: {
+      allowSwaps,
+      weekendPremium,
+      holidayPremium,
+      autoAssignment,
+      restPeriod,
+      notificationLead,
+      handoverTime
+    }
+  };
+
+  normalized.snapshot = {
+    capacity: Object.assign({}, normalized.capacity),
+    breaks: Object.assign({}, normalized.breaks),
+    overtime: Object.assign({}, normalized.overtime),
+    advanced: Object.assign({}, normalized.advanced)
+  };
+
+  return normalized;
+}
+
+function applyGenerationOptionsToSlot(slot, generationOptions) {
+  const applied = Object.assign({}, slot || {});
+  const { capacity, breaks, overtime, advanced } = generationOptions || {};
+
+  if (capacity) {
+    if (typeof capacity.max === 'number') {
+      applied.MaxCapacity = capacity.max;
+    }
+    if (typeof capacity.min === 'number') {
+      applied.MinCoverage = capacity.min;
+    }
+  }
+
+  if (breaks) {
+    if (typeof breaks.first === 'number') {
+      applied.BreakDuration = breaks.first;
+      applied.Break1Duration = breaks.first;
+    }
+    if (typeof breaks.second === 'number') {
+      applied.Break2Duration = breaks.second;
+    }
+    if (typeof breaks.lunch === 'number') {
+      applied.LunchDuration = breaks.lunch;
+    }
+    if (typeof breaks.enableStaggered === 'boolean') {
+      applied.EnableStaggeredBreaks = breaks.enableStaggered;
+    }
+    if (typeof breaks.groups === 'number') {
+      applied.BreakGroups = breaks.groups;
+    }
+    if (typeof breaks.interval === 'number') {
+      applied.StaggerInterval = breaks.interval;
+    }
+    if (typeof breaks.minCoveragePct === 'number') {
+      applied.MinCoveragePct = breaks.minCoveragePct;
+    }
+  }
+
+  if (overtime) {
+    if (typeof overtime.enabled === 'boolean') {
+      applied.EnableOvertime = overtime.enabled;
+    }
+    if (typeof overtime.maxDaily === 'number') {
+      applied.MaxDailyOT = overtime.maxDaily;
+    }
+    if (typeof overtime.maxWeekly === 'number') {
+      applied.MaxWeeklyOT = overtime.maxWeekly;
+    }
+    if (overtime.approval) {
+      applied.OTApproval = overtime.approval;
+    }
+    if (typeof overtime.rate === 'number') {
+      applied.OTRate = overtime.rate;
+    }
+    if (overtime.policy) {
+      applied.OTPolicy = overtime.policy;
+    }
+  }
+
+  if (advanced) {
+    if (typeof advanced.allowSwaps === 'boolean') {
+      applied.AllowSwaps = advanced.allowSwaps;
+    }
+    if (typeof advanced.weekendPremium === 'boolean') {
+      applied.WeekendPremium = advanced.weekendPremium;
+    }
+    if (typeof advanced.holidayPremium === 'boolean') {
+      applied.HolidayPremium = advanced.holidayPremium;
+    }
+    if (typeof advanced.autoAssignment === 'boolean') {
+      applied.AutoAssignment = advanced.autoAssignment;
+    }
+    if (typeof advanced.restPeriod === 'number') {
+      applied.RestPeriod = advanced.restPeriod;
+    }
+    if (typeof advanced.notificationLead === 'number') {
+      applied.NotificationLead = advanced.notificationLead;
+    }
+    if (typeof advanced.handoverTime === 'number') {
+      applied.HandoverTime = advanced.handoverTime;
+    }
+  }
+
+  return applied;
+}
+
+function parseDateTimeForGeneration(dateStr, timeStr) {
+  if (!dateStr) {
+    return null;
+  }
+
+  try {
+    const base = new Date(dateStr);
+    if (isNaN(base.getTime())) {
+      return null;
+    }
+
+    if (!timeStr) {
+      return base;
+    }
+
+    const parts = String(timeStr).split(':');
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
+    const seconds = Number(parts[2] || 0);
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+      return base;
+    }
+
+    const dateTime = new Date(base.getTime());
+    dateTime.setHours(hours, minutes, seconds, 0);
+    return dateTime;
+  } catch (error) {
+    return null;
+  }
+}
+
+function buildSlotAssignmentKey(slotId, dateStr) {
+  if (!dateStr) {
+    return null;
+  }
+
+  return `${slotId || 'UNASSIGNED'}::${dateStr}`;
+}
+
+function determineCapacityLimit(slot, generationOptions) {
+  const slotCapacity = Number(slot && slot.MaxCapacity);
+  const generationCapacity = generationOptions && generationOptions.capacity ? Number(generationOptions.capacity.max) : NaN;
+
+  if (Number.isFinite(generationCapacity) && generationCapacity > 0) {
+    if (Number.isFinite(slotCapacity) && slotCapacity > 0) {
+      return Math.min(generationCapacity, slotCapacity);
+    }
+    return generationCapacity;
+  }
+
+  if (Number.isFinite(slotCapacity) && slotCapacity > 0) {
+    return slotCapacity;
+  }
+
+  return null;
+}
+
 /**
  * Enhanced schedule generation with comprehensive validation
  */
@@ -1068,7 +1333,10 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       usersToSchedule = allUsers;
     }
 
+    const generationOptions = normalizeGenerationOptions(options || {});
+
     console.log(`📝 Scheduling for ${usersToSchedule.length} users`);
+    console.log('🧭 Generation options snapshot:', generationOptions.snapshot);
 
     // Get shift slots - either selected ones or all available
     let shiftSlots = [];
@@ -1099,11 +1367,45 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const generatedSchedules = [];
     const conflicts = [];
     const dstChanges = [];
+    const assignmentsBySlotDate = new Map();
+    const existingAssignments = new Map();
+    const lastShiftEndByUser = new Map();
 
     // Generate schedules for the entire period
     const timeZone = Session.getScriptTimeZone();
     const periodStartStr = Utilities.formatDate(start, timeZone, 'yyyy-MM-dd');
     const periodEndStr = Utilities.formatDate(end, timeZone, 'yyyy-MM-dd');
+
+    let historicalSchedules = [];
+    try {
+      historicalSchedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    } catch (historyError) {
+      console.warn('Unable to load existing schedules for generation context:', historyError);
+    }
+
+    historicalSchedules.forEach(schedule => {
+      const slotKey = buildSlotAssignmentKey(schedule && (schedule.SlotID || schedule.SlotId), schedule && (schedule.PeriodStart || schedule.Date));
+      if (slotKey) {
+        existingAssignments.set(slotKey, (existingAssignments.get(slotKey) || 0) + 1);
+      }
+
+      const scheduleUser = schedule && (schedule.UserName || schedule.UserID);
+      if (!scheduleUser) {
+        return;
+      }
+
+      const scheduleEnd = parseDateTimeForGeneration(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart, schedule.EndTime || schedule.OriginalEndTime || schedule.End || schedule.StartTime);
+      if (!scheduleEnd) {
+        return;
+      }
+
+      const existingHandoverMinutes = Number(schedule.HandoverTimeMinutes || schedule.HandoverTime || 0);
+      const bufferedEnd = new Date(scheduleEnd.getTime() + (Number.isFinite(existingHandoverMinutes) ? Math.max(existingHandoverMinutes, 0) : 0) * 60 * 1000);
+      const currentEnd = lastShiftEndByUser.get(scheduleUser);
+      if (!currentEnd || currentEnd < bufferedEnd) {
+        lastShiftEndByUser.set(scheduleUser, bufferedEnd);
+      }
+    });
 
     const dstStatusByDate = {};
     [periodStartStr, periodEndStr].forEach(dateStr => {
@@ -1125,14 +1427,9 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     usersToSchedule.forEach(userName => {
       try {
-        const suitableSlots = shiftSlots.filter(slot => {
-          if (slot.IsActive === false) {
-            return false;
-          }
-          return true;
-        });
+        const activeSlots = shiftSlots.filter(slot => slot && slot.IsActive !== false);
 
-        if (suitableSlots.length === 0) {
+        if (activeSlots.length === 0) {
           console.log(`⚠️ No active slots available for ${userName} in the requested period`);
           conflicts.push({
             user: userName,
@@ -1144,15 +1441,42 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           return;
         }
 
-        const selectedSlot = suitableSlots.sort((a, b) => {
+        const capacityFilteredSlots = activeSlots.filter(slot => {
+          const capacityLimit = determineCapacityLimit(slot, generationOptions);
+          const slotKey = buildSlotAssignmentKey(slot && slot.ID, periodStartStr);
+          if (capacityLimit && capacityLimit > 0 && slotKey) {
+            const usedCount = (existingAssignments.get(slotKey) || 0) + (assignmentsBySlotDate.get(slotKey) || 0);
+            if (usedCount >= capacityLimit) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        if (capacityFilteredSlots.length === 0) {
+          conflicts.push({
+            user: userName,
+            periodStart: periodStartStr,
+            periodEnd: periodEndStr,
+            error: 'All eligible shift slots have reached capacity for this period',
+            type: 'CAPACITY_LIMIT'
+          });
+          return;
+        }
+
+        const selectedSlot = capacityFilteredSlots.sort((a, b) => {
           const priorityA = a.Priority || 2;
           const priorityB = b.Priority || 2;
-          if (priorityA !== priorityB) return priorityB - priorityA;
+          if (priorityA !== priorityB) {
+            return priorityB - priorityA;
+          }
 
-          const capacityA = a.MaxCapacity || 10;
-          const capacityB = b.MaxCapacity || 10;
+          const capacityA = Number(a.MaxCapacity) || 0;
+          const capacityB = Number(b.MaxCapacity) || 0;
           return capacityB - capacityA;
         })[0];
+
+        const appliedSlot = applyGenerationOptionsToSlot(selectedSlot, generationOptions);
 
         const existingSchedule = checkExistingSchedule(userName, periodStartStr, periodEndStr);
         if (existingSchedule && !options.overrideExisting) {
@@ -1167,6 +1491,41 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           return;
         }
 
+        const restHours = Number(generationOptions.advanced && generationOptions.advanced.restPeriod || 0);
+        const handoverMinutes = Number(generationOptions.advanced && generationOptions.advanced.handoverTime || 0);
+        const restRequirementMs = (restHours * 60 * 60 * 1000) + (handoverMinutes * 60 * 1000);
+
+        const scheduleStartDateTime = parseDateTimeForGeneration(periodStartStr, appliedSlot.StartTime || selectedSlot.StartTime);
+        if (restRequirementMs > 0) {
+          const lastRecordedEnd = lastShiftEndByUser.get(userName);
+          if (lastRecordedEnd && scheduleStartDateTime && (scheduleStartDateTime.getTime() - lastRecordedEnd.getTime()) < restRequirementMs) {
+            const restMessage = handoverMinutes > 0
+              ? `Insufficient rest window before new assignment (requires ${restHours}h ${handoverMinutes}m buffer)`
+              : `Insufficient rest window before new assignment (requires ${restHours}h)`;
+            conflicts.push({
+              user: userName,
+              periodStart: periodStartStr,
+              periodEnd: periodEndStr,
+              error: restMessage,
+              type: 'REST_LIMIT'
+            });
+            return;
+          }
+        }
+
+        const scheduleEndDateTime = parseDateTimeForGeneration(periodEndStr, appliedSlot.EndTime || appliedSlot.StartTime || selectedSlot.EndTime);
+        const notificationLeadHours = Number(generationOptions.advanced && generationOptions.advanced.notificationLead || 0);
+        let notificationTarget = '';
+        if (scheduleStartDateTime && notificationLeadHours > 0) {
+          const notifyAt = new Date(scheduleStartDateTime.getTime() - notificationLeadHours * 60 * 60 * 1000);
+          notificationTarget = Utilities.formatDate(notifyAt, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+        }
+
+        const toSafeNumber = (value) => {
+          const num = Number(value);
+          return Number.isFinite(num) ? num : '';
+        };
+
         const schedule = {
           ID: Utilities.getUuid(),
           UserID: getUserIdByName(userName),
@@ -1174,16 +1533,16 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           Date: periodStartStr,
           PeriodStart: periodStartStr,
           PeriodEnd: periodEndStr,
-          SlotID: selectedSlot.ID,
-          SlotName: selectedSlot.Name,
-          StartTime: selectedSlot.StartTime,
-          EndTime: selectedSlot.EndTime,
-          OriginalStartTime: selectedSlot.StartTime,
-          OriginalEndTime: selectedSlot.EndTime,
-          BreakStart: calculateBreakStart(selectedSlot),
-          BreakEnd: calculateBreakEnd(selectedSlot),
-          LunchStart: calculateLunchStart(selectedSlot),
-          LunchEnd: calculateLunchEnd(selectedSlot),
+          SlotID: appliedSlot.ID,
+          SlotName: appliedSlot.Name,
+          StartTime: appliedSlot.StartTime,
+          EndTime: appliedSlot.EndTime,
+          OriginalStartTime: appliedSlot.StartTime,
+          OriginalEndTime: appliedSlot.EndTime,
+          BreakStart: calculateBreakStart(appliedSlot),
+          BreakEnd: calculateBreakEnd(appliedSlot),
+          LunchStart: calculateLunchStart(appliedSlot),
+          LunchEnd: calculateLunchEnd(appliedSlot),
           IsDST: (dstStatusByDate[periodStartStr] && dstStatusByDate[periodStartStr].isDST) || false,
           Status: 'PENDING',
           GeneratedBy: generatedBy,
@@ -1194,14 +1553,51 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           RecurringScheduleID: null,
           SwapRequestID: null,
           Priority: options.priority || 2,
-          Notes: options.notes || `Generated from selected slot: ${selectedSlot.Name}`,
-          Location: selectedSlot.Location || '',
-          Department: selectedSlot.Department || ''
+          Notes: options.notes || `Generated from selected slot: ${appliedSlot.Name}`,
+          Location: appliedSlot.Location || '',
+          Department: appliedSlot.Department || '',
+          MaxCapacity: toSafeNumber(typeof appliedSlot.MaxCapacity === 'number' ? appliedSlot.MaxCapacity : generationOptions.capacity.max),
+          MinCoverage: toSafeNumber(typeof appliedSlot.MinCoverage === 'number' ? appliedSlot.MinCoverage : generationOptions.capacity.min),
+          BreakDuration: toSafeNumber(appliedSlot.BreakDuration !== undefined ? appliedSlot.BreakDuration : appliedSlot.Break1Duration),
+          Break1Duration: toSafeNumber(appliedSlot.Break1Duration),
+          Break2Duration: toSafeNumber(appliedSlot.Break2Duration),
+          LunchDuration: toSafeNumber(appliedSlot.LunchDuration),
+          EnableStaggeredBreaks: typeof appliedSlot.EnableStaggeredBreaks === 'boolean' ? appliedSlot.EnableStaggeredBreaks : '',
+          BreakGroups: toSafeNumber(appliedSlot.BreakGroups),
+          StaggerInterval: toSafeNumber(appliedSlot.StaggerInterval),
+          MinCoveragePct: toSafeNumber(appliedSlot.MinCoveragePct),
+          EnableOvertime: typeof appliedSlot.EnableOvertime === 'boolean' ? appliedSlot.EnableOvertime : '',
+          MaxDailyOT: toSafeNumber(appliedSlot.MaxDailyOT),
+          MaxWeeklyOT: toSafeNumber(appliedSlot.MaxWeeklyOT),
+          OTApproval: appliedSlot.OTApproval || '',
+          OTRate: toSafeNumber(appliedSlot.OTRate),
+          OTPolicy: appliedSlot.OTPolicy || '',
+          AllowSwaps: typeof appliedSlot.AllowSwaps === 'boolean' ? appliedSlot.AllowSwaps : '',
+          WeekendPremium: typeof appliedSlot.WeekendPremium === 'boolean' ? appliedSlot.WeekendPremium : '',
+          HolidayPremium: typeof appliedSlot.HolidayPremium === 'boolean' ? appliedSlot.HolidayPremium : '',
+          AutoAssignment: typeof appliedSlot.AutoAssignment === 'boolean' ? appliedSlot.AutoAssignment : '',
+          RestPeriodHours: restHours,
+          NotificationLeadHours: notificationLeadHours,
+          HandoverTimeMinutes: handoverMinutes,
+          NotificationTarget: notificationTarget,
+          GenerationConfig: JSON.stringify(generationOptions.snapshot)
         };
 
         const normalizedSchedule = normalizeSchedulePeriodRecord(schedule, timeZone);
         generatedSchedules.push(normalizedSchedule);
-        console.log(`✅ Generated schedule for ${userName} from ${periodStartStr} to ${periodEndStr} using slot: ${selectedSlot.Name}`);
+        console.log(`✅ Generated schedule for ${userName} from ${periodStartStr} to ${periodEndStr} using slot: ${appliedSlot.Name}`);
+
+        const slotAssignmentKey = buildSlotAssignmentKey(appliedSlot.ID, periodStartStr);
+        if (slotAssignmentKey) {
+          assignmentsBySlotDate.set(slotAssignmentKey, (assignmentsBySlotDate.get(slotAssignmentKey) || 0) + 1);
+        }
+
+        if (scheduleEndDateTime) {
+          const bufferedEnd = new Date(scheduleEndDateTime.getTime() + Math.max(handoverMinutes, 0) * 60 * 1000);
+          lastShiftEndByUser.set(userName, bufferedEnd);
+        } else if (scheduleStartDateTime) {
+          lastShiftEndByUser.set(userName, scheduleStartDateTime);
+        }
 
       } catch (userError) {
         conflicts.push({

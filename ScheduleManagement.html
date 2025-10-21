@@ -1750,6 +1750,9 @@
                                     </div>
                                 </div>
 
+
+            
+
                                 <div class="mt-4 d-flex gap-3">
                                     <button type="submit" class="btn btn-primary-modern btn-modern flex-fill">
                                         <i class="fas fa-magic"></i>
@@ -2225,222 +2228,6 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Capacity & Staffing -->
-                                <div class="mb-4">
-                                    <h6 class="text-primary mb-3">
-                                        <i class="fas fa-users me-2"></i>Capacity & Staffing
-                                    </h6>
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <label class="form-label-modern">Max Capacity</label>
-                                            <input type="number" class="form-control form-control-modern" id="slotCapacity" value="10" min="1" max="100">
-                                            <small class="text-muted">Maximum agents per shift</small>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label-modern">Minimum Coverage</label>
-                                            <input type="number" class="form-control form-control-modern" id="slotMinCoverage" value="3" min="1">
-                                            <small class="text-muted">Required minimum agents</small>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label-modern">Priority Level</label>
-                                            <select class="form-select form-control-modern" id="slotPriority">
-                                                <option value="1">Low</option>
-                                                <option value="2" selected>Normal</option>
-                                                <option value="3">High</option>
-                                                <option value="4">Critical</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Break & Lunch Configuration -->
-                                <div class="mb-4">
-                                    <h6 class="text-primary mb-3">
-                                        <i class="fas fa-coffee me-2"></i>Break & Lunch Configuration
-                                    </h6>
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <label class="form-label-modern">First Break (min)</label>
-                                            <input type="number" class="form-control form-control-modern" id="slotBreak1Duration" value="15" min="5" max="30">
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label-modern">Lunch Duration (min)</label>
-                                            <input type="number" class="form-control form-control-modern" id="slotLunchDuration" value="30" min="15" max="60">
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label-modern">Second Break (min)</label>
-                                            <input type="number" class="form-control form-control-modern" id="slotBreak2Duration" value="15" min="5" max="30">
-                                        </div>
-                                    </div>
-
-                                    <!-- Staggered Break Settings -->
-                                    <div class="mt-3">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="enableStaggeredBreaks" checked>
-                                            <label class="form-check-label form-label-modern">Enable Staggered Breaks & Lunch</label>
-                                        </div>
-                                        <small class="text-muted d-block mt-1">Automatically distribute break times to maintain coverage</small>
-                                    </div>
-
-                                    <div id="staggeredBreaksConfig" class="mt-3">
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label class="form-label-modern">Break Groups</label>
-                                                <select class="form-select form-control-modern" id="slotBreakGroups">
-                                                    <option value="2">2 Groups</option>
-                                                    <option value="3" selected>3 Groups</option>
-                                                    <option value="4">4 Groups</option>
-                                                    <option value="5">5 Groups</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label-modern">Stagger Interval (min)</label>
-                                                <input type="number" class="form-control form-control-modern" id="slotStaggerInterval" value="15" min="10" max="30">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label-modern">Min Coverage %</label>
-                                                <input type="number" class="form-control form-control-modern" id="slotMinCoveragePct" value="70" min="50" max="95">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Overtime Configuration -->
-                                <div class="mb-4">
-                                    <h6 class="text-primary mb-3">
-                                        <i class="fas fa-clock me-2"></i>Overtime Configuration
-                                    </h6>
-                                    <div class="form-check form-switch mb-3">
-                                        <input class="form-check-input" type="checkbox" id="enableOvertime">
-                                        <label class="form-check-label form-label-modern">Enable Overtime</label>
-                                    </div>
-
-                                    <div id="overtimeConfig" class="d-none">
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label class="form-label-modern">Max Daily OT (hours)</label>
-                                                <input type="number" class="form-control form-control-modern" id="slotMaxDailyOT" value="2" min="0.5" max="4" step="0.5">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label-modern">Max Weekly OT (hours)</label>
-                                                <input type="number" class="form-control form-control-modern" id="slotMaxWeeklyOT" value="10" min="2" max="20" step="0.5">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label-modern">OT Approval Required</label>
-                                                <select class="form-select form-control-modern" id="slotOTApproval">
-                                                    <option value="none">No Approval</option>
-                                                    <option value="supervisor" selected>Supervisor</option>
-                                                    <option value="manager">Manager</option>
-                                                    <option value="admin">Admin</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div class="row g-3 mt-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label-modern">OT Rate Multiplier</label>
-                                                <select class="form-select form-control-modern" id="slotOTRate">
-                                                    <option value="1.0">Regular Rate (1.0x)</option>
-                                                    <option value="1.25">Time & Quarter (1.25x)</option>
-                                                    <option value="1.5" selected>Time & Half (1.5x)</option>
-                                                    <option value="2.0">Double Time (2.0x)</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label-modern">OT Policy</label>
-                                                <select class="form-select form-control-modern" id="slotOTPolicy">
-                                                    <option value="VOLUNTARY">Voluntary</option>
-                                                    <option value="MANDATORY" selected>Mandatory</option>
-                                                    <option value="ROTATING">Rotating</option>
-                                                    <option value="SENIORITY">By Seniority</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- /partials/advanced-settings.html -->
-                                <!-- Advanced Settings -->
-                                <div class="mb-4">
-                                    <h6 class="text-primary mb-3">
-                                        <i class="fas fa-cogs me-2"></i>Advanced Settings
-                                    </h6>
-
-                                    <div class="row g-3">
-                                        <!-- Shift Settings -->
-                                        <div class="col-12 col-md-6">
-                                            <label class="form-label-modern d-block mb-2">Shift Settings</label>
-
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="allowSwaps" checked>
-                                                <label class="form-check-label" for="allowSwaps">Allow Shift Swaps</label>
-                                            </div>
-
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="weekendPremium">
-                                                <label class="form-check-label" for="weekendPremium">Weekend Premium Pay</label>
-                                            </div>
-
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="holidayPremium" checked>
-                                                <label class="form-check-label" for="holidayPremium">Holiday Premium Pay</label>
-                                            </div>
-
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="autoAssignment">
-                                                <label class="form-check-label" for="autoAssignment">Auto-Assignment Eligible</label>
-                                            </div>
-                                        </div>
-
-                                        <!-- Timing Settings -->
-                                        <div class="col-12 col-md-6">
-                                            <label class="form-label-modern d-block mb-2">Timing Settings</label>
-
-                                            <div class="row g-3">
-                                                <div class="col-12 col-md-6">
-                                                    <label for="slotRestPeriod" class="form-label-modern small">Rest Period (hours)</label>
-                                                    <input
-                                                            type="number"
-                                                            class="form-control form-control-modern"
-                                                            id="slotRestPeriod"
-                                                            value="8"
-                                                            min="4"
-                                                            max="24"
-                                                    />
-                                                    <small class="text-muted">Min time between consecutive shifts</small>
-                                                </div>
-
-                                                <div class="col-12 col-md-6">
-                                                    <label for="slotNotificationLead" class="form-label-modern small">Notification Lead (hours)</label>
-                                                    <input
-                                                            type="number"
-                                                            class="form-control form-control-modern"
-                                                            id="slotNotificationLead"
-                                                            value="24"
-                                                            min="2"
-                                                            max="168"
-                                                    />
-                                                    <small class="text-muted">Schedule notification advance time</small>
-                                                </div>
-
-                                                <div class="col-12 col-md-6">
-                                                    <label for="slotHandoverTime" class="form-label-modern small">Handover Time (min)</label>
-                                                    <input
-                                                            type="number"
-                                                            class="form-control form-control-modern"
-                                                            id="slotHandoverTime"
-                                                            value="15"
-                                                            min="0"
-                                                            max="30"
-                                                    />
-                                                    <small class="text-muted">Shift handover duration</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- Description -->
                                 <div class="mb-4">
                                     <label class="form-label-modern" for="slotDescription">Description &amp; Notes</label>
@@ -2567,6 +2354,9 @@
                                         </div>
                                     </div>
                                 </div>
+
+
+
 
                                 <div class="mt-4 d-flex gap-3">
                                     <button type="button" class="btn btn-outline-modern btn-modern" onclick="previewHolidays()">
@@ -2985,29 +2775,40 @@
             }
 
             initShiftSlotFormHandlers() {
-                // Toggle overtime configuration
-                const overtimeToggle = document.getElementById('enableOvertime');
-                const overtimeConfig = document.getElementById('overtimeConfig');
-
-                overtimeToggle?.addEventListener('change', function() {
-                    if (this.checked) {
-                        overtimeConfig.classList.remove('d-none');
-                    } else {
-                        overtimeConfig.classList.add('d-none');
+                const setupClassToggle = (toggleId, targetId, hiddenClass = 'd-none') => {
+                    const toggle = document.getElementById(toggleId);
+                    const target = document.getElementById(targetId);
+                    if (!toggle || !target) {
+                        return;
                     }
-                });
 
-                // Toggle staggered breaks configuration
-                const staggeredToggle = document.getElementById('enableStaggeredBreaks');
-                const staggeredConfig = document.getElementById('staggeredBreaksConfig');
+                    const applyToggle = () => {
+                        target.classList.toggle(hiddenClass, !toggle.checked);
+                    };
 
-                staggeredToggle?.addEventListener('change', function() {
-                    if (this.checked) {
-                        staggeredConfig.style.display = 'block';
-                    } else {
-                        staggeredConfig.style.display = 'none';
+                    toggle.addEventListener('change', applyToggle);
+                    applyToggle();
+                };
+
+                const setupDisplayToggle = (toggleId, targetId, displayMode = 'block') => {
+                    const toggle = document.getElementById(toggleId);
+                    const target = document.getElementById(targetId);
+                    if (!toggle || !target) {
+                        return;
                     }
-                });
+
+                    const applyToggle = () => {
+                        target.style.display = toggle.checked ? displayMode : 'none';
+                    };
+
+                    toggle.addEventListener('change', applyToggle);
+                    applyToggle();
+                };
+
+                setupClassToggle('enableOvertime', 'overtimeConfig');
+                setupClassToggle('generationEnableOvertime', 'generationOvertimeConfig');
+                setupDisplayToggle('enableStaggeredBreaks', 'staggeredBreaksConfig');
+                setupDisplayToggle('generationEnableStaggeredBreaks', 'generationStaggeredConfig');
 
                 // Auto-calculate lunch timing based on shift duration
                 const startTime = document.getElementById('slotStartTime');
@@ -4075,6 +3876,81 @@
                 const detectConflicts = document.getElementById('detectConflicts').checked;
                 const includeHolidays = document.getElementById('includeHolidays').checked;
 
+                const getOptionValue = (id, fallback = '') => {
+                    const element = document.getElementById(id);
+                    if (!element) {
+                        return fallback;
+                    }
+                    const value = element.value ?? '';
+                    return value === '' ? fallback : value;
+                };
+
+                const getOptionNumber = (id, fallback, { allowFloat = false, min = null, max = null } = {}) => {
+                    const element = document.getElementById(id);
+                    if (!element) {
+                        return fallback;
+                    }
+
+                    const rawValue = element.value;
+                    if (rawValue === '' || rawValue === null || rawValue === undefined) {
+                        return fallback;
+                    }
+
+                    const parsed = allowFloat ? parseFloat(rawValue) : parseInt(rawValue, 10);
+                    if (!Number.isFinite(parsed)) {
+                        return fallback;
+                    }
+
+                    let value = parsed;
+                    if (typeof min === 'number' && value < min) {
+                        value = min;
+                    }
+                    if (typeof max === 'number' && value > max) {
+                        value = max;
+                    }
+
+                    return value;
+                };
+
+                const getOptionCheckbox = (id, fallback = false) => {
+                    const element = document.getElementById(id);
+                    return element ? element.checked : fallback;
+                };
+
+                const capacity = {
+                    max: getOptionNumber('generationMaxCapacity', 10, { min: 1, max: 100 }),
+                    min: getOptionNumber('generationMinCoverage', 3, { min: 1 })
+                };
+
+                const breaks = {
+                    first: getOptionNumber('generationBreak1Duration', 15, { min: 5, max: 30 }),
+                    lunch: getOptionNumber('generationLunchDuration', 30, { min: 15, max: 60 }),
+                    second: getOptionNumber('generationBreak2Duration', 0, { min: 0, max: 30 }),
+                    enableStaggered: getOptionCheckbox('generationEnableStaggeredBreaks', true),
+                    groups: getOptionNumber('generationBreakGroups', 3, { min: 2, max: 5 }),
+                    interval: getOptionNumber('generationStaggerInterval', 15, { min: 10, max: 30 }),
+                    minCoveragePct: getOptionNumber('generationMinCoveragePct', 70, { min: 50, max: 95 })
+                };
+
+                const overtime = {
+                    enabled: getOptionCheckbox('generationEnableOvertime', false),
+                    maxDaily: getOptionNumber('generationMaxDailyOT', 2, { allowFloat: true, min: 0 }),
+                    maxWeekly: getOptionNumber('generationMaxWeeklyOT', 10, { allowFloat: true, min: 0 }),
+                    approval: getOptionValue('generationOTApproval', 'supervisor'),
+                    rate: getOptionNumber('generationOTRate', 1.5, { allowFloat: true, min: 1 }),
+                    policy: getOptionValue('generationOTPolicy', 'MANDATORY')
+                };
+
+                const advanced = {
+                    allowSwaps: getOptionCheckbox('generationAllowSwaps', true),
+                    weekendPremium: getOptionCheckbox('generationWeekendPremium', false),
+                    holidayPremium: getOptionCheckbox('generationHolidayPremium', true),
+                    autoAssignment: getOptionCheckbox('generationAutoAssignment', false),
+                    restPeriod: getOptionNumber('generationRestPeriod', 8, { min: 0 }),
+                    notificationLead: getOptionNumber('generationNotificationLead', 24, { min: 0 }),
+                    handoverTime: getOptionNumber('generationHandoverTime', 15, { min: 0 })
+                };
+
                 return {
                     startDate,
                     endDate,
@@ -4087,7 +3963,17 @@
                         detectConflicts,
                         includeHolidays,
                         overrideExisting: false,
-                        campaignId
+                        campaignId,
+                        capacity,
+                        breaks,
+                        overtime,
+                        advanced,
+                        maxCapacity: capacity.max,
+                        minCoverage: capacity.min,
+                        enableStaggeredBreaks: breaks.enableStaggered,
+                        staggerInterval: breaks.interval,
+                        minCoveragePct: breaks.minCoveragePct,
+                        overtimeEnabled: overtime.enabled
                     }
                 };
             }
@@ -4178,7 +4064,25 @@
                 try {
                     this.showLoading(true);
 
-                    const getElementValue = (id) => document.getElementById(id)?.value ?? '';
+                    const getElementValue = (id, fallback = '') => {
+                        const element = document.getElementById(id);
+                        if (!element) {
+                            return fallback;
+                        }
+
+                        const value = element.value ?? '';
+                        if (value === '' || value === null || value === undefined) {
+                            return fallback;
+                        }
+
+                        return value;
+                    };
+
+                    const getCheckboxValue = (id, fallback = false) => {
+                        const element = document.getElementById(id);
+                        return element ? element.checked : fallback;
+                    };
+
                     const getNumericValue = (id, fallback, { allowFloat = false, min = null, max = null } = {}) => {
                         const element = document.getElementById(id);
                         const rawValue = element ? element.value : '';
@@ -4242,37 +4146,93 @@
                         description: getElementValue('slotDescription'),
 
                         // Capacity & Staffing
-                        maxCapacity: getNumericValue('slotCapacity', 10, { min: 1, max: 100 }),
-                        minCoverage: getNumericValue('slotMinCoverage', 1, { min: 1 }),
-                        priority: getNumericValue('slotPriority', 2, { min: 1, max: 4 }),
+                        maxCapacity: getNumericValue(
+                            'slotCapacity',
+                            getNumericValue('generationMaxCapacity', 10, { min: 1, max: 100 }),
+                            { min: 1, max: 100 }
+                        ),
+                        minCoverage: getNumericValue(
+                            'slotMinCoverage',
+                            getNumericValue('generationMinCoverage', 1, { min: 1 }),
+                            { min: 1 }
+                        ),
+                        priority: getNumericValue('slotPriority', getNumericValue('schedulePriority', 2, { min: 1, max: 4 }), { min: 1, max: 4 }),
 
                         // Break & Lunch Configuration
-                        break1Duration: getNumericValue('slotBreak1Duration', 15, { min: 5, max: 30 }),
-                        lunchDuration: getNumericValue('slotLunchDuration', 30, { min: 15, max: 60 }),
-                        break2Duration: getNumericValue('slotBreak2Duration', 0, { min: 0, max: 30 }),
+                        break1Duration: getNumericValue(
+                            'slotBreak1Duration',
+                            getNumericValue('generationBreak1Duration', 15, { min: 5, max: 30 }),
+                            { min: 5, max: 30 }
+                        ),
+                        lunchDuration: getNumericValue(
+                            'slotLunchDuration',
+                            getNumericValue('generationLunchDuration', 30, { min: 15, max: 60 }),
+                            { min: 15, max: 60 }
+                        ),
+                        break2Duration: getNumericValue(
+                            'slotBreak2Duration',
+                            getNumericValue('generationBreak2Duration', 0, { min: 0, max: 30 }),
+                            { min: 0, max: 30 }
+                        ),
 
                         // Staggered Breaks
-                        enableStaggeredBreaks: document.getElementById('enableStaggeredBreaks').checked,
-                        breakGroups: getNumericValue('slotBreakGroups', 3, { min: 2, max: 5 }),
-                        staggerInterval: getNumericValue('slotStaggerInterval', 15, { min: 10, max: 30 }),
-                        minCoveragePct: getNumericValue('slotMinCoveragePct', 70, { min: 50, max: 95 }),
+                        enableStaggeredBreaks: getCheckboxValue('enableStaggeredBreaks', getCheckboxValue('generationEnableStaggeredBreaks', true)),
+                        breakGroups: getNumericValue(
+                            'slotBreakGroups',
+                            getNumericValue('generationBreakGroups', 3, { min: 2, max: 5 }),
+                            { min: 2, max: 5 }
+                        ),
+                        staggerInterval: getNumericValue(
+                            'slotStaggerInterval',
+                            getNumericValue('generationStaggerInterval', 15, { min: 10, max: 30 }),
+                            { min: 10, max: 30 }
+                        ),
+                        minCoveragePct: getNumericValue(
+                            'slotMinCoveragePct',
+                            getNumericValue('generationMinCoveragePct', 70, { min: 50, max: 95 }),
+                            { min: 50, max: 95 }
+                        ),
 
                         // Overtime Configuration
-                        enableOvertime: document.getElementById('enableOvertime').checked,
-                        maxDailyOT: getNumericValue('slotMaxDailyOT', 0, { allowFloat: true, min: 0 }),
-                        maxWeeklyOT: getNumericValue('slotMaxWeeklyOT', 0, { allowFloat: true, min: 0 }),
-                        otApproval: getElementValue('slotOTApproval'),
-                        otRate: getNumericValue('slotOTRate', 1.5, { allowFloat: true, min: 1 }),
-                        otPolicy: getElementValue('slotOTPolicy'),
+                        enableOvertime: getCheckboxValue('enableOvertime', getCheckboxValue('generationEnableOvertime', false)),
+                        maxDailyOT: getNumericValue(
+                            'slotMaxDailyOT',
+                            getNumericValue('generationMaxDailyOT', 0, { allowFloat: true, min: 0 }),
+                            { allowFloat: true, min: 0 }
+                        ),
+                        maxWeeklyOT: getNumericValue(
+                            'slotMaxWeeklyOT',
+                            getNumericValue('generationMaxWeeklyOT', 0, { allowFloat: true, min: 0 }),
+                            { allowFloat: true, min: 0 }
+                        ),
+                        otApproval: getElementValue('slotOTApproval', getElementValue('generationOTApproval', '')),
+                        otRate: getNumericValue(
+                            'slotOTRate',
+                            getNumericValue('generationOTRate', 1.5, { allowFloat: true, min: 1 }),
+                            { allowFloat: true, min: 1 }
+                        ),
+                        otPolicy: getElementValue('slotOTPolicy', getElementValue('generationOTPolicy', '')),
 
                         // Advanced Settings (skills removed)
-                        allowSwaps: document.getElementById('allowSwaps').checked,
-                        weekendPremium: document.getElementById('weekendPremium').checked,
-                        holidayPremium: document.getElementById('holidayPremium').checked,
-                        autoAssignment: document.getElementById('autoAssignment').checked,
-                        restPeriod: getNumericValue('slotRestPeriod', 8, { min: 0 }),
-                        notificationLead: getNumericValue('slotNotificationLead', 24, { min: 0 }),
-                        handoverTime: getNumericValue('slotHandoverTime', 15, { min: 0 }),
+                        allowSwaps: getCheckboxValue('allowSwaps', getCheckboxValue('generationAllowSwaps', true)),
+                        weekendPremium: getCheckboxValue('weekendPremium', getCheckboxValue('generationWeekendPremium', false)),
+                        holidayPremium: getCheckboxValue('holidayPremium', getCheckboxValue('generationHolidayPremium', true)),
+                        autoAssignment: getCheckboxValue('autoAssignment', getCheckboxValue('generationAutoAssignment', false)),
+                        restPeriod: getNumericValue(
+                            'slotRestPeriod',
+                            getNumericValue('generationRestPeriod', 8, { min: 0 }),
+                            { min: 0 }
+                        ),
+                        notificationLead: getNumericValue(
+                            'slotNotificationLead',
+                            getNumericValue('generationNotificationLead', 24, { min: 0 }),
+                            { min: 0 }
+                        ),
+                        handoverTime: getNumericValue(
+                            'slotHandoverTime',
+                            getNumericValue('generationHandoverTime', 15, { min: 0 }),
+                            { min: 0 }
+                        ),
 
                         // System fields
                         createdBy: this.getCurrentUserId() || 'System'
@@ -4837,9 +4797,23 @@
                 });
 
                 // Reset toggles
-                document.getElementById('enableOvertime').checked = false;
-                document.getElementById('overtimeConfig').classList.add('d-none');
-                document.getElementById('enableStaggeredBreaks').checked = true;
+                const overtimeToggle = document.getElementById('enableOvertime');
+                const overtimeConfig = document.getElementById('overtimeConfig');
+                const staggeredToggle = document.getElementById('enableStaggeredBreaks');
+                const staggeredConfig = document.getElementById('staggeredBreaksConfig');
+
+                if (overtimeToggle) {
+                    overtimeToggle.checked = false;
+                }
+                if (overtimeConfig) {
+                    overtimeConfig.classList.add('d-none');
+                }
+                if (staggeredToggle) {
+                    staggeredToggle.checked = true;
+                }
+                if (staggeredConfig) {
+                    staggeredConfig.style.display = 'block';
+                }
             }
 
             calculateOptimalBreakTimes() {
@@ -4867,9 +4841,19 @@
                 }
 
                 // Update form fields if they haven't been manually changed
-                document.getElementById('slotBreak1Duration').value = break1Duration;
-                document.getElementById('slotLunchDuration').value = lunchDuration;
-                document.getElementById('slotBreak2Duration').value = break2Duration;
+                const break1Field = document.getElementById('slotBreak1Duration');
+                const lunchField = document.getElementById('slotLunchDuration');
+                const break2Field = document.getElementById('slotBreak2Duration');
+
+                if (break1Field) {
+                    break1Field.value = break1Duration;
+                }
+                if (lunchField) {
+                    lunchField.value = lunchDuration;
+                }
+                if (break2Field) {
+                    break2Field.value = break2Duration;
+                }
 
                 console.log(`Calculated optimal breaks for ${durationHours}h shift: ${break1Duration}m break, ${lunchDuration}m lunch, ${break2Duration}m break`);
             }
@@ -9428,8 +9412,8 @@
                 const slotName = document.getElementById('slotName').value || 'Unnamed Shift';
                 const startTime = document.getElementById('slotStartTime').value;
                 const endTime = document.getElementById('slotEndTime').value;
-                const enableOT = document.getElementById('enableOvertime').checked;
-                const enableStaggered = document.getElementById('enableStaggeredBreaks').checked;
+                const enableOT = document.getElementById('enableOvertime')?.checked ?? false;
+                const enableStaggered = document.getElementById('enableStaggeredBreaks')?.checked ?? false;
 
                 const preview = `
                         <strong>${slotName}</strong><br>
