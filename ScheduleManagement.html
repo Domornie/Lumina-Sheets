@@ -1386,8 +1386,8 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="import-tab" data-bs-toggle="pill" data-bs-target="#import" type="button" role="tab">
-                    <i class="fas fa-file-import"></i>
-                    <span class="d-none d-sm-inline ms-2">Import</span>
+                    <i class="fas fa-user-clock"></i>
+                    <span class="d-none d-sm-inline ms-2">Manual Shift</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -2067,9 +2067,8 @@
                 <div class="manual-shift-header text-center">
                     <h2 class="manual-shift-title">Manual Shift Slot Assignment</h2>
                     <p class="manual-shift-subtitle">
-                        Create and assign shift slots without relying on spreadsheet imports. Select a date, define the shift timing,
-                        and choose the agents who should receive the assignment. Add optional context about the source month or year to
-                        track where the schedule originated.
+                        Select an existing shift slot, choose the coverage dates, and assign the right teammates. Create or update
+                        the shift timing as needed, then pick the users who should receive the slot for the selected range.
                     </p>
                 </div>
 
@@ -2088,17 +2087,31 @@
                                 <div class="modern-card-body">
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <label class="form-label-modern" for="assignmentDate">Assignment Date</label>
-                                            <input type="date" class="form-control-modern w-100" id="assignmentDate" min="2023-01-01" required>
-                                            <small class="text-muted">Schedule back to January 2023.</small>
+                                            <label class="form-label-modern" for="manualShiftSlot">Shift Slot</label>
+                                            <select class="form-select form-select-modern" id="manualShiftSlot">
+                                                <option value="">Select a shift slot</option>
+                                            </select>
+                                            <small class="text-muted">Loaded from existing shift templates. Leave blank to create a custom slot.</small>
                                         </div>
                                         <div class="col-md-3">
-                                            <label class="form-label-modern" for="startTime">Start Time</label>
-                                            <input type="time" class="form-control-modern w-100" id="startTime" required>
+                                            <label class="form-label-modern" for="shiftStartTime">Shift Start Time</label>
+                                            <input type="time" class="form-control-modern w-100" id="shiftStartTime" required>
                                         </div>
                                         <div class="col-md-3">
-                                            <label class="form-label-modern" for="endTime">End Time</label>
-                                            <input type="time" class="form-control-modern w-100" id="endTime" required>
+                                            <label class="form-label-modern" for="shiftEndTime">Shift End Time</label>
+                                            <input type="time" class="form-control-modern w-100" id="shiftEndTime" required>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="startDate">Start Date</label>
+                                            <input type="date" class="form-control-modern w-100" id="startDate" min="2023-01-01" required>
+                                            <small class="text-muted">Assignments can begin as early as January 2023.</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="endDate">End Date</label>
+                                            <input type="date" class="form-control-modern w-100" id="endDate" min="2023-01-01" required>
+                                            <small class="text-muted">Use the same date for a single-day assignment.</small>
                                         </div>
                                     </div>
                                     <div class="row g-3 mt-1">
@@ -2120,12 +2133,6 @@
                                                 <option value="12">December</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label-modern" for="sourceYear">Source Year (optional)</label>
-                                            <select class="form-select form-select-modern" id="sourceYear">
-                                                <option value="">Select year</option>
-                                            </select>
-                                        </div>
                                     </div>
                                     <div class="mt-3">
                                         <label class="form-label-modern" for="slotLabel">Slot Label (optional)</label>
@@ -2138,7 +2145,7 @@
                                     <div class="form-check mt-3">
                                         <input class="form-check-input" type="checkbox" id="replaceExisting">
                                         <label class="form-check-label" for="replaceExisting">
-                                            Replace existing shift assignment on the selected date for chosen users
+                                            Replace existing shift assignments within the selected range for chosen users
                                         </label>
                                     </div>
                                 </div>
@@ -2182,9 +2189,10 @@
                             <div class="d-flex flex-column gap-2">
                                 <div class="fw-semibold text-dark">Assignment Summary</div>
                                 <ul class="manual-help-list text-muted small">
-                                    <li>Date and time are required to create the shift slot.</li>
+                                    <li>Provide a start and end date to cover the assignment range.</li>
+                                    <li>Start and end times define the daily shift window for the slot.</li>
                                     <li>Select one or more agents to assign the shift.</li>
-                                    <li>Enable replace to overwrite existing shifts for selected agents on this date.</li>
+                                    <li>Enable replace to overwrite existing shifts for selected agents across the range.</li>
                                 </ul>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
@@ -2210,8 +2218,8 @@
                     </div>
                     <div class="modern-card-body">
                         <ul class="manual-help-list text-muted">
-                            <li>Use Source Month and Year to document where the manual assignment originated.</li>
-                            <li>Replace existing will overwrite conflicting shifts for the selected users on that date.</li>
+                            <li>Use Source Month to document where the manual assignment originated.</li>
+                            <li>Replace existing will overwrite conflicting shifts for the selected users across the selected range.</li>
                             <li>All assignments are logged below so you can confirm recent manual updates.</li>
                         </ul>
                     </div>
@@ -3412,6 +3420,9 @@
                     this.cachedShiftSlots = slots;
                     this.updateShiftSlotSelectors(slots);
                     this.displayShiftSlots(slots);
+                    if (this.manualShiftManager && typeof this.manualShiftManager.setShiftSlots === 'function') {
+                        this.manualShiftManager.setShiftSlots(slots);
+                    }
 
                     const totalSlotsElement = document.getElementById('totalSlots');
                     if (totalSlotsElement) {
@@ -3424,6 +3435,9 @@
                     this.cachedShiftSlots = [];
                     this.updateShiftSlotSelectors([]);
                     this.displayShiftSlots([]);
+                    if (this.manualShiftManager && typeof this.manualShiftManager.setShiftSlots === 'function') {
+                        this.manualShiftManager.setShiftSlots([]);
+                    }
                     this.showToast(error.message || 'Failed to load shift slots. You may need to create some first.', 'warning');
                 }
             }
@@ -9664,11 +9678,12 @@
 
                 this.form = document.getElementById('manualShiftForm');
                 this.feedbackArea = document.getElementById('feedbackArea');
-                this.dateInput = document.getElementById('assignmentDate');
-                this.startTimeInput = document.getElementById('startTime');
-                this.endTimeInput = document.getElementById('endTime');
+                this.shiftSlotSelect = document.getElementById('manualShiftSlot');
+                this.startDateInput = document.getElementById('startDate');
+                this.endDateInput = document.getElementById('endDate');
+                this.startTimeInput = document.getElementById('shiftStartTime');
+                this.endTimeInput = document.getElementById('shiftEndTime');
                 this.sourceMonthSelect = document.getElementById('sourceMonth');
-                this.sourceYearSelect = document.getElementById('sourceYear');
                 this.slotLabelInput = document.getElementById('slotLabel');
                 this.notesInput = document.getElementById('additionalNotes');
                 this.replaceExistingToggle = document.getElementById('replaceExisting');
@@ -9686,10 +9701,34 @@
                 this.users = [];
                 this.userMap = new Map();
                 this.selectedUserIds = new Set();
+                this.shiftSlots = [];
+                this.shiftSlotMap = new Map();
+
+                if (this.startTimeInput) {
+                    this.startTimeInput.dataset.autofill = 'true';
+                    this.startTimeInput.addEventListener('input', () => {
+                        if (this.startTimeInput) {
+                            this.startTimeInput.dataset.autofill = 'false';
+                        }
+                    });
+                }
+                if (this.endTimeInput) {
+                    this.endTimeInput.dataset.autofill = 'true';
+                    this.endTimeInput.addEventListener('input', () => {
+                        if (this.endTimeInput) {
+                            this.endTimeInput.dataset.autofill = 'false';
+                        }
+                    });
+                }
+                if (this.endDateInput) {
+                    this.endDateInput.dataset.minDefault = this.endDateInput.getAttribute('min') || '';
+                }
 
                 if (this.form) {
                     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
                 }
+                this.shiftSlotSelect?.addEventListener('change', () => this.handleShiftSlotChange());
+                this.startDateInput?.addEventListener('change', () => this.syncDateRange());
                 this.userSearchInput?.addEventListener('input', () => this.renderUserList());
                 this.selectAllToggle?.addEventListener('change', () => this.toggleSelectAll());
                 this.clearSelectionBtn?.addEventListener('click', () => this.clearSelection());
@@ -9698,8 +9737,12 @@
                     this.scheduleManager.manualShiftManager = this;
                 }
 
-                this.populateSourceYears();
-                this.setDefaultDate();
+                this.setDefaultDates();
+                this.syncDateRange();
+
+                if (this.scheduleManager && Array.isArray(this.scheduleManager.cachedShiftSlots) && this.scheduleManager.cachedShiftSlots.length) {
+                    this.setShiftSlots(this.scheduleManager.cachedShiftSlots);
+                }
 
                 const initialUsers = this.scheduleManager && Array.isArray(this.scheduleManager.availableUsers)
                     ? this.scheduleManager.availableUsers
@@ -9711,44 +9754,192 @@
                 }
             }
 
-            populateSourceYears() {
-                if (!this.sourceYearSelect) {
-                    return;
-                }
-
-                const currentYear = new Date().getFullYear();
-                const earliestYear = 2023;
-                const endYear = currentYear + 2;
-                const existingValues = new Set(Array.from(this.sourceYearSelect.options).map(option => option.value));
-
-                for (let year = currentYear; year >= earliestYear; year--) {
-                    if (!existingValues.has(String(year))) {
-                        this.appendYearOption(year);
-                    }
-                }
-                for (let year = currentYear + 1; year <= endYear; year++) {
-                    if (!existingValues.has(String(year))) {
-                        this.appendYearOption(year);
-                    }
-                }
-            }
-
-            appendYearOption(year) {
-                if (!this.sourceYearSelect) {
-                    return;
-                }
-                const option = document.createElement('option');
-                option.value = String(year);
-                option.textContent = String(year);
-                this.sourceYearSelect.appendChild(option);
-            }
-
-            setDefaultDate() {
-                if (!this.dateInput || this.dateInput.value) {
-                    return;
-                }
+            setDefaultDates() {
                 const today = new Date();
-                this.dateInput.value = today.toISOString().split('T')[0];
+                const todayIso = today.toISOString().split('T')[0];
+
+                if (this.startDateInput && !this.startDateInput.value) {
+                    this.startDateInput.value = todayIso;
+                }
+
+                if (this.endDateInput && !this.endDateInput.value) {
+                    this.endDateInput.value = todayIso;
+                }
+            }
+
+            syncDateRange() {
+                if (!this.startDateInput || !this.endDateInput) {
+                    return;
+                }
+
+                const startValue = this.startDateInput.value || '';
+                const defaultMin = this.endDateInput.dataset ? (this.endDateInput.dataset.minDefault || '') : '';
+                const minValue = startValue || defaultMin;
+                this.endDateInput.min = minValue || '';
+
+                if (startValue && this.endDateInput.value && this.endDateInput.value < startValue) {
+                    this.endDateInput.value = startValue;
+                }
+            }
+
+            setShiftSlots(slots) {
+                if (!this.shiftSlotSelect) {
+                    return;
+                }
+
+                const normalizedSlots = Array.isArray(slots) ? slots : [];
+                this.shiftSlots = normalizedSlots;
+                this.shiftSlotMap.clear();
+
+                const previousValue = this.shiftSlotSelect.value;
+                const fragment = document.createDocumentFragment();
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Select a shift slot';
+                fragment.appendChild(placeholder);
+
+                let fallbackIndex = 0;
+                let optionCount = 0;
+                normalizedSlots.forEach(slot => {
+                    if (!slot || typeof slot !== 'object') {
+                        return;
+                    }
+
+                    const slotClone = { ...slot };
+                    const resolvedId = this.resolveShiftSlotId(slotClone);
+                    let optionValue = resolvedId || '';
+
+                    if (!optionValue) {
+                        fallbackIndex += 1;
+                        optionValue = `manual-slot-${fallbackIndex}`;
+                    } else if (this.shiftSlotMap.has(optionValue)) {
+                        fallbackIndex += 1;
+                        optionValue = `${optionValue}-${fallbackIndex}`;
+                    }
+
+                    slotClone.__resolvedId = resolvedId || '';
+                    this.shiftSlotMap.set(optionValue, slotClone);
+
+                    const option = document.createElement('option');
+                    option.value = optionValue;
+                    optionCount += 1;
+
+                    const slotName = (slotClone.Name || slotClone.SlotName || '').toString().trim() || `Shift Slot ${optionCount}`;
+                    const startLabel = this.formatTimeValue(slotClone.StartTime || slotClone.Start || slotClone.StartDateTime);
+                    const endLabel = this.formatTimeValue(slotClone.EndTime || slotClone.End || slotClone.EndDateTime);
+                    const labelParts = [slotName];
+                    if (startLabel || endLabel) {
+                        labelParts.push(`(${startLabel || '?'} - ${endLabel || '?'})`);
+                    }
+                    option.textContent = labelParts.filter(Boolean).join(' ');
+
+                    fragment.appendChild(option);
+                });
+
+                this.shiftSlotSelect.innerHTML = '';
+                this.shiftSlotSelect.appendChild(fragment);
+
+                if (previousValue && this.shiftSlotMap.has(previousValue)) {
+                    this.shiftSlotSelect.value = previousValue;
+                    this.handleShiftSlotChange();
+                } else {
+                    this.shiftSlotSelect.value = '';
+                }
+            }
+
+            handleShiftSlotChange() {
+                if (!this.shiftSlotSelect) {
+                    return;
+                }
+
+                const selectedValue = this.shiftSlotSelect.value;
+                const slot = selectedValue ? this.shiftSlotMap.get(selectedValue) : null;
+
+                if (!slot) {
+                    if (this.startTimeInput && this.startTimeInput.dataset.autofill !== 'false') {
+                        this.startTimeInput.dataset.autofill = 'true';
+                    }
+                    if (this.endTimeInput && this.endTimeInput.dataset.autofill !== 'false') {
+                        this.endTimeInput.dataset.autofill = 'true';
+                    }
+                    return;
+                }
+
+                const startValue = this.normalizeTimeInput(slot.StartTime || slot.Start || slot.StartDateTime);
+                const endValue = this.normalizeTimeInput(slot.EndTime || slot.End || slot.EndDateTime);
+
+                if (startValue && this.startTimeInput) {
+                    this.startTimeInput.value = startValue;
+                    this.startTimeInput.dataset.autofill = 'true';
+                }
+
+                if (endValue && this.endTimeInput) {
+                    this.endTimeInput.value = endValue;
+                    this.endTimeInput.dataset.autofill = 'true';
+                }
+
+                if (this.slotLabelInput && !this.slotLabelInput.value.trim()) {
+                    const slotName = slot.Name || slot.SlotName || '';
+                    if (slotName) {
+                        this.slotLabelInput.value = slotName;
+                    }
+                }
+            }
+
+            resolveShiftSlotId(slot) {
+                if (!slot || typeof slot !== 'object') {
+                    return '';
+                }
+
+                const candidates = [slot.ID, slot.Id, slot.id, slot.SlotID, slot.SlotId, slot.slotId, slot.Guid, slot.UUID, slot.Uuid];
+                for (let index = 0; index < candidates.length; index++) {
+                    const candidate = candidates[index];
+                    if (candidate === undefined || candidate === null) {
+                        continue;
+                    }
+                    const normalized = String(candidate).trim();
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                return '';
+            }
+
+            formatTimeValue(value) {
+                const normalized = this.normalizeTimeInput(value);
+                return normalized || '';
+            }
+
+            normalizeTimeInput(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+
+                const text = value.toString().trim();
+                if (!text) {
+                    return '';
+                }
+
+                if (/^\d{1,2}:\d{2}$/.test(text)) {
+                    const [hours, minutes] = text.split(':');
+                    return `${hours.padStart(2, '0')}:${minutes}`;
+                }
+
+                if (/^\d{1,2}:\d{2}:\d{2}$/.test(text)) {
+                    const [hours, minutes] = text.split(':');
+                    return `${hours.padStart(2, '0')}:${minutes}`;
+                }
+
+                const parsed = new Date(`1970-01-01T${text}`);
+                if (!isNaN(parsed.getTime())) {
+                    const hours = parsed.getHours().toString().padStart(2, '0');
+                    const minutes = parsed.getMinutes().toString().padStart(2, '0');
+                    return `${hours}:${minutes}`;
+                }
+
+                return text;
             }
 
             setUsers(users) {
@@ -9981,12 +10172,20 @@
                     return;
                 }
 
-                const dateValue = this.dateInput?.value;
-                const startTimeValue = this.startTimeInput?.value;
-                const endTimeValue = this.endTimeInput?.value;
+                const startDateValue = this.startDateInput?.value;
+                const endDateValueRaw = this.endDateInput?.value;
+                const normalizedStartDate = startDateValue || '';
+                const normalizedEndDate = endDateValueRaw || normalizedStartDate;
+                const startTimeValue = this.normalizeTimeInput(this.startTimeInput?.value);
+                const endTimeValue = this.normalizeTimeInput(this.endTimeInput?.value);
 
-                if (!dateValue || !startTimeValue || !endTimeValue) {
-                    this.showFeedback('Date, start time, and end time are required.', 'danger');
+                if (!normalizedStartDate || !normalizedEndDate || !startTimeValue || !endTimeValue) {
+                    this.showFeedback('Start date, end date, and shift times are required.', 'danger');
+                    return;
+                }
+
+                if (normalizedStartDate > normalizedEndDate) {
+                    this.showFeedback('End date must be on or after the start date.', 'warning');
                     return;
                 }
 
@@ -9995,22 +10194,26 @@
                     return;
                 }
 
-                const slotLabelValue = this.slotLabelInput?.value.trim() || '';
+                const selectedSlotKey = this.shiftSlotSelect?.value || '';
+                const selectedSlot = selectedSlotKey ? this.shiftSlotMap.get(selectedSlotKey) : null;
+                const resolvedSlotId = selectedSlot && selectedSlot.__resolvedId ? selectedSlot.__resolvedId : '';
+                const slotNameFromSelection = selectedSlot ? (selectedSlot.Name || selectedSlot.SlotName || '') : '';
+                const slotLabelValue = this.slotLabelInput?.value.trim() || slotNameFromSelection || '';
                 const notesValue = this.notesInput?.value.trim() || '';
                 const sourceMonthValue = this.sourceMonthSelect?.value || '';
-                const sourceYearValue = this.sourceYearSelect?.value || '';
                 const sourceMonthNumber = sourceMonthValue ? Number(sourceMonthValue) : null;
-                const sourceYearNumber = sourceYearValue ? Number(sourceYearValue) : null;
                 const replaceExisting = !!this.replaceExistingToggle?.checked;
 
                 const payload = {
-                    date: dateValue,
+                    startDate: normalizedStartDate,
+                    endDate: normalizedEndDate,
                     startTime: startTimeValue,
                     endTime: endTimeValue,
+                    slotId: resolvedSlotId || null,
                     slotLabel: slotLabelValue,
+                    slotName: slotNameFromSelection || '',
                     notes: notesValue,
                     sourceMonth: Number.isFinite(sourceMonthNumber) ? sourceMonthNumber : null,
-                    sourceYear: Number.isFinite(sourceYearNumber) ? sourceYearNumber : null,
                     replaceExisting,
                     users: selectedIds
                 };
@@ -10041,8 +10244,13 @@
                     }
 
                     if (result && Array.isArray(result.failed) && result.failed.length) {
-                        const skippedNames = result.failed.map(item => item.userName || item.userId || 'Unknown').join(', ');
-                        this.showFeedback(`Skipped ${result.failed.length} user(s): ${skippedNames}`, 'warning');
+                        const summaryParts = result.failed.slice(0, 3).map(item => {
+                            const name = item.userName || item.userId || 'Unknown';
+                            const date = item.date ? ` (${item.date})` : '';
+                            return `${name}${date}`;
+                        });
+                        const overflow = result.failed.length > 3 ? `, +${result.failed.length - 3} more` : '';
+                        this.showFeedback(`Skipped ${result.failed.length} assignment(s): ${summaryParts.join(', ')}${overflow}`, 'warning');
                     }
                 } catch (error) {
                     console.error('Manual shift slot assignment failed:', error);
@@ -10070,10 +10278,21 @@
                 const entry = document.createElement('div');
                 entry.className = 'activity-entry';
 
-                const userNames = result.details.map(detail => detail.userName || detail.userId || 'Unknown').join(', ');
-                const slotName = result.details[0]?.slotName || 'Manual Shift';
-                const dateLabel = result.details[0]?.date || this.dateInput?.value || '';
-                const timeLabel = `${result.details[0]?.startTime || this.startTimeInput?.value || ''} - ${result.details[0]?.endTime || this.endTimeInput?.value || ''}`;
+                const uniqueUsers = Array.from(new Set(result.details.map(detail => detail.userName || detail.userId || '').filter(Boolean)));
+                const userNames = uniqueUsers.length ? uniqueUsers.join(', ') : 'Unknown';
+                const slotName = result.details[0]?.slotName || result.slotName || this.slotLabelInput?.value || 'Manual Shift';
+
+                const dateValues = Array.from(new Set(result.details.map(detail => detail.date).filter(Boolean)));
+                const rangeStart = result.startDate || (dateValues.length ? dateValues[0] : this.startDateInput?.value || '');
+                const rangeEnd = result.endDate || (dateValues.length ? dateValues[dateValues.length - 1] : this.endDateInput?.value || rangeStart);
+                let dateLabel = rangeStart;
+                if (rangeStart && rangeEnd && rangeStart !== rangeEnd) {
+                    dateLabel = `${rangeStart} → ${rangeEnd}`;
+                }
+
+                const timeStart = result.details[0]?.startTime || this.normalizeTimeInput(this.startTimeInput?.value);
+                const timeEnd = result.details[0]?.endTime || this.normalizeTimeInput(this.endTimeInput?.value);
+                const timeLabel = timeStart && timeEnd ? `${timeStart} - ${timeEnd}` : '';
                 const timestamp = new Date().toLocaleString();
 
                 entry.innerHTML = `

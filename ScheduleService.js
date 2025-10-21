@@ -2456,22 +2456,58 @@ function clientGetCountryHolidays(countryCode, year) {
 function clientAddManualShiftSlots(request = {}) {
   try {
     const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
-    const normalizedDate = normalizeDateForSheet(request.date, timeZone);
+    const normalizedStartDate = normalizeDateForSheet(request.startDate || request.date, timeZone);
+    const normalizedEndDate = normalizeDateForSheet(request.endDate || request.startDate || request.date, timeZone);
 
-    if (!normalizedDate) {
+    if (!normalizedStartDate) {
       return {
         success: false,
-        error: 'A valid assignment date is required.'
+        error: 'A valid start date is required.'
       };
     }
 
-    const assignmentDate = new Date(`${normalizedDate}T00:00:00Z`);
+    const startDate = new Date(`${normalizedStartDate}T00:00:00Z`);
+    const endDate = normalizedEndDate ? new Date(`${normalizedEndDate}T00:00:00Z`) : new Date(startDate.getTime());
+
+    if (isNaN(startDate.getTime())) {
+      return {
+        success: false,
+        error: 'Start date could not be parsed.'
+      };
+    }
+
+    if (isNaN(endDate.getTime())) {
+      return {
+        success: false,
+        error: 'End date could not be parsed.'
+      };
+    }
+
+    if (endDate < startDate) {
+      return {
+        success: false,
+        error: 'End date must be on or after the start date.'
+      };
+    }
+
     const earliestDate = new Date('2023-01-01T00:00:00Z');
-    if (assignmentDate < earliestDate) {
+    if (startDate < earliestDate) {
       return {
         success: false,
         error: 'Assignments can only be created for dates in 2023 or later.'
       };
+    }
+
+    if (endDate < earliestDate) {
+      return {
+        success: false,
+        error: 'Assignments can only be created for dates in 2023 or later.'
+      };
+    }
+
+    const assignmentDates = [];
+    for (let cursor = new Date(startDate.getTime()); cursor.getTime() <= endDate.getTime(); cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      assignmentDates.push(Utilities.formatDate(cursor, timeZone, 'yyyy-MM-dd'));
     }
 
     const normalizeTimeValue = (value) => {
@@ -2627,6 +2663,7 @@ function clientAddManualShiftSlots(request = {}) {
 
     const slotLabel = (request.slotName || request.slotLabel || '').toString().trim();
     const slotName = slotLabel || `Manual Shift ${startTime}-${endTime}`;
+    const slotId = (request.slotId || '').toString().trim();
 
     const activeUserEmail = typeof Session !== 'undefined' && Session.getActiveUser
       ? (Session.getActiveUser().getEmail() || '')
@@ -2685,65 +2722,72 @@ function clientAddManualShiftSlots(request = {}) {
         return;
       }
 
-      const recordKeys = [];
-      if (userIdForRecord) {
-        recordKeys.push(`id::${userIdForRecord}::${normalizedDate}`);
-      }
-
-      const nameKey = normalizeUserKey(nameForRecord);
-      if (nameKey) {
-        recordKeys.push(`name::${nameKey}::${normalizedDate}`);
-      }
-
-      const hasExisting = recordKeys.some(key => existingKeySet.has(key));
-      if (hasExisting && !replaceExisting) {
-        failedUsers.push({
-          userId: userIdForRecord || '',
-          userName: nameForRecord,
-          reason: 'Existing assignment found for this date'
-        });
-        return;
-      }
-
-      recordKeys.forEach(key => {
-        existingKeySet.add(key);
-        keysToReplace.add(key);
-      });
-
       const department = request.department || (matchedUser && matchedUser.campaignName) || '';
       const location = request.location || '';
       const priority = Number.isFinite(Number(request.priority)) ? Number(request.priority) : 2;
+      const nameKey = normalizeUserKey(nameForRecord);
 
-      newRecords.push({
-        ID: Utilities.getUuid(),
-        UserID: userIdForRecord || '',
-        UserName: nameForRecord,
-        Date: normalizedDate,
-        PeriodStart: normalizedDate,
-        PeriodEnd: normalizedDate,
-        SlotID: '',
-        SlotName: slotName,
-        StartTime: startTime,
-        EndTime: endTime,
-        OriginalStartTime: startTime,
-        OriginalEndTime: endTime,
-        BreakStart: '',
-        BreakEnd: '',
-        LunchStart: '',
-        LunchEnd: '',
-        IsDST: '',
-        Status: 'MANUAL',
-        GeneratedBy: generatedBy,
-        ApprovedBy: '',
-        NotificationSent: '',
-        CreatedAt: nowIso,
-        UpdatedAt: nowIso,
-        RecurringScheduleID: '',
-        SwapRequestID: '',
-        Priority: priority,
-        Notes: combinedNotes,
-        Location: location,
-        Department: department
+      assignmentDates.forEach(dateValue => {
+        const periodKey = `${dateValue}::${dateValue}`;
+        const recordKeys = [];
+
+        if (userIdForRecord) {
+          recordKeys.push(`id::${userIdForRecord}::${periodKey}`);
+        }
+
+        if (nameKey) {
+          recordKeys.push(`name::${nameKey}::${periodKey}`);
+        }
+
+        const hasExisting = recordKeys.some(key => existingKeySet.has(key));
+        if (hasExisting && !replaceExisting) {
+          failedUsers.push({
+            userId: userIdForRecord || '',
+            userName: nameForRecord,
+            date: dateValue,
+            reason: 'Existing assignment found for this date'
+          });
+          return;
+        }
+
+        recordKeys.forEach(key => {
+          existingKeySet.add(key);
+          if (replaceExisting) {
+            keysToReplace.add(key);
+          }
+        });
+
+        newRecords.push({
+          ID: Utilities.getUuid(),
+          UserID: userIdForRecord || '',
+          UserName: nameForRecord,
+          Date: dateValue,
+          PeriodStart: dateValue,
+          PeriodEnd: dateValue,
+          SlotID: slotId,
+          SlotName: slotName,
+          StartTime: startTime,
+          EndTime: endTime,
+          OriginalStartTime: startTime,
+          OriginalEndTime: endTime,
+          BreakStart: '',
+          BreakEnd: '',
+          LunchStart: '',
+          LunchEnd: '',
+          IsDST: '',
+          Status: 'MANUAL',
+          GeneratedBy: generatedBy,
+          ApprovedBy: '',
+          NotificationSent: '',
+          CreatedAt: nowIso,
+          UpdatedAt: nowIso,
+          RecurringScheduleID: '',
+          SwapRequestID: '',
+          Priority: priority,
+          Notes: combinedNotes,
+          Location: location,
+          Department: department
+        });
       });
     });
 
@@ -2771,6 +2815,12 @@ function clientAddManualShiftSlots(request = {}) {
       saveSchedulesToSheet(newRecords);
     }
 
+    const firstDate = assignmentDates[0];
+    const lastDate = assignmentDates[assignmentDates.length - 1];
+    const dateLabel = firstDate === lastDate ? firstDate : `${firstDate} to ${lastDate}`;
+
+    const uniqueUserCount = new Set(newRecords.map(record => record.UserID || record.UserName || '')).size;
+
     return {
       success: true,
       created: newRecords.length,
@@ -2782,9 +2832,15 @@ function clientAddManualShiftSlots(request = {}) {
         date: record.Date,
         startTime: record.StartTime,
         endTime: record.EndTime,
-        slotName: record.SlotName
+        slotName: record.SlotName,
+        slotId: record.SlotID
       })),
-      message: `Added ${newRecords.length} manual shift slot${newRecords.length === 1 ? '' : 's'} on ${normalizedDate}.`
+      slotName,
+      slotId,
+      startDate: firstDate,
+      endDate: lastDate,
+      usersAffected: uniqueUserCount,
+      message: `Added ${newRecords.length} manual shift slot${newRecords.length === 1 ? '' : 's'} covering ${dateLabel}.`
     };
   } catch (error) {
     console.error('Error manually adding shift slots:', error);
