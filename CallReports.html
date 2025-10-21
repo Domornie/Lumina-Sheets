@@ -431,10 +431,21 @@
         box-shadow: var(--shadow-md);
         overflow: hidden;
         transition: var(--transition-normal);
-        min-height: 200px;
+        min-height: 220px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
+        gap: 1.25rem;
+        height: 100%;
+        align-items: flex-start;
+    }
+
+    .recognition-column {
+        display: flex;
+    }
+
+    .recognition-column .recognition-card {
+        flex: 1 1 auto;
     }
 
     .recognition-card::after {
@@ -591,7 +602,7 @@
     .recognition-footer {
         position: relative;
         z-index: 1;
-        margin-top: 1rem;
+        margin-top: auto;
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -1451,7 +1462,7 @@
 
 <!-- Recognition Highlights -->
 <div class="row gx-4 mb-5 animate-fade-in-up" style="animation-delay: 0.15s;" aria-live="polite">
-    <div class="col-lg-6">
+    <div class="col-lg-6 recognition-column">
         <div class="recognition-card is-empty" id="csatRecognitionCard">
             <div class="recognition-badge"><i class="fas fa-star"></i> CSAT Champion</div>
             <div class="recognition-agent" id="csatChampionName">Awaiting feedback</div>
@@ -1461,14 +1472,14 @@
             <div class="recognition-footer"><i class="fas fa-comments"></i><span id="csatChampionFooter">No qualifying responses yet</span></div>
         </div>
     </div>
-    <div class="col-lg-6">
+    <div class="col-lg-6 recognition-column">
         <div class="recognition-card is-empty" id="attRecognitionCard">
             <div class="recognition-badge"><i class="fas fa-stopwatch"></i> ATT Ace</div>
             <div class="recognition-agent" id="attChampionName">Awaiting data</div>
             <div class="recognition-stat" id="attChampionValue">—</div>
-            <div class="recognition-meta" id="attChampionDetail">We will spotlight agents once 5–7 qualifying calls over a minute are logged.</div>
+            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after 5–7 qualifying calls averaging 5–12 minutes (each call 1–20,000 minutes) with weekday call coverage (Mon–Fri) recorded at least 5 days per week for the entire month.</div>
             <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average talk time performers"></ul>
-            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls yet</span></div>
+            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls with full weekday coverage yet</span></div>
         </div>
     </div>
 </div>
@@ -2423,12 +2434,19 @@
 
     const repMetrics = Array.isArray(analytics.repMetrics) ? analytics.repMetrics : [];
     const talkBenchmarks = analytics.talkBenchmarks || {};
+    const MIN_ATT_MINUTES = 1;
+    const MAX_ATT_MINUTES = 20000;
+    const IDEAL_MIN_ATT_MINUTES = 5;
+    const IDEAL_MAX_ATT_MINUTES = 12;
     const rawBenchmarkAverage = talkBenchmarks.averageMinutes;
-    const benchmarkAverage = rawBenchmarkAverage === null || rawBenchmarkAverage === undefined
+    const parsedBenchmarkAverage = rawBenchmarkAverage === null || rawBenchmarkAverage === undefined
       ? NaN
       : Number(rawBenchmarkAverage);
+    const benchmarkAverage = Number.isFinite(parsedBenchmarkAverage)
+      ? Math.min(Math.max(parsedBenchmarkAverage, MIN_ATT_MINUTES), MAX_ATT_MINUTES)
+      : NaN;
     const benchmarkDisplay = Number.isFinite(benchmarkAverage)
-      ? Math.max(1, Math.round(benchmarkAverage))
+      ? Math.round(benchmarkAverage)
       : null;
 
     const csatEligible = repMetrics
@@ -2486,26 +2504,29 @@
     }
 
     const attEligible = repMetrics
+      .filter(item => item && item.fullWeekCoverage === true)
       .map(item => {
         const calls = Number(item.qualifyingTalkCalls || 0);
         const totalMinutes = Number(item.totalTalkWholeMinutes || 0);
         const avgTalk = calls > 0 ? totalMinutes / calls : null;
+        const coverageSummary = Array.isArray(item.weeklyCoverageSummary)
+          ? item.weeklyCoverageSummary
+          : [];
         return {
           agent: item.agent || '—',
           calls,
           totalMinutes,
-          avgTalk
+          avgTalk,
+          coverageSummary
         };
       })
-      .filter(entry => entry.avgTalk !== null && Number.isFinite(entry.avgTalk) && entry.avgTalk >= 1 && entry.calls >= 5 && entry.calls <= 7);
+      .filter(entry => {
+        if (entry.avgTalk === null || !Number.isFinite(entry.avgTalk)) return false;
+        if (entry.avgTalk < IDEAL_MIN_ATT_MINUTES || entry.avgTalk > IDEAL_MAX_ATT_MINUTES) return false;
+        return entry.calls >= 5 && entry.calls <= 7;
+      });
 
-    let attLeaders = attEligible;
-    if (Number.isFinite(benchmarkAverage)) {
-      const maxAverage = benchmarkAverage + 1;
-      attLeaders = attLeaders.filter(entry => entry.avgTalk <= maxAverage);
-    }
-
-    attLeaders = attLeaders
+    const attLeaders = attEligible
       .slice()
       .sort((a, b) => {
         if (a.avgTalk !== b.avgTalk) return a.avgTalk - b.avgTalk;
@@ -2519,26 +2540,39 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'We will spotlight agents once 5–7 qualifying calls over a minute are logged.';
-      attFooterEl.textContent = 'No qualifying calls yet';
+      attDetailEl.textContent = 'Log 5–7 qualifying calls between 1 and 20,000 minutes that average between 5 and 12 minutes while maintaining weekday coverage (Mon–Fri) at least 5 days per week across every week in the month to earn recognition.';
+      attFooterEl.textContent = 'No qualifying calls with full weekday coverage yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
-      const championAvg = Math.max(1, Math.round(champion.avgTalk));
+      const championAvg = Math.round(champion.avgTalk);
+      const championCalls = champion.calls === 1 ? '1 qualifying call' : `${champion.calls} qualifying calls`;
+      const championMinutes = `${champion.totalMinutes.toLocaleString()} total minutes`;
+      const coverageWeeks = Array.isArray(champion.coverageSummary)
+        ? champion.coverageSummary.filter(week => week.requiredDays > 0).length
+        : 0;
+      const coverageWeeksMet = Array.isArray(champion.coverageSummary)
+        ? champion.coverageSummary.filter(week => week.requiredDays > 0 && week.meetsRequirement).length
+        : 0;
+      const coverageLabel = coverageWeeks > 0
+        ? ` Maintained weekday call coverage (Mon–Fri) across ${coverageWeeksMet}/${coverageWeeks} week${coverageWeeks === 1 ? '' : 's'} this period.`
+        : '';
+      const teamAverageLabel = benchmarkDisplay !== null
+        ? ` Team average: ${benchmarkDisplay} min.`
+        : '';
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
-      attDetailEl.textContent = `Based on ${champion.calls} calls within the 5–7 call window.`;
-      if (Number.isFinite(benchmarkAverage) && benchmarkDisplay !== null) {
-        const qualifyingTotal = Number(talkBenchmarks.qualifyingCallCount || 0);
-        attFooterEl.textContent = `Team avg ${benchmarkDisplay} min across ${qualifyingTotal.toLocaleString()} qualifying calls`;
-      } else {
-        attFooterEl.textContent = `${formatMinutesToReadable(champion.totalMinutes)} total talk time`;
-      }
+      attDetailEl.textContent = `${championCalls} (${championMinutes}) within the ideal 5–12 minute window. Each call counted was between 1 and 20,000 minutes.${coverageLabel}${teamAverageLabel}`.trim();
+      attFooterEl.textContent = 'Ranked by lowest average talk time in the 5–12 minute sweet spot with full weekday coverage';
       updateRankingList(attListEl, attLeaders, entry => {
-        const avgLabel = `${Math.max(1, Math.round(entry.avgTalk))} min avg`;
+        const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
-        return `${avgLabel} • ${callLabel}`;
+        const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
+        const coverageNote = Array.isArray(entry.coverageSummary) && entry.coverageSummary.length
+          ? ' • Weekday coverage met (Mon–Fri)'
+          : '';
+        return `${avgLabel} • ${callLabel} (${totalLabel})${coverageNote}`;
       });
     }
 
