@@ -40,25 +40,16 @@ var IdentityService = (function () {
         Utilities.Charset.UTF_8
       );
 
-      try {
-        const utils = getPasswordUtils();
-        if (utils && typeof utils.digestToHex === 'function') {
-          return utils.digestToHex(digest);
-        }
-      } catch (utilsError) {
-        console.warn('hashToken: falling back to manual hex conversion', utilsError);
+      const utils = getPasswordUtils();
+      if (!utils || typeof utils.digestToHex !== 'function') {
+        throw new Error('Password utilities digestToHex unavailable');
       }
 
-      if (digest && typeof digest.map === 'function') {
-        return digest
-          .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
-          .join('');
-      }
-    } catch (digestError) {
-      console.warn('hashToken: Failed to compute digest', digestError);
+      return utils.digestToHex(digest);
+    } catch (error) {
+      console.warn('hashToken: Failed to compute digest via password utilities', error);
+      return '';
     }
-
-    return '';
   }
 
   function generateToken() {

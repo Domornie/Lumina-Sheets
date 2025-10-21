@@ -216,24 +216,17 @@ function _userDigestToHex_(digest) {
     return '';
   }
 
-  const utils = _userGetPasswordUtilities_();
-  if (utils && typeof utils.digestToHex === 'function') {
-    try {
-      return utils.digestToHex(digest);
-    } catch (utilsError) {
-      _userLog_('UserService.digestToHex', utilsError, 'warn');
+  try {
+    const utils = _userGetPasswordUtilities_();
+    if (!utils || typeof utils.digestToHex !== 'function') {
+      throw new Error('Password utilities digestToHex unavailable');
     }
-  }
 
-  if (typeof digest.map === 'function') {
-    try {
-      return digest.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
-    } catch (mapError) {
-      _userLog_('UserService.digestToHexFallback', mapError, 'warn');
-    }
+    return utils.digestToHex(digest);
+  } catch (error) {
+    _userLog_('UserService.digestToHex', error, 'error');
+    throw error;
   }
-
-  return '';
 }
 
 function clientGetUserSummaries(context) {
