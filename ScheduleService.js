@@ -556,20 +556,15 @@ function clientCreateShiftSlot(slotData) {
       daysOfWeek = slotData.daysOfWeek.join(',');
     }
 
-    const maxCapacity = toNumber(
-      slotData.maxCapacity,
-      SCHEDULE_SETTINGS.DEFAULT_SHIFT_CAPACITY
-    );
-    const breakDuration = toNumber(
-      slotData.breakDuration !== undefined ? slotData.breakDuration : slotData.break1Duration,
-      SCHEDULE_SETTINGS.DEFAULT_BREAK_MINUTES
-    );
-    const lunchDuration = toNumber(
-      slotData.lunchDuration,
-      SCHEDULE_SETTINGS.DEFAULT_LUNCH_MINUTES
-    );
+    const daysOfWeekArray = daysOfWeek
+      .split(',')
+      .map(value => parseInt(value, 10))
+      .filter(value => !isNaN(value));
 
-    const slot = {
+    const generationDefaults = buildGenerationDefaultsFromSource(slotData) || null;
+    const serializedDefaults = generationDefaults ? JSON.stringify(generationDefaults) : '';
+
+    const slotRecord = {
       ID: slotId,
       Name: slotData.name,
       StartTime: slotData.startTime,
@@ -577,41 +572,18 @@ function clientCreateShiftSlot(slotData) {
       DaysOfWeek: daysOfWeek,
       Department: slotData.department || 'General',
       Location: slotData.location || 'Office',
-      MaxCapacity: maxCapacity,
-      MinCoverage: toNumber(slotData.minCoverage, ''),
       Priority: toNumber(slotData.priority, 2),
       Description: slotData.description || '',
-      BreakDuration: breakDuration,
-      LunchDuration: lunchDuration,
-      Break1Duration: toNumber(slotData.break1Duration, breakDuration),
-      Break2Duration: toNumber(slotData.break2Duration, 0),
-      EnableStaggeredBreaks: toBoolean(slotData.enableStaggeredBreaks, true),
-      BreakGroups: toNumber(slotData.breakGroups, 3),
-      StaggerInterval: toNumber(slotData.staggerInterval, 15),
-      MinCoveragePct: toNumber(slotData.minCoveragePct, 70),
-      EnableOvertime: toBoolean(slotData.enableOvertime, false),
-      MaxDailyOT: toNumber(slotData.maxDailyOT, 0),
-      MaxWeeklyOT: toNumber(slotData.maxWeeklyOT, 0),
-      OTApproval: slotData.otApproval || slotData.overtimeApproval || 'supervisor',
-      OTRate: toNumber(slotData.otRate, 1.5),
-      OTPolicy: slotData.otPolicy || slotData.overtimePolicy || 'MANDATORY',
-      AllowSwaps: toBoolean(slotData.allowSwaps, true),
-      WeekendPremium: toBoolean(slotData.weekendPremium, false),
-      HolidayPremium: toBoolean(slotData.holidayPremium, true),
-      AutoAssignment: toBoolean(slotData.autoAssignment, false),
-      RestPeriod: toNumber(slotData.restPeriod, 8),
-      NotificationLead: toNumber(slotData.notificationLead, 24),
-      HandoverTime: toNumber(slotData.handoverTime, 15),
-      OvertimePolicy: slotData.overtimePolicy || slotData.otPolicy || 'LIMITED_30',
-      IsActive: true,
+      IsActive: toBoolean(slotData.isActive, true),
       CreatedBy: slotData.createdBy || 'System',
       CreatedAt: now,
-      UpdatedAt: now
+      UpdatedAt: now,
+      GenerationDefaults: serializedDefaults
     };
 
     // Create row data using proper header order
     const rowData = SHIFT_SLOTS_HEADERS.map(header =>
-      Object.prototype.hasOwnProperty.call(slot, header) ? slot[header] : ''
+      Object.prototype.hasOwnProperty.call(slotRecord, header) ? slotRecord[header] : ''
     );
     sheet.appendRow(rowData);
     SpreadsheetApp.flush();
@@ -621,10 +593,15 @@ function clientCreateShiftSlot(slotData) {
 
     console.log('✅ Shift slot created successfully:', slotId);
 
+    const responseSlot = Object.assign({}, slotRecord, {
+      GenerationDefaults: generationDefaults,
+      DaysOfWeekArray: daysOfWeekArray
+    });
+
     return {
       success: true,
       message: 'Shift slot created successfully',
-      slot: slot
+      slot: responseSlot
     };
 
   } catch (error) {
@@ -793,6 +770,7 @@ function clientGetAllShiftSlots() {
     const aggregatedSlots = [];
     const seenIds = new Set();
     const seenComposite = new Set();
+    const sourceNames = new Set();
 
     const resolveSlotId = slot => {
       const candidates = [
@@ -845,6 +823,10 @@ function clientGetAllShiftSlots() {
         if (compositeKey) {
           seenComposite.add(compositeKey);
         }
+      }
+
+      if (source) {
+        sourceNames.add(source);
       }
 
       normalizedSlot.__source = source;
@@ -1004,6 +986,14 @@ function clientGetAllShiftSlots() {
         normalizedSlot.Name = normalizedSlot.SlotName;
       }
 
+      const defaultsFromRecord = parseGenerationDefaults(slot.GenerationDefaults, slot.ID || slot.Name);
+      const derivedDefaults = defaultsFromRecord || buildGenerationDefaultsFromSource(slot);
+      if (derivedDefaults) {
+        normalizedSlot.GenerationDefaults = derivedDefaults;
+      } else if (Object.prototype.hasOwnProperty.call(normalizedSlot, 'GenerationDefaults')) {
+        delete normalizedSlot.GenerationDefaults;
+      }
+
       if (Object.prototype.hasOwnProperty.call(normalizedSlot, '__source')) {
         delete normalizedSlot.__source;
       }
@@ -1011,8 +1001,20 @@ function clientGetAllShiftSlots() {
       return normalizedSlot;
     });
 
+    const activeCount = normalizedSlots.filter(slot => slot.IsActive !== false).length;
+    const metadata = {
+      totalCount: normalizedSlots.length,
+      activeCount,
+      inactiveCount: normalizedSlots.length - activeCount,
+      sources: Array.from(sourceNames)
+    };
+
     console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
-    return normalizedSlots;
+    return {
+      success: true,
+      slots: normalizedSlots,
+      metadata
+    };
 
   } catch (error) {
     console.error('❌ Error getting shift slots:', error);
@@ -1020,9 +1022,27 @@ function clientGetAllShiftSlots() {
 
     try {
       createDefaultShiftSlots();
-      return readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      const fallbackSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+      const fallbackActive = fallbackSlots.filter(slot => slot && slot.IsActive !== false).length;
+      return {
+        success: true,
+        slots: fallbackSlots,
+        metadata: {
+          totalCount: fallbackSlots.length,
+          activeCount: fallbackActive,
+          inactiveCount: fallbackSlots.length - fallbackActive,
+          sources: ['default']
+        },
+        message: 'Default shift slots created as fallback.'
+      };
     } catch (fallbackError) {
-      return [];
+      console.error('❌ Unable to provide default shift slots fallback:', fallbackError);
+      return {
+        success: false,
+        error: error && error.message ? error.message : 'Failed to load shift slots.',
+        slots: [],
+        metadata: { totalCount: 0, activeCount: 0, inactiveCount: 0 }
+      };
     }
   }
 }
@@ -1030,6 +1050,220 @@ function clientGetAllShiftSlots() {
 // ────────────────────────────────────────────────────────────────────────────
 // SCHEDULE GENERATION - Enhanced with ScheduleUtilities integration
 // ────────────────────────────────────────────────────────────────────────────
+
+function coerceNumberOrNull(value) {
+  if (value === null || typeof value === 'undefined') {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  return null;
+}
+
+function coerceBooleanOrNull(value) {
+  if (value === null || typeof value === 'undefined') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return null;
+}
+
+function resolveNumberFromSource(source, keys) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (!Object.prototype.hasOwnProperty.call(source, key)) {
+      continue;
+    }
+
+    const resolved = coerceNumberOrNull(source[key]);
+    if (resolved !== null) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
+function resolveBooleanFromSource(source, keys) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (!Object.prototype.hasOwnProperty.call(source, key)) {
+      continue;
+    }
+
+    const resolved = coerceBooleanOrNull(source[key]);
+    if (resolved !== null) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
+function resolveStringFromSource(source, keys) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (!Object.prototype.hasOwnProperty.call(source, key)) {
+      continue;
+    }
+
+    const value = source[key];
+    if (value === null || typeof value === 'undefined') {
+      continue;
+    }
+
+    const trimmed = String(value).trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeGenerationConfig(value) {
+  if (value === null || typeof value === 'undefined') {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    const sanitizedArray = value
+      .map(entry => sanitizeGenerationConfig(entry))
+      .filter(entry => entry !== undefined);
+    return sanitizedArray.length ? sanitizedArray : undefined;
+  }
+
+  if (typeof value === 'object') {
+    const result = {};
+    Object.keys(value).forEach(key => {
+      const sanitized = sanitizeGenerationConfig(value[key]);
+      if (sanitized !== undefined) {
+        result[key] = sanitized;
+      }
+    });
+    return Object.keys(result).length ? result : undefined;
+  }
+
+  return value;
+}
+
+function buildGenerationDefaultsFromSource(source = {}) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  const defaults = {
+    capacity: {
+      max: resolveNumberFromSource(source, ['MaxCapacity', 'maxCapacity', 'capacityMax']),
+      min: resolveNumberFromSource(source, ['MinCoverage', 'minCoverage', 'capacityMin'])
+    },
+    breaks: {
+      first: resolveNumberFromSource(source, ['Break1Duration', 'break1Duration', 'BreakDuration', 'breakDuration']),
+      second: resolveNumberFromSource(source, ['Break2Duration', 'break2Duration']),
+      lunch: resolveNumberFromSource(source, ['LunchDuration', 'lunchDuration']),
+      enableStaggered: resolveBooleanFromSource(source, ['EnableStaggeredBreaks', 'enableStaggeredBreaks']),
+      groups: resolveNumberFromSource(source, ['BreakGroups', 'breakGroups']),
+      interval: resolveNumberFromSource(source, ['StaggerInterval', 'staggerInterval']),
+      minCoveragePct: resolveNumberFromSource(source, ['MinCoveragePct', 'minCoveragePct'])
+    },
+    overtime: {
+      enabled: resolveBooleanFromSource(source, ['EnableOvertime', 'enableOvertime', 'overtimeEnabled']),
+      maxDaily: resolveNumberFromSource(source, ['MaxDailyOT', 'maxDailyOT']),
+      maxWeekly: resolveNumberFromSource(source, ['MaxWeeklyOT', 'maxWeeklyOT']),
+      approval: resolveStringFromSource(source, ['OTApproval', 'otApproval']),
+      rate: resolveNumberFromSource(source, ['OTRate', 'otRate']),
+      policy: resolveStringFromSource(source, ['OTPolicy', 'otPolicy', 'OvertimePolicy', 'overtimePolicy'])
+    },
+    advanced: {
+      allowSwaps: resolveBooleanFromSource(source, ['AllowSwaps', 'allowSwaps']),
+      weekendPremium: resolveBooleanFromSource(source, ['WeekendPremium', 'weekendPremium']),
+      holidayPremium: resolveBooleanFromSource(source, ['HolidayPremium', 'holidayPremium']),
+      autoAssignment: resolveBooleanFromSource(source, ['AutoAssignment', 'autoAssignment']),
+      restPeriod: resolveNumberFromSource(source, ['RestPeriod', 'restPeriod']),
+      notificationLead: resolveNumberFromSource(source, ['NotificationLead', 'notificationLead']),
+      handoverTime: resolveNumberFromSource(source, ['HandoverTime', 'handoverTime'])
+    }
+  };
+
+  const sanitized = sanitizeGenerationConfig(defaults);
+  return sanitized || null;
+}
+
+function parseGenerationDefaults(value, contextLabel) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    const sanitized = sanitizeGenerationConfig(value);
+    return sanitized || null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      const sanitized = sanitizeGenerationConfig(parsed);
+      return sanitized || null;
+    } catch (error) {
+      console.warn('Unable to parse generation defaults JSON' + (contextLabel ? ` for ${contextLabel}` : '') + ':', error);
+      return null;
+    }
+  }
+
+  return null;
+}
 
 function normalizeGenerationOptions(options = {}) {
   const coerceNumber = (value, fallback, { min = null, max = null } = {}) => {
@@ -1154,86 +1388,96 @@ function normalizeGenerationOptions(options = {}) {
 
 function applyGenerationOptionsToSlot(slot, generationOptions) {
   const applied = Object.assign({}, slot || {});
-  const { capacity, breaks, overtime, advanced } = generationOptions || {};
+  const applyRules = (rules) => {
+    if (!rules || typeof rules !== 'object') {
+      return;
+    }
 
-  if (capacity) {
-    if (typeof capacity.max === 'number') {
-      applied.MaxCapacity = capacity.max;
-    }
-    if (typeof capacity.min === 'number') {
-      applied.MinCoverage = capacity.min;
-    }
-  }
+    const { capacity, breaks, overtime, advanced } = rules;
 
-  if (breaks) {
-    if (typeof breaks.first === 'number') {
-      applied.BreakDuration = breaks.first;
-      applied.Break1Duration = breaks.first;
+    if (capacity) {
+      if (typeof capacity.max === 'number') {
+        applied.MaxCapacity = capacity.max;
+      }
+      if (typeof capacity.min === 'number') {
+        applied.MinCoverage = capacity.min;
+      }
     }
-    if (typeof breaks.second === 'number') {
-      applied.Break2Duration = breaks.second;
-    }
-    if (typeof breaks.lunch === 'number') {
-      applied.LunchDuration = breaks.lunch;
-    }
-    if (typeof breaks.enableStaggered === 'boolean') {
-      applied.EnableStaggeredBreaks = breaks.enableStaggered;
-    }
-    if (typeof breaks.groups === 'number') {
-      applied.BreakGroups = breaks.groups;
-    }
-    if (typeof breaks.interval === 'number') {
-      applied.StaggerInterval = breaks.interval;
-    }
-    if (typeof breaks.minCoveragePct === 'number') {
-      applied.MinCoveragePct = breaks.minCoveragePct;
-    }
-  }
 
-  if (overtime) {
-    if (typeof overtime.enabled === 'boolean') {
-      applied.EnableOvertime = overtime.enabled;
+    if (breaks) {
+      if (typeof breaks.first === 'number') {
+        applied.BreakDuration = breaks.first;
+        applied.Break1Duration = breaks.first;
+      }
+      if (typeof breaks.second === 'number') {
+        applied.Break2Duration = breaks.second;
+      }
+      if (typeof breaks.lunch === 'number') {
+        applied.LunchDuration = breaks.lunch;
+      }
+      if (typeof breaks.enableStaggered === 'boolean') {
+        applied.EnableStaggeredBreaks = breaks.enableStaggered;
+      }
+      if (typeof breaks.groups === 'number') {
+        applied.BreakGroups = breaks.groups;
+      }
+      if (typeof breaks.interval === 'number') {
+        applied.StaggerInterval = breaks.interval;
+      }
+      if (typeof breaks.minCoveragePct === 'number') {
+        applied.MinCoveragePct = breaks.minCoveragePct;
+      }
     }
-    if (typeof overtime.maxDaily === 'number') {
-      applied.MaxDailyOT = overtime.maxDaily;
-    }
-    if (typeof overtime.maxWeekly === 'number') {
-      applied.MaxWeeklyOT = overtime.maxWeekly;
-    }
-    if (overtime.approval) {
-      applied.OTApproval = overtime.approval;
-    }
-    if (typeof overtime.rate === 'number') {
-      applied.OTRate = overtime.rate;
-    }
-    if (overtime.policy) {
-      applied.OTPolicy = overtime.policy;
-    }
-  }
 
-  if (advanced) {
-    if (typeof advanced.allowSwaps === 'boolean') {
-      applied.AllowSwaps = advanced.allowSwaps;
+    if (overtime) {
+      if (typeof overtime.enabled === 'boolean') {
+        applied.EnableOvertime = overtime.enabled;
+      }
+      if (typeof overtime.maxDaily === 'number') {
+        applied.MaxDailyOT = overtime.maxDaily;
+      }
+      if (typeof overtime.maxWeekly === 'number') {
+        applied.MaxWeeklyOT = overtime.maxWeekly;
+      }
+      if (overtime.approval) {
+        applied.OTApproval = overtime.approval;
+      }
+      if (typeof overtime.rate === 'number') {
+        applied.OTRate = overtime.rate;
+      }
+      if (overtime.policy) {
+        applied.OTPolicy = overtime.policy;
+      }
     }
-    if (typeof advanced.weekendPremium === 'boolean') {
-      applied.WeekendPremium = advanced.weekendPremium;
+
+    if (advanced) {
+      if (typeof advanced.allowSwaps === 'boolean') {
+        applied.AllowSwaps = advanced.allowSwaps;
+      }
+      if (typeof advanced.weekendPremium === 'boolean') {
+        applied.WeekendPremium = advanced.weekendPremium;
+      }
+      if (typeof advanced.holidayPremium === 'boolean') {
+        applied.HolidayPremium = advanced.holidayPremium;
+      }
+      if (typeof advanced.autoAssignment === 'boolean') {
+        applied.AutoAssignment = advanced.autoAssignment;
+      }
+      if (typeof advanced.restPeriod === 'number') {
+        applied.RestPeriod = advanced.restPeriod;
+      }
+      if (typeof advanced.notificationLead === 'number') {
+        applied.NotificationLead = advanced.notificationLead;
+      }
+      if (typeof advanced.handoverTime === 'number') {
+        applied.HandoverTime = advanced.handoverTime;
+      }
     }
-    if (typeof advanced.holidayPremium === 'boolean') {
-      applied.HolidayPremium = advanced.holidayPremium;
-    }
-    if (typeof advanced.autoAssignment === 'boolean') {
-      applied.AutoAssignment = advanced.autoAssignment;
-    }
-    if (typeof advanced.restPeriod === 'number') {
-      applied.RestPeriod = advanced.restPeriod;
-    }
-    if (typeof advanced.notificationLead === 'number') {
-      applied.NotificationLead = advanced.notificationLead;
-    }
-    if (typeof advanced.handoverTime === 'number') {
-      applied.HandoverTime = advanced.handoverTime;
-    }
-  }
+  };
+
+  const slotDefaults = parseGenerationDefaults(slot && slot.GenerationDefaults, slot && slot.ID) || buildGenerationDefaultsFromSource(slot);
+  applyRules(slotDefaults);
+  applyRules(generationOptions || {});
 
   return applied;
 }
@@ -1339,26 +1583,40 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     console.log('🧭 Generation options snapshot:', generationOptions.snapshot);
 
     // Get shift slots - either selected ones or all available
+    const slotLoadResult = clientGetAllShiftSlots();
+    const availableSlots = Array.isArray(slotLoadResult)
+      ? slotLoadResult
+      : (slotLoadResult && Array.isArray(slotLoadResult.slots) ? slotLoadResult.slots : []);
+
+    if (!Array.isArray(slotLoadResult) && slotLoadResult && slotLoadResult.success === false) {
+      throw new Error(slotLoadResult.error || 'Failed to load shift slots.');
+    }
+
+    const slotMetadata = (!Array.isArray(slotLoadResult) && slotLoadResult && slotLoadResult.metadata)
+      ? slotLoadResult.metadata
+      : { totalCount: availableSlots.length };
+
     let shiftSlots = [];
     if (shiftSlotIds && shiftSlotIds.length > 0) {
-      // Get only the selected shift slots
       console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
-      const allSlots = clientGetAllShiftSlots();
-      shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
-      
+      shiftSlots = availableSlots.filter(slot => shiftSlotIds.includes(slot.ID));
+
       if (shiftSlots.length === 0) {
         throw new Error('None of the selected shift slots were found. Please refresh and try again.');
       }
-      
+
       console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
     } else {
-      // Use all available shift slots
-      shiftSlots = clientGetAllShiftSlots();
+      shiftSlots = availableSlots;
       console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
     }
 
     if (!shiftSlots || shiftSlots.length === 0) {
       throw new Error('No shift slots available. Please create shift slots first or select specific slots.');
+    }
+
+    if (slotMetadata && typeof slotMetadata.totalCount === 'number') {
+      console.log(`ℹ️ Shift slot metadata:`, slotMetadata);
     }
 
     console.log(`⏰ Working with ${shiftSlots.length} shift slot(s)`);
@@ -3006,14 +3264,26 @@ function clientRunSystemDiagnostics() {
 
     // Test shift slots using ScheduleUtilities
     try {
-      const slots = clientGetAllShiftSlots();
+      const slotsResult = clientGetAllShiftSlots();
+      const slots = Array.isArray(slotsResult)
+        ? slotsResult
+        : (slotsResult && Array.isArray(slotsResult.slots) ? slotsResult.slots : []);
+      const slotsSuccess = Array.isArray(slotsResult) ? true : slotsResult && slotsResult.success !== false;
+
       diagnostics.shiftSlots = {
         count: slots.length,
-        working: slots.length > 0,
-        scheduleUtilitiesIntegration: true
+        working: slotsSuccess && slots.length > 0,
+        scheduleUtilitiesIntegration: slotsSuccess,
+        metadata: slotsResult && !Array.isArray(slotsResult) ? slotsResult.metadata : undefined
       };
 
-      if (slots.length === 0) {
+      if (!slotsSuccess) {
+        diagnostics.issues.push({
+          severity: 'HIGH',
+          component: 'Shift Slots',
+          message: 'Shift slot loader returned an error: ' + (slotsResult && slotsResult.error ? slotsResult.error : 'Unknown error')
+        });
+      } else if (slots.length === 0) {
         diagnostics.issues.push({
           severity: 'MEDIUM',
           component: 'Shift Slots',
