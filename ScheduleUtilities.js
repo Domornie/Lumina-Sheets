@@ -331,7 +331,12 @@ const SCHEDULE_GENERATION_HEADERS = [
   'ID', 'UserID', 'UserName', 'Date', 'PeriodStart', 'PeriodEnd', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
   'OriginalStartTime', 'OriginalEndTime', 'BreakStart', 'BreakEnd', 'LunchStart', 'LunchEnd',
   'IsDST', 'Status', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
-  'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department'
+  'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department',
+  'MaxCapacity', 'MinCoverage', 'BreakDuration', 'Break1Duration', 'Break2Duration', 'LunchDuration',
+  'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
+  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
+  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
+  'RestPeriodHours', 'NotificationLeadHours', 'HandoverTimeMinutes', 'NotificationTarget', 'GenerationConfig'
 ];
 
 const SHIFT_SLOTS_HEADERS = [
