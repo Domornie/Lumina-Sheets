@@ -826,6 +826,58 @@
         color: var(--jamaica-gold);
     }
 
+    .attendance-recognition-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+
+    .attendance-recognition-filters {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    .attendance-recognition-filter {
+        border: 1px solid rgba(0, 82, 204, 0.35);
+        background: rgba(0, 82, 204, 0.08);
+        color: var(--primary-dark);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 0.35rem 0.75rem;
+        border-radius: var(--border-radius-sm);
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .attendance-recognition-filter:hover,
+    .attendance-recognition-filter:focus {
+        background: rgba(0, 82, 204, 0.15);
+        color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.1);
+    }
+
+    .attendance-recognition-filter.active {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-color: transparent;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .attendance-recognition-period {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(15, 42, 86, 0.65);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
     .attendance-recognition {
         display: flex;
         flex-direction: column;
@@ -1574,7 +1626,17 @@
                                 <div class="d-flex flex-column gap-3 h-100">
                                     <div class="attendance-panel attendance-panel--auto-height">
                                         <div class="attendance-panel-title">Punctuality Recognition</div>
-                                        <div class="attendance-panel-subtitle mb-3">Celebrating our most punctual teammates this year.</div>
+                                        <div class="attendance-panel-subtitle mb-3">Celebrate our most punctual teammates across flexible timeframes.</div>
+                                        <div class="attendance-recognition-controls">
+                                            <div class="attendance-recognition-period" id="attendanceRecognitionPeriodLabel">Year-to-date leaders · Loading…</div>
+                                            <div class="attendance-recognition-filters" role="group" aria-label="Filter recognition period">
+                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="weekly" aria-pressed="false">Weekly</button>
+                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="biWeekly" aria-pressed="false">Bi-Weekly</button>
+                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="monthly" aria-pressed="false">Monthly</button>
+                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="quarterly" aria-pressed="false">Quarterly</button>
+                                                <button type="button" class="attendance-recognition-filter active" data-recognition-period="yearly" aria-pressed="true">Yearly</button>
+                                            </div>
+                                        </div>
                                         <div id="attendancePunctualRecognition" class="attendance-recognition">
                                             <div class="attendance-recognition-empty">
                                                 <i class="fas fa-medal"></i>
@@ -2610,6 +2672,14 @@
                 this.attendanceDashboardYear = null;
                 this.attendanceDashboardRecords = [];
                 this.attendanceDashboardUserFilter = '';
+                this.attendanceRecognitionPeriod = 'yearly';
+                this.attendanceRecognitionLeaders = {
+                    weekly: { label: '', entries: [] },
+                    biWeekly: { label: '', entries: [] },
+                    monthly: { label: '', entries: [] },
+                    quarterly: { label: '', entries: [] },
+                    yearly: { label: '', entries: [] }
+                };
                 this.attendanceCalendarRecords = [];
                 this.attendanceContextMenu = null;
                 this.attendanceContextMenuTarget = null;
@@ -5216,6 +5286,90 @@
                 const biWeeklyBuckets = new Map();
                 const recognitionCategories = new Set(['present', 'late', 'absent', 'sick']);
                 const userStatsMap = new Map();
+                const recognitionPeriodMaps = {
+                    weekly: new Map(),
+                    biWeekly: new Map(),
+                    monthly: new Map(),
+                    quarterly: new Map(),
+                    yearly: new Map()
+                };
+
+                const getWeekBucketKey = (date) => {
+                    const start = new Date(date.getTime());
+                    const day = start.getDay();
+                    const diff = (day + 6) % 7; // convert Sunday(0) -> 6, Monday(1) -> 0
+                    start.setDate(start.getDate() - diff);
+                    start.setHours(0, 0, 0, 0);
+                    const label = `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    const key = `week:${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+                    return { key, label, order: start.getTime() };
+                };
+
+                const getMonthlyBucketKey = (date) => {
+                    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                    const key = `month:${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
+                    const label = `${months[monthStart.getMonth()]} ${monthStart.getFullYear()}`;
+                    return { key, label, order: monthStart.getTime() };
+                };
+
+                const getQuarterlyBucketKey = (date) => {
+                    const quarterIndex = Math.floor(date.getMonth() / 3);
+                    const quarterStart = new Date(date.getFullYear(), quarterIndex * 3, 1);
+                    const label = `Q${quarterIndex + 1} ${quarterStart.getFullYear()}`;
+                    const key = `quarter:${quarterStart.getFullYear()}-${quarterIndex + 1}`;
+                    return { key, label, order: quarterStart.getTime() };
+                };
+
+                const getYearBucketKey = (date) => {
+                    const yearStart = new Date(date.getFullYear(), 0, 1);
+                    const label = `${yearStart.getFullYear()}`;
+                    const key = `year:${yearStart.getFullYear()}`;
+                    return { key, label, order: yearStart.getTime() };
+                };
+
+                const updateRecognitionBucket = (bucketMap, bucketInfo, identityKey, displayName, category) => {
+                    if (!bucketInfo || !bucketInfo.key || !identityKey) {
+                        return;
+                    }
+
+                    if (!bucketMap.has(bucketInfo.key)) {
+                        bucketMap.set(bucketInfo.key, {
+                            label: bucketInfo.label || '',
+                            order: Number.isFinite(bucketInfo.order) ? bucketInfo.order : 0,
+                            users: new Map()
+                        });
+                    }
+
+                    const bucket = bucketMap.get(bucketInfo.key);
+                    bucket.label = bucketInfo.label || bucket.label;
+                    bucket.order = Number.isFinite(bucketInfo.order) ? bucketInfo.order : bucket.order;
+
+                    if (!bucket.users.has(identityKey)) {
+                        bucket.users.set(identityKey, {
+                            displayName: '',
+                            present: 0,
+                            total: 0,
+                            late: 0,
+                            absent: 0,
+                            sick: 0
+                        });
+                    }
+
+                    const userBucketStat = bucket.users.get(identityKey);
+                    userBucketStat.displayName = chooseDisplayName(userBucketStat.displayName, displayName);
+
+                    if (category === 'present') {
+                        userBucketStat.present += 1;
+                    } else if (category === 'late') {
+                        userBucketStat.late += 1;
+                    } else if (category === 'absent') {
+                        userBucketStat.absent += 1;
+                    } else if (category === 'sick') {
+                        userBucketStat.sick += 1;
+                    }
+
+                    userBucketStat.total += 1;
+                };
 
                 const scoreDisplayName = (value) => {
                     const text = (value || '').toString().trim();
@@ -5397,6 +5551,21 @@
                             }
 
                             userStat.total += 1;
+
+                            const weekBucketInfo = getWeekBucketKey(date);
+                            updateRecognitionBucket(recognitionPeriodMaps.weekly, weekBucketInfo, identityKey, displayName, category);
+
+                            const biWeeklyBucketInfo = this.getBiWeeklyBucketKey(date);
+                            updateRecognitionBucket(recognitionPeriodMaps.biWeekly, biWeeklyBucketInfo, identityKey, displayName, category);
+
+                            const monthBucketInfo = getMonthlyBucketKey(date);
+                            updateRecognitionBucket(recognitionPeriodMaps.monthly, monthBucketInfo, identityKey, displayName, category);
+
+                            const quarterBucketInfo = getQuarterlyBucketKey(date);
+                            updateRecognitionBucket(recognitionPeriodMaps.quarterly, quarterBucketInfo, identityKey, displayName, category);
+
+                            const yearBucketInfo = getYearBucketKey(date);
+                            updateRecognitionBucket(recognitionPeriodMaps.yearly, yearBucketInfo, identityKey, displayName, category);
                         }
                     }
 
@@ -5475,6 +5644,50 @@
                     punctual: sortedBiWeekly.map(bucket => safePercent(bucket.present, bucket.total))
                 };
 
+                const buildRecognitionLeaders = (bucketMap, fallbackLabel = '') => {
+                    if (!bucketMap || typeof bucketMap !== 'object' || bucketMap.size === 0) {
+                        return { label: fallbackLabel, entries: [] };
+                    }
+
+                    const buckets = Array.from(bucketMap.values()).sort((a, b) => {
+                        const orderA = Number.isFinite(a.order) ? a.order : 0;
+                        const orderB = Number.isFinite(b.order) ? b.order : 0;
+                        return orderB - orderA;
+                    });
+
+                    const latestBucket = buckets[0];
+                    const entries = Array.from(latestBucket.users.values()).map(stat => {
+                        const totalTracked = stat.total || 0;
+                        const punctualRate = totalTracked > 0
+                            ? Number(((stat.present / totalTracked) * 100).toFixed(2))
+                            : 0;
+                        const displayName = (stat.displayName || '').toString().trim() || 'Team Member';
+
+                        return {
+                            displayName,
+                            present: stat.present,
+                            total: totalTracked,
+                            punctualRate
+                        };
+                    })
+                        .filter(stat => stat.total > 0)
+                        .sort((a, b) => {
+                            if (b.punctualRate !== a.punctualRate) {
+                                return b.punctualRate - a.punctualRate;
+                            }
+                            if (b.present !== a.present) {
+                                return b.present - a.present;
+                            }
+                            return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' });
+                        })
+                        .slice(0, 3);
+
+                    return {
+                        label: latestBucket.label || fallbackLabel,
+                        entries
+                    };
+                };
+
                 const topPunctual = Array.from(userStatsMap.values())
                     .map(stat => {
                         const totalTracked = stat.total || 0;
@@ -5502,6 +5715,19 @@
                     })
                     .slice(0, 3);
 
+                const recognition = {
+                    weekly: buildRecognitionLeaders(recognitionPeriodMaps.weekly, 'Most recent week'),
+                    biWeekly: buildRecognitionLeaders(recognitionPeriodMaps.biWeekly, 'Most recent bi-weekly period'),
+                    monthly: buildRecognitionLeaders(recognitionPeriodMaps.monthly, 'Most recent month'),
+                    quarterly: buildRecognitionLeaders(recognitionPeriodMaps.quarterly, 'Most recent quarter'),
+                    yearly: buildRecognitionLeaders(recognitionPeriodMaps.yearly, `${year}`)
+                };
+
+                recognition.yearly.entries = topPunctual;
+                if (!recognition.yearly.label) {
+                    recognition.yearly.label = `${year}`;
+                }
+
                 return {
                     year,
                     months,
@@ -5517,6 +5743,7 @@
                     },
                     biWeekly,
                     topPunctual,
+                    recognition,
                     monthlyAnalysis,
                     yearlyTotals: yearlyTotalsChart
                 };
@@ -5828,6 +6055,10 @@
                     console.warn('Attendance dashboard has no data to render.');
                     return;
                 }
+
+                this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(data);
+                this.attachAttendanceRecognitionFilterListeners();
+                this.updateAttendanceRecognitionPanel();
 
                 if (!this.attendanceDashboardInitialized) {
                     const yearlyTrendCtx = yearlyTrendCanvas.getContext('2d');
@@ -6263,7 +6494,6 @@
                     this.refreshAttendanceDashboard();
                 }
 
-                this.renderAttendancePunctualRecognition(Array.isArray(data.topPunctual) ? data.topPunctual : []);
             }
 
             updateAttendanceMonthlyPercentChart(monthIndex) {
@@ -6343,6 +6573,115 @@
                 }).join('');
 
                 container.innerHTML = html;
+            }
+
+            resolveAttendanceRecognitionData(data) {
+                const fallbackEntries = Array.isArray(data?.topPunctual)
+                    ? data.topPunctual.filter(entry => entry && typeof entry === 'object')
+                    : [];
+                const fallbackYear = Number.isFinite(data?.year)
+                    ? data.year
+                    : (Number.isFinite(this.attendanceDashboardYear) ? this.attendanceDashboardYear : new Date().getFullYear());
+                const recognition = data && typeof data === 'object' ? data.recognition : null;
+
+                const ensureBucket = (bucket, defaultLabel = '') => {
+                    if (!bucket || typeof bucket !== 'object') {
+                        return { label: defaultLabel, entries: [] };
+                    }
+                    const label = typeof bucket.label === 'string' ? bucket.label : defaultLabel;
+                    const entries = Array.isArray(bucket.entries)
+                        ? bucket.entries.filter(entry => entry && typeof entry === 'object')
+                        : [];
+                    return { label, entries };
+                };
+
+                const resolved = {
+                    weekly: ensureBucket(recognition?.weekly, 'Most recent week'),
+                    biWeekly: ensureBucket(recognition?.biWeekly, 'Most recent bi-weekly period'),
+                    monthly: ensureBucket(recognition?.monthly, 'Most recent month'),
+                    quarterly: ensureBucket(recognition?.quarterly, 'Most recent quarter'),
+                    yearly: ensureBucket(recognition?.yearly, fallbackYear ? `Year to date (${fallbackYear})` : 'Year to date')
+                };
+
+                if (!resolved.yearly.entries.length && fallbackEntries.length) {
+                    resolved.yearly.entries = fallbackEntries;
+                }
+
+                if (!resolved.yearly.label) {
+                    resolved.yearly.label = fallbackYear ? `Year to date (${fallbackYear})` : 'Year to date';
+                }
+
+                return resolved;
+            }
+
+            attachAttendanceRecognitionFilterListeners() {
+                const buttons = document.querySelectorAll('[data-recognition-period]');
+                buttons.forEach(button => {
+                    if (button.dataset.luminaRecognitionListener) {
+                        return;
+                    }
+
+                    button.addEventListener('click', (event) => {
+                        const target = event.currentTarget;
+                        const period = target && target.dataset ? target.dataset.recognitionPeriod : null;
+                        this.handleAttendanceRecognitionPeriodChange(period);
+                    });
+
+                    button.dataset.luminaRecognitionListener = 'true';
+                });
+            }
+
+            handleAttendanceRecognitionPeriodChange(period) {
+                const validPeriods = new Set(['weekly', 'biWeekly', 'monthly', 'quarterly', 'yearly']);
+                const normalized = (period || '').toString().trim();
+                const selected = validPeriods.has(normalized) ? normalized : 'yearly';
+                this.attendanceRecognitionPeriod = selected;
+                this.updateAttendanceRecognitionPanel();
+            }
+
+            getRecognitionPeriodDescriptor(type) {
+                switch (type) {
+                    case 'weekly':
+                        return 'Weekly leaders';
+                    case 'biWeekly':
+                        return 'Bi-weekly leaders';
+                    case 'monthly':
+                        return 'Monthly leaders';
+                    case 'quarterly':
+                        return 'Quarterly leaders';
+                    default:
+                        return 'Year-to-date leaders';
+                }
+            }
+
+            updateAttendanceRecognitionPanel() {
+                const validPeriods = ['weekly', 'biWeekly', 'monthly', 'quarterly', 'yearly'];
+                const current = validPeriods.includes(this.attendanceRecognitionPeriod)
+                    ? this.attendanceRecognitionPeriod
+                    : 'yearly';
+                this.attendanceRecognitionPeriod = current;
+
+                const data = this.attendanceRecognitionLeaders || {};
+                const selection = data[current] || { label: '', entries: [] };
+
+                this.renderAttendancePunctualRecognition(selection.entries);
+
+                const labelElement = document.getElementById('attendanceRecognitionPeriodLabel');
+                if (labelElement) {
+                    const descriptor = this.getRecognitionPeriodDescriptor(current);
+                    const periodLabel = (selection.label || '').toString().trim();
+                    labelElement.textContent = periodLabel
+                        ? `${descriptor} · ${periodLabel}`
+                        : `${descriptor} · No data yet`;
+                }
+
+                const buttons = document.querySelectorAll('[data-recognition-period]');
+                buttons.forEach(button => {
+                    const buttonPeriod = button.dataset ? button.dataset.recognitionPeriod : '';
+                    const isActive = buttonPeriod === current;
+                    button.classList.toggle('active', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
             }
 
             handleAttendanceDashboardUserFilterChange(rawValue) {
