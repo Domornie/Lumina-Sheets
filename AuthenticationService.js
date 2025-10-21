@@ -126,6 +126,17 @@ var AuthenticationService = (function () {
     }
   }
 
+  function tryGetPasswordUtils(contextLabel) {
+    try {
+      return getPasswordUtils();
+    } catch (error) {
+      if (contextLabel) {
+        console.warn(contextLabel + ': password utilities unavailable', error);
+      }
+      return null;
+    }
+  }
+
   // ─── Consistent normalization helpers ─────────────────────────────────────────
 
   function normalizeEmail(email) {
@@ -2121,31 +2132,20 @@ var AuthenticationService = (function () {
   }
 
   function constantTimeEquals(a, b) {
-    try {
-      const utils = getPasswordUtils();
-      if (utils && typeof utils.constantTimeEquals === 'function') {
-        return utils.constantTimeEquals(
-          utils.normalizePasswordInput(a),
-          utils.normalizePasswordInput(b)
-        );
-      }
-    } catch (utilsError) {
-      console.warn('constantTimeEquals: password utilities unavailable, falling back', utilsError);
+    const utils = tryGetPasswordUtils('constantTimeEquals');
+    if (!utils || typeof utils.constantTimeEquals !== 'function') {
+      return false;
     }
 
-    if (a == null || b == null) {
+    try {
+      return utils.constantTimeEquals(
+        utils.normalizePasswordInput(a),
+        utils.normalizePasswordInput(b)
+      );
+    } catch (error) {
+      console.warn('constantTimeEquals: comparison failed', error);
       return false;
     }
-    const strA = String(a);
-    const strB = String(b);
-    if (strA.length !== strB.length) {
-      return false;
-    }
-    let result = 0;
-    for (let i = 0; i < strA.length; i++) {
-      result |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
-    }
-    return result === 0;
   }
 
   function base32ToBytes(base32) {
@@ -5811,6 +5811,14 @@ function debugAuthenticationIssues(email, password) {
       recommendations: []
     };
 
+    let passwordUtils = null;
+    let passwordUtilsError = null;
+    try {
+      passwordUtils = getPasswordUtils();
+    } catch (utilsError) {
+      passwordUtilsError = utilsError;
+    }
+
     // 1. Test User Lookup
     console.log('1. Testing user lookup for:', email);
     
@@ -5891,45 +5899,56 @@ function debugAuthenticationIssues(email, password) {
     } else {
       // Test password verification methods
       let verificationResults = {};
-      
-      // Method 1: PasswordUtilities.verifyPassword
-      if (typeof PasswordUtilities !== 'undefined') {
-        try {
-          const isValid1 = PasswordUtilities.verifyPassword(password, storedHash);
-          verificationResults.passwordUtilsResult = isValid1;
-          console.log('PasswordUtilities.verifyPassword result:', isValid1);
-        } catch (e) {
-          verificationResults.passwordUtilsError = e.message;
-        }
-      }
+      let generatedHash = null;
 
-      // Method 2: Test hash generation
-      if (typeof PasswordUtilities !== 'undefined') {
-        try {
-          const newHash = PasswordUtilities.hashPassword(password);
-          verificationResults.newHashMatches = (newHash === storedHash);
-          verificationResults.newHashSample = newHash.substring(0, 10) + '...';
-          console.log('Generated hash matches stored:', newHash === storedHash);
-        } catch (e) {
-          verificationResults.hashGenError = e.message;
+      if (passwordUtils) {
+        if (typeof passwordUtils.verifyPassword === 'function') {
+          try {
+            const isValid1 = passwordUtils.verifyPassword(password, storedHash);
+            verificationResults.passwordUtilsResult = isValid1;
+            console.log('PasswordUtilities.verifyPassword result:', isValid1);
+          } catch (verifyError) {
+            verificationResults.passwordUtilsError = verifyError.message;
+          }
+        } else {
+          verificationResults.passwordUtilsError = 'verifyPassword not implemented';
         }
-      }
 
-      // Method 3: Test normalized hash
-      if (typeof PasswordUtilities !== 'undefined') {
-        try {
-          const normalizedStored = PasswordUtilities.normalizeHash(storedHash);
-          const newHash = PasswordUtilities.hashPassword(password);
-          verificationResults.normalizedComparison = (newHash === normalizedStored);
-          console.log('Normalized hash comparison:', newHash === normalizedStored);
-        } catch (e) {
-          verificationResults.normalizeError = e.message;
+        if (typeof passwordUtils.hashPassword === 'function') {
+          try {
+            generatedHash = passwordUtils.hashPassword(password);
+            verificationResults.newHashMatches = (generatedHash === storedHash);
+            verificationResults.newHashSample = generatedHash ? generatedHash.substring(0, 10) + '...' : '';
+            console.log('Generated hash matches stored:', verificationResults.newHashMatches);
+          } catch (hashError) {
+            verificationResults.hashGenError = hashError.message;
+          }
+        } else {
+          verificationResults.hashGenError = 'hashPassword not implemented';
         }
+
+        if (generatedHash !== null) {
+          if (typeof passwordUtils.normalizeHash === 'function') {
+            try {
+              const normalizedStored = passwordUtils.normalizeHash(storedHash);
+              verificationResults.normalizedComparison = (generatedHash === normalizedStored);
+              console.log('Normalized hash comparison:', verificationResults.normalizedComparison);
+            } catch (normalizeError) {
+              verificationResults.normalizeError = normalizeError.message;
+            }
+          } else {
+            verificationResults.normalizeError = 'normalizeHash not implemented';
+          }
+        }
+      } else {
+        verificationResults.passwordUtilsError = passwordUtilsError
+          ? passwordUtilsError.message
+          : 'Password utilities unavailable';
       }
 
       results.passwordCheck.verificationTests = verificationResults;
 
-      if (!verificationResults.passwordUtilsResult && !verificationResults.newHashMatches) {
+      if (passwordUtils && !verificationResults.passwordUtilsResult && !verificationResults.newHashMatches) {
         results.recommendations.push('PASSWORD_MISMATCH: Password verification failed - check password or hash corruption');
       }
     }
@@ -5963,10 +5982,14 @@ function debugAuthenticationIssues(email, password) {
     
     const systemChecks = {
       authServiceAvailable: typeof AuthenticationService !== 'undefined',
-      passwordUtilsAvailable: typeof PasswordUtilities !== 'undefined',
+      passwordUtilsAvailable: !!passwordUtils,
       usersSheetExists: false,
       usersSheetRowCount: 0
     };
+
+    if (!passwordUtils && passwordUtilsError) {
+      systemChecks.passwordUtilsError = passwordUtilsError.message;
+    }
 
     try {
       const users = readSheet('Users') || [];
@@ -5977,6 +6000,15 @@ function debugAuthenticationIssues(email, password) {
     }
 
     results.systemStatus.systemChecks = systemChecks;
+
+    if (!passwordUtils) {
+      const recommendation = passwordUtilsError && passwordUtilsError.message
+        ? 'PASSWORD_UTILS_UNAVAILABLE: ' + passwordUtilsError.message
+        : 'PASSWORD_UTILS_UNAVAILABLE: Password utilities module unavailable';
+      if (results.recommendations.indexOf(recommendation) === -1) {
+        results.recommendations.push(recommendation);
+      }
+    }
 
     // 5. Generate specific recommendations
     if (results.recommendations.length === 0) {
@@ -6004,42 +6036,43 @@ function testPasswordHashing(plainPassword) {
       tests: {}
     };
 
-    if (typeof PasswordUtilities !== 'undefined') {
-      // Test 1: Basic hashing
-      const hash1 = PasswordUtilities.hashPassword(plainPassword);
-      const hash2 = PasswordUtilities.hashPassword(plainPassword);
-      
-      results.tests.basicHashing = {
-        hash1: hash1,
-        hash2: hash2,
-        consistent: hash1 === hash2,
-        length: hash1.length
-      };
-
-      // Test 2: Verification
-      const verifies = PasswordUtilities.verifyPassword(plainPassword, hash1);
-      results.tests.verification = {
-        verifies: verifies
-      };
-
-      // Test 3: Normalization
-      const normalized = PasswordUtilities.normalizeHash(hash1);
-      results.tests.normalization = {
-        original: hash1,
-        normalized: normalized,
-        same: hash1 === normalized
-      };
-
-      // Test 4: Edge cases
-      results.tests.edgeCases = {
-        emptyPassword: PasswordUtilities.hashPassword(''),
-        spacePassword: PasswordUtilities.hashPassword(' '),
-        nullPassword: PasswordUtilities.hashPassword(null)
-      };
-
-    } else {
-      results.error = 'PasswordUtilities not available';
+    const passwordUtils = tryGetPasswordUtils('testPasswordHashing');
+    if (!passwordUtils) {
+      results.error = 'Password utilities not available';
+      return results;
     }
+
+    // Test 1: Basic hashing
+    const hash1 = passwordUtils.hashPassword(plainPassword);
+    const hash2 = passwordUtils.hashPassword(plainPassword);
+
+    results.tests.basicHashing = {
+      hash1: hash1,
+      hash2: hash2,
+      consistent: hash1 === hash2,
+      length: hash1.length
+    };
+
+    // Test 2: Verification
+    const verifies = passwordUtils.verifyPassword(plainPassword, hash1);
+    results.tests.verification = {
+      verifies: verifies
+    };
+
+    // Test 3: Normalization
+    const normalized = passwordUtils.normalizeHash(hash1);
+    results.tests.normalization = {
+      original: hash1,
+      normalized: normalized,
+      same: hash1 === normalized
+    };
+
+    // Test 4: Edge cases
+    results.tests.edgeCases = {
+      emptyPassword: passwordUtils.hashPassword(''),
+      spacePassword: passwordUtils.hashPassword(' '),
+      nullPassword: passwordUtils.hashPassword(null)
+    };
 
     return results;
 
@@ -6121,13 +6154,22 @@ function fixAuthenticationIssues(email, options = {}) {
       }
     }
 
-    if (generateNewHash && newPassword && typeof PasswordUtilities !== 'undefined') {
+    if (generateNewHash && newPassword) {
       const passwordHashCol = getColumnIndex('PasswordHash');
       if (passwordHashCol !== -1) {
-        const newHash = PasswordUtilities.hashPassword(newPassword);
-        sheet.getRange(rowNumber, passwordHashCol + 1).setValue(newHash);
-        results.actions.push('Generated new password hash');
-        results.newHashSample = newHash.substring(0, 10) + '...';
+        const passwordUtils = tryGetPasswordUtils('fixAuthenticationIssues.generateNewHash');
+        if (!passwordUtils || typeof passwordUtils.hashPassword !== 'function') {
+          results.errors.push('Password utilities unavailable - cannot generate new password hash');
+        } else {
+          try {
+            const newHash = passwordUtils.hashPassword(newPassword);
+            sheet.getRange(rowNumber, passwordHashCol + 1).setValue(newHash);
+            results.actions.push('Generated new password hash');
+            results.newHashSample = newHash.substring(0, 10) + '...';
+          } catch (hashError) {
+            results.errors.push('Failed to generate password hash: ' + hashError.message);
+          }
+        }
       }
     }
 
