@@ -1727,7 +1727,7 @@
                                         </select>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label-modern">Priority Level</label>
+                                        <label class="form-label-modern">Priority</label>
                                         <select class="form-select form-control-modern" id="schedulePriority">
                                             <option value="1">Low</option>
                                             <option value="2" selected>Normal</option>
@@ -1735,7 +1735,7 @@
                                             <option value="4">Critical</option>
                                         </select>
                                     </div>
-                                    
+
                                     <div class="col-md-6">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="detectConflicts" checked>
@@ -1746,6 +1746,176 @@
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="includeHolidays">
                                             <label class="form-check-label form-label-modern">Include holidays</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="p-3 border rounded-3 bg-light-subtle">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-users-cog me-2"></i>Capacity &amp; Coverage
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <label class="form-label-modern" for="generationMaxCapacity">Max Capacity</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationMaxCapacity" value="10" min="1" max="100">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label-modern" for="generationMinCoverage">Min Coverage</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationMinCoverage" value="3" min="1">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label-modern" for="generationMinCoveragePct">Min Coverage %</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationMinCoveragePct" value="70" min="50" max="95">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="p-3 border rounded-3 bg-light-subtle">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-coffee me-2"></i>Breaks &amp; Lunch
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label class="form-label-modern" for="generationBreakDuration">Break Duration</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationBreakDuration" value="15" min="5" max="30">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label-modern" for="generationBreak1Duration">Break 1 Duration</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationBreak1Duration" value="15" min="5" max="30">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label-modern" for="generationBreak2Duration">Break 2 Duration</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationBreak2Duration" value="0" min="0" max="30">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label-modern" for="generationLunchDuration">Lunch Duration</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationLunchDuration" value="30" min="15" max="60">
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="generationEnableStaggeredBreaks" checked>
+                                                        <label class="form-check-label form-label-modern" for="generationEnableStaggeredBreaks">Enable staggered breaks</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 mt-2" id="generationStaggeredConfig">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label-modern" for="generationBreakGroups">Break groups</label>
+                                                            <input type="number" class="form-control form-control-modern" id="generationBreakGroups" value="3" min="2" max="5">
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label-modern" for="generationStaggerInterval">Stagger interval (minutes)</label>
+                                                            <input type="number" class="form-control form-control-modern" id="generationStaggerInterval" value="15" min="10" max="30">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="p-3 border rounded-3 bg-light-subtle">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-clock me-2"></i>Overtime &amp; Premiums
+                                            </h6>
+                                            <div class="form-check form-switch mb-3">
+                                                <input class="form-check-input" type="checkbox" id="generationEnableOvertime">
+                                                <label class="form-check-label form-label-modern" for="generationEnableOvertime">Enable overtime</label>
+                                            </div>
+                                            <div id="generationOvertimeConfig" class="d-none">
+                                                <div class="row g-3">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label-modern" for="generationMaxDailyOT">Max daily OT (hours)</label>
+                                                        <input type="number" class="form-control form-control-modern" id="generationMaxDailyOT" value="2" min="0" step="0.25">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label-modern" for="generationMaxWeeklyOT">Max weekly OT (hours)</label>
+                                                        <input type="number" class="form-control form-control-modern" id="generationMaxWeeklyOT" value="10" min="0" step="0.5">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label-modern" for="generationOTRate">OT rate multiplier</label>
+                                                        <input type="number" class="form-control form-control-modern" id="generationOTRate" value="1.5" min="1" step="0.1">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label-modern" for="generationOTApproval">OT approval</label>
+                                                        <select class="form-select form-control-modern" id="generationOTApproval">
+                                                            <option value="supervisor">Supervisor Approval</option>
+                                                            <option value="manager">Manager Approval</option>
+                                                            <option value="hr">HR Approval</option>
+                                                            <option value="auto">Auto Approval</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label-modern" for="generationOTPolicy">OT policy</label>
+                                                        <select class="form-select form-control-modern" id="generationOTPolicy">
+                                                            <option value="MANDATORY">Mandatory</option>
+                                                            <option value="OPTIONAL">Optional</option>
+                                                            <option value="APPROVAL_REQUIRED">Approval Required</option>
+                                                            <option value="NONE">No Overtime</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label-modern" for="generationOvertimePolicy">Overtime policy (slots)</label>
+                                                        <select class="form-select form-control-modern" id="generationOvertimePolicy">
+                                                            <option value="NONE">No Overtime</option>
+                                                            <option value="LIMITED_15">Limited (15 min)</option>
+                                                            <option value="LIMITED_30">Limited (30 min)</option>
+                                                            <option value="LIMITED_60">Limited (60 min)</option>
+                                                            <option value="UNLIMITED">Unlimited</option>
+                                                            <option value="APPROVAL_REQUIRED">Approval Required</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row g-3 mt-2">
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="generationWeekendPremium">
+                                                        <label class="form-check-label form-label-modern" for="generationWeekendPremium">Apply weekend premium</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="generationHolidayPremium" checked>
+                                                        <label class="form-check-label form-label-modern" for="generationHolidayPremium">Apply holiday premium</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="p-3 border rounded-3 bg-light-subtle">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-sliders-h me-2"></i>Assignment Policies
+                                            </h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="generationAllowSwaps" checked>
+                                                        <label class="form-check-label form-label-modern" for="generationAllowSwaps">Allow shift swaps</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="generationAutoAssignment">
+                                                        <label class="form-check-label form-label-modern" for="generationAutoAssignment">Enable auto-assignment</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label-modern" for="generationRestPeriod">Rest period (hours)</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationRestPeriod" value="8" min="0">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label-modern" for="generationNotificationLead">Notification lead (hours)</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationNotificationLead" value="24" min="0">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label-modern" for="generationHandoverTime">Handover time (minutes)</label>
+                                                    <input type="number" class="form-control form-control-modern" id="generationHandoverTime" value="15" min="0">
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2163,7 +2333,12 @@
                                         <i class="fas fa-info-circle me-2"></i>Basic Information
                                     </h6>
                                     <div class="row g-3">
-                                        <div class="col-12">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern">Slot ID</label>
+                                            <input type="text" class="form-control form-control-modern" id="slotIdentifier" value="Will be assigned after save" readonly>
+                                            <small class="text-muted">Generated automatically after the slot is created.</small>
+                                        </div>
+                                        <div class="col-md-6">
                                             <label class="form-label-modern">Slot Name</label>
                                             <input type="text" class="form-control form-control-modern" id="slotName" required placeholder="e.g., Morning Customer Service Shift">
                                         </div>
@@ -3922,8 +4097,10 @@
                     min: getOptionNumber('generationMinCoverage', 3, { min: 1 })
                 };
 
+                const baseBreakDuration = getOptionNumber('generationBreakDuration', 15, { min: 5, max: 30 });
                 const breaks = {
-                    first: getOptionNumber('generationBreak1Duration', 15, { min: 5, max: 30 }),
+                    base: baseBreakDuration,
+                    first: getOptionNumber('generationBreak1Duration', baseBreakDuration, { min: 5, max: 30 }),
                     lunch: getOptionNumber('generationLunchDuration', 30, { min: 15, max: 60 }),
                     second: getOptionNumber('generationBreak2Duration', 0, { min: 0, max: 30 }),
                     enableStaggered: getOptionCheckbox('generationEnableStaggeredBreaks', true),
@@ -3938,7 +4115,8 @@
                     maxWeekly: getOptionNumber('generationMaxWeeklyOT', 10, { allowFloat: true, min: 0 }),
                     approval: getOptionValue('generationOTApproval', 'supervisor'),
                     rate: getOptionNumber('generationOTRate', 1.5, { allowFloat: true, min: 1 }),
-                    policy: getOptionValue('generationOTPolicy', 'MANDATORY')
+                    policy: getOptionValue('generationOTPolicy', 'MANDATORY'),
+                    overtimePolicy: getOptionValue('generationOvertimePolicy', 'LIMITED_30')
                 };
 
                 const advanced = {
@@ -3970,10 +4148,12 @@
                         advanced,
                         maxCapacity: capacity.max,
                         minCoverage: capacity.min,
+                        breakDuration: breaks.base,
                         enableStaggeredBreaks: breaks.enableStaggered,
                         staggerInterval: breaks.interval,
                         minCoveragePct: breaks.minCoveragePct,
-                        overtimeEnabled: overtime.enabled
+                        overtimeEnabled: overtime.enabled,
+                        overtimePolicy: overtime.overtimePolicy
                     }
                 };
             }
@@ -4134,6 +4314,12 @@
                         }
                     });
 
+                    const defaultBreakDuration = getNumericValue(
+                        'generationBreakDuration',
+                        15,
+                        { min: 5, max: 30 }
+                    );
+
                     // Enhanced slot data with all new fields (skills removed)
                     const slotData = {
                         // Basic Information
@@ -4159,9 +4345,14 @@
                         priority: getNumericValue('slotPriority', getNumericValue('schedulePriority', 2, { min: 1, max: 4 }), { min: 1, max: 4 }),
 
                         // Break & Lunch Configuration
+                        breakDuration: getNumericValue(
+                            'slotBreakDuration',
+                            defaultBreakDuration,
+                            { min: 5, max: 30 }
+                        ),
                         break1Duration: getNumericValue(
                             'slotBreak1Duration',
-                            getNumericValue('generationBreak1Duration', 15, { min: 5, max: 30 }),
+                            getNumericValue('generationBreak1Duration', defaultBreakDuration, { min: 5, max: 30 }),
                             { min: 5, max: 30 }
                         ),
                         lunchDuration: getNumericValue(
@@ -4212,6 +4403,7 @@
                             { allowFloat: true, min: 1 }
                         ),
                         otPolicy: getElementValue('slotOTPolicy', getElementValue('generationOTPolicy', '')),
+                        overtimePolicy: getElementValue('slotOvertimePolicy', getElementValue('generationOvertimePolicy', 'LIMITED_30')),
 
                         // Advanced Settings (skills removed)
                         allowSwaps: getCheckboxValue('allowSwaps', getCheckboxValue('generationAllowSwaps', true)),
@@ -4786,6 +4978,10 @@
 
             resetShiftSlotForm() {
                 document.getElementById('shiftSlotForm').reset();
+                const slotIdentifierField = document.getElementById('slotIdentifier');
+                if (slotIdentifierField) {
+                    slotIdentifierField.value = 'Will be assigned after save';
+                }
 
                 // Reset checkboxes to weekdays default
                 const dayCheckboxes = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
