@@ -1477,9 +1477,9 @@
             <div class="recognition-badge"><i class="fas fa-stopwatch"></i> ATT Ace</div>
             <div class="recognition-agent" id="attChampionName">Awaiting data</div>
             <div class="recognition-stat" id="attChampionValue">—</div>
-            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after 5–7 qualifying calls average 5–12 minutes (each call 1–20,000 minutes).</div>
+            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after 5–7 qualifying calls averaging 5–12 minutes (each call 1–20,000 minutes) with weekday call coverage (Mon–Fri) recorded at least 5 days per week for the entire month.</div>
             <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average talk time performers"></ul>
-            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls in the ideal window yet</span></div>
+            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls with full weekday coverage yet</span></div>
         </div>
     </div>
 </div>
@@ -2504,15 +2504,20 @@
     }
 
     const attEligible = repMetrics
+      .filter(item => item && item.fullWeekCoverage === true)
       .map(item => {
         const calls = Number(item.qualifyingTalkCalls || 0);
         const totalMinutes = Number(item.totalTalkWholeMinutes || 0);
         const avgTalk = calls > 0 ? totalMinutes / calls : null;
+        const coverageSummary = Array.isArray(item.weeklyCoverageSummary)
+          ? item.weeklyCoverageSummary
+          : [];
         return {
           agent: item.agent || '—',
           calls,
           totalMinutes,
-          avgTalk
+          avgTalk,
+          coverageSummary
         };
       })
       .filter(entry => {
@@ -2535,27 +2540,39 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Log 5–7 qualifying calls between 1 and 20,000 minutes that average between 5 and 12 minutes to earn recognition.';
-      attFooterEl.textContent = 'No qualifying calls in the ideal window yet';
+      attDetailEl.textContent = 'Log 5–7 qualifying calls between 1 and 20,000 minutes that average between 5 and 12 minutes while maintaining weekday coverage (Mon–Fri) at least 5 days per week across every week in the month to earn recognition.';
+      attFooterEl.textContent = 'No qualifying calls with full weekday coverage yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
       const championAvg = Math.round(champion.avgTalk);
       const championCalls = champion.calls === 1 ? '1 qualifying call' : `${champion.calls} qualifying calls`;
       const championMinutes = `${champion.totalMinutes.toLocaleString()} total minutes`;
+      const coverageWeeks = Array.isArray(champion.coverageSummary)
+        ? champion.coverageSummary.filter(week => week.requiredDays > 0).length
+        : 0;
+      const coverageWeeksMet = Array.isArray(champion.coverageSummary)
+        ? champion.coverageSummary.filter(week => week.requiredDays > 0 && week.meetsRequirement).length
+        : 0;
+      const coverageLabel = coverageWeeks > 0
+        ? ` Maintained weekday call coverage (Mon–Fri) across ${coverageWeeksMet}/${coverageWeeks} week${coverageWeeks === 1 ? '' : 's'} this period.`
+        : '';
       const teamAverageLabel = benchmarkDisplay !== null
         ? ` Team average: ${benchmarkDisplay} min.`
         : '';
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
-      attDetailEl.textContent = `${championCalls} (${championMinutes}) within the ideal 5–12 minute window. Each call counted was between 1 and 20,000 minutes.${teamAverageLabel}`.trim();
-      attFooterEl.textContent = 'Ranked by lowest average talk time in the 5–12 minute sweet spot';
+      attDetailEl.textContent = `${championCalls} (${championMinutes}) within the ideal 5–12 minute window. Each call counted was between 1 and 20,000 minutes.${coverageLabel}${teamAverageLabel}`.trim();
+      attFooterEl.textContent = 'Ranked by lowest average talk time in the 5–12 minute sweet spot with full weekday coverage';
       updateRankingList(attListEl, attLeaders, entry => {
         const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
         const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
-        return `${avgLabel} • ${callLabel} (${totalLabel})`;
+        const coverageNote = Array.isArray(entry.coverageSummary) && entry.coverageSummary.length
+          ? ' • Weekday coverage met (Mon–Fri)'
+          : '';
+        return `${avgLabel} • ${callLabel} (${totalLabel})${coverageNote}`;
       });
     }
 
