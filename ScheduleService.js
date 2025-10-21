@@ -2540,15 +2540,8 @@ function clientAddManualShiftSlots(request = {}) {
       return text;
     };
 
-    const startTime = normalizeTimeValue(request.startTime);
-    const endTime = normalizeTimeValue(request.endTime);
-
-    if (!startTime || !endTime) {
-      return {
-        success: false,
-        error: 'Start and end times are required.'
-      };
-    }
+    let startTime = normalizeTimeValue(request.startTime);
+    let endTime = normalizeTimeValue(request.endTime);
 
     const toMinutes = (value) => {
       if (!value) {
@@ -2566,21 +2559,33 @@ function clientAddManualShiftSlots(request = {}) {
       return (hours * 60) + minutes;
     };
 
-    const startMinutes = toMinutes(startTime);
-    const endMinutes = toMinutes(endTime);
-
-    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+    if ((startTime && !endTime) || (!startTime && endTime)) {
       return {
         success: false,
-        error: 'Start and end times must be valid HH:MM values.'
+        error: 'Provide both start and end times or leave them blank.'
       };
     }
 
-    if (endMinutes <= startMinutes) {
-      return {
-        success: false,
-        error: 'End time must be later than start time.'
-      };
+    if (startTime && endTime) {
+      const startMinutes = toMinutes(startTime);
+      const endMinutes = toMinutes(endTime);
+
+      if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+        return {
+          success: false,
+          error: 'Start and end times must be valid HH:MM values.'
+        };
+      }
+
+      if (endMinutes <= startMinutes) {
+        return {
+          success: false,
+          error: 'End time must be later than start time.'
+        };
+      }
+    } else {
+      startTime = '';
+      endTime = '';
     }
 
     const rawUsers = Array.isArray(request.users) ? request.users : [];
@@ -2662,7 +2667,7 @@ function clientAddManualShiftSlots(request = {}) {
     const combinedNotes = [sourceNote, additionalNotes].filter(Boolean).join(' | ');
 
     const slotLabel = (request.slotName || request.slotLabel || '').toString().trim();
-    const slotName = slotLabel || `Manual Shift ${startTime}-${endTime}`;
+    const slotName = slotLabel || (startTime && endTime ? `Manual Shift ${startTime}-${endTime}` : 'Manual Shift');
     const slotId = (request.slotId || '').toString().trim();
 
     const activeUserEmail = typeof Session !== 'undefined' && Session.getActiveUser
