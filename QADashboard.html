@@ -403,6 +403,137 @@
     font-weight: 600;
   }
 
+  .qa-recognition-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+    align-items: stretch;
+  }
+
+  .qa-recognition-item {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--qa-radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: #f8fafc;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease;
+    height: 100%;
+  }
+
+  .qa-recognition-item:hover {
+    transform: translateY(-2px);
+  }
+
+  .qa-recognition-item--first {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.05));
+  }
+
+  .qa-recognition-item--second {
+    border-color: rgba(148, 163, 184, 0.45);
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.18), rgba(226, 232, 240, 0.05));
+  }
+
+  .qa-recognition-item--third {
+    border-color: rgba(249, 115, 22, 0.35);
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(253, 186, 116, 0.08));
+  }
+
+  .qa-recognition-rank {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+  }
+
+  .qa-recognition-item--first .qa-recognition-rank {
+    background: #f59e0b;
+    color: #fff;
+  }
+
+  .qa-recognition-item--second .qa-recognition-rank {
+    background: #64748b;
+    color: #fff;
+  }
+
+  .qa-recognition-item--third .qa-recognition-rank {
+    background: #f97316;
+    color: #fff;
+  }
+
+  .qa-recognition-rank sup {
+    font-size: 0.55em;
+    margin-left: 2px;
+    font-weight: 600;
+    top: -0.35em;
+    position: relative;
+  }
+
+  .qa-recognition-icon {
+    font-size: 1.5rem;
+    color: var(--qa-primary);
+    flex-shrink: 0;
+  }
+
+  .qa-recognition-item--first .qa-recognition-icon {
+    color: var(--qa-warning);
+  }
+
+  .qa-recognition-item--second .qa-recognition-icon {
+    color: #64748b;
+  }
+
+  .qa-recognition-item--third .qa-recognition-icon {
+    color: #f97316;
+  }
+
+  .qa-recognition-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .qa-recognition-name {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .qa-recognition-score {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 1.05rem;
+  }
+
+  .qa-recognition-meta {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+  }
+
+  @media (max-width: 767.98px) {
+    .qa-recognition-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .qa-recognition-empty {
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+  }
+
   .qa-signal-list {
     display: grid;
     gap: 1rem;
@@ -739,6 +870,24 @@
     <p class="mb-0">Adjust your filters or capture new QA reviews to populate this dashboard.</p>
   </div>
 
+  <div class="row g-4 mt-1" id="qa-recognition-row">
+    <div class="col-12 col-xl-5 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="fa-solid fa-trophy text-warning" aria-hidden="true"></i>
+          <span>Quality Recognition</span>
+        </div>
+        <div class="card-body">
+          <div class="qa-recognition-empty" id="qa-quality-recognition-empty">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <span>Quality champions will appear here once evaluations are available.</span>
+          </div>
+          <div class="qa-recognition-list d-none" id="qa-quality-recognition" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-4" id="qa-dashboard-content">
     <div class="col-12 col-xxl-7">
       <div class="card h-100">
@@ -827,7 +976,6 @@
       </div>
     </div>
   </div>
-
   <div class="row g-4 mt-1" id="qa-signal-row">
     <div class="col-12 col-xl-5">
       <div class="card h-100">
@@ -1037,6 +1185,9 @@
       categoryCanvas: document.getElementById('qa-category-chart'),
       agentCanvas: document.getElementById('qa-agent-chart'),
       distributionCanvas: document.getElementById('qa-distribution-chart'),
+      recognitionRow: document.getElementById('qa-recognition-row'),
+      recognitionList: document.getElementById('qa-quality-recognition'),
+      recognitionEmpty: document.getElementById('qa-quality-recognition-empty'),
       outcomeEmpty: document.getElementById('qa-outcome-empty'),
       categoryEmpty: document.getElementById('qa-category-empty'),
       agentEmpty: document.getElementById('qa-agent-empty'),
@@ -1140,6 +1291,41 @@
         return '--';
       }
       return new Intl.NumberFormat().format(value);
+    }
+
+    function getOrdinalSuffix(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return '';
+      }
+      const abs = Math.abs(num);
+      const mod100 = abs % 100;
+      if (mod100 >= 11 && mod100 <= 13) {
+        return 'th';
+      }
+      switch (abs % 10) {
+        case 1:
+          return 'st';
+        case 2:
+          return 'nd';
+        case 3:
+          return 'rd';
+        default:
+          return 'th';
+      }
+    }
+
+    function getRecognitionTierClass(rank) {
+      switch (rank) {
+        case 1:
+          return 'qa-recognition-item--first';
+        case 2:
+          return 'qa-recognition-item--second';
+        case 3:
+          return 'qa-recognition-item--third';
+        default:
+          return '';
+      }
     }
 
     function formatDelta(value, isPercent) {
@@ -1624,6 +1810,126 @@
       });
     }
 
+    function renderQualityRecognition(entries) {
+      if (!dom.recognitionList) return;
+
+      const champions = Array.isArray(entries)
+        ? entries.filter(entry => entry && (entry.agent || Number.isFinite(entry.avgScore)))
+        : [];
+
+      dom.recognitionList.innerHTML = '';
+
+      const hasData = champions.length > 0;
+      dom.recognitionList.classList.toggle('d-none', !hasData);
+      if (dom.recognitionEmpty) {
+        dom.recognitionEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!hasData) {
+        return;
+      }
+
+      champions.forEach(entry => {
+        const rank = Number(entry.rank) || 0;
+        const suffix = getOrdinalSuffix(rank);
+        const tierClass = getRecognitionTierClass(rank);
+
+        const item = document.createElement('div');
+        item.className = `qa-recognition-item ${tierClass}`.trim();
+        if (rank > 0) {
+          item.dataset.rank = String(rank);
+        }
+
+        const rankEl = document.createElement('div');
+        rankEl.className = 'qa-recognition-rank';
+        rankEl.setAttribute('aria-hidden', 'true');
+
+        const rankValue = document.createElement('span');
+        rankValue.textContent = rank > 0 ? String(rank) : '#';
+        rankEl.appendChild(rankValue);
+        if (suffix) {
+          const sup = document.createElement('sup');
+          sup.textContent = suffix;
+          rankEl.appendChild(sup);
+        }
+
+        const iconEl = document.createElement('div');
+        iconEl.className = 'qa-recognition-icon';
+        iconEl.setAttribute('aria-hidden', 'true');
+        const icon = document.createElement('i');
+        icon.className = `fa-solid ${rank === 1 ? 'fa-trophy' : 'fa-medal'}`;
+        iconEl.appendChild(icon);
+
+        const details = document.createElement('div');
+        details.className = 'qa-recognition-details';
+
+        const headerRow = document.createElement('div');
+        headerRow.className = 'd-flex justify-content-between align-items-baseline flex-wrap gap-2';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'qa-recognition-name';
+        nameEl.textContent = entry.agent || 'Agent';
+
+        const scoreEl = document.createElement('div');
+        scoreEl.className = 'qa-recognition-score';
+        if (typeof entry.avgScore === 'number' && !Number.isNaN(entry.avgScore)) {
+          scoreEl.textContent = `${Math.round(entry.avgScore)}%`;
+        } else {
+          scoreEl.textContent = '--';
+        }
+
+        headerRow.appendChild(nameEl);
+        headerRow.appendChild(scoreEl);
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'qa-recognition-meta';
+
+        const metaParts = [];
+        if (typeof entry.evaluations === 'number' && !Number.isNaN(entry.evaluations)) {
+          const count = Math.round(entry.evaluations);
+          metaParts.push(`${formatNumber(count)} evaluation${count === 1 ? '' : 's'}`);
+        }
+        if (typeof entry.passRate === 'number' && !Number.isNaN(entry.passRate)) {
+          metaParts.push(`${Math.round(entry.passRate)}% pass`);
+        }
+        if (entry.lastEvaluation) {
+          metaParts.push(`Last eval ${entry.lastEvaluation}`);
+        }
+        if (typeof entry.deltaFromPass === 'number' && !Number.isNaN(entry.deltaFromPass)) {
+          const delta = Math.round(entry.deltaFromPass);
+          const prefix = delta > 0 ? '+' : '';
+          metaParts.push(`${prefix}${delta} vs pass mark`);
+        }
+
+        if (metaParts.length) {
+          metaEl.textContent = metaParts.join(' • ');
+        } else {
+          metaEl.textContent = 'Recognition details pending';
+        }
+
+        details.appendChild(headerRow);
+        details.appendChild(metaEl);
+
+        if (rank > 0) {
+          const accessibleRank = `${rank}${suffix || ''}`;
+          const labelParts = [
+            `${accessibleRank} place: ${entry.agent || 'Agent'}`,
+            (typeof entry.avgScore === 'number' && !Number.isNaN(entry.avgScore))
+              ? `${Math.round(entry.avgScore)}% score`
+              : null,
+            metaEl.textContent || null
+          ].filter(Boolean);
+          item.setAttribute('aria-label', labelParts.join('. '));
+        }
+
+        item.appendChild(rankEl);
+        item.appendChild(iconEl);
+        item.appendChild(details);
+
+        dom.recognitionList.appendChild(item);
+      });
+    }
+
     function renderInsights(insights) {
       if (!dom.insights) return;
       const items = Array.isArray(insights) ? insights : [];
@@ -2007,6 +2313,9 @@
       if (dom.analyticsRow) {
         dom.analyticsRow.classList.toggle('d-none', Boolean(visible));
       }
+      if (dom.recognitionRow) {
+        dom.recognitionRow.classList.toggle('d-none', Boolean(visible));
+      }
     }
 
     function handleResponse(response) {
@@ -2040,6 +2349,7 @@
       renderAgentChart(agents);
       renderDistributionChart(agents);
       renderAgents(agents.slice(0, 8));
+      renderQualityRecognition(response.qualityRecognition || []);
       renderLatestEvaluation(response.latestEvaluation || null);
 
       renderQuestionSignals(response.questionSignals || []);
