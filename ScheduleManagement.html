@@ -2093,14 +2093,6 @@
                                             </select>
                                             <small class="text-muted">Loaded from existing shift templates. Leave blank to create a custom slot.</small>
                                         </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label-modern" for="shiftStartTime">Shift Start Time</label>
-                                            <input type="time" class="form-control-modern w-100" id="shiftStartTime" required>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label-modern" for="shiftEndTime">Shift End Time</label>
-                                            <input type="time" class="form-control-modern w-100" id="shiftEndTime" required>
-                                        </div>
                                     </div>
                                     <div class="row g-3 mt-1">
                                         <div class="col-md-6">
@@ -9677,8 +9669,6 @@
                 this.shiftSlotSelect = document.getElementById('manualShiftSlot');
                 this.startDateInput = document.getElementById('startDate');
                 this.endDateInput = document.getElementById('endDate');
-                this.startTimeInput = document.getElementById('shiftStartTime');
-                this.endTimeInput = document.getElementById('shiftEndTime');
                 this.sourceMonthSelect = document.getElementById('sourceMonth');
                 this.slotLabelInput = document.getElementById('slotLabel');
                 this.notesInput = document.getElementById('additionalNotes');
@@ -9700,22 +9690,6 @@
                 this.shiftSlots = [];
                 this.shiftSlotMap = new Map();
 
-                if (this.startTimeInput) {
-                    this.startTimeInput.dataset.autofill = 'true';
-                    this.startTimeInput.addEventListener('input', () => {
-                        if (this.startTimeInput) {
-                            this.startTimeInput.dataset.autofill = 'false';
-                        }
-                    });
-                }
-                if (this.endTimeInput) {
-                    this.endTimeInput.dataset.autofill = 'true';
-                    this.endTimeInput.addEventListener('input', () => {
-                        if (this.endTimeInput) {
-                            this.endTimeInput.dataset.autofill = 'false';
-                        }
-                    });
-                }
                 if (this.endDateInput) {
                     this.endDateInput.dataset.minDefault = this.endDateInput.getAttribute('min') || '';
                 }
@@ -9853,26 +9827,7 @@
                 const slot = selectedValue ? this.shiftSlotMap.get(selectedValue) : null;
 
                 if (!slot) {
-                    if (this.startTimeInput && this.startTimeInput.dataset.autofill !== 'false') {
-                        this.startTimeInput.dataset.autofill = 'true';
-                    }
-                    if (this.endTimeInput && this.endTimeInput.dataset.autofill !== 'false') {
-                        this.endTimeInput.dataset.autofill = 'true';
-                    }
                     return;
-                }
-
-                const startValue = this.normalizeTimeInput(slot.StartTime || slot.Start || slot.StartDateTime);
-                const endValue = this.normalizeTimeInput(slot.EndTime || slot.End || slot.EndDateTime);
-
-                if (startValue && this.startTimeInput) {
-                    this.startTimeInput.value = startValue;
-                    this.startTimeInput.dataset.autofill = 'true';
-                }
-
-                if (endValue && this.endTimeInput) {
-                    this.endTimeInput.value = endValue;
-                    this.endTimeInput.dataset.autofill = 'true';
                 }
 
                 if (this.slotLabelInput && !this.slotLabelInput.value.trim()) {
@@ -10172,21 +10127,13 @@
                 const endDateValueRaw = this.endDateInput?.value;
                 const normalizedStartDate = startDateValue || '';
                 const normalizedEndDate = endDateValueRaw || normalizedStartDate;
-                const startTimeValue = this.normalizeTimeInput(this.startTimeInput?.value);
-                const endTimeValue = this.normalizeTimeInput(this.endTimeInput?.value);
-
-                if (!normalizedStartDate || !normalizedEndDate || !startTimeValue || !endTimeValue) {
-                    this.showFeedback('Start date, end date, and shift times are required.', 'danger');
+                if (!normalizedStartDate || !normalizedEndDate) {
+                    this.showFeedback('Start date and end date are required.', 'danger');
                     return;
                 }
 
                 if (normalizedStartDate > normalizedEndDate) {
                     this.showFeedback('End date must be on or after the start date.', 'warning');
-                    return;
-                }
-
-                if (startTimeValue >= endTimeValue) {
-                    this.showFeedback('End time must be later than start time.', 'warning');
                     return;
                 }
 
@@ -10199,12 +10146,12 @@
                 const sourceMonthValue = this.sourceMonthSelect?.value || '';
                 const sourceMonthNumber = sourceMonthValue ? Number(sourceMonthValue) : null;
                 const replaceExisting = !!this.replaceExistingToggle?.checked;
+                const derivedStartTime = this.normalizeTimeInput(selectedSlot?.StartTime || selectedSlot?.Start || selectedSlot?.StartDateTime);
+                const derivedEndTime = this.normalizeTimeInput(selectedSlot?.EndTime || selectedSlot?.End || selectedSlot?.EndDateTime);
 
                 const payload = {
                     startDate: normalizedStartDate,
                     endDate: normalizedEndDate,
-                    startTime: startTimeValue,
-                    endTime: endTimeValue,
                     slotId: resolvedSlotId || null,
                     slotLabel: slotLabelValue,
                     slotName: slotNameFromSelection || '',
@@ -10213,6 +10160,11 @@
                     replaceExisting,
                     users: selectedIds
                 };
+
+                if (derivedStartTime && derivedEndTime) {
+                    payload.startTime = derivedStartTime;
+                    payload.endTime = derivedEndTime;
+                }
 
                 const originalButtonContent = this.submitButton.innerHTML;
                 this.submitButton.disabled = true;
@@ -10286,20 +10238,25 @@
                     dateLabel = `${rangeStart} → ${rangeEnd}`;
                 }
 
-                const timeStart = result.details[0]?.startTime || this.normalizeTimeInput(this.startTimeInput?.value);
-                const timeEnd = result.details[0]?.endTime || this.normalizeTimeInput(this.endTimeInput?.value);
+                const timeStart = result.details[0]?.startTime || '';
+                const timeEnd = result.details[0]?.endTime || '';
                 const timeLabel = timeStart && timeEnd ? `${timeStart} - ${timeEnd}` : '';
                 const timestamp = new Date().toLocaleString();
+                const metaParts = [
+                    `<span><i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(dateLabel)}</span>`
+                ];
+
+                if (timeLabel) {
+                    metaParts.push(`<span><i class="far fa-clock me-1"></i>${this.escapeHtml(timeLabel)}</span>`);
+                }
+
+                metaParts.push(`<span>Recorded ${this.escapeHtml(timestamp)}</span>`);
 
                 entry.innerHTML = `
                     <strong>${this.escapeHtml(slotName)}</strong>
                     <div>${this.escapeHtml(userNames)}</div>
                     <div class="activity-meta">
-                        <i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(dateLabel)}
-                        &nbsp;•&nbsp;
-                        <i class="far fa-clock me-1"></i>${this.escapeHtml(timeLabel)}
-                        &nbsp;•&nbsp;
-                        Recorded ${this.escapeHtml(timestamp)}
+                        ${metaParts.join('&nbsp;•&nbsp;')}
                     </div>
                 `;
 
