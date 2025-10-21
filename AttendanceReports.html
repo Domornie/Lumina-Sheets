@@ -1646,6 +1646,7 @@
       };
 
       this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
+      this.periodCache = {};
 
       this.loadDataDebounced = debounce(() => this.loadData(), 250);
       this._reqSeq = 0;
@@ -1674,8 +1675,7 @@
     setupEventListeners() {
       document.getElementById('granularitySelect').addEventListener('change', (e) => {
         this.currentGranularity = e.target.value;
-        this.updatePeriodSelector();
-        this.loadDataDebounced();
+        this.updatePeriodSelector(true);
       });
 
       document.getElementById('agentSelect').addEventListener('change', (e) => {
@@ -1689,7 +1689,7 @@
       });
 
       document.getElementById('weekInput').addEventListener('change', (e) => {
-        this.currentPeriod = e.target.value;
+        this.setCurrentPeriod(e.target.value);
         this.loadDataDebounced();
       });
 
@@ -1738,7 +1738,7 @@
       }
 
       const today = new Date();
-      this.currentPeriod = this.getISOWeek(today);
+      this.setCurrentPeriod(this.getISOWeek(today));
 
       const weekEl = document.getElementById('weekInput');
       if (weekEl) weekEl.value = this.currentPeriod;
@@ -1746,6 +1746,17 @@
       this.loadUserList();
       this.updateViewMode();
       this.syncHourPolicyControls();
+    }
+
+    setCurrentPeriod(value) {
+      const safeValue = value || '';
+      this.currentPeriod = safeValue;
+      if (!this.periodCache) {
+        this.periodCache = {};
+      }
+      if (this.currentGranularity) {
+        this.periodCache[this.currentGranularity] = safeValue;
+      }
     }
 
     syncHourPolicyControls() {
@@ -1876,58 +1887,113 @@
       }
     }
 
-    updatePeriodSelector() {
+    updatePeriodSelector(shouldTriggerLoad = false) {
       const selector = document.getElementById('periodSelector');
+      if (!selector) return;
+
       const granularity = this.currentGranularity;
+      const cachedPeriod = (this.periodCache && this.periodCache[granularity]) || '';
+      const maybeTriggerLoad = () => {
+        if (shouldTriggerLoad) {
+          this.loadDataDebounced();
+        }
+      };
 
       let html = '<label class="form-label fw-bold">Period</label>';
 
       switch (granularity) {
-        case 'Week':
+        case 'Week': {
           html += '<input type="week" class="form-control" id="weekInput" />';
           selector.innerHTML = html;
           setTimeout(() => {
-            document.getElementById('weekInput').value = this.currentPeriod;
-            document.getElementById('weekInput').addEventListener('change', (e) => {
-              this.currentPeriod = e.target.value; this.loadDataDebounced();
-            });
+            const weekInput = document.getElementById('weekInput');
+            const fallback = this.getISOWeek(new Date());
+            const defaultWeek = /^\d{4}-W\d{2}$/.test(cachedPeriod) ? cachedPeriod : fallback;
+            if (weekInput) {
+              this.setCurrentPeriod(defaultWeek);
+              weekInput.value = this.currentPeriod;
+              weekInput.addEventListener('change', (e) => {
+                this.setCurrentPeriod(e.target.value);
+                this.loadDataDebounced();
+              });
+            } else {
+              this.setCurrentPeriod(defaultWeek);
+            }
+            maybeTriggerLoad();
           }, 0);
           break;
-        case 'BiWeekly':
+        }
+        case 'BiWeekly': {
           html += '<select class="form-select" id="biweeklySelect"></select>';
           selector.innerHTML = html;
-          setTimeout(() => this.populateBiWeeklySelect(), 0);
+          setTimeout(() => this.populateBiWeeklySelect(shouldTriggerLoad), 0);
           break;
-        case 'Month':
+        }
+        case 'Month': {
           html += '<input type="month" class="form-control" id="monthInput" />';
           selector.innerHTML = html;
           setTimeout(() => {
             const monthInput = document.getElementById('monthInput');
             const today = new Date();
-            this.currentPeriod = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-            monthInput.value = this.currentPeriod;
-            monthInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+            const fallback = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            const defaultMonth = /^\d{4}-\d{2}$/.test(cachedPeriod) ? cachedPeriod : fallback;
+            if (monthInput) {
+              this.setCurrentPeriod(defaultMonth);
+              monthInput.value = this.currentPeriod;
+              monthInput.addEventListener('change', (e) => {
+                this.setCurrentPeriod(e.target.value);
+                this.loadDataDebounced();
+              });
+            } else {
+              this.setCurrentPeriod(defaultMonth);
+            }
+            maybeTriggerLoad();
           }, 0);
           break;
-        case 'Quarter':
+        }
+        case 'Quarter': {
           html += '<select class="form-select" id="quarterSelect"></select>';
           selector.innerHTML = html;
-          setTimeout(() => this.populateQuarterSelect(), 0);
+          setTimeout(() => this.populateQuarterSelect(shouldTriggerLoad), 0);
           break;
-        case 'Year':
+        }
+        case 'Year': {
           html += '<input type="number" class="form-control" id="yearInput" min="2020" max="2030" value="2024" />';
           selector.innerHTML = html;
           setTimeout(() => {
             const yearInput = document.getElementById('yearInput');
-            this.currentPeriod = yearInput.value;
-            yearInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+            const currentYear = new Date().getFullYear();
+            const defaultYear = /^\d{4}$/.test(cachedPeriod) ? cachedPeriod : String(currentYear);
+            if (yearInput) {
+              yearInput.value = defaultYear;
+              this.setCurrentPeriod(defaultYear);
+              yearInput.addEventListener('change', (e) => {
+                this.setCurrentPeriod(e.target.value);
+                this.loadDataDebounced();
+              });
+            } else {
+              this.setCurrentPeriod(defaultYear);
+            }
+            maybeTriggerLoad();
           }, 0);
           break;
+        }
       }
     }
 
-    populateBiWeeklySelect() {
+    populateBiWeeklySelect(triggerLoad = false) {
       const select = document.getElementById('biweeklySelect');
+      if (!select) return;
+
+      const now = new Date();
+      const [isoYearStr, isoWeekStr] = this.getISOWeek(now).split('-W');
+      const isoYear = Number(isoYearStr);
+      const isoWeek = Number(isoWeekStr);
+      const fallbackIndex = Math.max(1, Math.ceil(isoWeek / 2));
+      const fallbackValue = `${isoYear}-BW${fallbackIndex.toString().padStart(2, '0')}`;
+      const cachedValue = (this.periodCache && this.periodCache.BiWeekly) || '';
+      const defaultValue = /^\d{4}-BW\d{2}$/.test(cachedValue) ? cachedValue : fallbackValue;
+
       const currentYear = new Date().getFullYear();
       select.innerHTML = '';
       for (let i = 1; i <= 26; i++) {
@@ -1936,18 +2002,37 @@
         option.textContent = `Bi-Week ${i} - ${currentYear}`;
         select.appendChild(option);
       }
-      this.currentPeriod = select.value;
-      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+
+      if (![...select.options].some(opt => opt.value === defaultValue)) {
+        const [yearPart, indexPart] = defaultValue.split('-BW');
+        const extraOption = document.createElement('option');
+        extraOption.value = defaultValue;
+        extraOption.textContent = `Bi-Week ${Number(indexPart)} - ${yearPart}`;
+        select.appendChild(extraOption);
+      }
+
+      select.value = defaultValue;
+      this.setCurrentPeriod(select.value);
+      select.addEventListener('change', (e) => {
+        this.setCurrentPeriod(e.target.value);
+        this.loadDataDebounced();
+      });
+
+      if (triggerLoad) {
+        this.loadDataDebounced();
+      }
     }
 
-    populateQuarterSelect() {
+    populateQuarterSelect(triggerLoad = false) {
       const select = document.getElementById('quarterSelect');
       if (!select) return;
 
       const currentDate = new Date();
       const currentYear = currentDate.getFullYear();
       const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
-      const defaultValue = `Q${currentQuarter}-${currentYear}`;
+      const fallbackValue = `Q${currentQuarter}-${currentYear}`;
+      const cachedValue = (this.periodCache && this.periodCache.Quarter) || '';
+      const defaultValue = /^Q[1-4]-\d{4}$/.test(cachedValue) ? cachedValue : fallbackValue;
 
       select.innerHTML = '';
 
@@ -1962,10 +2047,24 @@
 
       if ([...select.options].some((opt) => opt.value === defaultValue)) {
         select.value = defaultValue;
+      } else {
+        const [quarterPart, yearPart] = defaultValue.split('-');
+        const extraOption = document.createElement('option');
+        extraOption.value = defaultValue;
+        extraOption.textContent = `${quarterPart} ${yearPart}`;
+        select.appendChild(extraOption);
+        select.value = defaultValue;
       }
 
-      this.currentPeriod = select.value;
-      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+      this.setCurrentPeriod(select.value);
+      select.addEventListener('change', (e) => {
+        this.setCurrentPeriod(e.target.value);
+        this.loadDataDebounced();
+      });
+
+      if (triggerLoad) {
+        this.loadDataDebounced();
+      }
     }
 
     async loadData() {
