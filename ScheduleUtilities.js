@@ -1,5 +1,5 @@
 /**
- * ScheduleUtilities.gs
+ * ScheduleUtilities.js
  * Constants, sheet definitions, and utility functions for Schedule Management
  * Updated to include dedicated schedule spreadsheet management
  */
@@ -8,8 +8,9 @@
 // SCHEDULE SPREADSHEET CONFIGURATION
 // ────────────────────────────────────────────────────────────────────────────
 
-// Schedule Management Spreadsheet ID - UPDATE THIS WITH YOUR ACTUAL SCHEDULE SPREADSHEET ID
-const SCHEDULE_SPREADSHEET_ID = '1owlD-RdNBYgpnccOPp6zP4ndzg0W4IWtoQeWC3NIUL0'; // TODO: Set your dedicated schedule management spreadsheet ID here
+// Schedule Management Spreadsheet ID.
+// Update this constant (or the corresponding script property) with your actual schedule spreadsheet ID.
+const SCHEDULE_SPREADSHEET_ID = '';
 
 // If no dedicated schedule spreadsheet ID is set, these functions will fall back to the main spreadsheet
 const FALLBACK_TO_MAIN_SPREADSHEET = true;
@@ -3126,7 +3127,7 @@ function testScheduleUtilities() {
   }
 }
 
-console.log('✅ Enhanced ScheduleUtilities.gs loaded successfully');
+console.log('✅ Enhanced ScheduleUtilities.js loaded successfully');
 console.log('🗂️ Features: Dedicated schedule spreadsheet support, enhanced caching, comprehensive utilities');
 console.log('⚙️ Configuration: Update SCHEDULE_SPREADSHEET_ID constant to use a dedicated spreadsheet');
 console.log('🔧 Debug: Run validateScheduleSpreadsheetConfig() or debugScheduleConfiguration() to check setup');
