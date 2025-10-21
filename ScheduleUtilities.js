@@ -199,6 +199,111 @@ const SCHEDULE_SHEET_REGISTRY = Object.freeze({
   HOLIDAYS: HOLIDAYS_SHEET
 });
 
+function getScheduleTimeZone() {
+  if (typeof DEFAULT_SCHEDULE_TIME_ZONE !== 'undefined') {
+    return DEFAULT_SCHEDULE_TIME_ZONE;
+  }
+
+  if (typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function') {
+    try {
+      return Session.getScriptTimeZone();
+    } catch (error) {
+      console.warn('Unable to resolve script time zone:', error && error.message ? error.message : error);
+    }
+  }
+
+  return 'UTC';
+}
+
+function normalizeScheduleRowPeriod(record, timeZone) {
+  if (!record || typeof record !== 'object') {
+    return record;
+  }
+
+  const resolveDateString = (value) => {
+    if (typeof normalizeDateForSheet === 'function') {
+      const normalized = normalizeDateForSheet(value, timeZone);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return Utilities.formatDate(value, timeZone, 'yyyy-MM-dd');
+    }
+
+    if (typeof value === 'number') {
+      const numericDate = new Date(value);
+      if (!isNaN(numericDate.getTime())) {
+        return Utilities.formatDate(numericDate, timeZone, 'yyyy-MM-dd');
+      }
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return '';
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return trimmed;
+      }
+
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) {
+        return Utilities.formatDate(parsed, timeZone, 'yyyy-MM-dd');
+      }
+
+      const maybeNumber = Number(trimmed);
+      if (!Number.isNaN(maybeNumber) && maybeNumber > 0) {
+        const baseDate = new Date('1899-12-30T00:00:00Z');
+        baseDate.setDate(baseDate.getDate() + maybeNumber);
+        return Utilities.formatDate(baseDate, timeZone, 'yyyy-MM-dd');
+      }
+    }
+
+    return '';
+  };
+
+  const start = resolveDateString(
+    record.PeriodStart
+      || record.StartDate
+      || record.ScheduleStart
+      || record.AssignmentStart
+      || record.Date
+      || record.ScheduleDate
+      || record.Day
+  );
+
+  const end = resolveDateString(
+    record.PeriodEnd
+      || record.EndDate
+      || record.ScheduleEnd
+      || record.AssignmentEnd
+      || record.Date
+      || record.ScheduleDate
+      || record.Day
+      || start
+  );
+
+  if (!start && !end) {
+    return record;
+  }
+
+  const normalized = Object.assign({}, record);
+
+  if (start) {
+    normalized.PeriodStart = start;
+    normalized.Date = start;
+  }
+
+  if (end) {
+    normalized.PeriodEnd = end;
+  }
+
+  return normalized;
+}
+
 function getScheduleSheetNames() {
   return Object.assign({}, SCHEDULE_SHEET_REGISTRY);
 }
@@ -226,7 +331,12 @@ const SCHEDULE_GENERATION_HEADERS = [
   'ID', 'UserID', 'UserName', 'Date', 'PeriodStart', 'PeriodEnd', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
   'OriginalStartTime', 'OriginalEndTime', 'BreakStart', 'BreakEnd', 'LunchStart', 'LunchEnd',
   'IsDST', 'Status', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
-  'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department'
+  'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department',
+  'MaxCapacity', 'MinCoverage', 'BreakDuration', 'Break1Duration', 'Break2Duration', 'LunchDuration',
+  'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
+  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
+  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
+  'RestPeriodHours', 'NotificationLeadHours', 'HandoverTimeMinutes', 'NotificationTarget', 'GenerationConfig'
 ];
 
 const SHIFT_SLOTS_HEADERS = [
@@ -677,6 +787,15 @@ function readScheduleSheet(sheetName) {
     const cacheKey = `schedule_${sheetName}`;
     const cached = getFromCache(cacheKey);
     if (cached) {
+      const timeZone = getScheduleTimeZone();
+      if (Array.isArray(cached)) {
+        const normalizedCache = cached.map(row => normalizeScheduleRowPeriod(row, timeZone));
+        const requiresUpdate = cached.some(row => row && !row.PeriodStart && (row.Date || row.StartDate || row.ScheduleDate));
+        if (requiresUpdate) {
+          setInCache(cacheKey, normalizedCache);
+        }
+        return normalizedCache;
+      }
       return cached;
     }
 
@@ -694,6 +813,7 @@ function readScheduleSheet(sheetName) {
     }
 
     const headers = data[0];
+    const timeZone = getScheduleTimeZone();
     const rows = data.slice(1).map(row => {
       const obj = {};
       headers.forEach((header, index) => {
@@ -702,9 +822,11 @@ function readScheduleSheet(sheetName) {
       return obj;
     });
 
+    const normalizedRows = rows.map(row => normalizeScheduleRowPeriod(row, timeZone));
+
     // Cache the result
-    setInCache(cacheKey, rows);
-    return rows;
+    setInCache(cacheKey, normalizedRows);
+    return normalizedRows;
 
   } catch (error) {
     console.error(`Error reading schedule sheet ${sheetName}:`, error);
@@ -735,7 +857,9 @@ function writeToScheduleSheet(sheetName, data) {
 
     // Write rows if provided
     if (Array.isArray(data) && data.length > 0) {
-      const rows = data.map(obj => headers.map(h => (obj[h] !== undefined ? obj[h] : '')));
+      const timeZone = getScheduleTimeZone();
+      const normalizedData = data.map(obj => normalizeScheduleRowPeriod(obj, timeZone));
+      const rows = normalizedData.map(obj => headers.map(h => (obj && obj[h] !== undefined ? obj[h] : '')));
       sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
     }
 
