@@ -407,17 +407,27 @@
                 <div class="modal-body">
                     <form id="slotForm">
                         <input type="hidden" id="slotId" value="">
-                        
+
                         <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Slot ID</label>
+                                <input type="text" class="form-control form-control-enhanced" id="slotIdentifier" value="Will be assigned after save" readonly>
+                                <small class="text-muted d-block mt-1">Displayed when editing an existing slot.</small>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Slot Name *</label>
                                 <input type="text" class="form-control form-control-enhanced" id="slotName" required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Department</label>
                                 <input type="text" class="form-control form-control-enhanced" id="slotDepartment" placeholder="e.g., Customer Service">
                             </div>
-                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Location</label>
+                                <input type="text" class="form-control form-control-enhanced" id="slotLocation" placeholder="e.g., Office, Remote">
+                            </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Start Time *</label>
                                 <input type="time" class="form-control form-control-enhanced time-input-display" id="slotStartTime" required>
@@ -426,16 +436,7 @@
                                 <label class="form-label fw-bold">End Time *</label>
                                 <input type="time" class="form-control form-control-enhanced time-input-display" id="slotEndTime" required>
                             </div>
-                            
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Location</label>
-                                <input type="text" class="form-control form-control-enhanced" id="slotLocation" placeholder="e.g., Office, Remote">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Max Capacity</label>
-                                <input type="number" class="form-control form-control-enhanced" id="slotCapacity" min="1" max="100" value="10">
-                            </div>
-                            
+
                             <div class="col-12">
                                 <label class="form-label fw-bold">Days of Week</label>
                                 <div class="d-flex gap-2 flex-wrap">
@@ -469,39 +470,10 @@
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Break Duration (minutes)</label>
-                                <input type="number" class="form-control form-control-enhanced" id="slotBreakDuration" min="0" max="60" value="15">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Lunch Duration (minutes)</label>
-                                <input type="number" class="form-control form-control-enhanced" id="slotLunchDuration" min="0" max="120" value="60">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Overtime Policy</label>
-                                <select class="form-select form-control-enhanced" id="slotOvertimePolicy">
-                                    <option value="NONE">No Overtime</option>
-                                    <option value="LIMITED_15">Limited (15 min)</option>
-                                    <option value="LIMITED_30">Limited (30 min)</option>
-                                    <option value="LIMITED_60">Limited (60 min)</option>
-                                    <option value="UNLIMITED">Unlimited</option>
-                                    <option value="APPROVAL_REQUIRED">Approval Required</option>
-                                </select>
-                            </div>
-                            
+
                             <div class="col-12">
                                 <label class="form-label fw-bold">Description</label>
                                 <textarea class="form-control form-control-enhanced" id="slotDescription" rows="3" placeholder="Optional description of this shift slot..."></textarea>
-                            </div>
-                            
-                            <div class="col-12">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="slotIsActive" checked>
-                                    <label class="form-check-label fw-bold" for="slotIsActive">
-                                        Active (available for scheduling)
-                                    </label>
-                                </div>
                             </div>
                         </div>
                     </form>
@@ -824,14 +796,11 @@
                 document.getElementById('slotModalTitle').innerHTML = '<i class="fas fa-plus me-2"></i>Create Shift Slot';
                 document.getElementById('slotForm').reset();
                 document.getElementById('slotId').value = '';
-                
-                // Set default values
-                document.getElementById('slotCapacity').value = 10;
-                document.getElementById('slotBreakDuration').value = 15;
-                document.getElementById('slotLunchDuration').value = 60;
-                document.getElementById('slotOvertimePolicy').value = 'LIMITED_30';
-                document.getElementById('slotIsActive').checked = true;
-                
+                const identifierField = document.getElementById('slotIdentifier');
+                if (identifierField) {
+                    identifierField.value = 'Will be assigned after save';
+                }
+
                 // Check weekdays by default
                 ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
                     document.getElementById(day).checked = true;
@@ -867,17 +836,16 @@
 
             populateSlotForm(slot) {
                 document.getElementById('slotId').value = slot.ID;
+                const identifierField = document.getElementById('slotIdentifier');
+                if (identifierField) {
+                    identifierField.value = slot.ID || slot.SlotID || slot.SlotId || 'Unavailable';
+                }
                 document.getElementById('slotName').value = slot.Name || '';
                 document.getElementById('slotDepartment').value = slot.Department || '';
                 document.getElementById('slotStartTime').value = this.normalizeForTimeInput(slot.StartTime);
                 document.getElementById('slotEndTime').value = this.normalizeForTimeInput(slot.EndTime);
                 document.getElementById('slotLocation').value = slot.Location || '';
-                document.getElementById('slotCapacity').value = slot.MaxCapacity || 10;
                 document.getElementById('slotDescription').value = slot.Description || '';
-                document.getElementById('slotBreakDuration').value = slot.BreakDuration || 15;
-                document.getElementById('slotLunchDuration').value = slot.LunchDuration || 60;
-                document.getElementById('slotOvertimePolicy').value = slot.OvertimePolicy || 'LIMITED_30';
-                document.getElementById('slotIsActive').checked = slot.IsActive !== false;
 
                 // Set days of week
                 ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].forEach(day => {
@@ -958,21 +926,57 @@
                     }
                 });
 
-                return {
+                const slotData = {
                     name: document.getElementById('slotName').value.trim(),
                     department: document.getElementById('slotDepartment').value.trim(),
                     startTime: document.getElementById('slotStartTime').value,
                     endTime: document.getElementById('slotEndTime').value,
                     location: document.getElementById('slotLocation').value.trim(),
-                    maxCapacity: parseInt(document.getElementById('slotCapacity').value) || 10,
                     description: document.getElementById('slotDescription').value.trim(),
-                    breakDuration: parseInt(document.getElementById('slotBreakDuration').value) || 15,
-                    lunchDuration: parseInt(document.getElementById('slotLunchDuration').value) || 60,
-                    overtimePolicy: document.getElementById('slotOvertimePolicy').value,
-                    isActive: document.getElementById('slotIsActive').checked,
                     daysOfWeek: daysOfWeek,
                     createdBy: 'User'
                 };
+
+                const currentSlot = this.currentSlot || null;
+                slotData.isActive = currentSlot ? currentSlot.IsActive !== false : true;
+
+                if (currentSlot) {
+                    const preservationMap = {
+                        MaxCapacity: 'maxCapacity',
+                        MinCoverage: 'minCoverage',
+                        Priority: 'priority',
+                        BreakDuration: 'breakDuration',
+                        LunchDuration: 'lunchDuration',
+                        Break1Duration: 'break1Duration',
+                        Break2Duration: 'break2Duration',
+                        EnableStaggeredBreaks: 'enableStaggeredBreaks',
+                        BreakGroups: 'breakGroups',
+                        StaggerInterval: 'staggerInterval',
+                        MinCoveragePct: 'minCoveragePct',
+                        EnableOvertime: 'enableOvertime',
+                        MaxDailyOT: 'maxDailyOT',
+                        MaxWeeklyOT: 'maxWeeklyOT',
+                        OTApproval: 'otApproval',
+                        OTRate: 'otRate',
+                        OTPolicy: 'otPolicy',
+                        AllowSwaps: 'allowSwaps',
+                        WeekendPremium: 'weekendPremium',
+                        HolidayPremium: 'holidayPremium',
+                        AutoAssignment: 'autoAssignment',
+                        RestPeriod: 'restPeriod',
+                        NotificationLead: 'notificationLead',
+                        HandoverTime: 'handoverTime',
+                        OvertimePolicy: 'overtimePolicy'
+                    };
+
+                    Object.entries(preservationMap).forEach(([sourceKey, targetKey]) => {
+                        if (Object.prototype.hasOwnProperty.call(currentSlot, sourceKey)) {
+                            slotData[targetKey] = currentSlot[sourceKey];
+                        }
+                    });
+                }
+
+                return slotData;
             }
 
             validateSlotForm(slotData) {
