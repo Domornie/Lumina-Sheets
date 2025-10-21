@@ -348,7 +348,8 @@ const SHIFT_SLOTS_HEADERS = [
   'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
   'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
   'RestPeriod', 'NotificationLead', 'HandoverTime',
-  'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
+  'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt',
+  'GenerationDefaults'
 ];
 
 const SHIFT_SWAPS_HEADERS = [
@@ -1178,124 +1179,102 @@ function createDefaultShiftSlots() {
       return;
     }
 
-    const defaultSlots = [
-      {
+    const defaultGenerationTemplate = {
+      capacity: { max: 10, min: 5 },
+      breaks: {
+        first: 15,
+        lunch: 60,
+        second: 15,
+        enableStaggered: true,
+        groups: 3,
+        interval: 15,
+        minCoveragePct: 70
+      },
+      overtime: {
+        enabled: false,
+        maxDaily: 0,
+        maxWeekly: 0,
+        approval: 'supervisor',
+        rate: 1.5,
+        policy: 'MANDATORY'
+      },
+      advanced: {
+        allowSwaps: true,
+        weekendPremium: false,
+        holidayPremium: true,
+        autoAssignment: true,
+        restPeriod: 8,
+        notificationLead: 24,
+        handoverTime: 15
+      }
+    };
+
+    const applyOverrides = (target, overrides) => {
+      if (!overrides || typeof overrides !== 'object') {
+        return target;
+      }
+
+      Object.keys(overrides).forEach(key => {
+        const value = overrides[key];
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          target[key] = target[key] || {};
+          applyOverrides(target[key], value);
+        } else if (value !== undefined) {
+          target[key] = value;
+        }
+      });
+
+      return target;
+    };
+
+    const createSlotRecord = (config, overrides = {}) => {
+      const generationDefaults = JSON.parse(JSON.stringify(defaultGenerationTemplate));
+      applyOverrides(generationDefaults, overrides);
+
+      return Object.assign({
         ID: Utilities.getUuid(),
+        DaysOfWeek: '1,2,3,4,5',
+        Priority: 2,
+        Description: '',
+        IsActive: true,
+        CreatedBy: 'System',
+        CreatedAt: new Date(),
+        UpdatedAt: new Date(),
+        GenerationDefaults: JSON.stringify(generationDefaults)
+      }, config);
+    };
+
+    const defaultSlots = [
+      createSlotRecord({
         Name: 'Morning Shift',
         StartTime: '08:00',
         EndTime: '16:00',
-        DaysOfWeek: '1,2,3,4,5',
         Department: 'General',
         Location: 'Office',
-        MaxCapacity: 10,
-        MinCoverage: 5,
-        Priority: 2,
-        Description: 'Standard morning shift (8 AM - 4 PM)',
-        BreakDuration: 15,
-        LunchDuration: 60,
-        Break1Duration: 15,
-        Break2Duration: 15,
-        EnableStaggeredBreaks: true,
-        BreakGroups: 3,
-        StaggerInterval: 15,
-        MinCoveragePct: 70,
-        EnableOvertime: false,
-        MaxDailyOT: 0,
-        MaxWeeklyOT: 0,
-        OTApproval: 'supervisor',
-        OTRate: 1.5,
-        OTPolicy: 'MANDATORY',
-        AllowSwaps: true,
-        WeekendPremium: false,
-        HolidayPremium: true,
-        AutoAssignment: true,
-        RestPeriod: 8,
-        NotificationLead: 24,
-        HandoverTime: 15,
-        OvertimePolicy: 'LIMITED_30',
-        IsActive: true,
-        CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
-      },
-      {
-        ID: Utilities.getUuid(),
+        Description: 'Standard morning shift (8 AM - 4 PM)'
+      }, {
+        capacity: { max: 10, min: 5 }
+      }),
+      createSlotRecord({
         Name: 'Evening Shift',
         StartTime: '16:00',
         EndTime: '00:00',
-        DaysOfWeek: '1,2,3,4,5',
         Department: 'General',
         Location: 'Office',
-        MaxCapacity: 8,
-        MinCoverage: 4,
-        Priority: 2,
-        Description: 'Standard evening shift (4 PM - 12 AM)',
-        BreakDuration: 15,
-        LunchDuration: 60,
-        Break1Duration: 15,
-        Break2Duration: 15,
-        EnableStaggeredBreaks: true,
-        BreakGroups: 3,
-        StaggerInterval: 15,
-        MinCoveragePct: 70,
-        EnableOvertime: false,
-        MaxDailyOT: 0,
-        MaxWeeklyOT: 0,
-        OTApproval: 'supervisor',
-        OTRate: 1.5,
-        OTPolicy: 'MANDATORY',
-        AllowSwaps: true,
-        WeekendPremium: false,
-        HolidayPremium: true,
-        AutoAssignment: true,
-        RestPeriod: 8,
-        NotificationLead: 24,
-        HandoverTime: 15,
-        OvertimePolicy: 'LIMITED_30',
-        IsActive: true,
-        CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
-      },
-      {
-        ID: Utilities.getUuid(),
+        Description: 'Standard evening shift (4 PM - 12 AM)'
+      }, {
+        capacity: { max: 8, min: 4 }
+      }),
+      createSlotRecord({
         Name: 'Day Shift',
         StartTime: '09:00',
         EndTime: '17:00',
-        DaysOfWeek: '1,2,3,4,5',
         Department: 'Customer Service',
         Location: 'Remote',
-        MaxCapacity: 15,
-        MinCoverage: 6,
-        Priority: 2,
-        Description: 'Standard day shift (9 AM - 5 PM)',
-        BreakDuration: 15,
-        LunchDuration: 60,
-        Break1Duration: 15,
-        Break2Duration: 15,
-        EnableStaggeredBreaks: true,
-        BreakGroups: 3,
-        StaggerInterval: 15,
-        MinCoveragePct: 70,
-        EnableOvertime: false,
-        MaxDailyOT: 0,
-        MaxWeeklyOT: 0,
-        OTApproval: 'supervisor',
-        OTRate: 1.5,
-        OTPolicy: 'MANDATORY',
-        AllowSwaps: true,
-        WeekendPremium: false,
-        HolidayPremium: true,
-        AutoAssignment: true,
-        RestPeriod: 8,
-        NotificationLead: 24,
-        HandoverTime: 15,
-        OvertimePolicy: 'LIMITED_30',
-        IsActive: true,
-        CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
-      }
+        Description: 'Standard day shift (9 AM - 5 PM)'
+      }, {
+        capacity: { max: 15, min: 6 }
+      })
     ];
 
     const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
