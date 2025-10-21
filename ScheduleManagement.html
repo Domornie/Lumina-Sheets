@@ -1535,9 +1535,9 @@
                         </div>
                         <div class="modern-card-body">
                             <div id="complianceAlerts">
-                                <div class="text-center text-success">
-                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                    <p>No compliance issues detected</p>
+                                <div class="text-center text-muted">
+                                    <div class="loading-spinner mx-auto mb-3"></div>
+                                    <p>Loading compliance insights…</p>
                                 </div>
                             </div>
                         </div>
@@ -3964,9 +3964,9 @@
 
                 if (!compliance || !Array.isArray(compliance.violationDetails) || compliance.violationDetails.length === 0) {
                     container.innerHTML = `
-                        <div class="text-center text-success py-4">
-                            <i class="fas fa-check-circle fa-2x mb-2"></i>
-                            <p>No compliance issues detected</p>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-clipboard-check fa-2x mb-2 opacity-50"></i>
+                            <p>Compliance alerts will appear here when available.</p>
                         </div>
                     `;
                     return;
