@@ -2423,12 +2423,17 @@
 
     const repMetrics = Array.isArray(analytics.repMetrics) ? analytics.repMetrics : [];
     const talkBenchmarks = analytics.talkBenchmarks || {};
+    const MIN_ATT_MINUTES = 1;
+    const MAX_ATT_MINUTES = 20000;
     const rawBenchmarkAverage = talkBenchmarks.averageMinutes;
-    const benchmarkAverage = rawBenchmarkAverage === null || rawBenchmarkAverage === undefined
+    const parsedBenchmarkAverage = rawBenchmarkAverage === null || rawBenchmarkAverage === undefined
       ? NaN
       : Number(rawBenchmarkAverage);
+    const benchmarkAverage = Number.isFinite(parsedBenchmarkAverage)
+      ? Math.min(Math.max(parsedBenchmarkAverage, MIN_ATT_MINUTES), MAX_ATT_MINUTES)
+      : NaN;
     const benchmarkDisplay = Number.isFinite(benchmarkAverage)
-      ? Math.max(1, Math.round(benchmarkAverage))
+      ? Math.max(MIN_ATT_MINUTES, Math.round(benchmarkAverage))
       : null;
 
     const csatEligible = repMetrics
@@ -2497,11 +2502,15 @@
           avgTalk
         };
       })
-      .filter(entry => entry.avgTalk !== null && Number.isFinite(entry.avgTalk) && entry.avgTalk >= 1 && entry.calls >= 5 && entry.calls <= 7);
+      .filter(entry => {
+        if (entry.avgTalk === null || !Number.isFinite(entry.avgTalk)) return false;
+        if (entry.avgTalk < MIN_ATT_MINUTES || entry.avgTalk > MAX_ATT_MINUTES) return false;
+        return entry.calls >= 5 && entry.calls <= 7;
+      });
 
     let attLeaders = attEligible;
     if (Number.isFinite(benchmarkAverage)) {
-      const maxAverage = benchmarkAverage + 1;
+      const maxAverage = Math.min(MAX_ATT_MINUTES, benchmarkAverage + 1);
       attLeaders = attLeaders.filter(entry => entry.avgTalk <= maxAverage);
     }
 
@@ -2519,16 +2528,16 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'We will spotlight agents once 5–7 qualifying calls over a minute are logged.';
+      attDetailEl.textContent = 'We will spotlight agents once 5–7 qualifying calls between 1–20,000 minutes are logged.';
       attFooterEl.textContent = 'No qualifying calls yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
-      const championAvg = Math.max(1, Math.round(champion.avgTalk));
+      const championAvg = Math.max(MIN_ATT_MINUTES, Math.min(MAX_ATT_MINUTES, Math.round(champion.avgTalk)));
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
-      attDetailEl.textContent = `Based on ${champion.calls} calls within the 5–7 call window.`;
+      attDetailEl.textContent = `Based on ${champion.calls} calls within the 5–7 call window (1–20,000 min per call).`;
       if (Number.isFinite(benchmarkAverage) && benchmarkDisplay !== null) {
         const qualifyingTotal = Number(talkBenchmarks.qualifyingCallCount || 0);
         attFooterEl.textContent = `Team avg ${benchmarkDisplay} min across ${qualifyingTotal.toLocaleString()} qualifying calls`;
@@ -2536,7 +2545,7 @@
         attFooterEl.textContent = `${formatMinutesToReadable(champion.totalMinutes)} total talk time`;
       }
       updateRankingList(attListEl, attLeaders, entry => {
-        const avgLabel = `${Math.max(1, Math.round(entry.avgTalk))} min avg`;
+        const avgLabel = `${Math.max(MIN_ATT_MINUTES, Math.min(MAX_ATT_MINUTES, Math.round(entry.avgTalk)))} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
         return `${avgLabel} • ${callLabel}`;
       });
