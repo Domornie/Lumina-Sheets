@@ -6,6 +6,9 @@
  */
 
 const __PAGE_SIZE_FALLBACK = 50;
+const __QUALIFYING_TALK_MIN_MINUTES = 1;
+const __QUALIFYING_TALK_MAX_MINUTES = 20000;
+const __MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function __ensureDate(value) {
   if (value instanceof Date && !isNaN(value)) return value;
@@ -583,6 +586,11 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   const { startDate, endDate } = __resolveCallReportPeriod(granularity, periodIdentifier);
   const tz = Session.getScriptTimeZone();
 
+  const normalizedStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const normalizedEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+  const weekRequirements = buildWeekRequirements(normalizedStart, normalizedEnd, tz);
+
   // Filter by date range (CreatedDate, date-only)
   const dateFiltered = __readAllCallReportRows().filter(r => {
     const dt = r.CreatedDate instanceof Date ? r.CreatedDate : new Date(r.CreatedDate);
@@ -602,20 +610,54 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   // repMetrics
   const repMap = {};
   const answerSecondsList = [];
+  let qualifyingTalkMinutesTotal = 0;
+  let qualifyingTalkCallCount = 0;
   filtered.forEach(r => {
     const agent = r.ToSFUser || '—';
-    const talk  = parseFloat(r.TalkTimeMinutes) || 0;
+    const rawTalk = parseFloat(r.TalkTimeMinutes);
+    const talk = isFinite(rawTalk) ? Math.max(0, rawTalk) : 0;
     if (!repMap[agent]) {
       repMap[agent] = {
         totalCalls: 0,
         totalTalk: 0,
+        qualifyingTalkCalls: 0,
+        totalTalkWholeMinutes: 0,
         totalAnswerSeconds: 0,
         answeredCount: 0,
-        fastAnswerCount: 0
+        fastAnswerCount: 0,
+        csatYes: 0,
+        csatNo: 0,
+        csatTotal: 0,
+        weeklyCoverage: Object.create(null)
       };
     }
     repMap[agent].totalCalls += 1;
     repMap[agent].totalTalk  += talk;
+
+    const createdDate = r.CreatedDate instanceof Date ? r.CreatedDate : new Date(r.CreatedDate);
+    if (createdDate instanceof Date && !isNaN(createdDate)) {
+      const dateOnly = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+      const dayOfWeek = dateOnly.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        const weekStart = startOfWeek(dateOnly);
+        const weekKey = Utilities.formatDate(weekStart, tz, 'yyyy-MM-dd');
+        if (!repMap[agent].weeklyCoverage[weekKey]) {
+          repMap[agent].weeklyCoverage[weekKey] = { days: Object.create(null) };
+        }
+        const dayKey = new Date(dateOnly.getFullYear(), dateOnly.getMonth(), dateOnly.getDate()).getTime();
+        repMap[agent].weeklyCoverage[weekKey].days[dayKey] = true;
+      }
+    }
+
+    if (talk >= __QUALIFYING_TALK_MIN_MINUTES && talk <= __QUALIFYING_TALK_MAX_MINUTES) {
+      const wholeMinutes = Math.floor(talk);
+      if (wholeMinutes >= __QUALIFYING_TALK_MIN_MINUTES && wholeMinutes <= __QUALIFYING_TALK_MAX_MINUTES) {
+        repMap[agent].qualifyingTalkCalls += 1;
+        repMap[agent].totalTalkWholeMinutes += wholeMinutes;
+        qualifyingTalkCallCount += 1;
+        qualifyingTalkMinutesTotal += wholeMinutes;
+      }
+    }
 
     const answerSeconds = __parseAnswerSeconds(__getAnswerFieldValue(r), r.CreatedDate);
     if (answerSeconds !== null) {
@@ -624,19 +666,40 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       if (answerSeconds <= 30) repMap[agent].fastAnswerCount += 1;
       answerSecondsList.push(answerSeconds);
     }
+
+    const csatValue = (r.CSAT || '').toString().trim().toLowerCase();
+    if (csatValue === 'yes' || csatValue === 'true' || csatValue === '1') {
+      repMap[agent].csatYes += 1;
+      repMap[agent].csatTotal += 1;
+    } else if (csatValue === 'no' || csatValue === 'false' || csatValue === '0') {
+      repMap[agent].csatNo += 1;
+      repMap[agent].csatTotal += 1;
+    }
   });
   const repMetrics = Object.entries(repMap).map(([agent, v]) => {
     const averageAnswerSeconds = v.answeredCount > 0 ? v.totalAnswerSeconds / v.answeredCount : null;
     const fastAnswerRate = v.answeredCount > 0 ? (v.fastAnswerCount / v.answeredCount) * 100 : null;
+    const coverage = evaluateWeekCoverage(v.weeklyCoverage || {}, weekRequirements);
     return {
       agent,
       totalCalls: v.totalCalls,
       totalTalk: v.totalTalk,
+      qualifyingTalkCalls: v.qualifyingTalkCalls,
+      totalTalkWholeMinutes: v.totalTalkWholeMinutes,
+      qualifiedAvgTalkMinutes: v.qualifyingTalkCalls > 0
+        ? v.totalTalkWholeMinutes / v.qualifyingTalkCalls
+        : null,
       totalAnswerSeconds: v.totalAnswerSeconds,
       answeredCount: v.answeredCount,
       averageAnswerSeconds,
       fastAnswerRate,
-      fastAnswerCount: v.fastAnswerCount
+      fastAnswerCount: v.fastAnswerCount,
+      csatYes: v.csatYes,
+      csatNo: v.csatNo,
+      csatTotal: v.csatTotal,
+      csatYesRate: v.csatTotal > 0 ? (v.csatYes / v.csatTotal) * 100 : null,
+      weeklyCoverageSummary: coverage.weekSummaries,
+      fullWeekCoverage: coverage.meetsAllWeeks
     };
   });
 
@@ -1048,8 +1111,81 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     peakTimeWindows,
     scheduleRecommendations,
     answerTimeStats,
-    callActivityWindow
+    callActivityWindow,
+    talkBenchmarks: {
+      qualifyingCallCount: qualifyingTalkCallCount,
+      totalMinutes: qualifyingTalkMinutesTotal,
+      averageMinutes: qualifyingTalkCallCount > 0
+        ? qualifyingTalkMinutesTotal / qualifyingTalkCallCount
+        : null
+    }
   };
+}
+
+function startOfWeek(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay();
+  const diff = (day + 6) % 7; // Monday as first day of week
+  d.setDate(d.getDate() - diff);
+  return d;
+}
+
+function buildWeekRequirements(startDate, endDate, tz) {
+  const requirements = [];
+  if (!(startDate instanceof Date) || isNaN(startDate) || !(endDate instanceof Date) || isNaN(endDate)) {
+    return requirements;
+  }
+  const firstWeekStart = startOfWeek(startDate);
+  for (let cursor = new Date(firstWeekStart); cursor.getTime() <= endDate.getTime(); cursor.setDate(cursor.getDate() + 7)) {
+    const weekStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+    const weekEnd = new Date(weekStart.getTime() + (6 * __MS_PER_DAY));
+    const windowStart = weekStart.getTime() < startDate.getTime() ? startDate : weekStart;
+    const windowEnd = weekEnd.getTime() > endDate.getTime() ? endDate : weekEnd;
+    const windowStartMidnight = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate());
+    const windowEndMidnight = new Date(windowEnd.getFullYear(), windowEnd.getMonth(), windowEnd.getDate());
+    let weekdayCount = 0;
+    for (let dayCursor = new Date(windowStartMidnight.getTime()); dayCursor.getTime() <= windowEndMidnight.getTime(); dayCursor.setDate(dayCursor.getDate() + 1)) {
+      const dow = dayCursor.getDay();
+      if (dow === 0 || dow === 6) continue;
+      weekdayCount += 1;
+    }
+    const requiredDays = Math.min(5, Math.max(0, weekdayCount));
+    const weekKey = Utilities.formatDate(weekStart, tz, 'yyyy-MM-dd');
+    requirements.push({
+      weekKey,
+      windowStartTime: windowStartMidnight.getTime(),
+      windowEndTime: windowEndMidnight.getTime(),
+      requiredDays,
+      windowStartLabel: Utilities.formatDate(windowStartMidnight, tz, 'MMM d'),
+      windowEndLabel: Utilities.formatDate(windowEndMidnight, tz, 'MMM d')
+    });
+  }
+  return requirements;
+}
+
+function evaluateWeekCoverage(coverageMap, requirements) {
+  if (!requirements || !requirements.length) {
+    return { weekSummaries: [], meetsAllWeeks: false };
+  }
+  const weekSummaries = requirements.map(req => {
+    const stored = coverageMap && coverageMap[req.weekKey] ? coverageMap[req.weekKey] : { days: {} };
+    const dayKeys = Object.keys(stored.days || {});
+    const actualDays = dayKeys.filter(key => {
+      const numeric = Number(key);
+      if (!Number.isFinite(numeric)) return false;
+      return numeric >= req.windowStartTime && numeric <= req.windowEndTime;
+    }).length;
+    return {
+      weekKey: req.weekKey,
+      requiredDays: req.requiredDays,
+      actualDays,
+      meetsRequirement: actualDays >= req.requiredDays,
+      windowStartLabel: req.windowStartLabel,
+      windowEndLabel: req.windowEndLabel
+    };
+  });
+  const meetsAllWeeks = weekSummaries.length > 0 && weekSummaries.every(entry => entry.requiredDays === 0 || entry.meetsRequirement);
+  return { weekSummaries, meetsAllWeeks };
 }
 
 /**
