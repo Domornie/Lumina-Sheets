@@ -1477,7 +1477,7 @@
             <div class="recognition-badge"><i class="fas fa-stopwatch"></i> ATT Ace</div>
             <div class="recognition-agent" id="attChampionName">Awaiting data</div>
             <div class="recognition-stat" id="attChampionValue">—</div>
-            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after qualifying calls between 1 and 20,000 minutes with weekday call coverage (Mon–Fri) recorded at least 5 days per week for the entire month.</div>
+            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after maintaining weekday call coverage (Mon–Fri) at least 5 days per week for every week in the month.</div>
             <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average talk time performers"></ul>
             <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls with full weekday coverage yet</span></div>
         </div>
@@ -2538,7 +2538,7 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Log qualifying calls between 1 and 20,000 minutes while maintaining weekday coverage (Mon–Fri) at least 5 days per week across every week in the month to earn recognition.';
+      attDetailEl.textContent = 'Maintain weekday coverage (Mon–Fri) at least 5 days per week across every week in the month to earn recognition.';
       attFooterEl.textContent = 'No qualifying calls with full weekday coverage yet';
       updateRankingList(attListEl, []);
     } else {
@@ -2561,7 +2561,7 @@
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
-      attDetailEl.textContent = `${championCalls} (${championMinutes}). Each call counted was between 1 and 20,000 minutes.${coverageLabel}${teamAverageLabel}`.trim();
+      attDetailEl.textContent = `${championCalls} (${championMinutes}).${coverageLabel}${teamAverageLabel}`.trim();
       attFooterEl.textContent = 'Ranked by lowest average talk time with full weekday coverage';
       updateRankingList(attListEl, attLeaders, entry => {
         const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
