@@ -19,6 +19,126 @@ const SCHEDULE_SETTINGS = (typeof getScheduleConfig === 'function')
       CACHE_DURATION: 300
     };
 
+const DEFAULT_SCHEDULE_TIME_ZONE = (typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+  ? Session.getScriptTimeZone()
+  : 'UTC';
+
+function resolveSchedulePeriodStart(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const candidates = [
+    record.PeriodStart,
+    record.StartDate,
+    record.ScheduleStart,
+    record.AssignmentStart,
+    record.Date,
+    record.ScheduleDate,
+    record.Day
+  ];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const normalized = normalizeDateForSheet(candidates[i], timeZone);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function resolveSchedulePeriodEnd(record, fallbackStart = '', timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const candidates = [
+    record.PeriodEnd,
+    record.EndDate,
+    record.ScheduleEnd,
+    record.AssignmentEnd,
+    record.Date,
+    record.ScheduleDate,
+    record.Day,
+    fallbackStart
+  ];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const normalized = normalizeDateForSheet(candidates[i], timeZone);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function resolveSchedulePeriodStartDate(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const start = resolveSchedulePeriodStart(record, timeZone);
+  if (!start) {
+    return null;
+  }
+
+  const startDate = new Date(start);
+  return isNaN(startDate.getTime()) ? null : startDate;
+}
+
+function resolveSchedulePeriodEndDate(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const start = resolveSchedulePeriodStart(record, timeZone);
+  const end = resolveSchedulePeriodEnd(record, start, timeZone);
+  if (!end) {
+    return null;
+  }
+
+  const endDate = new Date(end);
+  return isNaN(endDate.getTime()) ? null : endDate;
+}
+
+function normalizeSchedulePeriodRecord(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  if (!record || typeof record !== 'object') {
+    return record;
+  }
+
+  const normalizedStart = resolveSchedulePeriodStart(record, timeZone);
+  const normalizedEnd = resolveSchedulePeriodEnd(record, normalizedStart, timeZone);
+
+  if (!normalizedStart && !normalizedEnd) {
+    return record;
+  }
+
+  const normalizedRecord = Object.assign({}, record);
+
+  if (normalizedStart) {
+    normalizedRecord.PeriodStart = normalizedStart;
+    normalizedRecord.Date = normalizedStart;
+  }
+
+  if (normalizedEnd) {
+    normalizedRecord.PeriodEnd = normalizedEnd;
+  }
+
+  return normalizedRecord;
+}
+
+function buildScheduleCompositeKey(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const normalizedRecord = normalizeSchedulePeriodRecord(record, timeZone);
+  const userPart = normalizeUserKey(
+    (normalizedRecord && (normalizedRecord.UserName || normalizedRecord.UserID || normalizedRecord.userName || normalizedRecord.userId))
+      || ''
+  );
+
+  const start = normalizedRecord ? normalizedRecord.PeriodStart || '' : '';
+  const end = normalizedRecord ? normalizedRecord.PeriodEnd || start : '';
+
+  return `${userPart}::${start}::${end}`;
+}
+
+function getSchedulePeriodSortValue(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const startDate = resolveSchedulePeriodStartDate(record, timeZone);
+  return startDate ? startDate.getTime() : 0;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
@@ -911,6 +1031,271 @@ function clientGetAllShiftSlots() {
 // SCHEDULE GENERATION - Enhanced with ScheduleUtilities integration
 // ────────────────────────────────────────────────────────────────────────────
 
+function normalizeGenerationOptions(options = {}) {
+  const coerceNumber = (value, fallback, { min = null, max = null } = {}) => {
+    const fallbackNumber = Number(fallback);
+    let resolved = Number(value);
+
+    if (!Number.isFinite(resolved)) {
+      resolved = Number.isFinite(fallbackNumber) ? fallbackNumber : 0;
+    }
+
+    if (typeof min === 'number' && resolved < min) {
+      resolved = min;
+    }
+
+    if (typeof max === 'number' && resolved > max) {
+      resolved = max;
+    }
+
+    return resolved;
+  };
+
+  const coerceBoolean = (value, fallback = false) => {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (!normalized) {
+        return fallback;
+      }
+
+      if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+        return true;
+      }
+
+      if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return fallback;
+  };
+
+  const capacityOptions = options && typeof options === 'object' ? options.capacity || {} : {};
+  const breaksOptions = options && typeof options === 'object' ? options.breaks || {} : {};
+  const overtimeOptions = options && typeof options === 'object' ? options.overtime || {} : {};
+  const advancedOptions = options && typeof options === 'object' ? options.advanced || {} : {};
+
+  const maxCapacity = coerceNumber(capacityOptions.max ?? options.maxCapacity, 10, { min: 1 });
+  const minCoverage = coerceNumber(capacityOptions.min ?? options.minCoverage, 3, { min: 0 });
+
+  const break1Duration = coerceNumber(breaksOptions.first ?? options.break1Duration ?? options.breakDuration, 15, { min: 0 });
+  const lunchDuration = coerceNumber(breaksOptions.lunch ?? options.lunchDuration, 30, { min: 0 });
+  const break2Duration = coerceNumber(breaksOptions.second ?? options.break2Duration, 15, { min: 0 });
+  const enableStaggered = coerceBoolean(breaksOptions.enableStaggered ?? options.enableStaggeredBreaks, true);
+  const breakGroups = coerceNumber(breaksOptions.groups ?? options.breakGroups, 3, { min: 1 });
+  const staggerInterval = coerceNumber(breaksOptions.interval ?? options.staggerInterval, 15, { min: 1 });
+  const minCoveragePct = coerceNumber(breaksOptions.minCoveragePct ?? options.minCoveragePct, 70, { min: 0, max: 100 });
+
+  const overtimeEnabled = coerceBoolean(overtimeOptions.enabled ?? options.overtimeEnabled, false);
+  const maxDailyOT = coerceNumber(overtimeOptions.maxDaily ?? options.maxDailyOT, overtimeEnabled ? 2 : 0, { min: 0 });
+  const maxWeeklyOT = coerceNumber(overtimeOptions.maxWeekly ?? options.maxWeeklyOT, overtimeEnabled ? 10 : 0, { min: 0 });
+  const otApproval = (overtimeOptions.approval ?? options.otApproval ?? 'supervisor') || 'supervisor';
+  const otRate = coerceNumber(overtimeOptions.rate ?? options.otRate, 1.5, { min: 1 });
+  const otPolicy = (overtimeOptions.policy ?? options.otPolicy ?? 'MANDATORY') || 'MANDATORY';
+
+  const allowSwaps = coerceBoolean(advancedOptions.allowSwaps ?? options.allowSwaps, true);
+  const weekendPremium = coerceBoolean(advancedOptions.weekendPremium ?? options.weekendPremium, false);
+  const holidayPremium = coerceBoolean(advancedOptions.holidayPremium ?? options.holidayPremium, true);
+  const autoAssignment = coerceBoolean(advancedOptions.autoAssignment ?? options.autoAssignment, false);
+  const restPeriod = coerceNumber(advancedOptions.restPeriod ?? options.restPeriod, 8, { min: 0 });
+  const notificationLead = coerceNumber(advancedOptions.notificationLead ?? options.notificationLead, 24, { min: 0 });
+  const handoverTime = coerceNumber(advancedOptions.handoverTime ?? options.handoverTime, 15, { min: 0 });
+
+  const normalized = {
+    capacity: {
+      max: maxCapacity,
+      min: minCoverage
+    },
+    breaks: {
+      first: break1Duration,
+      lunch: lunchDuration,
+      second: break2Duration,
+      enableStaggered,
+      groups: breakGroups,
+      interval: staggerInterval,
+      minCoveragePct
+    },
+    overtime: {
+      enabled: overtimeEnabled,
+      maxDaily: maxDailyOT,
+      maxWeekly: maxWeeklyOT,
+      approval: otApproval,
+      rate: otRate,
+      policy: otPolicy
+    },
+    advanced: {
+      allowSwaps,
+      weekendPremium,
+      holidayPremium,
+      autoAssignment,
+      restPeriod,
+      notificationLead,
+      handoverTime
+    }
+  };
+
+  normalized.snapshot = {
+    capacity: Object.assign({}, normalized.capacity),
+    breaks: Object.assign({}, normalized.breaks),
+    overtime: Object.assign({}, normalized.overtime),
+    advanced: Object.assign({}, normalized.advanced)
+  };
+
+  return normalized;
+}
+
+function applyGenerationOptionsToSlot(slot, generationOptions) {
+  const applied = Object.assign({}, slot || {});
+  const { capacity, breaks, overtime, advanced } = generationOptions || {};
+
+  if (capacity) {
+    if (typeof capacity.max === 'number') {
+      applied.MaxCapacity = capacity.max;
+    }
+    if (typeof capacity.min === 'number') {
+      applied.MinCoverage = capacity.min;
+    }
+  }
+
+  if (breaks) {
+    if (typeof breaks.first === 'number') {
+      applied.BreakDuration = breaks.first;
+      applied.Break1Duration = breaks.first;
+    }
+    if (typeof breaks.second === 'number') {
+      applied.Break2Duration = breaks.second;
+    }
+    if (typeof breaks.lunch === 'number') {
+      applied.LunchDuration = breaks.lunch;
+    }
+    if (typeof breaks.enableStaggered === 'boolean') {
+      applied.EnableStaggeredBreaks = breaks.enableStaggered;
+    }
+    if (typeof breaks.groups === 'number') {
+      applied.BreakGroups = breaks.groups;
+    }
+    if (typeof breaks.interval === 'number') {
+      applied.StaggerInterval = breaks.interval;
+    }
+    if (typeof breaks.minCoveragePct === 'number') {
+      applied.MinCoveragePct = breaks.minCoveragePct;
+    }
+  }
+
+  if (overtime) {
+    if (typeof overtime.enabled === 'boolean') {
+      applied.EnableOvertime = overtime.enabled;
+    }
+    if (typeof overtime.maxDaily === 'number') {
+      applied.MaxDailyOT = overtime.maxDaily;
+    }
+    if (typeof overtime.maxWeekly === 'number') {
+      applied.MaxWeeklyOT = overtime.maxWeekly;
+    }
+    if (overtime.approval) {
+      applied.OTApproval = overtime.approval;
+    }
+    if (typeof overtime.rate === 'number') {
+      applied.OTRate = overtime.rate;
+    }
+    if (overtime.policy) {
+      applied.OTPolicy = overtime.policy;
+    }
+  }
+
+  if (advanced) {
+    if (typeof advanced.allowSwaps === 'boolean') {
+      applied.AllowSwaps = advanced.allowSwaps;
+    }
+    if (typeof advanced.weekendPremium === 'boolean') {
+      applied.WeekendPremium = advanced.weekendPremium;
+    }
+    if (typeof advanced.holidayPremium === 'boolean') {
+      applied.HolidayPremium = advanced.holidayPremium;
+    }
+    if (typeof advanced.autoAssignment === 'boolean') {
+      applied.AutoAssignment = advanced.autoAssignment;
+    }
+    if (typeof advanced.restPeriod === 'number') {
+      applied.RestPeriod = advanced.restPeriod;
+    }
+    if (typeof advanced.notificationLead === 'number') {
+      applied.NotificationLead = advanced.notificationLead;
+    }
+    if (typeof advanced.handoverTime === 'number') {
+      applied.HandoverTime = advanced.handoverTime;
+    }
+  }
+
+  return applied;
+}
+
+function parseDateTimeForGeneration(dateStr, timeStr) {
+  if (!dateStr) {
+    return null;
+  }
+
+  try {
+    const base = new Date(dateStr);
+    if (isNaN(base.getTime())) {
+      return null;
+    }
+
+    if (!timeStr) {
+      return base;
+    }
+
+    const parts = String(timeStr).split(':');
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
+    const seconds = Number(parts[2] || 0);
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+      return base;
+    }
+
+    const dateTime = new Date(base.getTime());
+    dateTime.setHours(hours, minutes, seconds, 0);
+    return dateTime;
+  } catch (error) {
+    return null;
+  }
+}
+
+function buildSlotAssignmentKey(slotId, dateStr) {
+  if (!dateStr) {
+    return null;
+  }
+
+  return `${slotId || 'UNASSIGNED'}::${dateStr}`;
+}
+
+function determineCapacityLimit(slot, generationOptions) {
+  const slotCapacity = Number(slot && slot.MaxCapacity);
+  const generationCapacity = generationOptions && generationOptions.capacity ? Number(generationOptions.capacity.max) : NaN;
+
+  if (Number.isFinite(generationCapacity) && generationCapacity > 0) {
+    if (Number.isFinite(slotCapacity) && slotCapacity > 0) {
+      return Math.min(generationCapacity, slotCapacity);
+    }
+    return generationCapacity;
+  }
+
+  if (Number.isFinite(slotCapacity) && slotCapacity > 0) {
+    return slotCapacity;
+  }
+
+  return null;
+}
+
 /**
  * Enhanced schedule generation with comprehensive validation
  */
@@ -948,7 +1333,10 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       usersToSchedule = allUsers;
     }
 
+    const generationOptions = normalizeGenerationOptions(options || {});
+
     console.log(`📝 Scheduling for ${usersToSchedule.length} users`);
+    console.log('🧭 Generation options snapshot:', generationOptions.snapshot);
 
     // Get shift slots - either selected ones or all available
     let shiftSlots = [];
@@ -975,28 +1363,59 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     console.log(`⏰ Working with ${shiftSlots.length} shift slot(s)`);
 
-    // Generate schedules
+    // Prepare schedule generation tracking
     const generatedSchedules = [];
     const conflicts = [];
     const dstChanges = [];
+    const assignmentsBySlotDate = new Map();
+    const existingAssignments = new Map();
+    const lastShiftEndByUser = new Map();
 
-    // Loop through each date
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const currentDate = new Date(d);
-      const dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    // Generate schedules for the entire period
+    const timeZone = Session.getScriptTimeZone();
+    const periodStartStr = Utilities.formatDate(start, timeZone, 'yyyy-MM-dd');
+    const periodEndStr = Utilities.formatDate(end, timeZone, 'yyyy-MM-dd');
 
-      console.log(`📅 Processing date: ${dateStr} (Day: ${dayOfWeek})`);
+    let historicalSchedules = [];
+    try {
+      historicalSchedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    } catch (historyError) {
+      console.warn('Unable to load existing schedules for generation context:', historyError);
+    }
 
-      // Check for holidays using ScheduleUtilities
-      const isHoliday = checkIfHoliday(dateStr);
-      if (isHoliday && !options.includeHolidays) {
-        console.log(`🎉 Skipping holiday: ${dateStr}`);
-        continue;
+    historicalSchedules.forEach(schedule => {
+      const slotKey = buildSlotAssignmentKey(schedule && (schedule.SlotID || schedule.SlotId), schedule && (schedule.PeriodStart || schedule.Date));
+      if (slotKey) {
+        existingAssignments.set(slotKey, (existingAssignments.get(slotKey) || 0) + 1);
       }
 
-      // Check DST status using ScheduleUtilities
+      const scheduleUser = schedule && (schedule.UserName || schedule.UserID);
+      if (!scheduleUser) {
+        return;
+      }
+
+      const scheduleEnd = parseDateTimeForGeneration(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart, schedule.EndTime || schedule.OriginalEndTime || schedule.End || schedule.StartTime);
+      if (!scheduleEnd) {
+        return;
+      }
+
+      const existingHandoverMinutes = Number(schedule.HandoverTimeMinutes || schedule.HandoverTime || 0);
+      const bufferedEnd = new Date(scheduleEnd.getTime() + (Number.isFinite(existingHandoverMinutes) ? Math.max(existingHandoverMinutes, 0) : 0) * 60 * 1000);
+      const currentEnd = lastShiftEndByUser.get(scheduleUser);
+      if (!currentEnd || currentEnd < bufferedEnd) {
+        lastShiftEndByUser.set(scheduleUser, bufferedEnd);
+      }
+    });
+
+    const dstStatusByDate = {};
+    [periodStartStr, periodEndStr].forEach(dateStr => {
+      if (!dateStr || dstStatusByDate[dateStr]) {
+        return;
+      }
+
       const dstStatus = checkDSTStatus(dateStr);
+      dstStatusByDate[dateStr] = dstStatus;
+
       if (dstStatus.isDSTChange) {
         dstChanges.push({
           date: dateStr,
@@ -1004,98 +1423,192 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           adjustment: dstStatus.timeAdjustment
         });
       }
+    });
 
-      // Generate schedules for each user
-      usersToSchedule.forEach(userName => {
-        try {
-          // Get suitable shift slots for this user and day from the selected/available slots
-          const suitableSlots = shiftSlots.filter(slot => {
-            if (!slot.IsActive) return false;
+    usersToSchedule.forEach(userName => {
+      try {
+        const activeSlots = shiftSlots.filter(slot => slot && slot.IsActive !== false);
 
-            // Check if slot is active on this day of week
-            const daysOfWeek = slot.DaysOfWeek ? slot.DaysOfWeek.split(',').map(d => parseInt(d)) : [1, 2, 3, 4, 5];
-            return daysOfWeek.includes(dayOfWeek);
-          });
-
-          if (suitableSlots.length === 0) {
-            console.log(`⚠️ No suitable slots for ${userName} on ${dateStr} from selected slots`);
-            conflicts.push({
-              user: userName,
-              date: dateStr,
-              error: 'No suitable shift slots available for this day from selected slots',
-              type: 'NO_SUITABLE_SLOTS'
-            });
-            return;
-          }
-
-          // Select best suitable slot (can be enhanced with more logic)
-          // For now, prefer slots with higher capacity or priority
-          const selectedSlot = suitableSlots.sort((a, b) => {
-            const priorityA = a.Priority || 2;
-            const priorityB = b.Priority || 2;
-            if (priorityA !== priorityB) return priorityB - priorityA; // Higher priority first
-            
-            const capacityA = a.MaxCapacity || 10;
-            const capacityB = b.MaxCapacity || 10;
-            return capacityB - capacityA; // Higher capacity first
-          })[0];
-
-          // Check for conflicts using ScheduleUtilities
-          const existingSchedule = checkExistingSchedule(userName, dateStr);
-          if (existingSchedule && !options.overrideExisting) {
-            conflicts.push({
-              user: userName,
-              date: dateStr,
-              error: 'User already has a schedule for this date',
-              type: 'USER_DOUBLE_BOOKING'
-            });
-            return;
-          }
-
-          // Create schedule record using ScheduleUtilities time functions
-          const schedule = {
-            ID: Utilities.getUuid(),
-            UserID: getUserIdByName(userName),
-            UserName: userName,
-            Date: dateStr,
-            SlotID: selectedSlot.ID,
-            SlotName: selectedSlot.Name,
-            StartTime: selectedSlot.StartTime,
-            EndTime: selectedSlot.EndTime,
-            OriginalStartTime: selectedSlot.StartTime,
-            OriginalEndTime: selectedSlot.EndTime,
-            BreakStart: calculateBreakStart(selectedSlot),
-            BreakEnd: calculateBreakEnd(selectedSlot),
-            LunchStart: calculateLunchStart(selectedSlot),
-            LunchEnd: calculateLunchEnd(selectedSlot),
-            IsDST: dstStatus.isDST,
-            Status: 'PENDING',
-            GeneratedBy: generatedBy,
-            ApprovedBy: null,
-            NotificationSent: false,
-            CreatedAt: new Date(),
-            UpdatedAt: new Date(),
-            RecurringScheduleID: null,
-            SwapRequestID: null,
-            Priority: options.priority || 2,
-            Notes: options.notes || `Generated from selected slot: ${selectedSlot.Name}`,
-            Location: selectedSlot.Location || '',
-            Department: selectedSlot.Department || ''
-          };
-
-          generatedSchedules.push(schedule);
-          console.log(`✅ Generated schedule for ${userName} on ${dateStr} using slot: ${selectedSlot.Name}`);
-
-        } catch (userError) {
+        if (activeSlots.length === 0) {
+          console.log(`⚠️ No active slots available for ${userName} in the requested period`);
           conflicts.push({
             user: userName,
-            date: dateStr,
-            error: userError.message,
-            type: 'GENERATION_ERROR'
+            periodStart: periodStartStr,
+            periodEnd: periodEndStr,
+            error: 'No active shift slots available for this period',
+            type: 'NO_SLOT'
           });
+          return;
         }
-      });
-    }
+
+        const capacityFilteredSlots = activeSlots.filter(slot => {
+          const capacityLimit = determineCapacityLimit(slot, generationOptions);
+          const slotKey = buildSlotAssignmentKey(slot && slot.ID, periodStartStr);
+          if (capacityLimit && capacityLimit > 0 && slotKey) {
+            const usedCount = (existingAssignments.get(slotKey) || 0) + (assignmentsBySlotDate.get(slotKey) || 0);
+            if (usedCount >= capacityLimit) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        if (capacityFilteredSlots.length === 0) {
+          conflicts.push({
+            user: userName,
+            periodStart: periodStartStr,
+            periodEnd: periodEndStr,
+            error: 'All eligible shift slots have reached capacity for this period',
+            type: 'CAPACITY_LIMIT'
+          });
+          return;
+        }
+
+        const selectedSlot = capacityFilteredSlots.sort((a, b) => {
+          const priorityA = a.Priority || 2;
+          const priorityB = b.Priority || 2;
+          if (priorityA !== priorityB) {
+            return priorityB - priorityA;
+          }
+
+          const capacityA = Number(a.MaxCapacity) || 0;
+          const capacityB = Number(b.MaxCapacity) || 0;
+          return capacityB - capacityA;
+        })[0];
+
+        const appliedSlot = applyGenerationOptionsToSlot(selectedSlot, generationOptions);
+
+        const existingSchedule = checkExistingSchedule(userName, periodStartStr, periodEndStr);
+        if (existingSchedule && !options.overrideExisting) {
+          conflicts.push({
+            user: userName,
+            periodStart: periodStartStr,
+            periodEnd: periodEndStr,
+            existingScheduleId: existingSchedule.ID,
+            error: 'User already has a schedule in this period',
+            type: 'USER_DOUBLE_BOOKING'
+          });
+          return;
+        }
+
+        const restHours = Number(generationOptions.advanced && generationOptions.advanced.restPeriod || 0);
+        const handoverMinutes = Number(generationOptions.advanced && generationOptions.advanced.handoverTime || 0);
+        const restRequirementMs = (restHours * 60 * 60 * 1000) + (handoverMinutes * 60 * 1000);
+
+        const scheduleStartDateTime = parseDateTimeForGeneration(periodStartStr, appliedSlot.StartTime || selectedSlot.StartTime);
+        if (restRequirementMs > 0) {
+          const lastRecordedEnd = lastShiftEndByUser.get(userName);
+          if (lastRecordedEnd && scheduleStartDateTime && (scheduleStartDateTime.getTime() - lastRecordedEnd.getTime()) < restRequirementMs) {
+            const restMessage = handoverMinutes > 0
+              ? `Insufficient rest window before new assignment (requires ${restHours}h ${handoverMinutes}m buffer)`
+              : `Insufficient rest window before new assignment (requires ${restHours}h)`;
+            conflicts.push({
+              user: userName,
+              periodStart: periodStartStr,
+              periodEnd: periodEndStr,
+              error: restMessage,
+              type: 'REST_LIMIT'
+            });
+            return;
+          }
+        }
+
+        const scheduleEndDateTime = parseDateTimeForGeneration(periodEndStr, appliedSlot.EndTime || appliedSlot.StartTime || selectedSlot.EndTime);
+        const notificationLeadHours = Number(generationOptions.advanced && generationOptions.advanced.notificationLead || 0);
+        let notificationTarget = '';
+        if (scheduleStartDateTime && notificationLeadHours > 0) {
+          const notifyAt = new Date(scheduleStartDateTime.getTime() - notificationLeadHours * 60 * 60 * 1000);
+          notificationTarget = Utilities.formatDate(notifyAt, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+        }
+
+        const toSafeNumber = (value) => {
+          const num = Number(value);
+          return Number.isFinite(num) ? num : '';
+        };
+
+        const schedule = {
+          ID: Utilities.getUuid(),
+          UserID: getUserIdByName(userName),
+          UserName: userName,
+          Date: periodStartStr,
+          PeriodStart: periodStartStr,
+          PeriodEnd: periodEndStr,
+          SlotID: appliedSlot.ID,
+          SlotName: appliedSlot.Name,
+          StartTime: appliedSlot.StartTime,
+          EndTime: appliedSlot.EndTime,
+          OriginalStartTime: appliedSlot.StartTime,
+          OriginalEndTime: appliedSlot.EndTime,
+          BreakStart: calculateBreakStart(appliedSlot),
+          BreakEnd: calculateBreakEnd(appliedSlot),
+          LunchStart: calculateLunchStart(appliedSlot),
+          LunchEnd: calculateLunchEnd(appliedSlot),
+          IsDST: (dstStatusByDate[periodStartStr] && dstStatusByDate[periodStartStr].isDST) || false,
+          Status: 'PENDING',
+          GeneratedBy: generatedBy,
+          ApprovedBy: null,
+          NotificationSent: false,
+          CreatedAt: new Date(),
+          UpdatedAt: new Date(),
+          RecurringScheduleID: null,
+          SwapRequestID: null,
+          Priority: options.priority || 2,
+          Notes: options.notes || `Generated from selected slot: ${appliedSlot.Name}`,
+          Location: appliedSlot.Location || '',
+          Department: appliedSlot.Department || '',
+          MaxCapacity: toSafeNumber(typeof appliedSlot.MaxCapacity === 'number' ? appliedSlot.MaxCapacity : generationOptions.capacity.max),
+          MinCoverage: toSafeNumber(typeof appliedSlot.MinCoverage === 'number' ? appliedSlot.MinCoverage : generationOptions.capacity.min),
+          BreakDuration: toSafeNumber(appliedSlot.BreakDuration !== undefined ? appliedSlot.BreakDuration : appliedSlot.Break1Duration),
+          Break1Duration: toSafeNumber(appliedSlot.Break1Duration),
+          Break2Duration: toSafeNumber(appliedSlot.Break2Duration),
+          LunchDuration: toSafeNumber(appliedSlot.LunchDuration),
+          EnableStaggeredBreaks: typeof appliedSlot.EnableStaggeredBreaks === 'boolean' ? appliedSlot.EnableStaggeredBreaks : '',
+          BreakGroups: toSafeNumber(appliedSlot.BreakGroups),
+          StaggerInterval: toSafeNumber(appliedSlot.StaggerInterval),
+          MinCoveragePct: toSafeNumber(appliedSlot.MinCoveragePct),
+          EnableOvertime: typeof appliedSlot.EnableOvertime === 'boolean' ? appliedSlot.EnableOvertime : '',
+          MaxDailyOT: toSafeNumber(appliedSlot.MaxDailyOT),
+          MaxWeeklyOT: toSafeNumber(appliedSlot.MaxWeeklyOT),
+          OTApproval: appliedSlot.OTApproval || '',
+          OTRate: toSafeNumber(appliedSlot.OTRate),
+          OTPolicy: appliedSlot.OTPolicy || '',
+          AllowSwaps: typeof appliedSlot.AllowSwaps === 'boolean' ? appliedSlot.AllowSwaps : '',
+          WeekendPremium: typeof appliedSlot.WeekendPremium === 'boolean' ? appliedSlot.WeekendPremium : '',
+          HolidayPremium: typeof appliedSlot.HolidayPremium === 'boolean' ? appliedSlot.HolidayPremium : '',
+          AutoAssignment: typeof appliedSlot.AutoAssignment === 'boolean' ? appliedSlot.AutoAssignment : '',
+          RestPeriodHours: restHours,
+          NotificationLeadHours: notificationLeadHours,
+          HandoverTimeMinutes: handoverMinutes,
+          NotificationTarget: notificationTarget,
+          GenerationConfig: JSON.stringify(generationOptions.snapshot)
+        };
+
+        const normalizedSchedule = normalizeSchedulePeriodRecord(schedule, timeZone);
+        generatedSchedules.push(normalizedSchedule);
+        console.log(`✅ Generated schedule for ${userName} from ${periodStartStr} to ${periodEndStr} using slot: ${appliedSlot.Name}`);
+
+        const slotAssignmentKey = buildSlotAssignmentKey(appliedSlot.ID, periodStartStr);
+        if (slotAssignmentKey) {
+          assignmentsBySlotDate.set(slotAssignmentKey, (assignmentsBySlotDate.get(slotAssignmentKey) || 0) + 1);
+        }
+
+        if (scheduleEndDateTime) {
+          const bufferedEnd = new Date(scheduleEndDateTime.getTime() + Math.max(handoverMinutes, 0) * 60 * 1000);
+          lastShiftEndByUser.set(userName, bufferedEnd);
+        } else if (scheduleStartDateTime) {
+          lastShiftEndByUser.set(userName, scheduleStartDateTime);
+        }
+
+      } catch (userError) {
+        conflicts.push({
+          user: userName,
+          periodStart: periodStartStr,
+          periodEnd: periodEndStr,
+          error: userError.message,
+          type: 'GENERATION_ERROR'
+        });
+      }
+    });
 
     // Save generated schedules using ScheduleUtilities
     if (generatedSchedules.length > 0) {
@@ -1109,7 +1622,9 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       generated: generatedSchedules.length,
       conflicts: conflicts,
       dstChanges: dstChanges,
-      message: `Successfully generated ${generatedSchedules.length} schedules using ${shiftSlots.length} shift slot(s)`,
+      message: `Successfully generated ${generatedSchedules.length} schedules for period ${periodStartStr} to ${periodEndStr} using ${shiftSlots.length} shift slot(s)`,
+      periodStart: periodStartStr,
+      periodEnd: periodEndStr,
       schedules: generatedSchedules.slice(0, 10), // Return first 10 for preview
       userCount: usersToSchedule.length,
       shiftSlotsUsed: shiftSlots.length,
@@ -1141,8 +1656,14 @@ function saveSchedulesToSheet(schedules) {
     const sheet = ensureScheduleSheetWithHeaders(SCHEDULE_GENERATION_SHEET, SCHEDULE_GENERATION_HEADERS);
 
     schedules.forEach(schedule => {
+      const normalized = normalizeSchedulePeriodRecord(schedule);
       // Create row data using proper header order from ScheduleUtilities
-      const rowData = SCHEDULE_GENERATION_HEADERS.map(header => schedule[header] || '');
+      const rowData = SCHEDULE_GENERATION_HEADERS.map(header => {
+        if (normalized && Object.prototype.hasOwnProperty.call(normalized, header)) {
+          return normalized[header];
+        }
+        return '';
+      });
       sheet.appendRow(rowData);
     });
 
@@ -1177,19 +1698,37 @@ function clientGetAllSchedules(filters = {}) {
       }
     }
 
-    console.log(`📊 Total schedules in sheet: ${schedules.length}`);
+    const normalizedSchedules = schedules.map(record => normalizeSchedulePeriodRecord(record));
 
-    let filteredSchedules = schedules;
+    console.log(`📊 Total schedules in sheet: ${normalizedSchedules.length}`);
+
+    let filteredSchedules = normalizedSchedules.slice();
 
     // Apply filters
     if (filters.startDate) {
       const startDate = new Date(filters.startDate);
-      filteredSchedules = filteredSchedules.filter(s => new Date(s.Date) >= startDate);
+      if (!isNaN(startDate.getTime())) {
+        filteredSchedules = filteredSchedules.filter(s => {
+          const scheduleEnd = resolveSchedulePeriodEndDate(s) || resolveSchedulePeriodStartDate(s);
+          if (!scheduleEnd) {
+            return true;
+          }
+          return scheduleEnd >= startDate;
+        });
+      }
     }
 
     if (filters.endDate) {
       const endDate = new Date(filters.endDate);
-      filteredSchedules = filteredSchedules.filter(s => new Date(s.Date) <= endDate);
+      if (!isNaN(endDate.getTime())) {
+        filteredSchedules = filteredSchedules.filter(s => {
+          const scheduleStart = resolveSchedulePeriodStartDate(s);
+          if (!scheduleStart) {
+            return true;
+          }
+          return scheduleStart <= endDate;
+        });
+      }
     }
 
     if (filters.userId) {
@@ -1208,8 +1747,8 @@ function clientGetAllSchedules(filters = {}) {
       filteredSchedules = filteredSchedules.filter(s => s.Department === filters.department);
     }
 
-    // Sort by date (newest first)
-    filteredSchedules.sort((a, b) => new Date(b.Date) - new Date(a.Date));
+    // Sort by period start (newest first)
+    filteredSchedules.sort((a, b) => getSchedulePeriodSortValue(b) - getSchedulePeriodSortValue(a));
 
     console.log(`✅ Returning ${filteredSchedules.length} filtered schedules`);
 
@@ -1233,9 +1772,9 @@ function clientGetAllSchedules(filters = {}) {
 }
 
 /**
- * Import schedules from uploaded data
+ * Core schedule import implementation shared by all callers
  */
-function clientImportSchedules(importRequest = {}) {
+function internalClientImportSchedules(importRequest = {}) {
   try {
     const schedules = Array.isArray(importRequest.schedules) ? importRequest.schedules : [];
     if (schedules.length === 0) {
@@ -1243,112 +1782,89 @@ function clientImportSchedules(importRequest = {}) {
     }
 
     const metadata = importRequest.metadata || {};
-    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
+    const timeZone = DEFAULT_SCHEDULE_TIME_ZONE;
     const now = new Date();
     const nowIso = Utilities.formatDate(now, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
 
     const userLookup = buildScheduleUserLookup();
     const normalizedNew = schedules
       .map(raw => normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, timeZone))
-      .filter(record => record);
+      .filter(record => record)
+      .map(record => normalizeSchedulePeriodRecord(record, timeZone));
 
     if (normalizedNew.length === 0) {
       throw new Error('No valid schedules were found in the uploaded file.');
     }
 
     const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    const normalizedExisting = existingRecords.map(record => normalizeSchedulePeriodRecord(record, timeZone));
     const replaceExisting = metadata.replaceExisting === true;
 
-    const dateObjects = normalizedNew
-      .map(record => new Date(record.Date))
-      .filter(date => !isNaN(date.getTime()));
+    let minStart = null;
+    let maxEnd = null;
 
-    let minDate = null;
-    let maxDate = null;
-    if (dateObjects.length > 0) {
-      minDate = new Date(Math.min.apply(null, dateObjects));
-      maxDate = new Date(Math.max.apply(null, dateObjects));
-    }
+    normalizedNew.forEach(record => {
+      const startDate = resolveSchedulePeriodStartDate(record, timeZone);
+      const endDate = resolveSchedulePeriodEndDate(record, timeZone) || startDate;
+
+      if (startDate && (!minStart || startDate < minStart)) {
+        minStart = new Date(startDate);
+      }
+      if (endDate && (!maxEnd || endDate > maxEnd)) {
+        maxEnd = new Date(endDate);
+      }
+    });
 
     if (metadata.startDate) {
       metadata.startDate = normalizeDateForSheet(metadata.startDate, timeZone);
-    } else if (metadata.startWeekDate) {
-      metadata.startDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
     }
-
     if (metadata.endDate) {
       metadata.endDate = normalizeDateForSheet(metadata.endDate, timeZone);
-    } else if (metadata.endWeekDate) {
-      metadata.endDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
+    }
+    if (metadata.startWeekDate) {
+      metadata.startWeekDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
+    }
+    if (metadata.endWeekDate) {
+      metadata.endWeekDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
     }
 
-    const newKeys = new Set(normalizedNew.map(record => `${normalizeUserKey(record.UserName || record.UserID)}::${record.Date}`));
+    if (!metadata.startDate && metadata.startWeekDate) {
+      metadata.startDate = metadata.startWeekDate;
+    }
+    if (!metadata.endDate && metadata.endWeekDate) {
+      metadata.endDate = metadata.endWeekDate;
+    }
+
+    const newKeys = new Set(normalizedNew.map(record => buildScheduleCompositeKey(record, timeZone)));
     let replacedCount = 0;
 
-    const retainedRecords = existingRecords.filter(existing => {
-      const existingDate = normalizeDateForSheet(existing.Date, timeZone);
-      if (!existingDate) {
-        return true;
-      }
-
-      const key = `${normalizeUserKey(existing.UserName || existing.UserID)}::${existingDate}`;
-
-      if (replaceExisting && minDate && maxDate) {
-        const existingDateObj = new Date(existingDate);
-        if (!isNaN(existingDateObj.getTime()) && existingDateObj >= minDate && existingDateObj <= maxDate) {
-          replacedCount++;
-          return false;
-        }
-      }
-
+    const retainedRecords = normalizedExisting.filter(existing => {
+      const key = buildScheduleCompositeKey(existing, timeZone);
       if (newKeys.has(key)) {
         replacedCount++;
         return false;
       }
 
+      if (replaceExisting && minStart && maxEnd) {
+        const existingStart = resolveSchedulePeriodStartDate(existing, timeZone);
+        const existingEnd = resolveSchedulePeriodEndDate(existing, timeZone) || existingStart;
+        if (existingStart && existingEnd && existingEnd >= minStart && existingStart <= maxEnd) {
+          replacedCount++;
+          return false;
+        }
+      }
+
       return true;
     });
-
-    const normalizedMin = minDate ? normalizeDateForSheet(minDate, timeZone) : '';
-    const normalizedMax = maxDate ? normalizeDateForSheet(maxDate, timeZone) : '';
-
-    const summary = typeof metadata.summary === 'object' && metadata.summary !== null ? metadata.summary : {};
-    if (metadata.startDate && !summary.startDate) {
-      summary.startDate = metadata.startDate;
-    } else if (normalizedMin && !summary.startDate) {
-      summary.startDate = normalizedMin;
-    }
-    if (metadata.endDate && !summary.endDate) {
-      summary.endDate = metadata.endDate;
-    } else if (normalizedMax && !summary.endDate) {
-      summary.endDate = normalizedMax;
-    }
-    if (typeof summary.totalAssignments !== 'number') {
-      summary.totalAssignments = normalizedNew.length;
-    }
-    if (typeof summary.totalShifts !== 'number') {
-      summary.totalShifts = normalizedNew.length;
-    }
-    if (typeof summary.dayCount !== 'number' || summary.dayCount <= 0) {
-      summary.dayCount = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
-    }
-    metadata.summary = summary;
-
-    if (!metadata.dayCount) {
-      const computedDays = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
-      if (computedDays) {
-        metadata.dayCount = computedDays;
-      }
-    }
 
     const combinedRecords = retainedRecords.concat(normalizedNew);
 
     combinedRecords.sort((a, b) => {
-      const dateA = new Date(a.Date || 0);
-      const dateB = new Date(b.Date || 0);
-      if (dateA.getTime() !== dateB.getTime()) {
-        return dateA - dateB;
+      const diff = getSchedulePeriodSortValue(a, timeZone) - getSchedulePeriodSortValue(b, timeZone);
+      if (diff !== 0) {
+        return diff;
       }
+
       const nameA = (a.UserName || '').toString();
       const nameB = (b.UserName || '').toString();
       return nameA.localeCompare(nameB);
@@ -1357,14 +1873,65 @@ function clientImportSchedules(importRequest = {}) {
     writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, combinedRecords);
     invalidateScheduleCaches();
 
+    const normalizedStart = minStart ? normalizeDateForSheet(minStart, timeZone) : '';
+    const normalizedEnd = maxEnd ? normalizeDateForSheet(maxEnd, timeZone) : '';
+
+    const summary = typeof metadata.summary === 'object' && metadata.summary !== null
+      ? metadata.summary
+      : {};
+
+    if (metadata.startDate && !summary.startDate) {
+      summary.startDate = metadata.startDate;
+    } else if (normalizedStart && !summary.startDate) {
+      summary.startDate = normalizedStart;
+    }
+
+    if (metadata.endDate && !summary.endDate) {
+      summary.endDate = metadata.endDate;
+    } else if (normalizedEnd && !summary.endDate) {
+      summary.endDate = normalizedEnd;
+    }
+
+    if (typeof summary.totalAssignments !== 'number') {
+      summary.totalAssignments = normalizedNew.length;
+    }
+    if (typeof summary.totalShifts !== 'number') {
+      summary.totalShifts = normalizedNew.length;
+    }
+
+    const daySpan = calculateDaySpanCount(metadata.startDate, metadata.endDate, minStart, maxEnd);
+    if ((typeof summary.dayCount !== 'number' || summary.dayCount <= 0) && daySpan) {
+      summary.dayCount = daySpan;
+    }
+
+    const weekSpan = calculateWeekSpanCount(
+      metadata.startWeekDate || metadata.startDate,
+      metadata.endWeekDate || metadata.endDate,
+      minStart,
+      maxEnd
+    );
+    if ((typeof summary.weekCount !== 'number' || summary.weekCount <= 0) && weekSpan) {
+      summary.weekCount = weekSpan;
+    }
+
+    metadata.summary = summary;
+
+    if (!metadata.dayCount && daySpan) {
+      metadata.dayCount = daySpan;
+    }
+
+    if (!metadata.weekCount && weekSpan) {
+      metadata.weekCount = weekSpan;
+    }
+
     return {
       success: true,
       importedCount: normalizedNew.length,
       replacedCount,
       totalAfterImport: combinedRecords.length,
       range: {
-        start: normalizedMin,
-        end: normalizedMax
+        start: normalizedStart,
+        end: normalizedEnd
       },
       metadata
     };
@@ -1377,6 +1944,13 @@ function clientImportSchedules(importRequest = {}) {
       error: error.message
     };
   }
+}
+
+/**
+ * Import schedules from uploaded data
+ */
+function clientImportSchedules(importRequest = {}) {
+  return internalClientImportSchedules(importRequest);
 }
 
 /**
@@ -1472,435 +2046,6 @@ function clientFetchScheduleSheetData(request = {}) {
   } catch (error) {
     console.error('❌ Error fetching schedule data from Google Sheets:', error);
     safeWriteError('clientFetchScheduleSheetData', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Import schedules from uploaded data
- */
-function clientImportSchedules(importRequest = {}) {
-  try {
-    const schedules = Array.isArray(importRequest.schedules) ? importRequest.schedules : [];
-    if (schedules.length === 0) {
-      throw new Error('No schedules were provided for import.');
-    }
-
-    const metadata = importRequest.metadata || {};
-    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
-    const now = new Date();
-    const nowIso = Utilities.formatDate(now, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
-
-    const userLookup = buildScheduleUserLookup();
-    const normalizedNew = schedules
-      .map(raw => normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, timeZone))
-      .filter(record => record);
-
-    if (normalizedNew.length === 0) {
-      throw new Error('No valid schedules were found in the uploaded file.');
-    }
-
-    const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const replaceExisting = metadata.replaceExisting === true;
-
-    const dateObjects = normalizedNew
-      .map(record => new Date(record.Date))
-      .filter(date => !isNaN(date.getTime()));
-
-    let minDate = null;
-    let maxDate = null;
-    if (dateObjects.length > 0) {
-      minDate = new Date(Math.min.apply(null, dateObjects));
-      maxDate = new Date(Math.max.apply(null, dateObjects));
-    }
-
-    if (metadata.startDate) {
-      metadata.startDate = normalizeDateForSheet(metadata.startDate, timeZone);
-    } else if (metadata.startWeekDate) {
-      metadata.startDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
-    }
-
-    if (metadata.endDate) {
-      metadata.endDate = normalizeDateForSheet(metadata.endDate, timeZone);
-    } else if (metadata.endWeekDate) {
-      metadata.endDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
-    }
-
-    const newKeys = new Set(normalizedNew.map(record => `${normalizeUserKey(record.UserName || record.UserID)}::${record.Date}`));
-    let replacedCount = 0;
-
-    const retainedRecords = existingRecords.filter(existing => {
-      const existingDate = normalizeDateForSheet(existing.Date, timeZone);
-      if (!existingDate) {
-        return true;
-      }
-
-      const key = `${normalizeUserKey(existing.UserName || existing.UserID)}::${existingDate}`;
-
-      if (replaceExisting && minDate && maxDate) {
-        const existingDateObj = new Date(existingDate);
-        if (!isNaN(existingDateObj.getTime()) && existingDateObj >= minDate && existingDateObj <= maxDate) {
-          replacedCount++;
-          return false;
-        }
-      }
-
-      if (newKeys.has(key)) {
-        replacedCount++;
-        return false;
-      }
-
-      return true;
-    });
-
-    const normalizedMin = minDate ? normalizeDateForSheet(minDate, timeZone) : '';
-    const normalizedMax = maxDate ? normalizeDateForSheet(maxDate, timeZone) : '';
-
-    const summary = typeof metadata.summary === 'object' && metadata.summary !== null ? metadata.summary : {};
-    if (metadata.startDate && !summary.startDate) {
-      summary.startDate = metadata.startDate;
-    } else if (normalizedMin && !summary.startDate) {
-      summary.startDate = normalizedMin;
-    }
-    if (metadata.endDate && !summary.endDate) {
-      summary.endDate = metadata.endDate;
-    } else if (normalizedMax && !summary.endDate) {
-      summary.endDate = normalizedMax;
-    }
-    if (typeof summary.totalAssignments !== 'number') {
-      summary.totalAssignments = normalizedNew.length;
-    }
-    if (typeof summary.totalShifts !== 'number') {
-      summary.totalShifts = normalizedNew.length;
-    }
-    if (typeof summary.dayCount !== 'number' || summary.dayCount <= 0) {
-      summary.dayCount = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
-    }
-    metadata.summary = summary;
-
-    if (!metadata.dayCount) {
-      const computedDays = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
-      if (computedDays) {
-        metadata.dayCount = computedDays;
-      }
-    }
-
-    const combinedRecords = retainedRecords.concat(normalizedNew);
-
-    combinedRecords.sort((a, b) => {
-      const dateA = new Date(a.Date || 0);
-      const dateB = new Date(b.Date || 0);
-      if (dateA.getTime() !== dateB.getTime()) {
-        return dateA - dateB;
-      }
-      const nameA = (a.UserName || '').toString();
-      const nameB = (b.UserName || '').toString();
-      return nameA.localeCompare(nameB);
-    });
-
-    writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, combinedRecords);
-    invalidateScheduleCaches();
-
-    return {
-      success: true,
-      importedCount: normalizedNew.length,
-      replacedCount,
-      totalAfterImport: combinedRecords.length,
-      range: {
-        start: normalizedMin,
-        end: normalizedMax
-      },
-      metadata
-    };
-
-  } catch (error) {
-    console.error('❌ Error importing schedules:', error);
-    safeWriteError('clientImportSchedules', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Import schedules from uploaded data
- */
-function clientImportSchedules(importRequest = {}) {
-  try {
-    const schedules = Array.isArray(importRequest.schedules) ? importRequest.schedules : [];
-    if (schedules.length === 0) {
-      throw new Error('No schedules were provided for import.');
-    }
-
-    const metadata = importRequest.metadata || {};
-    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
-    const now = new Date();
-    const nowIso = Utilities.formatDate(now, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
-
-    const userLookup = buildScheduleUserLookup();
-    const normalizedNew = schedules
-      .map(raw => normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, timeZone))
-      .filter(record => record);
-
-    if (normalizedNew.length === 0) {
-      throw new Error('No valid schedules were found in the uploaded file.');
-    }
-
-    const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const replaceExisting = metadata.replaceExisting === true;
-
-    const dateObjects = normalizedNew
-      .map(record => new Date(record.Date))
-      .filter(date => !isNaN(date.getTime()));
-
-    let minDate = null;
-    let maxDate = null;
-    if (dateObjects.length > 0) {
-      minDate = new Date(Math.min.apply(null, dateObjects));
-      maxDate = new Date(Math.max.apply(null, dateObjects));
-    }
-
-    if (metadata.startDate) {
-      metadata.startDate = normalizeDateForSheet(metadata.startDate, timeZone);
-    } else if (metadata.startWeekDate) {
-      metadata.startDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
-    }
-
-    if (metadata.endDate) {
-      metadata.endDate = normalizeDateForSheet(metadata.endDate, timeZone);
-    } else if (metadata.endWeekDate) {
-      metadata.endDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
-    }
-
-    const newKeys = new Set(normalizedNew.map(record => `${normalizeUserKey(record.UserName || record.UserID)}::${record.Date}`));
-    let replacedCount = 0;
-
-    const retainedRecords = existingRecords.filter(existing => {
-      const existingDate = normalizeDateForSheet(existing.Date, timeZone);
-      if (!existingDate) {
-        return true;
-      }
-
-      const key = `${normalizeUserKey(existing.UserName || existing.UserID)}::${existingDate}`;
-
-      if (replaceExisting && minDate && maxDate) {
-        const existingDateObj = new Date(existingDate);
-        if (!isNaN(existingDateObj.getTime()) && existingDateObj >= minDate && existingDateObj <= maxDate) {
-          replacedCount++;
-          return false;
-        }
-      }
-
-      if (newKeys.has(key)) {
-        replacedCount++;
-        return false;
-      }
-
-      return true;
-    });
-
-    const normalizedMin = minDate ? normalizeDateForSheet(minDate, timeZone) : '';
-    const normalizedMax = maxDate ? normalizeDateForSheet(maxDate, timeZone) : '';
-
-    const summary = typeof metadata.summary === 'object' && metadata.summary !== null ? metadata.summary : {};
-    if (metadata.startDate && !summary.startDate) {
-      summary.startDate = metadata.startDate;
-    } else if (normalizedMin && !summary.startDate) {
-      summary.startDate = normalizedMin;
-    }
-    if (metadata.endDate && !summary.endDate) {
-      summary.endDate = metadata.endDate;
-    } else if (normalizedMax && !summary.endDate) {
-      summary.endDate = normalizedMax;
-    }
-    if (typeof summary.totalAssignments !== 'number') {
-      summary.totalAssignments = normalizedNew.length;
-    }
-    if (typeof summary.totalShifts !== 'number') {
-      summary.totalShifts = normalizedNew.length;
-    }
-    if (typeof summary.dayCount !== 'number' || summary.dayCount <= 0) {
-      summary.dayCount = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
-    }
-    metadata.summary = summary;
-
-    if (!metadata.dayCount) {
-      const computedDays = calculateDaySpanCount(metadata.startDate, metadata.endDate, minDate, maxDate);
-      if (computedDays) {
-        metadata.dayCount = computedDays;
-      }
-    }
-
-    const combinedRecords = retainedRecords.concat(normalizedNew);
-
-    combinedRecords.sort((a, b) => {
-      const dateA = new Date(a.Date || 0);
-      const dateB = new Date(b.Date || 0);
-      if (dateA.getTime() !== dateB.getTime()) {
-        return dateA - dateB;
-      }
-      const nameA = (a.UserName || '').toString();
-      const nameB = (b.UserName || '').toString();
-      return nameA.localeCompare(nameB);
-    });
-
-    writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, combinedRecords);
-    invalidateScheduleCaches();
-
-    return {
-      success: true,
-      importedCount: normalizedNew.length,
-      replacedCount,
-      totalAfterImport: combinedRecords.length,
-      range: {
-        start: normalizedMin,
-        end: normalizedMax
-      },
-      metadata
-    };
-
-  } catch (error) {
-    console.error('❌ Error importing schedules:', error);
-    safeWriteError('clientImportSchedules', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Import schedules from uploaded data
- */
-function clientImportSchedules(importRequest = {}) {
-  try {
-    const schedules = Array.isArray(importRequest.schedules) ? importRequest.schedules : [];
-    if (schedules.length === 0) {
-      throw new Error('No schedules were provided for import.');
-    }
-
-    const metadata = importRequest.metadata || {};
-    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
-    const now = new Date();
-    const nowIso = Utilities.formatDate(now, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
-
-    const userLookup = buildScheduleUserLookup();
-    const normalizedNew = schedules
-      .map(raw => normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, timeZone))
-      .filter(record => record);
-
-    if (normalizedNew.length === 0) {
-      throw new Error('No valid schedules were found in the uploaded file.');
-    }
-
-    const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const replaceExisting = metadata.replaceExisting === true;
-
-    const dateObjects = normalizedNew
-      .map(record => new Date(record.Date))
-      .filter(date => !isNaN(date.getTime()));
-
-    let minDate = null;
-    let maxDate = null;
-    if (dateObjects.length > 0) {
-      minDate = new Date(Math.min.apply(null, dateObjects));
-      maxDate = new Date(Math.max.apply(null, dateObjects));
-    }
-
-    if (metadata.startWeekDate) {
-      metadata.startWeekDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
-    }
-    if (metadata.endWeekDate) {
-      metadata.endWeekDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
-    }
-
-    const newKeys = new Set(normalizedNew.map(record => `${normalizeUserKey(record.UserName || record.UserID)}::${record.Date}`));
-    let replacedCount = 0;
-
-    const retainedRecords = existingRecords.filter(existing => {
-      const existingDate = normalizeDateForSheet(existing.Date, timeZone);
-      if (!existingDate) {
-        return true;
-      }
-
-      const key = `${normalizeUserKey(existing.UserName || existing.UserID)}::${existingDate}`;
-
-      if (replaceExisting && minDate && maxDate) {
-        const existingDateObj = new Date(existingDate);
-        if (!isNaN(existingDateObj.getTime()) && existingDateObj >= minDate && existingDateObj <= maxDate) {
-          replacedCount++;
-          return false;
-        }
-      }
-
-      if (newKeys.has(key)) {
-        replacedCount++;
-        return false;
-      }
-
-      return true;
-    });
-
-    const normalizedMin = minDate ? normalizeDateForSheet(minDate, timeZone) : '';
-    const normalizedMax = maxDate ? normalizeDateForSheet(maxDate, timeZone) : '';
-
-    const summary = typeof metadata.summary === 'object' && metadata.summary !== null ? metadata.summary : {};
-    if (normalizedMin && !summary.startDate) {
-      summary.startDate = normalizedMin;
-    }
-    if (normalizedMax && !summary.endDate) {
-      summary.endDate = normalizedMax;
-    }
-    if (typeof summary.totalAssignments !== 'number') {
-      summary.totalAssignments = normalizedNew.length;
-    }
-    if (typeof summary.totalShifts !== 'number') {
-      summary.totalShifts = normalizedNew.length;
-    }
-    metadata.summary = summary;
-
-    if (!metadata.weekCount) {
-      const computedWeeks = calculateWeekSpanCount(metadata.startWeekDate, metadata.endWeekDate, minDate, maxDate);
-      if (computedWeeks) {
-        metadata.weekCount = computedWeeks;
-      }
-    }
-
-    const combinedRecords = retainedRecords.concat(normalizedNew);
-
-    combinedRecords.sort((a, b) => {
-      const dateA = new Date(a.Date || 0);
-      const dateB = new Date(b.Date || 0);
-      if (dateA.getTime() !== dateB.getTime()) {
-        return dateA - dateB;
-      }
-      const nameA = (a.UserName || '').toString();
-      const nameB = (b.UserName || '').toString();
-      return nameA.localeCompare(nameB);
-    });
-
-    writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, combinedRecords);
-    invalidateScheduleCaches();
-
-    return {
-      success: true,
-      importedCount: normalizedNew.length,
-      replacedCount,
-      totalAfterImport: combinedRecords.length,
-      range: {
-        start: normalizedMin,
-        end: normalizedMax
-      },
-      metadata
-    };
-
-  } catch (error) {
-    console.error('❌ Error importing schedules:', error);
-    safeWriteError('clientImportSchedules', error);
     return {
       success: false,
       error: error.message
@@ -2433,19 +2578,24 @@ function clientAddManualShiftSlots(request = {}) {
 
     const buildRecordKeys = (record) => {
       const keys = [];
-      const date = normalizeDateForSheet(record && record.Date, timeZone);
-      if (!date) {
+      const normalized = normalizeSchedulePeriodRecord(record, timeZone);
+      const start = normalized && normalized.PeriodStart ? normalized.PeriodStart : '';
+      const end = normalized && normalized.PeriodEnd ? normalized.PeriodEnd : start;
+
+      if (!start) {
         return keys;
       }
 
+      const periodKey = `${start}::${end}`;
+
       const idKey = normalizeUserIdValue(record && record.UserID);
       if (idKey) {
-        keys.push(`id::${idKey}::${date}`);
+        keys.push(`id::${idKey}::${periodKey}`);
       }
 
       const nameKey = normalizeUserKey(record && (record.UserName || record.FullName || record.UserID));
       if (nameKey) {
-        keys.push(`name::${nameKey}::${date}`);
+        keys.push(`name::${nameKey}::${periodKey}`);
       }
 
       return keys;
@@ -3094,12 +3244,42 @@ function getUserIdByName(userName) {
 }
 
 /**
- * Check if schedule exists for user on date - uses ScheduleUtilities
+ * Check if schedule exists for user within a period - uses ScheduleUtilities
  */
-function checkExistingSchedule(userName, date) {
+function checkExistingSchedule(userName, periodStart, periodEnd) {
   try {
     const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    return schedules.find(s => s.UserName === userName && s.Date === date);
+    const normalizeDate = (typeof normalizeScheduleDate === 'function')
+      ? normalizeScheduleDate
+      : value => {
+          if (!value) {
+            return null;
+          }
+          const date = new Date(value);
+          return isNaN(date.getTime()) ? null : date;
+        };
+
+    const requestedStart = normalizeDate(periodStart);
+    const requestedEnd = normalizeDate(periodEnd || periodStart);
+
+    if (!requestedStart || !requestedEnd) {
+      return null;
+    }
+
+    return schedules.find(schedule => {
+      if (schedule.UserName !== userName) {
+        return false;
+      }
+
+      const existingStart = normalizeDate(schedule.PeriodStart || schedule.Date);
+      const existingEnd = normalizeDate(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart);
+
+      if (!existingStart || !existingEnd) {
+        return false;
+      }
+
+      return existingStart <= requestedEnd && existingEnd >= requestedStart;
+    }) || null;
   } catch (error) {
     console.warn('Error checking existing schedule:', error);
     return null;
@@ -3124,10 +3304,32 @@ function normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, time
     return null;
   }
 
-  const dateStr = normalizeDateForSheet(raw.Date, timeZone);
+  const periodStart = normalizeDateForSheet(
+    raw.PeriodStart
+      || raw.StartDate
+      || raw.AssignmentStart
+      || raw.ScheduleStart
+      || raw.Date
+      || raw.ScheduleDate,
+    timeZone
+  );
+
+  const dateStr = normalizeDateForSheet(raw.Date || raw.ScheduleDate || periodStart, timeZone);
+  const periodEnd = normalizeDateForSheet(
+    raw.PeriodEnd
+      || raw.EndDate
+      || raw.AssignmentEnd
+      || raw.ScheduleEnd
+      || raw.Date
+      || raw.ScheduleDate
+      || periodStart,
+    timeZone
+  );
+
+  const primaryDate = periodStart || dateStr;
   const userName = (raw.UserName || '').toString().trim();
 
-  if (!userName || !dateStr) {
+  if (!userName || !primaryDate) {
     return null;
   }
 
@@ -3165,7 +3367,9 @@ function normalizeImportedScheduleRecord(raw, metadata, userLookup, nowIso, time
     ID: raw.ID || Utilities.getUuid(),
     UserID: raw.UserID || (matchedUser ? matchedUser.ID : ''),
     UserName: matchedUser ? (matchedUser.UserName || matchedUser.FullName) : userName,
-    Date: dateStr,
+    Date: primaryDate,
+    PeriodStart: periodStart || primaryDate,
+    PeriodEnd: periodEnd || primaryDate,
     SlotID: raw.SlotID || '',
     SlotName: raw.SlotName || `Imported ${raw.SourceDayLabel || 'Shift'}`,
     StartTime: raw.StartTime || '',
@@ -3380,6 +3584,7 @@ function convertLegacyScheduleRecord(raw) {
   const userName = resolve(['UserName', 'Agent', 'AgentName', 'Name', 'User']);
   const userId = resolve(['UserID', 'UserId', 'AgentID', 'AgentId', 'EmployeeID']);
   const scheduleDate = resolve(['Date', 'ScheduleDate', 'ShiftDate', 'Day']);
+  const scheduleEnd = resolve(['PeriodEnd', 'EndDate', 'ShiftEndDate', 'AssignmentEnd', 'ScheduleEnd'], scheduleDate);
   const slotName = resolve(['SlotName', 'Shift', 'ShiftName', 'Schedule']);
 
   const timezone = (typeof Session !== 'undefined' && Session.getScriptTimeZone)
@@ -3404,11 +3609,16 @@ function convertLegacyScheduleRecord(raw) {
     ? Utilities.getUuid()
     : `legacy-schedule-${Math.random().toString(36).slice(2)}`;
 
+  const normalizedStart = normalizeDate(scheduleDate);
+  const normalizedEnd = normalizeDate(scheduleEnd) || normalizedStart;
+
   return {
     ID: resolve(['ID', 'ScheduleID', 'Schedule Id', 'RecordID'], uuid),
     UserID: userId || normalizeUserIdValue(userName),
     UserName: userName || userId,
-    Date: normalizeDate(scheduleDate),
+    Date: normalizedStart,
+    PeriodStart: normalizedStart,
+    PeriodEnd: normalizedEnd,
     SlotID: resolve(['SlotID', 'ShiftID', 'TemplateID'], ''),
     SlotName: slotName || 'Shift',
     StartTime: resolve(['StartTime', 'Start', 'ShiftStart', 'Begin']),
