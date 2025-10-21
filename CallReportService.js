@@ -680,6 +680,9 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     const averageAnswerSeconds = v.answeredCount > 0 ? v.totalAnswerSeconds / v.answeredCount : null;
     const fastAnswerRate = v.answeredCount > 0 ? (v.fastAnswerCount / v.answeredCount) * 100 : null;
     const coverage = evaluateWeekCoverage(v.weeklyCoverage || {}, weekRequirements);
+    const coverageEvaluatedThrough = coverage.evaluatedThrough instanceof Date && !isNaN(coverage.evaluatedThrough)
+      ? coverage.evaluatedThrough.toISOString()
+      : null;
     return {
       agent,
       totalCalls: v.totalCalls,
@@ -699,7 +702,8 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
       csatTotal: v.csatTotal,
       csatYesRate: v.csatTotal > 0 ? (v.csatYes / v.csatTotal) * 100 : null,
       weeklyCoverageSummary: coverage.weekSummaries,
-      fullWeekCoverage: coverage.meetsAllWeeks
+      fullWeekCoverage: coverage.meetsAllWeeks,
+      coverageEvaluatedThrough
     };
   });
 
@@ -1135,6 +1139,14 @@ function buildWeekRequirements(startDate, endDate, tz) {
   if (!(startDate instanceof Date) || isNaN(startDate) || !(endDate instanceof Date) || isNaN(endDate)) {
     return requirements;
   }
+
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const evaluationCutoffTime = Math.min(endDate.getTime(), todayMidnight.getTime());
+  const evaluationCutoff = evaluationCutoffTime >= startDate.getTime()
+    ? new Date(evaluationCutoffTime)
+    : null;
+
   const firstWeekStart = startOfWeek(startDate);
   for (let cursor = new Date(firstWeekStart); cursor.getTime() <= endDate.getTime(); cursor.setDate(cursor.getDate() + 7)) {
     const weekStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
@@ -1143,37 +1155,55 @@ function buildWeekRequirements(startDate, endDate, tz) {
     const windowEnd = weekEnd.getTime() > endDate.getTime() ? endDate : weekEnd;
     const windowStartMidnight = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate());
     const windowEndMidnight = new Date(windowEnd.getFullYear(), windowEnd.getMonth(), windowEnd.getDate());
+    const evaluationEndTime = Math.min(windowEndMidnight.getTime(), evaluationCutoffTime);
+
     let weekdayCount = 0;
-    for (let dayCursor = new Date(windowStartMidnight.getTime()); dayCursor.getTime() <= windowEndMidnight.getTime(); dayCursor.setDate(dayCursor.getDate() + 1)) {
-      const dow = dayCursor.getDay();
-      if (dow === 0 || dow === 6) continue;
-      weekdayCount += 1;
+    if (evaluationEndTime >= windowStartMidnight.getTime()) {
+      const evaluationEnd = new Date(evaluationEndTime);
+      for (let dayCursor = new Date(windowStartMidnight.getTime()); dayCursor.getTime() <= evaluationEnd.getTime(); dayCursor.setDate(dayCursor.getDate() + 1)) {
+        const dow = dayCursor.getDay();
+        if (dow === 0 || dow === 6) continue;
+        weekdayCount += 1;
+      }
     }
+
     const requiredDays = Math.min(5, Math.max(0, weekdayCount));
     const weekKey = Utilities.formatDate(weekStart, tz, 'yyyy-MM-dd');
     requirements.push({
       weekKey,
       windowStartTime: windowStartMidnight.getTime(),
       windowEndTime: windowEndMidnight.getTime(),
+      evaluationEndTime,
       requiredDays,
       windowStartLabel: Utilities.formatDate(windowStartMidnight, tz, 'MMM d'),
-      windowEndLabel: Utilities.formatDate(windowEndMidnight, tz, 'MMM d')
+      windowEndLabel: Utilities.formatDate(windowEndMidnight, tz, 'MMM d'),
+      evaluationEndLabel: evaluationEndTime >= windowStartMidnight.getTime()
+        ? Utilities.formatDate(new Date(evaluationEndTime), tz, 'MMM d')
+        : Utilities.formatDate(windowStartMidnight, tz, 'MMM d')
     });
   }
+
+  requirements.evaluatedThrough = evaluationCutoff;
   return requirements;
 }
 
 function evaluateWeekCoverage(coverageMap, requirements) {
   if (!requirements || !requirements.length) {
-    return { weekSummaries: [], meetsAllWeeks: false };
+    return { weekSummaries: [], meetsAllWeeks: false, evaluatedThrough: null };
   }
+
+  const evaluationThrough = requirements.evaluatedThrough instanceof Date && !isNaN(requirements.evaluatedThrough)
+    ? new Date(requirements.evaluatedThrough.getTime())
+    : null;
+
   const weekSummaries = requirements.map(req => {
     const stored = coverageMap && coverageMap[req.weekKey] ? coverageMap[req.weekKey] : { days: {} };
     const dayKeys = Object.keys(stored.days || {});
+    const cutoff = Number.isFinite(req.evaluationEndTime) ? req.evaluationEndTime : req.windowEndTime;
     const actualDays = dayKeys.filter(key => {
       const numeric = Number(key);
       if (!Number.isFinite(numeric)) return false;
-      return numeric >= req.windowStartTime && numeric <= req.windowEndTime;
+      return numeric >= req.windowStartTime && numeric <= cutoff;
     }).length;
     return {
       weekKey: req.weekKey,
@@ -1181,11 +1211,13 @@ function evaluateWeekCoverage(coverageMap, requirements) {
       actualDays,
       meetsRequirement: actualDays >= req.requiredDays,
       windowStartLabel: req.windowStartLabel,
-      windowEndLabel: req.windowEndLabel
+      windowEndLabel: req.windowEndLabel,
+      evaluationEndLabel: req.evaluationEndLabel
     };
   });
+
   const meetsAllWeeks = weekSummaries.length > 0 && weekSummaries.every(entry => entry.requiredDays === 0 || entry.meetsRequirement);
-  return { weekSummaries, meetsAllWeeks };
+  return { weekSummaries, meetsAllWeeks, evaluatedThrough: evaluationThrough };
 }
 
 /**

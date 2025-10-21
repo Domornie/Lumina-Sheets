@@ -2414,6 +2414,13 @@
   }
 
 
+  function formatCoverageDateLabel(value) {
+    if (!value && value !== 0) return '';
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (!(parsed instanceof Date) || isNaN(parsed)) return '';
+    return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
   function renderRecognitionHighlights(analytics = {}) {
     const csatCard = document.getElementById('csatRecognitionCard');
     const attCard = document.getElementById('attRecognitionCard');
@@ -2515,7 +2522,8 @@
           calls,
           totalMinutes,
           avgTalk,
-          coverageSummary
+          coverageSummary,
+          coverageEvaluatedThrough: item.coverageEvaluatedThrough || null
         };
       })
       .filter(entry => {
@@ -2552,26 +2560,38 @@
       const coverageWeeksMet = Array.isArray(champion.coverageSummary)
         ? champion.coverageSummary.filter(week => week.requiredDays > 0 && week.meetsRequirement).length
         : 0;
-      const coverageLabel = coverageWeeks > 0
-        ? ` Maintained weekday call coverage (Mon–Fri) across ${coverageWeeksMet}/${coverageWeeks} week${coverageWeeks === 1 ? '' : 's'} this period.`
-        : '';
-      const teamAverageLabel = benchmarkDisplay !== null
-        ? ` Team average: ${benchmarkDisplay} min.`
-        : '';
+        const coverageLabel = coverageWeeks > 0
+          ? `Maintained weekday call coverage (Mon–Fri) across ${coverageWeeksMet}/${coverageWeeks} week${coverageWeeks === 1 ? '' : 's'} this period.`
+          : '';
+        const teamAverageLabel = benchmarkDisplay !== null
+          ? `Team average: ${benchmarkDisplay} min.`
+          : '';
+        const evaluatedThroughLabel = formatCoverageDateLabel(champion.coverageEvaluatedThrough);
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
-      attDetailEl.textContent = `${championCalls} (${championMinutes}).${coverageLabel}${teamAverageLabel}`.trim();
-      attFooterEl.textContent = 'Ranked by lowest average talk time with full weekday coverage';
-      updateRankingList(attListEl, attLeaders, entry => {
-        const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
-        const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
-        const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
-        const coverageNote = Array.isArray(entry.coverageSummary) && entry.coverageSummary.length
-          ? ' • Weekday coverage met (Mon–Fri)'
-          : '';
-        return `${avgLabel} • ${callLabel} (${totalLabel})${coverageNote}`;
-      });
+        const detailParts = [`${championCalls} (${championMinutes}).`];
+        if (coverageLabel) detailParts.push(coverageLabel);
+        if (evaluatedThroughLabel) detailParts.push(`Coverage evaluated through ${evaluatedThroughLabel}.`);
+        if (teamAverageLabel) detailParts.push(teamAverageLabel);
+        attDetailEl.textContent = detailParts.join(' ').replace(/\s+/g, ' ').trim();
+        attFooterEl.textContent = evaluatedThroughLabel
+          ? `Ranked by lowest average talk time • Coverage tracked through ${evaluatedThroughLabel}`
+          : 'Ranked by lowest average talk time with full weekday coverage';
+        updateRankingList(attListEl, attLeaders, entry => {
+          const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
+          const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
+          const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
+          const coverageSummary = Array.isArray(entry.coverageSummary) ? entry.coverageSummary : [];
+          const coverageWeeksTotal = coverageSummary.filter(week => Number(week.requiredDays || 0) > 0).length;
+          const coverageWeeksMet = coverageSummary.filter(week => Number(week.requiredDays || 0) > 0 && week.meetsRequirement).length;
+          const coverageNote = coverageWeeksTotal > 0
+            ? ` • Coverage ${coverageWeeksMet}/${coverageWeeksTotal} weeks`
+            : '';
+          const evaluatedLabel = formatCoverageDateLabel(entry.coverageEvaluatedThrough);
+          const evaluationNote = evaluatedLabel ? ` (through ${evaluatedLabel})` : '';
+          return `${avgLabel} • ${callLabel} (${totalLabel})${coverageNote}${evaluationNote}`;
+        });
     }
 
     function updateRankingList(listEl, entries, formatter) {
