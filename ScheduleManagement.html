@@ -2335,17 +2335,13 @@
                         </div>
                         <div class="modern-card-body">
                             <form id="shiftSlotForm">
+                                <input type="hidden" id="slotIdentifier">
                                 <!-- Basic Information -->
                                 <div class="mb-4">
                                     <h6 class="text-primary mb-3">
                                         <i class="fas fa-info-circle me-2"></i>Basic Information
                                     </h6>
                                     <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label-modern">Slot ID</label>
-                                            <input type="text" class="form-control form-control-modern" id="slotIdentifier" value="Will be assigned after save" readonly>
-                                            <small class="text-muted">Generated automatically after the slot is created.</small>
-                                        </div>
                                         <div class="col-md-6">
                                             <label class="form-label-modern">Slot Name</label>
                                             <input type="text" class="form-control form-control-modern" id="slotName" required placeholder="e.g., Morning Customer Service Shift">
@@ -4994,7 +4990,7 @@
                 document.getElementById('shiftSlotForm').reset();
                 const slotIdentifierField = document.getElementById('slotIdentifier');
                 if (slotIdentifierField) {
-                    slotIdentifierField.value = 'Will be assigned after save';
+                    slotIdentifierField.value = '';
                 }
 
                 // Reset checkboxes to weekdays default
