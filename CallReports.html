@@ -1477,7 +1477,7 @@
             <div class="recognition-badge"><i class="fas fa-stopwatch"></i> ATT Ace</div>
             <div class="recognition-agent" id="attChampionName">Awaiting data</div>
             <div class="recognition-stat" id="attChampionValue">—</div>
-            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after 5–7 qualifying calls averaging 5–12 minutes (each call 1–20,000 minutes) with weekday call coverage (Mon–Fri) recorded at least 5 days per week for the entire month.</div>
+            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after qualifying calls averaging 5–12 minutes (each call 1–20,000 minutes) with weekday call coverage (Mon–Fri) recorded at least 5 days per week for the entire month.</div>
             <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average talk time performers"></ul>
             <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls with full weekday coverage yet</span></div>
         </div>
@@ -2523,7 +2523,7 @@
       .filter(entry => {
         if (entry.avgTalk === null || !Number.isFinite(entry.avgTalk)) return false;
         if (entry.avgTalk < IDEAL_MIN_ATT_MINUTES || entry.avgTalk > IDEAL_MAX_ATT_MINUTES) return false;
-        return entry.calls >= 5 && entry.calls <= 7;
+        return entry.calls > 0;
       });
 
     const attLeaders = attEligible
@@ -2540,7 +2540,7 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Log 5–7 qualifying calls between 1 and 20,000 minutes that average between 5 and 12 minutes while maintaining weekday coverage (Mon–Fri) at least 5 days per week across every week in the month to earn recognition.';
+      attDetailEl.textContent = 'Log qualifying calls between 1 and 20,000 minutes that average between 5 and 12 minutes while maintaining weekday coverage (Mon–Fri) at least 5 days per week across every week in the month to earn recognition.';
       attFooterEl.textContent = 'No qualifying calls with full weekday coverage yet';
       updateRankingList(attListEl, []);
     } else {
