@@ -1924,6 +1924,28 @@
         .replace(/'/g, '&#39;');
     }
 
+    function formatNoteContent(note) {
+      const placeholder = '<span class="text-muted">No note</span>';
+      if (note === null || note === undefined) {
+        return placeholder;
+      }
+
+      let content = note;
+      if (Array.isArray(content)) {
+        content = content
+          .filter(item => item !== null && item !== undefined)
+          .map(item => String(item))
+          .join('\n');
+      }
+
+      const text = String(content).trim();
+      if (!text) {
+        return placeholder;
+      }
+
+      return escapeHtml(text).replace(/\r?\n/g, '<br>');
+    }
+
     function populateSelect(selectEl, options, placeholder) {
       if (!selectEl) return;
       const currentValue = selectEl.value;
