@@ -291,6 +291,94 @@
     color: var(--qa-muted);
   }
 
+  .qa-spotlight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    align-items: stretch;
+  }
+
+  .qa-spotlight-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+  }
+
+  .qa-spotlight-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+  }
+
+  .qa-spotlight-metric {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: var(--qa-radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    padding: 1rem 1.15rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  }
+
+  .qa-spotlight-metric__label {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--qa-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .qa-spotlight-metric__value {
+    display: block;
+    font-weight: 700;
+    font-size: 1.85rem;
+    color: #0f172a;
+  }
+
+  .qa-spotlight-metric__delta {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-top: 0.35rem;
+    color: var(--qa-muted);
+  }
+
+  .qa-spotlight-metric__delta.positive {
+    color: var(--qa-success);
+  }
+
+  .qa-spotlight-metric__delta.negative {
+    color: var(--qa-danger);
+  }
+
+  .qa-spotlight-chart {
+    position: relative;
+    height: 160px;
+  }
+
+  .qa-spotlight-chart canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .qa-spotlight-note {
+    color: #475569;
+    font-size: 0.92rem;
+  }
+
+  .qa-hero-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .qa-hero-grid__item {
+    min-width: 0;
+  }
+
+  .qa-ai-band {
+    width: 100%;
+  }
+
   .qa-section-title {
     font-size: 1.15rem;
     font-weight: 600;
@@ -421,6 +509,22 @@
     color: #0f172a;
   }
 
+  .qa-intelligence-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .qa-intelligence-card__eyebrow {
+    font-size: 0.82rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(15, 23, 42, 0.7);
+    font-weight: 600;
+  }
+
   .qa-ai-metric-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -479,6 +583,11 @@
     color: #475569;
     font-size: 0.9rem;
     margin-bottom: 1.1rem;
+  }
+
+  .qa-coverage-summary {
+    color: #475569;
+    font-size: 0.92rem;
   }
 
   .qa-recognition-item {
@@ -928,6 +1037,11 @@
     .qa-trend-chart-container {
       height: 360px;
     }
+
+    .qa-spotlight-grid,
+    .qa-hero-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 768px) {
@@ -1002,12 +1116,12 @@
 
   <div class="qa-summary-grid mt-4" id="qa-summary-cards">
       <div class="qa-summary-card" data-metric="avg">
-        <div class="qa-summary-card__label">Average QA Score</div>
+        <div class="qa-summary-card__label">Team Average QA Score</div>
         <div class="qa-summary-card__value" data-role="value">--</div>
         <div class="qa-summary-card__delta neutral" data-role="delta">Awaiting data</div>
       </div>
       <div class="qa-summary-card" data-metric="pass">
-        <div class="qa-summary-card__label">Pass Rate</div>
+        <div class="qa-summary-card__label">Team Pass Rate</div>
         <div class="qa-summary-card__value" data-role="value">--</div>
         <div class="qa-summary-card__delta neutral" data-role="delta">Awaiting data</div>
       </div>
@@ -1017,7 +1131,7 @@
         <div class="qa-summary-card__delta neutral" data-role="delta">Awaiting data</div>
       </div>
       <div class="qa-summary-card" data-metric="evaluations">
-        <div class="qa-summary-card__label">Evaluations</div>
+        <div class="qa-summary-card__label">Evaluations Logged</div>
         <div class="qa-summary-card__value" data-role="value">--</div>
         <div class="qa-summary-card__delta neutral" data-role="delta">Awaiting data</div>
       </div>
@@ -1031,47 +1145,13 @@
     <p class="mb-0">Adjust your filters or capture new QA reviews to populate this dashboard.</p>
   </div>
 
-  <div class="row g-4 mt-1" id="qa-recognition-row">
-    <div class="col-12">
-      <div class="card h-100">
-        <div class="card-header d-flex align-items-center gap-2">
-          <i class="fa-solid fa-trophy text-warning" aria-hidden="true"></i>
-          <span>Quality Recognition</span>
-        </div>
-        <div class="card-body">
-          <p class="qa-recognition-note" id="qa-recognition-note">
-            The top three agents each period will be highlighted here once evaluations are available.
-          </p>
-          <div class="qa-recognition-empty" id="qa-quality-recognition-empty">
-            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            <span>Quality champions will appear here once evaluations are available.</span>
-          </div>
-          <div class="qa-recognition-list d-none" id="qa-quality-recognition" aria-live="polite" role="list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row g-4" id="qa-dashboard-content">
-    <div class="col-12 col-xxl-7">
-      <div class="card h-100">
+  <div class="qa-spotlight-grid mt-4" id="qa-spotlight-grid">
+    <div class="qa-spotlight-grid__item">
+      <div class="card qa-health-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Performance Trend</span>
-          <span class="badge bg-light text-primary" id="qa-trend-granularity">Weekly</span>
+          <span>Quality Health Overview</span>
+          <span class="badge bg-light text-primary" id="qa-health-period">Live</span>
         </div>
-        <div class="card-body">
-          <div class="qa-trend-chart-container">
-            <canvas id="qa-trend-chart"></canvas>
-          </div>
-          <div class="qa-trend-summary mt-3" id="qa-trend-summary">
-            Trend analysis will appear once data is loaded.
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-12 col-xxl-5 d-flex flex-column gap-4">
-      <div class="card h-100">
-        <div class="card-header">Quality Health Overview</div>
         <div class="card-body">
           <div class="qa-gauge-wrapper mb-3">
             <canvas id="qa-gauge-chart"></canvas>
@@ -1094,22 +1174,111 @@
           </div>
         </div>
       </div>
-      <div class="qa-intelligence-card h-100">
+    </div>
+    <div class="qa-spotlight-grid__item">
+      <div class="card qa-spotlight-card h-100" id="qa-spotlight-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Agent Spotlight</span>
+          <span class="badge bg-light text-primary" id="qa-spotlight-context">All Agents</span>
+        </div>
+        <div class="card-body">
+          <div class="qa-spotlight-body">
+            <div class="qa-spotlight-metrics">
+              <div class="qa-spotlight-metric">
+                <span class="qa-spotlight-metric__label">QA Score</span>
+                <span class="qa-spotlight-metric__value" id="qa-spotlight-score">--</span>
+                <span class="qa-spotlight-metric__delta neutral" id="qa-spotlight-score-delta">Awaiting data</span>
+              </div>
+              <div class="qa-spotlight-metric">
+                <span class="qa-spotlight-metric__label">Pass Rate</span>
+                <span class="qa-spotlight-metric__value" id="qa-spotlight-pass">--</span>
+                <span class="qa-spotlight-metric__delta neutral" id="qa-spotlight-pass-delta">Awaiting data</span>
+              </div>
+              <div class="qa-spotlight-metric">
+                <span class="qa-spotlight-metric__label">Evaluations</span>
+                <span class="qa-spotlight-metric__value" id="qa-spotlight-evaluations">--</span>
+                <span class="qa-spotlight-metric__delta neutral" id="qa-spotlight-share">Awaiting data</span>
+              </div>
+            </div>
+            <div class="qa-spotlight-chart">
+              <canvas id="qa-spotlight-spark"></canvas>
+              <div class="qa-chart-empty d-none" id="qa-spotlight-empty">More evaluations needed to chart agent momentum.</div>
+            </div>
+          </div>
+          <p class="qa-spotlight-note mb-0" id="qa-spotlight-note">Select an agent to see individual quality momentum.</p>
+        </div>
+      </div>
+    </div>
+    <div class="qa-spotlight-grid__item">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="fa-solid fa-trophy text-warning" aria-hidden="true"></i>
+          <span>Quality Recognition</span>
+        </div>
+        <div class="card-body">
+          <p class="qa-recognition-note" id="qa-recognition-note">
+            The top three agents each period will be highlighted here once evaluations are available.
+          </p>
+          <div class="qa-recognition-empty" id="qa-quality-recognition-empty">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <span>Quality champions will appear here once evaluations are available.</span>
+          </div>
+          <div class="qa-recognition-list d-none" id="qa-quality-recognition" aria-live="polite" role="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="qa-ai-band mt-4" id="qa-ai-band">
+    <div class="qa-intelligence-card h-100">
+      <div class="qa-intelligence-card__header">
         <div class="qa-insight-count">
           <i class="fa-solid fa-robot"></i>
           <span id="qa-insight-count">0 AI insights</span>
         </div>
-        <p class="qa-intelligence-card__summary mb-0" id="qa-intel-summary">
-          AI-generated recommendations will populate once fresh QA data is available.
-        </p>
-        <div id="qa-next-best" class="qa-next-best d-none"></div>
-        <div class="qa-intelligence-card__actions">
-          <button type="button" class="btn btn-outline-primary" id="qa-open-insights" data-bs-toggle="modal" data-bs-target="#qaInsightsModal">
-            <i class="fa-solid fa-lightbulb me-2"></i>View AI Insights
-          </button>
-          <button type="button" class="btn btn-primary" id="qa-open-actions" data-bs-toggle="modal" data-bs-target="#qaActionsModal">
-            <i class="fa-solid fa-list-check me-2"></i>View Recommendations
-          </button>
+        <span class="qa-intelligence-card__eyebrow">AI Recommendations &amp; Insights</span>
+      </div>
+      <p class="qa-intelligence-card__summary mb-0" id="qa-intel-summary">
+        AI-generated recommendations will populate once fresh QA data is available.
+      </p>
+      <div id="qa-next-best" class="qa-next-best d-none"></div>
+      <div class="qa-intelligence-card__actions">
+        <button type="button" class="btn btn-outline-primary" id="qa-open-insights" data-bs-toggle="modal" data-bs-target="#qaInsightsModal">
+          <i class="fa-solid fa-lightbulb me-2"></i>View AI Insights
+        </button>
+        <button type="button" class="btn btn-primary" id="qa-open-actions" data-bs-toggle="modal" data-bs-target="#qaActionsModal">
+          <i class="fa-solid fa-list-check me-2"></i>View Recommendations
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="qa-hero-grid mt-4" id="qa-dashboard-content">
+    <div class="qa-hero-grid__item">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Score Trajectory</span>
+          <span class="badge bg-light text-primary" id="qa-trend-granularity">Weekly</span>
+        </div>
+        <div class="card-body">
+          <div class="qa-trend-chart-container">
+            <canvas id="qa-trend-chart"></canvas>
+          </div>
+          <div class="qa-trend-summary mt-3" id="qa-trend-summary">
+            Trend analysis will appear once data is loaded.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="qa-hero-grid__item">
+      <div class="card h-100">
+        <div class="card-header">Coverage &amp; Volume</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper">
+            <canvas id="qa-coverage-chart"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-coverage-empty">Historical coverage data required.</div>
+          </div>
+          <div class="qa-coverage-summary mt-3" id="qa-coverage-summary">Coverage analytics will appear once multiple periods are available.</div>
         </div>
       </div>
     </div>
@@ -1163,6 +1332,17 @@
           <div class="qa-chart-wrapper">
             <canvas id="qa-distribution-chart"></canvas>
             <div class="qa-chart-empty d-none" id="qa-distribution-empty">Distribution requires agent scoring data.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6 col-xxl-4">
+      <div class="card h-100">
+        <div class="card-header">Agent Quality Composition</div>
+        <div class="card-body">
+          <div class="qa-chart-wrapper">
+            <canvas id="qa-agent-stacked"></canvas>
+            <div class="qa-chart-empty d-none" id="qa-agent-stacked-empty">Top agent quality mix will appear with evaluation data.</div>
           </div>
         </div>
       </div>
@@ -1370,6 +1550,7 @@
       },
       loading: false,
       data: null,
+      agentLookup: {},
       charts: {
         trend: null,
         gauge: null,
@@ -1379,7 +1560,10 @@
         distribution: null,
         categoryRadar: null,
         programPolar: null,
-        agentImpact: null
+        agentImpact: null,
+        coverage: null,
+        spotlightSpark: null,
+        agentStacked: null
       },
       modals: {
         insights: null,
@@ -1403,6 +1587,21 @@
       insights: document.getElementById('qa-insights'),
       actions: document.getElementById('qa-actions'),
       nextBest: document.getElementById('qa-next-best'),
+      healthPeriod: document.getElementById('qa-health-period'),
+      spotlightCard: document.getElementById('qa-spotlight-card'),
+      spotlightContext: document.getElementById('qa-spotlight-context'),
+      spotlightScore: document.getElementById('qa-spotlight-score'),
+      spotlightScoreDelta: document.getElementById('qa-spotlight-score-delta'),
+      spotlightPass: document.getElementById('qa-spotlight-pass'),
+      spotlightPassDelta: document.getElementById('qa-spotlight-pass-delta'),
+      spotlightEvaluations: document.getElementById('qa-spotlight-evaluations'),
+      spotlightShare: document.getElementById('qa-spotlight-share'),
+      spotlightNote: document.getElementById('qa-spotlight-note'),
+      spotlightChart: document.getElementById('qa-spotlight-spark'),
+      spotlightEmpty: document.getElementById('qa-spotlight-empty'),
+      coverageCanvas: document.getElementById('qa-coverage-chart'),
+      coverageEmpty: document.getElementById('qa-coverage-empty'),
+      coverageSummary: document.getElementById('qa-coverage-summary'),
       categoriesBody: document.getElementById('qa-categories-body'),
       agentsBody: document.getElementById('qa-agents-body'),
       contextSummary: document.getElementById('qa-context-summary'),
@@ -1415,10 +1614,11 @@
       categoryCanvas: document.getElementById('qa-category-chart'),
       agentCanvas: document.getElementById('qa-agent-chart'),
       distributionCanvas: document.getElementById('qa-distribution-chart'),
-      recognitionRow: document.getElementById('qa-recognition-row'),
       recognitionList: document.getElementById('qa-quality-recognition'),
       recognitionNotice: document.getElementById('qa-recognition-note'),
       recognitionEmpty: document.getElementById('qa-quality-recognition-empty'),
+      agentStackedCanvas: document.getElementById('qa-agent-stacked'),
+      agentStackedEmpty: document.getElementById('qa-agent-stacked-empty'),
       outcomeEmpty: document.getElementById('qa-outcome-empty'),
       categoryEmpty: document.getElementById('qa-category-empty'),
       agentEmpty: document.getElementById('qa-agent-empty'),
@@ -1724,6 +1924,28 @@
         .replace(/'/g, '&#39;');
     }
 
+    function formatNoteContent(note) {
+      const placeholder = '<span class="text-muted">No note</span>';
+      if (note === null || note === undefined) {
+        return placeholder;
+      }
+
+      let content = note;
+      if (Array.isArray(content)) {
+        content = content
+          .filter(item => item !== null && item !== undefined)
+          .map(item => String(item))
+          .join('\n');
+      }
+
+      const text = String(content).trim();
+      if (!text) {
+        return placeholder;
+      }
+
+      return escapeHtml(text).replace(/\r?\n/g, '<br>');
+    }
+
     function populateSelect(selectEl, options, placeholder) {
       if (!selectEl) return;
       const currentValue = selectEl.value;
@@ -1878,6 +2100,278 @@
           : 'Trend analysis ready once evaluations post across multiple periods.';
         dom.trendSummary.textContent = summary;
       }
+    }
+
+    function renderCoverage(trend) {
+      if (!dom.coverageCanvas) {
+        return;
+      }
+
+      const ctx = dom.coverageCanvas.getContext('2d');
+      const series = trend && Array.isArray(trend.series) ? trend.series : [];
+      const labels = series.map(entry => entry.label);
+      const evaluations = series.map(entry => Number(entry.evalCount) || 0);
+      const coverage = series.map(entry => normalizePercent(entry.coverage));
+      const hasData = labels.length > 0 && (evaluations.some(value => value > 0) || coverage.some(value => value > 0));
+
+      if (dom.coverageEmpty) {
+        dom.coverageEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (dom.coverageSummary) {
+        if (series.length >= 2) {
+          const first = series[0];
+          const last = series[series.length - 1];
+          const coverageDelta = Math.round((Number(last.coverage || 0) - Number(first.coverage || 0)) * 10) / 10;
+          const evalDelta = (Number(last.evalCount) || 0) - (Number(first.evalCount) || 0);
+          const coveragePhrase = coverageDelta === 0
+            ? 'Coverage steady'
+            : `Coverage ${coverageDelta > 0 ? 'up' : 'down'} ${Math.abs(coverageDelta).toFixed(1)} pts`;
+          const evalPhrase = evalDelta === 0
+            ? 'Evaluations steady'
+            : `Evaluations ${evalDelta > 0 ? 'up' : 'down'} ${formatNumber(Math.abs(evalDelta))}`;
+          const anchor = first && first.label ? first.label : 'the start of this view';
+          dom.coverageSummary.textContent = `${coveragePhrase}; ${evalPhrase} since ${anchor}.`;
+        } else if (hasData) {
+          dom.coverageSummary.textContent = 'Need additional periods to analyze coverage momentum.';
+        } else {
+          dom.coverageSummary.textContent = 'Coverage analytics will appear once multiple periods are available.';
+        }
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('coverage');
+        return;
+      }
+
+      destroyChart('coverage');
+      state.charts.coverage = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Evaluations',
+              data: evaluations,
+              backgroundColor: 'rgba(59, 130, 246, 0.35)',
+              borderRadius: 10,
+              maxBarThickness: 38,
+              yAxisID: 'y'
+            },
+            {
+              type: 'line',
+              label: 'Coverage %',
+              data: coverage,
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.18)',
+              fill: true,
+              tension: 0.35,
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom', labels: { usePointStyle: true } },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  if (context.dataset && context.dataset.label === 'Coverage %') {
+                    return tooltipPercentLabel(context);
+                  }
+                  return tooltipCountLabel(context);
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(148, 163, 184, 0.2)' },
+              title: { display: true, text: 'Evaluations' }
+            },
+            y1: {
+              beginAtZero: true,
+              min: 0,
+              max: 100,
+              position: 'right',
+              ticks: { callback: percentTickFormatter },
+              grid: { drawOnChartArea: false }
+            },
+            x: {
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    function renderSpotlightSpark(trend) {
+      if (!dom.spotlightChart) {
+        return;
+      }
+
+      const ctx = dom.spotlightChart.getContext('2d');
+      const series = trend && Array.isArray(trend.series) ? trend.series : [];
+      const labels = series.map(entry => entry.label);
+      const scores = series.map(entry => Number(entry.avgScore) || 0);
+      const finiteScores = scores.filter(value => Number.isFinite(value));
+      const hasData = labels.length > 0 && finiteScores.length > 0;
+
+      if (dom.spotlightEmpty) {
+        dom.spotlightEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('spotlightSpark');
+        return;
+      }
+
+      const minScore = Math.min(...finiteScores);
+      const maxScore = Math.max(...finiteScores);
+
+      destroyChart('spotlightSpark');
+      state.charts.spotlightSpark = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              data: scores,
+              borderColor: '#0ea5e9',
+              backgroundColor: 'rgba(14, 165, 233, 0.22)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+              pointHoverRadius: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: tooltipPercentLabel } }
+          },
+          scales: {
+            x: { display: false },
+            y: {
+              display: false,
+              suggestedMin: Math.max(0, minScore - 5),
+              suggestedMax: Math.min(100, maxScore + 5)
+            }
+          }
+        }
+      });
+    }
+
+    function renderAgentSpotlight(summary, agents, trend) {
+      if (!dom.spotlightCard) {
+        return;
+      }
+
+      const selectedAgent = state.filters.agent || '';
+      const agentList = Array.isArray(agents) ? agents.slice() : [];
+      let spotlight = null;
+
+      if (selectedAgent) {
+        spotlight = agentList.find(agent => agent && (agent.id === selectedAgent || agent.name === selectedAgent));
+      }
+
+      if (!spotlight && agentList.length) {
+        agentList.sort((a, b) => (Number(b.avgScore) || 0) - (Number(a.avgScore) || 0));
+        spotlight = agentList[0];
+      }
+
+      const contextLabel = selectedAgent
+        ? (state.agentLookup && state.agentLookup[selectedAgent]) || (spotlight ? (spotlight.displayName || spotlight.name) : 'Selected Agent')
+        : 'All Agents';
+
+      if (dom.spotlightContext) {
+        dom.spotlightContext.textContent = contextLabel || 'All Agents';
+      }
+
+      const scoreValue = spotlight && typeof spotlight.avgScore === 'number'
+        ? spotlight.avgScore
+        : (summary && typeof summary.avg === 'number' ? summary.avg : null);
+      if (dom.spotlightScore) {
+        dom.spotlightScore.textContent = scoreValue === null ? '--' : `${Math.round(scoreValue)}%`;
+      }
+
+      const scoreDeltaSource = spotlight && spotlight.deltas ? spotlight.deltas.avgScore : summary && summary.delta ? summary.delta.avg : null;
+      const scoreDelta = formatDelta(scoreDeltaSource, true);
+      if (dom.spotlightScoreDelta) {
+        dom.spotlightScoreDelta.textContent = scoreDelta.text;
+        dom.spotlightScoreDelta.className = `qa-spotlight-metric__delta ${scoreDelta.tone}`;
+      }
+
+      const passValue = spotlight && typeof spotlight.passRate === 'number'
+        ? spotlight.passRate
+        : (summary && typeof summary.pass === 'number' ? summary.pass : null);
+      if (dom.spotlightPass) {
+        dom.spotlightPass.textContent = passValue === null ? '--' : `${Math.round(passValue)}%`;
+      }
+
+      const passDeltaSource = spotlight && spotlight.deltas ? spotlight.deltas.passRate : summary && summary.delta ? summary.delta.pass : null;
+      const passDelta = formatDelta(passDeltaSource, true);
+      if (dom.spotlightPassDelta) {
+        dom.spotlightPassDelta.textContent = passDelta.text;
+        dom.spotlightPassDelta.className = `qa-spotlight-metric__delta ${passDelta.tone}`;
+      }
+
+      const evaluationValue = spotlight && typeof spotlight.evaluations === 'number'
+        ? spotlight.evaluations
+        : (summary && typeof summary.evaluations === 'number' ? summary.evaluations : null);
+      if (dom.spotlightEvaluations) {
+        dom.spotlightEvaluations.textContent = evaluationValue === null ? '--' : formatNumber(evaluationValue);
+      }
+
+      let shareText = 'Awaiting data';
+      if (spotlight && typeof spotlight.evaluationShare === 'number' && !Number.isNaN(spotlight.evaluationShare)) {
+        shareText = `${Math.round(spotlight.evaluationShare)}% of reviews`;
+      } else if (spotlight && evaluationValue !== null && summary && typeof summary.evaluations === 'number' && summary.evaluations > 0) {
+        const share = Math.round((spotlight.evaluations / summary.evaluations) * 100);
+        shareText = `${share}% of total reviews`;
+      } else if (summary && typeof summary.evaluations === 'number') {
+        shareText = `${formatNumber(summary.evaluations)} total reviews`;
+      }
+      if (dom.spotlightShare) {
+        dom.spotlightShare.textContent = shareText;
+        dom.spotlightShare.className = 'qa-spotlight-metric__delta neutral';
+      }
+
+      if (dom.spotlightNote) {
+        let note = 'Select an agent to see individual quality momentum.';
+        if (spotlight) {
+          const scorePhrase = scoreValue === null ? '--' : `${Math.round(scoreValue)}%`;
+          const passPhrase = passValue === null ? '--' : `${Math.round(passValue)}%`;
+          const evalPhrase = evaluationValue === null ? 'no' : formatNumber(evaluationValue);
+          let trendPhrase = 'Momentum steady.';
+          if (scoreDelta.text === 'No change') {
+            trendPhrase = 'Momentum holding steady.';
+          } else if (scoreDelta.text === 'No prior period') {
+            trendPhrase = 'Awaiting prior period comparison.';
+          } else if (scoreDelta.text && scoreDelta.text !== 'Awaiting data') {
+            trendPhrase = `Momentum ${scoreDelta.text.trim().toLowerCase()}.`;
+          }
+          note = `${contextLabel} average is ${scorePhrase} with a ${passPhrase} pass rate across ${evalPhrase} evaluation${evaluationValue === 1 ? '' : 's'}. ${trendPhrase}`;
+        } else if (summary) {
+          const avgText = typeof summary.avg === 'number' ? `${Math.round(summary.avg)}%` : '--';
+          const evalsText = formatNumber(summary.evaluations || 0);
+          note = `Team quality is averaging ${avgText} across ${evalsText} evaluation${summary.evaluations === 1 ? '' : 's'} this period.`;
+        }
+        dom.spotlightNote.textContent = note;
+      }
+
+      renderSpotlightSpark(trend);
     }
 
     function renderGauge(summary) {
@@ -2173,6 +2667,86 @@
             tooltip: {
               callbacks: {
                 label: tooltipCountLabel
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAgentStacked(agents) {
+      if (!dom.agentStackedCanvas) {
+        return;
+      }
+
+      const ctx = dom.agentStackedCanvas.getContext('2d');
+      const items = Array.isArray(agents)
+        ? agents
+            .filter(agent => agent && Number.isFinite(Number(agent.passRate)))
+            .sort((a, b) => (Number(b.avgScore) || 0) - (Number(a.avgScore) || 0))
+            .slice(0, 5)
+        : [];
+
+      const labels = items.map(agent => agent.displayName || agent.name || 'Agent');
+      const passData = items.map(agent => normalizePercent(agent.passRate));
+      const gapData = items.map(agent => 100 - normalizePercent(agent.passRate));
+      const hasData = labels.length > 0 && (passData.some(value => value > 0) || gapData.some(value => value > 0));
+
+      if (dom.agentStackedEmpty) {
+        dom.agentStackedEmpty.classList.toggle('d-none', hasData);
+      }
+
+      if (!ctx || typeof Chart === 'undefined' || !hasData) {
+        destroyChart('agentStacked');
+        return;
+      }
+
+      destroyChart('agentStacked');
+      state.charts.agentStacked = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Pass %',
+              data: passData,
+              backgroundColor: 'rgba(34, 197, 94, 0.75)',
+              stack: 'quality',
+              borderRadius: 10,
+              maxBarThickness: 38
+            },
+            {
+              label: 'Opportunity %',
+              data: gapData,
+              backgroundColor: 'rgba(239, 68, 68, 0.55)',
+              stack: 'quality',
+              borderRadius: 10,
+              maxBarThickness: 38
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              stacked: true,
+              beginAtZero: true,
+              max: 100,
+              ticks: { callback: percentTickFormatter },
+              grid: { color: 'rgba(148, 163, 184, 0.2)' }
+            },
+            y: {
+              stacked: true,
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { usePointStyle: true } },
+            tooltip: {
+              callbacks: {
+                label: tooltipPercentLabel
               }
             }
           }
@@ -2987,9 +3561,6 @@
       if (dom.analyticsRow) {
         dom.analyticsRow.classList.toggle('d-none', Boolean(visible));
       }
-      if (dom.recognitionRow) {
-        dom.recognitionRow.classList.toggle('d-none', Boolean(visible));
-      }
     }
 
     function handleResponse(response) {
@@ -3003,6 +3574,15 @@
 
       clearError();
       state.data = response;
+      state.agentLookup = response.agentNameLookup || {};
+
+      if (dom.healthPeriod) {
+        const context = response.context || {};
+        const badgeText = context && context.granularity
+          ? `${context.granularity} view`
+          : 'Live';
+        dom.healthPeriod.textContent = badgeText;
+      }
 
       updateFiltersFromResponse(response);
 
@@ -3011,6 +3591,7 @@
 
       const trend = response.trend || null;
       renderTrend(trend, response.context ? response.context.granularity : 'Week');
+      renderCoverage(trend);
 
       renderGauge(summary);
       renderOutcomeChart(summary);
@@ -3022,8 +3603,10 @@
       renderCategories(categories);
 
       const agents = response.agents || [];
+      renderAgentSpotlight(summary, agents, trend);
       renderAgentChart(agents);
       renderDistributionChart(agents);
+      renderAgentStacked(agents);
       renderAgentImpact(agents);
       renderAgents(agents.slice(0, 8));
       renderQualityRecognition(response.qualityRecognition || []);
