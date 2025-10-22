@@ -115,6 +115,9 @@
     }
 
     var locale = navigator.language || 'en-US';
+    var campaignDisplayValue = (typeof campaignNameValue !== 'undefined' && campaignNameValue)
+      ? campaignNameValue
+      : '';
 
     function safeText(value, fallback) {
       if (value === null || typeof value === 'undefined') {
@@ -390,7 +393,7 @@
         },
         {
           label: 'Campaign',
-          value: safeText(campaignNameValue, 'No campaign'),
+          value: safeText(campaignDisplayValue, 'No campaign'),
           hint: 'CampaignService.js',
           icon: 'fas fa-bullhorn'
         }
