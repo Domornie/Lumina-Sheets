@@ -162,18 +162,42 @@ function setScheduleSpreadsheetId(spreadsheetId) {
 // ────────────────────────────────────────────────────────────────────────────
 
 // Main schedule management sheets
+const SCHEDULE_GENERATION_SHEET = "GeneratedSchedules";
+const SHIFT_SLOTS_SHEET = "ShiftSlots";
+const SHIFT_SWAPS_SHEET = "ShiftSwaps";
+const SCHEDULE_TEMPLATES_SHEET = "ScheduleTemplates";
+const SCHEDULE_NOTIFICATIONS_SHEET = "ScheduleNotifications";
+const SCHEDULE_ADHERENCE_SHEET = "ScheduleAdherence";
+const SCHEDULE_CONFLICTS_SHEET = "ScheduleConflicts";
+const RECURRING_SCHEDULES_SHEET = "RecurringSchedules";
+const DEMAND_SHEET = "Demand";
+const FTE_PLAN_SHEET = "FTEPlan";
+const SCHEDULE_FORECAST_METADATA_SHEET = "ScheduleForecastMetadata";
 const SCHEDULE_HEALTH_SHEET = "ScheduleHealth";
 
 // Attendance and holiday sheets
 const ATTENDANCE_STATUS_SHEET = "AttendanceStatus";
 const USER_HOLIDAY_PAY_STATUS_SHEET = "UserHolidayPayStatus";
+const HOLIDAYS_SHEET = "Holidays";
 
 const SCHEDULE_SHEET_REGISTRY = Object.freeze({
   SCHEDULES: 'Schedules',
   SHIFTS: 'Shifts',
+  SCHEDULE_GENERATION: SCHEDULE_GENERATION_SHEET,
+  SHIFT_SLOTS: SHIFT_SLOTS_SHEET,
+  SHIFT_SWAPS: SHIFT_SWAPS_SHEET,
+  SCHEDULE_TEMPLATES: SCHEDULE_TEMPLATES_SHEET,
+  SCHEDULE_NOTIFICATIONS: SCHEDULE_NOTIFICATIONS_SHEET,
+  SCHEDULE_ADHERENCE: SCHEDULE_ADHERENCE_SHEET,
+  SCHEDULE_CONFLICTS: SCHEDULE_CONFLICTS_SHEET,
+  RECURRING_SCHEDULES: RECURRING_SCHEDULES_SHEET,
+  DEMAND: DEMAND_SHEET,
+  FTE_PLAN: FTE_PLAN_SHEET,
+  SCHEDULE_FORECAST_METADATA: SCHEDULE_FORECAST_METADATA_SHEET,
   SCHEDULE_HEALTH: SCHEDULE_HEALTH_SHEET,
   ATTENDANCE_STATUS: ATTENDANCE_STATUS_SHEET,
-  USER_HOLIDAY_PAY_STATUS: USER_HOLIDAY_PAY_STATUS_SHEET
+  USER_HOLIDAY_PAY_STATUS: USER_HOLIDAY_PAY_STATUS_SHEET,
+  HOLIDAYS: HOLIDAYS_SHEET
 });
 
 function getScheduleTimeZone() {
@@ -304,6 +328,77 @@ function getScheduleSheetName(key) {
 // SHEET HEADERS DEFINITIONS
 // ────────────────────────────────────────────────────────────────────────────
 
+const SCHEDULE_GENERATION_HEADERS = [
+  'ID', 'UserID', 'UserName', 'Date', 'PeriodStart', 'PeriodEnd', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
+  'OriginalStartTime', 'OriginalEndTime', 'BreakStart', 'BreakEnd', 'LunchStart', 'LunchEnd',
+  'IsDST', 'Status', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
+  'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department',
+  'MaxCapacity', 'MinCoverage', 'BreakDuration', 'Break1Duration', 'Break2Duration', 'LunchDuration',
+  'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
+  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
+  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
+  'RestPeriodHours', 'NotificationLeadHours', 'HandoverTimeMinutes', 'NotificationTarget', 'GenerationConfig'
+];
+
+const SHIFT_SLOTS_HEADERS = [
+  'ID', 'Name', 'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location',
+  'MaxCapacity', 'MinCoverage', 'Priority', 'Description',
+  'BreakDuration', 'LunchDuration', 'Break1Duration', 'Break2Duration',
+  'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
+  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
+  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
+  'RestPeriod', 'NotificationLead', 'HandoverTime',
+  'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt',
+  'GenerationDefaults'
+];
+
+const SHIFT_SWAPS_HEADERS = [
+  'ID', 'RequestorUserID', 'RequestorUserName', 'TargetUserID', 'TargetUserName',
+  'RequestorScheduleID', 'TargetScheduleID', 'SwapDate', 'Reason', 'Status',
+  'ApprovedBy', 'RejectedBy', 'DecisionNotes', 'CreatedAt', 'UpdatedAt'
+];
+
+const SCHEDULE_TEMPLATES_HEADERS = [
+  'ID', 'TemplateName', 'Description', 'SlotConfiguration', 'BreakConfiguration',
+  'LunchConfiguration', 'RecurrencePattern', 'IsActive', 'CreatedBy', 'CreatedAt'
+];
+
+const SCHEDULE_NOTIFICATIONS_HEADERS = [
+  'ID', 'ScheduleID', 'UserID', 'NotificationType', 'SentAt', 'Method', 'Status', 'RetryCount'
+];
+
+const SCHEDULE_ADHERENCE_HEADERS = [
+  'ID', 'ScheduleID', 'UserID', 'Date', 'ScheduledStart', 'ActualStart',
+  'ScheduledEnd', 'ActualEnd', 'MinutesLate', 'MinutesEarly', 'AdherenceScore',
+  'BreakAdherence', 'LunchAdherence', 'CreatedAt'
+];
+
+const SCHEDULE_CONFLICTS_HEADERS = [
+  'ID', 'ScheduleID1', 'ScheduleID2', 'ConflictType', 'Severity', 'Resolution', 'CreatedAt'
+];
+
+const RECURRING_SCHEDULES_HEADERS = [
+  'ID', 'UserID', 'UserName', 'SlotID', 'SlotName', 'RecurrencePattern',
+  'StartDate', 'EndDate', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
+];
+
+const DEMAND_HEADERS = [
+  'ID', 'Campaign', 'Skill', 'IntervalStart', 'IntervalEnd',
+  'ForecastContacts', 'ForecastAHT', 'TargetSL', 'TargetASA',
+  'Shrinkage', 'RequiredFTE', 'Notes', 'CreatedAt', 'UpdatedAt'
+];
+
+const FTE_PLAN_HEADERS = [
+  'ID', 'Campaign', 'Skill', 'IntervalStart', 'IntervalEnd',
+  'PlannedFTE', 'ActualFTE', 'Variance', 'CoverageStatus',
+  'CreatedAt', 'UpdatedAt', 'CreatedBy', 'Notes'
+];
+
+const SCHEDULE_FORECAST_METADATA_HEADERS = [
+  'ID', 'Campaign', 'GeneratedAt', 'ForecastWindowStart', 'ForecastWindowEnd',
+  'ModelType', 'Parameters', 'Notes', 'Author'
+];
+
 const SCHEDULE_HEALTH_HEADERS = [
   'ID', 'Campaign', 'GeneratedAt', 'ServiceLevel', 'ASA', 'AbandonRate',
   'Occupancy', 'Utilization', 'OvertimeHours', 'CostPerHour',
@@ -317,6 +412,10 @@ const ATTENDANCE_STATUS_HEADERS = [
 
 const USER_HOLIDAY_PAY_STATUS_HEADERS = [
   'ID', 'UserID', 'UserName', 'CountryCode', 'IsPaid', 'Notes', 'CreatedAt', 'UpdatedAt'
+];
+
+const HOLIDAYS_HEADERS = [
+  'ID', 'HolidayName', 'Date', 'AllDay', 'Notes', 'CreatedAt', 'UpdatedAt'
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -621,6 +720,20 @@ const CONFLICT_TYPES = {
   INVALID_ASSIGNMENT: 'INVALID_ASSIGNMENT'
 };
 
+const SHIFT_SWAP_STATUS = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED'
+};
+
+const RECURRENCE_PATTERNS = {
+  DAILY: 'daily',
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly',
+  CUSTOM: 'custom'
+};
+
 // Days of week constants (Sunday = 0, Monday = 1, etc.)
 const DAYS_OF_WEEK = {
   SUNDAY: 0,
@@ -649,9 +762,21 @@ const PUNCTUALITY_GRACE_PERIOD = 5; // minutes late before considered late
  */
 function getHeadersForSheet(sheetName) {
   const map = {};
+  map[SCHEDULE_GENERATION_SHEET] = SCHEDULE_GENERATION_HEADERS;
+  map[SHIFT_SLOTS_SHEET] = SHIFT_SLOTS_HEADERS;
+  map[SHIFT_SWAPS_SHEET] = SHIFT_SWAPS_HEADERS;
+  map[SCHEDULE_TEMPLATES_SHEET] = SCHEDULE_TEMPLATES_HEADERS;
+  map[SCHEDULE_NOTIFICATIONS_SHEET] = SCHEDULE_NOTIFICATIONS_HEADERS;
+  map[SCHEDULE_ADHERENCE_SHEET] = SCHEDULE_ADHERENCE_HEADERS;
+  map[SCHEDULE_CONFLICTS_SHEET] = SCHEDULE_CONFLICTS_HEADERS;
+  map[RECURRING_SCHEDULES_SHEET] = RECURRING_SCHEDULES_HEADERS;
+  map[DEMAND_SHEET] = DEMAND_HEADERS;
+  map[FTE_PLAN_SHEET] = FTE_PLAN_HEADERS;
+  map[SCHEDULE_FORECAST_METADATA_SHEET] = SCHEDULE_FORECAST_METADATA_HEADERS;
   map[SCHEDULE_HEALTH_SHEET] = SCHEDULE_HEALTH_HEADERS;
   map[ATTENDANCE_STATUS_SHEET] = ATTENDANCE_STATUS_HEADERS;
   map[USER_HOLIDAY_PAY_STATUS_SHEET] = USER_HOLIDAY_PAY_STATUS_HEADERS;
+  map[HOLIDAYS_SHEET] = HOLIDAYS_HEADERS;
   return map[sheetName] || null;
 }
 
@@ -803,12 +928,14 @@ function ensureScheduleSheetWithHeaders(sheetName, headers) {
 }
 
 /**
- * Setup only the sheets needed for the dashboards and attendance workflows.
+ * Enhanced setupScheduleManagementSheets function with improved formatting
+ * Ensure all schedule management sheets exist with proper headers, formatting, and frozen rows
  */
 function setupScheduleManagementSheets() {
   try {
-    console.log('Setting up Schedule Management sheets for dashboards and attendance...');
+    console.log('Setting up Schedule Management sheets with enhanced formatting...');
 
+    // Validate spreadsheet configuration
     const config = validateScheduleSpreadsheetConfig();
     if (!config.canAccess) {
       throw new Error(`Cannot access schedule spreadsheet: ${config.error || 'Unknown error'}`);
@@ -819,10 +946,25 @@ function setupScheduleManagementSheets() {
     const sheetsCreated = [];
     const sheetsUpdated = [];
 
-    const requiredSheets = [
-      { name: SCHEDULE_HEALTH_SHEET, headers: SCHEDULE_HEALTH_HEADERS },
-      { name: ATTENDANCE_STATUS_SHEET, headers: ATTENDANCE_STATUS_HEADERS },
-      { name: USER_HOLIDAY_PAY_STATUS_SHEET, headers: USER_HOLIDAY_PAY_STATUS_HEADERS }
+    // Core schedule sheets with enhanced formatting
+    console.log('Creating core schedule management sheets...');
+
+    const coreSheets = [
+      { name: SCHEDULE_GENERATION_SHEET, headers: SCHEDULE_GENERATION_HEADERS },
+      { name: SHIFT_SLOTS_SHEET, headers: SHIFT_SLOTS_HEADERS },
+      { name: SHIFT_SWAPS_SHEET, headers: SHIFT_SWAPS_HEADERS },
+      { name: SCHEDULE_TEMPLATES_SHEET, headers: SCHEDULE_TEMPLATES_HEADERS },
+      { name: SCHEDULE_NOTIFICATIONS_SHEET, headers: SCHEDULE_NOTIFICATIONS_HEADERS },
+      { name: SCHEDULE_ADHERENCE_SHEET, headers: SCHEDULE_ADHERENCE_HEADERS },
+      { name: SCHEDULE_CONFLICTS_SHEET, headers: SCHEDULE_CONFLICTS_HEADERS },
+      { name: RECURRING_SCHEDULES_SHEET, headers: RECURRING_SCHEDULES_HEADERS }
+    ];
+
+    const analyticsSheets = [
+      { name: DEMAND_SHEET, headers: DEMAND_HEADERS },
+      { name: FTE_PLAN_SHEET, headers: FTE_PLAN_HEADERS },
+      { name: SCHEDULE_FORECAST_METADATA_SHEET, headers: SCHEDULE_FORECAST_METADATA_HEADERS },
+      { name: SCHEDULE_HEALTH_SHEET, headers: SCHEDULE_HEALTH_HEADERS }
     ];
 
     const setupSheetDefinition = (sheetConfig) => {
@@ -843,11 +985,25 @@ function setupScheduleManagementSheets() {
       }
     };
 
-    requiredSheets.forEach(setupSheetDefinition);
+    coreSheets.forEach(setupSheetDefinition);
+    analyticsSheets.forEach(setupSheetDefinition);
 
-    console.log('Ensuring schedule health data exists...');
-    ensureScheduleHealthSummary();
+    // Attendance and holiday sheets
+    console.log('Creating attendance and holiday sheets...');
 
+    const attendanceSheets = [
+      { name: ATTENDANCE_STATUS_SHEET, headers: ATTENDANCE_STATUS_HEADERS },
+      { name: USER_HOLIDAY_PAY_STATUS_SHEET, headers: USER_HOLIDAY_PAY_STATUS_HEADERS },
+      { name: HOLIDAYS_SHEET, headers: HOLIDAYS_HEADERS }
+    ];
+
+    attendanceSheets.forEach(setupSheetDefinition);
+
+    // Create default shift slots if none exist
+    console.log('Checking for default shift slots...');
+    createDefaultShiftSlots();
+
+    // Clear any relevant caches
     invalidateScheduleCaches();
 
     const totalSheets = sheetsCreated.length + sheetsUpdated.length;
@@ -870,9 +1026,9 @@ function setupScheduleManagementSheets() {
       spreadsheetId: config.currentSpreadsheet,
       spreadsheetName: config.spreadsheetName,
       usingDedicatedSpreadsheet: config.hasScheduleSpreadsheetId,
-      sheetsCreated,
-      sheetsUpdated,
-      totalSheets,
+      sheetsCreated: sheetsCreated,
+      sheetsUpdated: sheetsUpdated,
+      totalSheets: totalSheets,
       message: `Successfully processed ${totalSheets} schedule management sheets`
     };
 
@@ -896,9 +1052,21 @@ function fixExistingScheduleSheetsFormatting() {
     console.log('Fixing formatting on existing schedule sheets...');
 
     const allScheduleSheets = [
+      SCHEDULE_GENERATION_SHEET,
+      SHIFT_SLOTS_SHEET,
+      SHIFT_SWAPS_SHEET,
+      SCHEDULE_TEMPLATES_SHEET,
+      SCHEDULE_NOTIFICATIONS_SHEET,
+      SCHEDULE_ADHERENCE_SHEET,
+      SCHEDULE_CONFLICTS_SHEET,
+      RECURRING_SCHEDULES_SHEET,
+      DEMAND_SHEET,
+      FTE_PLAN_SHEET,
+      SCHEDULE_FORECAST_METADATA_SHEET,
       SCHEDULE_HEALTH_SHEET,
       ATTENDANCE_STATUS_SHEET,
-      USER_HOLIDAY_PAY_STATUS_SHEET
+      USER_HOLIDAY_PAY_STATUS_SHEET,
+      HOLIDAYS_SHEET
     ];
 
     const ss = getScheduleSpreadsheet();
@@ -1000,6 +1168,135 @@ function completeScheduleSetup() {
   }
 }
 
+/**
+ * Create default shift slots for initial setup
+ */
+function createDefaultShiftSlots() {
+  try {
+    const slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+    if (slots.length > 0) {
+      console.log('Shift slots already exist, skipping default creation');
+      return;
+    }
+
+    const defaultGenerationTemplate = {
+      capacity: { max: 10, min: 5 },
+      breaks: {
+        first: 15,
+        lunch: 60,
+        second: 15,
+        enableStaggered: true,
+        groups: 3,
+        interval: 15,
+        minCoveragePct: 70
+      },
+      overtime: {
+        enabled: false,
+        maxDaily: 0,
+        maxWeekly: 0,
+        approval: 'supervisor',
+        rate: 1.5,
+        policy: 'MANDATORY'
+      },
+      advanced: {
+        allowSwaps: true,
+        weekendPremium: false,
+        holidayPremium: true,
+        autoAssignment: true,
+        restPeriod: 8,
+        notificationLead: 24,
+        handoverTime: 15
+      }
+    };
+
+    const applyOverrides = (target, overrides) => {
+      if (!overrides || typeof overrides !== 'object') {
+        return target;
+      }
+
+      Object.keys(overrides).forEach(key => {
+        const value = overrides[key];
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          target[key] = target[key] || {};
+          applyOverrides(target[key], value);
+        } else if (value !== undefined) {
+          target[key] = value;
+        }
+      });
+
+      return target;
+    };
+
+    const createSlotRecord = (config, overrides = {}) => {
+      const generationDefaults = JSON.parse(JSON.stringify(defaultGenerationTemplate));
+      applyOverrides(generationDefaults, overrides);
+
+      return Object.assign({
+        ID: Utilities.getUuid(),
+        DaysOfWeek: '1,2,3,4,5',
+        Priority: 2,
+        Description: '',
+        IsActive: true,
+        CreatedBy: 'System',
+        CreatedAt: new Date(),
+        UpdatedAt: new Date(),
+        GenerationDefaults: JSON.stringify(generationDefaults)
+      }, config);
+    };
+
+    const defaultSlots = [
+      createSlotRecord({
+        Name: 'Morning Shift',
+        StartTime: '08:00',
+        EndTime: '16:00',
+        Department: 'General',
+        Location: 'Office',
+        Description: 'Standard morning shift (8 AM - 4 PM)'
+      }, {
+        capacity: { max: 10, min: 5 }
+      }),
+      createSlotRecord({
+        Name: 'Evening Shift',
+        StartTime: '16:00',
+        EndTime: '00:00',
+        Department: 'General',
+        Location: 'Office',
+        Description: 'Standard evening shift (4 PM - 12 AM)'
+      }, {
+        capacity: { max: 8, min: 4 }
+      }),
+      createSlotRecord({
+        Name: 'Day Shift',
+        StartTime: '09:00',
+        EndTime: '17:00',
+        Department: 'Customer Service',
+        Location: 'Remote',
+        Description: 'Standard day shift (9 AM - 5 PM)'
+      }, {
+        capacity: { max: 15, min: 6 }
+      })
+    ];
+
+    const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
+    defaultSlots.forEach(slot => {
+      const rowData = SHIFT_SLOTS_HEADERS.map(header =>
+        Object.prototype.hasOwnProperty.call(slot, header) ? slot[header] : ''
+      );
+      sheet.appendRow(rowData);
+    });
+
+    // Invalidate cache
+    const cacheKey = `schedule_${SHIFT_SLOTS_SHEET}`;
+    removeFromCache(cacheKey);
+
+    console.log('Created default shift slots');
+
+  } catch (error) {
+    console.error('Error creating default shift slots:', error);
+    safeWriteError('createDefaultShiftSlots', error);
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // CACHE MANAGEMENT UTILITIES FOR SCHEDULE SYSTEM
 // ────────────────────────────────────────────────────────────────────────────
@@ -1054,9 +1351,17 @@ function removeFromCache(key) {
  */
 function invalidateScheduleCaches() {
   const scheduleSheets = [
+    SCHEDULE_GENERATION_SHEET,
+    SHIFT_SLOTS_SHEET,
+    SHIFT_SWAPS_SHEET,
+    SCHEDULE_TEMPLATES_SHEET,
+    DEMAND_SHEET,
+    FTE_PLAN_SHEET,
+    SCHEDULE_FORECAST_METADATA_SHEET,
     SCHEDULE_HEALTH_SHEET,
     ATTENDANCE_STATUS_SHEET,
-    USER_HOLIDAY_PAY_STATUS_SHEET
+    USER_HOLIDAY_PAY_STATUS_SHEET,
+    HOLIDAYS_SHEET
   ];
 
   scheduleSheets.forEach(sheetName => {
@@ -1067,6 +1372,133 @@ function invalidateScheduleCaches() {
       console.warn(`Failed to invalidate cache for ${sheetName}:`, error);
     }
   });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SHIFT SWAP DATA HELPERS
+// ────────────────────────────────────────────────────────────────────────────
+
+function ensureShiftSwapsSheet() {
+  return ensureScheduleSheetWithHeaders(SHIFT_SWAPS_SHEET, SHIFT_SWAPS_HEADERS);
+}
+
+function listShiftSwapRequests(options = {}) {
+  const rows = readScheduleSheet(SHIFT_SWAPS_SHEET) || [];
+  if (!rows.length) {
+    return [];
+  }
+
+  const statusFilter = Array.isArray(options.status)
+    ? options.status.map(value => String(value || '').toUpperCase()).filter(Boolean)
+    : (options.status ? [String(options.status).toUpperCase()] : null);
+
+  const userFilter = Array.isArray(options.userIds)
+    ? options.userIds.map(value => String(value || '').trim()).filter(Boolean)
+    : (options.userId ? [String(options.userId).trim()] : null);
+
+  return rows.filter(row => {
+    if (statusFilter && statusFilter.length) {
+      const status = String(row.Status || row.status || SHIFT_SWAP_STATUS.PENDING).toUpperCase();
+      if (!statusFilter.includes(status)) {
+        return false;
+      }
+    }
+
+    if (userFilter && userFilter.length) {
+      const requestorId = String(row.RequestorUserID || row.RequestorUserId || row.requestorUserId || '').trim();
+      const targetId = String(row.TargetUserID || row.TargetUserId || row.targetUserId || '').trim();
+      if (!userFilter.includes(requestorId) && !userFilter.includes(targetId)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function createShiftSwapRequestEntry(request = {}) {
+  const sheet = ensureShiftSwapsSheet();
+  const id = request.ID || request.Id || request.id || (typeof Utilities !== 'undefined' && Utilities.getUuid ? Utilities.getUuid() : `swap_${Date.now()}`);
+  const now = new Date();
+
+  const normalized = {
+    ID: id,
+    RequestorUserID: request.requestorUserId || request.RequestorUserID || '',
+    RequestorUserName: request.requestorUserName || request.RequestorUserName || '',
+    TargetUserID: request.targetUserId || request.TargetUserID || '',
+    TargetUserName: request.targetUserName || request.TargetUserName || '',
+    RequestorScheduleID: request.requestorScheduleId || request.RequestorScheduleID || '',
+    TargetScheduleID: request.targetScheduleId || request.TargetScheduleID || '',
+    SwapDate: request.swapDate || request.SwapDate || '',
+    Reason: request.reason || request.Reason || '',
+    Status: (request.status || SHIFT_SWAP_STATUS.PENDING),
+    ApprovedBy: request.approvedBy || request.ApprovedBy || '',
+    RejectedBy: request.rejectedBy || request.RejectedBy || '',
+    DecisionNotes: request.decisionNotes || request.DecisionNotes || '',
+    CreatedAt: request.createdAt || request.CreatedAt || now,
+    UpdatedAt: request.updatedAt || request.UpdatedAt || now
+  };
+
+  const rowValues = SHIFT_SWAPS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(normalized, header) ? normalized[header] : '');
+  sheet.appendRow(rowValues);
+
+  removeFromCache && removeFromCache(`schedule_${SHIFT_SWAPS_SHEET}`);
+  return normalized;
+}
+
+function updateShiftSwapRequestEntry(requestId, updates = {}) {
+  if (!requestId) {
+    return null;
+  }
+
+  const sheet = ensureShiftSwapsSheet();
+  const idValue = String(requestId).trim();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return null;
+  }
+
+  const headers = SHIFT_SWAPS_HEADERS.slice();
+  const idColumn = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let targetRowNumber = null;
+  for (let index = 0; index < idColumn.length; index++) {
+    if (String(idColumn[index][0] || '').trim() === idValue) {
+      targetRowNumber = index + 2;
+      break;
+    }
+  }
+
+  if (!targetRowNumber) {
+    return null;
+  }
+
+  const currentValues = sheet.getRange(targetRowNumber, 1, 1, headers.length).getValues()[0];
+  const currentRecord = {};
+  headers.forEach((header, columnIndex) => {
+    currentRecord[header] = currentValues[columnIndex];
+  });
+
+  const now = new Date();
+  const merged = Object.assign({}, currentRecord, updates, { ID: currentRecord.ID || idValue });
+
+  if (merged.status && !merged.Status) {
+    merged.Status = merged.status;
+  }
+
+  const normalizedStatus = merged.Status || SHIFT_SWAP_STATUS.PENDING;
+  merged.Status = String(normalizedStatus).toUpperCase();
+  merged.UpdatedAt = merged.UpdatedAt || merged.updatedAt || now;
+
+  const rowValues = headers.map(header => Object.prototype.hasOwnProperty.call(merged, header) ? merged[header] : currentRecord[header]);
+  sheet.getRange(targetRowNumber, 1, 1, headers.length).setValues([rowValues]);
+
+  removeFromCache && removeFromCache(`schedule_${SHIFT_SWAPS_SHEET}`);
+
+  const resultRecord = {};
+  headers.forEach((header, columnIndex) => {
+    resultRecord[header] = rowValues[columnIndex];
+  });
+  return resultRecord;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1110,6 +1542,190 @@ function formatDisplayTime(timeStr) {
 /**
  * Calculate break start time
  */
+function calculateBreakStart(slot) {
+  try {
+    const startTime = slot.StartTime;
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const breakHour = hours + 2; // 2 hours after start
+    return `${breakHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  } catch (error) {
+    return slot.StartTime;
+  }
+}
+
+/**
+ * Calculate break end time
+ */
+function calculateBreakEnd(slot) {
+  try {
+    const breakStart = calculateBreakStart(slot);
+    const [hours, minutes] = breakStart.split(':').map(Number);
+    const breakDuration = slot.BreakDuration || DEFAULT_BREAK_DURATION;
+    const endMinutes = minutes + breakDuration;
+    const endHour = hours + Math.floor(endMinutes / 60);
+    const finalMinutes = endMinutes % 60;
+    return `${endHour.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`;
+  } catch (error) {
+    return slot.StartTime;
+  }
+}
+
+/**
+ * Calculate lunch start time
+ */
+function calculateLunchStart(slot) {
+  try {
+    const startTime = slot.StartTime;
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const lunchHour = hours + 4; // 4 hours after start
+    return `${lunchHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  } catch (error) {
+    return slot.StartTime;
+  }
+}
+
+/**
+ * Calculate lunch end time
+ */
+function calculateLunchEnd(slot) {
+  try {
+    const lunchStart = calculateLunchStart(slot);
+    const [hours, minutes] = lunchStart.split(':').map(Number);
+    const lunchDuration = slot.LunchDuration || DEFAULT_LUNCH_DURATION;
+    const endMinutes = minutes + lunchDuration;
+    const endHour = hours + Math.floor(endMinutes / 60);
+    const finalMinutes = endMinutes % 60;
+    return `${endHour.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`;
+  } catch (error) {
+    return slot.StartTime;
+  }
+}
+
+/**
+ * Check if a date is a holiday
+ */
+function checkIfHoliday(dateStr) {
+  try {
+    const holidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
+    return holidays.some(h => h.Date === dateStr);
+  } catch (error) {
+    console.warn('Error checking holiday:', error);
+    return false;
+  }
+}
+
+/**
+ * Basic DST status check
+ */
+function checkDSTStatus(dateStr) {
+  try {
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+
+    // Simple US DST check (second Sunday in March to first Sunday in November)
+    const dstStart = new Date(year, 2, 8 + (7 - new Date(year, 2, 8).getDay()) % 7);
+    const dstEnd = new Date(year, 10, 1 + (7 - new Date(year, 10, 1).getDay()) % 7);
+
+    const isDST = date >= dstStart && date < dstEnd;
+
+    return {
+      isDST: isDST,
+      isDSTChange: false,
+      changeType: null,
+      timeAdjustment: 0
+    };
+  } catch (error) {
+    return {
+      isDST: false,
+      isDSTChange: false,
+      changeType: null,
+      timeAdjustment: 0
+    };
+  }
+}
+
+/**
+ * Get week string from date (ISO week format)
+ */
+function weekStringFromDate(date) {
+  try {
+    if (!date || !(date instanceof Date)) {
+      date = new Date();
+    }
+
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${weekNum.toString().padStart(2, '0')}`;
+  } catch (error) {
+    console.error('Error generating week string:', error);
+    return new Date().getFullYear() + '-W01';
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// DATA VALIDATION UTILITIES
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Validate schedule generation parameters
+ */
+function validateScheduleParameters(startDate, endDate, users) {
+  const errors = [];
+
+  if (!startDate) errors.push('Start date is required');
+  if (!endDate) errors.push('End date is required');
+
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start >= end) {
+      errors.push('End date must be after start date');
+    }
+
+    if (start < new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+      errors.push('Start date cannot be in the past');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors: errors
+  };
+}
+
+/**
+ * Validate shift slot data
+ */
+function validateShiftSlot(slotData) {
+  const errors = [];
+
+  if (!slotData.name) errors.push('Slot name is required');
+  if (!slotData.startTime) errors.push('Start time is required');
+  if (!slotData.endTime) errors.push('End time is required');
+
+  if (slotData.startTime && slotData.endTime) {
+    const start = new Date(`2000-01-01 ${slotData.startTime}`);
+    const end = new Date(`2000-01-01 ${slotData.endTime}`);
+
+    if (start >= end) {
+      errors.push('End time must be after start time');
+    }
+  }
+
+  if (slotData.maxCapacity && slotData.maxCapacity < 1) {
+    errors.push('Max capacity must be at least 1');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors: errors
+  };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // USER AND DATA LOOKUP UTILITIES
 // ────────────────────────────────────────────────────────────────────────────
@@ -1171,8 +1787,7 @@ function getAttendanceUserList() {
  */
 function checkExistingSchedule(userName, periodStart, periodEnd) {
   try {
-    const scheduleSheetName = SCHEDULE_SHEET_REGISTRY.SCHEDULES || 'Schedules';
-    const schedules = readScheduleSheet(scheduleSheetName) || [];
+    const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
     const requestedStart = normalizeScheduleDate(periodStart);
     const requestedEnd = normalizeScheduleDate(periodEnd || periodStart);
 
@@ -2380,9 +2995,10 @@ function debugScheduleConfiguration() {
 
     // Check sheet existence
     const requiredSheets = [
-      SCHEDULE_HEALTH_SHEET,
-      ATTENDANCE_STATUS_SHEET,
-      USER_HOLIDAY_PAY_STATUS_SHEET
+      SCHEDULE_GENERATION_SHEET,
+      SHIFT_SLOTS_SHEET,
+      SHIFT_SWAPS_SHEET,
+      SCHEDULE_TEMPLATES_SHEET
     ];
 
     console.log('\n=== Required Sheets Check ===');
@@ -2394,16 +3010,16 @@ function debugScheduleConfiguration() {
 
     // Check data
     console.log('\n=== Data Check ===');
-    const scheduleHealthCount = (readScheduleSheet(SCHEDULE_HEALTH_SHEET) || []).length;
-    const attendanceCount = (readScheduleSheet(ATTENDANCE_STATUS_SHEET) || []).length;
-    console.log(`Schedule Health rows: ${scheduleHealthCount}`);
-    console.log(`Attendance Status rows: ${attendanceCount}`);
+    const slotsCount = (readScheduleSheet(SHIFT_SLOTS_SHEET) || []).length;
+    const schedulesCount = (readScheduleSheet(SCHEDULE_GENERATION_SHEET) || []).length;
+    console.log(`Shift Slots: ${slotsCount}`);
+    console.log(`Generated Schedules: ${schedulesCount}`);
 
     return {
       success: true,
       configuration: config,
       sheetsExist: requiredSheets.every(name => ss.getSheetByName(name) !== null),
-      dataCount: { scheduleHealth: scheduleHealthCount, attendance: attendanceCount }
+      dataCount: { shifts: slotsCount, schedules: schedulesCount }
     };
 
   } catch (error) {
